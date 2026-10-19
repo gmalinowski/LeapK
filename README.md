@@ -1,4 +1,4 @@
-# KWin Active Window Outline
+# KDE / KWin Active Window Outline
 
 A native KWin effect for KDE Plasma 6 that draws a configurable, theme-independent outline around the active window.
 
