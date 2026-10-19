@@ -1,3 +1,4 @@
+
 # KDE / KWin Active Window Outline
 
 A native KWin effect for KDE Plasma 6 that draws a configurable, theme-independent outline around the active window.
@@ -5,6 +6,8 @@ A native KWin effect for KDE Plasma 6 that draws a configurable, theme-independe
 The effect is useful with minimal window decorations and tiling layouts, where it can otherwise be difficult to see which window currently has keyboard focus. It works at compositor level instead of relying on the selected Plasma theme, Aurorae decoration, or application toolkit.
 
 ## Features
+
+[kwin-active-window-outline.webm](https://github.com/user-attachments/assets/d1acd016-a399-44b8-931e-46944443d1f5)
 
 ![Active Window Outline with the default settings in a tiled window layout](screenshot_defaults.png)
 
