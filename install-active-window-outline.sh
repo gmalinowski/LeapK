@@ -96,13 +96,14 @@ set_default() {
 }
 
 set_default UseAccentColor true
+set_default AccentOpacity 66
 set_default BorderWidth 4
 set_default OutlineGap 0
 set_default BorderRadius 5
 set_default DrawInside false
 set_default SmoothEdges true
-set_default GlowEnabled false
-set_default GlowRadius 8
+set_default GlowEnabled true
+set_default GlowRadius 6
 
 qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect \

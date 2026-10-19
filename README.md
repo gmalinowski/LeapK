@@ -11,7 +11,7 @@ The effect is useful with minimal window decorations and tiling layouts, where i
 - Configurable width, corner radius, and offset from the window edge.
 - Can draw inside the window, keeping the outline visible on maximized and tiled windows.
 - Optional edge smoothing for a cleaner outline at fractional display scales.
-- Optional multi-layer neon glow with a configurable glow size.
+- Optional smooth, accent-colored glow with a configurable size.
 - Works independently of Qt, GTK, client-side decorations, and the current window theme.
 - Temporarily hides the outline while context menus, submenus, dropdowns,
   combo-box lists, or Plasma panel popups are visible.
@@ -70,14 +70,15 @@ Open the gear button next to **Active Window Outline** in Desktop Effects.
 | Setting | Default | Description |
 | --- | ---: | --- |
 | Use accent color | On | Follows the current Plasma accent color. |
+| Accent opacity | 66% | Controls the outline and glow opacity when using the accent color. |
 | Custom color | `#3daee9` | Used when accent-color tracking is disabled. |
 | Border width | 4 px | Thickness of the outline. |
 | Outline offset | 0 px | Distance between the window edge and the outline. |
 | Border radius | 5 px | Corner radius of the outline. |
 | Draw inside window | Off | Draws the outline over the inside edge of the window. |
 | Smooth edges | On | Adds a subtle antialiased feather to both outline edges. |
-| Neon glow | Off | Adds a soft colored halo around the outline. |
-| Glow size | 8 px | Controls how far the neon halo extends. |
+| Soft glow | On | Adds a subtle colored halo around the outline. |
+| Glow size | 6 px | Controls how far the halo extends. |
 
 ### Inside and outside drawing
 

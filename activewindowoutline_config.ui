@@ -32,13 +32,37 @@
    </item>
 
    <item row="1" column="0">
+    <widget class="QLabel" name="label_accentOpacity">
+     <property name="text">
+      <string>Accent opacity:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QSpinBox" name="kcfg_AccentOpacity">
+     <property name="minimum">
+      <number>0</number>
+     </property>
+     <property name="maximum">
+      <number>100</number>
+     </property>
+     <property name="value">
+      <number>66</number>
+     </property>
+     <property name="suffix">
+      <string> %</string>
+     </property>
+    </widget>
+   </item>
+
+   <item row="2" column="0">
     <widget class="QLabel" name="label_customColor">
      <property name="text">
       <string>Custom color:</string>
      </property>
     </widget>
    </item>
-   <item row="1" column="1">
+   <item row="2" column="1">
     <widget class="KColorButton" name="kcfg_CustomColor">
      <property name="alphaChannelEnabled">
       <bool>true</bool>
@@ -53,14 +77,14 @@
     </widget>
    </item>
 
-   <item row="2" column="0">
+   <item row="3" column="0">
     <widget class="QLabel" name="label_borderWidth">
      <property name="text">
       <string>Border width:</string>
      </property>
     </widget>
    </item>
-   <item row="2" column="1">
+   <item row="3" column="1">
     <widget class="QSpinBox" name="kcfg_BorderWidth">
      <property name="minimum">
       <number>1</number>
@@ -77,14 +101,14 @@
     </widget>
    </item>
 
-   <item row="3" column="0">
+   <item row="4" column="0">
     <widget class="QLabel" name="label_outlineGap">
      <property name="text">
       <string>Outline offset:</string>
      </property>
     </widget>
    </item>
-   <item row="3" column="1">
+   <item row="4" column="1">
     <widget class="QSpinBox" name="kcfg_OutlineGap">
      <property name="minimum">
       <number>0</number>
@@ -101,14 +125,14 @@
     </widget>
    </item>
 
-   <item row="4" column="0">
+   <item row="5" column="0">
     <widget class="QLabel" name="label_borderRadius">
      <property name="text">
       <string>Border radius:</string>
      </property>
     </widget>
    </item>
-   <item row="4" column="1">
+   <item row="5" column="1">
     <widget class="QSpinBox" name="kcfg_BorderRadius">
      <property name="minimum">
       <number>0</number>
@@ -125,14 +149,14 @@
     </widget>
    </item>
 
-   <item row="5" column="0">
+   <item row="6" column="0">
     <widget class="QLabel" name="label_drawInside">
      <property name="text">
       <string>Draw inside window:</string>
      </property>
     </widget>
    </item>
-   <item row="5" column="1">
+   <item row="6" column="1">
     <widget class="QCheckBox" name="kcfg_DrawInside">
      <property name="checked">
       <bool>false</bool>
@@ -140,7 +164,7 @@
     </widget>
    </item>
 
-   <item row="6" column="0" colspan="2">
+   <item row="7" column="0" colspan="2">
     <widget class="QCheckBox" name="kcfg_SmoothEdges">
      <property name="text">
       <string>Smooth edges</string>
@@ -151,22 +175,25 @@
     </widget>
    </item>
 
-   <item row="7" column="0" colspan="2">
+   <item row="8" column="0" colspan="2">
     <widget class="QCheckBox" name="kcfg_GlowEnabled">
      <property name="text">
-      <string>Neon glow</string>
+      <string>Soft glow</string>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
      </property>
     </widget>
    </item>
 
-   <item row="8" column="0">
+   <item row="9" column="0">
     <widget class="QLabel" name="label_glowRadius">
      <property name="text">
       <string>Glow size:</string>
      </property>
     </widget>
    </item>
-   <item row="8" column="1">
+   <item row="9" column="1">
     <widget class="QSpinBox" name="kcfg_GlowRadius">
      <property name="minimum">
       <number>1</number>
@@ -175,7 +202,7 @@
       <number>30</number>
      </property>
      <property name="value">
-      <number>8</number>
+      <number>6</number>
      </property>
      <property name="suffix">
       <string> px</string>
@@ -183,7 +210,7 @@
     </widget>
    </item>
 
-   <item row="9" column="0" colspan="2">
+   <item row="10" column="0" colspan="2">
     <widget class="QLabel" name="label_info">
      <property name="text">
       <string>ℹ️ Offset moves the outline away from the window edge. “Draw inside” keeps it visible on maximized and tiled windows. Glow adds a soft colored halo around the outline.</string>
@@ -197,14 +224,14 @@
     </widget>
    </item>
 
-   <item row="10" column="0">
+   <item row="11" column="0">
     <widget class="QLabel" name="label_version">
      <property name="text">
       <string>Version:</string>
      </property>
     </widget>
    </item>
-   <item row="10" column="1">
+   <item row="11" column="1">
     <widget class="QLabel" name="label_versionValue">
      <property name="text">
       <string>development</string>

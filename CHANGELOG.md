@@ -4,6 +4,46 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.2.6] - 2026-10-19
+
+### Changed
+
+- New installations now default to the Plasma accent color at 66% opacity,
+  a 4 px outside outline with 0 px offset and 5 px radius, smooth edges, and
+  soft glow enabled at 6 px. Existing saved settings are preserved on update.
+
+## [1.2.5] - 2026-10-19
+
+### Added
+
+- An accent-opacity setting (0–100%) for the outline and glow when "Use accent
+  color" is enabled. Custom colors continue to use the alpha channel in the
+  color picker.
+
+## [1.2.4] - 2026-10-19
+
+### Fixed
+
+- Convert screen damage into render-target coordinates before applying OpenGL
+  clipping. This fixes outline segments disappearing after the 1.2.3 flicker
+  correction, including on scaled or rotated outputs.
+
+### Changed
+
+- Replace the four hard-edged glow bands with one continuous, subdued color
+  gradient. The setting is now labeled "Soft glow".
+
+## [1.2.3] - 2026-10-19
+
+### Fixed
+
+- Enable and restore OpenGL scissor clipping while drawing the outline. This
+  prevents smooth-edge and glow layers from being redrawn outside the damaged
+  region during partial screen updates, which caused visible flicker and a
+  discolored fringe when hovering controls or typing.
+- Round the outline repaint area outward so fractional window coordinates do
+  not cut off the outermost glow pixels.
+
 ## [1.2.2] - 2026-10-19
 
 ### Fixed

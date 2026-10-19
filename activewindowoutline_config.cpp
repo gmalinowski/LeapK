@@ -37,21 +37,26 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     config->setCurrentGroup(QStringLiteral("Effect-active-window-outline"));
 
     config->addItemBool(QStringLiteral("UseAccentColor"), *new bool, true);
+    config->addItemInt(QStringLiteral("AccentOpacity"), *new int, 66);
     config->addItemColor(QStringLiteral("CustomColor"), *new QColor, QColor(61, 174, 233));
     config->addItemInt(QStringLiteral("BorderWidth"), *new int, 4);
     config->addItemInt(QStringLiteral("OutlineGap"), *new int, 0);
     config->addItemInt(QStringLiteral("BorderRadius"), *new int, 5);
     config->addItemBool(QStringLiteral("DrawInside"), *new bool, false);
     config->addItemBool(QStringLiteral("SmoothEdges"), *new bool, true);
-    config->addItemBool(QStringLiteral("GlowEnabled"), *new bool, false);
-    config->addItemInt(QStringLiteral("GlowRadius"), *new int, 8);
+    config->addItemBool(QStringLiteral("GlowEnabled"), *new bool, true);
+    config->addItemInt(QStringLiteral("GlowRadius"), *new int, 6);
 
     addConfig(config, widget());
 
-    // Disable custom color picker when accent color is checked
+    // Keep the opacity control with the accent color and the alpha-enabled
+    // custom picker with the custom color, so each mode has one clear control.
     auto updateColorEnabled = [this] {
-        m_ui->kcfg_CustomColor->setEnabled(!m_ui->kcfg_UseAccentColor->isChecked());
-        m_ui->label_customColor->setEnabled(!m_ui->kcfg_UseAccentColor->isChecked());
+        const bool useAccent = m_ui->kcfg_UseAccentColor->isChecked();
+        m_ui->kcfg_AccentOpacity->setEnabled(useAccent);
+        m_ui->label_accentOpacity->setEnabled(useAccent);
+        m_ui->kcfg_CustomColor->setEnabled(!useAccent);
+        m_ui->label_customColor->setEnabled(!useAccent);
     };
     connect(m_ui->kcfg_UseAccentColor, &QCheckBox::toggled, this, updateColorEnabled);
     updateColorEnabled();

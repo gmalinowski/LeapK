@@ -7,9 +7,11 @@
 #pragma once
 
 #include <effect/effect.h>
+#include <opengl/glshader.h>
 #include <QVector2D>
 #include <QMap>
 #include <chrono>
+#include <memory>
 
 class QFileSystemWatcher;
 class QTimer;
@@ -33,6 +35,10 @@ struct OutlineLayer {
 struct OutlineCache {
     QList<OutlineLayer> layers;
     QColor sourceColor;
+    QRectF outerRect;
+    QRectF innerRect;
+    qreal outerRadius = 0;
+    qreal innerRadius = 0;
 };
 
 class ActiveWindowOutlineEffect : public Effect
@@ -108,20 +114,22 @@ private:
     QSet<EffectWindow *> m_suppressedWindows;
     QMap<EffectWindow *, QRectF> m_lastGeometry;
     QMap<EffectWindow *, OutlineCache> m_outlineCache;
+    std::unique_ptr<GLShader> m_glowShader;
     QFileSystemWatcher *m_configWatcher = nullptr;
     QTimer *m_configReloadTimer = nullptr;
     QString m_configPath;
 
     // Config
     bool m_useAccentColor = true;
+    int m_accentOpacity = 66;
     QColor m_customColor = QColor(61, 174, 233);
     int m_width = 4;
     int m_gap = 0;
     int m_radius = 5;
     bool m_drawInside = false;
     bool m_smoothEdges = true;
-    bool m_glowEnabled = false;
-    int m_glowRadius = 8;
+    bool m_glowEnabled = true;
+    int m_glowRadius = 6;
 };
 
 } // namespace KWin

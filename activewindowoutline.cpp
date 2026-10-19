@@ -10,6 +10,7 @@
 #include <opengl/glshader.h>
 #include <opengl/glshadermanager.h>
 #include <opengl/glvertexbuffer.h>
+#include <opengl/eglcontext.h>
 #include <core/rendertarget.h>
 #include <core/renderviewport.h>
 #ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
@@ -27,6 +28,55 @@
 
 namespace KWin
 {
+
+static QByteArray glowFragmentSource()
+{
+    const EglContext *context = EglContext::currentContext();
+    const bool modern = context->isOpenGLES()
+        ? context->glslVersion() >= Version(3, 0)
+        : context->glslVersion() >= Version(1, 40);
+
+    QByteArray source;
+    if (context->isOpenGLES()) {
+        if (modern) {
+            source += "#version 300 es\n";
+        }
+        source += "precision highp float;\n";
+    } else if (modern) {
+        source += "#version 140\n";
+    }
+    source += modern
+        ? "in vec2 position0;\nout vec4 fragColor;\n"
+        : "varying vec2 position0;\n#define fragColor gl_FragColor\n";
+    source += R"GLSL(
+uniform vec4 geometryColor;
+uniform vec4 outerBox;
+uniform vec4 innerBox;
+uniform float outerRadius;
+uniform float innerRadius;
+uniform float glowRadius;
+
+float roundedBoxDistance(vec2 point, vec4 box, float radius)
+{
+    vec2 q = abs(point - box.xy) - box.zw + vec2(radius);
+    return length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
+}
+
+void main()
+{
+    float outside = roundedBoxDistance(position0, outerBox, outerRadius);
+    float inside = -roundedBoxDistance(position0, innerBox, innerRadius);
+    float distanceToOutline = max(outside, inside);
+    float sigma = max(glowRadius * 0.42, 0.5);
+    float normalized = max(distanceToOutline, 0.0) / sigma;
+    float falloff = exp(-0.5 * normalized * normalized);
+    float outsideMask = smoothstep(-1.0, 0.0, distanceToOutline);
+    fragColor = vec4(geometryColor.rgb,
+                     geometryColor.a * 0.38 * falloff * outsideMask);
+}
+)GLSL";
+    return source;
+}
 
 KWIN_EFFECT_FACTORY_SUPPORTED(ActiveWindowOutlineEffect, "metadata.json",
                               return ActiveWindowOutlineEffect::supported();)
@@ -111,14 +161,15 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
 {
     KConfigGroup config = effects->config()->group(QStringLiteral("Effect-active-window-outline"));
     m_useAccentColor = config.readEntry("UseAccentColor", true);
+    m_accentOpacity = qBound(0, config.readEntry("AccentOpacity", 66), 100);
     m_customColor = config.readEntry("CustomColor", QColor(61, 174, 233));
     m_width = qBound(1, config.readEntry("BorderWidth", 4), 20);
     m_gap = qBound(0, config.readEntry("OutlineGap", 0), 30);
     m_radius = qBound(0, config.readEntry("BorderRadius", 5), 30);
     m_drawInside = config.readEntry("DrawInside", false);
     m_smoothEdges = config.readEntry("SmoothEdges", true);
-    m_glowEnabled = config.readEntry("GlowEnabled", false);
-    m_glowRadius = qBound(1, config.readEntry("GlowRadius", 8), 30);
+    m_glowEnabled = config.readEntry("GlowEnabled", true);
+    m_glowRadius = qBound(1, config.readEntry("GlowRadius", 6), 30);
 
     m_outlineCache.clear();
     effects->addRepaintFull();
@@ -127,7 +178,9 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
 QColor ActiveWindowOutlineEffect::resolveColor() const
 {
     if (m_useAccentColor) {
-        return qApp->palette().color(QPalette::Highlight);
+        QColor color = qApp->palette().color(QPalette::Highlight);
+        color.setAlphaF(color.alphaF() * m_accentOpacity / 100.0);
+        return color;
     }
     return m_customColor;
 }
@@ -226,13 +279,6 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
         .relativeOffset = 0,
     };
 
-    ShaderBinder binder(ShaderTrait::UniformColor | ShaderTrait::TransformColorspace);
-    binder.shader()->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix,
-                                viewport.projectionMatrix());
-    binder.shader()->setColorspaceUniforms(ColorDescription::sRGB,
-                                           renderTarget.colorDescription(),
-                                           RenderingIntent::Perceptual);
-
     // KWin's other effects share this OpenGL context. Preserve both the blend
     // enable flag and factors; leaving an additive factor behind can change
     // how subsequently repainted hover highlights and windows are composited.
@@ -245,6 +291,99 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
     glGetIntegerv(GL_BLEND_DST_RGB, &previousDstRgb);
     glGetIntegerv(GL_BLEND_SRC_ALPHA, &previousSrcAlpha);
     glGetIntegerv(GL_BLEND_DST_ALPHA, &previousDstAlpha);
+
+    // GLVertexBuffer::render(region, ..., true) sets a scissor box for each
+    // damaged rectangle, but its caller must enable GL_SCISSOR_TEST. Without
+    // it translucent layers can accumulate over stale pixels during a small
+    // hover or typing repaint.
+    const GLboolean scissorWasEnabled = glIsEnabled(GL_SCISSOR_TEST);
+    GLint previousScissorBox[4];
+    glGetIntegerv(GL_SCISSOR_BOX, previousScissorBox);
+    glEnable(GL_SCISSOR_TEST);
+
+    // KWin passes paintScreen() a device-space damage region. The VBO's
+    // hardware clipping expects render-target-local coordinates instead.
+    // Match ItemRendererOpenGL's conversion, including output rotation and
+    // the inset used by an intermediate render target.
+    const QSize bufferOffset = renderTarget.transform().map(
+        QSize(viewport.renderOffset().x(), viewport.renderOffset().y()));
+#ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
+    OutlineRegion scissorRegion = QRect(
+#else
+    OutlineRegion scissorRegion = Rect(
+#endif
+        QPoint(bufferOffset.width(), bufferOffset.height()),
+        renderTarget.size() - 2 * bufferOffset);
+    scissorRegion &= viewport.transform().map(
+        clipRegion & renderTarget.transformedRect(), renderTarget.transformedSize());
+
+    if (m_glowEnabled && cache.sourceColor.alpha() > 0) {
+        if (!m_glowShader) {
+            m_glowShader = ShaderManager::instance()->generateCustomShader(
+                ShaderTrait::Border, QByteArray(), glowFragmentSource());
+        }
+        if (m_glowShader && m_glowShader->isValid()) {
+            const qreal reach = m_glowRadius;
+            const QRectF farOuter = cache.outerRect.adjusted(-reach, -reach, reach, reach);
+            const QRectF farInner = cache.innerRect.adjusted(reach, reach, -reach, -reach);
+            QList<QVector2D> glowVertices;
+            if (farInner.width() > 0 && farInner.height() > 0) {
+                generateRoundedRectStrip(farOuter, cache.outerRadius + reach,
+                                         farInner, qMax<qreal>(0.0, cache.innerRadius - reach),
+                                         1.0, glowVertices);
+            } else {
+                const float x0 = farOuter.left();
+                const float y0 = farOuter.top();
+                const float x1 = farOuter.right();
+                const float y1 = farOuter.bottom();
+                glowVertices = {{x0, y0}, {x1, y0}, {x0, y1},
+                                {x1, y0}, {x1, y1}, {x0, y1}};
+            }
+
+            QList<QVector2D> scaledVerts;
+            scaledVerts.reserve(glowVertices.size());
+            for (const QVector2D &vertex : std::as_const(glowVertices)) {
+                scaledVerts.append(vertex * scale);
+            }
+            auto vbo = GLVertexBuffer::streamingBuffer();
+            auto mapped = vbo->map<QVector2D>(scaledVerts.size());
+            if (mapped) {
+                memcpy(mapped->data(), scaledVerts.data(), scaledVerts.size() * sizeof(QVector2D));
+                vbo->unmap();
+                vbo->setVertexCount(scaledVerts.size());
+                vbo->setAttribLayout(std::span(&layout, 1), sizeof(QVector2D));
+
+                ShaderBinder glowBinder(m_glowShader.get());
+                GLShader *shader = glowBinder.shader();
+                shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix,
+                                   viewport.projectionMatrix());
+                shader->setUniform(GLShader::ColorUniform::Color, cache.sourceColor);
+                const auto box = [scale](const QRectF &rect) {
+                    return QVector4D(rect.center().x() * scale,
+                                     rect.center().y() * scale,
+                                     rect.width() * scale / 2.0,
+                                     rect.height() * scale / 2.0);
+                };
+                shader->setUniform("outerBox", box(cache.outerRect));
+                shader->setUniform("innerBox", box(cache.innerRect));
+                shader->setUniform("outerRadius", float(cache.outerRadius * scale));
+                shader->setUniform("innerRadius", float(cache.innerRadius * scale));
+                shader->setUniform("glowRadius", float(m_glowRadius * scale));
+
+                glEnable(GL_BLEND);
+                glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
+                                    GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+                vbo->render(scissorRegion, GL_TRIANGLES, true);
+            }
+        }
+    }
+
+    ShaderBinder binder(ShaderTrait::UniformColor | ShaderTrait::TransformColorspace);
+    binder.shader()->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix,
+                                viewport.projectionMatrix());
+    binder.shader()->setColorspaceUniforms(ColorDescription::sRGB,
+                                           renderTarget.colorDescription(),
+                                           RenderingIntent::Perceptual);
 
     for (const OutlineLayer &layer : cache.layers) {
         if (layer.vertices.isEmpty() || layer.color.alpha() == 0) {
@@ -280,7 +419,7 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
             glDisable(GL_BLEND);
         }
 
-        vbo->render(clipRegion, GL_TRIANGLES, true);
+        vbo->render(scissorRegion, GL_TRIANGLES, true);
     }
 
     glBlendFuncSeparate(previousSrcRgb, previousDstRgb,
@@ -289,6 +428,11 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
         glEnable(GL_BLEND);
     } else {
         glDisable(GL_BLEND);
+    }
+    glScissor(previousScissorBox[0], previousScissorBox[1],
+              previousScissorBox[2], previousScissorBox[3]);
+    if (!scissorWasEnabled) {
+        glDisable(GL_SCISSOR_TEST);
     }
 }
 
@@ -317,6 +461,10 @@ void ActiveWindowOutlineEffect::cacheWindowOutline(EffectWindow *w, const QRectF
         : geo.adjusted(-gap, -gap, gap, gap);
     const qreal outerRadius = m_drawInside ? qMax<qreal>(0.0, r - gap) : r + gap + bw;
     const qreal innerRadius = m_drawInside ? qMax<qreal>(0.0, r - gap - bw) : r + gap;
+    cache.outerRect = outerRect;
+    cache.innerRect = innerRect;
+    cache.outerRadius = outerRadius;
+    cache.innerRadius = innerRadius;
 
     const auto layerColor = [&cache](qreal opacity) {
         QColor color = cache.sourceColor;
@@ -335,32 +483,6 @@ void ActiveWindowOutlineEffect::cacheWindowOutline(EffectWindow *w, const QRectF
         layer.color = color;
         cache.layers.append(std::move(layer));
     };
-
-    // Approximate a soft neon falloff with four translucent bands on both
-    // sides of the solid outline. Draw the farthest bands first.
-    if (m_glowEnabled) {
-        constexpr int glowBands = 4;
-        const qreal step = qreal(m_glowRadius) / glowBands;
-        const qreal opacity[glowBands] = {0.70, 0.45, 0.25, 0.10};
-        for (int band = glowBands - 1; band >= 0; --band) {
-            const qreal nearDistance = band * step;
-            const qreal farDistance = (band + 1) * step;
-            appendLayer(outerRect.adjusted(-farDistance, -farDistance,
-                                            farDistance, farDistance),
-                        outerRadius + farDistance,
-                        outerRect.adjusted(-nearDistance, -nearDistance,
-                                            nearDistance, nearDistance),
-                        outerRadius + nearDistance,
-                        layerColor(opacity[band]));
-            appendLayer(innerRect.adjusted(nearDistance, nearDistance,
-                                            -nearDistance, -nearDistance),
-                        qMax<qreal>(0.0, innerRadius - nearDistance),
-                        innerRect.adjusted(farDistance, farDistance,
-                                            -farDistance, -farDistance),
-                        qMax<qreal>(0.0, innerRadius - farDistance),
-                        layerColor(opacity[band]));
-        }
-    }
 
     if (m_smoothEdges) {
         constexpr qreal feather = 0.85;
@@ -456,14 +578,15 @@ bool ActiveWindowOutlineEffect::isActive() const
 
 QString ActiveWindowOutlineEffect::debug(const QString &) const
 {
-    return QStringLiteral("width=%1 offset=%2 radius=%3 drawInside=%4 smoothEdges=%5 glow=%6 glowRadius=%7")
+    return QStringLiteral("width=%1 offset=%2 radius=%3 drawInside=%4 smoothEdges=%5 glow=%6 glowRadius=%7 accentOpacity=%8")
         .arg(m_width)
         .arg(m_gap)
         .arg(m_radius)
         .arg(m_drawInside ? QStringLiteral("true") : QStringLiteral("false"))
         .arg(m_smoothEdges ? QStringLiteral("true") : QStringLiteral("false"))
         .arg(m_glowEnabled ? QStringLiteral("true") : QStringLiteral("false"))
-        .arg(m_glowRadius);
+        .arg(m_glowRadius)
+        .arg(m_accentOpacity);
 }
 
 void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
@@ -477,7 +600,7 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
             // ghost. Repaint the band once in the same pass so it is cleared.
             if (!m_suppressedWindows.contains(w)) {
                 m_suppressedWindows.insert(w);
-                data.paint += expandedGeometryFor(w).toRect();
+                data.paint += expandedGeometryFor(w).toAlignedRect();
             }
             return;
         }
@@ -486,7 +609,7 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
         // Make sure the border area is part of the region being painted this
         // frame, otherwise our outline would be scissored away.
         if (w->isOnCurrentDesktop()) {
-            data.paint += expandedGeometryFor(w).toRect();
+            data.paint += expandedGeometryFor(w).toAlignedRect();
         }
     }
 }

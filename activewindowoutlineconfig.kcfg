@@ -12,6 +12,11 @@
         <entry name="UseAccentColor" type="Bool">
             <default>true</default>
         </entry>
+        <entry name="AccentOpacity" type="Int">
+            <default>66</default>
+            <min>0</min>
+            <max>100</max>
+        </entry>
         <entry name="CustomColor" type="Color">
             <default>#3daee9</default>
         </entry>
@@ -37,10 +42,10 @@
             <default>true</default>
         </entry>
         <entry name="GlowEnabled" type="Bool">
-            <default>false</default>
+            <default>true</default>
         </entry>
         <entry name="GlowRadius" type="Int">
-            <default>8</default>
+            <default>6</default>
             <min>1</min>
             <max>30</max>
         </entry>
