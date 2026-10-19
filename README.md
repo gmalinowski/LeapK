@@ -6,6 +6,8 @@ The effect is useful with minimal window decorations and tiling layouts, where i
 
 ## Features
 
+![Active Window Outline with the default settings in a tiled window layout](screenshot_defaults.png)
+
 ![KDE / KWin Active Window Outline](screenshot.png)
 
 - Follows the active KWin window automatically.
