@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.2.1] - 2026-10-19
+
+### Fixed
+
+- Prevented glow flicker while typing or moving the pointer by no longer
+  treating generic toolkit popups and tooltips as context menus.
+- Switched glow layers to additive blending and increased their falloff
+  strength so the halo preserves the outline color instead of appearing gray.
+
 ## [1.2.0] - 2026-10-19
 
 ### Added

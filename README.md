@@ -14,7 +14,7 @@ The effect is useful with minimal window decorations and tiling layouts, where i
 - Optional multi-layer neon glow with a configurable glow size.
 - Works independently of Qt, GTK, client-side decorations, and the current window theme.
 - Temporarily hides the outline while context menus, submenus, dropdowns,
-  tooltips, or Plasma panel popups are visible.
+  combo-box lists, or Plasma panel popups are visible.
 - Provides a graphical configuration page in Desktop Effects.
 - Shows the installed effect version in the configuration page.
 
