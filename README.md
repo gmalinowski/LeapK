@@ -31,7 +31,8 @@ The effect is useful with minimal window decorations and tiling layouts, where i
 | X11 | Build support included; currently not tested by the maintainers |
 | Plasma 5 | Not supported |
 
-The current release has been tested on TUXEDO OS 24.04 with KWin 6.6.6 on Wayland.
+Version 1.2.8 has been tested on Wayland with TUXEDO OS 24.04
+(KWin 6.6.6), KDE neon User Edition, and KDE neon Testing Edition.
 
 KWin effects are native plugins and use KWin's private binary interface. Rebuild and reinstall the effect after a major KWin update if it stops loading.
 
@@ -39,7 +40,8 @@ KWin effects are native plugins and use KWin's private binary interface. Rebuild
 
 ### Guided Wayland installation
 
-Clone or download the repository, then run:
+Clone the repository or download and extract the latest source release, then
+run this command from the project directory:
 
 ```bash
 bash install-active-window-outline.sh
@@ -143,6 +145,13 @@ This is expected: the outline is outside the screen bounds. Enable **Draw inside
 ### Settings do not update immediately
 
 Version 1.1.1 and later watch `kwinrc` and reload saved settings automatically. If an older native library is still loaded, log out and back in.
+
+### Compilation fails on KDE neon
+
+Use version 1.2.8 or later. Version 1.2.7 does not compile against the newer
+KWin headers used by KDE neon User and Testing editions. Make sure the installed
+`kwin-dev` package matches the KWin version running on your system, then rerun
+the installer from the updated source directory.
 
 ## Contributing
 
