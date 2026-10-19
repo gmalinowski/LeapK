@@ -39,9 +39,12 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     config->addItemBool(QStringLiteral("UseAccentColor"), *new bool, true);
     config->addItemColor(QStringLiteral("CustomColor"), *new QColor, QColor(61, 174, 233));
     config->addItemInt(QStringLiteral("BorderWidth"), *new int, 4);
-    config->addItemInt(QStringLiteral("OutlineGap"), *new int, 2);
-    config->addItemInt(QStringLiteral("BorderRadius"), *new int, 10);
-    config->addItemBool(QStringLiteral("DrawInside"), *new bool, true);
+    config->addItemInt(QStringLiteral("OutlineGap"), *new int, 0);
+    config->addItemInt(QStringLiteral("BorderRadius"), *new int, 5);
+    config->addItemBool(QStringLiteral("DrawInside"), *new bool, false);
+    config->addItemBool(QStringLiteral("SmoothEdges"), *new bool, true);
+    config->addItemBool(QStringLiteral("GlowEnabled"), *new bool, false);
+    config->addItemInt(QStringLiteral("GlowRadius"), *new int, 8);
 
     addConfig(config, widget());
 
@@ -52,6 +55,14 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     };
     connect(m_ui->kcfg_UseAccentColor, &QCheckBox::toggled, this, updateColorEnabled);
     updateColorEnabled();
+
+    const auto updateGlowEnabled = [this] {
+        const bool enabled = m_ui->kcfg_GlowEnabled->isChecked();
+        m_ui->kcfg_GlowRadius->setEnabled(enabled);
+        m_ui->label_glowRadius->setEnabled(enabled);
+    };
+    connect(m_ui->kcfg_GlowEnabled, &QCheckBox::toggled, this, updateGlowEnabled);
+    updateGlowEnabled();
 }
 
 void ActiveWindowOutlineConfig::save()

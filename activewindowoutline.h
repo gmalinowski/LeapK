@@ -25,10 +25,14 @@ using OutlineRegion = Region;
 using OutlineOutput = LogicalOutput;
 #endif
 
+struct OutlineLayer {
+    QList<QVector2D> vertices;
+    QColor color;
+};
+
 struct OutlineCache {
-    QRectF geometry;
-    QList<QVector2D> borderVerts;
-    QColor borderColor;
+    QList<OutlineLayer> layers;
+    QColor sourceColor;
 };
 
 class ActiveWindowOutlineEffect : public Effect
@@ -112,9 +116,12 @@ private:
     bool m_useAccentColor = true;
     QColor m_customColor = QColor(61, 174, 233);
     int m_width = 4;
-    int m_gap = 2;
-    int m_radius = 10;
-    bool m_drawInside = true;
+    int m_gap = 0;
+    int m_radius = 5;
+    bool m_drawInside = false;
+    bool m_smoothEdges = true;
+    bool m_glowEnabled = false;
+    int m_glowRadius = 8;
 };
 
 } // namespace KWin

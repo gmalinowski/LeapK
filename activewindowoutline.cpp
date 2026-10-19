@@ -113,9 +113,12 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_useAccentColor = config.readEntry("UseAccentColor", true);
     m_customColor = config.readEntry("CustomColor", QColor(61, 174, 233));
     m_width = qBound(1, config.readEntry("BorderWidth", 4), 20);
-    m_gap = qBound(0, config.readEntry("OutlineGap", 2), 30);
-    m_radius = qBound(0, config.readEntry("BorderRadius", 10), 30);
-    m_drawInside = config.readEntry("DrawInside", true);
+    m_gap = qBound(0, config.readEntry("OutlineGap", 0), 30);
+    m_radius = qBound(0, config.readEntry("BorderRadius", 5), 30);
+    m_drawInside = config.readEntry("DrawInside", false);
+    m_smoothEdges = config.readEntry("SmoothEdges", true);
+    m_glowEnabled = config.readEntry("GlowEnabled", false);
+    m_glowRadius = qBound(1, config.readEntry("GlowRadius", 8), 30);
 
     m_outlineCache.clear();
     effects->addRepaintFull();
@@ -207,33 +210,17 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
                                            const OutlineCache &cache,
                                            const OutlineRegion &clipRegion)
 {
-    if (cache.borderVerts.isEmpty()) {
+    if (cache.layers.isEmpty()) {
         return;
     }
 
     const qreal scale = viewport.scale();
-    auto vbo = GLVertexBuffer::streamingBuffer();
-
-    QList<QVector2D> scaledVerts;
-    for (const auto &v : cache.borderVerts) {
-        scaledVerts.append(QVector2D(v.x() * scale, v.y() * scale));
-    }
-
-    auto mapped = vbo->map<QVector2D>(scaledVerts.size());
-    if (!mapped) {
-        return;
-    }
-    memcpy(mapped->data(), scaledVerts.data(), scaledVerts.size() * sizeof(QVector2D));
-    vbo->unmap();
-    vbo->setVertexCount(scaledVerts.size());
-
     static constexpr GLVertexAttrib layout{
         .attributeIndex = VA_Position,
         .componentCount = 2,
         .type = GL_FLOAT,
         .relativeOffset = 0,
     };
-    vbo->setAttribLayout(std::span(&layout, 1), sizeof(QVector2D));
 
     ShaderBinder binder(ShaderTrait::UniformColor | ShaderTrait::TransformColorspace);
     binder.shader()->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix,
@@ -241,29 +228,47 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
     binder.shader()->setColorspaceUniforms(ColorDescription::sRGB,
                                            renderTarget.colorDescription(),
                                            RenderingIntent::Perceptual);
-    binder.shader()->setUniform(GLShader::ColorUniform::Color, cache.borderColor);
 
-    // The custom color may carry an alpha component, so blend the outline over
-    // whatever is already on screen. The color is passed straight (not
-    // premultiplied), which is why we use SRC_ALPHA here. Opaque colours don't
-    // need blending, so skip the state change for them.
-    const bool translucent = cache.borderColor.alpha() < 255;
-    if (translucent) {
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    }
+    for (const OutlineLayer &layer : cache.layers) {
+        if (layer.vertices.isEmpty() || layer.color.alpha() == 0) {
+            continue;
+        }
 
-    vbo->render(clipRegion, GL_TRIANGLES, true);
+        auto vbo = GLVertexBuffer::streamingBuffer();
+        QList<QVector2D> scaledVerts;
+        scaledVerts.reserve(layer.vertices.size());
+        for (const QVector2D &vertex : layer.vertices) {
+            scaledVerts.append(QVector2D(vertex.x() * scale, vertex.y() * scale));
+        }
 
-    if (translucent) {
-        glDisable(GL_BLEND);
+        auto mapped = vbo->map<QVector2D>(scaledVerts.size());
+        if (!mapped) {
+            continue;
+        }
+        memcpy(mapped->data(), scaledVerts.data(), scaledVerts.size() * sizeof(QVector2D));
+        vbo->unmap();
+        vbo->setVertexCount(scaledVerts.size());
+        vbo->setAttribLayout(std::span(&layout, 1), sizeof(QVector2D));
+
+        binder.shader()->setUniform(GLShader::ColorUniform::Color, layer.color);
+        const bool translucent = layer.color.alpha() < 255;
+        if (translucent) {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        }
+
+        vbo->render(clipRegion, GL_TRIANGLES, true);
+
+        if (translucent) {
+            glDisable(GL_BLEND);
+        }
     }
 }
 
 void ActiveWindowOutlineEffect::cacheWindowOutline(EffectWindow *w, const QRectF &geo)
 {
     OutlineCache cache;
-    cache.geometry = geo;
+    cache.sourceColor = resolveColor();
 
     const qreal minDimension = qMin(geo.width(), geo.height());
     const qreal gap = m_drawInside
@@ -286,8 +291,62 @@ void ActiveWindowOutlineEffect::cacheWindowOutline(EffectWindow *w, const QRectF
     const qreal outerRadius = m_drawInside ? qMax<qreal>(0.0, r - gap) : r + gap + bw;
     const qreal innerRadius = m_drawInside ? qMax<qreal>(0.0, r - gap - bw) : r + gap;
 
-    generateRoundedRectStrip(outerRect, outerRadius, innerRect, innerRadius, 1.0, cache.borderVerts);
-    cache.borderColor = resolveColor();
+    const auto layerColor = [&cache](qreal opacity) {
+        QColor color = cache.sourceColor;
+        color.setAlphaF(qBound<qreal>(0.0, cache.sourceColor.alphaF() * opacity, 1.0));
+        return color;
+    };
+    const auto appendLayer = [this, &cache](const QRectF &outer, qreal outerR,
+                                            const QRectF &inner, qreal innerR,
+                                            const QColor &color) {
+        if (outer.width() <= 0.0 || outer.height() <= 0.0
+            || inner.width() <= 0.0 || inner.height() <= 0.0) {
+            return;
+        }
+        OutlineLayer layer;
+        generateRoundedRectStrip(outer, outerR, inner, innerR, 1.0, layer.vertices);
+        layer.color = color;
+        cache.layers.append(std::move(layer));
+    };
+
+    // Approximate a soft neon falloff with four translucent bands on both
+    // sides of the solid outline. Draw the farthest bands first.
+    if (m_glowEnabled) {
+        constexpr int glowBands = 4;
+        const qreal step = qreal(m_glowRadius) / glowBands;
+        const qreal opacity[glowBands] = {0.22, 0.14, 0.08, 0.04};
+        for (int band = glowBands - 1; band >= 0; --band) {
+            const qreal nearDistance = band * step;
+            const qreal farDistance = (band + 1) * step;
+            appendLayer(outerRect.adjusted(-farDistance, -farDistance,
+                                            farDistance, farDistance),
+                        outerRadius + farDistance,
+                        outerRect.adjusted(-nearDistance, -nearDistance,
+                                            nearDistance, nearDistance),
+                        outerRadius + nearDistance,
+                        layerColor(opacity[band]));
+            appendLayer(innerRect.adjusted(nearDistance, nearDistance,
+                                            -nearDistance, -nearDistance),
+                        qMax<qreal>(0.0, innerRadius - nearDistance),
+                        innerRect.adjusted(farDistance, farDistance,
+                                            -farDistance, -farDistance),
+                        qMax<qreal>(0.0, innerRadius - farDistance),
+                        layerColor(opacity[band]));
+        }
+    }
+
+    if (m_smoothEdges) {
+        constexpr qreal feather = 0.85;
+        appendLayer(outerRect.adjusted(-feather, -feather, feather, feather),
+                    outerRadius + feather, outerRect, outerRadius,
+                    layerColor(0.38));
+        appendLayer(innerRect, innerRadius,
+                    innerRect.adjusted(feather, feather, -feather, -feather),
+                    qMax<qreal>(0.0, innerRadius - feather),
+                    layerColor(0.38));
+    }
+
+    appendLayer(outerRect, outerRadius, innerRect, innerRadius, cache.sourceColor);
 
     m_outlineCache[w] = cache;
 }
@@ -318,7 +377,10 @@ void ActiveWindowOutlineEffect::slotWindowFrameGeometryChanged(EffectWindow *w,
     if (!shouldOutlineWindow(w) && !isBlockingPopup(w)) {
         return;
     }
-    const qreal extent = m_drawInside ? 1.0 : m_width + m_gap + 1.0;
+    const qreal glowExtent = m_glowEnabled ? m_glowRadius : 0;
+    const qreal extent = m_drawInside
+        ? glowExtent + 1.0
+        : m_width + m_gap + glowExtent + 1.0;
     // Repaint the old location to erase the previous outline, and the new one
     // to draw it. Without setTransformed there is nothing else extending the
     // window's damage out to the border, so we schedule it explicitly.
@@ -353,10 +415,11 @@ QRectF ActiveWindowOutlineEffect::expandedGeometryFor(EffectWindow *w) const
     if (!w) {
         return QRectF();
     }
-    const qreal extent = m_width + m_gap + 1.0;
-    return m_drawInside
-        ? w->frameGeometry().adjusted(-1, -1, 1, 1)
-        : w->frameGeometry().adjusted(-extent, -extent, extent, extent);
+    const qreal glowExtent = m_glowEnabled ? m_glowRadius : 0;
+    const qreal extent = m_drawInside
+        ? glowExtent + 1.0
+        : m_width + m_gap + glowExtent + 1.0;
+    return w->frameGeometry().adjusted(-extent, -extent, extent, extent);
 }
 
 bool ActiveWindowOutlineEffect::isActive() const
@@ -366,11 +429,14 @@ bool ActiveWindowOutlineEffect::isActive() const
 
 QString ActiveWindowOutlineEffect::debug(const QString &) const
 {
-    return QStringLiteral("width=%1 offset=%2 radius=%3 drawInside=%4")
+    return QStringLiteral("width=%1 offset=%2 radius=%3 drawInside=%4 smoothEdges=%5 glow=%6 glowRadius=%7")
         .arg(m_width)
         .arg(m_gap)
         .arg(m_radius)
-        .arg(m_drawInside ? QStringLiteral("true") : QStringLiteral("false"));
+        .arg(m_drawInside ? QStringLiteral("true") : QStringLiteral("false"))
+        .arg(m_smoothEdges ? QStringLiteral("true") : QStringLiteral("false"))
+        .arg(m_glowEnabled ? QStringLiteral("true") : QStringLiteral("false"))
+        .arg(m_glowRadius);
 }
 
 void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
@@ -433,7 +499,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     const QRectF currentGeo = w->frameGeometry();
     const QColor currentColor = resolveColor();
     if (!m_outlineCache.contains(w) || m_lastGeometry.value(w) != currentGeo
-        || m_outlineCache.value(w).borderColor != currentColor) {
+        || m_outlineCache.value(w).sourceColor != currentColor) {
         cacheWindowOutline(w, currentGeo);
         m_lastGeometry[w] = currentGeo;
     }

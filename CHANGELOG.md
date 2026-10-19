@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.2.0] - 2026-10-19
+
+### Added
+
+- Optional edge smoothing using translucent feather bands on both sides of the
+  solid outline.
+- Optional neon glow rendered as four progressively fading layers, with a
+  configurable glow size.
+
+### Changed
+
+- New installations now default to a 4 px outside outline with 0 px offset
+  and a 5 px corner radius.
+
 ## [1.1.6] - 2026-10-19
 
 ### Changed
