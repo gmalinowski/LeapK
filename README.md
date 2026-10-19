@@ -22,6 +22,8 @@ The effect is useful with minimal window decorations and tiling layouts, where i
   context menus and KWin's titlebar menu.
 - Clips the outline around visible panels, using the animated panel background
   mask on Wayland when available to follow floating-panel transitions.
+- Defers software cursor rendering on Wayland with KWin 6.6+ so the cursor is
+  not obscured by the outline or glow.
 - Provides a graphical configuration page in Desktop Effects.
 - Shows the installed effect version in the configuration page.
 
@@ -34,10 +36,11 @@ The effect is useful with minimal window decorations and tiling layouts, where i
 | X11 | Build support included; currently not tested by the maintainers |
 | Plasma 5 | Not supported |
 
-The code shipped in 1.2.10 was built and tested on Wayland with KWin 6.6.6.
-Runtime testing confirmed floating-panel clipping and menu suppression,
-including Firefox context menus. Its popup-filter regression tests also pass;
-these logic tests do not replace visual testing in a running Plasma session.
+The code shipped in 1.2.11 was built and tested on Wayland with KWin 6.6.6
+(TUXEDO OS 24.04) and KWin 6.8 (CachyOS), verifying floating-panel clipping,
+menu suppression, and software cursor rendering above the outline. Its
+regression tests also pass; these logic tests do not replace visual testing
+in a running Plasma session.
 
 Earlier releases were tested on Wayland with the following systems. These are
 historical results, not a claim that every new release has been retested on
@@ -46,12 +49,13 @@ every distribution:
 | Distribution | Plasma | KWin | Base |
 | --- | --- | --- | --- |
 | TUXEDO OS 24.04 | — | 6.6.6 | — |
+| CachyOS | 6.8.0 | 6.8.0 | Arch Linux |
 | KDE neon User Edition | 6.8.0 | 6.8.0 | Ubuntu 24.04 (Noble) |
 | KDE neon Testing Edition | 6.8.0 | 6.8.1 | Ubuntu 24.04 (Noble) |
 
-Version 1.2.9 was also installed successfully on CachyOS with KWin 6.8.0
-(Wayland). It includes a compatibility path for KWin 6.4.x, but that path has
-not yet been tested on a KWin 6.4 system.
+Version 1.2.11 was also verified on CachyOS with KWin 6.8.0 (Wayland). It
+includes a compatibility path for KWin 6.4.x, but that path has not yet been
+tested on a KWin 6.4 system.
 
 KWin effects are native plugins and use KWin's private binary interface.
 Compatibility code for multiple KWin versions does not make one compiled
@@ -72,7 +76,7 @@ run this command from the project directory:
 bash install-active-window-outline.sh
 ```
 
-The installer detects Debian/Ubuntu (`apt`), Fedora (`dnf`), Arch (`pacman`),
+The installer detects Debian/Ubuntu (`apt`), Fedora (`dnf`), Arch/CachyOS (`pacman`),
 and openSUSE (`zypper`) families and installs their build dependencies. It then
 compiles the effect against the KWin version installed on that computer,
 installs its two plugin files, and enables it. This is a source build, not one

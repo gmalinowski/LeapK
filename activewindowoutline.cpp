@@ -26,6 +26,8 @@
 #endif
 #ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
 #include <core/rect.h>
+#include "cursoroverlay.h"
+#include <scene/workspacescene.h>
 #endif
 #include <KConfigGroup>
 #include <QGuiApplication>
@@ -780,6 +782,9 @@ QString ActiveWindowOutlineEffect::debug(const QString &parameter) const
 
 void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
 {
+#ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
+    m_sceneView = qobject_cast<SceneView *>(data.view);
+#endif
     EffectWindow *w = m_activeWindow;
     if (shouldOutlineWindow(w)) {
         if (w->isMinimized() || w->isHiddenByShowDesktop()) {
@@ -828,6 +833,24 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                                          const OutlineRegion &deviceRegion,
                                          OutlineOutput *screen)
 {
+    EffectWindow *w = m_activeWindow;
+    const bool drawOutline = shouldOutlineWindow(w) && !hasVisibleBlockingPopup()
+        && !w->isMinimized() && !w->isHiddenByShowDesktop() && w->isOnCurrentDesktop();
+#ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
+    std::unique_ptr<OutlineCursorOverlay> cursorOverlay;
+    // Only defer the cursor for the ordinary output pass. Transformed/offscreen
+    // effects own their own cursor handling and must retain their scene filters.
+    if (drawOutline && m_sceneView && m_sceneView->scene() == effects->scene()
+        && m_sceneView->logicalOutput() == screen
+        && m_sceneView->viewport() == viewport.renderRect()
+        && m_sceneView->scale() == viewport.scale()
+        && !(mask & PAINT_SCREEN_TRANSFORMED) && !effects->activeFullScreenEffect()) {
+        Item *cursor = effects->scene()->cursorItem();
+        if (cursor && cursor->isVisible() && m_sceneView->shouldRenderItem(cursor)) {
+            cursorOverlay = std::make_unique<OutlineCursorOverlay>(m_sceneView, cursor);
+        }
+    }
+#endif
 #ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
     if (!effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen)) {
         return false;
@@ -836,16 +859,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen);
 #endif
 
-    if (!shouldOutlineWindow(m_activeWindow) || hasVisibleBlockingPopup()) {
-#ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
-        return true;
-#else
-        return;
-#endif
-    }
-
-    EffectWindow *w = m_activeWindow;
-    if (w->isMinimized() || w->isHiddenByShowDesktop() || !w->isOnCurrentDesktop()) {
+    if (!drawOutline) {
 #ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
         return true;
 #else
@@ -862,6 +876,16 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     }
 
     renderOutline(renderTarget, viewport, m_outlineCache[w], deviceRegion, w);
+#ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
+    if (cursorOverlay) {
+        const bool success = cursorOverlay->render(renderTarget, viewport, deviceRegion);
+#ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
+        return success;
+#else
+        Q_UNUSED(success);
+#endif
+    }
+#endif
 #ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
     return true;
 #endif

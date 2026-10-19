@@ -10,6 +10,7 @@
 #include <opengl/glshader.h>
 #include <QVector2D>
 #include <QMap>
+#include <QPointer>
 #include <chrono>
 #include <memory>
 
@@ -18,6 +19,8 @@ class QTimer;
 
 namespace KWin
 {
+
+class SceneView;
 
 #ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
 using OutlineRegion = QRegion;
@@ -115,6 +118,9 @@ private:
     QColor resolveColor() const;
 
     EffectWindow *m_activeWindow = nullptr;
+#ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
+    QPointer<SceneView> m_sceneView;
+#endif
     // Active windows whose outline is currently suppressed. Used to detect
     // when minimizing or showing the desktop first hides a window so the
     // now-stale outline band can be repainted away exactly once.

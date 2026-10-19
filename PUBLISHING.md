@@ -22,7 +22,7 @@
 - Record only the KWin versions and systems actually tested. A passing build
   is not proof of correct rendering or binary compatibility on another system.
 - Commit and push the release sources, then create a matching version tag
-  (for example, `v1.2.10`) at that commit. Do not move published release tags.
+  (for example, `v1.2.11`) at that commit. Do not move published release tags.
 - Create the GitHub release from that tag. GitHub provides source ZIP and
   tar.gz downloads automatically; do not upload local test archives or binaries
   as if they were universal builds.
@@ -31,7 +31,7 @@
 
 ## Distribution status
 
-Version 1.2.10 is a source release with an installation script. Native package
+Version 1.2.11 is a source release with an installation script. Native package
 recipes, automatic package builds, and OBS repositories are future work; do not
 advertise them as available until they have been implemented and tested.
 

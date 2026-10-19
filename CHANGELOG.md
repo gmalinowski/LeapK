@@ -4,7 +4,19 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
-## [Unreleased]
+## [1.2.11] - 2026-10-19
+
+### Fixed
+
+- On Wayland with KWin 6.6+, defer the software cursor until after the outline
+  in ordinary screen passes. Preserve KWin's existing hardware-cursor exclusions
+  and native cursor rendering, instead of painting over the cursor or drawing
+  it twice. Verified on CachyOS (KWin 6.8+).
+
+### Added
+
+- Cursor-filter regression tests for subtree exclusion, output isolation,
+  early-return cleanup, and preservation of existing hardware-plane exclusions.
 
 ## [1.2.10] - 2026-10-19
 

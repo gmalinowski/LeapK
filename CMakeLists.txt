@@ -61,11 +61,12 @@ target_link_libraries(active-window-outline PRIVATE
 )
 # Identify the loaded library, including uncommitted test builds.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    activewindowoutline.cpp activewindowoutline.h popupfilter.h)
+    activewindowoutline.cpp activewindowoutline.h popupfilter.h cursoroverlay.h)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/activewindowoutline.cpp" OUTLINE_CPP_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/activewindowoutline.h" OUTLINE_HEADER_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/popupfilter.h" OUTLINE_POPUP_HASH)
-string(SHA256 OUTLINE_BUILD_HASH "${OUTLINE_CPP_HASH}${OUTLINE_HEADER_HASH}${OUTLINE_POPUP_HASH}")
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/cursoroverlay.h" OUTLINE_CURSOR_HASH)
+string(SHA256 OUTLINE_BUILD_HASH "${OUTLINE_CPP_HASH}${OUTLINE_HEADER_HASH}${OUTLINE_POPUP_HASH}${OUTLINE_CURSOR_HASH}")
 string(SUBSTRING "${OUTLINE_BUILD_HASH}" 0 12 OUTLINE_BUILD_ID)
 target_compile_definitions(active-window-outline PRIVATE
     ACTIVE_WINDOW_OUTLINE_VERSION="${PROJECT_VERSION}"
@@ -127,10 +128,18 @@ target_compile_definitions(kwin_active-window-outline_config PRIVATE
     ACTIVE_WINDOW_OUTLINE_VERSION="${PROJECT_VERSION}"
 )
 
-option(OUTLINE_BUILD_TESTS "Build popup classification regression tests" OFF)
+option(OUTLINE_BUILD_TESTS "Build popup and cursor regression tests" OFF)
 if(OUTLINE_BUILD_TESTS)
     enable_testing()
     add_executable(outline-popup-filter-test tests/popupfilter_test.cpp)
     target_include_directories(outline-popup-filter-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     add_test(NAME outline-popup-filter COMMAND outline-popup-filter-test)
+    if(KWIN_BACKEND STREQUAL "WAYLAND" AND DETECTED_KWIN_VERSION VERSION_GREATER_EQUAL "6.6")
+        add_executable(outline-cursor-overlay-test tests/cursoroverlay_test.cpp)
+        target_include_directories(outline-cursor-overlay-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+        target_link_libraries(outline-cursor-overlay-test PRIVATE ${KWIN_TARGET})
+        target_compile_definitions(outline-cursor-overlay-test PRIVATE
+            $<TARGET_PROPERTY:active-window-outline,COMPILE_DEFINITIONS>)
+        add_test(NAME outline-cursor-overlay COMMAND outline-cursor-overlay-test)
+    endif()
 endif()

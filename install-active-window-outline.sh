@@ -59,7 +59,7 @@ package_manager=""
 case "${ID:-}" in
   debian|ubuntu) package_manager=apt ;;
   fedora|rhel) package_manager=dnf ;;
-  arch|archlinux) package_manager=pacman ;;
+  arch|archlinux|cachyos) package_manager=pacman ;;
   opensuse*|suse|sles) package_manager=zypper ;;
 esac
 if [[ -z "$package_manager" ]]; then
