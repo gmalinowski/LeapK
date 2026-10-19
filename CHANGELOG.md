@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.1.5] - 2026-10-19
+
+### Fixed
+
+- Restored the generated Qt plugin metadata includes after the source files
+  were renamed for the public repository. Without them, version 1.1.4 built
+  successfully but KWin could not discover either plugin.
+- The installer now validates the compiled KWin plugin ID and version before
+  replacing an installed copy.
+
 ## [1.1.4] - 2026-10-19
 
 ### Fixed

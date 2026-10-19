@@ -55,6 +55,16 @@ cmake -S "$project_dir" -B "$build_dir" \
   -DCMAKE_BUILD_TYPE=Release
 cmake --build "$build_dir" --parallel "$(nproc)"
 
+effect_binary="$build_dir/lib/kwin/effects/plugins/active-window-outline.so"
+plugin_info="$(qtplugininfo6 "$effect_binary" 2>&1 || true)"
+if [[ "$plugin_info" != *'org.kde.kwin.EffectPluginFactory'* \
+   || "$plugin_info" != *'"Id": "active-window-outline"'* \
+   || "$plugin_info" != *'"Version": "'"$version"'"'* ]]; then
+  echo "The compiled library does not contain valid KWin effect metadata." >&2
+  echo "$plugin_info" >&2
+  exit 1
+fi
+
 echo "[3/5] Unloading the previous version…"
 qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect \
   active-window-outline >/dev/null 2>&1 || true
