@@ -1,0 +1,21 @@
+KWin Active Window Outline
+==========================
+
+Adaptation copyright 2026 Grzegorz Malinowski.
+
+This project contains code adapted from:
+
+    Keep Above Outline
+    Copyright Matthias Bauer
+    https://github.com/Powermayer/keep-above-outline
+    License: GPL-3.0-or-later
+
+The adapted project retains the original SPDX copyright and license notices.
+
+Changes made for KWin Active Window Outline include active-window focus
+tracking, screen-level compositor rendering, configurable inside/outside
+placement and outline offset, automatic configuration reloads, updated
+packaging, and installation/uninstallation tooling.
+
+Parts of the adaptation were developed with AI assistance and reviewed and
+tested on KDE Plasma 6 / KWin 6.

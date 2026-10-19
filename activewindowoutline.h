@@ -1,0 +1,123 @@
+/*
+    SPDX-FileCopyrightText: Matthias Bauer
+    SPDX-FileCopyrightText: 2026 Grzegorz Malinowski
+    SPDX-License-Identifier: GPL-3.0-or-later
+*/
+
+#pragma once
+
+#include <effect/effect.h>
+#include <QVector2D>
+#include <QMap>
+#include <chrono>
+
+class QFileSystemWatcher;
+class QTimer;
+
+namespace KWin
+{
+
+#ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
+using OutlineRegion = QRegion;
+using OutlineOutput = Output;
+#else
+using OutlineRegion = Region;
+using OutlineOutput = LogicalOutput;
+#endif
+
+struct OutlineCache {
+    QRectF geometry;
+    QList<QVector2D> borderVerts;
+    QColor borderColor;
+};
+
+class ActiveWindowOutlineEffect : public Effect
+{
+    Q_OBJECT
+
+public:
+    ActiveWindowOutlineEffect();
+
+    void reconfigure(ReconfigureFlags flags) override;
+
+    // The outline is drawn in a screen-level pass (after all windows) rather
+    // than per-window. Drawing per window required marking the window
+    // transformed so the border could spill outside its bounds, but the
+    // PAINT_WINDOW_TRANSFORMED flag makes KWin's blur/background-contrast
+    // effects skip the window — which cleared the blurred background behind
+    // active windows. Painting at screen level avoids the flag entirely.
+#ifdef ACTIVE_WINDOW_OUTLINE_PREPAINT_PRESENT_TIME
+    void prePaintScreen(ScreenPrePaintData &data,
+                        std::chrono::milliseconds presentTime) override;
+#else
+    void prePaintScreen(ScreenPrePaintData &data) override;
+#endif
+
+    void paintScreen(const RenderTarget &renderTarget,
+                     const RenderViewport &viewport,
+                     int mask,
+                     const OutlineRegion &deviceRegion,
+                     OutlineOutput *screen) override;
+
+    bool isActive() const override;
+    QString debug(const QString &parameter) const override;
+
+    static bool supported();
+
+private Q_SLOTS:
+    void slotWindowActivated(KWin::EffectWindow *w);
+    void slotWindowAdded(KWin::EffectWindow *w);
+    void slotWindowDeleted(KWin::EffectWindow *w);
+    void slotWindowFrameGeometryChanged(KWin::EffectWindow *w,
+                                        const QRectF &oldGeometry);
+    void slotWindowMinimizedChanged(KWin::EffectWindow *w);
+    void slotWindowHiddenChanged(KWin::EffectWindow *w);
+    void slotShowingDesktopChanged();
+
+private:
+    void prepareScreenPaint(ScreenPrePaintData &data);
+    bool shouldOutlineWindow(EffectWindow *w) const;
+    bool isBlockingPopup(EffectWindow *w) const;
+    void repaintAllOutlines();
+
+    QRectF expandedGeometryFor(EffectWindow *w) const;
+
+    void generateRoundedRectStrip(const QRectF &outer, qreal outerRadius,
+                                  const QRectF &inner, qreal innerRadius,
+                                  qreal scale,
+                                  QList<QVector2D> &verts);
+
+    void renderOutline(const RenderTarget &renderTarget,
+                       const RenderViewport &viewport,
+                       const OutlineCache &cache,
+                       const OutlineRegion &clipRegion);
+
+    void cacheWindowOutline(EffectWindow *w, const QRectF &geo);
+
+    QColor resolveColor() const;
+
+    EffectWindow *m_activeWindow = nullptr;
+    // Visible menus, combo boxes, tooltips, and Plasma panel popups. Because
+    // the outline is painted after all windows, suppress it while one of these
+    // transient surfaces is open so it never appears above popup content.
+    QSet<EffectWindow *> m_openPopups;
+    // Active windows whose outline is currently suppressed. Used to detect
+    // when minimizing or showing the desktop first hides a window so the
+    // now-stale outline band can be repainted away exactly once.
+    QSet<EffectWindow *> m_suppressedWindows;
+    QMap<EffectWindow *, QRectF> m_lastGeometry;
+    QMap<EffectWindow *, OutlineCache> m_outlineCache;
+    QFileSystemWatcher *m_configWatcher = nullptr;
+    QTimer *m_configReloadTimer = nullptr;
+    QString m_configPath;
+
+    // Config
+    bool m_useAccentColor = true;
+    QColor m_customColor = QColor(61, 174, 233);
+    int m_width = 4;
+    int m_gap = 2;
+    int m_radius = 10;
+    bool m_drawInside = true;
+};
+
+} // namespace KWin

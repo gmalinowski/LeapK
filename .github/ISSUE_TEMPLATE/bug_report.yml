@@ -1,0 +1,56 @@
+name: Bug report
+description: Report a reproducible problem with the effect
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to report a problem.
+  - type: input
+    id: version
+    attributes:
+      label: Effect version
+      placeholder: 1.1.2
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System information
+      description: Distribution, Plasma, KWin, Qt, GPU, and driver versions.
+    validations:
+      required: true
+  - type: dropdown
+    id: session
+    attributes:
+      label: Session
+      options:
+        - Wayland
+        - X11
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: Describe the smallest reliable sequence that demonstrates the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: settings
+    attributes:
+      label: Effect settings and additional context
+      description: Include whether Draw inside window is enabled. Add screenshots, recordings, or logs if useful.
