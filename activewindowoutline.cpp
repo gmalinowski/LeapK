@@ -32,12 +32,13 @@ namespace KWin
 static QByteArray glowFragmentSource()
 {
     const EglContext *context = EglContext::currentContext();
-    const bool modern = context->isOpenGLES()
+    const bool isOpenGLES = !epoxy_is_desktop_gl();
+    const bool modern = isOpenGLES
         ? context->glslVersion() >= Version(3, 0)
         : context->glslVersion() >= Version(1, 40);
 
     QByteArray source;
-    if (context->isOpenGLES()) {
+    if (isOpenGLES) {
         if (modern) {
             source += "#version 300 es\n";
         }
@@ -322,7 +323,11 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
             m_glowShader = ShaderManager::instance()->generateCustomShader(
                 ShaderTrait::Border, QByteArray(), glowFragmentSource());
         }
+#ifdef ACTIVE_WINDOW_OUTLINE_SHADER_POINTER_VALIDITY
+        if (m_glowShader) {
+#else
         if (m_glowShader && m_glowShader->isValid()) {
+#endif
             const qreal reach = m_glowRadius;
             const QRectF farOuter = cache.outerRect.adjusted(-reach, -reach, reach, reach);
             const QRectF farInner = cache.innerRect.adjusted(reach, reach, -reach, -reach);
@@ -629,21 +634,39 @@ void ActiveWindowOutlineEffect::prePaintScreen(ScreenPrePaintData &data)
 }
 #endif
 
+#ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
+bool ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
+#else
 void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
+#endif
                                          const RenderViewport &viewport,
                                          int mask,
                                          const OutlineRegion &deviceRegion,
                                          OutlineOutput *screen)
 {
+#ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
+    if (!effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen)) {
+        return false;
+    }
+#else
     effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen);
+#endif
 
     if (!shouldOutlineWindow(m_activeWindow) || hasVisibleBlockingPopup()) {
+#ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
+        return true;
+#else
         return;
+#endif
     }
 
     EffectWindow *w = m_activeWindow;
     if (w->isMinimized() || w->isHiddenByShowDesktop() || !w->isOnCurrentDesktop()) {
+#ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
+        return true;
+#else
         return;
+#endif
     }
 
     const QRectF currentGeo = w->frameGeometry();
@@ -655,6 +678,9 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     }
 
     renderOutline(renderTarget, viewport, m_outlineCache[w], deviceRegion);
+#ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
+    return true;
+#endif
 }
 
 // Generate a triangle strip between two concentric rounded rectangles.

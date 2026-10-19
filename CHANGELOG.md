@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.2.8] - 2026-10-19
+
+### Fixed
+
+- Build against newer KWin headers used by KDE neon: handle the boolean
+  `paintScreen()` API, use a stable OpenGL context check, and accept the newer
+  shader API without `GLShader::isValid()`.
+
 ## [1.2.7] - 2026-10-19
 
 ### Changed

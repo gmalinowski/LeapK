@@ -63,7 +63,11 @@ public:
     void prePaintScreen(ScreenPrePaintData &data) override;
 #endif
 
+#ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
+    bool paintScreen(const RenderTarget &renderTarget,
+#else
     void paintScreen(const RenderTarget &renderTarget,
+#endif
                      const RenderViewport &viewport,
                      int mask,
                      const OutlineRegion &deviceRegion,

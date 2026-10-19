@@ -81,6 +81,16 @@ else()
             ACTIVE_WINDOW_OUTLINE_PREPAINT_PRESENT_TIME
         )
     endif()
+    if(DETECTED_KWIN_VERSION VERSION_GREATER_EQUAL "6.7")
+        target_compile_definitions(active-window-outline PRIVATE
+            ACTIVE_WINDOW_OUTLINE_SHADER_POINTER_VALIDITY
+        )
+    endif()
+    if(DETECTED_KWIN_VERSION VERSION_GREATER_EQUAL "6.8")
+        target_compile_definitions(active-window-outline PRIVATE
+            ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
+        )
+    endif()
 endif()
 
 # --- Config module plugin ---
