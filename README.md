@@ -6,6 +6,8 @@ The effect is useful with minimal window decorations and tiling layouts, where i
 
 ## Features
 
+![KDE / KWin Active Window Outline](screenshot.png)
+
 - Follows the active KWin window automatically.
 - Uses the current Plasma accent color or a custom color.
 - Configurable width, corner radius, and offset from the window edge.
