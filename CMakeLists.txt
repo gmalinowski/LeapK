@@ -2,7 +2,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 cmake_minimum_required(VERSION 3.20)
-project(active-window-outline VERSION 1.1.2)
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" PROJECT_VERSION_STRING LIMIT_COUNT 1)
+string(STRIP "${PROJECT_VERSION_STRING}" PROJECT_VERSION_STRING)
+if(NOT PROJECT_VERSION_STRING MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+    message(FATAL_ERROR "VERSION must contain a semantic version such as 1.2.3")
+endif()
+project(active-window-outline VERSION "${PROJECT_VERSION_STRING}")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -93,4 +98,7 @@ target_link_libraries(kwin_active-window-outline_config PRIVATE
     KF6::CoreAddons
     KF6::ConfigWidgets
     KF6::KCMUtils
+)
+target_compile_definitions(kwin_active-window-outline_config PRIVATE
+    ACTIVE_WINDOW_OUTLINE_VERSION="${PROJECT_VERSION}"
 )

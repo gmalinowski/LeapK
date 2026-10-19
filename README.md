@@ -13,6 +13,7 @@ The effect is useful with minimal window decorations and tiling layouts, where i
 - Works independently of Qt, GTK, client-side decorations, and the current window theme.
 - Suppresses the outline while Plasma panel popups are open.
 - Provides a graphical configuration page in Desktop Effects.
+- Shows the installed effect version in the configuration page.
 
 ## Compatibility
 

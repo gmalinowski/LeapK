@@ -6,6 +6,16 @@ set -euo pipefail
 
 project_dir="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 build_dir="$project_dir/build-wayland"
+version_file="$project_dir/VERSION"
+if [[ ! -r "$version_file" ]]; then
+  echo "Unable to read the project version from $version_file." >&2
+  exit 1
+fi
+version="$(<"$version_file")"
+if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Invalid project version: $version" >&2
+  exit 1
+fi
 plugin_dir="$(qtpaths6 --plugin-dir 2>/dev/null || true)"
 installed_plugin="$plugin_dir/kwin/effects/plugins/active-window-outline.so"
 updating_existing=false
@@ -17,6 +27,9 @@ if [[ ! -r /etc/os-release ]]; then
   echo "Unable to detect the Linux distribution: /etc/os-release is missing." >&2
   exit 1
 fi
+
+echo "Active Window Outline v$version"
+echo
 
 # shellcheck disable=SC1091
 source /etc/os-release
@@ -79,7 +92,7 @@ qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect \
   active-window-outline >/dev/null 2>&1 || true
 
 echo
-echo "Done. Active Window Outline has been installed."
+echo "Done. Active Window Outline v$version has been installed."
 echo "Configure it in System Settings → Desktop Effects → Active Window Outline."
 if [[ "$updating_existing" == true ]]; then
   echo

@@ -13,6 +13,10 @@
 #include <QDBusConnection>
 #include <QDBusMessage>
 
+#ifndef ACTIVE_WINDOW_OUTLINE_VERSION
+#define ACTIVE_WINDOW_OUTLINE_VERSION "development"
+#endif
+
 K_PLUGIN_CLASS(ActiveWindowOutlineConfig)
 
 ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPluginMetaData &data)
@@ -20,6 +24,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     , m_ui(new Ui::ActiveWindowOutlineConfigForm)
 {
     m_ui->setupUi(widget());
+    m_ui->label_versionValue->setText(QStringLiteral(ACTIVE_WINDOW_OUTLINE_VERSION));
 
     QPalette infoPalette = m_ui->label_info->palette();
     const QColor neutralText = KColorScheme(QPalette::Active, KColorScheme::Window)

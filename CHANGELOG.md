@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.1.3] - 2026-10-19
+
+### Added
+
+- Display the installed version in the graphical configuration window.
+- Display the version at the beginning and end of installation.
+- Add a top-level `VERSION` file as the canonical project version for builds
+  and scripts.
+
 ## [1.1.2] - 2026-10-19
 
 ### Fixed
