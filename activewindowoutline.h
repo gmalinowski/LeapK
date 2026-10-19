@@ -28,7 +28,6 @@ using OutlineOutput = LogicalOutput;
 struct OutlineLayer {
     QList<QVector2D> vertices;
     QColor color;
-    bool additive = false;
 };
 
 struct OutlineCache {

@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.2.2] - 2026-10-19
+
+### Fixed
+
+- Restore KWin's previous OpenGL blend state after drawing the outline, so
+  hover highlights and partial repaints cannot inherit the glow blend mode.
+- Render the neon halo with normal alpha blending, preserving the outline hue
+  on light backgrounds instead of washing the halo out to white.
+
 ## [1.2.1] - 2026-10-19
 
 ### Fixed

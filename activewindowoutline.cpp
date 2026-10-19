@@ -233,6 +233,19 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
                                            renderTarget.colorDescription(),
                                            RenderingIntent::Perceptual);
 
+    // KWin's other effects share this OpenGL context. Preserve both the blend
+    // enable flag and factors; leaving an additive factor behind can change
+    // how subsequently repainted hover highlights and windows are composited.
+    const GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
+    GLint previousSrcRgb = GL_ONE;
+    GLint previousDstRgb = GL_ZERO;
+    GLint previousSrcAlpha = GL_ONE;
+    GLint previousDstAlpha = GL_ZERO;
+    glGetIntegerv(GL_BLEND_SRC_RGB, &previousSrcRgb);
+    glGetIntegerv(GL_BLEND_DST_RGB, &previousDstRgb);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &previousSrcAlpha);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &previousDstAlpha);
+
     for (const OutlineLayer &layer : cache.layers) {
         if (layer.vertices.isEmpty() || layer.color.alpha() == 0) {
             continue;
@@ -255,18 +268,27 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
         vbo->setAttribLayout(std::span(&layout, 1), sizeof(QVector2D));
 
         binder.shader()->setUniform(GLShader::ColorUniform::Color, layer.color);
-        const bool blended = layer.additive || layer.color.alpha() < 255;
+        const bool blended = layer.color.alpha() < 255;
         if (blended) {
             glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA,
-                        layer.additive ? GL_ONE : GL_ONE_MINUS_SRC_ALPHA);
+            // The uniform contains straight (unpremultiplied) RGB and alpha.
+            // Alpha-over keeps the hue of the outline; additive blending
+            // drives light backgrounds toward white.
+            glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
+                                GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        } else {
+            glDisable(GL_BLEND);
         }
 
         vbo->render(clipRegion, GL_TRIANGLES, true);
+    }
 
-        if (blended) {
-            glDisable(GL_BLEND);
-        }
+    glBlendFuncSeparate(previousSrcRgb, previousDstRgb,
+                        previousSrcAlpha, previousDstAlpha);
+    if (blendWasEnabled) {
+        glEnable(GL_BLEND);
+    } else {
+        glDisable(GL_BLEND);
     }
 }
 
@@ -303,8 +325,7 @@ void ActiveWindowOutlineEffect::cacheWindowOutline(EffectWindow *w, const QRectF
     };
     const auto appendLayer = [this, &cache](const QRectF &outer, qreal outerR,
                                             const QRectF &inner, qreal innerR,
-                                            const QColor &color,
-                                            bool additive = false) {
+                                            const QColor &color) {
         if (outer.width() <= 0.0 || outer.height() <= 0.0
             || inner.width() <= 0.0 || inner.height() <= 0.0) {
             return;
@@ -312,7 +333,6 @@ void ActiveWindowOutlineEffect::cacheWindowOutline(EffectWindow *w, const QRectF
         OutlineLayer layer;
         generateRoundedRectStrip(outer, outerR, inner, innerR, 1.0, layer.vertices);
         layer.color = color;
-        layer.additive = additive;
         cache.layers.append(std::move(layer));
     };
 
@@ -321,7 +341,7 @@ void ActiveWindowOutlineEffect::cacheWindowOutline(EffectWindow *w, const QRectF
     if (m_glowEnabled) {
         constexpr int glowBands = 4;
         const qreal step = qreal(m_glowRadius) / glowBands;
-        const qreal opacity[glowBands] = {0.30, 0.18, 0.10, 0.05};
+        const qreal opacity[glowBands] = {0.70, 0.45, 0.25, 0.10};
         for (int band = glowBands - 1; band >= 0; --band) {
             const qreal nearDistance = band * step;
             const qreal farDistance = (band + 1) * step;
@@ -331,14 +351,14 @@ void ActiveWindowOutlineEffect::cacheWindowOutline(EffectWindow *w, const QRectF
                         outerRect.adjusted(-nearDistance, -nearDistance,
                                             nearDistance, nearDistance),
                         outerRadius + nearDistance,
-                        layerColor(opacity[band]), true);
+                        layerColor(opacity[band]));
             appendLayer(innerRect.adjusted(nearDistance, nearDistance,
                                             -nearDistance, -nearDistance),
                         qMax<qreal>(0.0, innerRadius - nearDistance),
                         innerRect.adjusted(farDistance, farDistance,
                                             -farDistance, -farDistance),
                         qMax<qreal>(0.0, innerRadius - farDistance),
-                        layerColor(opacity[band]), true);
+                        layerColor(opacity[band]));
         }
     }
 
