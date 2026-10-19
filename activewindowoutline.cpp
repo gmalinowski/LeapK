@@ -90,9 +90,6 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
                 this, &ActiveWindowOutlineEffect::slotWindowMinimizedChanged);
         connect(w, &EffectWindow::windowHiddenChanged,
                 this, &ActiveWindowOutlineEffect::slotWindowHiddenChanged);
-        if (isBlockingPopup(w) && w->isVisible()) {
-            m_openPopups.insert(w);
-        }
     }
 
     connect(effects, &EffectsHandler::windowActivated,
@@ -141,11 +138,9 @@ void ActiveWindowOutlineEffect::slotWindowAdded(EffectWindow *w)
     connect(w, &EffectWindow::windowHiddenChanged,
             this, &ActiveWindowOutlineEffect::slotWindowHiddenChanged);
 
-    if (isBlockingPopup(w) && w->isVisible()) {
-        m_openPopups.insert(w);
+    if (isBlockingPopup(w)) {
         repaintAllOutlines();
     }
-
 }
 
 bool ActiveWindowOutlineEffect::shouldOutlineWindow(EffectWindow *w) const
@@ -161,18 +156,88 @@ bool ActiveWindowOutlineEffect::isBlockingPopup(EffectWindow *w) const
         || w->isAppletPopup());
 }
 
+bool ActiveWindowOutlineEffect::popupBelongsToWindow(EffectWindow *popup,
+                                                      EffectWindow *window) const
+{
+    if (!popup || !window || popup == window) {
+        return false;
+    }
+
+    // Wayland xdg-popups and well-behaved X11 menus expose their owning
+    // window through the transient relationship. Follow the complete chain so
+    // nested submenus are associated with the original application window.
+    QSet<EffectWindow *> visited;
+    for (EffectWindow *parent = popup->transientFor();
+         parent && !visited.contains(parent);
+         parent = parent->transientFor()) {
+        if (parent == window) {
+            return true;
+        }
+        visited.insert(parent);
+    }
+
+    const auto mainWindows = popup->mainWindows();
+    if (mainWindows.contains(window)) {
+        return true;
+    }
+
+    // Some toolkit menus don't publish a transient parent. Restrict the
+    // fallback to the same process and to surfaces touching the window area,
+    // which avoids adopting a popup belonging to another application.
+    return popup->pid() > 0 && popup->pid() == window->pid()
+        && window->frameGeometry().adjusted(-64, -64, 64, 64)
+               .intersects(popup->frameGeometry());
+}
+
+QList<EffectWindow *> ActiveWindowOutlineEffect::relatedPopups(EffectWindow *window) const
+{
+    QList<EffectWindow *> result;
+    if (!window) {
+        return result;
+    }
+
+    const auto windows = effects->stackingOrder();
+    bool added;
+    do {
+        added = false;
+        for (EffectWindow *candidate : windows) {
+            if (!isBlockingPopup(candidate) || !candidate->isVisible()
+                || candidate->isMinimized() || result.contains(candidate)) {
+                continue;
+            }
+
+            bool belongs = popupBelongsToWindow(candidate, window);
+            if (!belongs) {
+                for (EffectWindow *parentPopup : std::as_const(result)) {
+                    if (popupBelongsToWindow(candidate, parentPopup)) {
+                        belongs = true;
+                        break;
+                    }
+                }
+            }
+
+            if (belongs) {
+                result.append(candidate);
+                added = true;
+            }
+        }
+    } while (added);
+
+    return result;
+}
+
 void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
 {
-    const bool popupWasOpen = m_openPopups.remove(w);
+    if (isBlockingPopup(w)) {
+        effects->addRepaint(expandedGeometryFor(w));
+    }
     if (m_activeWindow == w) {
         m_activeWindow = nullptr;
     }
     m_suppressedWindows.remove(w);
     m_lastGeometry.remove(w);
     m_outlineCache.remove(w);
-    if (popupWasOpen) {
-        repaintAllOutlines();
-    }
+    repaintAllOutlines();
 }
 
 void ActiveWindowOutlineEffect::slotWindowHiddenChanged(EffectWindow *w)
@@ -180,18 +245,7 @@ void ActiveWindowOutlineEffect::slotWindowHiddenChanged(EffectWindow *w)
     if (!isBlockingPopup(w)) {
         return;
     }
-
-    const bool wasOpen = m_openPopups.contains(w);
-    const bool isOpen = w->isVisible();
-    if (wasOpen == isOpen) {
-        return;
-    }
-
-    if (isOpen) {
-        m_openPopups.insert(w);
-    } else {
-        m_openPopups.remove(w);
-    }
+    effects->addRepaint(expandedGeometryFor(w));
     repaintAllOutlines();
 }
 
@@ -315,7 +369,7 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
 void ActiveWindowOutlineEffect::slotWindowFrameGeometryChanged(EffectWindow *w,
                                                             const QRectF &oldGeometry)
 {
-    if (!shouldOutlineWindow(w)) {
+    if (!shouldOutlineWindow(w) && !isBlockingPopup(w)) {
         return;
     }
     const qreal extent = m_drawInside ? 1.0 : m_width + m_gap + 1.0;
@@ -324,6 +378,9 @@ void ActiveWindowOutlineEffect::slotWindowFrameGeometryChanged(EffectWindow *w,
     // window's damage out to the border, so we schedule it explicitly.
     effects->addRepaint(oldGeometry.adjusted(-extent, -extent, extent, extent));
     effects->addRepaint(expandedGeometryFor(w));
+    if (isBlockingPopup(w)) {
+        repaintAllOutlines();
+    }
 }
 
 void ActiveWindowOutlineEffect::slotWindowMinimizedChanged(EffectWindow *w)
@@ -391,6 +448,9 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
         // frame, otherwise our outline would be scissored away.
         if (w->isOnCurrentDesktop()) {
             data.paint += expandedGeometryFor(w).toRect();
+            for (EffectWindow *popup : relatedPopups(w)) {
+                data.paint += expandedGeometryFor(popup).toRect();
+            }
         }
     }
 }
@@ -418,7 +478,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
 {
     effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen);
 
-    if (!shouldOutlineWindow(m_activeWindow) || !m_openPopups.isEmpty()) {
+    if (!shouldOutlineWindow(m_activeWindow)) {
         return;
     }
 
@@ -427,15 +487,40 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         return;
     }
 
-    const QRectF currentGeo = w->frameGeometry();
     const QColor currentColor = resolveColor();
-    if (!m_outlineCache.contains(w) || m_lastGeometry.value(w) != currentGeo
-        || m_outlineCache.value(w).borderColor != currentColor) {
-        cacheWindowOutline(w, currentGeo);
-        m_lastGeometry[w] = currentGeo;
-    }
+    QList<EffectWindow *> outlinedSurfaces{w};
+    outlinedSurfaces.append(relatedPopups(w));
 
-    renderOutline(renderTarget, viewport, m_outlineCache[w], deviceRegion);
+    for (EffectWindow *surface : std::as_const(outlinedSurfaces)) {
+        const QRectF currentGeo = surface->frameGeometry();
+        if (!m_outlineCache.contains(surface)
+            || m_lastGeometry.value(surface) != currentGeo
+            || m_outlineCache.value(surface).borderColor != currentColor) {
+            cacheWindowOutline(surface, currentGeo);
+            m_lastGeometry[surface] = currentGeo;
+        }
+
+        OutlineRegion surfaceClip = deviceRegion;
+        for (EffectWindow *other : std::as_const(outlinedSurfaces)) {
+            if (other == surface) {
+                continue;
+            }
+
+            // Remove the part covered by another member of the same popup
+            // group. The one-pixel overlap also removes a seam when a menu is
+            // positioned exactly against the window or a parent submenu.
+            const QRect cutRect = other->frameGeometry()
+                                      .adjusted(-1, -1, 1, 1)
+                                      .toAlignedRect();
+#ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
+            surfaceClip = surfaceClip.subtracted(QRegion(cutRect));
+#else
+            surfaceClip = surfaceClip.subtracted(Rect(cutRect));
+#endif
+        }
+
+        renderOutline(renderTarget, viewport, m_outlineCache[surface], surfaceClip);
+    }
 }
 
 // Generate a triangle strip between two concentric rounded rectangles.

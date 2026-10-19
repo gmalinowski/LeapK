@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.1.4] - 2026-10-19
+
+### Fixed
+
+- Context menus and nested submenus belonging to the active window are now
+  included in the outlined shape. Overlapping outline segments are clipped so
+  the border follows the exposed popup edges instead of crossing popup content.
+
 ## [1.1.3] - 2026-10-19
 
 ### Added

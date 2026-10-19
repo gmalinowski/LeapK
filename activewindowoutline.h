@@ -78,6 +78,8 @@ private:
     void prepareScreenPaint(ScreenPrePaintData &data);
     bool shouldOutlineWindow(EffectWindow *w) const;
     bool isBlockingPopup(EffectWindow *w) const;
+    bool popupBelongsToWindow(EffectWindow *popup, EffectWindow *window) const;
+    QList<EffectWindow *> relatedPopups(EffectWindow *window) const;
     void repaintAllOutlines();
 
     QRectF expandedGeometryFor(EffectWindow *w) const;
@@ -97,10 +99,6 @@ private:
     QColor resolveColor() const;
 
     EffectWindow *m_activeWindow = nullptr;
-    // Visible menus, combo boxes, tooltips, and Plasma panel popups. Because
-    // the outline is painted after all windows, suppress it while one of these
-    // transient surfaces is open so it never appears above popup content.
-    QSet<EffectWindow *> m_openPopups;
     // Active windows whose outline is currently suppressed. Used to detect
     // when minimizing or showing the desktop first hides a window so the
     // now-stale outline band can be repainted away exactly once.
