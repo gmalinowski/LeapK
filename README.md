@@ -31,8 +31,13 @@ The effect is useful with minimal window decorations and tiling layouts, where i
 | X11 | Build support included; currently not tested by the maintainers |
 | Plasma 5 | Not supported |
 
-Version 1.2.8 has been tested on Wayland with TUXEDO OS 24.04
-(KWin 6.6.6), KDE neon User Edition, and KDE neon Testing Edition.
+Version 1.2.8 has been tested on Wayland with:
+
+| Distribution | Plasma | KWin | Base |
+| --- | --- | --- | --- |
+| TUXEDO OS 24.04 | — | 6.6.6 | — |
+| KDE neon User Edition | 6.8.0 | 6.8.0 | Ubuntu 24.04 (Noble) |
+| KDE neon Testing Edition | 6.8.0 | 6.8.1 | Ubuntu 24.04 (Noble) |
 
 KWin effects are native plugins and use KWin's private binary interface. Rebuild and reinstall the effect after a major KWin update if it stops loading.
 
