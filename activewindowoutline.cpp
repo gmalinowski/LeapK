@@ -79,6 +79,38 @@ void main()
     return source;
 }
 
+#ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
+// KWin before 6.6 has no Border shader trait. Supply the position varying
+// explicitly instead of relying on that trait's generated vertex shader.
+static QByteArray glowVertexSource()
+{
+    const EglContext *context = EglContext::currentContext();
+    const bool isOpenGLES = !epoxy_is_desktop_gl();
+    const bool modern = isOpenGLES
+        ? context->glslVersion() >= Version(3, 0)
+        : context->glslVersion() >= Version(1, 40);
+
+    QByteArray source;
+    if (isOpenGLES && modern) {
+        source += "#version 300 es\n";
+    } else if (!isOpenGLES && modern) {
+        source += "#version 140\n";
+    }
+    source += modern
+        ? "in vec4 position;\nout vec2 position0;\n"
+        : "attribute vec4 position;\nvarying vec2 position0;\n";
+    source += R"GLSL(
+uniform mat4 modelViewProjectionMatrix;
+void main()
+{
+    position0 = position.xy;
+    gl_Position = modelViewProjectionMatrix * position;
+}
+)GLSL";
+    return source;
+}
+#endif
+
 KWIN_EFFECT_FACTORY_SUPPORTED(ActiveWindowOutlineEffect, "metadata.json",
                               return ActiveWindowOutlineEffect::supported();)
 
@@ -302,26 +334,32 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
     glGetIntegerv(GL_SCISSOR_BOX, previousScissorBox);
     glEnable(GL_SCISSOR_TEST);
 
-    // KWin passes paintScreen() a device-space damage region. The VBO's
-    // hardware clipping expects render-target-local coordinates instead.
-    // Match ItemRendererOpenGL's conversion, including output rotation and
-    // the inset used by an intermediate render target.
+    // The VBO's hardware clipping expects render-target-local coordinates.
+    // Older KWin passes a logical region and exposes the conversion directly.
+#ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
+    OutlineRegion scissorRegion = viewport.mapToRenderTarget(clipRegion);
+#else
+    // Newer KWin passes a device-space damage region. Match
+    // ItemRendererOpenGL's conversion, including output rotation and the
+    // inset used by an intermediate render target.
     const QSize bufferOffset = renderTarget.transform().map(
         QSize(viewport.renderOffset().x(), viewport.renderOffset().y()));
-#ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
-    OutlineRegion scissorRegion = QRect(
-#else
     OutlineRegion scissorRegion = Rect(
-#endif
         QPoint(bufferOffset.width(), bufferOffset.height()),
         renderTarget.size() - 2 * bufferOffset);
     scissorRegion &= viewport.transform().map(
         clipRegion & renderTarget.transformedRect(), renderTarget.transformedSize());
+#endif
 
     if (m_glowEnabled && cache.sourceColor.alpha() > 0) {
         if (!m_glowShader) {
+#ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
+            m_glowShader = ShaderManager::instance()->generateCustomShader(
+                ShaderTrait::UniformColor, glowVertexSource(), glowFragmentSource());
+#else
             m_glowShader = ShaderManager::instance()->generateCustomShader(
                 ShaderTrait::Border, QByteArray(), glowFragmentSource());
+#endif
         }
 #ifdef ACTIVE_WINDOW_OUTLINE_SHADER_POINTER_VALIDITY
         if (m_glowShader) {

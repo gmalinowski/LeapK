@@ -15,6 +15,27 @@ run_privileged() {
   fi
 }
 
+qt_plugin_dir() {
+  local candidate path
+  for candidate in qtpaths6 /usr/lib/qt6/bin/qtpaths6 /usr/lib/qt6/bin/qtpaths; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      path="$("$candidate" --plugin-dir 2>/dev/null || true)"
+      if [[ "$path" == /* ]]; then
+        printf '%s\n' "$path"
+        return 0
+      fi
+    fi
+  done
+  if command -v qmake6 >/dev/null 2>&1; then
+    path="$(qmake6 -query QT_INSTALL_PLUGINS 2>/dev/null || true)"
+    if [[ "$path" == /* ]]; then
+      printf '%s\n' "$path"
+      return 0
+    fi
+  fi
+  return 1
+}
+
 effect_id="active-window-outline"
 config_group="Effect-active-window-outline"
 
@@ -27,9 +48,9 @@ if command -v qdbus6 >/dev/null 2>&1; then
 fi
 
 echo "[2/4] Removing the effect files…"
-plugin_dir="$(qtpaths6 --plugin-dir 2>/dev/null || true)"
+plugin_dir="$(qt_plugin_dir || true)"
 if [[ -z "$plugin_dir" || "$plugin_dir" != /* ]]; then
-  echo "Unable to determine the Qt 6 plugin directory." >&2
+  echo "Unable to determine the Qt 6 plugin directory (qtpaths6 or qmake6)." >&2
   exit 1
 fi
 

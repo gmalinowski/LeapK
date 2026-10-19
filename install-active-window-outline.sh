@@ -148,12 +148,33 @@ elif [[ "$skip_deps" == false ]]; then
   echo "Continuing with the installed toolchain; CMake will report missing dependencies."
 fi
 
-for command in cmake qtpaths6 kreadconfig6 kwriteconfig6; do
+for command in cmake kreadconfig6 kwriteconfig6; do
   if ! command -v "$command" >/dev/null 2>&1; then
     echo "Required tool '$command' is missing. Install the matching Qt 6/KDE build package." >&2
     exit 1
   fi
 done
+
+qt_plugin_dir() {
+  local candidate path
+  for candidate in qtpaths6 /usr/lib/qt6/bin/qtpaths6 /usr/lib/qt6/bin/qtpaths; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      path="$("$candidate" --plugin-dir 2>/dev/null || true)"
+      if [[ "$path" == /* ]]; then
+        printf '%s\n' "$path"
+        return 0
+      fi
+    fi
+  done
+  if command -v qmake6 >/dev/null 2>&1; then
+    path="$(qmake6 -query QT_INSTALL_PLUGINS 2>/dev/null || true)"
+    if [[ "$path" == /* ]]; then
+      printf '%s\n' "$path"
+      return 0
+    fi
+  fi
+  return 1
+}
 
 plugin_info_tool=""
 for candidate in qtplugininfo6 qtplugininfo-qt6; do
@@ -167,9 +188,9 @@ if [[ -z "$plugin_info_tool" ]]; then
   exit 1
 fi
 
-plugin_dir="$(qtpaths6 --plugin-dir 2>/dev/null || true)"
+plugin_dir="$(qt_plugin_dir || true)"
 if [[ -z "$plugin_dir" || "$plugin_dir" != /* ]]; then
-  echo "Unable to determine the Qt 6 plugin directory." >&2
+  echo "Unable to determine the Qt 6 plugin directory (qtpaths6 or qmake6)." >&2
   exit 1
 fi
 installed_plugin="$plugin_dir/kwin/effects/plugins/active-window-outline.so"

@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.2.9] - 2026-10-19
+
+### Fixed
+
+- Add a KWin 6.4.x code path using its render-viewport clipping API and a
+  custom glow vertex shader instead of the newer `ShaderTrait::Border`.
+  Compatibility with KWin 6.4.x has not yet been tested on that version.
+- Find Qt's plugin directory on Arch-based systems where `qtpaths6` is installed
+  outside `PATH`; use `qmake6` as a fallback in both installer and uninstaller.
+
 ## [1.2.8] - 2026-10-19
 
 ### Fixed

@@ -39,6 +39,10 @@ Version 1.2.8 has been tested on Wayland with:
 | KDE neon User Edition | 6.8.0 | 6.8.0 | Ubuntu 24.04 (Noble) |
 | KDE neon Testing Edition | 6.8.0 | 6.8.1 | Ubuntu 24.04 (Noble) |
 
+Version 1.2.9 was also installed successfully on CachyOS with KWin 6.8.0
+(Wayland). It includes a compatibility path for KWin 6.4.x, but that path has
+not yet been tested on a KWin 6.4 system.
+
 KWin effects are native plugins and use KWin's private binary interface. Rebuild and reinstall the effect after a major KWin update if it stops loading.
 
 ## Installation
