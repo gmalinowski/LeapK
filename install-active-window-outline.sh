@@ -5,7 +5,13 @@
 set -euo pipefail
 
 project_dir="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-build_dir="$project_dir/build-wayland"
+build_dir="$(mktemp -d /tmp/active-window-outline-build.XXXXXX)"
+cleanup() {
+  if command -v cmake >/dev/null 2>&1; then
+    cmake -E remove_directory "$build_dir"
+  fi
+}
+trap cleanup EXIT
 version_file="$project_dir/VERSION"
 if [[ ! -r "$version_file" ]]; then
   echo "Unable to read the project version from $version_file." >&2

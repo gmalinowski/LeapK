@@ -13,7 +13,7 @@
 - Add a screenshot or short GIF showing a focused and unfocused window.
 - Confirm the effect on a clean Plasma 6 Wayland session.
 - Test installation, update, logout/login, configuration, and uninstallation.
-- Create a signed or annotated `v1.1.5` tag.
+- Create a signed or annotated `v1.1.6` tag.
 - Attach the source archive generated from that tag to the GitHub release.
 - Copy the matching changelog section into the release notes.
 

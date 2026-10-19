@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.1.6] - 2026-10-19
+
+### Changed
+
+- Simplified popup handling: the active-window outline is temporarily hidden
+  whenever KWin reports a visible context menu, submenu, dropdown, combo-box
+  popup, tooltip, or Plasma panel popup. It returns when the popup closes.
+- Removed the experimental composite outline around application menus because
+  toolkit surface geometry could still leave the window outline above them.
+- The installer now builds in a temporary directory and cleans it on exit, so
+  installing the effect no longer leaves binaries inside the source tree.
+
 ## [1.1.5] - 2026-10-19
 
 ### Fixed

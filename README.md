@@ -11,8 +11,8 @@ The effect is useful with minimal window decorations and tiling layouts, where i
 - Configurable width, corner radius, and offset from the window edge.
 - Can draw inside the window, keeping the outline visible on maximized and tiled windows.
 - Works independently of Qt, GTK, client-side decorations, and the current window theme.
-- Extends the outline around context menus and submenus belonging to the active window.
-- Keeps popup contents clear by removing internal outline segments where surfaces overlap.
+- Temporarily hides the outline while context menus, submenus, dropdowns,
+  tooltips, or Plasma panel popups are visible.
 - Provides a graphical configuration page in Desktop Effects.
 - Shows the installed effect version in the configuration page.
 

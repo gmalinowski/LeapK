@@ -156,74 +156,20 @@ bool ActiveWindowOutlineEffect::isBlockingPopup(EffectWindow *w) const
         || w->isAppletPopup());
 }
 
-bool ActiveWindowOutlineEffect::popupBelongsToWindow(EffectWindow *popup,
-                                                      EffectWindow *window) const
+bool ActiveWindowOutlineEffect::hasVisibleBlockingPopup() const
 {
-    if (!popup || !window || popup == window) {
-        return false;
-    }
-
-    // Wayland xdg-popups and well-behaved X11 menus expose their owning
-    // window through the transient relationship. Follow the complete chain so
-    // nested submenus are associated with the original application window.
-    QSet<EffectWindow *> visited;
-    for (EffectWindow *parent = popup->transientFor();
-         parent && !visited.contains(parent);
-         parent = parent->transientFor()) {
-        if (parent == window) {
+    // Query the current stacking order on every paint instead of remembering
+    // popup state from windowAdded. Toolkits often create a popup before it is
+    // visible, so checking only at creation time misses context menus.
+    for (EffectWindow *candidate : effects->stackingOrder()) {
+        if (isBlockingPopup(candidate) && !candidate->isDeleted()
+            && candidate->isVisible() && !candidate->isMinimized()
+            && candidate->isOnCurrentDesktop()
+            && !candidate->isHiddenByShowDesktop()) {
             return true;
         }
-        visited.insert(parent);
     }
-
-    const auto mainWindows = popup->mainWindows();
-    if (mainWindows.contains(window)) {
-        return true;
-    }
-
-    // Some toolkit menus don't publish a transient parent. Restrict the
-    // fallback to the same process and to surfaces touching the window area,
-    // which avoids adopting a popup belonging to another application.
-    return popup->pid() > 0 && popup->pid() == window->pid()
-        && window->frameGeometry().adjusted(-64, -64, 64, 64)
-               .intersects(popup->frameGeometry());
-}
-
-QList<EffectWindow *> ActiveWindowOutlineEffect::relatedPopups(EffectWindow *window) const
-{
-    QList<EffectWindow *> result;
-    if (!window) {
-        return result;
-    }
-
-    const auto windows = effects->stackingOrder();
-    bool added;
-    do {
-        added = false;
-        for (EffectWindow *candidate : windows) {
-            if (!isBlockingPopup(candidate) || !candidate->isVisible()
-                || candidate->isMinimized() || result.contains(candidate)) {
-                continue;
-            }
-
-            bool belongs = popupBelongsToWindow(candidate, window);
-            if (!belongs) {
-                for (EffectWindow *parentPopup : std::as_const(result)) {
-                    if (popupBelongsToWindow(candidate, parentPopup)) {
-                        belongs = true;
-                        break;
-                    }
-                }
-            }
-
-            if (belongs) {
-                result.append(candidate);
-                added = true;
-            }
-        }
-    } while (added);
-
-    return result;
+    return false;
 }
 
 void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
@@ -448,9 +394,6 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
         // frame, otherwise our outline would be scissored away.
         if (w->isOnCurrentDesktop()) {
             data.paint += expandedGeometryFor(w).toRect();
-            for (EffectWindow *popup : relatedPopups(w)) {
-                data.paint += expandedGeometryFor(popup).toRect();
-            }
         }
     }
 }
@@ -478,7 +421,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
 {
     effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen);
 
-    if (!shouldOutlineWindow(m_activeWindow)) {
+    if (!shouldOutlineWindow(m_activeWindow) || hasVisibleBlockingPopup()) {
         return;
     }
 
@@ -487,40 +430,15 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         return;
     }
 
+    const QRectF currentGeo = w->frameGeometry();
     const QColor currentColor = resolveColor();
-    QList<EffectWindow *> outlinedSurfaces{w};
-    outlinedSurfaces.append(relatedPopups(w));
-
-    for (EffectWindow *surface : std::as_const(outlinedSurfaces)) {
-        const QRectF currentGeo = surface->frameGeometry();
-        if (!m_outlineCache.contains(surface)
-            || m_lastGeometry.value(surface) != currentGeo
-            || m_outlineCache.value(surface).borderColor != currentColor) {
-            cacheWindowOutline(surface, currentGeo);
-            m_lastGeometry[surface] = currentGeo;
-        }
-
-        OutlineRegion surfaceClip = deviceRegion;
-        for (EffectWindow *other : std::as_const(outlinedSurfaces)) {
-            if (other == surface) {
-                continue;
-            }
-
-            // Remove the part covered by another member of the same popup
-            // group. The one-pixel overlap also removes a seam when a menu is
-            // positioned exactly against the window or a parent submenu.
-            const QRect cutRect = other->frameGeometry()
-                                      .adjusted(-1, -1, 1, 1)
-                                      .toAlignedRect();
-#ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
-            surfaceClip = surfaceClip.subtracted(QRegion(cutRect));
-#else
-            surfaceClip = surfaceClip.subtracted(Rect(cutRect));
-#endif
-        }
-
-        renderOutline(renderTarget, viewport, m_outlineCache[surface], surfaceClip);
+    if (!m_outlineCache.contains(w) || m_lastGeometry.value(w) != currentGeo
+        || m_outlineCache.value(w).borderColor != currentColor) {
+        cacheWindowOutline(w, currentGeo);
+        m_lastGeometry[w] = currentGeo;
     }
+
+    renderOutline(renderTarget, viewport, m_outlineCache[w], deviceRegion);
 }
 
 // Generate a triangle strip between two concentric rounded rectangles.

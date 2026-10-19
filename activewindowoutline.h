@@ -78,8 +78,7 @@ private:
     void prepareScreenPaint(ScreenPrePaintData &data);
     bool shouldOutlineWindow(EffectWindow *w) const;
     bool isBlockingPopup(EffectWindow *w) const;
-    bool popupBelongsToWindow(EffectWindow *popup, EffectWindow *window) const;
-    QList<EffectWindow *> relatedPopups(EffectWindow *window) const;
+    bool hasVisibleBlockingPopup() const;
     void repaintAllOutlines();
 
     QRectF expandedGeometryFor(EffectWindow *w) const;
