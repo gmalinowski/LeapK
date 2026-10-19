@@ -4,6 +4,34 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [Unreleased]
+
+## [1.2.10] - 2026-10-19
+
+### Fixed
+
+- Clip the final screen-level outline to visible panels stacked above the
+  active window. On Wayland, use Plasma's animated blur/contrast region when
+  available so floating-panel margins do not cut the outline in the wrong
+  place. Use the surface origin for mask coordinates and the panel's input
+  region as a conservative fallback when its theme supplies no background mask.
+- Use KWin 6.7+'s `SurfaceInterface::blurRegion()` instead of removed Wayland
+  blur headers, retaining the older API for KWin 6.4–6.6.
+- Recognize grabbed popups as blocking menus, including untyped Wayland
+  `xdg_popup` windows and KWin's internal titlebar menu. Ungrabbed generic
+  popups do not hide the outline merely because they are popups.
+- Suppress the outline for input-accepting Wayland popups in the active
+  window's transient tree, covering Firefox context menus that do not request
+  a popup grab. Exclude explicit tooltips and input-transparent popups from
+  this fallback.
+
+### Added
+
+- Read-only window/panel diagnostics with a loaded-build fingerprint and a
+  capture script for reproducing context-menu and floating-panel issues.
+- Optional popup-filter regression tests covering interactive menus, nested
+  popups, tooltips, input-transparent surfaces, ownership, and deleted windows.
+
 ## [1.2.9] - 2026-10-19
 
 ### Fixed

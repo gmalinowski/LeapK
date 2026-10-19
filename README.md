@@ -18,7 +18,10 @@ The effect is useful with minimal window decorations and tiling layouts, where i
 - Optional smooth, accent-colored glow with a configurable size.
 - Works independently of Qt, GTK, client-side decorations, and the current window theme.
 - Temporarily hides the outline while context menus, submenus, dropdowns,
-  combo-box lists, or Plasma panel popups are visible.
+  combo-box lists, or Plasma panel popups are visible, including Firefox
+  context menus and KWin's titlebar menu.
+- Clips the outline around visible panels, using the animated panel background
+  mask on Wayland when available to follow floating-panel transitions.
 - Provides a graphical configuration page in Desktop Effects.
 - Shows the installed effect version in the configuration page.
 
@@ -31,7 +34,14 @@ The effect is useful with minimal window decorations and tiling layouts, where i
 | X11 | Build support included; currently not tested by the maintainers |
 | Plasma 5 | Not supported |
 
-Version 1.2.8 has been tested on Wayland with:
+The code shipped in 1.2.10 was built and tested on Wayland with KWin 6.6.6.
+Runtime testing confirmed floating-panel clipping and menu suppression,
+including Firefox context menus. Its popup-filter regression tests also pass;
+these logic tests do not replace visual testing in a running Plasma session.
+
+Earlier releases were tested on Wayland with the following systems. These are
+historical results, not a claim that every new release has been retested on
+every distribution:
 
 | Distribution | Plasma | KWin | Base |
 | --- | --- | --- | --- |
@@ -43,13 +53,19 @@ Version 1.2.9 was also installed successfully on CachyOS with KWin 6.8.0
 (Wayland). It includes a compatibility path for KWin 6.4.x, but that path has
 not yet been tested on a KWin 6.4 system.
 
-KWin effects are native plugins and use KWin's private binary interface. Rebuild and reinstall the effect after a major KWin update if it stops loading.
+KWin effects are native plugins and use KWin's private binary interface.
+Compatibility code for multiple KWin versions does not make one compiled
+binary portable between those versions. A KWin update can require rebuilding
+and reinstalling the effect even when the effect's source has not changed.
 
 ## Installation
 
+This release is distributed as source code. Prebuilt `.deb`/`.rpm` packages
+and an OBS update repository are not provided yet.
+
 ### Guided Wayland installation
 
-Clone the repository or download and extract the latest source release, then
+Clone the repository or download and extract a [source release](https://github.com/gmalinowski/kwin-active-window-outline/releases), then
 run this command from the project directory:
 
 ```bash
@@ -122,6 +138,19 @@ With **Draw inside window** enabled, the offset moves the outline farther into t
 
 With the option disabled, the offset moves the outline outside the window. The effect only draws pixels; it does not move windows or reserve layout space. An external outline can therefore be clipped at a screen edge or overlap a neighboring tiled window. Configure sufficient gaps in your tiling script if you use outside drawing.
 
+### Panels and popup menus
+
+On Wayland, the effect prefers the panel's background mask. If the theme does
+not provide one, the panel's input region is used as an approximation: its
+desktop-facing edge follows the floating animation, but it also includes the
+gap towards the screen edge for pointer access. On X11, or when no usable
+surface region is available, clipping falls back to the panel frame.
+
+The menu filter also covers interactive Wayland popups belonging to the active
+window even without a popup grab, as used by Firefox. This can include other
+interactive popup lists, not just context menus. Explicit tooltips and
+input-transparent surfaces are excluded from this fallback.
+
 ## Updating
 
 Pull or extract the new source, run the installer again, then log out and back in:
@@ -154,6 +183,24 @@ This is expected: the outline is outside the screen bounds. Enable **Draw inside
 ### Settings do not update immediately
 
 Version 1.1.1 and later watch `kwinrc` and reload saved settings automatically. If an older native library is still loaded, log out and back in.
+
+### Report a panel or context-menu problem
+
+Version 1.2.10 includes a read-only diagnostics script. After installing it and
+logging out and back in, run this from the extracted source directory:
+
+```bash
+bash collect-outline-diagnostics.sh
+```
+
+For the next 20 seconds, switch to another window, open and close its context
+menu, then move it towards and away from the floating panel. Attach the log
+file printed by the script. It records the loaded build ID, window flags,
+geometry, and the source of the panel clipping region; it does not record
+window titles or content and does not change your settings.
+Review the log before sharing it. Include a screenshot or recording if the
+problem is visual, as geometry and window flags alone cannot show the rendered
+result. Do not run the script with `sudo`.
 
 ### Compilation fails on KDE neon
 

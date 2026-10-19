@@ -92,7 +92,9 @@ private:
     void prepareScreenPaint(ScreenPrePaintData &data);
     bool shouldOutlineWindow(EffectWindow *w) const;
     bool isBlockingPopup(EffectWindow *w) const;
+    bool popupAcceptsInput(EffectWindow *w) const;
     bool hasVisibleBlockingPopup() const;
+    OutlineRegion panelOcclusionRegion(EffectWindow *w, QString *source = nullptr) const;
     void repaintAllOutlines();
 
     QRectF expandedGeometryFor(EffectWindow *w) const;
@@ -105,7 +107,8 @@ private:
     void renderOutline(const RenderTarget &renderTarget,
                        const RenderViewport &viewport,
                        const OutlineCache &cache,
-                       const OutlineRegion &clipRegion);
+                       const OutlineRegion &clipRegion,
+                       EffectWindow *outlinedWindow);
 
     void cacheWindowOutline(EffectWindow *w, const QRectF &geo);
 

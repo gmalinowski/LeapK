@@ -8,14 +8,32 @@
 - License: GPL-3.0
 - Suggested topics: `kde`, `kde-plasma`, `kwin`, `kwin-effect`, `plasma-6`, `wayland`, `window-manager`, `accessibility`, `focus`
 
-## Before the first public release
+## Before each release
 
-- Add a screenshot or short GIF showing a focused and unfocused window.
+- Keep screenshots representative of the current appearance and defaults.
+- Set `VERSION` and `KPlugin.Version` in `metadata.json` to the same version.
+- Move the relevant changelog entries into a dated release section.
+- Build with `OUTLINE_BUILD_TESTS=ON` and run CTest as documented in
+  [CONTRIBUTING.md](CONTRIBUTING.md). Run ShellCheck on the shell scripts.
 - Confirm the effect on a clean Plasma 6 Wayland session.
 - Test installation, update, logout/login, configuration, and uninstallation.
-- Create a signed or annotated `v1.2.7` tag.
-- Attach the source archive generated from that tag to the GitHub release.
+- Check floating and non-floating panels, application context menus,
+  Firefox context menus, KWin's titlebar menu, and hover tooltips.
+- Record only the KWin versions and systems actually tested. A passing build
+  is not proof of correct rendering or binary compatibility on another system.
+- Commit and push the release sources, then create a matching version tag
+  (for example, `v1.2.10`) at that commit. Do not move published release tags.
+- Create the GitHub release from that tag. GitHub provides source ZIP and
+  tar.gz downloads automatically; do not upload local test archives or binaries
+  as if they were universal builds.
 - Copy the matching changelog section into the release notes.
+- Remind users to log out and back in after updating a native KWin plugin.
+
+## Distribution status
+
+Version 1.2.10 is a source release with an installation script. Native package
+recipes, automatic package builds, and OBS repositories are future work; do not
+advertise them as available until they have been implemented and tested.
 
 ## Optional KDE Store listing
 

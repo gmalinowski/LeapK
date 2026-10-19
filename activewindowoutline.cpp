@@ -5,14 +5,25 @@
 */
 
 #include "activewindowoutline.h"
+#include "popupfilter.h"
 #include <effect/effecthandler.h>
 #include <effect/effectwindow.h>
+#include <window.h>
 #include <opengl/glshader.h>
 #include <opengl/glshadermanager.h>
 #include <opengl/glvertexbuffer.h>
 #include <opengl/eglcontext.h>
 #include <core/rendertarget.h>
 #include <core/renderviewport.h>
+#ifndef ACTIVE_WINDOW_OUTLINE_X11
+#ifdef ACTIVE_WINDOW_OUTLINE_SURFACE_BLUR_REGION
+#include <core/region.h>
+#else
+#include <wayland/blur.h>
+#include <wayland/contrast.h>
+#endif
+#include <wayland/surface.h>
+#endif
 #ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
 #include <core/rect.h>
 #endif
@@ -240,13 +251,29 @@ bool ActiveWindowOutlineEffect::shouldOutlineWindow(EffectWindow *w) const
 
 bool ActiveWindowOutlineEffect::isBlockingPopup(EffectWindow *w) const
 {
-    // Do not use the broad isPopupWindow() category here. Toolkits also use
-    // generic popup surfaces for transient hover and text-input UI, which can
-    // appear for a single frame and make the outline flicker while typing or
-    // moving the pointer. The semantic menu types cover the surfaces that can
-    // actually obscure the window outline.
-    return w && (w->isMenu() || w->isDropdownMenu() || w->isPopupMenu()
-        || w->isComboBox() || w->isAppletPopup());
+    if (!w || w->isDeleted()) {
+        return false;
+    }
+    // Native xdg_popup menus may have WindowType::Unknown. KWin's own
+    // titlebar menu is an internal window, not necessarily a semantic menu
+    // either. A grab is sufficient, but not necessary: Firefox also opens
+    // interactive menus without one. The fallback checks input and ownership
+    // instead of treating every generic hover popup as a blocking menu.
+    return w->isMenu() || w->isDropdownMenu() || w->isPopupMenu()
+        || w->isComboBox() || w->isAppletPopup()
+        || (w->isPopupWindow() && w->window() && w->window()->hasPopupGrab())
+        || OutlinePopupFilter::isOwnedInteractivePopup(w, m_activeWindow,
+                                                       popupAcceptsInput(w));
+}
+
+bool ActiveWindowOutlineEffect::popupAcceptsInput(EffectWindow *w) const
+{
+#ifndef ACTIVE_WINDOW_OUTLINE_X11
+    if (w && !w->isDeleted() && w->isPopupWindow() && w->surface()) {
+        return !w->surface()->input().isEmpty();
+    }
+#endif
+    return false;
 }
 
 bool ActiveWindowOutlineEffect::hasVisibleBlockingPopup() const
@@ -295,10 +322,63 @@ void ActiveWindowOutlineEffect::repaintAllOutlines()
     }
 }
 
+OutlineRegion ActiveWindowOutlineEffect::panelOcclusionRegion(EffectWindow *w,
+                                                             QString *source) const
+{
+    const auto label = [source](const char *value) {
+        if (source) {
+            *source = QString::fromLatin1(value);
+        }
+    };
+#ifndef ACTIVE_WINDOW_OUTLINE_X11
+    if (SurfaceInterface *surface = w->surface()) {
+        OutlineRegion region;
+        OutlineRegion input;
+        // These are surface-local coordinates, not decoration/frame-local.
+        const QPointF origin = w->bufferGeometry().topLeft();
+#ifdef ACTIVE_WINDOW_OUTLINE_SURFACE_BLUR_REGION
+        region = surface->blurRegion().translated(origin).roundedOut();
+        input = surface->input().translated(origin).roundedOut();
+#else
+        if (BlurInterface *blur = surface->blur()) {
+            region = blur->region();
+        }
+        if (region.isEmpty()) {
+            if (ContrastInterface *contrast = surface->contrast()) {
+                region = contrast->region();
+            }
+        }
+        region.translate(origin.toPoint());
+        input = surface->input().translated(origin.toPoint());
+#endif
+        // Clamp protocol regions (which can cover the entire coordinate
+        // space) before converting them to render-target coordinates.
+        const OutlineRegion bounds(QRegion(QRectF(w->bufferGeometry()).toAlignedRect()));
+        region &= bounds;
+        input &= bounds;
+        if (!region.isEmpty()) {
+            label("background-mask");
+            return region;
+        }
+        if (!input.isEmpty()) {
+            // Plasma updates this even when its theme disables blur. The
+            // desktop-facing edge follows the animated panel background.
+            // The screen-facing gap is included for Fitts's law, so this is
+            // a conservative fallback, not an exact visual/alpha mask.
+            label("input-fallback");
+            return input;
+        }
+    }
+#endif
+    label("frame-fallback");
+    return OutlineRegion(QRegion(QRectF(w->frameGeometry()).toAlignedRect()));
+}
+
 void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
                                            const RenderViewport &viewport,
                                            const OutlineCache &cache,
-                                           const OutlineRegion &clipRegion)
+                                           const OutlineRegion &clipRegion,
+                                           EffectWindow *outlinedWindow)
 {
     if (cache.layers.isEmpty()) {
         return;
@@ -350,6 +430,33 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
     scissorRegion &= viewport.transform().map(
         clipRegion & renderTarget.transformedRect(), renderTarget.transformedSize());
 #endif
+
+    // Draw only in the final screen pass so the existing popup suppression
+    // applies to every part of the outline. Floating Plasma panels have a
+    // transparent margin inside their frame; their blur/contrast region tracks
+    // the actual animated panel background more closely than frameGeometry().
+    bool aboveOutlinedWindow = false;
+    for (EffectWindow *candidate : effects->stackingOrder()) {
+        if (candidate == outlinedWindow) {
+            aboveOutlinedWindow = true;
+            continue;
+        }
+        if (aboveOutlinedWindow && candidate->isDock() && !candidate->isDeleted()
+            && candidate->isVisible() && !candidate->isMinimized()
+            && candidate->isOnCurrentDesktop()
+            && !candidate->isHiddenByShowDesktop()) {
+            scissorRegion -= viewport.mapToRenderTarget(panelOcclusionRegion(candidate));
+        }
+    }
+
+    if (scissorRegion.isEmpty()) {
+        glScissor(previousScissorBox[0], previousScissorBox[1],
+                  previousScissorBox[2], previousScissorBox[3]);
+        if (!scissorWasEnabled) {
+            glDisable(GL_SCISSOR_TEST);
+        }
+        return;
+    }
 
     if (m_glowEnabled && cache.sourceColor.alpha() > 0) {
         if (!m_glowShader) {
@@ -619,9 +726,12 @@ bool ActiveWindowOutlineEffect::isActive() const
     return shouldOutlineWindow(m_activeWindow);
 }
 
-QString ActiveWindowOutlineEffect::debug(const QString &) const
+QString ActiveWindowOutlineEffect::debug(const QString &parameter) const
 {
-    return QStringLiteral("width=%1 offset=%2 radius=%3 drawInside=%4 smoothEdges=%5 glow=%6 glowRadius=%7 accentOpacity=%8")
+    QString result = QStringLiteral("version=" ACTIVE_WINDOW_OUTLINE_VERSION
+                                   " build=" ACTIVE_WINDOW_OUTLINE_BUILD_ID
+                                   " kwinHeaders=" ACTIVE_WINDOW_OUTLINE_KWIN_VERSION "\n");
+    result += QStringLiteral("width=%1 offset=%2 radius=%3 drawInside=%4 smoothEdges=%5 glow=%6 glowRadius=%7 accentOpacity=%8")
         .arg(m_width)
         .arg(m_gap)
         .arg(m_radius)
@@ -630,6 +740,42 @@ QString ActiveWindowOutlineEffect::debug(const QString &) const
         .arg(m_glowEnabled ? QStringLiteral("true") : QStringLiteral("false"))
         .arg(m_glowRadius)
         .arg(m_accentOpacity);
+    if (parameter != QStringLiteral("windows")) {
+        return result;
+    }
+    const auto rectText = [](const QRectF &rect) {
+        return QStringLiteral("[%1,%2 %3x%4]")
+            .arg(rect.x()).arg(rect.y()).arg(rect.width()).arg(rect.height());
+    };
+    result += QStringLiteral("\nblockingPopup=%1").arg(hasVisibleBlockingPopup());
+    int index = 0;
+    // Intentionally omit window titles, application IDs and document names.
+    // Indexes describe the current stacking order, not persistent identities.
+    for (EffectWindow *w : effects->stackingOrder()) {
+        result += QStringLiteral("\nwindow=%1 active=%2 deleted=%3 visible=%4 dock=%5 popup=%6 tooltip=%7 grab=%8 blocking=%9")
+            .arg(index++).arg(w == m_activeWindow).arg(w->isDeleted())
+            .arg(w->isVisible()).arg(w->isDock()).arg(w->isPopupWindow())
+            .arg(w->isTooltip())
+            .arg(!w->isDeleted() && w->window() && w->window()->hasPopupGrab())
+            .arg(isBlockingPopup(w));
+        result += QStringLiteral(" internal=%1 frame=%2 buffer=%3")
+            .arg(w->internalWindow() != nullptr)
+            .arg(rectText(w->frameGeometry()), rectText(w->bufferGeometry()));
+        if (w->isPopupWindow() && !w->isDeleted()) {
+            const bool acceptsInput = popupAcceptsInput(w);
+            result += QStringLiteral(" popupInput=%1 ownedInteractive=%2")
+                .arg(acceptsInput)
+                .arg(OutlinePopupFilter::isOwnedInteractivePopup(w, m_activeWindow,
+                                                                acceptsInput));
+        }
+        if (w->isDock() && !w->isDeleted()) {
+            QString source;
+            const auto region = panelOcclusionRegion(w, &source);
+            result += QStringLiteral(" clipSource=%1 clipBounds=%2")
+                .arg(source, rectText(QRectF(region.boundingRect())));
+        }
+    }
+    return result + QLatin1Char('\n');
 }
 
 void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
@@ -715,7 +861,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         m_lastGeometry[w] = currentGeo;
     }
 
-    renderOutline(renderTarget, viewport, m_outlineCache[w], deviceRegion);
+    renderOutline(renderTarget, viewport, m_outlineCache[w], deviceRegion, w);
 #ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
     return true;
 #endif

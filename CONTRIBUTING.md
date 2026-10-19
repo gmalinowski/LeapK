@@ -16,6 +16,12 @@ Please include:
 
 For rendering issues, include a screenshot or short screen recording and state whether **Draw inside window** is enabled.
 
+For menu or panel problems on version 1.2.10 or later, run
+`bash collect-outline-diagnostics.sh` from the source directory and reproduce
+the problem during its 20-second capture. Review and attach the resulting log.
+It contains geometry, window flags and a build fingerprint, but no window
+titles or content. Run it in your normal Plasma session, without `sudo`.
+
 ## Development
 
 Build the Wayland version without installing it:
@@ -27,7 +33,19 @@ cmake -S . -B build-wayland \
 cmake --build build-wayland --parallel
 ```
 
-Run `shellcheck` on both shell scripts and validate `metadata.json`, the `.ui` file, and the KConfig schema before opening a pull request.
+To build and run the popup-filter regression tests (no running compositor needed):
+
+```bash
+cmake -S . -B build-wayland -DOUTLINE_BUILD_TESTS=ON
+cmake --build build-wayland --parallel
+ctest --test-dir build-wayland --output-on-failure
+```
+
+These tests cover the ungrabbed-popup fallback, including ownership, nested
+menus, tooltips, input-transparent popups, deleted windows, and cyclic parent
+chains. They do not replace runtime rendering tests in Plasma.
+
+Run `shellcheck` on the shell scripts and validate `metadata.json`, the `.ui` file, and the KConfig schema before opening a pull request.
 
 ## Code style and scope
 

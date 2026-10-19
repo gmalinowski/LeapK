@@ -59,6 +59,19 @@ kcoreaddons_add_plugin(active-window-outline
 target_link_libraries(active-window-outline PRIVATE
     ${KWIN_TARGET}
 )
+# Identify the loaded library, including uncommitted test builds.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    activewindowoutline.cpp activewindowoutline.h popupfilter.h)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/activewindowoutline.cpp" OUTLINE_CPP_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/activewindowoutline.h" OUTLINE_HEADER_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/popupfilter.h" OUTLINE_POPUP_HASH)
+string(SHA256 OUTLINE_BUILD_HASH "${OUTLINE_CPP_HASH}${OUTLINE_HEADER_HASH}${OUTLINE_POPUP_HASH}")
+string(SUBSTRING "${OUTLINE_BUILD_HASH}" 0 12 OUTLINE_BUILD_ID)
+target_compile_definitions(active-window-outline PRIVATE
+    ACTIVE_WINDOW_OUTLINE_VERSION="${PROJECT_VERSION}"
+    ACTIVE_WINDOW_OUTLINE_BUILD_ID="${OUTLINE_BUILD_ID}"
+    ACTIVE_WINDOW_OUTLINE_KWIN_VERSION="${DETECTED_KWIN_VERSION}"
+)
 
 if(KWIN_BACKEND STREQUAL "X11")
     target_compile_definitions(active-window-outline PRIVATE
@@ -84,6 +97,7 @@ else()
     if(DETECTED_KWIN_VERSION VERSION_GREATER_EQUAL "6.7")
         target_compile_definitions(active-window-outline PRIVATE
             ACTIVE_WINDOW_OUTLINE_SHADER_POINTER_VALIDITY
+            ACTIVE_WINDOW_OUTLINE_SURFACE_BLUR_REGION
         )
     endif()
     if(DETECTED_KWIN_VERSION VERSION_GREATER_EQUAL "6.8")
@@ -112,3 +126,11 @@ target_link_libraries(kwin_active-window-outline_config PRIVATE
 target_compile_definitions(kwin_active-window-outline_config PRIVATE
     ACTIVE_WINDOW_OUTLINE_VERSION="${PROJECT_VERSION}"
 )
+
+option(OUTLINE_BUILD_TESTS "Build popup classification regression tests" OFF)
+if(OUTLINE_BUILD_TESTS)
+    enable_testing()
+    add_executable(outline-popup-filter-test tests/popupfilter_test.cpp)
+    target_include_directories(outline-popup-filter-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    add_test(NAME outline-popup-filter COMMAND outline-popup-filter-test)
+endif()

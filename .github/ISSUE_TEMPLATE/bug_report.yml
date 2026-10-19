@@ -11,7 +11,7 @@ body:
     id: version
     attributes:
       label: Effect version
-      placeholder: 1.2.2
+      placeholder: 1.2.10
     validations:
       required: true
   - type: input
@@ -54,3 +54,8 @@ body:
     attributes:
       label: Effect settings and additional context
       description: Include whether Draw inside window is enabled. Add screenshots, recordings, or logs if useful.
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Panel or menu diagnostics (optional)
+      description: With version 1.2.10 or later, run `bash collect-outline-diagnostics.sh` from the source directory without sudo and reproduce the problem during the 20-second capture. Review and attach the resulting log. It records window geometry and flags, not window titles or content.
