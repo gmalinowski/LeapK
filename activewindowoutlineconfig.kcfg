@@ -21,7 +21,7 @@
             <default>#3daee9</default>
         </entry>
         <entry name="BorderWidth" type="Int">
-            <default>4</default>
+            <default>2</default>
             <min>1</min>
             <max>20</max>
         </entry>
@@ -31,12 +31,12 @@
             <max>30</max>
         </entry>
         <entry name="BorderRadius" type="Int">
-            <default>5</default>
+            <default>6</default>
             <min>0</min>
             <max>30</max>
         </entry>
         <entry name="DrawInside" type="Bool">
-            <default>false</default>
+            <default>true</default>
         </entry>
         <entry name="SmoothEdges" type="Bool">
             <default>true</default>

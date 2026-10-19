@@ -4,14 +4,27 @@
 
 set -euo pipefail
 
+run_privileged() {
+  if command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+  elif command -v doas >/dev/null 2>&1; then
+    doas "$@"
+  else
+    echo "Removing system plugin files requires sudo or doas." >&2
+    exit 1
+  fi
+}
+
 effect_id="active-window-outline"
 config_group="Effect-active-window-outline"
 
 echo "[1/4] Disabling Active Window Outline…"
 kwriteconfig6 --file kwinrc --group Plugins \
   --key "${effect_id}Enabled" false
-qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect \
-  "$effect_id" >/dev/null 2>&1 || true
+if command -v qdbus6 >/dev/null 2>&1; then
+  qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect \
+    "$effect_id" >/dev/null 2>&1 || true
+fi
 
 echo "[2/4] Removing the effect files…"
 plugin_dir="$(qtpaths6 --plugin-dir 2>/dev/null || true)"
@@ -35,21 +48,26 @@ for file in "${plugin_files[@]}"; do
 done
 
 if ((${#installed_files[@]})); then
-  sudo rm -f -- "${installed_files[@]}"
+  run_privileged rm -f -- "${installed_files[@]}"
 else
   echo "No installed Active Window Outline files were found."
 fi
 
 echo "[3/4] Removing the effect settings…"
-for key in UseAccentColor CustomColor BorderWidth OutlineGap BorderRadius DrawInside; do
+for key in UseAccentColor AccentOpacity CustomColor BorderWidth OutlineGap \
+           BorderRadius DrawInside SmoothEdges GlowEnabled GlowRadius; do
   kwriteconfig6 --file kwinrc --group "$config_group" --key "$key" --delete ''
 done
 kwriteconfig6 --file kwinrc --group Plugins \
   --key "${effect_id}Enabled" --delete ''
 
 echo "[4/4] Refreshing KDE…"
-kbuildsycoca6
-qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
+if command -v kbuildsycoca6 >/dev/null 2>&1; then
+  kbuildsycoca6
+fi
+if command -v qdbus6 >/dev/null 2>&1; then
+  qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
+fi
 
 echo
 echo "Done. Active Window Outline has been removed."

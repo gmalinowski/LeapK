@@ -163,10 +163,10 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_useAccentColor = config.readEntry("UseAccentColor", true);
     m_accentOpacity = qBound(0, config.readEntry("AccentOpacity", 66), 100);
     m_customColor = config.readEntry("CustomColor", QColor(61, 174, 233));
-    m_width = qBound(1, config.readEntry("BorderWidth", 4), 20);
+    m_width = qBound(1, config.readEntry("BorderWidth", 2), 20);
     m_gap = qBound(0, config.readEntry("OutlineGap", 0), 30);
-    m_radius = qBound(0, config.readEntry("BorderRadius", 5), 30);
-    m_drawInside = config.readEntry("DrawInside", false);
+    m_radius = qBound(0, config.readEntry("BorderRadius", 6), 30);
+    m_drawInside = config.readEntry("DrawInside", true);
     m_smoothEdges = config.readEntry("SmoothEdges", true);
     m_glowEnabled = config.readEntry("GlowEnabled", true);
     m_glowRadius = qBound(1, config.readEntry("GlowRadius", 6), 30);

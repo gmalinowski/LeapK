@@ -35,7 +35,7 @@ KWin effects are native plugins and use KWin's private binary interface. Rebuild
 
 ## Installation
 
-### TUXEDO OS, Ubuntu, and Debian-based distributions
+### Guided Wayland installation
 
 Clone or download the repository, then run:
 
@@ -43,15 +43,36 @@ Clone or download the repository, then run:
 bash install-active-window-outline.sh
 ```
 
-The installer installs the required build dependencies with `apt`, builds the effect against the installed KWin version, installs its two plugin files, and enables it.
+The installer detects Debian/Ubuntu (`apt`), Fedora (`dnf`), Arch (`pacman`),
+and openSUSE (`zypper`) families and installs their build dependencies. It then
+compiles the effect against the KWin version installed on that computer,
+installs its two plugin files, and enables it. This is a source build, not one
+binary shared across distributions: KWin plugins must match the local KWin ABI.
 
-The script uses `sudo` only for package installation and copying the compiled plugins into the system Qt plugin directory. Review the script before running it if desired.
+For an overview without changing the system, run:
+
+```bash
+bash install-active-window-outline.sh --dry-run
+```
+
+On another distribution, or when the development dependencies are already
+installed, run `bash install-active-window-outline.sh --skip-deps`. CMake will
+report anything still missing. The guided installer currently targets Wayland;
+X11 remains an experimental manual build.
+
+The script uses `sudo` or `doas` only for package installation and copying the
+compiled plugins into the system Qt plugin directory. Review the script before
+running it if desired. Existing effect settings are preserved on update.
 
 When updating an existing installation, log out and back in after the installer finishes. Qt may keep the previous native library loaded in KWin even after the file on disk has been replaced.
 
 ### Manual Wayland build
 
-Install a C++ compiler, CMake, Extra CMake Modules, Qt 6 development files, KF6 CoreAddons/ConfigWidgets/KCMUtils development files, and the development package matching your installed KWin version. Then run:
+Install a C++ compiler, CMake, Extra CMake Modules, Qt 6 development files
+(Core, DBus, Gui, Widgets, Quick, and the `qtplugininfo` tool), KF6
+CoreAddons/ConfigWidgets/KCMUtils development files, Vulkan headers, libdrm
+development files, and the development package matching your installed KWin
+version. Then run:
 
 ```bash
 cmake -S . -B build-wayland \
@@ -74,10 +95,10 @@ Open the gear button next to **Active Window Outline** in Desktop Effects.
 | Use accent color | On | Follows the current Plasma accent color. |
 | Accent opacity | 66% | Controls the outline and glow opacity when using the accent color. |
 | Custom color | `#3daee9` | Used when accent-color tracking is disabled. |
-| Border width | 4 px | Thickness of the outline. |
+| Border width | 2 px | Thickness of the outline. |
 | Outline offset | 0 px | Distance between the window edge and the outline. |
-| Border radius | 5 px | Corner radius of the outline. |
-| Draw inside window | Off | Draws the outline over the inside edge of the window. |
+| Border radius | 6 px | Corner radius of the outline. |
+| Draw inside window | On | Draws the outline over the inside edge of the window. |
 | Smooth edges | On | Adds a subtle antialiased feather to both outline edges. |
 | Soft glow | On | Adds a subtle colored halo around the outline. |
 | Glow size | 6 px | Controls how far the halo extends. |

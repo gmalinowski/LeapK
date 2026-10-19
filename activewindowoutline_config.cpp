@@ -39,10 +39,10 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     config->addItemBool(QStringLiteral("UseAccentColor"), *new bool, true);
     config->addItemInt(QStringLiteral("AccentOpacity"), *new int, 66);
     config->addItemColor(QStringLiteral("CustomColor"), *new QColor, QColor(61, 174, 233));
-    config->addItemInt(QStringLiteral("BorderWidth"), *new int, 4);
+    config->addItemInt(QStringLiteral("BorderWidth"), *new int, 2);
     config->addItemInt(QStringLiteral("OutlineGap"), *new int, 0);
-    config->addItemInt(QStringLiteral("BorderRadius"), *new int, 5);
-    config->addItemBool(QStringLiteral("DrawInside"), *new bool, false);
+    config->addItemInt(QStringLiteral("BorderRadius"), *new int, 6);
+    config->addItemBool(QStringLiteral("DrawInside"), *new bool, true);
     config->addItemBool(QStringLiteral("SmoothEdges"), *new bool, true);
     config->addItemBool(QStringLiteral("GlowEnabled"), *new bool, true);
     config->addItemInt(QStringLiteral("GlowRadius"), *new int, 6);

@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.2.7] - 2026-10-19
+
+### Changed
+
+- Add guided dependency installation for Debian/Ubuntu, Fedora, Arch, and
+  openSUSE families, with `--dry-run` and `--skip-deps` for other systems.
+- Use the new 2 px, 0 px offset, 6 px radius, inside-drawing defaults
+  consistently in the effect, settings page, and installer. Existing user
+  settings remain untouched on update.
+- Make the uninstaller accept `doas` as well as `sudo` and remove all effect
+  settings, including opacity, smoothing, and glow.
+
 ## [1.2.6] - 2026-10-19
 
 ### Changed

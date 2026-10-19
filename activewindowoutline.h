@@ -123,10 +123,10 @@ private:
     bool m_useAccentColor = true;
     int m_accentOpacity = 66;
     QColor m_customColor = QColor(61, 174, 233);
-    int m_width = 4;
+    int m_width = 2;
     int m_gap = 0;
-    int m_radius = 5;
-    bool m_drawInside = false;
+    int m_radius = 6;
+    bool m_drawInside = true;
     bool m_smoothEdges = true;
     bool m_glowEnabled = true;
     int m_glowRadius = 6;
