@@ -90,23 +90,55 @@ void main()
     float inside = -roundedBoxDistance(position0, innerBox, innerRadius);
     float distanceToOutline = max(outside, inside);
     float sigma = max(glowRadius * 0.42, 0.5);
-    float normalized = max(distanceToOutline, 0.0) / sigma;
-    float falloff = exp(-0.5 * normalized * normalized);
-    float outsideMask = smoothstep(-1.0, 0.0, distanceToOutline);
 
     if (glitchActive > 0.5) {
-        float glitchSlice = floor(position0.y / 6.0);
-        float glitchStep = floor(time * (glitchFrequency * 2.5));
-        float sliceHash = fract(sin(glitchSlice * 12.9898 + glitchStep * 78.233) * 43758.5453);
-        if (sliceHash > (1.0 - 0.035 * glitchFrequency)) {
-            float shift = (sliceHash - 0.5) * (glitchIntensity * 0.15);
-            outsideMask = smoothstep(-1.0, 0.0, distanceToOutline + shift);
-            falloff *= (1.0 + (glitchIntensity / 100.0) * 0.8);
-        }
-    }
+        float intensityNorm = glitchIntensity / 100.0;
+        float freqFactor = 0.8 + 0.4 * glitchFrequency;
 
-    fragColor = vec4(geometryColor.rgb,
-                     geometryColor.a * 0.38 * falloff * outsideMask);
+        // 1. Continuous smooth holographic scanlines rolling across the frame at 60 FPS
+        float scanline = 0.85 + 0.15 * sin(position0.y * 0.4 - time * 14.0 * freqFactor);
+
+        // 2. Rolling holographic interference beam (sweeping down continuously at 60 FPS)
+        float beamCoord = fract(position0.y * 0.0025 - time * 0.35 * freqFactor);
+        float beam = smoothstep(0.08, 0.0, abs(beamCoord - 0.5));
+
+        // 3. Multi-frequency organic fluid displacement (waving ripples)
+        float w1 = sin(position0.y * 0.08 + time * 16.0);
+        float w2 = cos(position0.y * 0.22 - time * 22.0);
+        float w3 = sin((position0.x + position0.y) * 0.05 + time * 12.0);
+        float fluidDisplacement = (w1 * 0.5 + w2 * 0.3 + w3 * 0.2);
+
+        // 4. Smooth holographic glitch surge envelope (organic pulse, no stepping)
+        float beat = sin(time * freqFactor) * sin(time * 0.618 + 2.0);
+        float surge = smoothstep(0.35, 0.9, beat);
+
+        // High-frequency holographic shimmer during surges
+        float fastShimmer = sin(position0.y * 0.6 + time * 48.0) * cos(position0.y * 0.25 - time * 36.0);
+        float totalShift = (fluidDisplacement * 0.4 + fastShimmer * (0.2 + 0.8 * surge)) * (glitchIntensity * 0.08);
+
+        float dynamicDist = distanceToOutline + totalShift;
+        float normDist = max(dynamicDist, 0.0) / sigma;
+        float dynamicFalloff = exp(-0.5 * normDist * normDist);
+        float dynamicMask = smoothstep(-1.0, 0.0, dynamicDist);
+
+        // Holographic luminescence and emission
+        float energy = 1.0 + intensityNorm * (0.35 * (scanline - 0.85) + 0.7 * beam + 1.2 * surge);
+        dynamicFalloff *= energy;
+
+        // Subtle electric cyan/blue ionization shimmer
+        vec3 holoEmission = vec3(0.12, 0.25, 0.38) * (intensityNorm * (0.7 * surge + 0.5 * beam));
+        vec3 finalRgb = min(vec3(1.0), geometryColor.rgb * energy + holoEmission);
+
+        fragColor = vec4(finalRgb,
+                         geometryColor.a * 0.38 * dynamicFalloff * dynamicMask);
+    } else {
+        float normalized = max(distanceToOutline, 0.0) / sigma;
+        float falloff = exp(-0.5 * normalized * normalized);
+        float outsideMask = smoothstep(-1.0, 0.0, distanceToOutline);
+
+        fragColor = vec4(geometryColor.rgb,
+                         geometryColor.a * 0.38 * falloff * outsideMask);
+    }
 }
 )GLSL";
     return source;
@@ -459,6 +491,22 @@ qreal ActiveWindowOutlineEffect::computeFlashFactor(qreal elapsedSec) const
     return 0.0;
 }
 
+qreal ActiveWindowOutlineEffect::computeGlitchFactor(qreal elapsedSec) const
+{
+    if (!m_glitchEnabled) {
+        return 1.0;
+    }
+    const qreal freq = 0.8 + 0.4 * m_glitchFrequency;
+    const qreal beat = std::sin(elapsedSec * freq) * std::sin(elapsedSec * 0.618 + 2.0);
+    if (beat > 0.4) {
+        const qreal surge = (beat - 0.4) / 0.6;
+        const qreal microJitter = 0.5 + 0.5 * std::sin(elapsedSec * 48.0);
+        const qreal depth = (m_glitchIntensity / 100.0) * 0.22;
+        return 1.0 + depth * surge * (0.7 + 0.3 * microJitter);
+    }
+    return 1.0;
+}
+
 QColor ActiveWindowOutlineEffect::resolveColor() const
 {
     QColor color;
@@ -473,18 +521,20 @@ QColor ActiveWindowOutlineEffect::resolveColor() const
         color = m_customColor;
     }
 
-    if (m_breatheEnabled || m_neonFlickerEnabled || m_flashEnabled) {
+    if (m_breatheEnabled || m_neonFlickerEnabled || m_flashEnabled || m_glitchEnabled) {
         const qreal breathe = computeBreatheFactor(elapsedSec);
         const qreal neon = computeNeonFactor(elapsedSec);
         const qreal flash = computeFlashFactor(elapsedSec);
+        const qreal glitch = computeGlitchFactor(elapsedSec);
 
-        qreal totalFactor = breathe * neon + flash;
+        qreal totalFactor = breathe * neon * glitch + flash;
         totalFactor = qBound<qreal>(0.05, totalFactor, 2.0);
 
         int a = qRound(color.alpha() * totalFactor);
-        int r = qRound(qMin<qreal>(255.0, color.red() * (1.0 + flash)));
-        int g = qRound(qMin<qreal>(255.0, color.green() * (1.0 + flash)));
-        int b = qRound(qMin<qreal>(255.0, color.blue() * (1.0 + flash)));
+        const qreal glowBoost = flash + (glitch - 1.0) * 0.8;
+        int r = qRound(qMin<qreal>(255.0, color.red() * (1.0 + glowBoost)));
+        int g = qRound(qMin<qreal>(255.0, color.green() * (1.0 + glowBoost)));
+        int b = qRound(qMin<qreal>(255.0, color.blue() * (1.0 + glowBoost)));
 
         color = QColor(r, g, b, qBound(0, a, 255));
     }

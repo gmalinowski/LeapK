@@ -140,6 +140,7 @@ private:
     qreal computeBreatheFactor(qreal elapsedSec) const;
     qreal computeNeonFactor(qreal elapsedSec) const;
     qreal computeFlashFactor(qreal elapsedSec) const;
+    qreal computeGlitchFactor(qreal elapsedSec) const;
 
     EffectWindow *m_activeWindow = nullptr;
 #ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
