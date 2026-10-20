@@ -34,10 +34,10 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_ui->label_versionValue->setText(QStringLiteral(ACTIVE_WINDOW_OUTLINE_VERSION));
 
     QPalette infoPalette = m_ui->label_info->palette();
-    const QColor neutralText = KColorScheme(QPalette::Active, KColorScheme::Window)
-                                   .foreground(KColorScheme::NeutralText)
-                                   .color();
-    infoPalette.setColor(QPalette::WindowText, neutralText);
+    const QColor infoText = KColorScheme(QPalette::Active, KColorScheme::Window)
+                                .foreground(KColorScheme::ActiveText)
+                                .color();
+    infoPalette.setColor(QPalette::WindowText, infoText);
     m_ui->label_info->setPalette(infoPalette);
 
     m_configSkeleton = new KConfigSkeleton(QStringLiteral("kwinrc"), this);

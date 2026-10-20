@@ -236,7 +236,7 @@
        <item row="11" column="0" colspan="2">
         <widget class="QLabel" name="label_info">
          <property name="text">
-          <string>ℹ️ Offset moves the outline away from the window edge. “Draw inside” keeps it visible on maximized and tiled windows. Glow adds a soft colored halo around the outline.</string>
+          <string>ℹ️ “Draw inside” keeps the outline visible on maximized and tiled windows. When disabled, the outline is drawn outside the window.</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
