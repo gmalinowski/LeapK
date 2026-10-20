@@ -69,8 +69,9 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
 
     m_configSkeleton->addItemBool(QStringLiteral("GlitchEnabled"), *new bool, false);
     m_configSkeleton->addItemDouble(QStringLiteral("GlitchSpeed"), *new double, 1.0);
-    m_configSkeleton->addItemInt(QStringLiteral("GlitchFrequency"), *new int, 3);
     m_configSkeleton->addItemInt(QStringLiteral("GlitchIntensity"), *new int, 50);
+    m_configSkeleton->addItemBool(QStringLiteral("GlitchAnomalyEnabled"), *new bool, false);
+    m_configSkeleton->addItemInt(QStringLiteral("GlitchFrequency"), *new int, 3);
 
     m_configSkeleton->addItemBool(QStringLiteral("NeonFlickerEnabled"), *new bool, false);
     m_configSkeleton->addItemDouble(QStringLiteral("NeonFlickerInterval"), *new double, 3.0);
@@ -211,15 +212,19 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     updateBreatheUI();
 
     auto updateGlitchUI = [this] {
-        const bool enabled = m_ui->kcfg_GlitchEnabled->isChecked();
-        m_ui->label_glitchSpeed->setEnabled(enabled);
-        m_ui->kcfg_GlitchSpeed->setEnabled(enabled);
-        m_ui->label_glitchFrequency->setEnabled(enabled);
-        m_ui->kcfg_GlitchFrequency->setEnabled(enabled);
-        m_ui->label_glitchIntensity->setEnabled(enabled);
-        m_ui->kcfg_GlitchIntensity->setEnabled(enabled);
+        const bool glitchOn = m_ui->kcfg_GlitchEnabled->isChecked();
+        m_ui->label_glitchSpeed->setEnabled(glitchOn);
+        m_ui->kcfg_GlitchSpeed->setEnabled(glitchOn);
+        m_ui->label_glitchIntensity->setEnabled(glitchOn);
+        m_ui->kcfg_GlitchIntensity->setEnabled(glitchOn);
+        m_ui->kcfg_GlitchAnomalyEnabled->setEnabled(glitchOn);
+
+        const bool anomalyOn = glitchOn && m_ui->kcfg_GlitchAnomalyEnabled->isChecked();
+        m_ui->label_glitchFrequency->setEnabled(anomalyOn);
+        m_ui->kcfg_GlitchFrequency->setEnabled(anomalyOn);
     };
     connect(m_ui->kcfg_GlitchEnabled, &QCheckBox::toggled, this, updateGlitchUI);
+    connect(m_ui->kcfg_GlitchAnomalyEnabled, &QCheckBox::toggled, this, updateGlitchUI);
     updateGlitchUI();
 
     auto updateNeonUI = [this] {

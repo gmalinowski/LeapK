@@ -266,8 +266,9 @@ set_default BreatheSpeed 0.5
 set_default BreatheIntensity 40
 set_default GlitchEnabled false
 set_default GlitchSpeed 1.0
-set_default GlitchFrequency 3
 set_default GlitchIntensity 50
+set_default GlitchAnomalyEnabled false
+set_default GlitchFrequency 3
 set_default NeonFlickerEnabled false
 set_default NeonFlickerInterval 3.0
 set_default NeonFlickerDuration 0.25

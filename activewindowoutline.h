@@ -185,8 +185,9 @@ private:
 
     bool m_glitchEnabled = false;
     qreal m_glitchSpeed = 1.0;
-    int m_glitchFrequency = 3;
     int m_glitchIntensity = 50;
+    bool m_glitchAnomalyEnabled = false;
+    int m_glitchFrequency = 3;
 
     bool m_neonFlickerEnabled = false;
     qreal m_neonFlickerInterval = 3.0;

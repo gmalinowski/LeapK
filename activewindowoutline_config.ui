@@ -529,7 +529,7 @@
           <item row="0" column="0" colspan="2">
            <widget class="QCheckBox" name="kcfg_GlitchEnabled">
             <property name="text">
-             <string>Enable sci-fi holographic glitches</string>
+             <string>Enable sci-fi holographic effect</string>
             </property>
            </widget>
           </item>
@@ -560,33 +560,13 @@
            </widget>
           </item>
           <item row="2" column="0">
-           <widget class="QLabel" name="label_glitchFrequency">
+           <widget class="QLabel" name="label_glitchIntensity">
             <property name="text">
-             <string>Glitch frequency:</string>
+             <string>Hologram intensity:</string>
             </property>
            </widget>
           </item>
           <item row="2" column="1">
-           <widget class="QSpinBox" name="kcfg_GlitchFrequency">
-            <property name="minimum">
-             <number>1</number>
-            </property>
-            <property name="maximum">
-             <number>10</number>
-            </property>
-            <property name="value">
-             <number>3</number>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0">
-           <widget class="QLabel" name="label_glitchIntensity">
-            <property name="text">
-             <string>Glitch intensity:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="1">
            <widget class="QSpinBox" name="kcfg_GlitchIntensity">
             <property name="minimum">
              <number>10</number>
@@ -599,6 +579,33 @@
             </property>
             <property name="suffix">
              <string> %</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0" colspan="2">
+           <widget class="QCheckBox" name="kcfg_GlitchAnomalyEnabled">
+            <property name="text">
+             <string>Enable periodic glitch disturbances</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QLabel" name="label_glitchFrequency">
+            <property name="text">
+             <string>Glitch frequency:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="1">
+           <widget class="QSpinBox" name="kcfg_GlitchFrequency">
+            <property name="minimum">
+             <number>1</number>
+            </property>
+            <property name="maximum">
+             <number>10</number>
+            </property>
+            <property name="value">
+             <number>3</number>
             </property>
            </widget>
           </item>

@@ -17,7 +17,7 @@ The effect is useful with minimal window decorations and tiling layouts, where i
 - **Dynamic Multi-Color Cycling**: add any number of colors with custom hold durations per color, global transition time, sequential or random order, and CSS-style easing curves (Ease-in-out, Linear, Ease-in, Ease-out).
 - **Modular Visual & Shader Effects** (can be mixed and matched together):
   - **Breathe / Pulse**: smooth cyclic brightness and alpha breathing with adjustable speed and depth.
-  - **Futuristic Glitch**: sci-fi holographic scanline jitter and horizontal displacement bars.
+  - **Futuristic Hologram**: sci-fi holographic scanlines, rolling sweep beam, ionization glow, and optional periodic glitch disturbances.
   - **Neon Flicker**: realistic neon tube voltage-drop flickering.
   - **Flash / Strobe**: intermittent strobe burst effects with configurable intervals and flash duration.
 - Highly optimized: animation timer only ticks when visual effects are enabled and repaints strictly the active window outline; zero background CPU/GPU overhead when static, minimized, or fullscreen.
@@ -188,7 +188,7 @@ Mix and match procedural effects to enhance the outline and glow.
 | Effect | Settings | Default | Description |
 | --- | --- | ---: | --- |
 | **Breathe / Pulse** | Speed<br>Intensity | 0.5 Hz<br>40% | Smooth sinusoidal alpha and glow pulsation. |
-| **Futuristic Glitch** | Speed<br>Frequency<br>Intensity | 1.0x<br>3<br>50% | Procedural holographic scanlines, gentle rolling beam, and subtle periodic glitch surges. |
+| **Futuristic Hologram** | Speed<br>Intensity<br>Glitch disturbances<br>Frequency | 1.0x<br>50%<br>Disabled<br>3 | Procedural multi-frequency scanlines, rolling sweep beam, cyan holographic emission, and optional periodic glitch surges. |
 | **Neon Flicker** | Interval<br>Duration<br>Intensity | 3.0 s<br>0.25 s<br>30% | Periodic voltage drops and realistic gas-discharge tube flickering episodes. |
 | **Flash / Strobe** | Interval<br>Duration | 4.0 s<br>0.15 s | Periodic light strobe bursts. |
 
