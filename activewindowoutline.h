@@ -132,11 +132,12 @@ private:
                        const RenderViewport &viewport,
                        const OutlineCache &cache,
                        const OutlineRegion &clipRegion,
-                       EffectWindow *outlinedWindow);
+                       EffectWindow *outlinedWindow,
+                       qreal windowOpacity = 1.0);
 
     void cacheWindowOutline(EffectWindow *w, const QRectF &geo);
 
-    QColor resolveColor() const;
+    QColor resolveColor(qreal windowOpacity = 1.0) const;
     QColor currentCycleColor(qreal elapsedSec);
     bool isAnimationActive() const;
     void updateAnimationTimer();

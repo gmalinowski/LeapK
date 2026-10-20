@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.3.4] - 2026-10-20
+
+### Fixed
+
+- **Window switch hide delay with show delay**: Fixed an issue where the delayed hide window outline disappeared instantly when switching windows with both `WindowHideDelay > 0` and `WindowShowDelay > 0`. `isActive()` previously returned `false` while the window show delay timer was active, which caused KWin compositor to skip rendering the effect entirely during that interval.
+- **Decoupled opacity for delayed hide windows**: Delayed hide windows are now rendered at full opacity independently of the newly active window's transition opacity.
+- **Window switch repaint damage**: Scheduled explicit outline repaints for previously active windows when buffering window switch delays.
+
 ## [1.3.3] - 2026-10-20
 
 ### Fixed

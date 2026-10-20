@@ -199,6 +199,18 @@ public:
     {
         return visibilityOpacity > 0.001;
     }
+
+    static bool isEffectActive(bool outlineEnabled,
+                               bool showPending,
+                               bool activeWindowEligible,
+                               bool delayedWindowEligible)
+    {
+        if (!outlineEnabled) {
+            return false;
+        }
+        const bool activeOutline = !showPending && activeWindowEligible;
+        return activeOutline || delayedWindowEligible;
+    }
 };
 
 } // namespace OutlineVisibility

@@ -265,6 +265,21 @@ int main()
         check(opacity200 > opacity1000 * 3.0, "animation strictly reacts to FadeDuration setting");
     }
 
+    // 12. Window Switch Delay (Concurrent Switch Hide and Show Delays)
+    {
+        // When switching windows with windowHideDelay > 0 and windowShowDelay > 0:
+        // m_windowShowTimer is active (showPending = true), but m_delayedHideWindow is still waiting to hide (delayedWindowEligible = true).
+        // Effect MUST remain active so KWin compositor continues rendering the delayed hide window outline.
+        check(StateMachine::isEffectActive(true, true, true, true),
+              "effect remains active when show delay is pending but delayed hide window is waiting to hide");
+        check(!StateMachine::isEffectActive(true, true, true, false),
+              "effect is inactive when show delay is pending and no delayed hide window is waiting");
+        check(StateMachine::isEffectActive(true, false, true, false),
+              "effect is active when active window is eligible and no show delay is pending");
+        check(!StateMachine::isEffectActive(false, true, true, true),
+              "effect is inactive when outline is disabled regardless of pending delays");
+    }
+
     std::printf("VisibilityStateTest: %d checks, %d failures\n", checks, failures);
     return failures > 0 ? 1 : 0;
 }

@@ -419,7 +419,10 @@ bool ActiveWindowOutlineEffect::isAnimationActive() const
     if (m_visibilityState.isTransitionActive(m_visibilityConfig.fadeDuration)) {
         return true;
     }
-    if (m_visibilityState.isEffectivelyVisible()) {
+    const bool hasDelayed = (m_delayedHideWindow && !m_delayedHideWindow->isDeleted()
+        && m_delayedHideWindow->isOnCurrentDesktop() && !m_delayedHideWindow->isMinimized()
+        && !m_delayedHideWindow->isHiddenByShowDesktop());
+    if (m_visibilityState.isEffectivelyVisible() || hasDelayed) {
         return m_colorCycleEnabled || m_breatheEnabled
             || m_glitchEnabled || m_neonFlickerEnabled || m_flashEnabled;
     }
@@ -554,7 +557,7 @@ qreal ActiveWindowOutlineEffect::computeGlitchFactor(qreal elapsedSec) const
     return OutlineShader::computeGlitchFactor(elapsedSec, m_glitchEnabled, m_glitchAnomalyEnabled, m_glitchSpeed, m_glitchFrequency, m_glitchIntensity);
 }
 
-QColor ActiveWindowOutlineEffect::resolveColor() const
+QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity) const
 {
     QColor color;
     const qreal elapsedSec = m_animationClock.isValid() ? (m_animationClock.elapsed() / 1000.0) : 0.0;
@@ -587,7 +590,7 @@ QColor ActiveWindowOutlineEffect::resolveColor() const
     }
 
     // Apply visibility transition opacity
-    const qreal visOpacity = m_visibilityState.visibilityOpacity;
+    const qreal visOpacity = qBound<qreal>(0.0, windowOpacity, 1.0);
     color.setAlpha(qBound(0, qRound(color.alpha() * visOpacity), 255));
 
     return color;
@@ -791,7 +794,8 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
                                            const RenderViewport &viewport,
                                            const OutlineCache &cache,
                                            const OutlineRegion &clipRegion,
-                                           EffectWindow *outlinedWindow)
+                                           EffectWindow *outlinedWindow,
+                                           qreal windowOpacity)
 {
     if (cache.layers.isEmpty()) {
         return;
@@ -876,7 +880,7 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
         return;
     }
 
-    const QColor dynamicColor = resolveColor();
+    const QColor dynamicColor = resolveColor(windowOpacity);
 
     if (m_glowEnabled && dynamicColor.alpha() > 0) {
         if (!m_glowShader) {
@@ -1102,6 +1106,7 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
                 m_outlineCache.remove(m_delayedHideWindow);
             }
             m_delayedHideWindow = previous;
+            effects->addRepaint(expandedGeometryFor(previous));
             if (m_windowHideTimer) {
                 m_windowHideTimer->start(m_windowHideDelay);
             }
@@ -1267,7 +1272,11 @@ QRectF ActiveWindowOutlineEffect::expandedGeometryFor(EffectWindow *w) const
 bool ActiveWindowOutlineEffect::isActive() const
 {
     const bool showPending = (m_windowShowTimer && m_windowShowTimer->isActive());
-    return !showPending && shouldOutlineWindow(m_activeWindow) && m_visibilityState.isEffectivelyVisible();
+    const bool activeEligible = shouldOutlineWindow(m_activeWindow) && m_visibilityState.isEffectivelyVisible();
+    const bool delayedEligible = (m_delayedHideWindow && !m_delayedHideWindow->isDeleted()
+        && !m_delayedHideWindow->isMinimized() && !m_delayedHideWindow->isHiddenByShowDesktop()
+        && m_delayedHideWindow->isOnCurrentDesktop());
+    return OutlineVisibility::StateMachine::isEffectActive(m_outlineEnabled, showPending, activeEligible, delayedEligible);
 }
 
 QString ActiveWindowOutlineEffect::debug(const QString &parameter) const
@@ -1297,13 +1306,14 @@ QString ActiveWindowOutlineEffect::debug(const QString &parameter) const
         return QStringLiteral("[%1,%2 %3x%4]")
             .arg(rect.x()).arg(rect.y()).arg(rect.width()).arg(rect.height());
     };
-    result += QStringLiteral("\nblockingPopup=%1 popupBlocked=%2 visibilityOpacity=%3 targetOpacity=%4 delayedHideWindow=%5 showTimerActive=%6")
+    result += QStringLiteral("\nblockingPopup=%1 popupBlocked=%2 visibilityOpacity=%3 targetOpacity=%4 delayedHideWindow=%5 showTimerActive=%6 effectActive=%7")
         .arg(hasVisibleBlockingPopup())
         .arg(m_visibilityState.popupBlocked)
         .arg(m_visibilityState.visibilityOpacity)
         .arg(m_visibilityState.targetOpacity)
         .arg(m_delayedHideWindow != nullptr)
-        .arg(m_windowShowTimer && m_windowShowTimer->isActive());
+        .arg(m_windowShowTimer && m_windowShowTimer->isActive())
+        .arg(isActive());
     int index = 0;
     // Intentionally omit window titles, application IDs and document names.
     // Indexes describe the current stacking order, not persistent identities.
@@ -1369,7 +1379,8 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
     }
 
     if (m_delayedHideWindow && m_delayedHideWindow != w && !m_delayedHideWindow->isDeleted()
-        && m_delayedHideWindow->isOnCurrentDesktop() && !m_delayedHideWindow->isMinimized()) {
+        && m_delayedHideWindow->isOnCurrentDesktop() && !m_delayedHideWindow->isMinimized()
+        && !m_delayedHideWindow->isHiddenByShowDesktop()) {
         data.paint += expandedGeometryFor(m_delayedHideWindow).toAlignedRect();
     }
 }
@@ -1443,7 +1454,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             cacheWindowOutline(m_delayedHideWindow, delayedGeo);
             m_lastGeometry[m_delayedHideWindow] = delayedGeo;
         }
-        renderOutline(renderTarget, viewport, m_outlineCache[m_delayedHideWindow], deviceRegion, m_delayedHideWindow);
+        renderOutline(renderTarget, viewport, m_outlineCache[m_delayedHideWindow], deviceRegion, m_delayedHideWindow, 1.0);
     }
 
     if (drawOutline) {
@@ -1452,7 +1463,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             cacheWindowOutline(w, currentGeo);
             m_lastGeometry[w] = currentGeo;
         }
-        renderOutline(renderTarget, viewport, m_outlineCache[w], deviceRegion, w);
+        renderOutline(renderTarget, viewport, m_outlineCache[w], deviceRegion, w, m_visibilityState.visibilityOpacity);
     }
 
 #ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
