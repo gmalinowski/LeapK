@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.3.1] - 2026-10-20
+
+### Added
+
+- New **Behavior** tab in the configuration dialog with independent show/hide buffering controls:
+  - **Menu hide delay**: configurable buffer before hiding the outline when context menus or popups open (default: 300 ms).
+  - **Menu show delay**: configurable buffer before restoring the outline after menus close (default: 300 ms), completely eliminating outline flickering when navigating across menus and submenus.
+  - **Switch hide delay**: configurable buffer before removing the outline from a deactivated window (default: 0 ms / instant).
+  - **Switch show delay**: configurable buffer before drawing the outline on a newly focused window (default: 0 ms / instant).
+- Popups stacked above the outlined window are clipped during any lingering hide buffer so the outline never renders over open menus.
+
 ## [1.3.0] - 2026-10-20
 
 ### Added

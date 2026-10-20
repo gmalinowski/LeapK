@@ -276,6 +276,10 @@ set_default NeonFlickerIntensity 30
 set_default FlashEnabled false
 set_default FlashInterval 4.0
 set_default FlashDuration 0.15
+set_default MenuHideDelay 300
+set_default MenuShowDelay 300
+set_default WindowHideDelay 0
+set_default WindowShowDelay 0
 
 if command -v qdbus6 >/dev/null 2>&1; then
   qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true

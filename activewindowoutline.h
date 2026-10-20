@@ -114,6 +114,7 @@ private:
     bool isBlockingPopup(EffectWindow *w) const;
     bool popupAcceptsInput(EffectWindow *w) const;
     bool hasVisibleBlockingPopup() const;
+    void updatePopupBlockingState();
     OutlineRegion panelOcclusionRegion(EffectWindow *w, QString *source = nullptr) const;
     void repaintAllOutlines();
 
@@ -197,6 +198,20 @@ private:
     bool m_flashEnabled = false;
     qreal m_flashInterval = 4.0;
     qreal m_flashDuration = 0.15;
+
+    // Config - Behavior & Delays
+    int m_menuHideDelay = 300;
+    int m_menuShowDelay = 300;
+    int m_windowHideDelay = 0;
+    int m_windowShowDelay = 0;
+
+    // Runtime delay & buffer state
+    bool m_popupBlocksOutline = false;
+    QTimer *m_menuHideTimer = nullptr;
+    QTimer *m_menuShowTimer = nullptr;
+    QTimer *m_windowHideTimer = nullptr;
+    QTimer *m_windowShowTimer = nullptr;
+    EffectWindow *m_delayedHideWindow = nullptr;
 
     // Runtime animation state
     QTimer *m_animationTimer = nullptr;

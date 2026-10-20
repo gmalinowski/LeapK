@@ -53,6 +53,28 @@
             <default>true</default>
         </entry>
 
+        <!-- Behavior & Buffer Delays -->
+        <entry name="MenuHideDelay" type="Int">
+            <default>300</default>
+            <min>0</min>
+            <max>2000</max>
+        </entry>
+        <entry name="MenuShowDelay" type="Int">
+            <default>300</default>
+            <min>0</min>
+            <max>2000</max>
+        </entry>
+        <entry name="WindowHideDelay" type="Int">
+            <default>0</default>
+            <min>0</min>
+            <max>2000</max>
+        </entry>
+        <entry name="WindowShowDelay" type="Int">
+            <default>0</default>
+            <min>0</min>
+            <max>2000</max>
+        </entry>
+
         <!-- Color Cycling Settings -->
         <entry name="ColorCycleEnabled" type="Bool">
             <default>false</default>

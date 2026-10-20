@@ -56,6 +56,12 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("GlowRadius"), *new int, 6);
     m_configSkeleton->addItemBool(QStringLiteral("HideOnFullScreen"), *new bool, true);
 
+    // Tab 4: Behavior & Buffer Delays
+    m_configSkeleton->addItemInt(QStringLiteral("MenuHideDelay"), *new int, 300);
+    m_configSkeleton->addItemInt(QStringLiteral("MenuShowDelay"), *new int, 300);
+    m_configSkeleton->addItemInt(QStringLiteral("WindowHideDelay"), *new int, 0);
+    m_configSkeleton->addItemInt(QStringLiteral("WindowShowDelay"), *new int, 0);
+
     // Tab 2: Color Cycling
     m_configSkeleton->addItemBool(QStringLiteral("ColorCycleEnabled"), *new bool, false);
     m_configSkeleton->addItemDouble(QStringLiteral("ColorTransitionDuration"), *new double, 2.0);

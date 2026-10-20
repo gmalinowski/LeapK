@@ -21,6 +21,7 @@ The effect is useful with minimal window decorations and tiling layouts, where i
   - **Neon Flicker**: realistic neon tube voltage-drop flickering.
   - **Flash / Strobe**: intermittent strobe burst effects with configurable intervals and flash duration.
 - Highly optimized: animation timer only ticks when visual effects are enabled and repaints strictly the active window outline; zero background CPU/GPU overhead when static, minimized, or fullscreen.
+- **Configurable Visibility & Buffering Delays**: independent show and hide buffers for context menus/popups (preventing flicker when navigating menus) and window focus switching.
 - Option to automatically hide the outline when the active window is in fullscreen mode.
 - Configurable width, corner radius, and offset from the window edge.
 - Can draw inside the window, keeping the outline visible on maximized and tiled windows.
@@ -167,7 +168,6 @@ Open the gear button next to **Active Window Outline** in Desktop Effects.
 | Smooth edges | On | Adds a subtle antialiased feather to both outline edges. |
 | Soft glow | On | Adds a subtle colored halo around the outline. |
 | Glow size | 6 px | Controls how far the halo extends. |
-| Hide on fullscreen | On | Automatically hides the outline and glow when the active window is fullscreen. |
 
 ### Tab 2: Color Sequence
 
@@ -191,6 +191,18 @@ Mix and match procedural effects to enhance the outline and glow.
 | **Futuristic Hologram** | Speed<br>Intensity<br>Glitch disturbances<br>Frequency | 1.0x<br>50%<br>Disabled<br>3 | Procedural multi-frequency scanlines, rolling sweep beam, cyan holographic emission, and optional periodic glitch surges. |
 | **Neon Flicker** | Interval<br>Duration<br>Intensity | 3.0 s<br>0.25 s<br>30% | Periodic voltage drops and realistic gas-discharge tube flickering episodes. |
 | **Flash / Strobe** | Interval<br>Duration | 4.0 s<br>0.15 s | Periodic light strobe bursts. |
+
+### Tab 4: Behavior
+
+Configure buffering delays and window state handling.
+
+| Setting | Default | Description |
+| --- | ---: | --- |
+| **Menu hide delay** | 300 ms | Delay before hiding the outline when context menus, dropdowns, or popups appear. Prevents outline disappearance during momentary menu interactions. |
+| **Menu show delay** | 300 ms | Delay before restoring the outline after menus close. Prevents outline flashing when navigating between submenus or menu items. |
+| **Switch hide delay** | 0 ms (Instant) | Delay before removing the outline from the previously active window. |
+| **Switch show delay** | 0 ms (Instant) | Delay before drawing the outline on a newly focused window (useful for focus-follows-mouse setups). |
+| **Hide on fullscreen** | On | Automatically hides the outline and glow when the active window is fullscreen. |
 
 ### Keyboard shortcut
 
