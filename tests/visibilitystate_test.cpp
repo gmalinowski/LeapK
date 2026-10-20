@@ -204,13 +204,65 @@ int main()
         sm.targetOpacity = 0.0;
         sm.menuShowTimerActive = false;
 
+        check(sm.needsSelfHeal(false), "needsSelfHeal detects desync when blocked without popup");
+
         bool healed = sm.selfHeal(false, config);
         check(healed, "selfHeal detects desync when blocked without popup");
         check(sm.menuShowTimerActive, "selfHeal automatically started show sequence");
+        check(!sm.needsSelfHeal(false), "needsSelfHeal is false once show timer is active");
 
         // And if already in sync:
         bool healedAgain = sm.selfHeal(false, config);
         check(!healedAgain, "selfHeal does not trigger when already recovering or in sync");
+    }
+
+    // 10. Idle Pause Recovery (No Instant Snap After Menu Open)
+    {
+        sm.reset(0.0);
+        sm.popupBlocked = true;
+        sm.targetOpacity = 0.0;
+        sm.lastTickSec = 1.0; // Simulated timestamp when menu opened
+
+        // Menu closes 5 seconds later
+        sm.handlePopupChange(false, config);
+        sm.handleMenuShowTimerTimeout(false, config);
+        check(sm.targetOpacity == 1.0, "target opacity is 1.0 after show delay");
+        check(sm.visibilityOpacity == 0.0, "visibility opacity starts at 0.0");
+
+        // First frame tick occurs at elapsedSec = 6.316s (over 5 seconds after lastTickSec)
+        sm.stepTransition(6.316, 500); // 500ms fade duration
+        check(sm.visibilityOpacity > 0.001 && sm.visibilityOpacity <= 0.10,
+              "first frame after long idle period advances by single frame (~16ms), NOT jumping to 1.0");
+        check(sm.isTransitionActive(500), "transition remains active across subsequent frames");
+
+        // Step by step verification over 500ms
+        for (int frame = 1; frame < 30; ++frame) {
+            sm.stepTransition(6.316 + frame * 0.0166, 500);
+        }
+        check(sm.visibilityOpacity >= 0.95 && sm.visibilityOpacity <= 1.0,
+              "opacity smoothly reaches target across 30 frames for 500ms duration");
+    }
+
+    // 11. Reaction to FadeDuration Time Setting
+    {
+        // Test that a longer duration produces proportionally smaller opacity steps
+        sm.reset(0.0);
+        sm.setTargetOpacity(1.0, 1000); // 1000ms duration
+        for (int frame = 0; frame < 10; ++frame) {
+            sm.stepTransition(10.0 + frame * 0.016, 1000);
+        }
+        const qreal opacity1000 = sm.visibilityOpacity;
+
+        sm.reset(0.0);
+        sm.setTargetOpacity(1.0, 200); // 200ms duration
+        for (int frame = 0; frame < 10; ++frame) {
+            sm.stepTransition(10.0 + frame * 0.016, 200);
+        }
+        const qreal opacity200 = sm.visibilityOpacity;
+
+        check(opacity1000 >= 0.10 && opacity1000 <= 0.25, "1000ms fade produces ~16% progress after 10 frames");
+        check(opacity200 >= 0.70 && opacity200 <= 0.90, "200ms fade produces ~80% progress after 10 frames");
+        check(opacity200 > opacity1000 * 3.0, "animation strictly reacts to FadeDuration setting");
     }
 
     std::printf("VisibilityStateTest: %d checks, %d failures\n", checks, failures);

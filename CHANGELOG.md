@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.3.3] - 2026-10-20
+
+### Fixed
+
+- **Smooth fade-in interpolation after idle periods**: Fixed an issue where the animation timer's delta time (`dt`) evaluated against stale timestamps from when the outline was hidden, causing the outline to snap to 100% opacity in a single frame. Frame delta is now capped to 50 ms and resets cleanly when transitions begin.
+- **Menu show buffer bypass**: Prevented `slotWindowActivated` from prematurely forcing the outline to 100% opacity when windows regain focus upon menu closure, ensuring that `MenuShowDelay` and `FadeDuration` are fully respected.
+- **Popup window activation**: Explicitly ignore activation events from popup and context menu windows so the active outlined window identity is never corrupted.
+- **Self-healing timer integration**: Routed state recovery through `updatePopupBlockingState()` so that asynchronous delay timers are reliably started.
+
 ## [1.3.2] - 2026-10-20
 
 ### Fixed

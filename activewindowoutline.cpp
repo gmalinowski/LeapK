@@ -230,11 +230,12 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
     m_windowShowTimer = new QTimer(this);
     m_windowShowTimer->setSingleShot(true);
     connect(m_windowShowTimer, &QTimer::timeout, this, [this] {
-        if (m_activeWindow && shouldOutlineWindow(m_activeWindow)) {
+        if (m_activeWindow && shouldOutlineWindow(m_activeWindow)
+            && !m_visibilityState.popupBlocked && !hasVisibleBlockingPopup()) {
             if (m_visibilityConfig.fadeDuration > 0) {
                 m_visibilityState.visibilityOpacity = 0.0;
             }
-            m_visibilityState.targetOpacity = hasVisibleBlockingPopup() ? 0.0 : 1.0;
+            m_visibilityState.setTargetOpacity(1.0, m_visibilityConfig.fadeDuration);
             updateAnimationTimer();
             effects->addRepaint(expandedGeometryFor(m_activeWindow));
         }
@@ -432,6 +433,7 @@ void ActiveWindowOutlineEffect::updateAnimationTimer()
             m_animationClock.start();
         }
         if (!m_animationTimer->isActive()) {
+            m_visibilityState.lastTickSec = -1.0;
             m_animationTimer->start();
         }
     } else {
@@ -446,12 +448,14 @@ void ActiveWindowOutlineEffect::slotAnimationTick()
     const float elapsedSec = m_animationClock.isValid() ? float(m_animationClock.elapsed() / 1000.0) : 0.0f;
     const bool opacityChanged = m_visibilityState.stepTransition(elapsedSec, m_visibilityConfig.fadeDuration);
 
-    if (m_visibilityState.selfHeal(hasVisibleBlockingPopup(), m_visibilityConfig)) {
-        updateAnimationTimer();
+    if (m_visibilityState.needsSelfHeal(hasVisibleBlockingPopup())) {
+        updatePopupBlockingState();
     }
 
     const bool showPending = (m_windowShowTimer && m_windowShowTimer->isActive());
-    if (!showPending && m_activeWindow && shouldOutlineWindow(m_activeWindow) && m_visibilityState.isEffectivelyVisible()) {
+    const bool wantsOutline = m_visibilityState.isEffectivelyVisible()
+        || m_visibilityState.isTransitionActive(m_visibilityConfig.fadeDuration);
+    if (!showPending && m_activeWindow && shouldOutlineWindow(m_activeWindow) && wantsOutline) {
         effects->addRepaint(expandedGeometryFor(m_activeWindow));
     } else if (opacityChanged && m_activeWindow) {
         effects->addRepaint(expandedGeometryFor(m_activeWindow));
@@ -1076,6 +1080,10 @@ void ActiveWindowOutlineEffect::cacheWindowOutline(EffectWindow *w, const QRectF
 
 void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
 {
+    if (isBlockingPopup(w)) {
+        return;
+    }
+
     EffectWindow *previous = m_activeWindow;
     if (previous == w) {
         return;
@@ -1114,7 +1122,7 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
     m_activeWindow = w;
 
     if (!w) {
-        m_visibilityState.targetOpacity = 0.0;
+        m_visibilityState.setTargetOpacity(0.0, m_visibilityConfig.fadeDuration);
         updateAnimationTimer();
         return;
     }
@@ -1126,6 +1134,12 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
         }
     }
 
+    // If a popup menu is currently active or buffering, let popup timers manage outline visibility
+    if (hasVisibleBlockingPopup() || m_visibilityState.popupBlocked
+        || m_visibilityState.menuShowTimerActive || (m_menuShowTimer && m_menuShowTimer->isActive())) {
+        return;
+    }
+
     if (shouldOutlineWindow(w)) {
         if (m_windowShowDelay > 0) {
             if (m_windowShowTimer) {
@@ -1135,7 +1149,7 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
             if (m_visibilityConfig.fadeDuration > 0) {
                 m_visibilityState.visibilityOpacity = 0.0;
             }
-            m_visibilityState.targetOpacity = hasVisibleBlockingPopup() ? 0.0 : 1.0;
+            m_visibilityState.setTargetOpacity(1.0, m_visibilityConfig.fadeDuration);
             updateAnimationTimer();
             effects->addRepaint(expandedGeometryFor(w));
         }
@@ -1325,13 +1339,15 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
 #ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
     m_sceneView = qobject_cast<SceneView *>(data.view);
 #endif
-    if (m_visibilityState.selfHeal(hasVisibleBlockingPopup(), m_visibilityConfig)) {
-        updateAnimationTimer();
+    if (m_visibilityState.needsSelfHeal(hasVisibleBlockingPopup())) {
+        updatePopupBlockingState();
     }
 
     EffectWindow *w = m_activeWindow;
     const bool showPending = (m_windowShowTimer && m_windowShowTimer->isActive());
-    if (!showPending && shouldOutlineWindow(w) && m_visibilityState.isEffectivelyVisible()) {
+    const bool wantsOutline = m_visibilityState.isEffectivelyVisible()
+        || m_visibilityState.isTransitionActive(m_visibilityConfig.fadeDuration);
+    if (!showPending && shouldOutlineWindow(w) && wantsOutline) {
         if (w->isMinimized() || w->isHiddenByShowDesktop()) {
             // The outline sits in a band just *outside* the window's rectangle.
             // Hiding a window only damages the window rectangle itself, not

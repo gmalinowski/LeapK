@@ -38,6 +38,15 @@ public:
         menuShowTimerActive = false;
     }
 
+    void setTargetOpacity(qreal target, int fadeDurationMs)
+    {
+        targetOpacity = target;
+        lastTickSec = -1.0;
+        if (fadeDurationMs <= 0) {
+            visibilityOpacity = target;
+        }
+    }
+
     enum class TimerAction {
         None,
         StartHideTimer,
@@ -62,11 +71,8 @@ public:
 
             if (cfg.menuHideDelay <= 0) {
                 popupBlocked = true;
-                targetOpacity = 0.0;
                 menuHideTimerActive = false;
-                if (cfg.fadeDuration <= 0) {
-                    visibilityOpacity = 0.0;
-                }
+                setTargetOpacity(0.0, cfg.fadeDuration);
                 return action;
             } else {
                 if (!menuHideTimerActive) {
@@ -89,11 +95,8 @@ public:
 
             if (cfg.menuShowDelay <= 0) {
                 popupBlocked = false;
-                targetOpacity = 1.0;
                 menuShowTimerActive = false;
-                if (cfg.fadeDuration <= 0) {
-                    visibilityOpacity = 1.0;
-                }
+                setTargetOpacity(1.0, cfg.fadeDuration);
                 return action;
             } else {
                 if (!menuShowTimerActive) {
@@ -110,10 +113,7 @@ public:
         menuHideTimerActive = false;
         if (popupPresent) {
             popupBlocked = true;
-            targetOpacity = 0.0;
-            if (cfg.fadeDuration <= 0) {
-                visibilityOpacity = 0.0;
-            }
+            setTargetOpacity(0.0, cfg.fadeDuration);
         }
     }
 
@@ -122,11 +122,19 @@ public:
         menuShowTimerActive = false;
         if (!popupPresent) {
             popupBlocked = false;
-            targetOpacity = 1.0;
-            if (cfg.fadeDuration <= 0) {
-                visibilityOpacity = 1.0;
-            }
+            setTargetOpacity(1.0, cfg.fadeDuration);
         }
+    }
+
+    bool needsSelfHeal(bool popupPresent) const
+    {
+        if (!popupPresent && popupBlocked && !menuShowTimerActive) {
+            return true;
+        }
+        if (popupPresent && !popupBlocked && !menuHideTimerActive) {
+            return true;
+        }
+        return false;
     }
 
     bool selfHeal(bool popupPresent, const Config &cfg)
@@ -169,7 +177,11 @@ public:
     {
         qreal dt = 0.016;
         if (lastTickSec >= 0.0 && elapsedSec >= lastTickSec) {
-            dt = qBound<qreal>(0.0, elapsedSec - lastTickSec, 0.5);
+            const qreal rawDt = elapsedSec - lastTickSec;
+            // Normal 60fps frame is ~0.016s. Allow up to 0.05s (20 FPS).
+            // If more than 50ms elapsed (e.g. idle or stopped timer),
+            // treat as a fresh single frame step (0.016s) to prevent jumping.
+            dt = (rawDt <= 0.05) ? rawDt : 0.016;
         }
         lastTickSec = elapsedSec;
         return stepTransitionDelta(dt, fadeDurationMs);
