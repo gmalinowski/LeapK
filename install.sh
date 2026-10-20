@@ -4,10 +4,38 @@
 
 set -euo pipefail
 
-# If executed inside a repository checkout, run the local installer
+target_ref="${REF:-${BRANCH:-}}"
+forward_args=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --main|--beta|--dev)
+      target_ref="main"
+      shift
+      ;;
+    --ref|--branch|--tag)
+      if [[ $# -lt 2 ]]; then
+        echo "Option $1 requires an argument." >&2
+        exit 2
+      fi
+      target_ref="$2"
+      shift 2
+      ;;
+    --ref=*|--branch=*|--tag=*)
+      target_ref="${1#*=}"
+      shift
+      ;;
+    *)
+      forward_args+=("$1")
+      shift
+      ;;
+  esac
+done
+
+# If executed inside a repository checkout without a requested remote ref, run the local installer
 script_dir="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)" || script_dir=""
-if [[ -n "$script_dir" && -f "$script_dir/install-active-window-outline.sh" && -f "$script_dir/VERSION" ]]; then
-  exec bash "$script_dir/install-active-window-outline.sh" "$@"
+if [[ -z "$target_ref" && -n "$script_dir" && -f "$script_dir/install-active-window-outline.sh" && -f "$script_dir/VERSION" ]]; then
+  exec bash "$script_dir/install-active-window-outline.sh" "${forward_args[@]}"
 fi
 
 tmp_dir="$(mktemp -d /tmp/active-window-outline-install.XXXXXX)"
@@ -30,15 +58,22 @@ get_latest_release_tag() {
   return 1
 }
 
-echo "Resolving latest release of Active Window Outline…"
-latest_tag="$(get_latest_release_tag || true)"
-
-if [[ -n "$latest_tag" ]]; then
-  echo "Downloading Active Window Outline $latest_tag from GitHub…"
-  archive_url="https://github.com/gmalinowski/kwin-active-window-outline/archive/refs/tags/${latest_tag}.tar.gz"
+if [[ "$target_ref" == "main" || "$target_ref" == "master" ]]; then
+  echo "Installing Active Window Outline from branch '$target_ref' (latest development)…"
+  archive_url="https://github.com/gmalinowski/kwin-active-window-outline/archive/refs/heads/${target_ref}.tar.gz"
+elif [[ -n "$target_ref" ]]; then
+  echo "Installing Active Window Outline from reference '$target_ref'…"
+  archive_url="https://github.com/gmalinowski/kwin-active-window-outline/archive/refs/tags/${target_ref}.tar.gz"
 else
-  echo "Could not resolve latest release; downloading latest main branch from GitHub…"
-  archive_url="https://github.com/gmalinowski/kwin-active-window-outline/archive/refs/heads/main.tar.gz"
+  echo "Resolving latest release of Active Window Outline…"
+  latest_tag="$(get_latest_release_tag || true)"
+  if [[ -n "$latest_tag" ]]; then
+    echo "Downloading Active Window Outline $latest_tag from GitHub…"
+    archive_url="https://github.com/gmalinowski/kwin-active-window-outline/archive/refs/tags/${latest_tag}.tar.gz"
+  else
+    echo "Could not resolve latest release; downloading latest main branch from GitHub…"
+    archive_url="https://github.com/gmalinowski/kwin-active-window-outline/archive/refs/heads/main.tar.gz"
+  fi
 fi
 
 if command -v curl >/dev/null 2>&1; then
@@ -52,7 +87,7 @@ fi
 
 cd "$tmp_dir"
 if [[ -r /dev/tty && -w /dev/tty ]]; then
-  bash install-active-window-outline.sh "$@" </dev/tty
+  bash install-active-window-outline.sh "${forward_args[@]}" </dev/tty
 else
-  bash install-active-window-outline.sh "$@"
+  bash install-active-window-outline.sh "${forward_args[@]}"
 fi

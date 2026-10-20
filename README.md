@@ -80,6 +80,12 @@ curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outli
 
 The installer automatically detects the latest release from GitHub (`releases/latest`), installs any missing build dependencies for your distribution (Debian/Ubuntu, Fedora, Arch/CachyOS, openSUSE), and compiles the plugin for your local KWin ABI. Existing configuration settings are preserved on update.
 
+To test the latest unreleased development build from the `main` branch instead, pass `--beta`:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/install.sh | bash -s -- --beta
+```
+
 *(You can inspect the scripts before running: [`install.sh`](install.sh) or [`install-active-window-outline.sh`](install-active-window-outline.sh).)*
 
 ### Guided installation from local source
