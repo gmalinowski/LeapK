@@ -280,6 +280,56 @@ int main()
               "effect is inactive when outline is disabled regardless of pending delays");
     }
 
+    // 13. Switch Hide Fade Transition (DelayedHideState)
+    {
+        DelayedHideState dhs;
+        dhs.reset();
+        check(dhs.opacity == 1.0, "initial delayed hide opacity is 1.0");
+        check(!dhs.fading, "initial delayed hide fading is false");
+        check(dhs.isEffectivelyVisible(), "initially effectively visible");
+        check(!dhs.isTransitionActive(200), "initially no transition active");
+
+        // 13.1 Buffer delay then fade
+        dhs.startBuffer();
+        check(dhs.opacity == 1.0, "buffer maintains opacity at 1.0");
+        check(!dhs.fading, "buffer does not mark fading active");
+        check(!dhs.stepTransition(1.0, 200), "stepTransition does not step during buffer");
+
+        // Timeout triggers fade-out over 200ms
+        dhs.startFade(200);
+        check(dhs.fading, "startFade activates fading flag");
+        check(dhs.isTransitionActive(200), "transition is active during fade");
+
+        // Halfway (100ms)
+        dhs.stepTransitionDelta(0.100, 200);
+        check(dhs.opacity >= 0.45 && dhs.opacity <= 0.55, "delayed hide opacity ~0.5 halfway through fade-out");
+        check(dhs.isEffectivelyVisible(), "still effectively visible at 0.5 opacity");
+
+        // Finished (200ms)
+        dhs.stepTransitionDelta(0.100, 200);
+        check(dhs.opacity <= 0.001, "delayed hide opacity reaches 0.0 at end of fade-out");
+        check(!dhs.fading, "fading flag cleared once 0.0 reached");
+        check(!dhs.isEffectivelyVisible(), "no longer effectively visible");
+        check(!dhs.isTransitionActive(200), "transition stops once 0.0 reached");
+
+        // 13.2 Instant switch hide (fadeDuration = 0)
+        dhs.startBuffer();
+        dhs.startFade(0);
+        check(dhs.opacity == 0.0, "fadeDuration 0 snaps delayed hide opacity immediately to 0.0");
+        check(!dhs.fading, "instant fade does not remain in fading state");
+        check(!dhs.isEffectivelyVisible(), "instant fade is immediately invisible");
+
+        // 13.3 Smooth timestamp stepping across frames
+        dhs.startBuffer();
+        dhs.startFade(500); // 500ms duration
+        dhs.stepTransition(10.0, 500);
+        check(dhs.opacity < 1.0 && dhs.opacity >= 0.95, "first frame tick steps smoothly");
+        for (int frame = 1; frame < 32; ++frame) {
+            dhs.stepTransition(10.0 + frame * 0.0166, 500);
+        }
+        check(dhs.opacity <= 0.001, "smoothly reaches 0.0 across 500ms");
+    }
+
     std::printf("VisibilityStateTest: %d checks, %d failures\n", checks, failures);
     return failures > 0 ? 1 : 0;
 }

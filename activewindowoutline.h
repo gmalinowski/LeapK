@@ -218,6 +218,7 @@ private:
     QTimer *m_windowHideTimer = nullptr;
     QTimer *m_windowShowTimer = nullptr;
     EffectWindow *m_delayedHideWindow = nullptr;
+    OutlineVisibility::DelayedHideState m_delayedHideState;
 
     // Runtime animation state
     QTimer *m_animationTimer = nullptr;

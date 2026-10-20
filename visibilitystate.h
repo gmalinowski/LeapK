@@ -213,4 +213,81 @@ public:
     }
 };
 
+struct DelayedHideState
+{
+    qreal opacity = 1.0;
+    qreal targetOpacity = 1.0;
+    bool fading = false;
+    qreal lastTickSec = -1.0;
+
+    void reset()
+    {
+        opacity = 1.0;
+        targetOpacity = 1.0;
+        fading = false;
+        lastTickSec = -1.0;
+    }
+
+    void startBuffer()
+    {
+        opacity = 1.0;
+        targetOpacity = 1.0;
+        fading = false;
+        lastTickSec = -1.0;
+    }
+
+    void startFade(int fadeDurationMs)
+    {
+        if (fadeDurationMs <= 0) {
+            opacity = 0.0;
+            targetOpacity = 0.0;
+            fading = false;
+            lastTickSec = -1.0;
+        } else {
+            targetOpacity = 0.0;
+            fading = true;
+            lastTickSec = -1.0;
+        }
+    }
+
+    bool stepTransitionDelta(qreal dtSec, int fadeDurationMs)
+    {
+        if (!fading || fadeDurationMs <= 0) {
+            return false;
+        }
+
+        const qreal step = dtSec / (fadeDurationMs / 1000.0);
+        opacity = qMax<qreal>(0.0, opacity - step);
+        if (opacity <= 0.001) {
+            opacity = 0.0;
+            fading = false;
+        }
+        return true;
+    }
+
+    bool stepTransition(qreal elapsedSec, int fadeDurationMs)
+    {
+        if (!fading || fadeDurationMs <= 0) {
+            return false;
+        }
+        qreal dt = 0.016;
+        if (lastTickSec >= 0.0 && elapsedSec >= lastTickSec) {
+            const qreal rawDt = elapsedSec - lastTickSec;
+            dt = (rawDt <= 0.05) ? rawDt : 0.016;
+        }
+        lastTickSec = elapsedSec;
+        return stepTransitionDelta(dt, fadeDurationMs);
+    }
+
+    bool isEffectivelyVisible() const
+    {
+        return opacity > 0.001;
+    }
+
+    bool isTransitionActive(int fadeDurationMs) const
+    {
+        return fading && fadeDurationMs > 0 && opacity > 0.001;
+    }
+};
+
 } // namespace OutlineVisibility

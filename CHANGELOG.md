@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.3.5] - 2026-10-20
+
+### Fixed
+
+- **Fade transition for switch hide**: Added smooth fade-out transition for the deactivated window when switching windows. Previously, the deactivated window's outline would abruptly snap to 0% opacity upon hiding or buffer delay expiration. `DelayedHideState` now smoothly steps the deactivated outline's opacity from 1.0 down to 0.0 over `FadeDuration` ms (either immediately if `WindowHideDelay == 0`, or following the buffer delay if `WindowHideDelay > 0`).
+
 ## [1.3.4] - 2026-10-20
 
 ### Fixed

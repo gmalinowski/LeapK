@@ -219,11 +219,18 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
     m_windowHideTimer->setSingleShot(true);
     connect(m_windowHideTimer, &QTimer::timeout, this, [this] {
         if (m_delayedHideWindow) {
-            effects->addRepaint(expandedGeometryFor(m_delayedHideWindow));
-            m_suppressedWindows.remove(m_delayedHideWindow);
-            m_lastGeometry.remove(m_delayedHideWindow);
-            m_outlineCache.remove(m_delayedHideWindow);
-            m_delayedHideWindow = nullptr;
+            if (m_visibilityConfig.fadeDuration > 0) {
+                m_delayedHideState.startFade(m_visibilityConfig.fadeDuration);
+                updateAnimationTimer();
+                effects->addRepaint(expandedGeometryFor(m_delayedHideWindow));
+            } else {
+                effects->addRepaint(expandedGeometryFor(m_delayedHideWindow));
+                m_suppressedWindows.remove(m_delayedHideWindow);
+                m_lastGeometry.remove(m_delayedHideWindow);
+                m_outlineCache.remove(m_delayedHideWindow);
+                m_delayedHideWindow = nullptr;
+                m_delayedHideState.reset();
+            }
         }
     });
 
@@ -419,9 +426,12 @@ bool ActiveWindowOutlineEffect::isAnimationActive() const
     if (m_visibilityState.isTransitionActive(m_visibilityConfig.fadeDuration)) {
         return true;
     }
+    if (m_delayedHideWindow && m_delayedHideState.isTransitionActive(m_visibilityConfig.fadeDuration)) {
+        return true;
+    }
     const bool hasDelayed = (m_delayedHideWindow && !m_delayedHideWindow->isDeleted()
         && m_delayedHideWindow->isOnCurrentDesktop() && !m_delayedHideWindow->isMinimized()
-        && !m_delayedHideWindow->isHiddenByShowDesktop());
+        && !m_delayedHideWindow->isHiddenByShowDesktop() && m_delayedHideState.isEffectivelyVisible());
     if (m_visibilityState.isEffectivelyVisible() || hasDelayed) {
         return m_colorCycleEnabled || m_breatheEnabled
             || m_glitchEnabled || m_neonFlickerEnabled || m_flashEnabled;
@@ -466,7 +476,17 @@ void ActiveWindowOutlineEffect::slotAnimationTick()
 
     if (m_delayedHideWindow && !m_delayedHideWindow->isDeleted()
         && m_delayedHideWindow->isOnCurrentDesktop() && !m_delayedHideWindow->isMinimized()) {
-        effects->addRepaint(expandedGeometryFor(m_delayedHideWindow));
+        const bool delayedOpacityChanged = m_delayedHideState.stepTransition(elapsedSec, m_visibilityConfig.fadeDuration);
+        if (m_delayedHideState.isEffectivelyVisible()) {
+            effects->addRepaint(expandedGeometryFor(m_delayedHideWindow));
+        } else if (delayedOpacityChanged) {
+            effects->addRepaint(expandedGeometryFor(m_delayedHideWindow));
+            m_suppressedWindows.remove(m_delayedHideWindow);
+            m_lastGeometry.remove(m_delayedHideWindow);
+            m_outlineCache.remove(m_delayedHideWindow);
+            m_delayedHideWindow = nullptr;
+            m_delayedHideState.reset();
+        }
     }
 
     if (!isAnimationActive() && m_animationTimer->isActive()) {
@@ -664,6 +684,7 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
 {
     if (m_delayedHideWindow == w) {
         m_delayedHideWindow = nullptr;
+        m_delayedHideState.reset();
         if (m_windowHideTimer) {
             m_windowHideTimer->stop();
         }
@@ -1098,17 +1119,29 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
     }
 
     if (previous) {
-        if (m_windowHideDelay > 0 && !previous->isDeleted() && previous->isOnCurrentDesktop()) {
+        const bool willDelayOrFade = (!previous->isDeleted() && previous->isOnCurrentDesktop())
+            && (m_windowHideDelay > 0 || m_visibilityConfig.fadeDuration > 0);
+
+        if (willDelayOrFade) {
             if (m_delayedHideWindow && m_delayedHideWindow != previous) {
                 effects->addRepaint(expandedGeometryFor(m_delayedHideWindow));
                 m_suppressedWindows.remove(m_delayedHideWindow);
                 m_lastGeometry.remove(m_delayedHideWindow);
                 m_outlineCache.remove(m_delayedHideWindow);
+                m_delayedHideWindow = nullptr;
+                m_delayedHideState.reset();
             }
             m_delayedHideWindow = previous;
             effects->addRepaint(expandedGeometryFor(previous));
-            if (m_windowHideTimer) {
-                m_windowHideTimer->start(m_windowHideDelay);
+
+            if (m_windowHideDelay > 0) {
+                m_delayedHideState.startBuffer();
+                if (m_windowHideTimer) {
+                    m_windowHideTimer->start(m_windowHideDelay);
+                }
+            } else {
+                m_delayedHideState.startFade(m_visibilityConfig.fadeDuration);
+                updateAnimationTimer();
             }
         } else {
             effects->addRepaint(expandedGeometryFor(previous));
@@ -1117,6 +1150,7 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
             m_outlineCache.remove(previous);
             if (m_delayedHideWindow == previous) {
                 m_delayedHideWindow = nullptr;
+                m_delayedHideState.reset();
                 if (m_windowHideTimer) {
                     m_windowHideTimer->stop();
                 }
@@ -1134,6 +1168,7 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
 
     if (m_delayedHideWindow == w) {
         m_delayedHideWindow = nullptr;
+        m_delayedHideState.reset();
         if (m_windowHideTimer) {
             m_windowHideTimer->stop();
         }
@@ -1147,6 +1182,10 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
 
     if (shouldOutlineWindow(w)) {
         if (m_windowShowDelay > 0) {
+            if (m_visibilityConfig.fadeDuration > 0) {
+                m_visibilityState.visibilityOpacity = 0.0;
+            }
+            m_visibilityState.targetOpacity = 0.0;
             if (m_windowShowTimer) {
                 m_windowShowTimer->start(m_windowShowDelay);
             }
@@ -1213,6 +1252,7 @@ void ActiveWindowOutlineEffect::slotToggleAction()
             m_outlineCache.remove(m_delayedHideWindow);
             m_delayedHideWindow = nullptr;
         }
+        m_delayedHideState.reset();
         if (m_activeWindow) {
             effects->addRepaint(expandedGeometryFor(m_activeWindow));
         }
@@ -1223,6 +1263,7 @@ void ActiveWindowOutlineEffect::slotWindowMinimizedChanged(EffectWindow *w)
 {
     if (m_delayedHideWindow == w) {
         m_delayedHideWindow = nullptr;
+        m_delayedHideState.reset();
         if (m_windowHideTimer) {
             m_windowHideTimer->stop();
         }
@@ -1238,6 +1279,7 @@ void ActiveWindowOutlineEffect::slotWindowFullScreenChanged(EffectWindow *w)
 {
     if (m_delayedHideWindow == w) {
         m_delayedHideWindow = nullptr;
+        m_delayedHideState.reset();
         if (m_windowHideTimer) {
             m_windowHideTimer->stop();
         }
@@ -1275,7 +1317,7 @@ bool ActiveWindowOutlineEffect::isActive() const
     const bool activeEligible = shouldOutlineWindow(m_activeWindow) && m_visibilityState.isEffectivelyVisible();
     const bool delayedEligible = (m_delayedHideWindow && !m_delayedHideWindow->isDeleted()
         && !m_delayedHideWindow->isMinimized() && !m_delayedHideWindow->isHiddenByShowDesktop()
-        && m_delayedHideWindow->isOnCurrentDesktop());
+        && m_delayedHideWindow->isOnCurrentDesktop() && m_delayedHideState.isEffectivelyVisible());
     return OutlineVisibility::StateMachine::isEffectActive(m_outlineEnabled, showPending, activeEligible, delayedEligible);
 }
 
@@ -1306,12 +1348,13 @@ QString ActiveWindowOutlineEffect::debug(const QString &parameter) const
         return QStringLiteral("[%1,%2 %3x%4]")
             .arg(rect.x()).arg(rect.y()).arg(rect.width()).arg(rect.height());
     };
-    result += QStringLiteral("\nblockingPopup=%1 popupBlocked=%2 visibilityOpacity=%3 targetOpacity=%4 delayedHideWindow=%5 showTimerActive=%6 effectActive=%7")
+    result += QStringLiteral("\nblockingPopup=%1 popupBlocked=%2 visibilityOpacity=%3 targetOpacity=%4 delayedHideWindow=%5 delayedHideOpacity=%6 showTimerActive=%7 effectActive=%8")
         .arg(hasVisibleBlockingPopup())
         .arg(m_visibilityState.popupBlocked)
         .arg(m_visibilityState.visibilityOpacity)
         .arg(m_visibilityState.targetOpacity)
         .arg(m_delayedHideWindow != nullptr)
+        .arg(m_delayedHideState.opacity)
         .arg(m_windowShowTimer && m_windowShowTimer->isActive())
         .arg(isActive());
     int index = 0;
@@ -1380,7 +1423,7 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
 
     if (m_delayedHideWindow && m_delayedHideWindow != w && !m_delayedHideWindow->isDeleted()
         && m_delayedHideWindow->isOnCurrentDesktop() && !m_delayedHideWindow->isMinimized()
-        && !m_delayedHideWindow->isHiddenByShowDesktop()) {
+        && !m_delayedHideWindow->isHiddenByShowDesktop() && m_delayedHideState.isEffectivelyVisible()) {
         data.paint += expandedGeometryFor(m_delayedHideWindow).toAlignedRect();
     }
 }
@@ -1416,7 +1459,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         && !w->isMinimized() && !w->isHiddenByShowDesktop() && w->isOnCurrentDesktop();
     const bool drawDelayed = (m_delayedHideWindow && m_delayedHideWindow != w
         && !m_delayedHideWindow->isDeleted() && !m_delayedHideWindow->isMinimized()
-        && !m_delayedHideWindow->isHiddenByShowDesktop() && m_delayedHideWindow->isOnCurrentDesktop());
+        && !m_delayedHideWindow->isHiddenByShowDesktop() && m_delayedHideWindow->isOnCurrentDesktop()
+        && m_delayedHideState.isEffectivelyVisible());
 #ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
     std::unique_ptr<OutlineCursorOverlay> cursorOverlay;
     // Only defer the cursor for the ordinary output pass. Transformed/offscreen
@@ -1454,7 +1498,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             cacheWindowOutline(m_delayedHideWindow, delayedGeo);
             m_lastGeometry[m_delayedHideWindow] = delayedGeo;
         }
-        renderOutline(renderTarget, viewport, m_outlineCache[m_delayedHideWindow], deviceRegion, m_delayedHideWindow, 1.0);
+        renderOutline(renderTarget, viewport, m_outlineCache[m_delayedHideWindow], deviceRegion, m_delayedHideWindow, m_delayedHideState.opacity);
     }
 
     if (drawOutline) {
