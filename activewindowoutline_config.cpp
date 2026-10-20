@@ -73,6 +73,8 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("GlitchIntensity"), *new int, 50);
 
     m_configSkeleton->addItemBool(QStringLiteral("NeonFlickerEnabled"), *new bool, false);
+    m_configSkeleton->addItemDouble(QStringLiteral("NeonFlickerInterval"), *new double, 3.0);
+    m_configSkeleton->addItemDouble(QStringLiteral("NeonFlickerDuration"), *new double, 0.25);
     m_configSkeleton->addItemInt(QStringLiteral("NeonFlickerIntensity"), *new int, 30);
 
     m_configSkeleton->addItemBool(QStringLiteral("FlashEnabled"), *new bool, false);
@@ -89,6 +91,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
         const QColor color = QColorDialog::getColor(QColor(61, 174, 233), widget(), QStringLiteral("Select Color"));
         if (color.isValid()) {
             addColorRow(color, 3.0);
+            markAsChanged();
         }
     });
 
@@ -96,6 +99,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
         const int row = m_ui->tableColors->currentRow();
         if (row >= 0) {
             m_ui->tableColors->removeRow(row);
+            markAsChanged();
         }
     });
 
@@ -116,8 +120,10 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
             newSpin->setRange(0.1, 60.0);
             newSpin->setValue(holdTime);
             newSpin->setSuffix(QStringLiteral(" s"));
+            connect(newSpin, &QDoubleSpinBox::valueChanged, this, [this] { markAsChanged(); });
             m_ui->tableColors->setCellWidget(targetRow, 1, newSpin);
             m_ui->tableColors->selectRow(targetRow);
+            markAsChanged();
         }
     });
 
@@ -138,8 +144,10 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
             newSpin->setRange(0.1, 60.0);
             newSpin->setValue(holdTime);
             newSpin->setSuffix(QStringLiteral(" s"));
+            connect(newSpin, &QDoubleSpinBox::valueChanged, this, [this] { markAsChanged(); });
             m_ui->tableColors->setCellWidget(targetRow, 1, newSpin);
             m_ui->tableColors->selectRow(targetRow);
+            markAsChanged();
         }
     });
 
@@ -155,6 +163,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
                     item->setIcon(QIcon(iconPix));
                     item->setText(color.name(QColor::HexRgb));
                     item->setData(Qt::UserRole, color);
+                    markAsChanged();
                 }
             }
         }
@@ -215,6 +224,10 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
 
     auto updateNeonUI = [this] {
         const bool enabled = m_ui->kcfg_NeonFlickerEnabled->isChecked();
+        m_ui->label_neonInterval->setEnabled(enabled);
+        m_ui->kcfg_NeonFlickerInterval->setEnabled(enabled);
+        m_ui->label_neonDuration->setEnabled(enabled);
+        m_ui->kcfg_NeonFlickerDuration->setEnabled(enabled);
         m_ui->label_neonIntensity->setEnabled(enabled);
         m_ui->kcfg_NeonFlickerIntensity->setEnabled(enabled);
     };
@@ -251,6 +264,7 @@ void ActiveWindowOutlineConfig::addColorRow(const QColor &color, double holdTime
     spin->setSingleStep(0.5);
     spin->setValue(holdTime);
     spin->setSuffix(QStringLiteral(" s"));
+    connect(spin, &QDoubleSpinBox::valueChanged, this, [this] { markAsChanged(); });
     m_ui->tableColors->setCellWidget(row, 1, spin);
 }
 
@@ -306,12 +320,14 @@ void ActiveWindowOutlineConfig::load()
     KCModule::load();
     KConfigGroup group = KSharedConfig::openConfig(QStringLiteral("kwinrc"))->group(QStringLiteral("Effect-active-window-outline"));
     populateColorTable(group.readEntry(QStringLiteral("ColorList"), QStringLiteral("#3daee9:3.0;#2ecc71:3.0;#9b59b6:3.0")));
+    setNeedsSave(false);
 }
 
 void ActiveWindowOutlineConfig::defaults()
 {
     KCModule::defaults();
     populateColorTable(QStringLiteral("#3daee9:3.0;#2ecc71:3.0;#9b59b6:3.0"));
+    markAsChanged();
 }
 
 void ActiveWindowOutlineConfig::save()

@@ -80,7 +80,7 @@ for key in UseAccentColor AccentOpacity CustomColor BorderWidth OutlineGap \
            ColorCycleEnabled ColorList ColorTransitionDuration ColorCycleOrder ColorCycleEasing \
            BreatheEnabled BreatheSpeed BreatheIntensity \
            GlitchEnabled GlitchSpeed GlitchFrequency GlitchIntensity \
-           NeonFlickerEnabled NeonFlickerIntensity \
+           NeonFlickerEnabled NeonFlickerInterval NeonFlickerDuration NeonFlickerIntensity \
            FlashEnabled FlashInterval FlashDuration; do
   kwriteconfig6 --file kwinrc --group "$config_group" --key "$key" --delete ''
 done

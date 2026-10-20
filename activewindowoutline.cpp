@@ -315,6 +315,8 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_glitchIntensity = qBound(10, config.readEntry("GlitchIntensity", 50), 100);
 
     m_neonFlickerEnabled = config.readEntry("NeonFlickerEnabled", false);
+    m_neonFlickerInterval = qMax<qreal>(0.5, config.readEntry("NeonFlickerInterval", 3.0));
+    m_neonFlickerDuration = qBound<qreal>(0.05, config.readEntry("NeonFlickerDuration", 0.25), 2.0);
     m_neonFlickerIntensity = qBound(10, config.readEntry("NeonFlickerIntensity", 30), 100);
 
     m_flashEnabled = config.readEntry("FlashEnabled", false);
@@ -471,13 +473,25 @@ qreal ActiveWindowOutlineEffect::computeNeonFactor(qreal elapsedSec) const
     if (!m_neonFlickerEnabled) {
         return 1.0;
     }
-    const qreal noise = std::fmod(std::sin(elapsedSec * 78.233 + std::sin(elapsedSec * 133.0)) * 43758.5453, 1.0);
-    const qreal positiveNoise = std::abs(noise);
-    const qreal depth = m_neonFlickerIntensity / 100.0;
-    if (positiveNoise < 0.08) {
-        return qMax<qreal>(0.1, 1.0 - depth);
+    const qreal interval = qMax<qreal>(0.5, m_neonFlickerInterval);
+    const qreal duration = qBound<qreal>(0.02, m_neonFlickerDuration, interval * 0.95);
+    const qreal phase = std::fmod(elapsedSec, interval);
+
+    if (phase < duration) {
+        const qreal t = elapsedSec;
+        const qreal rawNoise = std::sin(t * 110.0) * 0.5 + std::cos(t * 67.0) * 0.3 + std::sin(t * 193.0) * 0.2;
+        const qreal depth = m_neonFlickerIntensity / 100.0;
+
+        if (rawNoise < -0.2) {
+            return qMax<qreal>(0.05, 1.0 - depth);
+        } else if (rawNoise < 0.25) {
+            return qMax<qreal>(0.1, 1.0 - depth * 0.6);
+        } else {
+            return 1.0 - depth * 0.15 * std::abs(rawNoise);
+        }
     }
-    return 1.0 - depth * 0.15 * positiveNoise;
+
+    return 1.0;
 }
 
 qreal ActiveWindowOutlineEffect::computeFlashFactor(qreal elapsedSec) const
@@ -535,9 +549,9 @@ QColor ActiveWindowOutlineEffect::resolveColor() const
 
         int a = qRound(color.alpha() * totalFactor);
         const qreal glowBoost = flash + (glitch - 1.0) * 0.8;
-        int r = qRound(qMin<qreal>(255.0, color.red() * (1.0 + glowBoost)));
-        int g = qRound(qMin<qreal>(255.0, color.green() * (1.0 + glowBoost)));
-        int b = qRound(qMin<qreal>(255.0, color.blue() * (1.0 + glowBoost)));
+        int r = qRound(qMin<qreal>(255.0, color.red() * neon * (1.0 + glowBoost)));
+        int g = qRound(qMin<qreal>(255.0, color.green() * neon * (1.0 + glowBoost)));
+        int b = qRound(qMin<qreal>(255.0, color.blue() * neon * (1.0 + glowBoost)));
 
         color = QColor(r, g, b, qBound(0, a, 255));
     }

@@ -189,6 +189,8 @@ private:
     int m_glitchIntensity = 50;
 
     bool m_neonFlickerEnabled = false;
+    qreal m_neonFlickerInterval = 3.0;
+    qreal m_neonFlickerDuration = 0.25;
     int m_neonFlickerIntensity = 30;
 
     bool m_flashEnabled = false;

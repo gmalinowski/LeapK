@@ -189,7 +189,7 @@ Mix and match procedural effects to enhance the outline and glow.
 | --- | --- | ---: | --- |
 | **Breathe / Pulse** | Speed<br>Intensity | 1.5 Hz<br>40% | Smooth sinusoidal alpha and glow pulsation. |
 | **Futuristic Glitch** | Speed<br>Frequency<br>Intensity | 1.0x<br>3<br>50% | Procedural holographic scanlines, gentle rolling beam, and subtle periodic glitch surges. |
-| **Neon Flicker** | Intensity | 30% | Realistic gas-discharge tube voltage-drop flickering. |
+| **Neon Flicker** | Interval<br>Duration<br>Intensity | 3.0 s<br>0.25 s<br>30% | Periodic voltage drops and realistic gas-discharge tube flickering episodes. |
 | **Flash / Strobe** | Interval<br>Duration | 4.0 s<br>0.15 s | Periodic light strobe bursts. |
 
 ### Keyboard shortcut

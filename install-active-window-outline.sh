@@ -269,6 +269,8 @@ set_default GlitchSpeed 1.0
 set_default GlitchFrequency 3
 set_default GlitchIntensity 50
 set_default NeonFlickerEnabled false
+set_default NeonFlickerInterval 3.0
+set_default NeonFlickerDuration 0.25
 set_default NeonFlickerIntensity 30
 set_default FlashEnabled false
 set_default FlashInterval 4.0
