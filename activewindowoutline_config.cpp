@@ -8,10 +8,17 @@
 #include "ui_activewindowoutline_config.h"
 
 #include <KColorScheme>
+#include <KConfigGroup>
 #include <KConfigSkeleton>
 #include <KPluginFactory>
+#include <KSharedConfig>
+#include <QColorDialog>
 #include <QDBusConnection>
 #include <QDBusMessage>
+#include <QDoubleSpinBox>
+#include <QHeaderView>
+#include <QPainter>
+#include <QPixmap>
 
 #ifndef ACTIVE_WINDOW_OUTLINE_VERSION
 #define ACTIVE_WINDOW_OUTLINE_VERSION "development"
@@ -33,25 +40,126 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     infoPalette.setColor(QPalette::WindowText, neutralText);
     m_ui->label_info->setPalette(infoPalette);
 
-    auto *config = new KConfigSkeleton(QStringLiteral("kwinrc"), this);
-    config->setCurrentGroup(QStringLiteral("Effect-active-window-outline"));
+    m_configSkeleton = new KConfigSkeleton(QStringLiteral("kwinrc"), this);
+    m_configSkeleton->setCurrentGroup(QStringLiteral("Effect-active-window-outline"));
 
-    config->addItemBool(QStringLiteral("UseAccentColor"), *new bool, true);
-    config->addItemInt(QStringLiteral("AccentOpacity"), *new int, 66);
-    config->addItemColor(QStringLiteral("CustomColor"), *new QColor, QColor(61, 174, 233));
-    config->addItemInt(QStringLiteral("BorderWidth"), *new int, 2);
-    config->addItemInt(QStringLiteral("OutlineGap"), *new int, 0);
-    config->addItemInt(QStringLiteral("BorderRadius"), *new int, 6);
-    config->addItemBool(QStringLiteral("DrawInside"), *new bool, true);
-    config->addItemBool(QStringLiteral("SmoothEdges"), *new bool, true);
-    config->addItemBool(QStringLiteral("GlowEnabled"), *new bool, true);
-    config->addItemInt(QStringLiteral("GlowRadius"), *new int, 6);
-    config->addItemBool(QStringLiteral("HideOnFullScreen"), *new bool, true);
+    // Tab 1: General
+    m_configSkeleton->addItemBool(QStringLiteral("UseAccentColor"), *new bool, true);
+    m_configSkeleton->addItemInt(QStringLiteral("AccentOpacity"), *new int, 66);
+    m_configSkeleton->addItemColor(QStringLiteral("CustomColor"), *new QColor, QColor(61, 174, 233));
+    m_configSkeleton->addItemInt(QStringLiteral("BorderWidth"), *new int, 2);
+    m_configSkeleton->addItemInt(QStringLiteral("OutlineGap"), *new int, 0);
+    m_configSkeleton->addItemInt(QStringLiteral("BorderRadius"), *new int, 6);
+    m_configSkeleton->addItemBool(QStringLiteral("DrawInside"), *new bool, true);
+    m_configSkeleton->addItemBool(QStringLiteral("SmoothEdges"), *new bool, true);
+    m_configSkeleton->addItemBool(QStringLiteral("GlowEnabled"), *new bool, true);
+    m_configSkeleton->addItemInt(QStringLiteral("GlowRadius"), *new int, 6);
+    m_configSkeleton->addItemBool(QStringLiteral("HideOnFullScreen"), *new bool, true);
 
-    addConfig(config, widget());
+    // Tab 2: Color Cycling
+    m_configSkeleton->addItemBool(QStringLiteral("ColorCycleEnabled"), *new bool, false);
+    m_configSkeleton->addItemDouble(QStringLiteral("ColorTransitionDuration"), *new double, 2.0);
+    m_configSkeleton->addItemInt(QStringLiteral("ColorCycleOrder"), *new int, 0);
+    m_configSkeleton->addItemInt(QStringLiteral("ColorCycleEasing"), *new int, 0);
 
-    // Keep the opacity control with the accent color and the alpha-enabled
-    // custom picker with the custom color, so each mode has one clear control.
+    // Tab 3: Shader Effects
+    m_configSkeleton->addItemBool(QStringLiteral("BreatheEnabled"), *new bool, false);
+    m_configSkeleton->addItemDouble(QStringLiteral("BreatheSpeed"), *new double, 1.5);
+    m_configSkeleton->addItemInt(QStringLiteral("BreatheIntensity"), *new int, 40);
+
+    m_configSkeleton->addItemBool(QStringLiteral("GlitchEnabled"), *new bool, false);
+    m_configSkeleton->addItemInt(QStringLiteral("GlitchFrequency"), *new int, 3);
+    m_configSkeleton->addItemInt(QStringLiteral("GlitchIntensity"), *new int, 50);
+
+    m_configSkeleton->addItemBool(QStringLiteral("NeonFlickerEnabled"), *new bool, false);
+    m_configSkeleton->addItemInt(QStringLiteral("NeonFlickerIntensity"), *new int, 30);
+
+    m_configSkeleton->addItemBool(QStringLiteral("FlashEnabled"), *new bool, false);
+    m_configSkeleton->addItemDouble(QStringLiteral("FlashInterval"), *new double, 4.0);
+    m_configSkeleton->addItemDouble(QStringLiteral("FlashDuration"), *new double, 0.15);
+
+    addConfig(m_configSkeleton, widget());
+
+    // Setup table
+    m_ui->tableColors->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    m_ui->tableColors->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+
+    connect(m_ui->btnAddColor, &QPushButton::clicked, this, [this] {
+        const QColor color = QColorDialog::getColor(QColor(61, 174, 233), widget(), QStringLiteral("Select Color"));
+        if (color.isValid()) {
+            addColorRow(color, 3.0);
+        }
+    });
+
+    connect(m_ui->btnRemoveColor, &QPushButton::clicked, this, [this] {
+        const int row = m_ui->tableColors->currentRow();
+        if (row >= 0) {
+            m_ui->tableColors->removeRow(row);
+        }
+    });
+
+    connect(m_ui->btnMoveUp, &QPushButton::clicked, this, [this] {
+        const int row = m_ui->tableColors->currentRow();
+        if (row > 0) {
+            auto *colorItem = m_ui->tableColors->takeItem(row, 0);
+            auto *spinWidget = m_ui->tableColors->cellWidget(row, 1);
+            double holdTime = 3.0;
+            if (auto *spin = qobject_cast<QDoubleSpinBox *>(spinWidget)) {
+                holdTime = spin->value();
+            }
+            m_ui->tableColors->removeRow(row);
+            const int targetRow = row - 1;
+            m_ui->tableColors->insertRow(targetRow);
+            m_ui->tableColors->setItem(targetRow, 0, colorItem);
+            auto *newSpin = new QDoubleSpinBox(m_ui->tableColors);
+            newSpin->setRange(0.1, 60.0);
+            newSpin->setValue(holdTime);
+            newSpin->setSuffix(QStringLiteral(" s"));
+            m_ui->tableColors->setCellWidget(targetRow, 1, newSpin);
+            m_ui->tableColors->selectRow(targetRow);
+        }
+    });
+
+    connect(m_ui->btnMoveDown, &QPushButton::clicked, this, [this] {
+        const int row = m_ui->tableColors->currentRow();
+        if (row >= 0 && row < m_ui->tableColors->rowCount() - 1) {
+            auto *colorItem = m_ui->tableColors->takeItem(row, 0);
+            auto *spinWidget = m_ui->tableColors->cellWidget(row, 1);
+            double holdTime = 3.0;
+            if (auto *spin = qobject_cast<QDoubleSpinBox *>(spinWidget)) {
+                holdTime = spin->value();
+            }
+            m_ui->tableColors->removeRow(row);
+            const int targetRow = row + 1;
+            m_ui->tableColors->insertRow(targetRow);
+            m_ui->tableColors->setItem(targetRow, 0, colorItem);
+            auto *newSpin = new QDoubleSpinBox(m_ui->tableColors);
+            newSpin->setRange(0.1, 60.0);
+            newSpin->setValue(holdTime);
+            newSpin->setSuffix(QStringLiteral(" s"));
+            m_ui->tableColors->setCellWidget(targetRow, 1, newSpin);
+            m_ui->tableColors->selectRow(targetRow);
+        }
+    });
+
+    connect(m_ui->tableColors, &QTableWidget::cellDoubleClicked, this, [this](int row, int col) {
+        if (col == 0) {
+            auto *item = m_ui->tableColors->item(row, 0);
+            if (item) {
+                const QColor initialColor = item->data(Qt::UserRole).value<QColor>();
+                const QColor color = QColorDialog::getColor(initialColor, widget(), QStringLiteral("Edit Color"));
+                if (color.isValid()) {
+                    QPixmap iconPix(24, 24);
+                    iconPix.fill(color);
+                    item->setIcon(QIcon(iconPix));
+                    item->setText(color.name(QColor::HexRgb));
+                    item->setData(Qt::UserRole, color);
+                }
+            }
+        }
+    });
+
+    // Color UI enable/disable sync
     auto updateColorEnabled = [this] {
         const bool useAccent = m_ui->kcfg_UseAccentColor->isChecked();
         m_ui->kcfg_AccentOpacity->setEnabled(useAccent);
@@ -62,18 +170,154 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->kcfg_UseAccentColor, &QCheckBox::toggled, this, updateColorEnabled);
     updateColorEnabled();
 
-    const auto updateGlowEnabled = [this] {
+    auto updateGlowEnabled = [this] {
         const bool enabled = m_ui->kcfg_GlowEnabled->isChecked();
         m_ui->kcfg_GlowRadius->setEnabled(enabled);
         m_ui->label_glowRadius->setEnabled(enabled);
     };
     connect(m_ui->kcfg_GlowEnabled, &QCheckBox::toggled, this, updateGlowEnabled);
     updateGlowEnabled();
+
+    auto updateColorCycleUI = [this] {
+        const bool enabled = m_ui->kcfg_ColorCycleEnabled->isChecked();
+        m_ui->tableColors->setEnabled(enabled);
+        m_ui->btnAddColor->setEnabled(enabled);
+        m_ui->btnRemoveColor->setEnabled(enabled);
+        m_ui->btnMoveUp->setEnabled(enabled);
+        m_ui->btnMoveDown->setEnabled(enabled);
+        m_ui->groupTransition->setEnabled(enabled);
+    };
+    connect(m_ui->kcfg_ColorCycleEnabled, &QCheckBox::toggled, this, updateColorCycleUI);
+    updateColorCycleUI();
+
+    auto updateBreatheUI = [this] {
+        const bool enabled = m_ui->kcfg_BreatheEnabled->isChecked();
+        m_ui->label_breatheSpeed->setEnabled(enabled);
+        m_ui->kcfg_BreatheSpeed->setEnabled(enabled);
+        m_ui->label_breatheIntensity->setEnabled(enabled);
+        m_ui->kcfg_BreatheIntensity->setEnabled(enabled);
+    };
+    connect(m_ui->kcfg_BreatheEnabled, &QCheckBox::toggled, this, updateBreatheUI);
+    updateBreatheUI();
+
+    auto updateGlitchUI = [this] {
+        const bool enabled = m_ui->kcfg_GlitchEnabled->isChecked();
+        m_ui->label_glitchFrequency->setEnabled(enabled);
+        m_ui->kcfg_GlitchFrequency->setEnabled(enabled);
+        m_ui->label_glitchIntensity->setEnabled(enabled);
+        m_ui->kcfg_GlitchIntensity->setEnabled(enabled);
+    };
+    connect(m_ui->kcfg_GlitchEnabled, &QCheckBox::toggled, this, updateGlitchUI);
+    updateGlitchUI();
+
+    auto updateNeonUI = [this] {
+        const bool enabled = m_ui->kcfg_NeonFlickerEnabled->isChecked();
+        m_ui->label_neonIntensity->setEnabled(enabled);
+        m_ui->kcfg_NeonFlickerIntensity->setEnabled(enabled);
+    };
+    connect(m_ui->kcfg_NeonFlickerEnabled, &QCheckBox::toggled, this, updateNeonUI);
+    updateNeonUI();
+
+    auto updateFlashUI = [this] {
+        const bool enabled = m_ui->kcfg_FlashEnabled->isChecked();
+        m_ui->label_flashInterval->setEnabled(enabled);
+        m_ui->kcfg_FlashInterval->setEnabled(enabled);
+        m_ui->label_flashDuration->setEnabled(enabled);
+        m_ui->kcfg_FlashDuration->setEnabled(enabled);
+    };
+    connect(m_ui->kcfg_FlashEnabled, &QCheckBox::toggled, this, updateFlashUI);
+    updateFlashUI();
+
+    load();
+}
+
+void ActiveWindowOutlineConfig::addColorRow(const QColor &color, double holdTime)
+{
+    const int row = m_ui->tableColors->rowCount();
+    m_ui->tableColors->insertRow(row);
+
+    QPixmap iconPix(24, 24);
+    iconPix.fill(color);
+    auto *colorItem = new QTableWidgetItem(QIcon(iconPix), color.name(QColor::HexRgb));
+    colorItem->setData(Qt::UserRole, color);
+    colorItem->setFlags(colorItem->flags() & ~Qt::ItemIsEditable);
+    m_ui->tableColors->setItem(row, 0, colorItem);
+
+    auto *spin = new QDoubleSpinBox(m_ui->tableColors);
+    spin->setRange(0.1, 60.0);
+    spin->setSingleStep(0.5);
+    spin->setValue(holdTime);
+    spin->setSuffix(QStringLiteral(" s"));
+    m_ui->tableColors->setCellWidget(row, 1, spin);
+}
+
+void ActiveWindowOutlineConfig::populateColorTable(const QString &serialized)
+{
+    m_ui->tableColors->setRowCount(0);
+    const QStringList entries = serialized.split(QLatin1Char(';'), Qt::SkipEmptyParts);
+    for (const QString &entry : entries) {
+        const QStringList parts = entry.split(QLatin1Char(':'));
+        if (parts.size() >= 1) {
+            const QColor color(parts[0].trimmed());
+            double hold = 3.0;
+            if (parts.size() >= 2) {
+                bool ok = false;
+                double val = parts[1].trimmed().toDouble(&ok);
+                if (ok) {
+                    hold = val;
+                }
+            }
+            if (color.isValid()) {
+                addColorRow(color, hold);
+            }
+        }
+    }
+    if (m_ui->tableColors->rowCount() == 0) {
+        addColorRow(QColor(QStringLiteral("#3daee9")), 3.0);
+        addColorRow(QColor(QStringLiteral("#2ecc71")), 3.0);
+        addColorRow(QColor(QStringLiteral("#9b59b6")), 3.0);
+    }
+}
+
+QString ActiveWindowOutlineConfig::serializeColorTable() const
+{
+    QStringList entries;
+    const int count = m_ui->tableColors->rowCount();
+    for (int i = 0; i < count; ++i) {
+        auto *item = m_ui->tableColors->item(i, 0);
+        if (!item) {
+            continue;
+        }
+        const QColor color = item->data(Qt::UserRole).value<QColor>();
+        double hold = 3.0;
+        if (auto *spin = qobject_cast<QDoubleSpinBox *>(m_ui->tableColors->cellWidget(i, 1))) {
+            hold = spin->value();
+        }
+        entries.append(QStringLiteral("%1:%2").arg(color.name(QColor::HexRgb)).arg(hold, 0, 'f', 1));
+    }
+    return entries.join(QLatin1Char(';'));
+}
+
+void ActiveWindowOutlineConfig::load()
+{
+    KCModule::load();
+    KConfigGroup group = KSharedConfig::openConfig(QStringLiteral("kwinrc"))->group(QStringLiteral("Effect-active-window-outline"));
+    populateColorTable(group.readEntry(QStringLiteral("ColorList"), QStringLiteral("#3daee9:3.0;#2ecc71:3.0;#9b59b6:3.0")));
+}
+
+void ActiveWindowOutlineConfig::defaults()
+{
+    KCModule::defaults();
+    populateColorTable(QStringLiteral("#3daee9:3.0;#2ecc71:3.0;#9b59b6:3.0"));
 }
 
 void ActiveWindowOutlineConfig::save()
 {
     KCModule::save();
+
+    KConfigGroup group = KSharedConfig::openConfig(QStringLiteral("kwinrc"))->group(QStringLiteral("Effect-active-window-outline"));
+    group.writeEntry(QStringLiteral("ColorList"), serializeColorTable());
+    group.sync();
 
     QDBusMessage message = QDBusMessage::createMethodCall(
         QStringLiteral("org.kde.KWin"),
@@ -81,9 +325,6 @@ void ActiveWindowOutlineConfig::save()
         QStringLiteral("org.kde.kwin.Effects"),
         QStringLiteral("reconfigureEffect"));
     message << QStringLiteral("active-window-outline");
-    // Wait until KWin has actually processed the reconfigure request. This
-    // avoids closing the KCM while an unchecked fire-and-forget call is still
-    // queued. The effect also watches kwinrc as a compatibility fallback.
     QDBusConnection::sessionBus().call(message, QDBus::Block, 2000);
 }
 

@@ -76,7 +76,12 @@ fi
 
 echo "[3/4] Removing the effect settings…"
 for key in UseAccentColor AccentOpacity CustomColor BorderWidth OutlineGap \
-           BorderRadius DrawInside SmoothEdges GlowEnabled GlowRadius HideOnFullScreen; do
+           BorderRadius DrawInside SmoothEdges GlowEnabled GlowRadius HideOnFullScreen \
+           ColorCycleEnabled ColorList ColorTransitionDuration ColorCycleOrder ColorCycleEasing \
+           BreatheEnabled BreatheSpeed BreatheIntensity \
+           GlitchEnabled GlitchFrequency GlitchIntensity \
+           NeonFlickerEnabled NeonFlickerIntensity \
+           FlashEnabled FlashInterval FlashDuration; do
   kwriteconfig6 --file kwinrc --group "$config_group" --key "$key" --delete ''
 done
 kwriteconfig6 --file kwinrc --group Plugins \

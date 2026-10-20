@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [Unreleased]
+
+### Added
+
+- Multi-color sequence / cycling with customizable hold durations per color, global transition time, sequential or random order, and CSS easing curves (Ease In Out, Linear, Ease In, Ease Out).
+- Modular shader and animation effects with mix-and-match checkboxes and independent controls:
+  - Breathe / Pulse effect (configurable speed and depth).
+  - Futuristic Glitch shader effect with procedural horizontal scanline jitter and displacement.
+  - Neon Flicker effect with simulated voltage drops.
+  - Flash / Strobe effect with configurable interval and burst duration.
+- Tabbed KCM configuration UI (Appearance, Color Sequence, Shader Effects).
+- High performance animation pipeline: 60 FPS repaints are isolated to the active window's bounding box; mesh geometry is cached with dynamic uniform updates; zero timer wakeups or CPU/GPU overhead when animation is inactive or windows are fullscreen/minimized.
+
 ## [1.2.13] - 2026-10-20
 
 ### Added

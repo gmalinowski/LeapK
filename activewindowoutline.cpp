@@ -39,6 +39,8 @@
 #include <QtMath>
 #include <KGlobalAccel>
 #include <QAction>
+#include <QRandomGenerator>
+#include <cmath>
 #include <utility>
 
 namespace KWin
@@ -71,6 +73,10 @@ uniform vec4 innerBox;
 uniform float outerRadius;
 uniform float innerRadius;
 uniform float glowRadius;
+uniform float time;
+uniform float glitchActive;
+uniform float glitchFrequency;
+uniform float glitchIntensity;
 
 float roundedBoxDistance(vec2 point, vec4 box, float radius)
 {
@@ -87,6 +93,18 @@ void main()
     float normalized = max(distanceToOutline, 0.0) / sigma;
     float falloff = exp(-0.5 * normalized * normalized);
     float outsideMask = smoothstep(-1.0, 0.0, distanceToOutline);
+
+    if (glitchActive > 0.5) {
+        float glitchSlice = floor(position0.y / 6.0);
+        float glitchStep = floor(time * (glitchFrequency * 2.5));
+        float sliceHash = fract(sin(glitchSlice * 12.9898 + glitchStep * 78.233) * 43758.5453);
+        if (sliceHash > (1.0 - 0.035 * glitchFrequency)) {
+            float shift = (sliceHash - 0.5) * (glitchIntensity * 0.15);
+            outsideMask = smoothstep(-1.0, 0.0, distanceToOutline + shift);
+            falloff *= (1.0 + (glitchIntensity / 100.0) * 0.8);
+        }
+    }
+
     fragColor = vec4(geometryColor.rgb,
                      geometryColor.a * 0.38 * falloff * outsideMask);
 }
@@ -131,6 +149,12 @@ KWIN_EFFECT_FACTORY_SUPPORTED(ActiveWindowOutlineEffect, "metadata.json",
 
 ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
 {
+    m_animationTimer = new QTimer(this);
+    m_animationTimer->setInterval(16);
+    connect(m_animationTimer, &QTimer::timeout,
+            this, &ActiveWindowOutlineEffect::slotAnimationTick);
+    m_animationClock.start();
+
     reconfigure(ReconfigureAll);
 
     // Some third-party effect KCMs are not reliably reconfigured by KWin's
@@ -204,6 +228,13 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
     initShortcuts();
 }
 
+ActiveWindowOutlineEffect::~ActiveWindowOutlineEffect()
+{
+    if (m_animationTimer) {
+        m_animationTimer->stop();
+    }
+}
+
 void ActiveWindowOutlineEffect::initShortcuts()
 {
     QAction *toggleAction = new QAction(this);
@@ -234,18 +265,231 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_glowRadius = qBound(1, config.readEntry("GlowRadius", 6), 30);
     m_hideOnFullScreen = config.readEntry("HideOnFullScreen", true);
 
+    m_colorCycleEnabled = config.readEntry("ColorCycleEnabled", false);
+    parseColorList(config.readEntry("ColorList", QStringLiteral("#3daee9:3.0;#2ecc71:3.0;#9b59b6:3.0")));
+    m_colorTransitionDuration = qMax<qreal>(0.1, config.readEntry("ColorTransitionDuration", 2.0));
+    m_colorCycleOrder = config.readEntry("ColorCycleOrder", 0);
+    m_colorCycleEasing = config.readEntry("ColorCycleEasing", 0);
+
+    m_breatheEnabled = config.readEntry("BreatheEnabled", false);
+    m_breatheSpeed = qMax<qreal>(0.1, config.readEntry("BreatheSpeed", 1.5));
+    m_breatheIntensity = qBound(10, config.readEntry("BreatheIntensity", 40), 100);
+
+    m_glitchEnabled = config.readEntry("GlitchEnabled", false);
+    m_glitchFrequency = qBound(1, config.readEntry("GlitchFrequency", 3), 10);
+    m_glitchIntensity = qBound(10, config.readEntry("GlitchIntensity", 50), 100);
+
+    m_neonFlickerEnabled = config.readEntry("NeonFlickerEnabled", false);
+    m_neonFlickerIntensity = qBound(10, config.readEntry("NeonFlickerIntensity", 30), 100);
+
+    m_flashEnabled = config.readEntry("FlashEnabled", false);
+    m_flashInterval = qMax<qreal>(0.5, config.readEntry("FlashInterval", 4.0));
+    m_flashDuration = qBound<qreal>(0.05, config.readEntry("FlashDuration", 0.15), 1.0);
+
     m_outlineCache.clear();
+    updateAnimationTimer();
     effects->addRepaintFull();
+}
+
+bool ActiveWindowOutlineEffect::isAnimationActive() const
+{
+    return m_outlineEnabled && (m_colorCycleEnabled || m_breatheEnabled
+        || m_glitchEnabled || m_neonFlickerEnabled || m_flashEnabled);
+}
+
+void ActiveWindowOutlineEffect::updateAnimationTimer()
+{
+    if (isAnimationActive()) {
+        if (!m_animationClock.isValid()) {
+            m_animationClock.start();
+        }
+        if (!m_animationTimer->isActive()) {
+            m_animationTimer->start();
+        }
+    } else {
+        if (m_animationTimer && m_animationTimer->isActive()) {
+            m_animationTimer->stop();
+        }
+    }
+}
+
+void ActiveWindowOutlineEffect::slotAnimationTick()
+{
+    if (m_activeWindow && shouldOutlineWindow(m_activeWindow)) {
+        effects->addRepaint(expandedGeometryFor(m_activeWindow));
+    }
+}
+
+void ActiveWindowOutlineEffect::parseColorList(const QString &str)
+{
+    m_colorStops.clear();
+    const QStringList parts = str.split(QLatin1Char(';'), Qt::SkipEmptyParts);
+    for (const QString &part : parts) {
+        const QStringList tokens = part.split(QLatin1Char(':'));
+        if (tokens.size() >= 1) {
+            const QColor col(tokens[0].trimmed());
+            qreal hold = 3.0;
+            if (tokens.size() >= 2) {
+                bool ok = false;
+                qreal val = tokens[1].trimmed().toDouble(&ok);
+                if (ok && val > 0.0) {
+                    hold = val;
+                }
+            }
+            if (col.isValid()) {
+                m_colorStops.append({col, hold});
+            }
+        }
+    }
+    m_currentColorIndex = 0;
+    m_nextColorIndex = (m_colorStops.size() > 1) ? 1 : 0;
+    m_isHoldingColor = true;
+    m_stateStartTime = m_animationClock.isValid() ? (m_animationClock.elapsed() / 1000.0) : 0.0;
+}
+
+QColor ActiveWindowOutlineEffect::currentCycleColor(qreal elapsedSec)
+{
+    if (m_colorStops.isEmpty()) {
+        return m_customColor;
+    }
+    if (m_colorStops.size() == 1) {
+        return m_colorStops[0].color;
+    }
+
+    if (m_currentColorIndex >= m_colorStops.size()) {
+        m_currentColorIndex = 0;
+    }
+    if (m_nextColorIndex >= m_colorStops.size()) {
+        m_nextColorIndex = (m_currentColorIndex + 1) % m_colorStops.size();
+    }
+
+    const qreal stateElapsed = elapsedSec - m_stateStartTime;
+
+    if (m_isHoldingColor) {
+        const qreal holdDuration = m_colorStops[m_currentColorIndex].holdTime;
+        if (stateElapsed >= holdDuration) {
+            m_isHoldingColor = false;
+            m_stateStartTime = elapsedSec;
+            if (m_colorCycleOrder == 0) {
+                m_nextColorIndex = (m_currentColorIndex + 1) % m_colorStops.size();
+            } else {
+                if (m_colorStops.size() > 1) {
+                    int next = m_currentColorIndex;
+                    while (next == m_currentColorIndex) {
+                        next = QRandomGenerator::global()->bounded(m_colorStops.size());
+                    }
+                    m_nextColorIndex = next;
+                }
+            }
+        }
+        return m_colorStops[m_currentColorIndex].color;
+    } else {
+        const qreal transDuration = qMax<qreal>(0.01, m_colorTransitionDuration);
+        const qreal progress = qBound<qreal>(0.0, stateElapsed / transDuration, 1.0);
+
+        qreal f = progress;
+        switch (m_colorCycleEasing) {
+        case 0: // Ease In Out (Smoothstep)
+            f = progress * progress * (3.0 - 2.0 * progress);
+            break;
+        case 1: // Linear
+            f = progress;
+            break;
+        case 2: // Ease In
+            f = progress * progress;
+            break;
+        case 3: // Ease Out
+            f = progress * (2.0 - progress);
+            break;
+        }
+
+        const QColor c1 = m_colorStops[m_currentColorIndex].color;
+        const QColor c2 = m_colorStops[m_nextColorIndex].color;
+
+        int r = qRound(c1.red() + (c2.red() - c1.red()) * f);
+        int g = qRound(c1.green() + (c2.green() - c1.green()) * f);
+        int b = qRound(c1.blue() + (c2.blue() - c1.blue()) * f);
+        int a = qRound(c1.alpha() + (c2.alpha() - c1.alpha()) * f);
+
+        if (stateElapsed >= transDuration) {
+            m_currentColorIndex = m_nextColorIndex;
+            m_isHoldingColor = true;
+            m_stateStartTime = elapsedSec;
+        }
+
+        return QColor(qBound(0, r, 255), qBound(0, g, 255), qBound(0, b, 255), qBound(0, a, 255));
+    }
+}
+
+qreal ActiveWindowOutlineEffect::computeBreatheFactor(qreal elapsedSec) const
+{
+    if (!m_breatheEnabled) {
+        return 1.0;
+    }
+    const qreal depth = m_breatheIntensity / 100.0;
+    const qreal wave = 0.5 + 0.5 * std::sin(2.0 * M_PI * m_breatheSpeed * elapsedSec);
+    return 1.0 - depth * (1.0 - wave);
+}
+
+qreal ActiveWindowOutlineEffect::computeNeonFactor(qreal elapsedSec) const
+{
+    if (!m_neonFlickerEnabled) {
+        return 1.0;
+    }
+    const qreal noise = std::fmod(std::sin(elapsedSec * 78.233 + std::sin(elapsedSec * 133.0)) * 43758.5453, 1.0);
+    const qreal positiveNoise = std::abs(noise);
+    const qreal depth = m_neonFlickerIntensity / 100.0;
+    if (positiveNoise < 0.08) {
+        return qMax<qreal>(0.1, 1.0 - depth);
+    }
+    return 1.0 - depth * 0.15 * positiveNoise;
+}
+
+qreal ActiveWindowOutlineEffect::computeFlashFactor(qreal elapsedSec) const
+{
+    if (!m_flashEnabled) {
+        return 0.0;
+    }
+    const qreal interval = qMax<qreal>(0.5, m_flashInterval);
+    const qreal phase = std::fmod(elapsedSec, interval);
+    if (phase < m_flashDuration) {
+        const qreal progress = phase / m_flashDuration;
+        return 0.8 * std::exp(-4.0 * progress);
+    }
+    return 0.0;
 }
 
 QColor ActiveWindowOutlineEffect::resolveColor() const
 {
-    if (m_useAccentColor) {
-        QColor color = qApp->palette().color(QPalette::Highlight);
+    QColor color;
+    const qreal elapsedSec = m_animationClock.isValid() ? (m_animationClock.elapsed() / 1000.0) : 0.0;
+
+    if (m_colorCycleEnabled && !m_colorStops.isEmpty()) {
+        color = const_cast<ActiveWindowOutlineEffect *>(this)->currentCycleColor(elapsedSec);
+    } else if (m_useAccentColor) {
+        color = qApp->palette().color(QPalette::Highlight);
         color.setAlphaF(color.alphaF() * m_accentOpacity / 100.0);
-        return color;
+    } else {
+        color = m_customColor;
     }
-    return m_customColor;
+
+    if (m_breatheEnabled || m_neonFlickerEnabled || m_flashEnabled) {
+        const qreal breathe = computeBreatheFactor(elapsedSec);
+        const qreal neon = computeNeonFactor(elapsedSec);
+        const qreal flash = computeFlashFactor(elapsedSec);
+
+        qreal totalFactor = breathe * neon + flash;
+        totalFactor = qBound<qreal>(0.05, totalFactor, 2.0);
+
+        int a = qRound(color.alpha() * totalFactor);
+        int r = qRound(qMin<qreal>(255.0, color.red() * (1.0 + flash)));
+        int g = qRound(qMin<qreal>(255.0, color.green() * (1.0 + flash)));
+        int b = qRound(qMin<qreal>(255.0, color.blue() * (1.0 + flash)));
+
+        color = QColor(r, g, b, qBound(0, a, 255));
+    }
+
+    return color;
 }
 
 void ActiveWindowOutlineEffect::slotWindowAdded(EffectWindow *w)
@@ -480,7 +724,9 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
         return;
     }
 
-    if (m_glowEnabled && cache.sourceColor.alpha() > 0) {
+    const QColor dynamicColor = resolveColor();
+
+    if (m_glowEnabled && dynamicColor.alpha() > 0) {
         if (!m_glowShader) {
 #ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
             m_glowShader = ShaderManager::instance()->generateCustomShader(
@@ -529,7 +775,7 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
                 GLShader *shader = glowBinder.shader();
                 shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix,
                                    viewport.projectionMatrix());
-                shader->setUniform(GLShader::ColorUniform::Color, cache.sourceColor);
+                shader->setUniform(GLShader::ColorUniform::Color, dynamicColor);
                 const auto box = [scale](const QRectF &rect) {
                     return QVector4D(rect.center().x() * scale,
                                      rect.center().y() * scale,
@@ -541,6 +787,12 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
                 shader->setUniform("outerRadius", float(cache.outerRadius * scale));
                 shader->setUniform("innerRadius", float(cache.innerRadius * scale));
                 shader->setUniform("glowRadius", float(m_glowRadius * scale));
+
+                const float elapsedSec = m_animationClock.isValid() ? float(m_animationClock.elapsed() / 1000.0) : 0.0f;
+                shader->setUniform("time", elapsedSec);
+                shader->setUniform("glitchActive", m_glitchEnabled ? 1.0f : 0.0f);
+                shader->setUniform("glitchFrequency", float(m_glitchFrequency));
+                shader->setUniform("glitchIntensity", float(m_glitchIntensity));
 
                 glEnable(GL_BLEND);
                 glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
@@ -558,7 +810,13 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
                                            RenderingIntent::Perceptual);
 
     for (const OutlineLayer &layer : cache.layers) {
-        if (layer.vertices.isEmpty() || layer.color.alpha() == 0) {
+        if (layer.vertices.isEmpty()) {
+            continue;
+        }
+
+        QColor layerColor = dynamicColor;
+        layerColor.setAlpha(qBound(0, qRound(dynamicColor.alpha() * layer.opacity), 255));
+        if (layerColor.alpha() == 0) {
             continue;
         }
 
@@ -578,8 +836,8 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
         vbo->setVertexCount(scaledVerts.size());
         vbo->setAttribLayout(std::span(&layout, 1), sizeof(QVector2D));
 
-        binder.shader()->setUniform(GLShader::ColorUniform::Color, layer.color);
-        const bool blended = layer.color.alpha() < 255;
+        binder.shader()->setUniform(GLShader::ColorUniform::Color, layerColor);
+        const bool blended = layerColor.alpha() < 255;
         if (blended) {
             glEnable(GL_BLEND);
             // The uniform contains straight (unpremultiplied) RGB and alpha.
@@ -611,7 +869,6 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
 void ActiveWindowOutlineEffect::cacheWindowOutline(EffectWindow *w, const QRectF &geo)
 {
     OutlineCache cache;
-    cache.sourceColor = resolveColor();
 
     const qreal minDimension = qMin(geo.width(), geo.height());
     const qreal gap = m_drawInside
@@ -638,21 +895,16 @@ void ActiveWindowOutlineEffect::cacheWindowOutline(EffectWindow *w, const QRectF
     cache.outerRadius = outerRadius;
     cache.innerRadius = innerRadius;
 
-    const auto layerColor = [&cache](qreal opacity) {
-        QColor color = cache.sourceColor;
-        color.setAlphaF(qBound<qreal>(0.0, cache.sourceColor.alphaF() * opacity, 1.0));
-        return color;
-    };
     const auto appendLayer = [this, &cache](const QRectF &outer, qreal outerR,
                                             const QRectF &inner, qreal innerR,
-                                            const QColor &color) {
+                                            qreal opacity) {
         if (outer.width() <= 0.0 || outer.height() <= 0.0
             || inner.width() <= 0.0 || inner.height() <= 0.0) {
             return;
         }
         OutlineLayer layer;
         generateRoundedRectStrip(outer, outerR, inner, innerR, 1.0, layer.vertices);
-        layer.color = color;
+        layer.opacity = opacity;
         cache.layers.append(std::move(layer));
     };
 
@@ -660,14 +912,14 @@ void ActiveWindowOutlineEffect::cacheWindowOutline(EffectWindow *w, const QRectF
         constexpr qreal feather = 0.85;
         appendLayer(outerRect.adjusted(-feather, -feather, feather, feather),
                     outerRadius + feather, outerRect, outerRadius,
-                    layerColor(0.38));
+                    0.38);
         appendLayer(innerRect, innerRadius,
                     innerRect.adjusted(feather, feather, -feather, -feather),
                     qMax<qreal>(0.0, innerRadius - feather),
-                    layerColor(0.38));
+                    0.38);
     }
 
-    appendLayer(outerRect, outerRadius, innerRect, innerRadius, cache.sourceColor);
+    appendLayer(outerRect, outerRadius, innerRect, innerRadius, 1.0);
 
     m_outlineCache[w] = cache;
 }
@@ -714,10 +966,11 @@ void ActiveWindowOutlineEffect::slotWindowFrameGeometryChanged(EffectWindow *w,
 
 void ActiveWindowOutlineEffect::slotToggleAction()
 {
-  m_outlineEnabled = !m_outlineEnabled;
-  if (m_activeWindow) {
-    effects->addRepaint(expandedGeometryFor(m_activeWindow));
-  }
+    m_outlineEnabled = !m_outlineEnabled;
+    updateAnimationTimer();
+    if (m_activeWindow) {
+        effects->addRepaint(expandedGeometryFor(m_activeWindow));
+    }
 }
 
 void ActiveWindowOutlineEffect::slotWindowMinimizedChanged(EffectWindow *w)
@@ -903,9 +1156,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     }
 
     const QRectF currentGeo = w->frameGeometry();
-    const QColor currentColor = resolveColor();
-    if (!m_outlineCache.contains(w) || m_lastGeometry.value(w) != currentGeo
-        || m_outlineCache.value(w).sourceColor != currentColor) {
+    if (!m_outlineCache.contains(w) || m_lastGeometry.value(w) != currentGeo) {
         cacheWindowOutline(w, currentGeo);
         m_lastGeometry[w] = currentGeo;
     }

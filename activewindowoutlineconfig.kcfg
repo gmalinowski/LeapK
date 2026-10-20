@@ -52,5 +52,80 @@
         <entry name="HideOnFullScreen" type="Bool">
             <default>true</default>
         </entry>
+
+        <!-- Color Cycling Settings -->
+        <entry name="ColorCycleEnabled" type="Bool">
+            <default>false</default>
+        </entry>
+        <entry name="ColorList" type="String">
+            <default>#3daee9:3.0;#2ecc71:3.0;#9b59b6:3.0</default>
+        </entry>
+        <entry name="ColorTransitionDuration" type="Double">
+            <default>2.0</default>
+            <min>0.1</min>
+            <max>30.0</max>
+        </entry>
+        <entry name="ColorCycleOrder" type="Int">
+            <default>0</default>
+            <min>0</min>
+            <max>1</max>
+        </entry>
+        <entry name="ColorCycleEasing" type="Int">
+            <default>0</default>
+            <min>0</min>
+            <max>3</max>
+        </entry>
+
+        <!-- Shader / Animation Effects -->
+        <entry name="BreatheEnabled" type="Bool">
+            <default>false</default>
+        </entry>
+        <entry name="BreatheSpeed" type="Double">
+            <default>1.5</default>
+            <min>0.1</min>
+            <max>10.0</max>
+        </entry>
+        <entry name="BreatheIntensity" type="Int">
+            <default>40</default>
+            <min>10</min>
+            <max>100</max>
+        </entry>
+
+        <entry name="GlitchEnabled" type="Bool">
+            <default>false</default>
+        </entry>
+        <entry name="GlitchFrequency" type="Int">
+            <default>3</default>
+            <min>1</min>
+            <max>10</max>
+        </entry>
+        <entry name="GlitchIntensity" type="Int">
+            <default>50</default>
+            <min>10</min>
+            <max>100</max>
+        </entry>
+
+        <entry name="NeonFlickerEnabled" type="Bool">
+            <default>false</default>
+        </entry>
+        <entry name="NeonFlickerIntensity" type="Int">
+            <default>30</default>
+            <min>10</min>
+            <max>100</max>
+        </entry>
+
+        <entry name="FlashEnabled" type="Bool">
+            <default>false</default>
+        </entry>
+        <entry name="FlashInterval" type="Double">
+            <default>4.0</default>
+            <min>0.5</min>
+            <max>20.0</max>
+        </entry>
+        <entry name="FlashDuration" type="Double">
+            <default>0.15</default>
+            <min>0.05</min>
+            <max>1.0</max>
+        </entry>
     </group>
 </kcfg>

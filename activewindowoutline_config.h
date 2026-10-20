@@ -7,11 +7,14 @@
 #pragma once
 
 #include <KCModule>
+#include <QColor>
 
 namespace Ui
 {
 class ActiveWindowOutlineConfigForm;
 }
+
+class KConfigSkeleton;
 
 class ActiveWindowOutlineConfig : public KCModule
 {
@@ -21,7 +24,14 @@ public:
     explicit ActiveWindowOutlineConfig(QObject *parent, const KPluginMetaData &data);
 
     void save() override;
+    void load() override;
+    void defaults() override;
 
 private:
+    void populateColorTable(const QString &serialized);
+    QString serializeColorTable() const;
+    void addColorRow(const QColor &color, double holdTime);
+
     Ui::ActiveWindowOutlineConfigForm *m_ui;
+    KConfigSkeleton *m_configSkeleton = nullptr;
 };

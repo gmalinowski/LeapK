@@ -13,7 +13,14 @@ The effect is useful with minimal window decorations and tiling layouts, where i
 
 - Follows the active KWin window automatically.
 - Global shortcut (default: **Meta+Ctrl+O**) to quickly toggle the outline on or off.
-- Uses the current Plasma accent color or a custom color.
+- Uses the current Plasma accent color, a custom color, or an animated multi-color sequence.
+- **Dynamic Multi-Color Cycling**: add any number of colors with custom hold durations per color, global transition time, sequential or random order, and CSS-style easing curves (Ease-in-out, Linear, Ease-in, Ease-out).
+- **Modular Visual & Shader Effects** (can be mixed and matched together):
+  - **Breathe / Pulse**: smooth cyclic brightness and alpha breathing with adjustable speed and depth.
+  - **Futuristic Glitch**: sci-fi holographic scanline jitter and horizontal displacement bars.
+  - **Neon Flicker**: realistic neon tube voltage-drop flickering.
+  - **Flash / Strobe**: intermittent strobe burst effects with configurable intervals and flash duration.
+- Highly optimized: animation timer only ticks when visual effects are enabled and repaints strictly the active window outline; zero background CPU/GPU overhead when static, minimized, or fullscreen.
 - Option to automatically hide the outline when the active window is in fullscreen mode.
 - Configurable width, corner radius, and offset from the window edge.
 - Can draw inside the window, keeping the outline visible on maximized and tiled windows.
@@ -27,7 +34,7 @@ The effect is useful with minimal window decorations and tiling layouts, where i
   mask on Wayland when available to follow floating-panel transitions.
 - Defers software cursor rendering on Wayland with KWin 6.6+ so the cursor is
   not obscured by the outline or glow.
-- Provides a graphical configuration page in Desktop Effects.
+- Provides a tabbed graphical configuration page in Desktop Effects.
 - Shows the installed effect version in the configuration page.
 
 ## Compatibility
@@ -146,6 +153,8 @@ Open the gear button next to **Active Window Outline** in Desktop Effects.
 
 ![Active Window Outline configuration dialog](config_panel.png)
 
+### Tab 1: Appearance
+
 | Setting | Default | Description |
 | --- | ---: | --- |
 | Use accent color | On | Follows the current Plasma accent color. |
@@ -159,6 +168,29 @@ Open the gear button next to **Active Window Outline** in Desktop Effects.
 | Soft glow | On | Adds a subtle colored halo around the outline. |
 | Glow size | 6 px | Controls how far the halo extends. |
 | Hide on fullscreen | On | Automatically hides the outline and glow when the active window is fullscreen. |
+
+### Tab 2: Color Sequence
+
+Cycle through custom colors dynamically with animated transitions.
+
+| Setting | Default | Description |
+| --- | ---: | --- |
+| Enable color cycling | Off | Activates the color sequence cycle. |
+| Color table | 3 colors | Add, remove, or reorder any number of colors. Double-click to pick a color, and configure hold duration per color. |
+| Transition duration | 2.0 s | Time taken to smoothly blend from one color stop to the next. |
+| Transition easing | Ease in-out | CSS-style easing curve (`Ease in-out`, `Linear`, `Ease in`, `Ease out`). |
+| Cycle order | Sequential | Sequence progression (`Sequential` or `Random`). |
+
+### Tab 3: Shader Effects
+
+Mix and match procedural effects to enhance the outline and glow.
+
+| Effect | Settings | Default | Description |
+| --- | --- | ---: | --- |
+| **Breathe / Pulse** | Speed<br>Intensity | 1.5 Hz<br>40% | Smooth sinusoidal alpha and glow pulsation. |
+| **Futuristic Glitch** | Frequency<br>Intensity | 3<br>50% | Procedural scanline jitter and horizontal displacement bars. |
+| **Neon Flicker** | Intensity | 30% | Realistic gas-discharge tube voltage-drop flickering. |
+| **Flash / Strobe** | Interval<br>Duration | 4.0 s<br>0.15 s | Periodic light strobe bursts. |
 
 ### Keyboard shortcut
 

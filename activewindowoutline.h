@@ -7,15 +7,23 @@
 #pragma once
 
 #include <effect/effect.h>
+#include <effect/globals.h>
 #include <opengl/glshader.h>
-#include <QVector2D>
+#include <opengl/glvertexbuffer.h>
+
+#include <QColor>
+#include <QElapsedTimer>
+#include <QList>
 #include <QMap>
 #include <QPointer>
-#include <chrono>
+#include <QRectF>
+#include <QSet>
+#include <QString>
+#include <QTimer>
+#include <QVector2D>
 #include <memory>
 
 class QFileSystemWatcher;
-class QTimer;
 
 namespace KWin
 {
@@ -32,16 +40,20 @@ using OutlineOutput = LogicalOutput;
 
 struct OutlineLayer {
     QList<QVector2D> vertices;
-    QColor color;
+    qreal opacity = 1.0;
 };
 
 struct OutlineCache {
     QList<OutlineLayer> layers;
-    QColor sourceColor;
     QRectF outerRect;
     QRectF innerRect;
     qreal outerRadius = 0;
     qreal innerRadius = 0;
+};
+
+struct ColorStop {
+    QColor color;
+    qreal holdTime = 3.0;
 };
 
 class ActiveWindowOutlineEffect : public Effect
@@ -50,6 +62,7 @@ class ActiveWindowOutlineEffect : public Effect
 
 public:
     ActiveWindowOutlineEffect();
+    ~ActiveWindowOutlineEffect() override;
 
     void reconfigure(ReconfigureFlags flags) override;
 
@@ -92,6 +105,7 @@ private Q_SLOTS:
     void slotWindowFullScreenChanged(KWin::EffectWindow *w);
     void slotShowingDesktopChanged();
     void slotToggleAction();
+    void slotAnimationTick();
 
 private:
     void prepareScreenPaint(ScreenPrePaintData &data);
@@ -119,6 +133,13 @@ private:
     void cacheWindowOutline(EffectWindow *w, const QRectF &geo);
 
     QColor resolveColor() const;
+    QColor currentCycleColor(qreal elapsedSec);
+    bool isAnimationActive() const;
+    void updateAnimationTimer();
+    void parseColorList(const QString &str);
+    qreal computeBreatheFactor(qreal elapsedSec) const;
+    qreal computeNeonFactor(qreal elapsedSec) const;
+    qreal computeFlashFactor(qreal elapsedSec) const;
 
     EffectWindow *m_activeWindow = nullptr;
 #ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
@@ -135,7 +156,7 @@ private:
     QTimer *m_configReloadTimer = nullptr;
     QString m_configPath;
 
-    // Config
+    // Config - Geometry & Base
     bool m_useAccentColor = true;
     int m_accentOpacity = 66;
     QColor m_customColor = QColor(61, 174, 233);
@@ -148,6 +169,37 @@ private:
     int m_glowRadius = 6;
     bool m_outlineEnabled = true;
     bool m_hideOnFullScreen = true;
+
+    // Config - Color Cycling
+    bool m_colorCycleEnabled = false;
+    QList<ColorStop> m_colorStops;
+    qreal m_colorTransitionDuration = 2.0;
+    int m_colorCycleOrder = 0; // 0: Sequential, 1: Random
+    int m_colorCycleEasing = 0; // 0: EaseInOut, 1: Linear, 2: EaseIn, 3: EaseOut
+
+    // Config - Shader & Visual Effects
+    bool m_breatheEnabled = false;
+    qreal m_breatheSpeed = 1.5;
+    int m_breatheIntensity = 40;
+
+    bool m_glitchEnabled = false;
+    int m_glitchFrequency = 3;
+    int m_glitchIntensity = 50;
+
+    bool m_neonFlickerEnabled = false;
+    int m_neonFlickerIntensity = 30;
+
+    bool m_flashEnabled = false;
+    qreal m_flashInterval = 4.0;
+    qreal m_flashDuration = 0.15;
+
+    // Runtime animation state
+    QTimer *m_animationTimer = nullptr;
+    mutable QElapsedTimer m_animationClock;
+    mutable int m_currentColorIndex = 0;
+    mutable int m_nextColorIndex = 0;
+    mutable bool m_isHoldingColor = true;
+    mutable qreal m_stateStartTime = 0.0;
 };
 
 } // namespace KWin

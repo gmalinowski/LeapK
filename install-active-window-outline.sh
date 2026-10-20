@@ -256,6 +256,22 @@ set_default SmoothEdges true
 set_default GlowEnabled true
 set_default GlowRadius 6
 set_default HideOnFullScreen true
+set_default ColorCycleEnabled false
+set_default ColorList "#3daee9:3.0;#2ecc71:3.0;#9b59b6:3.0"
+set_default ColorTransitionDuration 2.0
+set_default ColorCycleOrder 0
+set_default ColorCycleEasing 0
+set_default BreatheEnabled false
+set_default BreatheSpeed 1.5
+set_default BreatheIntensity 40
+set_default GlitchEnabled false
+set_default GlitchFrequency 3
+set_default GlitchIntensity 50
+set_default NeonFlickerEnabled false
+set_default NeonFlickerIntensity 30
+set_default FlashEnabled false
+set_default FlashInterval 4.0
+set_default FlashDuration 0.15
 
 if command -v qdbus6 >/dev/null 2>&1; then
   qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
