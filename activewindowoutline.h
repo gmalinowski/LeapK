@@ -184,6 +184,7 @@ private:
     int m_breatheIntensity = 40;
 
     bool m_glitchEnabled = false;
+    qreal m_glitchSpeed = 1.0;
     int m_glitchFrequency = 3;
     int m_glitchIntensity = 50;
 

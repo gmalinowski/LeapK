@@ -528,13 +528,39 @@
            </widget>
           </item>
           <item row="1" column="0">
+           <widget class="QLabel" name="label_glitchSpeed">
+            <property name="text">
+             <string>Animation speed:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QDoubleSpinBox" name="kcfg_GlitchSpeed">
+            <property name="minimum">
+             <double>0.1</double>
+            </property>
+            <property name="maximum">
+             <double>5.0</double>
+            </property>
+            <property name="singleStep">
+             <double>0.2</double>
+            </property>
+            <property name="value">
+             <double>1.0</double>
+            </property>
+            <property name="suffix">
+             <string>x</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
            <widget class="QLabel" name="label_glitchFrequency">
             <property name="text">
              <string>Glitch frequency:</string>
             </property>
            </widget>
           </item>
-          <item row="1" column="1">
+          <item row="2" column="1">
            <widget class="QSpinBox" name="kcfg_GlitchFrequency">
             <property name="minimum">
              <number>1</number>
@@ -547,14 +573,14 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="0">
+          <item row="3" column="0">
            <widget class="QLabel" name="label_glitchIntensity">
             <property name="text">
              <string>Glitch intensity:</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="1">
+          <item row="3" column="1">
            <widget class="QSpinBox" name="kcfg_GlitchIntensity">
             <property name="minimum">
              <number>10</number>

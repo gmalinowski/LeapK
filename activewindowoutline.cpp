@@ -75,6 +75,7 @@ uniform float innerRadius;
 uniform float glowRadius;
 uniform float time;
 uniform float glitchActive;
+uniform float glitchSpeed;
 uniform float glitchFrequency;
 uniform float glitchIntensity;
 
@@ -93,40 +94,41 @@ void main()
 
     if (glitchActive > 0.5) {
         float intensityNorm = glitchIntensity / 100.0;
-        float freqFactor = 0.8 + 0.4 * glitchFrequency;
 
-        // 1. Continuous smooth holographic scanlines rolling across the frame at 60 FPS
-        float scanline = 0.85 + 0.15 * sin(position0.y * 0.4 - time * 14.0 * freqFactor);
+        // 1. Gentle continuous holographic scanlines moving smoothly at 60 FPS
+        float scanline = 0.92 + 0.08 * sin(position0.y * 0.35 - time * (2.8 * glitchSpeed));
 
-        // 2. Rolling holographic interference beam (sweeping down continuously at 60 FPS)
-        float beamCoord = fract(position0.y * 0.0025 - time * 0.35 * freqFactor);
-        float beam = smoothstep(0.08, 0.0, abs(beamCoord - 0.5));
+        // 2. Slow rolling holographic beam sweep
+        float beamCoord = fract(position0.y * 0.0018 - time * (0.05 * glitchSpeed));
+        float beam = smoothstep(0.06, 0.0, abs(beamCoord - 0.5));
 
-        // 3. Multi-frequency organic fluid displacement (waving ripples)
-        float w1 = sin(position0.y * 0.08 + time * 16.0);
-        float w2 = cos(position0.y * 0.22 - time * 22.0);
-        float w3 = sin((position0.x + position0.y) * 0.05 + time * 12.0);
-        float fluidDisplacement = (w1 * 0.5 + w2 * 0.3 + w3 * 0.2);
+        // 3. Subtle ambient micro-texture (sub-pixel, keeps the outline straight without snaking/waving)
+        float ambientMicro = sin(position0.y * 0.6 + time * (2.5 * glitchSpeed))
+                           * cos(position0.y * 1.2 - time * (1.8 * glitchSpeed)) * 0.15;
 
-        // 4. Smooth holographic glitch surge envelope (organic pulse, no stepping)
-        float beat = sin(time * freqFactor) * sin(time * 0.618 + 2.0);
-        float surge = smoothstep(0.35, 0.9, beat);
+        // 4. Glitch surge envelope determined by glitchFrequency (how often anomalies trigger)
+        float anomalyPhase = time * (0.4 + 0.25 * glitchFrequency);
+        float beat = sin(anomalyPhase) * sin(anomalyPhase * 0.618 + 1.5);
+        float surge = smoothstep(0.48, 0.95, beat);
 
-        // High-frequency holographic shimmer during surges
-        float fastShimmer = sin(position0.y * 0.6 + time * 48.0) * cos(position0.y * 0.25 - time * 36.0);
-        float totalShift = (fluidDisplacement * 0.4 + fastShimmer * (0.2 + 0.8 * surge)) * (glitchIntensity * 0.08);
+        // 5. Brief, sharp holographic micro-jitter during anomaly surges (subtle, 1-1.5px max)
+        float jitter = sin(position0.y * 0.8 + time * (16.0 * glitchSpeed))
+                     * cos(position0.y * 1.6 - time * (11.0 * glitchSpeed));
+        float surgeShift = jitter * surge * (intensityNorm * 1.4);
+
+        float totalShift = ambientMicro * intensityNorm + surgeShift;
 
         float dynamicDist = distanceToOutline + totalShift;
         float normDist = max(dynamicDist, 0.0) / sigma;
         float dynamicFalloff = exp(-0.5 * normDist * normDist);
         float dynamicMask = smoothstep(-1.0, 0.0, dynamicDist);
 
-        // Holographic luminescence and emission
-        float energy = 1.0 + intensityNorm * (0.35 * (scanline - 0.85) + 0.7 * beam + 1.2 * surge);
+        // Subtle holographic luminescence and energy flare
+        float energy = 1.0 + intensityNorm * (0.2 * (scanline - 0.92) + 0.35 * beam + 0.7 * surge);
         dynamicFalloff *= energy;
 
         // Subtle electric cyan/blue ionization shimmer
-        vec3 holoEmission = vec3(0.12, 0.25, 0.38) * (intensityNorm * (0.7 * surge + 0.5 * beam));
+        vec3 holoEmission = vec3(0.08, 0.18, 0.28) * (intensityNorm * (0.6 * surge + 0.3 * beam));
         vec3 finalRgb = min(vec3(1.0), geometryColor.rgb * energy + holoEmission);
 
         fragColor = vec4(finalRgb,
@@ -308,6 +310,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_breatheIntensity = qBound(10, config.readEntry("BreatheIntensity", 40), 100);
 
     m_glitchEnabled = config.readEntry("GlitchEnabled", false);
+    m_glitchSpeed = qBound<qreal>(0.1, config.readEntry("GlitchSpeed", 1.0), 5.0);
     m_glitchFrequency = qBound(1, config.readEntry("GlitchFrequency", 3), 10);
     m_glitchIntensity = qBound(10, config.readEntry("GlitchIntensity", 50), 100);
 
@@ -496,12 +499,12 @@ qreal ActiveWindowOutlineEffect::computeGlitchFactor(qreal elapsedSec) const
     if (!m_glitchEnabled) {
         return 1.0;
     }
-    const qreal freq = 0.8 + 0.4 * m_glitchFrequency;
-    const qreal beat = std::sin(elapsedSec * freq) * std::sin(elapsedSec * 0.618 + 2.0);
-    if (beat > 0.4) {
-        const qreal surge = (beat - 0.4) / 0.6;
-        const qreal microJitter = 0.5 + 0.5 * std::sin(elapsedSec * 48.0);
-        const qreal depth = (m_glitchIntensity / 100.0) * 0.22;
+    const qreal anomalyPhase = elapsedSec * (0.4 + 0.25 * m_glitchFrequency);
+    const qreal beat = std::sin(anomalyPhase) * std::sin(anomalyPhase * 0.618 + 1.5);
+    if (beat > 0.48) {
+        const qreal surge = (beat - 0.48) / 0.52;
+        const qreal microJitter = 0.5 + 0.5 * std::sin(elapsedSec * (16.0 * m_glitchSpeed));
+        const qreal depth = (m_glitchIntensity / 100.0) * 0.15;
         return 1.0 + depth * surge * (0.7 + 0.3 * microJitter);
     }
     return 1.0;
@@ -841,6 +844,7 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
                 const float elapsedSec = m_animationClock.isValid() ? float(m_animationClock.elapsed() / 1000.0) : 0.0f;
                 shader->setUniform("time", elapsedSec);
                 shader->setUniform("glitchActive", m_glitchEnabled ? 1.0f : 0.0f);
+                shader->setUniform("glitchSpeed", float(m_glitchSpeed));
                 shader->setUniform("glitchFrequency", float(m_glitchFrequency));
                 shader->setUniform("glitchIntensity", float(m_glitchIntensity));
 

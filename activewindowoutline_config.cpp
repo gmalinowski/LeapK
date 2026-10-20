@@ -68,6 +68,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("BreatheIntensity"), *new int, 40);
 
     m_configSkeleton->addItemBool(QStringLiteral("GlitchEnabled"), *new bool, false);
+    m_configSkeleton->addItemDouble(QStringLiteral("GlitchSpeed"), *new double, 1.0);
     m_configSkeleton->addItemInt(QStringLiteral("GlitchFrequency"), *new int, 3);
     m_configSkeleton->addItemInt(QStringLiteral("GlitchIntensity"), *new int, 50);
 
@@ -202,6 +203,8 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
 
     auto updateGlitchUI = [this] {
         const bool enabled = m_ui->kcfg_GlitchEnabled->isChecked();
+        m_ui->label_glitchSpeed->setEnabled(enabled);
+        m_ui->kcfg_GlitchSpeed->setEnabled(enabled);
         m_ui->label_glitchFrequency->setEnabled(enabled);
         m_ui->kcfg_GlitchFrequency->setEnabled(enabled);
         m_ui->label_glitchIntensity->setEnabled(enabled);
