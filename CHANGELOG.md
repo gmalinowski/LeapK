@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.3.6] - 2026-10-21
+
+### Fixed
+
+- **Alpha channel support in color cycling sequence**: Enabled the alpha / opacity slider in the color sequence table picker by passing `QColorDialog::ShowAlphaChannel`.
+- **Transparency serialization**: Updated color list serialization and display to format semi-transparent colors as `#AARRGGBB` (`HexArgb`) while maintaining standard `#RRGGBB` format for opaque colors, preventing opacity values from being stripped upon saving.
+- **Checkerboard swatches**: Rendered a crisp checkerboard backdrop for semi-transparent color items in the color sequence table so transparency is visually distinct from solid colors.
+
 ## [1.3.5] - 2026-10-20
 
 ### Fixed

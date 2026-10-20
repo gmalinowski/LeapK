@@ -50,6 +50,19 @@ int main()
     }
 
     {
+        // Alpha channel hex parsing (#AARRGGBB)
+        const auto stops = parseColorStops(QStringLiteral("#803daee9:2.0;#ff2ecc71:1.5"));
+        check(stops.size() == 2, "parse stops with alpha channel");
+        if (stops.size() == 2) {
+            checkEqualColor(stops[0].color, QColor("#803daee9"), "stop 0 alpha color");
+            check(stops[0].color.alpha() == 128, "stop 0 alpha value 128");
+            checkNear(stops[0].holdTime, 2.0, 0.001, "stop 0 hold time");
+            checkEqualColor(stops[1].color, QColor("#ff2ecc71"), "stop 1 alpha color");
+            check(stops[1].color.alpha() == 255, "stop 1 alpha value 255");
+        }
+    }
+
+    {
         // Default hold time when omitted
         const auto stops = parseColorStops(QStringLiteral("#ff0000;#00ff00"));
         check(stops.size() == 2, "parse stops without hold time");

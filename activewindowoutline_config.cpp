@@ -24,6 +24,41 @@
 #define ACTIVE_WINDOW_OUTLINE_VERSION "development"
 #endif
 
+namespace {
+
+QString formatColorHex(const QColor &color)
+{
+    return (color.alpha() < 255) ? color.name(QColor::HexArgb) : color.name(QColor::HexRgb);
+}
+
+QPixmap createColorIcon(const QColor &color)
+{
+    QPixmap iconPix(24, 24);
+    if (color.alpha() < 255) {
+        iconPix.fill(Qt::white);
+        QPainter p(&iconPix);
+        const QColor checkerGray(210, 210, 210);
+        for (int y = 0; y < 24; y += 6) {
+            for (int x = 0; x < 24; x += 6) {
+                if (((x / 6) + (y / 6)) % 2 == 1) {
+                    p.fillRect(x, y, 6, 6, checkerGray);
+                }
+            }
+        }
+        p.fillRect(0, 0, 24, 24, color);
+        p.setPen(QColor(128, 128, 128, 120));
+        p.drawRect(0, 0, 23, 23);
+    } else {
+        iconPix.fill(color);
+        QPainter p(&iconPix);
+        p.setPen(QColor(0, 0, 0, 40));
+        p.drawRect(0, 0, 23, 23);
+    }
+    return iconPix;
+}
+
+} // namespace
+
 K_PLUGIN_CLASS(ActiveWindowOutlineConfig)
 
 ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPluginMetaData &data)
@@ -96,7 +131,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_ui->tableColors->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
 
     connect(m_ui->btnAddColor, &QPushButton::clicked, this, [this] {
-        const QColor color = QColorDialog::getColor(QColor(61, 174, 233), widget(), QStringLiteral("Select Color"));
+        const QColor color = QColorDialog::getColor(QColor(61, 174, 233), widget(), QStringLiteral("Select Color"), QColorDialog::ShowAlphaChannel);
         if (color.isValid()) {
             addColorRow(color, 3.0);
             markAsChanged();
@@ -164,12 +199,10 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
             auto *item = m_ui->tableColors->item(row, 0);
             if (item) {
                 const QColor initialColor = item->data(Qt::UserRole).value<QColor>();
-                const QColor color = QColorDialog::getColor(initialColor, widget(), QStringLiteral("Edit Color"));
+                const QColor color = QColorDialog::getColor(initialColor, widget(), QStringLiteral("Edit Color"), QColorDialog::ShowAlphaChannel);
                 if (color.isValid()) {
-                    QPixmap iconPix(24, 24);
-                    iconPix.fill(color);
-                    item->setIcon(QIcon(iconPix));
-                    item->setText(color.name(QColor::HexRgb));
+                    item->setIcon(QIcon(createColorIcon(color)));
+                    item->setText(formatColorHex(color));
                     item->setData(Qt::UserRole, color);
                     markAsChanged();
                 }
@@ -264,9 +297,7 @@ void ActiveWindowOutlineConfig::addColorRow(const QColor &color, double holdTime
     const int row = m_ui->tableColors->rowCount();
     m_ui->tableColors->insertRow(row);
 
-    QPixmap iconPix(24, 24);
-    iconPix.fill(color);
-    auto *colorItem = new QTableWidgetItem(QIcon(iconPix), color.name(QColor::HexRgb));
+    auto *colorItem = new QTableWidgetItem(QIcon(createColorIcon(color)), formatColorHex(color));
     colorItem->setData(Qt::UserRole, color);
     colorItem->setFlags(colorItem->flags() & ~Qt::ItemIsEditable);
     m_ui->tableColors->setItem(row, 0, colorItem);
@@ -322,7 +353,7 @@ QString ActiveWindowOutlineConfig::serializeColorTable() const
         if (auto *spin = qobject_cast<QDoubleSpinBox *>(m_ui->tableColors->cellWidget(i, 1))) {
             hold = spin->value();
         }
-        entries.append(QStringLiteral("%1:%2").arg(color.name(QColor::HexRgb)).arg(hold, 0, 'f', 1));
+        entries.append(QStringLiteral("%1:%2").arg(formatColorHex(color)).arg(hold, 0, 'f', 1));
     }
     return entries.join(QLatin1Char(';'));
 }
