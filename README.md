@@ -7,7 +7,8 @@ The effect is useful with minimal window decorations and tiling layouts, where i
 
 ## Features
 
-[kwin-active-window-outline.webm](https://github.com/user-attachments/assets/d1acd016-a399-44b8-931e-46944443d1f5)
+[kawo_showcase.webm](https://github.com/user-attachments/assets/34a3c0d1-d105-476d-a5bc-d2dc05be5fa6)
+
 
 ![Active Window Outline with the default settings in a tiled window layout](screenshot_defaults.png)
 
