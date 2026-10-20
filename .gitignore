@@ -6,3 +6,5 @@
 *.user
 compile_commands.json
 CMakeUserPresets.json
+benchmark-outline.sh
+*.webm
