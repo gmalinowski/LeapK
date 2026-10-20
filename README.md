@@ -86,12 +86,22 @@ Run this one-liner in your terminal to automatically download the latest release
 curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/install.sh | bash
 ```
 
-The installer automatically detects the latest release from GitHub (`releases/latest`), installs any missing build dependencies for your distribution (Debian/Ubuntu, Fedora, Arch/CachyOS, openSUSE), and compiles the plugin for your local KWin ABI. Existing configuration settings are preserved on update.
+The installer automatically detects the latest stable release from GitHub (`releases/latest`), installs any missing build dependencies for your distribution (Debian/Ubuntu, Fedora, Arch/CachyOS, openSUSE), and compiles the plugin for your local KWin ABI. Existing configuration settings are preserved on update.
 
-To test the latest unreleased development build from the `main` branch instead, pass `--beta`:
+To install the latest **pre-release / beta** version instead:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/install.sh | bash -s -- --beta
+curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/install.sh | bash -s -- --pre
+```
+
+To install a specific version or test the development build from the `main` branch:
+
+```bash
+# Specific version tag:
+curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/install.sh | bash -s -- --tag v1.3.2
+
+# Latest bleeding-edge development from main:
+curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/install.sh | bash -s -- --main
 ```
 
 *(You can inspect the scripts before running: [`install.sh`](install.sh) or [`install-active-window-outline.sh`](install-active-window-outline.sh).)*

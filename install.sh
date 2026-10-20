@@ -5,12 +5,17 @@
 set -euo pipefail
 
 target_ref="${REF:-${BRANCH:-}}"
+use_prerelease=false
 forward_args=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --main|--beta|--dev)
+    --main|--dev)
       target_ref="main"
+      shift
+      ;;
+    --beta|--pre|--prerelease)
+      use_prerelease=true
       shift
       ;;
     --ref|--branch|--tag)
@@ -34,7 +39,7 @@ done
 
 # If executed inside a repository checkout without a requested remote ref, run the local installer
 script_dir="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)" || script_dir=""
-if [[ -z "$target_ref" && -n "$script_dir" && -f "$script_dir/install-active-window-outline.sh" && -f "$script_dir/VERSION" ]]; then
+if [[ -z "$target_ref" && "$use_prerelease" != "true" && -n "$script_dir" && -f "$script_dir/install-active-window-outline.sh" && -f "$script_dir/VERSION" ]]; then
   exec bash "$script_dir/install-active-window-outline.sh" "${forward_args[@]}"
 fi
 
@@ -58,7 +63,31 @@ get_latest_release_tag() {
   return 1
 }
 
-if [[ "$target_ref" == "main" || "$target_ref" == "master" ]]; then
+get_latest_prerelease_tag() {
+  local tag=""
+  if command -v curl >/dev/null 2>&1; then
+    tag="$(curl -s "https://api.github.com/repos/gmalinowski/kwin-active-window-outline/releases" 2>/dev/null | tr -d ' \t",' | awk -F: '/^tag_name:/ {print $2; exit}')"
+  elif command -v wget >/dev/null 2>&1; then
+    tag="$(wget -qO- "https://api.github.com/repos/gmalinowski/kwin-active-window-outline/releases" 2>/dev/null | tr -d ' \t",' | awk -F: '/^tag_name:/ {print $2; exit}')"
+  fi
+  if [[ -n "$tag" ]]; then
+    printf '%s\n' "$tag"
+    return 0
+  fi
+  return 1
+}
+
+if [[ "$use_prerelease" == "true" ]]; then
+  echo "Resolving latest pre-release of Active Window Outline…"
+  prerelease_tag="$(get_latest_prerelease_tag || true)"
+  if [[ -n "$prerelease_tag" ]]; then
+    echo "Downloading Active Window Outline $prerelease_tag from GitHub…"
+    archive_url="https://github.com/gmalinowski/kwin-active-window-outline/archive/refs/tags/${prerelease_tag}.tar.gz"
+  else
+    echo "Could not resolve latest pre-release; downloading latest main branch from GitHub…"
+    archive_url="https://github.com/gmalinowski/kwin-active-window-outline/archive/refs/heads/main.tar.gz"
+  fi
+elif [[ "$target_ref" == "main" || "$target_ref" == "master" ]]; then
   echo "Installing Active Window Outline from branch '$target_ref' (latest development)…"
   archive_url="https://github.com/gmalinowski/kwin-active-window-outline/archive/refs/heads/${target_ref}.tar.gz"
 elif [[ -n "$target_ref" ]]; then
