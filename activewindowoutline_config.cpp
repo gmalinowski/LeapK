@@ -46,6 +46,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     config->addItemBool(QStringLiteral("SmoothEdges"), *new bool, true);
     config->addItemBool(QStringLiteral("GlowEnabled"), *new bool, true);
     config->addItemInt(QStringLiteral("GlowRadius"), *new int, 6);
+    config->addItemBool(QStringLiteral("HideOnFullScreen"), *new bool, true);
 
     addConfig(config, widget());
 

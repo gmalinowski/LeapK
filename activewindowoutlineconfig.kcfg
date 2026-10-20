@@ -49,5 +49,8 @@
             <min>1</min>
             <max>30</max>
         </entry>
+        <entry name="HideOnFullScreen" type="Bool">
+            <default>true</default>
+        </entry>
     </group>
 </kcfg>

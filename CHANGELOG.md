@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.2.13] - 2026-10-20
+
+### Added
+
+- Add configurable option to automatically hide the active window outline and glow when the active window is fullscreen (enabled by default).
+
 ## [1.2.12] - 2026-10-20
 
 ### Added

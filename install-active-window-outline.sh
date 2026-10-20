@@ -255,6 +255,7 @@ set_default DrawInside true
 set_default SmoothEdges true
 set_default GlowEnabled true
 set_default GlowRadius 6
+set_default HideOnFullScreen true
 
 if command -v qdbus6 >/dev/null 2>&1; then
   qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true

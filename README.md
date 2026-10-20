@@ -14,6 +14,7 @@ The effect is useful with minimal window decorations and tiling layouts, where i
 - Follows the active KWin window automatically.
 - Global shortcut (default: **Meta+Ctrl+O**) to quickly toggle the outline on or off.
 - Uses the current Plasma accent color or a custom color.
+- Option to automatically hide the outline when the active window is in fullscreen mode.
 - Configurable width, corner radius, and offset from the window edge.
 - Can draw inside the window, keeping the outline visible on maximized and tiled windows.
 - Optional edge smoothing for a cleaner outline at fractional display scales.
@@ -151,6 +152,7 @@ Open the gear button next to **Active Window Outline** in Desktop Effects.
 | Smooth edges | On | Adds a subtle antialiased feather to both outline edges. |
 | Soft glow | On | Adds a subtle colored halo around the outline. |
 | Glow size | 6 px | Controls how far the halo extends. |
+| Hide on fullscreen | On | Automatically hides the outline and glow when the active window is fullscreen. |
 
 ### Keyboard shortcut
 

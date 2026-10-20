@@ -89,6 +89,7 @@ private Q_SLOTS:
                                         const QRectF &oldGeometry);
     void slotWindowMinimizedChanged(KWin::EffectWindow *w);
     void slotWindowHiddenChanged(KWin::EffectWindow *w);
+    void slotWindowFullScreenChanged(KWin::EffectWindow *w);
     void slotShowingDesktopChanged();
     void slotToggleAction();
 
@@ -146,6 +147,7 @@ private:
     bool m_glowEnabled = true;
     int m_glowRadius = 6;
     bool m_outlineEnabled = true;
+    bool m_hideOnFullScreen = true;
 };
 
 } // namespace KWin

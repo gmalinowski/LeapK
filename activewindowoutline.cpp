@@ -188,6 +188,8 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
                 this, &ActiveWindowOutlineEffect::slotWindowMinimizedChanged);
         connect(w, &EffectWindow::windowHiddenChanged,
                 this, &ActiveWindowOutlineEffect::slotWindowHiddenChanged);
+        connect(w, &EffectWindow::windowFullScreenChanged,
+                this, &ActiveWindowOutlineEffect::slotWindowFullScreenChanged);
     }
 
     connect(effects, &EffectsHandler::windowActivated,
@@ -230,6 +232,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_smoothEdges = config.readEntry("SmoothEdges", true);
     m_glowEnabled = config.readEntry("GlowEnabled", true);
     m_glowRadius = qBound(1, config.readEntry("GlowRadius", 6), 30);
+    m_hideOnFullScreen = config.readEntry("HideOnFullScreen", true);
 
     m_outlineCache.clear();
     effects->addRepaintFull();
@@ -253,6 +256,8 @@ void ActiveWindowOutlineEffect::slotWindowAdded(EffectWindow *w)
             this, &ActiveWindowOutlineEffect::slotWindowMinimizedChanged);
     connect(w, &EffectWindow::windowHiddenChanged,
             this, &ActiveWindowOutlineEffect::slotWindowHiddenChanged);
+    connect(w, &EffectWindow::windowFullScreenChanged,
+            this, &ActiveWindowOutlineEffect::slotWindowFullScreenChanged);
 
     if (isBlockingPopup(w)) {
         repaintAllOutlines();
@@ -262,6 +267,7 @@ void ActiveWindowOutlineEffect::slotWindowAdded(EffectWindow *w)
 bool ActiveWindowOutlineEffect::shouldOutlineWindow(EffectWindow *w) const
 {
     return m_outlineEnabled && w && w == m_activeWindow && !w->isDesktop() && !w->isDock()
+        && !(m_hideOnFullScreen && w->isFullScreen())
         && !isBlockingPopup(w);
 }
 
@@ -722,6 +728,13 @@ void ActiveWindowOutlineEffect::slotWindowMinimizedChanged(EffectWindow *w)
     // Minimizing hides the outline and un-minimizing brings it back; in both
     // cases the border area needs to be repainted.
     effects->addRepaint(expandedGeometryFor(w));
+}
+
+void ActiveWindowOutlineEffect::slotWindowFullScreenChanged(EffectWindow *w)
+{
+    if (w && w == m_activeWindow) {
+        effects->addRepaint(expandedGeometryFor(w));
+    }
 }
 
 void ActiveWindowOutlineEffect::slotShowingDesktopChanged()
