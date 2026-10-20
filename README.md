@@ -69,7 +69,19 @@ and reinstalling the effect even when the effect's source has not changed.
 This release is distributed as source code. Prebuilt `.deb`/`.rpm` packages
 and an OBS update repository are not provided yet.
 
-### Guided Wayland installation
+### Quick install & update (recommended)
+
+Run this one-liner in your terminal to automatically download the latest release, compile against your running KWin version, and enable the effect (or update an existing installation):
+
+```bash
+curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/install.sh | bash
+```
+
+The installer automatically detects the latest release from GitHub (`releases/latest`), installs any missing build dependencies for your distribution (Debian/Ubuntu, Fedora, Arch/CachyOS, openSUSE), and compiles the plugin for your local KWin ABI. Existing configuration settings are preserved on update.
+
+*(You can inspect the scripts before running: [`install.sh`](install.sh) or [`install-active-window-outline.sh`](install-active-window-outline.sh).)*
+
+### Guided installation from local source
 
 Clone the repository or download and extract a [source release](https://github.com/gmalinowski/kwin-active-window-outline/releases), then
 run this command from the project directory:
@@ -171,13 +183,32 @@ input-transparent surfaces are excluded from this fallback.
 
 ## Updating
 
-Pull or extract the new source, run the installer again, then log out and back in:
+To update an existing installation to the latest release, run the quick install command:
 
 ```bash
+curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/install.sh | bash
+```
+
+The script automatically fetches the newest release, rebuilds the plugin, and preserves your existing settings.
+
+Or when updating from a local clone:
+
+```bash
+git pull
 bash install-active-window-outline.sh
 ```
 
+After updating a native KWin plugin, log out and back in once so KWin loads the new library from disk.
+
 ## Uninstallation
+
+### Quick uninstall
+
+```bash
+curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/uninstall.sh | bash
+```
+
+### From local source
 
 ```bash
 bash uninstall-active-window-outline.sh
