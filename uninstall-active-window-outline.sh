@@ -81,6 +81,8 @@ for key in UseAccentColor AccentOpacity CustomColor BorderWidth OutlineGap \
 done
 kwriteconfig6 --file kwinrc --group Plugins \
   --key "${effect_id}Enabled" --delete ''
+kwriteconfig6 --file kglobalshortcutsrc --group kwin \
+  --key "ToggleActiveWindowOutline" --delete ''
 
 echo "[4/4] Refreshing KDE…"
 if command -v kbuildsycoca6 >/dev/null 2>&1; then

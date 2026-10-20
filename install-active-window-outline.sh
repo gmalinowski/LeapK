@@ -76,25 +76,25 @@ case "$package_manager" in
     packages=(build-essential cmake extra-cmake-modules pkg-config
       qt6-base-dev qt6-declarative-dev qt6-tools-dev-tools
       libkf6coreaddons-dev libkf6config-dev libkf6configwidgets-dev
-      libkf6kcmutils-dev libvulkan-dev libdrm-dev kwin-wayland kwin-dev)
+      libkf6kcmutils-dev libkf6globalaccel-dev libvulkan-dev libdrm-dev kwin-wayland kwin-dev)
     ;;
   dnf)
     packages=(gcc-c++ cmake extra-cmake-modules pkgconf-pkg-config
       qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qttools-devel
       kf6-kcoreaddons-devel kf6-kconfig-devel kf6-kconfigwidgets-devel
-      kf6-kcmutils-devel vulkan-headers libdrm-devel kwin-devel)
+      kf6-kcmutils-devel kf6-kglobalaccel-devel vulkan-headers libdrm-devel kwin-devel)
     ;;
   pacman)
     packages=(base-devel cmake extra-cmake-modules pkgconf
       qt6-base qt6-declarative qt6-tools
-      kcoreaddons kconfig kconfigwidgets kcmutils
+      kcoreaddons kconfig kconfigwidgets kcmutils kglobalaccel
       vulkan-headers libdrm kwin)
     ;;
   zypper)
     packages=(gcc-c++ cmake extra-cmake-modules pkgconf-pkg-config
       qt6-base-devel qt6-declarative-devel qt6-tools
       kf6-kcoreaddons-devel kf6-kconfig-devel kf6-kconfigwidgets-devel
-      kf6-kcmutils-devel vulkan-headers libdrm-devel kwin6-devel)
+      kf6-kcmutils-devel kf6-kglobalaccel-devel vulkan-headers libdrm-devel kwin6-devel)
     ;;
 esac
 
@@ -267,6 +267,7 @@ fi
 echo
 echo "Done. Active Window Outline v$version has been installed."
 echo "Configure it in System Settings → Desktop Effects → Active Window Outline."
+echo "Toggle outline shortcut: Meta+Ctrl+O (configurable in System Settings → Shortcuts → KWin)."
 if [[ "$updating_existing" == true ]]; then
   echo
   echo "IMPORTANT: This was an update of a native KWin plugin."

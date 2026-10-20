@@ -90,9 +90,11 @@ private Q_SLOTS:
     void slotWindowMinimizedChanged(KWin::EffectWindow *w);
     void slotWindowHiddenChanged(KWin::EffectWindow *w);
     void slotShowingDesktopChanged();
+    void slotToggleAction();
 
 private:
     void prepareScreenPaint(ScreenPrePaintData &data);
+    void initShortcuts();
     bool shouldOutlineWindow(EffectWindow *w) const;
     bool isBlockingPopup(EffectWindow *w) const;
     bool popupAcceptsInput(EffectWindow *w) const;
@@ -143,6 +145,7 @@ private:
     bool m_smoothEdges = true;
     bool m_glowEnabled = true;
     int m_glowRadius = 6;
+    bool m_outlineEnabled = true;
 };
 
 } // namespace KWin

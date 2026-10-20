@@ -11,9 +11,8 @@ The effect is useful with minimal window decorations and tiling layouts, where i
 
 ![Active Window Outline with the default settings in a tiled window layout](screenshot_defaults.png)
 
-![KDE / KWin Active Window Outline](screenshot.png)
-
 - Follows the active KWin window automatically.
+- Global shortcut (default: **Meta+Ctrl+O**) to quickly toggle the outline on or off.
 - Uses the current Plasma accent color or a custom color.
 - Configurable width, corner radius, and offset from the window edge.
 - Can draw inside the window, keeping the outline visible on maximized and tiled windows.
@@ -106,7 +105,7 @@ When updating an existing installation, log out and back in after the installer 
 
 Install a C++ compiler, CMake, Extra CMake Modules, Qt 6 development files
 (Core, DBus, Gui, Widgets, Quick, and the `qtplugininfo` tool), KF6
-CoreAddons/ConfigWidgets/KCMUtils development files, Vulkan headers, libdrm
+CoreAddons/ConfigWidgets/KCMUtils/GlobalAccel development files, Vulkan headers, libdrm
 development files, and the development package matching your installed KWin
 version. Then run:
 
@@ -126,6 +125,8 @@ Enable **Active Window Outline** in:
 
 Open the gear button next to **Active Window Outline** in Desktop Effects.
 
+![Active Window Outline configuration dialog](config_panel.png)
+
 | Setting | Default | Description |
 | --- | ---: | --- |
 | Use accent color | On | Follows the current Plasma accent color. |
@@ -138,6 +139,16 @@ Open the gear button next to **Active Window Outline** in Desktop Effects.
 | Smooth edges | On | Adds a subtle antialiased feather to both outline edges. |
 | Soft glow | On | Adds a subtle colored halo around the outline. |
 | Glow size | 6 px | Controls how far the halo extends. |
+
+### Keyboard shortcut
+
+You can toggle the active window outline on or off at any time using the global shortcut **Meta+Ctrl+O**.
+
+![KWin global shortcut configuration](shortcuts.png)
+
+The shortcut can be customized or disabled in:
+
+**System Settings → Shortcuts → KWin → Toggle Active Window Outline**
 
 ### Inside and outside drawing
 
@@ -172,7 +183,7 @@ bash install-active-window-outline.sh
 bash uninstall-active-window-outline.sh
 ```
 
-The uninstaller disables the effect, removes its two plugin files, clears its KWin settings, and refreshes KDE. It does not remove build dependencies, themes, window rules, or the downloaded source directory.
+The uninstaller disables the effect, removes its two plugin files, clears its KWin settings and shortcut, and refreshes KDE. It does not remove build dependencies, themes, window rules, or the downloaded source directory.
 
 ## Troubleshooting
 

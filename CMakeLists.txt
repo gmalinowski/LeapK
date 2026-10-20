@@ -42,7 +42,7 @@ include(KDECompilerSettings NO_POLICY_SCOPE)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Widgets Quick)
-find_package(KF6 REQUIRED COMPONENTS CoreAddons ConfigWidgets KCMUtils)
+find_package(KF6 REQUIRED COMPONENTS CoreAddons ConfigWidgets KCMUtils GlobalAccel)
 find_package(${KWIN_PACKAGE} REQUIRED)
 
 if(KWIN_BACKEND STREQUAL "WAYLAND")
@@ -58,6 +58,7 @@ kcoreaddons_add_plugin(active-window-outline
 )
 target_link_libraries(active-window-outline PRIVATE
     ${KWIN_TARGET}
+    KF6::GlobalAccel
 )
 # Identify the loaded library, including uncommitted test builds.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS

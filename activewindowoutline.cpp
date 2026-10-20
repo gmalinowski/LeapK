@@ -37,6 +37,8 @@
 #include <QStandardPaths>
 #include <QTimer>
 #include <QtMath>
+#include <KGlobalAccel>
+#include <QAction>
 #include <utility>
 
 namespace KWin
@@ -196,6 +198,18 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
             this, &ActiveWindowOutlineEffect::slotWindowDeleted);
     connect(effects, &EffectsHandler::showingDesktopChanged,
             this, &ActiveWindowOutlineEffect::slotShowingDesktopChanged);
+
+    initShortcuts();
+}
+
+void ActiveWindowOutlineEffect::initShortcuts()
+{
+    QAction *toggleAction = new QAction(this);
+    toggleAction->setObjectName(QStringLiteral("ToggleActiveWindowOutline"));
+    toggleAction->setText(QStringLiteral("Toggle Active Window Outline"));
+    KGlobalAccel::self()->setDefaultShortcut(toggleAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_O));
+    KGlobalAccel::self()->setGlobalShortcut(toggleAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_O));
+    connect(toggleAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotToggleAction);
 }
 
 bool ActiveWindowOutlineEffect::supported()
@@ -247,7 +261,7 @@ void ActiveWindowOutlineEffect::slotWindowAdded(EffectWindow *w)
 
 bool ActiveWindowOutlineEffect::shouldOutlineWindow(EffectWindow *w) const
 {
-    return w && w == m_activeWindow && !w->isDesktop() && !w->isDock()
+    return m_outlineEnabled && w && w == m_activeWindow && !w->isDesktop() && !w->isDock()
         && !isBlockingPopup(w);
 }
 
@@ -690,6 +704,14 @@ void ActiveWindowOutlineEffect::slotWindowFrameGeometryChanged(EffectWindow *w,
     if (isBlockingPopup(w)) {
         repaintAllOutlines();
     }
+}
+
+void ActiveWindowOutlineEffect::slotToggleAction()
+{
+  m_outlineEnabled = !m_outlineEnabled;
+  if (m_activeWindow) {
+    effects->addRepaint(expandedGeometryFor(m_activeWindow));
+  }
 }
 
 void ActiveWindowOutlineEffect::slotWindowMinimizedChanged(EffectWindow *w)
