@@ -431,25 +431,7 @@ void ActiveWindowOutlineEffect::slotAnimationTick()
 
 void ActiveWindowOutlineEffect::parseColorList(const QString &str)
 {
-    m_colorStops.clear();
-    const QStringList parts = str.split(QLatin1Char(';'), Qt::SkipEmptyParts);
-    for (const QString &part : parts) {
-        const QStringList tokens = part.split(QLatin1Char(':'));
-        if (tokens.size() >= 1) {
-            const QColor col(tokens[0].trimmed());
-            qreal hold = 3.0;
-            if (tokens.size() >= 2) {
-                bool ok = false;
-                qreal val = tokens[1].trimmed().toDouble(&ok);
-                if (ok && val > 0.0) {
-                    hold = val;
-                }
-            }
-            if (col.isValid()) {
-                m_colorStops.append({col, hold});
-            }
-        }
-    }
+    m_colorStops = OutlineColor::parseColorStops(str);
     m_currentColorIndex = 0;
     m_nextColorIndex = (m_colorStops.size() > 1) ? 1 : 0;
     m_isHoldingColor = true;
@@ -496,29 +478,9 @@ QColor ActiveWindowOutlineEffect::currentCycleColor(qreal elapsedSec)
         const qreal transDuration = qMax<qreal>(0.01, m_colorTransitionDuration);
         const qreal progress = qBound<qreal>(0.0, stateElapsed / transDuration, 1.0);
 
-        qreal f = progress;
-        switch (m_colorCycleEasing) {
-        case 0: // Ease In Out (Smoothstep)
-            f = progress * progress * (3.0 - 2.0 * progress);
-            break;
-        case 1: // Linear
-            f = progress;
-            break;
-        case 2: // Ease In
-            f = progress * progress;
-            break;
-        case 3: // Ease Out
-            f = progress * (2.0 - progress);
-            break;
-        }
-
         const QColor c1 = m_colorStops[m_currentColorIndex].color;
         const QColor c2 = m_colorStops[m_nextColorIndex].color;
-
-        int r = qRound(c1.red() + (c2.red() - c1.red()) * f);
-        int g = qRound(c1.green() + (c2.green() - c1.green()) * f);
-        int b = qRound(c1.blue() + (c2.blue() - c1.blue()) * f);
-        int a = qRound(c1.alpha() + (c2.alpha() - c1.alpha()) * f);
+        const QColor result = OutlineColor::interpolateColors(c1, c2, progress, m_colorCycleEasing);
 
         if (stateElapsed >= transDuration) {
             m_currentColorIndex = m_nextColorIndex;
@@ -526,78 +488,28 @@ QColor ActiveWindowOutlineEffect::currentCycleColor(qreal elapsedSec)
             m_stateStartTime = elapsedSec;
         }
 
-        return QColor(qBound(0, r, 255), qBound(0, g, 255), qBound(0, b, 255), qBound(0, a, 255));
+        return result;
     }
 }
 
 qreal ActiveWindowOutlineEffect::computeBreatheFactor(qreal elapsedSec) const
 {
-    if (!m_breatheEnabled) {
-        return 1.0;
-    }
-    const qreal depth = m_breatheIntensity / 100.0;
-    const qreal wave = 0.5 + 0.5 * std::sin(2.0 * M_PI * m_breatheSpeed * elapsedSec);
-    return 1.0 - depth * (1.0 - wave);
+    return OutlineShader::computeBreatheFactor(elapsedSec, m_breatheEnabled, m_breatheSpeed, m_breatheIntensity);
 }
 
 qreal ActiveWindowOutlineEffect::computeNeonFactor(qreal elapsedSec) const
 {
-    if (!m_neonFlickerEnabled) {
-        return 1.0;
-    }
-    const qreal interval = qMax<qreal>(0.5, m_neonFlickerInterval);
-    const qreal duration = qBound<qreal>(0.02, m_neonFlickerDuration, interval * 0.95);
-    const qreal phase = std::fmod(elapsedSec, interval);
-
-    if (phase < duration) {
-        const qreal t = elapsedSec;
-        const qreal rawNoise = std::sin(t * 110.0) * 0.5 + std::cos(t * 67.0) * 0.3 + std::sin(t * 193.0) * 0.2;
-        const qreal depth = m_neonFlickerIntensity / 100.0;
-
-        if (rawNoise < -0.2) {
-            return qMax<qreal>(0.05, 1.0 - depth);
-        } else if (rawNoise < 0.25) {
-            return qMax<qreal>(0.1, 1.0 - depth * 0.6);
-        } else {
-            return 1.0 - depth * 0.15 * std::abs(rawNoise);
-        }
-    }
-
-    return 1.0;
+    return OutlineShader::computeNeonFactor(elapsedSec, m_neonFlickerEnabled, m_neonFlickerInterval, m_neonFlickerDuration, m_neonFlickerIntensity);
 }
 
 qreal ActiveWindowOutlineEffect::computeFlashFactor(qreal elapsedSec) const
 {
-    if (!m_flashEnabled) {
-        return 0.0;
-    }
-    const qreal interval = qMax<qreal>(0.5, m_flashInterval);
-    const qreal phase = std::fmod(elapsedSec, interval);
-    if (phase < m_flashDuration) {
-        const qreal progress = phase / m_flashDuration;
-        return 0.8 * std::exp(-4.0 * progress);
-    }
-    return 0.0;
+    return OutlineShader::computeFlashFactor(elapsedSec, m_flashEnabled, m_flashInterval, m_flashDuration);
 }
 
 qreal ActiveWindowOutlineEffect::computeGlitchFactor(qreal elapsedSec) const
 {
-    if (!m_glitchEnabled) {
-        return 1.0;
-    }
-    if (!m_glitchAnomalyEnabled) {
-        const qreal shimmer = 0.5 + 0.5 * std::sin(elapsedSec * (3.0 * m_glitchSpeed));
-        return 1.0 + (m_glitchIntensity / 100.0) * 0.06 * (shimmer - 0.5);
-    }
-    const qreal anomalyPhase = elapsedSec * (0.35 + 0.2 * m_glitchFrequency);
-    const qreal beat = std::sin(anomalyPhase) * std::sin(anomalyPhase * 0.618 + 1.5);
-    if (beat > 0.5) {
-        const qreal surge = (beat - 0.5) / 0.5;
-        const qreal microJitter = 0.5 + 0.5 * std::sin(elapsedSec * (16.0 * m_glitchSpeed));
-        const qreal depth = (m_glitchIntensity / 100.0) * 0.15;
-        return 1.0 + depth * surge * (0.7 + 0.3 * microJitter);
-    }
-    return 1.0;
+    return OutlineShader::computeGlitchFactor(elapsedSec, m_glitchEnabled, m_glitchAnomalyEnabled, m_glitchSpeed, m_glitchFrequency, m_glitchIntensity);
 }
 
 QColor ActiveWindowOutlineEffect::resolveColor() const
@@ -1503,66 +1415,7 @@ void ActiveWindowOutlineEffect::generateRoundedRectStrip(
     qreal scale,
     QList<QVector2D> &verts)
 {
-    constexpr int cornerSegments = 8;
-
-    // Clamp radii so they don't exceed half the rect dimensions
-    outerRadius = qMin(outerRadius, qMin(outer.width(), outer.height()) / 2.0);
-    innerRadius = qMin(innerRadius, qMin(inner.width(), inner.height()) / 2.0);
-
-    const QPointF innerCenters[4] = {
-        {inner.x() + innerRadius, inner.y() + innerRadius},             // top-left
-        {inner.right() - innerRadius, inner.y() + innerRadius},         // top-right
-        {inner.right() - innerRadius, inner.bottom() - innerRadius},    // bottom-right
-        {inner.x() + innerRadius, inner.bottom() - innerRadius},        // bottom-left
-    };
-    const QPointF outerCenters[4] = {
-        {outer.x() + outerRadius, outer.y() + outerRadius},             // top-left
-        {outer.right() - outerRadius, outer.y() + outerRadius},         // top-right
-        {outer.right() - outerRadius, outer.bottom() - outerRadius},    // bottom-right
-        {outer.x() + outerRadius, outer.bottom() - outerRadius},        // bottom-left
-    };
-
-    // Start angles for each corner in screen coordinates (Y points down).
-    // Going clockwise: top-left, top-right, bottom-right, bottom-left.
-    const qreal startAngles[4] = {M_PI, 1.5 * M_PI, 0.0, 0.5 * M_PI};
-
-    struct PointPair {
-        QPointF outer, inner;
-    };
-    QList<PointPair> ring;
-
-    for (int corner = 0; corner < 4; ++corner) {
-        const qreal startAngle = startAngles[corner];
-        for (int i = 0; i <= cornerSegments; ++i) {
-            const qreal angle = startAngle + (M_PI / 2.0) * i / cornerSegments;
-            const qreal cosA = qCos(angle);
-            const qreal sinA = qSin(angle);
-
-            PointPair pp;
-            pp.inner = innerCenters[corner] + QPointF(innerRadius * cosA, innerRadius * sinA);
-            pp.outer = outerCenters[corner] + QPointF(outerRadius * cosA, outerRadius * sinA);
-            ring.append(pp);
-        }
-    }
-
-    // Close the ring by repeating the first pair
-    ring.append(ring.first());
-
-    // Convert the ring into triangles (2 per segment)
-    for (int i = 0; i < ring.size() - 1; ++i) {
-        const auto &a = ring[i];
-        const auto &b = ring[i + 1];
-
-        // Triangle 1: a.outer, b.outer, a.inner
-        verts.append(QVector2D(a.outer.x() * scale, a.outer.y() * scale));
-        verts.append(QVector2D(b.outer.x() * scale, b.outer.y() * scale));
-        verts.append(QVector2D(a.inner.x() * scale, a.inner.y() * scale));
-
-        // Triangle 2: b.outer, b.inner, a.inner
-        verts.append(QVector2D(b.outer.x() * scale, b.outer.y() * scale));
-        verts.append(QVector2D(b.inner.x() * scale, b.inner.y() * scale));
-        verts.append(QVector2D(a.inner.x() * scale, a.inner.y() * scale));
-    }
+    OutlineGeometry::buildRoundedRectStrip(outer, outerRadius, inner, innerRadius, scale, verts);
 }
 
 } // namespace KWin

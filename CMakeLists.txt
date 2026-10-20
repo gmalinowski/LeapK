@@ -135,6 +135,27 @@ if(OUTLINE_BUILD_TESTS)
     add_executable(outline-popup-filter-test tests/popupfilter_test.cpp)
     target_include_directories(outline-popup-filter-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     add_test(NAME outline-popup-filter COMMAND outline-popup-filter-test)
+
+    add_executable(outline-color-transition-test tests/colortransition_test.cpp)
+    target_include_directories(outline-color-transition-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-color-transition-test PRIVATE Qt6::Core Qt6::Gui)
+    add_test(NAME outline-color-transition COMMAND outline-color-transition-test)
+
+    add_executable(outline-shader-effects-test tests/shadereffects_test.cpp)
+    target_include_directories(outline-shader-effects-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-shader-effects-test PRIVATE Qt6::Core)
+    add_test(NAME outline-shader-effects COMMAND outline-shader-effects-test)
+
+    add_executable(outline-geometry-test tests/geometry_test.cpp)
+    target_include_directories(outline-geometry-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-geometry-test PRIVATE Qt6::Core Qt6::Gui)
+    add_test(NAME outline-geometry COMMAND outline-geometry-test)
+
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME outline-config-sync COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/configsync_test.py)
+    endif()
+
     if(KWIN_BACKEND STREQUAL "WAYLAND" AND DETECTED_KWIN_VERSION VERSION_GREATER_EQUAL "6.6")
         add_executable(outline-cursor-overlay-test tests/cursoroverlay_test.cpp)
         target_include_directories(outline-cursor-overlay-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

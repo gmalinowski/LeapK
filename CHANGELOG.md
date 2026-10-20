@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [Unreleased]
+
+### Added
+
+- Comprehensive automated test suite in CTest:
+  - `outline-color-transition-test`: color sequence syntax parsing, CSS easing functions, and RGBA blending.
+  - `outline-shader-effects-test`: mathematical models and boundary conditions for breathe, neon, flash, and hologram effects.
+  - `outline-geometry-test`: rounded rectangle strip VBO tessellation, radius clamping, and scaling.
+  - `outline-config-sync-test`: automated verification that all KConfig schema entries exist in installer and uninstaller scripts.
+- Refactored pure algorithmic modules into dedicated headers (`colortransition.h`, `shadereffects.h`, `geometryhelper.h`).
+- Added missing `CustomColor` default setting to `install-active-window-outline.sh`.
+
 ## [1.3.1] - 2026-10-20
 
 ### Added

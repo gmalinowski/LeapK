@@ -41,12 +41,7 @@ cmake --build build-wayland --parallel
 ctest --test-dir build-wayland --output-on-failure
 ```
 
-These tests cover the ungrabbed-popup fallback, including ownership, nested
-menus, tooltips, input-transparent popups, deleted windows, and cyclic parent
-chains. On Wayland with KWin 6.6+, cursor tests also exercise the real scene
-filters, including output isolation, cleanup on an interrupted pass, and
-preservation of hardware-cursor exclusions. They do not replace runtime
-rendering tests in Plasma.
+These tests cover the ungrabbed-popup fallback, color sequence parsing and CSS easing interpolation, procedural shader mathematical models (breathe, neon, flash, hologram), rounded-rectangle VBO strip tessellation, and automated synchronization of KConfig settings with installer and uninstaller scripts. On Wayland with KWin 6.6+, cursor tests also exercise the real scene filters, including output isolation, cleanup on an interrupted pass, and preservation of hardware-cursor exclusions. They do not replace runtime rendering tests in Plasma.
 
 Run `shellcheck` on the shell scripts and validate `metadata.json`, the `.ui` file, and the KConfig schema before opening a pull request.
 

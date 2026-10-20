@@ -23,10 +23,16 @@
 #include <QVector2D>
 #include <memory>
 
+#include "colortransition.h"
+#include "geometryhelper.h"
+#include "shadereffects.h"
+
 class QFileSystemWatcher;
 
 namespace KWin
 {
+
+using OutlineColor::ColorStop;
 
 class SceneView;
 
@@ -51,10 +57,6 @@ struct OutlineCache {
     qreal innerRadius = 0;
 };
 
-struct ColorStop {
-    QColor color;
-    qreal holdTime = 3.0;
-};
 
 class ActiveWindowOutlineEffect : public Effect
 {

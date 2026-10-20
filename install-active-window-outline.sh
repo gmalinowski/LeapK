@@ -248,6 +248,7 @@ set_default() {
 
 set_default UseAccentColor true
 set_default AccentOpacity 66
+set_default CustomColor "61, 174, 233"
 set_default BorderWidth 2
 set_default OutlineGap 0
 set_default BorderRadius 6
