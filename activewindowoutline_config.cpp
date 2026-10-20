@@ -57,6 +57,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemBool(QStringLiteral("HideOnFullScreen"), *new bool, true);
 
     // Tab 4: Behavior & Buffer Delays
+    m_configSkeleton->addItemInt(QStringLiteral("FadeDuration"), *new int, 200);
     m_configSkeleton->addItemInt(QStringLiteral("MenuHideDelay"), *new int, 300);
     m_configSkeleton->addItemInt(QStringLiteral("MenuShowDelay"), *new int, 300);
     m_configSkeleton->addItemInt(QStringLiteral("WindowHideDelay"), *new int, 0);

@@ -54,6 +54,11 @@
         </entry>
 
         <!-- Behavior & Buffer Delays -->
+        <entry name="FadeDuration" type="Int">
+            <default>200</default>
+            <min>0</min>
+            <max>1000</max>
+        </entry>
         <entry name="MenuHideDelay" type="Int">
             <default>300</default>
             <min>0</min>

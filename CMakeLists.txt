@@ -62,12 +62,13 @@ target_link_libraries(active-window-outline PRIVATE
 )
 # Identify the loaded library, including uncommitted test builds.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    activewindowoutline.cpp activewindowoutline.h popupfilter.h cursoroverlay.h)
+    activewindowoutline.cpp activewindowoutline.h popupfilter.h cursoroverlay.h visibilitystate.h)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/activewindowoutline.cpp" OUTLINE_CPP_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/activewindowoutline.h" OUTLINE_HEADER_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/popupfilter.h" OUTLINE_POPUP_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/cursoroverlay.h" OUTLINE_CURSOR_HASH)
-string(SHA256 OUTLINE_BUILD_HASH "${OUTLINE_CPP_HASH}${OUTLINE_HEADER_HASH}${OUTLINE_POPUP_HASH}${OUTLINE_CURSOR_HASH}")
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/visibilitystate.h" OUTLINE_VISIBILITY_HASH)
+string(SHA256 OUTLINE_BUILD_HASH "${OUTLINE_CPP_HASH}${OUTLINE_HEADER_HASH}${OUTLINE_POPUP_HASH}${OUTLINE_CURSOR_HASH}${OUTLINE_VISIBILITY_HASH}")
 string(SUBSTRING "${OUTLINE_BUILD_HASH}" 0 12 OUTLINE_BUILD_ID)
 target_compile_definitions(active-window-outline PRIVATE
     ACTIVE_WINDOW_OUTLINE_VERSION="${PROJECT_VERSION}"
@@ -150,6 +151,11 @@ if(OUTLINE_BUILD_TESTS)
     target_include_directories(outline-geometry-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(outline-geometry-test PRIVATE Qt6::Core Qt6::Gui)
     add_test(NAME outline-geometry COMMAND outline-geometry-test)
+
+    add_executable(outline-visibility-test tests/visibilitystate_test.cpp)
+    target_include_directories(outline-visibility-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-visibility-test PRIVATE Qt6::Core)
+    add_test(NAME outline-visibility COMMAND outline-visibility-test)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)

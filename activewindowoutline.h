@@ -26,6 +26,7 @@
 #include "colortransition.h"
 #include "geometryhelper.h"
 #include "shadereffects.h"
+#include "visibilitystate.h"
 
 class QFileSystemWatcher;
 
@@ -202,13 +203,15 @@ private:
     qreal m_flashDuration = 0.15;
 
     // Config - Behavior & Delays
+    int m_fadeDuration = 200;
     int m_menuHideDelay = 300;
     int m_menuShowDelay = 300;
     int m_windowHideDelay = 0;
     int m_windowShowDelay = 0;
 
-    // Runtime delay & buffer state
-    bool m_popupBlocksOutline = false;
+    // Runtime delay, buffer & visibility transition state
+    OutlineVisibility::StateMachine m_visibilityState;
+    OutlineVisibility::Config m_visibilityConfig;
     QTimer *m_menuHideTimer = nullptr;
     QTimer *m_menuShowTimer = nullptr;
     QTimer *m_windowHideTimer = nullptr;

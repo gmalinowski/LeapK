@@ -4,16 +4,25 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
-## [Unreleased]
+## [1.3.2] - 2026-10-20
+
+### Fixed
+
+- **Critical popup blocking recovery bug**: In Wayland, when a context menu or popup closed, its surface was unmapped and marked deleted before the destruction signal was dispatched, causing `isBlockingPopup(w)` to evaluate to `false`. This prevented `updatePopupBlockingState()` from ever being called on menu closure, leaving `m_popupBlocksOutline` permanently active and causing the outline to disappear and never reappear.
+- Fixed `slotWindowDeleted` and `slotWindowHiddenChanged` to unconditionally re-evaluate popup blocking state regardless of transient surface validity.
+- Added automatic self-healing safeguard in `prepareScreenPaint` and `slotAnimationTick` that detects and recovers from any desynchronized popup state.
 
 ### Added
 
-- Comprehensive automated test suite in CTest:
+- **Smooth fade-in / fade-out transitions**: Outline smoothly animates its opacity when appearing and disappearing (controlled by `FadeDuration`, default: 200 ms) instead of abrupt snapping.
+- **Configurable Transitions & Fading group**: Added `Fade transition duration` setting to the Behavior tab in System Settings KCM with instant (0 ms) option.
+- **Automated test suite expansion**:
+  - `outline-visibility-test`: automated verification of popup buffer delays, rapid menu hopping cancellation, smooth fade interpolation, instant delay/fade modes, self-healing recovery, and regression simulation for Wayland popup deletion.
   - `outline-color-transition-test`: color sequence syntax parsing, CSS easing functions, and RGBA blending.
   - `outline-shader-effects-test`: mathematical models and boundary conditions for breathe, neon, flash, and hologram effects.
   - `outline-geometry-test`: rounded rectangle strip VBO tessellation, radius clamping, and scaling.
   - `outline-config-sync-test`: automated verification that all KConfig schema entries exist in installer and uninstaller scripts.
-- Refactored pure algorithmic modules into dedicated headers (`colortransition.h`, `shadereffects.h`, `geometryhelper.h`).
+- Refactored pure algorithmic modules into dedicated headers (`colortransition.h`, `shadereffects.h`, `geometryhelper.h`, `visibilitystate.h`).
 - Added missing `CustomColor` default setting to `install-active-window-outline.sh`.
 
 ## [1.3.1] - 2026-10-20
