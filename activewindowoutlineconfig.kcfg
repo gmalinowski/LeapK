@@ -81,9 +81,9 @@
             <default>false</default>
         </entry>
         <entry name="BreatheSpeed" type="Double">
-            <default>1.5</default>
-            <min>0.1</min>
-            <max>10.0</max>
+            <default>0.5</default>
+            <min>0.01</min>
+            <max>20.0</max>
         </entry>
         <entry name="BreatheIntensity" type="Int">
             <default>40</default>

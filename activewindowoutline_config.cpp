@@ -64,7 +64,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
 
     // Tab 3: Shader Effects
     m_configSkeleton->addItemBool(QStringLiteral("BreatheEnabled"), *new bool, false);
-    m_configSkeleton->addItemDouble(QStringLiteral("BreatheSpeed"), *new double, 1.5);
+    m_configSkeleton->addItemDouble(QStringLiteral("BreatheSpeed"), *new double, 0.5);
     m_configSkeleton->addItemInt(QStringLiteral("BreatheIntensity"), *new int, 40);
 
     m_configSkeleton->addItemBool(QStringLiteral("GlitchEnabled"), *new bool, false);

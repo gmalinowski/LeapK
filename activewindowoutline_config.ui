@@ -473,17 +473,23 @@
           </item>
           <item row="1" column="1">
            <widget class="QDoubleSpinBox" name="kcfg_BreatheSpeed">
+            <property name="decimals">
+             <number>2</number>
+            </property>
             <property name="minimum">
-             <double>0.1</double>
+             <double>0.01</double>
             </property>
             <property name="maximum">
-             <double>10.0</double>
+             <double>20.0</double>
             </property>
             <property name="singleStep">
-             <double>0.2</double>
+             <double>0.05</double>
             </property>
             <property name="value">
-             <double>1.5</double>
+             <double>0.5</double>
+            </property>
+            <property name="suffix">
+             <string> Hz</string>
             </property>
            </widget>
           </item>

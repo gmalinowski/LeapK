@@ -306,7 +306,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_colorCycleEasing = config.readEntry("ColorCycleEasing", 0);
 
     m_breatheEnabled = config.readEntry("BreatheEnabled", false);
-    m_breatheSpeed = qMax<qreal>(0.1, config.readEntry("BreatheSpeed", 1.5));
+    m_breatheSpeed = qBound<qreal>(0.01, config.readEntry("BreatheSpeed", 0.5), 20.0);
     m_breatheIntensity = qBound(10, config.readEntry("BreatheIntensity", 40), 100);
 
     m_glitchEnabled = config.readEntry("GlitchEnabled", false);

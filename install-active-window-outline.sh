@@ -262,7 +262,7 @@ set_default ColorTransitionDuration 2.0
 set_default ColorCycleOrder 0
 set_default ColorCycleEasing 0
 set_default BreatheEnabled false
-set_default BreatheSpeed 1.5
+set_default BreatheSpeed 0.5
 set_default BreatheIntensity 40
 set_default GlitchEnabled false
 set_default GlitchSpeed 1.0

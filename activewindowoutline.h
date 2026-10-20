@@ -180,7 +180,7 @@ private:
 
     // Config - Shader & Visual Effects
     bool m_breatheEnabled = false;
-    qreal m_breatheSpeed = 1.5;
+    qreal m_breatheSpeed = 0.5;
     int m_breatheIntensity = 40;
 
     bool m_glitchEnabled = false;
