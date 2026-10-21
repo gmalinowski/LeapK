@@ -255,7 +255,7 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
     connect(m_ambilightTimer, &QTimer::timeout, this, [this] {
         if (m_ambilightEnabled && m_activeWindow && !m_activeWindow->isMinimized() && m_activeWindow->isOnCurrentDesktop()) {
             m_ambilightSampleNeeded = true;
-            effects->addRepaint(m_activeWindow->frameGeometry().toRect());
+            effects->addRepaint(expandedGeometryFor(m_activeWindow));
         }
     });
 
@@ -1531,9 +1531,19 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen);
 #endif
 
-    if (m_ambilightEnabled && m_activeWindow && m_ambilightSampleNeeded) {
-        m_ambilightSampleNeeded = false;
-        sampleAmbilightColor(renderTarget, viewport, m_activeWindow);
+    const qreal elapsedSec = m_animationClock.isValid() ? (m_animationClock.elapsed() / 1000.0) : 0.0;
+    const qreal sampleInterval = 1.0 / qMax<qreal>(0.1, m_ambilightFrequency);
+    const bool timeToSample = m_ambilightSampleNeeded || ((elapsedSec - m_lastAmbilightSampleTime) >= sampleInterval);
+
+    if (m_ambilightEnabled && m_activeWindow && timeToSample) {
+        const QPoint windowCenter = m_activeWindow->frameGeometry().center().toPoint();
+        const bool isScreenForWindow = !screen || QRect(screen->geometry()).contains(windowCenter);
+        if (isScreenForWindow) {
+            if (sampleAmbilightColor(renderTarget, viewport, m_activeWindow)) {
+                m_ambilightSampleNeeded = false;
+                m_lastAmbilightSampleTime = elapsedSec;
+            }
+        }
     }
 
     if (!drawOutline && !drawDelayed) {
@@ -1577,15 +1587,15 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
 #endif
 }
 
-void ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderTarget, const RenderViewport &viewport, EffectWindow *w)
+bool ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderTarget, const RenderViewport &viewport, EffectWindow *w)
 {
     if (!w) {
-        return;
+        return false;
     }
 
     const QRectF frameGeo = w->frameGeometry();
     if (frameGeo.width() < 10 || frameGeo.height() < 10) {
-        return;
+        return false;
     }
 
     constexpr int kSampleDim = 32;
@@ -1596,24 +1606,25 @@ void ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
         const QImage *img = renderTarget.image();
         const QRect windowRect = frameGeo.toRect();
         const QRect targetRect = windowRect.intersected(img->rect());
-        if (!targetRect.isEmpty()) {
-            const QImage scaled = img->copy(targetRect).scaled(sampleSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation).convertToFormat(QImage::Format_RGBA8888);
-            OutlineAmbilight::Settings settings;
-            settings.mode = static_cast<OutlineAmbilight::Mode>(m_ambilightMode);
-            settings.saturationBoost = m_ambilightSaturationBoost;
-            settings.minBrightness = m_ambilightMinBrightness / 100.0;
-            settings.maxBrightness = m_ambilightMaxBrightness / 100.0;
-            if (m_ambilightTargetColor.isValid()) {
-                float prevH = 0.0f, prevS = 0.0f, prevL = 0.0f;
-                m_ambilightTargetColor.getHslF(&prevH, &prevS, &prevL);
-                if (prevS > 0.1f) {
-                    settings.previousHue = prevH;
-                }
-            }
-            const QColor sampledColor = OutlineAmbilight::processRgbaSamples(scaled.constBits(), sampleSize.width() * sampleSize.height(), settings);
-            applyNewAmbilightColor(sampledColor);
+        if (targetRect.isEmpty() || targetRect.width() < 10 || targetRect.height() < 10) {
+            return false;
         }
-        return;
+        const QImage scaled = img->copy(targetRect).scaled(sampleSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation).convertToFormat(QImage::Format_RGBA8888);
+        OutlineAmbilight::Settings settings;
+        settings.mode = static_cast<OutlineAmbilight::Mode>(m_ambilightMode);
+        settings.saturationBoost = m_ambilightSaturationBoost;
+        settings.minBrightness = m_ambilightMinBrightness / 100.0;
+        settings.maxBrightness = m_ambilightMaxBrightness / 100.0;
+        if (m_ambilightTargetColor.isValid()) {
+            float prevH = 0.0f, prevS = 0.0f, prevL = 0.0f;
+            m_ambilightTargetColor.getHslF(&prevH, &prevS, &prevL);
+            if (prevS > 0.1f) {
+                settings.previousHue = prevH;
+            }
+        }
+        const QColor sampledColor = OutlineAmbilight::processRgbaSamples(scaled.constBits(), sampleSize.width() * sampleSize.height(), settings);
+        applyNewAmbilightColor(sampledColor);
+        return true;
     }
 
     // OpenGL compositing path:
@@ -1625,7 +1636,7 @@ void ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
     }
 
     if (!m_ambilightFbo || !m_ambilightFbo->valid()) {
-        return;
+        return false;
     }
 
     const Rect windowRect(frameGeo.toRect());
@@ -1636,7 +1647,7 @@ void ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
         if (savedFbo && GLFramebuffer::currentFramebuffer() != savedFbo) {
             GLFramebuffer::pushFramebuffer(savedFbo);
         }
-        return;
+        return false;
     }
 
     uint8_t pixels[kSampleDim * kSampleDim * 4];
@@ -1663,6 +1674,7 @@ void ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
 
     const QColor sampledColor = OutlineAmbilight::processRgbaSamples(pixels, sampleSize.width() * sampleSize.height(), settings);
     applyNewAmbilightColor(sampledColor);
+    return true;
 }
 
 void ActiveWindowOutlineEffect::applyNewAmbilightColor(const QColor &newColor)
@@ -1686,6 +1698,7 @@ void ActiveWindowOutlineEffect::applyNewAmbilightColor(const QColor &newColor)
     m_ambilightTransitionStartTime = elapsedSec;
     m_ambilightInTransition = true;
     updateAnimationTimer();
+    repaintAllOutlines();
 }
 
 QColor ActiveWindowOutlineEffect::currentAmbilightColor(qreal elapsedSec)

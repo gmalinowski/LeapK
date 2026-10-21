@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.5] - 2026-10-21
+
+### Fixed
+
+- **Multi-monitor Ambilight sampling freeze**: Fixed an issue in multi-monitor setups where `paintScreen` on an inactive screen or secondary output stole and cleared `m_ambilightSampleNeeded` before the primary screen containing the active window was painted, causing outline colors to hang or delay 5–10 seconds when changing page content.
+- **Opportunistic zero-delay sampling**: Added rate-limited opportunistic sampling during active window repaints (respecting `AmbilightFrequency` interval), enabling immediate sampling and color transitions as soon as a webpage navigates or renders new content without waiting for an idle timer tick.
+- **Transition repaint immediacy**: Invoked immediate outline repaint on starting Ambilight color transitions.
+
 ## [1.4.4] - 2026-10-21
 
 ### Added

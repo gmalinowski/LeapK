@@ -143,7 +143,7 @@ private:
     QColor resolveColor(qreal windowOpacity = 1.0) const;
     QColor currentCycleColor(qreal elapsedSec);
     QColor currentAmbilightColor(qreal elapsedSec);
-    void sampleAmbilightColor(const RenderTarget &renderTarget, const RenderViewport &viewport, EffectWindow *w);
+    bool sampleAmbilightColor(const RenderTarget &renderTarget, const RenderViewport &viewport, EffectWindow *w);
     void applyNewAmbilightColor(const QColor &newColor);
     bool isAnimationActive() const;
     void updateAnimationTimer();
@@ -247,6 +247,7 @@ private:
     // Runtime ambilight state
     QTimer *m_ambilightTimer = nullptr;
     mutable bool m_ambilightSampleNeeded = true;
+    mutable qreal m_lastAmbilightSampleTime = 0.0;
     mutable QColor m_ambilightCurrentColor;
     mutable QColor m_ambilightTargetColor;
     mutable QColor m_ambilightTransitionStartColor;
