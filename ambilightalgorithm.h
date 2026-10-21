@@ -332,7 +332,6 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
     };
 
     Bucket buckets[kNumBins];
-    qreal unweightedLightnessSum = 0.0;
     int validPixels = 0;
 
     for (int i = 0; i < pixelCount; ++i) {
@@ -350,7 +349,6 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
         float hc = 0.0f, sc = 0.0f, lc = 0.0f;
         col.getHslF(&hc, &sc, &lc);
         validPixels++;
-        unweightedLightnessSum += lc;
 
         // Skip near-monochrome canvas (gray, slate, charcoal) and extreme black/white for chromatic binning
         if (sc < 0.22f || lc < 0.08f || (lc > 0.93f && sc < 0.28f)) {

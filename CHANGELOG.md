@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.23] - 2026-10-21
+
+### Fixed
+- **Compiler Warnings Cleanup (CachyOS / GCC)**:
+  - Removed unused variable `unweightedLightnessSum` in `OutlineAmbilight::processDominantAccent` to eliminate `-Wunused-but-set-variable` warning on modern GCC / CachyOS toolchains.
+  - Removed redundant `#include "activewindowoutline.moc"` at the end of `activewindowoutline.cpp` to eliminate the CMake automoc warning.
+
 ## [1.4.22] - 2026-10-21
 
 ### Added
