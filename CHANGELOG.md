@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.14] - 2026-10-21
+
+### Fixed
+
+- **KCM Configuration Layout Alignment**:
+  - Fixed row index collision in `Appearance` tab where the version and update-checker row conflicted with the info banner at row 12, resolving layout displacement and preventing controls from jumping to the top of the window.
+- **Language Consistency**:
+  - Restored clean, standard English for the "Check for updates" button, update dialogs, and preset names.
+  - Ensured the "Fade out corners (highlight edges only)" option and all associated tooltips display in English across all system locales.
+
 ## [1.4.13] - 2026-10-21
 
 ### Added

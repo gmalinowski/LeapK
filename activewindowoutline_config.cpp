@@ -125,23 +125,6 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_ui->setupUi(widget());
     m_ui->label_versionValue->setText(QStringLiteral(ACTIVE_WINDOW_OUTLINE_VERSION));
 
-    const bool isPolish = (QLocale().language() == QLocale::Polish);
-    if (isPolish) {
-        m_ui->btnCheckUpdate->setText(QStringLiteral("Sprawdź aktualizacje"));
-        m_ui->btnCheckUpdate->setToolTip(QStringLiteral("Sprawdź na GitHubie, czy dostępna jest nowsza wersja wtyczki"));
-        m_ui->comboAmbilightPreset->setItemText(0, QStringLiteral("Własny (Custom)"));
-        m_ui->comboAmbilightPreset->setItemText(1, QStringLiteral("Zrównoważony / Domyślny (Balanced)"));
-        m_ui->comboAmbilightPreset->setItemText(2, QStringLiteral("Jaskrawy i dynamiczny (Vivid & Dynamic)"));
-        m_ui->comboAmbilightPreset->setItemText(3, QStringLiteral("Subtelny i stonowany (Subtle & Calm)"));
-        m_ui->comboAmbilightPreset->setItemText(4, QStringLiteral("Oszczędzanie baterii (Eco)"));
-        m_ui->comboAmbilightPreset->setItemText(5, QStringLiteral("Wysoki kontrast (High Contrast)"));
-        m_ui->comboAmbilightPreset->setItemText(6, QStringLiteral("True Ambilight (Film / Wideo)"));
-        m_ui->label_ambilightWarning->setText(QStringLiteral("💡 Wskazówka: 1.5 Hz to optymalny wybór do codziennej pracy i przeglądania stron. Do filmów, wideo i gier profil True Ambilight (6.0 Hz) zapewnia natychmiastowe dopasowanie barw w czasie rzeczywistym."));
-        m_ui->label_ambilightFrequency->setToolTip(QStringLiteral("Jak często (w Hz) analizowane są kolory okna. 1.5 Hz jest optymalne na pulpicie, a wyższe wartości zapewniają natychmiastową reakcję na wideo."));
-        m_ui->kcfg_AmbilightFrequency->setToolTip(QStringLiteral("Jak często (w Hz) analizowane są kolory okna. 1.5 Hz jest optymalne na pulpicie, a wyższe wartości zapewniają natychmiastową reakcję na wideo."));
-        m_ui->kcfg_FadeCorners->setText(QStringLiteral("Wyłącz narożniki (płynne zanikanie na rogach)"));
-        m_ui->kcfg_FadeCorners->setToolTip(QStringLiteral("Całkowicie wyłącza podświetlenie rogów i płynnie wygasza obrys w ich kierunku, podświetlając jedynie proste boki okna."));
-    }
     m_ui->btnCheckUpdate->setIcon(QIcon::fromTheme(QStringLiteral("system-software-update"),
                                                   QIcon::fromTheme(QStringLiteral("view-refresh"))));
     connect(m_ui->btnCheckUpdate, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::checkForUpdates);
@@ -714,15 +697,13 @@ void ActiveWindowOutlineConfig::defaults()
 
 void ActiveWindowOutlineConfig::checkForUpdates()
 {
-    const bool isPolish = (QLocale().language() == QLocale::Polish);
-
     if (!m_networkManager) {
         m_networkManager = new QNetworkAccessManager(this);
     }
 
     m_ui->btnCheckUpdate->setEnabled(false);
-    m_ui->btnCheckUpdate->setText(isPolish ? QStringLiteral("Sprawdzanie…") : QStringLiteral("Checking…"));
-    m_ui->label_updateStatus->setText(isPolish ? QStringLiteral("Łączenie z GitHub…") : QStringLiteral("Connecting to GitHub…"));
+    m_ui->btnCheckUpdate->setText(QStringLiteral("Checking…"));
+    m_ui->label_updateStatus->setText(QStringLiteral("Connecting to GitHub…"));
     m_ui->label_updateStatus->setStyleSheet(QString());
 
     QNetworkRequest request(QUrl(QStringLiteral("https://api.github.com/repos/gmalinowski/kwin-active-window-outline/releases")));
@@ -730,15 +711,14 @@ void ActiveWindowOutlineConfig::checkForUpdates()
     request.setRawHeader("Accept", "application/vnd.github.v3+json");
 
     QNetworkReply *reply = m_networkManager->get(request);
-    connect(reply, &QNetworkReply::finished, this, [this, reply, isPolish]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
         m_ui->btnCheckUpdate->setEnabled(true);
-        m_ui->btnCheckUpdate->setText(isPolish ? QStringLiteral("Sprawdź aktualizacje") : QStringLiteral("Check for updates"));
+        m_ui->btnCheckUpdate->setText(QStringLiteral("Check for updates"));
 
         if (reply->error() != QNetworkReply::NoError) {
             const QString err = reply->errorString();
-            m_ui->label_updateStatus->setText(isPolish ? QStringLiteral("⚠️ Błąd: %1").arg(err)
-                                                       : QStringLiteral("⚠️ Error: %1").arg(err));
+            m_ui->label_updateStatus->setText(QStringLiteral("⚠️ Error: %1").arg(err));
             m_ui->label_updateStatus->setStyleSheet(QStringLiteral("color: #e74c3c;"));
             return;
         }
@@ -747,16 +727,14 @@ void ActiveWindowOutlineConfig::checkForUpdates()
         QJsonParseError parseError;
         const QJsonDocument doc = QJsonDocument::fromJson(responseData, &parseError);
         if (parseError.error != QJsonParseError::NoError || !doc.isArray()) {
-            m_ui->label_updateStatus->setText(isPolish ? QStringLiteral("⚠️ Nieprawidłowa odpowiedź z GitHub")
-                                                       : QStringLiteral("⚠️ Invalid GitHub response"));
+            m_ui->label_updateStatus->setText(QStringLiteral("⚠️ Invalid GitHub response"));
             m_ui->label_updateStatus->setStyleSheet(QStringLiteral("color: #e74c3c;"));
             return;
         }
 
         const QJsonArray releases = doc.array();
         if (releases.isEmpty()) {
-            m_ui->label_updateStatus->setText(isPolish ? QStringLiteral("Brak wydań na GitHub")
-                                                       : QStringLiteral("No releases found on GitHub"));
+            m_ui->label_updateStatus->setText(QStringLiteral("No releases found on GitHub"));
             return;
         }
 
@@ -780,22 +758,17 @@ void ActiveWindowOutlineConfig::checkForUpdates()
         const bool hasUpdate = isDev || (remoteVer > currentVer);
 
         if (!hasUpdate) {
-            m_ui->label_updateStatus->setText(isPolish
-                ? QStringLiteral("✓ Masz najnowszą wersję (v%1)").arg(currentVerStr)
-                : QStringLiteral("✓ Up to date (v%1)").arg(currentVerStr));
+            m_ui->label_updateStatus->setText(QStringLiteral("✓ Up to date (v%1)").arg(currentVerStr));
             m_ui->label_updateStatus->setStyleSheet(QStringLiteral("color: #2ecc71; font-weight: bold;"));
 
             QMessageBox::information(widget(),
-                isPolish ? QStringLiteral("Aktualizacje wtyczki") : QStringLiteral("Plugin Updates"),
-                isPolish ? QStringLiteral("Masz zainstalowaną najnowszą wersję Active Window Outline (v%1).").arg(currentVerStr)
-                         : QStringLiteral("You have the latest version of Active Window Outline installed (v%1).").arg(currentVerStr));
+                QStringLiteral("Plugin Updates"),
+                QStringLiteral("You have the latest version of Active Window Outline installed (v%1).").arg(currentVerStr));
             return;
         }
 
         // New version available!
-        m_ui->label_updateStatus->setText(isPolish
-            ? QStringLiteral("⬆ Nowa wersja: %1!").arg(tagName)
-            : QStringLiteral("⬆ New version: %1!").arg(tagName));
+        m_ui->label_updateStatus->setText(QStringLiteral("⬆ New version: %1!").arg(tagName));
         m_ui->label_updateStatus->setStyleSheet(QStringLiteral("color: #3daee9; font-weight: bold;"));
 
         const QString installCmd = isPrerelease
@@ -803,7 +776,7 @@ void ActiveWindowOutlineConfig::checkForUpdates()
             : QStringLiteral("curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/install.sh | bash");
 
         QDialog dlg(widget());
-        dlg.setWindowTitle(isPolish ? QStringLiteral("Dostępna nowa wersja!") : QStringLiteral("New Version Available!"));
+        dlg.setWindowTitle(QStringLiteral("New Version Available!"));
         dlg.resize(540, 440);
 
         auto *vbox = new QVBoxLayout(&dlg);
@@ -813,23 +786,16 @@ void ActiveWindowOutlineConfig::checkForUpdates()
         auto *info = new QLabel(&dlg);
         info->setTextFormat(Qt::RichText);
         info->setWordWrap(true);
-        info->setText(isPolish
-            ? QStringLiteral("<h3>🎉 Dostępna jest nowa wersja: <b>%1</b></h3>"
-                             "<p>Obecnie zainstalowana: <b>v%2</b><br>"
-                             "Najnowsze wydanie: <b>%1</b> %3</p>")
-                .arg(tagName)
-                .arg(currentVerStr)
-                .arg(isPrerelease ? QStringLiteral("(wersja przedpremierowa / pre-release)") : QStringLiteral("(wersja stabilna)"))
-            : QStringLiteral("<h3>🎉 A new version is available: <b>%1</b></h3>"
-                             "<p>Currently installed: <b>v%2</b><br>"
-                             "Latest release: <b>%1</b> %3</p>")
-                .arg(tagName)
-                .arg(currentVerStr)
-                .arg(isPrerelease ? QStringLiteral("(pre-release)") : QStringLiteral("(stable)")));
+        info->setText(QStringLiteral("<h3>🎉 A new version is available: <b>%1</b></h3>"
+                                     "<p>Currently installed: <b>v%2</b><br>"
+                                     "Latest release: <b>%1</b> %3</p>")
+                        .arg(tagName)
+                        .arg(currentVerStr)
+                        .arg(isPrerelease ? QStringLiteral("(pre-release)") : QStringLiteral("(stable)")));
         vbox->addWidget(info);
 
         if (!body.trimmed().isEmpty()) {
-            auto *notesLabel = new QLabel(isPolish ? QStringLiteral("<b>Co nowego:</b>") : QStringLiteral("<b>Release Notes:</b>"), &dlg);
+            auto *notesLabel = new QLabel(QStringLiteral("<b>Release Notes:</b>"), &dlg);
             vbox->addWidget(notesLabel);
 
             auto *browser = new QTextBrowser(&dlg);
@@ -839,8 +805,7 @@ void ActiveWindowOutlineConfig::checkForUpdates()
             vbox->addWidget(browser);
         }
 
-        auto *cmdLabel = new QLabel(isPolish ? QStringLiteral("Polecenie instalacji / aktualizacji w terminalu:")
-                                             : QStringLiteral("Terminal installation / update command:"), &dlg);
+        auto *cmdLabel = new QLabel(QStringLiteral("Terminal installation / update command:"), &dlg);
         vbox->addWidget(cmdLabel);
 
         auto *cmdBox = new QLineEdit(installCmd, &dlg);
@@ -848,7 +813,7 @@ void ActiveWindowOutlineConfig::checkForUpdates()
         vbox->addWidget(cmdBox);
 
         auto *btnLayout = new QHBoxLayout();
-        auto *btnOpenUrl = new QPushButton(isPolish ? QStringLiteral("Otwórz stronę na GitHub") : QStringLiteral("Open on GitHub"), &dlg);
+        auto *btnOpenUrl = new QPushButton(QStringLiteral("Open on GitHub"), &dlg);
         btnOpenUrl->setIcon(QIcon::fromTheme(QStringLiteral("internet-web-browser")));
         connect(btnOpenUrl, &QPushButton::clicked, [htmlUrl]() {
             if (!htmlUrl.isEmpty()) {
@@ -857,17 +822,17 @@ void ActiveWindowOutlineConfig::checkForUpdates()
         });
         btnLayout->addWidget(btnOpenUrl);
 
-        auto *btnCopy = new QPushButton(isPolish ? QStringLiteral("Kopiuj polecenie") : QStringLiteral("Copy Command"), &dlg);
+        auto *btnCopy = new QPushButton(QStringLiteral("Copy Command"), &dlg);
         btnCopy->setIcon(QIcon::fromTheme(QStringLiteral("edit-copy")));
-        connect(btnCopy, &QPushButton::clicked, [installCmd, btnCopy, isPolish]() {
+        connect(btnCopy, &QPushButton::clicked, [installCmd, btnCopy]() {
             QGuiApplication::clipboard()->setText(installCmd);
-            btnCopy->setText(isPolish ? QStringLiteral("Skopiowano!") : QStringLiteral("Copied!"));
+            btnCopy->setText(QStringLiteral("Copied!"));
         });
         btnLayout->addWidget(btnCopy);
 
         btnLayout->addStretch();
 
-        auto *btnClose = new QPushButton(isPolish ? QStringLiteral("Zamknij") : QStringLiteral("Close"), &dlg);
+        auto *btnClose = new QPushButton(QStringLiteral("Close"), &dlg);
         connect(btnClose, &QPushButton::clicked, &dlg, &QDialog::accept);
         btnLayout->addWidget(btnClose);
 
