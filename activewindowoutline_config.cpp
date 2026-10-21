@@ -82,6 +82,11 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemBool(QStringLiteral("UseAccentColor"), *new bool, true);
     m_configSkeleton->addItemInt(QStringLiteral("AccentOpacity"), *new int, 66);
     m_configSkeleton->addItemColor(QStringLiteral("CustomColor"), *new QColor, QColor(61, 174, 233));
+    m_configSkeleton->addItemBool(QStringLiteral("AmbilightEnabled"), *new bool, false);
+    m_configSkeleton->addItemDouble(QStringLiteral("AmbilightDuration"), *new double, 0.6);
+    m_configSkeleton->addItemDouble(QStringLiteral("AmbilightSaturationBoost"), *new double, 1.3);
+    m_configSkeleton->addItemInt(QStringLiteral("AmbilightMinBrightness"), *new int, 25);
+    m_configSkeleton->addItemInt(QStringLiteral("AmbilightMaxBrightness"), *new int, 85);
     m_configSkeleton->addItemInt(QStringLiteral("BorderWidth"), *new int, 2);
     m_configSkeleton->addItemInt(QStringLiteral("OutlineGap"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("BorderRadius"), *new int, 6);
@@ -212,13 +217,26 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
 
     // Color UI enable/disable sync
     auto updateColorEnabled = [this] {
-        const bool useAccent = m_ui->kcfg_UseAccentColor->isChecked();
+        const bool ambilight = m_ui->kcfg_AmbilightEnabled->isChecked();
+        m_ui->label_ambilightDuration->setEnabled(ambilight);
+        m_ui->kcfg_AmbilightDuration->setEnabled(ambilight);
+        m_ui->label_ambilightSaturationBoost->setEnabled(ambilight);
+        m_ui->kcfg_AmbilightSaturationBoost->setEnabled(ambilight);
+        m_ui->label_ambilightMinBrightness->setEnabled(ambilight);
+        m_ui->kcfg_AmbilightMinBrightness->setEnabled(ambilight);
+        m_ui->label_ambilightMaxBrightness->setEnabled(ambilight);
+        m_ui->kcfg_AmbilightMaxBrightness->setEnabled(ambilight);
+
+        const bool useAccent = m_ui->kcfg_UseAccentColor->isChecked() && !ambilight;
+        m_ui->label_accentColor->setEnabled(!ambilight);
+        m_ui->kcfg_UseAccentColor->setEnabled(!ambilight);
         m_ui->kcfg_AccentOpacity->setEnabled(useAccent);
         m_ui->label_accentOpacity->setEnabled(useAccent);
-        m_ui->kcfg_CustomColor->setEnabled(!useAccent);
-        m_ui->label_customColor->setEnabled(!useAccent);
+        m_ui->kcfg_CustomColor->setEnabled(!useAccent && !ambilight);
+        m_ui->label_customColor->setEnabled(!useAccent && !ambilight);
     };
     connect(m_ui->kcfg_UseAccentColor, &QCheckBox::toggled, this, updateColorEnabled);
+    connect(m_ui->kcfg_AmbilightEnabled, &QCheckBox::toggled, this, updateColorEnabled);
     updateColorEnabled();
 
     auto updateGlowEnabled = [this] {

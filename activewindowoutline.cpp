@@ -12,6 +12,8 @@
 #include <opengl/glshader.h>
 #include <opengl/glshadermanager.h>
 #include <opengl/glvertexbuffer.h>
+#include <opengl/glframebuffer.h>
+#include <opengl/gltexture.h>
 #include <opengl/eglcontext.h>
 #include <core/rendertarget.h>
 #include <core/renderviewport.h>
@@ -248,6 +250,15 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
         }
     });
 
+    m_ambilightTimer = new QTimer(this);
+    m_ambilightTimer->setInterval(1000);
+    connect(m_ambilightTimer, &QTimer::timeout, this, [this] {
+        if (m_ambilightEnabled && m_activeWindow && !m_activeWindow->isMinimized() && m_activeWindow->isOnCurrentDesktop()) {
+            m_ambilightSampleNeeded = true;
+            effects->addRepaint(m_activeWindow->frameGeometry().toRect());
+        }
+    });
+
     reconfigure(ReconfigureAll);
 
     // Some third-party effect KCMs are not reliably reconfigured by KWin's
@@ -338,6 +349,9 @@ ActiveWindowOutlineEffect::~ActiveWindowOutlineEffect()
     if (m_windowShowTimer) {
         m_windowShowTimer->stop();
     }
+    if (m_ambilightTimer) {
+        m_ambilightTimer->stop();
+    }
 }
 
 void ActiveWindowOutlineEffect::initShortcuts()
@@ -361,6 +375,24 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_useAccentColor = config.readEntry("UseAccentColor", true);
     m_accentOpacity = qBound(0, config.readEntry("AccentOpacity", 66), 100);
     m_customColor = config.readEntry("CustomColor", QColor(61, 174, 233));
+    m_ambilightEnabled = config.readEntry("AmbilightEnabled", false);
+    m_ambilightDuration = qBound<qreal>(0.1, config.readEntry("AmbilightDuration", 0.6), 5.0);
+    m_ambilightSaturationBoost = qBound<qreal>(1.0, config.readEntry("AmbilightSaturationBoost", 1.3), 3.0);
+    m_ambilightMinBrightness = qBound(0, config.readEntry("AmbilightMinBrightness", 25), 50);
+    m_ambilightMaxBrightness = qBound(50, config.readEntry("AmbilightMaxBrightness", 85), 100);
+
+    if (m_ambilightEnabled) {
+        m_ambilightSampleNeeded = true;
+        if (m_ambilightTimer && !m_ambilightTimer->isActive()) {
+            m_ambilightTimer->start();
+        }
+    } else {
+        if (m_ambilightTimer && m_ambilightTimer->isActive()) {
+            m_ambilightTimer->stop();
+        }
+        m_ambilightInTransition = false;
+    }
+
     m_width = qBound(1, config.readEntry("BorderWidth", 2), 20);
     m_gap = qBound(0, config.readEntry("OutlineGap", 0), 30);
     m_radius = qBound(0, config.readEntry("BorderRadius", 6), 30);
@@ -434,7 +466,8 @@ bool ActiveWindowOutlineEffect::isAnimationActive() const
         && !m_delayedHideWindow->isHiddenByShowDesktop() && m_delayedHideState.isEffectivelyVisible());
     if (m_visibilityState.isEffectivelyVisible() || hasDelayed) {
         return m_colorCycleEnabled || m_breatheEnabled
-            || m_glitchEnabled || m_neonFlickerEnabled || m_flashEnabled;
+            || m_glitchEnabled || m_neonFlickerEnabled || m_flashEnabled
+            || m_ambilightInTransition;
     }
     return false;
 }
@@ -584,6 +617,8 @@ QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity) const
 
     if (m_colorCycleEnabled && !m_colorStops.isEmpty()) {
         color = const_cast<ActiveWindowOutlineEffect *>(this)->currentCycleColor(elapsedSec);
+    } else if (m_ambilightEnabled) {
+        color = const_cast<ActiveWindowOutlineEffect *>(this)->currentAmbilightColor(elapsedSec);
     } else if (m_useAccentColor) {
         color = qApp->palette().color(QPalette::Highlight);
         color.setAlphaF(color.alphaF() * m_accentOpacity / 100.0);
@@ -1114,6 +1149,10 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
         return;
     }
 
+    if (m_ambilightEnabled) {
+        m_ambilightSampleNeeded = true;
+    }
+
     if (m_windowShowTimer && m_windowShowTimer->isActive()) {
         m_windowShowTimer->stop();
     }
@@ -1484,6 +1523,11 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen);
 #endif
 
+    if (m_ambilightEnabled && m_activeWindow && m_ambilightSampleNeeded) {
+        m_ambilightSampleNeeded = false;
+        sampleAmbilightColor(renderTarget, viewport, m_activeWindow);
+    }
+
     if (!drawOutline && !drawDelayed) {
 #ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
         return true;
@@ -1523,6 +1567,121 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
 #ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
     return true;
 #endif
+}
+
+void ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderTarget, const RenderViewport &viewport, EffectWindow *w)
+{
+    if (!w) {
+        return;
+    }
+
+    const QRectF frameGeo = w->frameGeometry();
+    if (frameGeo.width() < 10 || frameGeo.height() < 10) {
+        return;
+    }
+
+    const QSize sampleSize(16, 16);
+
+    // If running with a software/QImage render target:
+    if (renderTarget.image()) {
+        const QImage *img = renderTarget.image();
+        const QRect windowRect = frameGeo.toRect();
+        const QRect targetRect = windowRect.intersected(img->rect());
+        if (!targetRect.isEmpty()) {
+            const QImage scaled = img->copy(targetRect).scaled(sampleSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation).convertToFormat(QImage::Format_RGBA8888);
+            OutlineAmbilight::Settings settings;
+            settings.saturationBoost = m_ambilightSaturationBoost;
+            settings.minBrightness = m_ambilightMinBrightness / 100.0;
+            settings.maxBrightness = m_ambilightMaxBrightness / 100.0;
+            const QColor sampledColor = OutlineAmbilight::processRgbaSamples(scaled.constBits(), sampleSize.width() * sampleSize.height(), settings);
+            applyNewAmbilightColor(sampledColor);
+        }
+        return;
+    }
+
+    // OpenGL compositing path:
+    if (!m_ambilightTexture || m_ambilightTexture->size() != sampleSize) {
+        m_ambilightTexture = GLTexture::allocate(GL_RGBA8, sampleSize);
+        if (m_ambilightTexture) {
+            m_ambilightFbo = std::make_unique<GLFramebuffer>(m_ambilightTexture.get());
+        }
+    }
+
+    if (!m_ambilightFbo || !m_ambilightFbo->valid()) {
+        return;
+    }
+
+    const Rect windowRect(frameGeo.toRect());
+    const Rect destRect(0, 0, sampleSize.width(), sampleSize.height());
+    GLFramebuffer *savedFbo = GLFramebuffer::currentFramebuffer();
+    const bool blitOk = m_ambilightFbo->blitFromRenderTarget(renderTarget, viewport, windowRect, destRect);
+    if (!blitOk) {
+        if (savedFbo && GLFramebuffer::currentFramebuffer() != savedFbo) {
+            GLFramebuffer::pushFramebuffer(savedFbo);
+        }
+        return;
+    }
+
+    uint8_t pixels[16 * 16 * 4];
+    GLFramebuffer::pushFramebuffer(m_ambilightFbo.get());
+    glReadPixels(0, 0, sampleSize.width(), sampleSize.height(), GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    GLFramebuffer::popFramebuffer();
+
+    if (savedFbo && GLFramebuffer::currentFramebuffer() != savedFbo) {
+        GLFramebuffer::pushFramebuffer(savedFbo);
+    }
+
+    OutlineAmbilight::Settings settings;
+    settings.saturationBoost = m_ambilightSaturationBoost;
+    settings.minBrightness = m_ambilightMinBrightness / 100.0;
+    settings.maxBrightness = m_ambilightMaxBrightness / 100.0;
+
+    const QColor sampledColor = OutlineAmbilight::processRgbaSamples(pixels, sampleSize.width() * sampleSize.height(), settings);
+    applyNewAmbilightColor(sampledColor);
+}
+
+void ActiveWindowOutlineEffect::applyNewAmbilightColor(const QColor &newColor)
+{
+    const qreal elapsedSec = m_animationClock.isValid() ? (m_animationClock.elapsed() / 1000.0) : 0.0;
+
+    if (!m_ambilightCurrentColor.isValid()) {
+        m_ambilightCurrentColor = newColor;
+        m_ambilightTargetColor = newColor;
+        m_ambilightInTransition = false;
+        repaintAllOutlines();
+        return;
+    }
+
+    if (newColor == m_ambilightTargetColor) {
+        return;
+    }
+
+    m_ambilightTransitionStartColor = m_ambilightCurrentColor;
+    m_ambilightTargetColor = newColor;
+    m_ambilightTransitionStartTime = elapsedSec;
+    m_ambilightInTransition = true;
+    updateAnimationTimer();
+}
+
+QColor ActiveWindowOutlineEffect::currentAmbilightColor(qreal elapsedSec)
+{
+    if (!m_ambilightInTransition) {
+        return m_ambilightTargetColor.isValid() ? m_ambilightTargetColor : m_customColor;
+    }
+
+    const qreal duration = qMax<qreal>(0.05, m_ambilightDuration);
+    const qreal progress = qBound<qreal>(0.0, (elapsedSec - m_ambilightTransitionStartTime) / duration, 1.0);
+
+    const QColor result = OutlineColor::interpolateColors(m_ambilightTransitionStartColor, m_ambilightTargetColor, progress, 0 /* EaseInOut */);
+
+    if (progress >= 1.0) {
+        m_ambilightInTransition = false;
+        m_ambilightCurrentColor = m_ambilightTargetColor;
+    } else {
+        m_ambilightCurrentColor = result;
+    }
+
+    return result;
 }
 
 // Generate a triangle strip between two concentric rounded rectangles.

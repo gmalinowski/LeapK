@@ -23,6 +23,7 @@
 #include <QVector2D>
 #include <memory>
 
+#include "ambilightalgorithm.h"
 #include "colortransition.h"
 #include "geometryhelper.h"
 #include "shadereffects.h"
@@ -36,6 +37,8 @@ namespace KWin
 using OutlineColor::ColorStop;
 
 class SceneView;
+class GLFramebuffer;
+class GLTexture;
 
 #ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
 using OutlineRegion = QRegion;
@@ -139,6 +142,9 @@ private:
 
     QColor resolveColor(qreal windowOpacity = 1.0) const;
     QColor currentCycleColor(qreal elapsedSec);
+    QColor currentAmbilightColor(qreal elapsedSec);
+    void sampleAmbilightColor(const RenderTarget &renderTarget, const RenderViewport &viewport, EffectWindow *w);
+    void applyNewAmbilightColor(const QColor &newColor);
     bool isAnimationActive() const;
     void updateAnimationTimer();
     void parseColorList(const QString &str);
@@ -175,6 +181,13 @@ private:
     int m_glowRadius = 6;
     bool m_outlineEnabled = true;
     bool m_hideOnFullScreen = true;
+
+    // Config - Ambilight
+    bool m_ambilightEnabled = false;
+    qreal m_ambilightDuration = 0.6;
+    qreal m_ambilightSaturationBoost = 1.3;
+    int m_ambilightMinBrightness = 25;
+    int m_ambilightMaxBrightness = 85;
 
     // Config - Color Cycling
     bool m_colorCycleEnabled = false;
@@ -227,6 +240,17 @@ private:
     mutable int m_nextColorIndex = 0;
     mutable bool m_isHoldingColor = true;
     mutable qreal m_stateStartTime = 0.0;
+
+    // Runtime ambilight state
+    QTimer *m_ambilightTimer = nullptr;
+    mutable bool m_ambilightSampleNeeded = true;
+    mutable QColor m_ambilightCurrentColor;
+    mutable QColor m_ambilightTargetColor;
+    mutable QColor m_ambilightTransitionStartColor;
+    mutable qreal m_ambilightTransitionStartTime = 0.0;
+    mutable bool m_ambilightInTransition = false;
+    std::unique_ptr<GLTexture> m_ambilightTexture;
+    std::unique_ptr<GLFramebuffer> m_ambilightFbo;
 };
 
 } // namespace KWin

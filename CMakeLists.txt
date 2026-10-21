@@ -62,13 +62,14 @@ target_link_libraries(active-window-outline PRIVATE
 )
 # Identify the loaded library, including uncommitted test builds.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    activewindowoutline.cpp activewindowoutline.h popupfilter.h cursoroverlay.h visibilitystate.h)
+    activewindowoutline.cpp activewindowoutline.h popupfilter.h cursoroverlay.h visibilitystate.h ambilightalgorithm.h)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/activewindowoutline.cpp" OUTLINE_CPP_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/activewindowoutline.h" OUTLINE_HEADER_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/popupfilter.h" OUTLINE_POPUP_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/cursoroverlay.h" OUTLINE_CURSOR_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/visibilitystate.h" OUTLINE_VISIBILITY_HASH)
-string(SHA256 OUTLINE_BUILD_HASH "${OUTLINE_CPP_HASH}${OUTLINE_HEADER_HASH}${OUTLINE_POPUP_HASH}${OUTLINE_CURSOR_HASH}${OUTLINE_VISIBILITY_HASH}")
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/ambilightalgorithm.h" OUTLINE_AMBILIGHT_HASH)
+string(SHA256 OUTLINE_BUILD_HASH "${OUTLINE_CPP_HASH}${OUTLINE_HEADER_HASH}${OUTLINE_POPUP_HASH}${OUTLINE_CURSOR_HASH}${OUTLINE_VISIBILITY_HASH}${OUTLINE_AMBILIGHT_HASH}")
 string(SUBSTRING "${OUTLINE_BUILD_HASH}" 0 12 OUTLINE_BUILD_ID)
 target_compile_definitions(active-window-outline PRIVATE
     ACTIVE_WINDOW_OUTLINE_VERSION="${PROJECT_VERSION}"
@@ -141,6 +142,11 @@ if(OUTLINE_BUILD_TESTS)
     target_include_directories(outline-color-transition-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(outline-color-transition-test PRIVATE Qt6::Core Qt6::Gui)
     add_test(NAME outline-color-transition COMMAND outline-color-transition-test)
+
+    add_executable(outline-ambilight-test tests/ambilight_test.cpp)
+    target_include_directories(outline-ambilight-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-ambilight-test PRIVATE Qt6::Core Qt6::Gui)
+    add_test(NAME outline-ambilight COMMAND outline-ambilight-test)
 
     add_executable(outline-shader-effects-test tests/shadereffects_test.cpp)
     target_include_directories(outline-shader-effects-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

@@ -249,6 +249,11 @@ set_default() {
 set_default UseAccentColor true
 set_default AccentOpacity 66
 set_default CustomColor "61, 174, 233"
+set_default AmbilightEnabled false
+set_default AmbilightDuration 0.6
+set_default AmbilightSaturationBoost 1.3
+set_default AmbilightMinBrightness 25
+set_default AmbilightMaxBrightness 85
 set_default BorderWidth 2
 set_default OutlineGap 0
 set_default BorderRadius 6

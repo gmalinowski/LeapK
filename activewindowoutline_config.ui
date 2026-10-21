@@ -89,14 +89,129 @@
         </widget>
        </item>
 
-       <item row="3" column="0">
+       <item row="3" column="0" colspan="2">
+        <widget class="QGroupBox" name="groupAmbilight">
+         <property name="title">
+          <string>Ambilight (Adaptive Window Color)</string>
+         </property>
+         <layout class="QFormLayout" name="formLayoutAmbilight">
+          <item row="0" column="0" colspan="2">
+           <widget class="QCheckBox" name="kcfg_AmbilightEnabled">
+            <property name="text">
+             <string>Extract outline color dynamically from active window content</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_ambilightDuration">
+            <property name="text">
+             <string>Transition duration:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QDoubleSpinBox" name="kcfg_AmbilightDuration">
+            <property name="minimum">
+             <double>0.1</double>
+            </property>
+            <property name="maximum">
+             <double>5.0</double>
+            </property>
+            <property name="singleStep">
+             <double>0.1</double>
+            </property>
+            <property name="value">
+             <double>0.6</double>
+            </property>
+            <property name="suffix">
+             <string> s</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_ambilightSaturationBoost">
+            <property name="text">
+             <string>Saturation boost:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QDoubleSpinBox" name="kcfg_AmbilightSaturationBoost">
+            <property name="minimum">
+             <double>1.0</double>
+            </property>
+            <property name="maximum">
+             <double>3.0</double>
+            </property>
+            <property name="singleStep">
+             <double>0.1</double>
+            </property>
+            <property name="value">
+             <double>1.3</double>
+            </property>
+            <property name="suffix">
+             <string> x</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="label_ambilightMinBrightness">
+            <property name="text">
+             <string>Minimum brightness:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QSpinBox" name="kcfg_AmbilightMinBrightness">
+            <property name="minimum">
+             <number>0</number>
+            </property>
+            <property name="maximum">
+             <number>50</number>
+            </property>
+            <property name="value">
+             <number>25</number>
+            </property>
+            <property name="suffix">
+             <string> %</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QLabel" name="label_ambilightMaxBrightness">
+            <property name="text">
+             <string>Maximum brightness:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="1">
+           <widget class="QSpinBox" name="kcfg_AmbilightMaxBrightness">
+            <property name="minimum">
+             <number>50</number>
+            </property>
+            <property name="maximum">
+             <number>100</number>
+            </property>
+            <property name="value">
+             <number>85</number>
+            </property>
+            <property name="suffix">
+             <string> %</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+
+       <item row="4" column="0">
         <widget class="QLabel" name="label_borderWidth">
          <property name="text">
           <string>Border width:</string>
          </property>
         </widget>
        </item>
-       <item row="3" column="1">
+       <item row="4" column="1">
         <widget class="QSpinBox" name="kcfg_BorderWidth">
          <property name="minimum">
           <number>1</number>

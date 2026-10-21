@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.0] - 2026-10-21
+
+### Added
+
+- **Ambilight mode (Adaptive window color)**: Added dynamic outline color adaptation that extracts the dominant accent color from the active window's rendered content.
+- **Vivaldi-inspired scoring algorithm**: Uses saturation-weighted circular hue averaging with luminance penalties for dark and white canvases, prioritizing colorful brand/UI accents over vast empty backgrounds. Includes fallback to contrast-clamped neutral tones for monochrome/grayscale windows.
+- **Luminance clamping & Saturation boost**: Configurable minimum brightness (prevents outlines disappearing on pitch-black windows/terminals), maximum brightness (prevents blowing out on pure white documents), and saturation boost multiplier.
+- **Throttled 1 Hz live sampling with fluid easing**: Samples the active window at 1 Hz (and immediately upon window activation/geometry changes) with zero perceptible GPU/CPU overhead. Color shifts are smoothly interpolated using cubic ease-in-out easing without stroboscopic jumping.
+- **Configuration controls**: Added dedicated Ambilight controls in the Appearance settings tab for enabling the feature, adjusting transition duration, saturation boost, and brightness bounds.
+
 ## [1.3.6] - 2026-10-21
 
 ### Fixed
