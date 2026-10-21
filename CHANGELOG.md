@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.13] - 2026-10-21
+
+### Added
+
+- **Fade Out Corners (Highlight Edges Only)**:
+  - Added a new option `FadeCorners` ("Wyłącz narożniki (płynne zanikanie na rogach)") under the Appearance settings.
+  - When enabled, the outline completely hides corner curves/vertices and smoothly fades out towards all 4 corners via a cubic Hermite gradient (`smoothstep`), highlighting exclusively the straight edges of the window.
+  - Symmetrically fades out the soft neon glow and holographic glitch effects along the edges, preventing harsh or abrupt cutoffs.
+  - When enabled, the Corner Radius spinbox is automatically grayed out in the settings UI.
+
 ## [1.4.12] - 2026-10-21
 
 ### Changed

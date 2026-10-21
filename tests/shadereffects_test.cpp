@@ -127,6 +127,32 @@ int main()
         check(anomalyFactorValid, "glitch anomaly factor is always >= 1.0");
     }
 
+    // 5. Corner Fading
+    {
+        const qreal boxHalfW = 400.0;
+        const qreal boxHalfH = 300.0;
+        const qreal cornerCutoff = 10.0;
+        const qreal fadeDistance = 40.0;
+
+        // Inside corner region (dx < 10 and dy < 10): e.g. px = 395, py = 295 -> dx = 5, dy = 5
+        checkNear(computeCornerFadeFactor(395, 295, boxHalfW, boxHalfH, cornerCutoff, fadeDistance), 0.0, 0.0001, "corner cutoff inner corner");
+
+        // Exactly at corner cutoff: dx = 10, dy = 0 (top corner boundary)
+        checkNear(computeCornerFadeFactor(390, 298, boxHalfW, boxHalfH, cornerCutoff, fadeDistance), 0.0, 0.0001, "corner cutoff boundary");
+
+        // Halfway along the fade on top edge: dx = 30, dy = 2 -> edgeDist = 30 -> t = 0.5 -> smoothstep = 0.5
+        checkNear(computeCornerFadeFactor(370, 298, boxHalfW, boxHalfH, cornerCutoff, fadeDistance), 0.5, 0.001, "corner fade midpoint 50%");
+
+        // Beyond fade distance along top edge: dx = 100, dy = 2 -> edgeDist = 100 -> factor = 1.0
+        checkNear(computeCornerFadeFactor(300, 298, boxHalfW, boxHalfH, cornerCutoff, fadeDistance), 1.0, 0.0001, "corner fade solid edge");
+
+        // Halfway along the fade on left vertical edge: px = 398, py = 270 -> dx = 2, dy = 30 -> factor = 0.5
+        checkNear(computeCornerFadeFactor(398, 270, boxHalfW, boxHalfH, cornerCutoff, fadeDistance), 0.5, 0.001, "corner fade vertical edge midpoint 50%");
+
+        // Solid center of left vertical edge: px = 398, py = 0 -> dx = 2, dy = 300 -> factor = 1.0
+        checkNear(computeCornerFadeFactor(398, 0, boxHalfW, boxHalfH, cornerCutoff, fadeDistance), 1.0, 0.0001, "corner fade vertical edge solid");
+    }
+
     std::printf("shadereffects_test: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

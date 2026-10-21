@@ -81,6 +81,9 @@ uniform float glitchSpeed;
 uniform float glitchIntensity;
 uniform float glitchAnomalyActive;
 uniform float glitchFrequency;
+uniform float fadeCorners;
+uniform float cornerCutoff;
+uniform float fadeDistance;
 
 float roundedBoxDistance(vec2 point, vec4 box, float radius)
 {
@@ -94,6 +97,14 @@ void main()
     float inside = -roundedBoxDistance(position0, innerBox, innerRadius);
     float distanceToOutline = max(outside, inside);
     float sigma = max(glowRadius * 0.42, 0.5);
+
+    float cornerFade = 1.0;
+    if (fadeCorners > 0.5) {
+        vec2 p = abs(position0 - outerBox.xy);
+        vec2 d = outerBox.zw - p;
+        float edgeDist = max(d.x, d.y);
+        cornerFade = smoothstep(cornerCutoff, cornerCutoff + fadeDistance, edgeDist);
+    }
 
     if (glitchActive > 0.5) {
         float intensityNorm = glitchIntensity / 100.0;
@@ -140,15 +151,53 @@ void main()
         vec3 finalRgb = min(vec3(1.0), geometryColor.rgb * energy + holoEmission);
 
         fragColor = vec4(finalRgb,
-                         geometryColor.a * 0.38 * dynamicFalloff * dynamicMask);
+                         geometryColor.a * 0.38 * dynamicFalloff * dynamicMask * cornerFade);
     } else {
         float normalized = max(distanceToOutline, 0.0) / sigma;
         float falloff = exp(-0.5 * normalized * normalized);
         float outsideMask = smoothstep(-1.0, 0.0, distanceToOutline);
 
         fragColor = vec4(geometryColor.rgb,
-                         geometryColor.a * 0.38 * falloff * outsideMask);
+                         geometryColor.a * 0.38 * falloff * outsideMask * cornerFade);
     }
+}
+)GLSL";
+    return source;
+}
+
+static QByteArray outlineFragmentSource()
+{
+    const EglContext *context = EglContext::currentContext();
+    const bool isOpenGLES = !epoxy_is_desktop_gl();
+    const bool modern = isOpenGLES
+        ? context->glslVersion() >= Version(3, 0)
+        : context->glslVersion() >= Version(1, 40);
+
+    QByteArray source;
+    if (isOpenGLES) {
+        if (modern) {
+            source += "#version 300 es\n";
+        }
+        source += "precision highp float;\n";
+    } else if (modern) {
+        source += "#version 140\n";
+    }
+    source += modern
+        ? "in vec2 position0;\nout vec4 fragColor;\n"
+        : "varying vec2 position0;\n#define fragColor gl_FragColor\n";
+    source += R"GLSL(
+uniform vec4 geometryColor;
+uniform vec4 outerBox;
+uniform float cornerCutoff;
+uniform float fadeDistance;
+
+void main()
+{
+    vec2 p = abs(position0 - outerBox.xy);
+    vec2 d = outerBox.zw - p;
+    float edgeDist = max(d.x, d.y);
+    float cornerFade = smoothstep(cornerCutoff, cornerCutoff + fadeDistance, edgeDist);
+    fragColor = vec4(geometryColor.rgb, geometryColor.a * cornerFade);
 }
 )GLSL";
     return source;
@@ -406,6 +455,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_width = qBound(1, config.readEntry("BorderWidth", 2), 20);
     m_gap = qBound(0, config.readEntry("OutlineGap", 0), 30);
     m_radius = qBound(0, config.readEntry("BorderRadius", 6), 30);
+    m_fadeCorners = config.readEntry("FadeCorners", false);
     m_drawInside = config.readEntry("DrawInside", true);
     m_smoothEdges = config.readEntry("SmoothEdges", true);
     m_glowEnabled = config.readEntry("GlowEnabled", true);
@@ -954,6 +1004,19 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
 
     const QColor dynamicColor = resolveColor(windowOpacity);
 
+    const auto box = [scale](const QRectF &rect) {
+        return QVector4D(rect.center().x() * scale,
+                         rect.center().y() * scale,
+                         rect.width() * scale / 2.0,
+                         rect.height() * scale / 2.0);
+    };
+    const float cornerRadiusPx = float(cache.outerRadius * scale);
+    const float minCutoff = qMax<float>(4.0f * float(scale), cornerRadiusPx);
+    const float cornerCutoff = m_drawInside ? qMax<float>(minCutoff, float(m_width * scale)) : minCutoff;
+    const float edgeHalfMin = float(qMin<qreal>(cache.outerRect.width(), cache.outerRect.height()) * scale * 0.5);
+    const float maxFade = qMax<float>(10.0f * float(scale), edgeHalfMin - cornerCutoff - 5.0f * float(scale));
+    const float fadeDist = std::clamp<float>(45.0f * float(scale), 15.0f * float(scale), maxFade);
+
     if (m_glowEnabled && dynamicColor.alpha() > 0) {
         if (!m_glowShader) {
 #ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
@@ -1004,17 +1067,14 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
                 shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix,
                                    viewport.projectionMatrix());
                 shader->setUniform(GLShader::ColorUniform::Color, dynamicColor);
-                const auto box = [scale](const QRectF &rect) {
-                    return QVector4D(rect.center().x() * scale,
-                                     rect.center().y() * scale,
-                                     rect.width() * scale / 2.0,
-                                     rect.height() * scale / 2.0);
-                };
                 shader->setUniform("outerBox", box(cache.outerRect));
                 shader->setUniform("innerBox", box(cache.innerRect));
                 shader->setUniform("outerRadius", float(cache.outerRadius * scale));
                 shader->setUniform("innerRadius", float(cache.innerRadius * scale));
                 shader->setUniform("glowRadius", float(m_glowRadius * scale));
+                shader->setUniform("fadeCorners", m_fadeCorners ? 1.0f : 0.0f);
+                shader->setUniform("cornerCutoff", cornerCutoff);
+                shader->setUniform("fadeDistance", fadeDist);
 
                 const float elapsedSec = m_animationClock.isValid() ? float(m_animationClock.elapsed() / 1000.0) : 0.0f;
                 shader->setUniform("time", elapsedSec);
@@ -1032,12 +1092,46 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
         }
     }
 
-    ShaderBinder binder(ShaderTrait::UniformColor | ShaderTrait::TransformColorspace);
-    binder.shader()->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix,
-                                viewport.projectionMatrix());
-    binder.shader()->setColorspaceUniforms(ColorDescription::sRGB,
-                                           renderTarget.colorDescription(),
-                                           RenderingIntent::Perceptual);
+    if (m_fadeCorners) {
+        if (!m_fadeCornersShader) {
+#ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
+            m_fadeCornersShader = ShaderManager::instance()->generateCustomShader(
+                ShaderTrait::UniformColor, glowVertexSource(), outlineFragmentSource());
+#else
+            m_fadeCornersShader = ShaderManager::instance()->generateCustomShader(
+                ShaderTrait::Border, QByteArray(), outlineFragmentSource());
+#endif
+        }
+    }
+
+    const bool useCustomFade = m_fadeCorners &&
+#ifdef ACTIVE_WINDOW_OUTLINE_SHADER_POINTER_VALIDITY
+        m_fadeCornersShader;
+#else
+        m_fadeCornersShader && m_fadeCornersShader->isValid();
+#endif
+
+    std::unique_ptr<ShaderBinder> customBinder;
+    std::unique_ptr<ShaderBinder> defaultBinder;
+    GLShader *activeShader = nullptr;
+
+    if (useCustomFade) {
+        customBinder = std::make_unique<ShaderBinder>(m_fadeCornersShader.get());
+        activeShader = customBinder->shader();
+        activeShader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix,
+                                 viewport.projectionMatrix());
+        activeShader->setUniform("outerBox", box(cache.outerRect));
+        activeShader->setUniform("cornerCutoff", cornerCutoff);
+        activeShader->setUniform("fadeDistance", fadeDist);
+    } else {
+        defaultBinder = std::make_unique<ShaderBinder>(ShaderTrait::UniformColor | ShaderTrait::TransformColorspace);
+        activeShader = defaultBinder->shader();
+        activeShader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix,
+                                 viewport.projectionMatrix());
+        activeShader->setColorspaceUniforms(ColorDescription::sRGB,
+                                            renderTarget.colorDescription(),
+                                            RenderingIntent::Perceptual);
+    }
 
     for (const OutlineLayer &layer : cache.layers) {
         if (layer.vertices.isEmpty()) {
@@ -1066,8 +1160,8 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
         vbo->setVertexCount(scaledVerts.size());
         vbo->setAttribLayout(std::span(&layout, 1), sizeof(QVector2D));
 
-        binder.shader()->setUniform(GLShader::ColorUniform::Color, layerColor);
-        const bool blended = layerColor.alpha() < 255;
+        activeShader->setUniform(GLShader::ColorUniform::Color, layerColor);
+        const bool blended = useCustomFade || layerColor.alpha() < 255;
         if (blended) {
             glEnable(GL_BLEND);
             // The uniform contains straight (unpremultiplied) RGB and alpha.
@@ -1389,7 +1483,7 @@ QString ActiveWindowOutlineEffect::debug(const QString &parameter) const
                                    " build=" ACTIVE_WINDOW_OUTLINE_BUILD_ID
                                    " kwinHeaders=" ACTIVE_WINDOW_OUTLINE_KWIN_VERSION "\n");
     result += QStringLiteral("width=%1 offset=%2 radius=%3 drawInside=%4 smoothEdges=%5 glow=%6 glowRadius=%7 accentOpacity=%8"
-                             " fadeDuration=%9 menuHideDelay=%10 menuShowDelay=%11 windowHideDelay=%12 windowShowDelay=%13")
+                             " fadeDuration=%9 menuHideDelay=%10 menuShowDelay=%11 windowHideDelay=%12 windowShowDelay=%13 fadeCorners=%14")
         .arg(m_width)
         .arg(m_gap)
         .arg(m_radius)
@@ -1402,7 +1496,8 @@ QString ActiveWindowOutlineEffect::debug(const QString &parameter) const
         .arg(m_menuHideDelay)
         .arg(m_menuShowDelay)
         .arg(m_windowHideDelay)
-        .arg(m_windowShowDelay);
+        .arg(m_windowShowDelay)
+        .arg(m_fadeCorners ? QStringLiteral("true") : QStringLiteral("false"));
     if (parameter != QStringLiteral("windows")) {
         return result;
     }

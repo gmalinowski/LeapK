@@ -81,4 +81,20 @@ inline qreal computeGlitchFactor(qreal elapsedSec, bool enabled, bool anomalyEna
     return 1.0;
 }
 
+inline qreal computeCornerFadeFactor(qreal px, qreal py, qreal boxHalfW, qreal boxHalfH,
+                                     qreal cornerCutoff, qreal fadeDistance)
+{
+    const qreal dx = boxHalfW - std::abs(px);
+    const qreal dy = boxHalfH - std::abs(py);
+    const qreal edgeDist = (dx < dy) ? dy : dx;
+    if (edgeDist <= cornerCutoff) {
+        return 0.0;
+    }
+    if (edgeDist >= cornerCutoff + fadeDistance) {
+        return 1.0;
+    }
+    const qreal t = (edgeDist - cornerCutoff) / fadeDistance;
+    return t * t * (3.0 - 2.0 * t);
+}
+
 } // namespace OutlineShader

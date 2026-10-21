@@ -164,6 +164,7 @@ private:
     QMap<EffectWindow *, QRectF> m_lastGeometry;
     QMap<EffectWindow *, OutlineCache> m_outlineCache;
     std::unique_ptr<GLShader> m_glowShader;
+    std::unique_ptr<GLShader> m_fadeCornersShader;
     QFileSystemWatcher *m_configWatcher = nullptr;
     QTimer *m_configReloadTimer = nullptr;
     QString m_configPath;
@@ -175,6 +176,7 @@ private:
     int m_width = 2;
     int m_gap = 0;
     int m_radius = 6;
+    bool m_fadeCorners = false;
     bool m_drawInside = true;
     bool m_smoothEdges = true;
     bool m_glowEnabled = true;

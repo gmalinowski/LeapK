@@ -139,6 +139,8 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
         m_ui->label_ambilightWarning->setText(QStringLiteral("💡 Wskazówka: 1.5 Hz to optymalny wybór do codziennej pracy i przeglądania stron. Do filmów, wideo i gier profil True Ambilight (6.0 Hz) zapewnia natychmiastowe dopasowanie barw w czasie rzeczywistym."));
         m_ui->label_ambilightFrequency->setToolTip(QStringLiteral("Jak często (w Hz) analizowane są kolory okna. 1.5 Hz jest optymalne na pulpicie, a wyższe wartości zapewniają natychmiastową reakcję na wideo."));
         m_ui->kcfg_AmbilightFrequency->setToolTip(QStringLiteral("Jak często (w Hz) analizowane są kolory okna. 1.5 Hz jest optymalne na pulpicie, a wyższe wartości zapewniają natychmiastową reakcję na wideo."));
+        m_ui->kcfg_FadeCorners->setText(QStringLiteral("Wyłącz narożniki (płynne zanikanie na rogach)"));
+        m_ui->kcfg_FadeCorners->setToolTip(QStringLiteral("Całkowicie wyłącza podświetlenie rogów i płynnie wygasza obrys w ich kierunku, podświetlając jedynie proste boki okna."));
     }
     m_ui->btnCheckUpdate->setIcon(QIcon::fromTheme(QStringLiteral("system-software-update"),
                                                   QIcon::fromTheme(QStringLiteral("view-refresh"))));
@@ -170,6 +172,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("BorderWidth"), *new int, 2);
     m_configSkeleton->addItemInt(QStringLiteral("OutlineGap"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("BorderRadius"), *new int, 6);
+    m_configSkeleton->addItemBool(QStringLiteral("FadeCorners"), *new bool, false);
     m_configSkeleton->addItemBool(QStringLiteral("DrawInside"), *new bool, true);
     m_configSkeleton->addItemBool(QStringLiteral("SmoothEdges"), *new bool, true);
     m_configSkeleton->addItemBool(QStringLiteral("GlowEnabled"), *new bool, true);
@@ -344,6 +347,14 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->kcfg_AmbilightMode, &QComboBox::currentIndexChanged, this, updateColorEnabled);
     connect(m_ui->kcfg_ColorCycleEnabled, &QCheckBox::toggled, this, updateColorEnabled);
     updateColorEnabled();
+
+    const auto updateCornersEnabled = [this]() {
+        const bool fadeCorners = m_ui->kcfg_FadeCorners->isChecked();
+        m_ui->label_borderRadius->setEnabled(!fadeCorners);
+        m_ui->kcfg_BorderRadius->setEnabled(!fadeCorners);
+    };
+    connect(m_ui->kcfg_FadeCorners, &QCheckBox::toggled, this, updateCornersEnabled);
+    updateCornersEnabled();
 
     const QIcon helpIcon = QIcon::fromTheme(QStringLiteral("help-contextual"),
                                             QIcon::fromTheme(QStringLiteral("dialog-information")));
@@ -684,6 +695,9 @@ void ActiveWindowOutlineConfig::load()
     KConfigGroup group = KSharedConfig::openConfig(QStringLiteral("kwinrc"))->group(QStringLiteral("Effect-active-window-outline"));
     populateColorTable(group.readEntry(QStringLiteral("ColorList"), QStringLiteral("#3daee9:3.0;#2ecc71:3.0;#9b59b6:3.0")));
     updatePresetSelector();
+    const bool fadeCorners = m_ui->kcfg_FadeCorners->isChecked();
+    m_ui->label_borderRadius->setEnabled(!fadeCorners);
+    m_ui->kcfg_BorderRadius->setEnabled(!fadeCorners);
     setNeedsSave(false);
 }
 
@@ -692,6 +706,9 @@ void ActiveWindowOutlineConfig::defaults()
     KCModule::defaults();
     populateColorTable(QStringLiteral("#3daee9:3.0;#2ecc71:3.0;#9b59b6:3.0"));
     updatePresetSelector();
+    const bool fadeCorners = m_ui->kcfg_FadeCorners->isChecked();
+    m_ui->label_borderRadius->setEnabled(!fadeCorners);
+    m_ui->kcfg_BorderRadius->setEnabled(!fadeCorners);
     markAsChanged();
 }
 

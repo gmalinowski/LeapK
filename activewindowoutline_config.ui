@@ -495,14 +495,28 @@
         </widget>
        </item>
 
-       <item row="7" column="0">
+       <item row="7" column="0" colspan="2">
+        <widget class="QCheckBox" name="kcfg_FadeCorners">
+         <property name="text">
+          <string>Fade out corners (highlight edges only)</string>
+         </property>
+         <property name="toolTip">
+          <string>Disables corners completely and smoothly fades out the outline towards each corner, illuminating only the straight edges of the window.</string>
+         </property>
+         <property name="checked">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+
+       <item row="8" column="0">
         <widget class="QLabel" name="label_drawInside">
          <property name="text">
           <string>Draw inside window:</string>
          </property>
         </widget>
        </item>
-       <item row="7" column="1">
+       <item row="8" column="1">
         <widget class="QCheckBox" name="kcfg_DrawInside">
          <property name="checked">
           <bool>true</bool>
@@ -510,7 +524,7 @@
         </widget>
        </item>
 
-       <item row="8" column="0" colspan="2">
+       <item row="9" column="0" colspan="2">
         <widget class="QCheckBox" name="kcfg_SmoothEdges">
          <property name="text">
           <string>Smooth edges</string>
@@ -521,7 +535,7 @@
         </widget>
        </item>
 
-       <item row="9" column="0" colspan="2">
+       <item row="10" column="0" colspan="2">
         <widget class="QCheckBox" name="kcfg_GlowEnabled">
          <property name="text">
           <string>Soft glow</string>
@@ -532,14 +546,14 @@
         </widget>
        </item>
 
-       <item row="10" column="0">
+       <item row="11" column="0">
         <widget class="QLabel" name="label_glowRadius">
          <property name="text">
           <string>Glow size:</string>
          </property>
         </widget>
        </item>
-       <item row="10" column="1">
+       <item row="11" column="1">
         <widget class="QSpinBox" name="kcfg_GlowRadius">
          <property name="minimum">
           <number>1</number>
@@ -556,7 +570,7 @@
         </widget>
        </item>
 
-       <item row="11" column="0" colspan="2">
+       <item row="12" column="0" colspan="2">
         <widget class="QLabel" name="label_info">
          <property name="text">
           <string>ℹ️ “Draw inside” keeps the outline visible on maximized and tiled windows. When disabled, the outline is drawn outside the window.</string>
