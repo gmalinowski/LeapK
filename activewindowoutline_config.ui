@@ -103,13 +103,37 @@
            </widget>
           </item>
           <item row="1" column="0">
+           <widget class="QLabel" name="label_ambilightMode">
+            <property name="text">
+             <string>Detection mode:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QComboBox" name="kcfg_AmbilightMode">
+            <property name="toolTip">
+             <string>Dominant accent (Vivaldi): Aggressively locks onto prominent vibrant accents. Balanced average: Smoothly blends all window colors into an averaged tone.</string>
+            </property>
+            <item>
+             <property name="text">
+              <string>Dominant accent (Vivaldi)</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Balanced average</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="2" column="0">
            <widget class="QLabel" name="label_ambilightOpacity">
             <property name="text">
              <string>Opacity:</string>
             </property>
            </widget>
           </item>
-          <item row="1" column="1">
+          <item row="2" column="1">
            <widget class="QSpinBox" name="kcfg_AmbilightOpacity">
             <property name="minimum">
              <number>0</number>
@@ -125,14 +149,14 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="0">
+          <item row="3" column="0">
            <widget class="QLabel" name="label_ambilightFrequency">
             <property name="text">
              <string>Sampling frequency:</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="1">
+          <item row="3" column="1">
            <widget class="QDoubleSpinBox" name="kcfg_AmbilightFrequency">
             <property name="minimum">
              <double>0.1</double>
@@ -151,14 +175,14 @@
             </property>
            </widget>
           </item>
-          <item row="3" column="0">
+          <item row="4" column="0">
            <widget class="QLabel" name="label_ambilightDuration">
             <property name="text">
              <string>Transition duration:</string>
             </property>
            </widget>
           </item>
-          <item row="3" column="1">
+          <item row="4" column="1">
            <widget class="QDoubleSpinBox" name="kcfg_AmbilightDuration">
             <property name="minimum">
              <double>0.1</double>
@@ -177,14 +201,14 @@
             </property>
            </widget>
           </item>
-          <item row="4" column="0">
+          <item row="5" column="0">
            <widget class="QLabel" name="label_ambilightSaturationBoost">
             <property name="text">
              <string>Saturation boost:</string>
             </property>
            </widget>
           </item>
-          <item row="4" column="1">
+          <item row="5" column="1">
            <widget class="QDoubleSpinBox" name="kcfg_AmbilightSaturationBoost">
             <property name="minimum">
              <double>1.0</double>
@@ -203,14 +227,14 @@
             </property>
            </widget>
           </item>
-          <item row="5" column="0">
+          <item row="6" column="0">
            <widget class="QLabel" name="label_ambilightMinBrightness">
             <property name="text">
              <string>Minimum brightness:</string>
             </property>
            </widget>
           </item>
-          <item row="5" column="1">
+          <item row="6" column="1">
            <widget class="QSpinBox" name="kcfg_AmbilightMinBrightness">
             <property name="minimum">
              <number>0</number>
@@ -226,14 +250,14 @@
             </property>
            </widget>
           </item>
-          <item row="6" column="0">
+          <item row="7" column="0">
            <widget class="QLabel" name="label_ambilightMaxBrightness">
             <property name="text">
              <string>Maximum brightness:</string>
             </property>
            </widget>
           </item>
-          <item row="6" column="1">
+          <item row="7" column="1">
            <widget class="QSpinBox" name="kcfg_AmbilightMaxBrightness">
             <property name="minimum">
              <number>50</number>
@@ -249,7 +273,7 @@
             </property>
            </widget>
           </item>
-          <item row="7" column="0" colspan="2">
+          <item row="8" column="0" colspan="2">
            <widget class="QLabel" name="label_ambilightWarning">
             <property name="text">
              <string>ℹ️ Higher sampling frequency reacts faster to video and dynamic content, but increases CPU usage. 1.0 Hz is recommended for everyday desktop usage.</string>

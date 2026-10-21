@@ -376,6 +376,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_accentOpacity = qBound(0, config.readEntry("AccentOpacity", 66), 100);
     m_customColor = config.readEntry("CustomColor", QColor(61, 174, 233));
     m_ambilightEnabled = config.readEntry("AmbilightEnabled", false);
+    m_ambilightMode = qBound(0, config.readEntry("AmbilightMode", 0), 1);
     m_ambilightOpacity = qBound(0, config.readEntry("AmbilightOpacity", 100), 100);
     m_ambilightFrequency = qBound<qreal>(0.1, config.readEntry("AmbilightFrequency", 1.0), 10.0);
     m_ambilightDuration = qBound<qreal>(0.1, config.readEntry("AmbilightDuration", 0.6), 5.0);
@@ -1598,9 +1599,17 @@ void ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
         if (!targetRect.isEmpty()) {
             const QImage scaled = img->copy(targetRect).scaled(sampleSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation).convertToFormat(QImage::Format_RGBA8888);
             OutlineAmbilight::Settings settings;
+            settings.mode = static_cast<OutlineAmbilight::Mode>(m_ambilightMode);
             settings.saturationBoost = m_ambilightSaturationBoost;
             settings.minBrightness = m_ambilightMinBrightness / 100.0;
             settings.maxBrightness = m_ambilightMaxBrightness / 100.0;
+            if (m_ambilightTargetColor.isValid()) {
+                float prevH = 0.0f, prevS = 0.0f, prevL = 0.0f;
+                m_ambilightTargetColor.getHslF(&prevH, &prevS, &prevL);
+                if (prevS > 0.1f) {
+                    settings.previousHue = prevH;
+                }
+            }
             const QColor sampledColor = OutlineAmbilight::processRgbaSamples(scaled.constBits(), sampleSize.width() * sampleSize.height(), settings);
             applyNewAmbilightColor(sampledColor);
         }
@@ -1640,9 +1649,17 @@ void ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
     }
 
     OutlineAmbilight::Settings settings;
+    settings.mode = static_cast<OutlineAmbilight::Mode>(m_ambilightMode);
     settings.saturationBoost = m_ambilightSaturationBoost;
     settings.minBrightness = m_ambilightMinBrightness / 100.0;
     settings.maxBrightness = m_ambilightMaxBrightness / 100.0;
+    if (m_ambilightTargetColor.isValid()) {
+        float prevH = 0.0f, prevS = 0.0f, prevL = 0.0f;
+        m_ambilightTargetColor.getHslF(&prevH, &prevS, &prevL);
+        if (prevS > 0.1f) {
+            settings.previousHue = prevH;
+        }
+    }
 
     const QColor sampledColor = OutlineAmbilight::processRgbaSamples(pixels, sampleSize.width() * sampleSize.height(), settings);
     applyNewAmbilightColor(sampledColor);

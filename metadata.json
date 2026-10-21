@@ -14,7 +14,7 @@
         "Id": "active-window-outline",
         "License": "GPL-3.0-or-later",
         "Name": "Active Window Outline",
-        "Version": "1.4.2"
+        "Version": "1.4.3"
     },
     "X-KDE-ConfigModule": "kwin_active-window-outline_config"
 }

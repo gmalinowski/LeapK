@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.3] - 2026-10-21
+
+### Added
+
+- **Ambilight mode toggle (Dominant accent vs Balanced average)**: Added configurable detection mode (`AmbilightMode`, default: `0` / Dominant):
+  - **Dominant accent (Vivaldi)**: Discretizes window colors into 24 chromatic hue clusters and scores them by saturation ($s^{1.8}$) and midtone luminance. The most prominent vibrant accent wins decisively, producing punchy, aggressive accent tracking (e.g. YouTube red, Spotify green) that switches decisively when main content changes, with 15% inertia hysteresis to prevent jitter between close candidate colors.
+  - **Balanced average**: Uses weighted additive RGB light mixing to smoothly blend all window elements into a calm, harmonious composite tone without aggressive jumps.
+- **Config UI selector**: Added `Detection mode:` combo box in the Appearance tab Ambilight settings.
+
 ## [1.4.2] - 2026-10-21
 
 ### Changed

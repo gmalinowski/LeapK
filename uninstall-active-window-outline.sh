@@ -76,7 +76,7 @@ fi
 
 echo "[3/4] Removing the effect settings…"
 for key in UseAccentColor AccentOpacity CustomColor BorderWidth OutlineGap \
-           AmbilightEnabled AmbilightOpacity AmbilightFrequency AmbilightDuration AmbilightSaturationBoost AmbilightMinBrightness AmbilightMaxBrightness \
+           AmbilightEnabled AmbilightMode AmbilightOpacity AmbilightFrequency AmbilightDuration AmbilightSaturationBoost AmbilightMinBrightness AmbilightMaxBrightness \
            BorderRadius DrawInside SmoothEdges GlowEnabled GlowRadius HideOnFullScreen \
            ColorCycleEnabled ColorList ColorTransitionDuration ColorCycleOrder ColorCycleEasing \
            BreatheEnabled BreatheSpeed BreatheIntensity \

@@ -83,6 +83,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("AccentOpacity"), *new int, 66);
     m_configSkeleton->addItemColor(QStringLiteral("CustomColor"), *new QColor, QColor(61, 174, 233));
     m_configSkeleton->addItemBool(QStringLiteral("AmbilightEnabled"), *new bool, false);
+    m_configSkeleton->addItemInt(QStringLiteral("AmbilightMode"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("AmbilightOpacity"), *new int, 100);
     m_configSkeleton->addItemDouble(QStringLiteral("AmbilightFrequency"), *new double, 1.0);
     m_configSkeleton->addItemDouble(QStringLiteral("AmbilightDuration"), *new double, 0.6);
@@ -239,6 +240,8 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
         m_ui->groupAmbilight->setEnabled(!colorCycle);
 
         const bool allowAmbilightDetails = !colorCycle && ambilight;
+        m_ui->label_ambilightMode->setEnabled(allowAmbilightDetails);
+        m_ui->kcfg_AmbilightMode->setEnabled(allowAmbilightDetails);
         m_ui->label_ambilightOpacity->setEnabled(allowAmbilightDetails);
         m_ui->kcfg_AmbilightOpacity->setEnabled(allowAmbilightDetails);
         m_ui->label_ambilightFrequency->setEnabled(allowAmbilightDetails);
