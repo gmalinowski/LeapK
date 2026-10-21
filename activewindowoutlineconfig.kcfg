@@ -36,12 +36,12 @@
             <max>100</max>
         </entry>
         <entry name="AmbilightFrequency" type="Double">
-            <default>1.0</default>
+            <default>1.5</default>
             <min>0.1</min>
             <max>10.0</max>
         </entry>
         <entry name="AmbilightDuration" type="Double">
-            <default>0.6</default>
+            <default>0.5</default>
             <min>0.1</min>
             <max>5.0</max>
         </entry>

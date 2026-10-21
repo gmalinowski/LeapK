@@ -93,12 +93,12 @@ struct AmbilightPreset {
 // Preset index 0 is "Custom"
 static const AmbilightPreset s_ambilightPresets[] = {
     { -1,  -1, -1.0, -1.0, -1, -1, -1, -1 }, // 0: Custom
-    {  0, 100,  1.0,  0.6, 65, 50, 25, 85 }, // 1: Balanced (Default)
-    {  1, 100,  2.0,  0.3, 80, 50, 30, 95 }, // 2: Vivid & Dynamic
-    {  2,  75,  0.5,  1.2, 45, 50, 20, 75 }, // 3: Subtle & Calm
-    {  0, 100,  0.2,  1.0, 65, 50, 25, 85 }, // 4: Eco (Low CPU)
-    {  0, 100,  1.0,  0.5, 75, 90, 35, 90 }, // 5: High Contrast
-    {  2, 100,  5.0,  0.2, 75, 50, 15, 90 }, // 6: True Ambilight (Video / Cinema)
+    {  0, 100,  1.5,  0.5, 65, 50, 25, 85 }, // 1: Balanced (Default)
+    {  1, 100,  3.0,  0.25, 80, 50, 30, 95 }, // 2: Vivid & Dynamic
+    {  2,  75,  1.0,  1.0, 45, 50, 20, 75 }, // 3: Subtle & Calm
+    {  0, 100,  0.5,  1.0, 65, 50, 25, 85 }, // 4: Eco (Battery Saver)
+    {  0, 100,  2.0,  0.4, 75, 90, 35, 90 }, // 5: High Contrast
+    {  2, 100,  6.0,  0.15, 75, 50, 15, 90 }, // 6: True Ambilight (Video / Cinema)
 };
 
 bool matchesPreset(Ui::ActiveWindowOutlineConfigForm *ui, const AmbilightPreset &p)
@@ -133,9 +133,12 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
         m_ui->comboAmbilightPreset->setItemText(1, QStringLiteral("Zrównoważony / Domyślny (Balanced)"));
         m_ui->comboAmbilightPreset->setItemText(2, QStringLiteral("Jaskrawy i dynamiczny (Vivid & Dynamic)"));
         m_ui->comboAmbilightPreset->setItemText(3, QStringLiteral("Subtelny i stonowany (Subtle & Calm)"));
-        m_ui->comboAmbilightPreset->setItemText(4, QStringLiteral("Oszczędny CPU (Eco)"));
+        m_ui->comboAmbilightPreset->setItemText(4, QStringLiteral("Oszczędzanie baterii (Eco)"));
         m_ui->comboAmbilightPreset->setItemText(5, QStringLiteral("Wysoki kontrast (High Contrast)"));
         m_ui->comboAmbilightPreset->setItemText(6, QStringLiteral("True Ambilight (Film / Wideo)"));
+        m_ui->label_ambilightWarning->setText(QStringLiteral("💡 Wskazówka: 1.5 Hz to optymalny wybór do codziennej pracy i przeglądania stron. Do filmów, wideo i gier profil True Ambilight (6.0 Hz) zapewnia natychmiastowe dopasowanie barw w czasie rzeczywistym."));
+        m_ui->label_ambilightFrequency->setToolTip(QStringLiteral("Jak często (w Hz) analizowane są kolory okna. 1.5 Hz jest optymalne na pulpicie, a wyższe wartości zapewniają natychmiastową reakcję na wideo."));
+        m_ui->kcfg_AmbilightFrequency->setToolTip(QStringLiteral("Jak często (w Hz) analizowane są kolory okna. 1.5 Hz jest optymalne na pulpicie, a wyższe wartości zapewniają natychmiastową reakcję na wideo."));
     }
     m_ui->btnCheckUpdate->setIcon(QIcon::fromTheme(QStringLiteral("system-software-update"),
                                                   QIcon::fromTheme(QStringLiteral("view-refresh"))));
@@ -158,8 +161,8 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemBool(QStringLiteral("AmbilightEnabled"), *new bool, false);
     m_configSkeleton->addItemInt(QStringLiteral("AmbilightMode"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("AmbilightOpacity"), *new int, 100);
-    m_configSkeleton->addItemDouble(QStringLiteral("AmbilightFrequency"), *new double, 1.0);
-    m_configSkeleton->addItemDouble(QStringLiteral("AmbilightDuration"), *new double, 0.6);
+    m_configSkeleton->addItemDouble(QStringLiteral("AmbilightFrequency"), *new double, 1.5);
+    m_configSkeleton->addItemDouble(QStringLiteral("AmbilightDuration"), *new double, 0.5);
     m_configSkeleton->addItemInt(QStringLiteral("AmbilightSaturationLeveling"), *new int, 65);
     m_configSkeleton->addItemInt(QStringLiteral("AmbilightFallbackStrength"), *new int, 50);
     m_configSkeleton->addItemInt(QStringLiteral("AmbilightMinBrightness"), *new int, 25);
@@ -572,12 +575,12 @@ void ActiveWindowOutlineConfig::showAmbilightHelpDialog()
 <hr>
 <h4>Gotowe profile (Presety)</h4>
 <ul>
-  <li><b>Zrównoważony / Domyślny (Balanced):</b> Rekomendowany do codziennego użytku na pulpicie. Używa inteligentnego trybu <i>Smart Adaptive</i> z częstotliwością 1.0&nbsp;Hz, płynnym przejściem 0.6&nbsp;s i zrównoważonym zużyciem procesora.</li>
-  <li><b>Jaskrawy i dynamiczny (Vivid &amp; Dynamic):</b> Zwiększona częstotliwość 2.0&nbsp;Hz, agresywne śledzenie akcentów w oknie, szybkie przejście 0.3&nbsp;s i mocniejsze nasycenie barw. Idealny do gier, filmów i teledysków.</li>
-  <li><b>Subtelny i stonowany (Subtle &amp; Calm):</b> Uśrednione barwy całego okna, stonowane nasycenie, obniżona przezroczystość (75%), niska częstotliwość (0.5&nbsp;Hz) i bardzo długie, łagodne przenikanie barw (1.2&nbsp;s).</li>
-  <li><b>Oszczędny CPU (Eco):</b> Minimalne obciążenie procesora i akumulatora w laptopach. Próbkowanie raz na 5 sekund (0.2&nbsp;Hz) z płynnym przejściem 1.0&nbsp;s. Zmiana kart/stron i tak wyzwala natychmiastowe odświeżenie barwy.</li>
-  <li><b>Wysoki kontrast (High Contrast):</b> Maksymalna czytelność i odcięcie obrysu. Silne odróżnienie fallbacku (90%) i wysoka saturacja gwarantują, że ramka zawsze wyraźnie odetnie się od tła okna.</li>
-  <li><b>True Ambilight (Film / Wideo):</b> Stworzony specjalnie do oglądania filmów, wideo i streamów w oknie. Błyskawiczne próbkowanie 5.0&nbsp;Hz (co 200&nbsp;ms) z płynnym, szybkim przejściem 0.2&nbsp;s natychmiast dopasowuje barwę ramki do zmian ujęć w wideo bez zauważalnego opóźnienia i bez męczącego stroboskopu. Wykorzystuje addytywne uśrednianie barw (<i>Balanced average</i>), ignorując czarne pasy kinowe i odzwierciedlając ogólne światło sceny, z poszerzoną dynamiką jasności (15&ndash;90%).</li>
+  <li><b>Zrównoważony / Domyślny (Balanced):</b> Rekomendowany do codziennego użytku na pulpicie. Używa inteligentnego trybu <i>Smart Adaptive</i> z częstotliwością 1.5&nbsp;Hz, płynnym przejściem 0.5&nbsp;s i natychmiastową reakcją.</li>
+  <li><b>Jaskrawy i dynamiczny (Vivid &amp; Dynamic):</b> Zwiększona częstotliwość 3.0&nbsp;Hz, agresywne śledzenie akcentów w oknie, szybkie przejście 0.25&nbsp;s i mocniejsze nasycenie barw. Idealny do gier, dynamicznych stron i teledysków.</li>
+  <li><b>Subtelny i stonowany (Subtle &amp; Calm):</b> Uśrednione barwy całego okna, stonowane nasycenie, obniżona przezroczystość (75%), spokojna częstotliwość (1.0&nbsp;Hz) i bardzo długie, łagodne przenikanie barw (1.0&nbsp;s).</li>
+  <li><b>Oszczędzanie baterii (Eco):</b> Zoptymalizowany pod kątem pracy na baterii w laptopach. Próbkowanie raz na 2 sekundy (0.5&nbsp;Hz) z płynnym przejściem 1.0&nbsp;s. Zmiana kart i stron WWW wyzwala natychmiastowe odświeżenie barwy bez czekania.</li>
+  <li><b>Wysoki kontrast (High Contrast):</b> Maksymalna czytelność i odcięcie obrysu. Częstotliwość 2.0&nbsp;Hz, przejście 0.4&nbsp;s, silne odróżnienie fallbacku (90%) i wysoka saturacja gwarantują, że ramka zawsze wyraźnie odetnie się od tła okna.</li>
+  <li><b>True Ambilight (Film / Wideo):</b> Stworzony specjalnie do oglądania filmów, wideo i streamów w oknie. Błyskawiczne próbkowanie 6.0&nbsp;Hz (co 166&nbsp;ms) z płynnym, szybkim przejściem 0.15&nbsp;s natychmiast dopasowuje barwę ramki do zmian ujęć w wideo bez zauważalnego opóźnienia i bez męczącego stroboskopu. Wykorzystuje addytywne uśrednianie barw (<i>Balanced average</i>), ignorując czarne pasy kinowe i odzwierciedlając ogólne światło sceny, z poszerzoną dynamiką jasności (15&ndash;90%).</li>
   <li><b>Własny (Custom):</b> Wybiera się automatycznie, gdy ręcznie zmodyfikujesz którykolwiek z suwaków.</li>
 </ul>
 
@@ -592,7 +595,7 @@ void ActiveWindowOutlineConfig::showAmbilightHelpDialog()
     </ul>
   </li>
   <li><b>Przezroczystość (Opacity):</b> Poziom krycia ramki Ambilight (0% to całkowita niewidoczność, 100% to pełne, jednolite krycie).</li>
-  <li><b>Częstotliwość próbkowania (Sampling frequency):</b> Jak często (w hercach, czyli ile razy na sekundę) okno jest analizowane. Wyższe wartości (np. 2.0&ndash;5.0&nbsp;Hz) dają błyskawiczną reakcję na wideo, ale zwiększają obciążenie CPU. Wartość 1.0&nbsp;Hz jest optymalna. Nawigacja po stronach WWW i przełączanie zakładek wyzwalają odświeżenie natychmiast bez opóźnień.</li>
+  <li><b>Częstotliwość próbkowania (Sampling frequency):</b> Jak często (w hercach, czyli ile razy na sekundę) analizowane są barwy okna. Wartość 1.5&nbsp;Hz jest optymalna do pracy na pulpicie i stron WWW, a wyższe wartości (np. 3.0&ndash;6.0&nbsp;Hz) zapewniają błyskawiczną reakcję na filmy i dynamiczne wideo bez zauważalnego opóźnienia. Nawigacja po stronach WWW i przełączanie zakładek wyzwalają odświeżenie natychmiast.</li>
   <li><b>Czas przejścia (Transition duration):</b> Czas trwania animacji (w sekundach) przy płynnym przenikaniu starego koloru ramki w nowo wykryty kolor.</li>
   <li><b>Wygładzenie saturacji (Saturation leveling):</b> Inteligentna normalizacja nasycenia barwy. Łagodnie desaturuje/uspokaja zbyt krzykliwe neony, a blade i pastelowe kolory podciąga w stronę wybranego poziomu docelowego. Czyste szarości i czerń pozostają neutralne.</li>
   <li><b>Odróżnienie fallbacku (Fallback distinction):</b> <i>(Dostępne tylko w trybie Smart Adaptive)</i> Decyduje, jak mocno ramka ma zmodyfikować swój kolor i odskoczyć od tła okna, gdy dominujący kolor zlewa się ze średnią okna (0% = subtelnie/brak zmiany, 100% = mocny kontrast i wyskok barwy).</li>
@@ -624,12 +627,12 @@ void ActiveWindowOutlineConfig::showAmbilightHelpDialog()
 <hr>
 <h4>Built-in Presets</h4>
 <ul>
-  <li><b>Balanced (Default):</b> Recommended for everyday desktop work. Uses intelligent <i>Smart Adaptive</i> mode with 1.0&nbsp;Hz sampling, smooth 0.6&nbsp;s transitions, and balanced CPU usage.</li>
-  <li><b>Vivid &amp; Dynamic:</b> Elevated 2.0&nbsp;Hz sampling, assertive accent locking, snappy 0.3&nbsp;s transitions, and boosted saturation. Perfect for gaming, videos, and music clips.</li>
-  <li><b>Subtle &amp; Calm:</b> Balanced composite color blending across the whole window, reduced opacity (75%), relaxed 0.5&nbsp;Hz sampling, and slow, gentle crossfades (1.2&nbsp;s).</li>
-  <li><b>Eco (Low CPU):</b> Minimal CPU and laptop battery usage. Samples once every 5 seconds (0.2&nbsp;Hz) with smooth 1.0&nbsp;s crossfading. Tab switching and page navigations still trigger instant updates.</li>
-  <li><b>High Contrast:</b> Maximum visibility and outline differentiation. High fallback pop (90%) and strong saturation leveling ensure the outline always stands out clearly from window content.</li>
-  <li><b>True Ambilight (Video / Cinema):</b> Tailored specifically for watching movies, videos, and live streams in a window. Ultra-responsive 5.0&nbsp;Hz sampling (every 200&nbsp;ms) combined with snappy 0.2&nbsp;s crossfading follows scene cuts in real-time with minimal latency and zero eye fatigue or strobing. Uses <i>Balanced average</i> additive mixing to reflect atmospheric scene lighting while ignoring black letterbox bars, with an expanded dynamic brightness range (15&ndash;90%).</li>
+  <li><b>Balanced (Default):</b> Recommended for everyday desktop work. Uses intelligent <i>Smart Adaptive</i> mode with 1.5&nbsp;Hz sampling, smooth 0.5&nbsp;s transitions, and instant response.</li>
+  <li><b>Vivid &amp; Dynamic:</b> Elevated 3.0&nbsp;Hz sampling, assertive accent locking, snappy 0.25&nbsp;s transitions, and boosted saturation. Perfect for gaming, dynamic web apps, and music clips.</li>
+  <li><b>Subtle &amp; Calm:</b> Balanced composite color blending across the whole window, reduced opacity (75%), relaxed 1.0&nbsp;Hz sampling, and slow, gentle crossfades (1.0&nbsp;s).</li>
+  <li><b>Eco (Battery Saver):</b> Maximizes laptop battery life when away from a charger. Samples once every 2 seconds (0.5&nbsp;Hz) with smooth 1.0&nbsp;s crossfading. Tab switching and page navigations still trigger instant updates.</li>
+  <li><b>High Contrast:</b> Maximum visibility and outline differentiation. 2.0&nbsp;Hz sampling, snappy 0.4&nbsp;s transitions, high fallback pop (90%) and strong saturation leveling ensure the outline always stands out clearly.</li>
+  <li><b>True Ambilight (Video / Cinema):</b> Tailored specifically for watching movies, videos, and live streams in a window. Ultra-responsive 6.0&nbsp;Hz sampling (every 166&nbsp;ms) combined with snappy 0.15&nbsp;s crossfading follows scene cuts in real-time with minimal latency and zero eye fatigue or strobing. Uses <i>Balanced average</i> additive mixing to reflect atmospheric scene lighting while ignoring black letterbox bars, with an expanded dynamic brightness range (15&ndash;90%).</li>
   <li><b>Custom:</b> Automatically selected whenever individual parameters are adjusted manually.</li>
 </ul>
 
@@ -644,7 +647,7 @@ void ActiveWindowOutlineConfig::showAmbilightHelpDialog()
     </ul>
   </li>
   <li><b>Opacity:</b> Transparency level of the Ambilight outline (0% is completely invisible, 100% is fully opaque).</li>
-  <li><b>Sampling frequency:</b> How often (in Hertz / times per second) active window pixels are analyzed. Higher values (e.g. 2.0&ndash;5.0&nbsp;Hz) follow dynamic video content closely but increase CPU usage. 1.0&nbsp;Hz is recommended. Browser navigations and active window repaints trigger opportunistic updates immediately.</li>
+  <li><b>Sampling frequency:</b> How often (in Hertz / times per second) active window colors are analyzed. 1.5&nbsp;Hz is recommended for desktop work, while higher values (e.g. 3.0&ndash;6.0&nbsp;Hz) follow dynamic video content and movies in real time. Browser navigations and active window repaints trigger opportunistic updates immediately.</li>
   <li><b>Transition duration:</b> Animation duration (in seconds) when crossfading from the previous outline color into newly sampled colors.</li>
   <li><b>Saturation leveling:</b> Normalizes outline saturation towards a balanced target. Softens harsh neon colors while lifting pale pastels. Pure monochrome grays remain neutral.</li>
   <li><b>Fallback distinction:</b> <i>(Smart Adaptive mode only)</i> How strongly the outline is modified to stand out when window content matches the dominant accent (0% = subtle/unchanged, 100% = bold contrast and vibrance pop).</li>

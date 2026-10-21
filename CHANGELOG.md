@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.12] - 2026-10-21
+
+### Changed
+
+- **Ambilight Sampling & Preset Cadence Optimization**:
+  - Boosted preset sampling frequencies across all profiles to take full advantage of negligible GPU/CPU overhead:
+    - **Balanced (Default)**: Boosted to 1.5 Hz (every 667 ms) with 0.5 s smooth transition.
+    - **Vivid & Dynamic**: Boosted to 3.0 Hz (every 333 ms) with snappy 0.25 s transition.
+    - **High Contrast**: Boosted to 2.0 Hz (every 500 ms) with 0.4 s transition.
+    - **Subtle & Calm**: 1.0 Hz (every 1.0 s) with 1.0 s gentle crossfade.
+    - **Eco (Battery Saver)**: Boosted to 0.5 Hz (every 2.0 s) with 1.0 s transition.
+    - **True Ambilight (Video / Cinema)**: Boosted to 6.0 Hz (every 166 ms) with 0.15 s ultra-fast video follow.
+- **Removed Unnecessary CPU Scare Notices**:
+  - Replaced intimidating "increases CPU usage" warning in the footer with an informative, friendly tip explaining ideal frequency ranges for desktop vs. video tasks.
+  - Renamed "Eco (Low CPU)" to "Eco (Battery Saver)" / "Oszczędzanie baterii (Eco)".
+  - Updated tooltips and contextual help dialog in Polish and English to focus on responsiveness rather than artificial CPU concerns.
+
 ## [1.4.11] - 2026-10-21
 
 ### Added

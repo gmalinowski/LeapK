@@ -380,8 +380,8 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_ambilightEnabled = config.readEntry("AmbilightEnabled", false);
     m_ambilightMode = qBound(0, config.readEntry("AmbilightMode", 0), 2);
     m_ambilightOpacity = qBound(0, config.readEntry("AmbilightOpacity", 100), 100);
-    m_ambilightFrequency = qBound<qreal>(0.1, config.readEntry("AmbilightFrequency", 1.0), 10.0);
-    m_ambilightDuration = qBound<qreal>(0.1, config.readEntry("AmbilightDuration", 0.6), 5.0);
+    m_ambilightFrequency = qBound<qreal>(0.1, config.readEntry("AmbilightFrequency", 1.5), 10.0);
+    m_ambilightDuration = qBound<qreal>(0.1, config.readEntry("AmbilightDuration", 0.5), 5.0);
     m_ambilightSaturationLeveling = qBound(0, config.readEntry("AmbilightSaturationLeveling", 65), 100);
     m_ambilightFallbackStrength = qBound(0, config.readEntry("AmbilightFallbackStrength", 50), 100);
     m_ambilightMinBrightness = qBound(0, config.readEntry("AmbilightMinBrightness", 25), 50);

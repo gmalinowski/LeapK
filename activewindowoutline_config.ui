@@ -141,7 +141,7 @@
               </item>
               <item>
                <property name="text">
-                <string>Eco (Low CPU)</string>
+                <string>Eco (Battery Saver)</string>
                </property>
               </item>
               <item>
@@ -235,14 +235,14 @@
              <string>Sampling frequency:</string>
             </property>
             <property name="toolTip">
-             <string>How often (in Hz) window pixels are analyzed. Higher values react faster to videos but consume more CPU (1.0 Hz is recommended).</string>
+             <string>How often (in Hz) window colors are analyzed. 1.5 Hz is recommended for desktop work; higher values provide instant reaction to video.</string>
             </property>
            </widget>
           </item>
           <item row="4" column="1">
            <widget class="QDoubleSpinBox" name="kcfg_AmbilightFrequency">
             <property name="toolTip">
-             <string>How often (in Hz) window pixels are analyzed. Higher values react faster to videos but consume more CPU (1.0 Hz is recommended).</string>
+             <string>How often (in Hz) window colors are analyzed. 1.5 Hz is recommended for desktop work; higher values provide instant reaction to video.</string>
             </property>
             <property name="minimum">
              <double>0.1</double>
@@ -254,7 +254,7 @@
              <double>0.5</double>
             </property>
             <property name="value">
-             <double>1.0</double>
+             <double>1.5</double>
             </property>
             <property name="suffix">
              <string> Hz</string>
@@ -286,7 +286,7 @@
              <double>0.1</double>
             </property>
             <property name="value">
-             <double>0.6</double>
+             <double>0.5</double>
             </property>
             <property name="suffix">
              <string> s</string>
@@ -412,7 +412,7 @@
           <item row="10" column="0" colspan="2">
            <widget class="QLabel" name="label_ambilightWarning">
             <property name="text">
-             <string>ℹ️ Higher sampling frequency reacts faster to video and dynamic content, but increases CPU usage. 1.0 Hz is recommended for everyday desktop usage.</string>
+             <string>💡 Tip: 1.5 Hz is ideal for everyday desktop tasks and web browsing. For movies, video streams, or gaming, higher frequencies (like 3.0–6.0 Hz in Vivid or True Ambilight) provide seamless real-time color tracking.</string>
             </property>
             <property name="wordWrap">
              <bool>true</bool>
