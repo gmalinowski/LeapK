@@ -328,6 +328,8 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
             this, &ActiveWindowOutlineEffect::slotWindowDeleted);
     connect(effects, &EffectsHandler::showingDesktopChanged,
             this, &ActiveWindowOutlineEffect::slotShowingDesktopChanged);
+    connect(effects, &EffectsHandler::stackingOrderChanged,
+            this, &ActiveWindowOutlineEffect::repaintAllOutlines);
 
     initShortcuts();
 }
@@ -913,10 +915,11 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
         clipRegion & renderTarget.transformedRect(), renderTarget.transformedSize());
 #endif
 
-    // Draw only in the final screen pass so the existing popup suppression
-    // applies to every part of the outline. Floating Plasma panels have a
-    // transparent margin inside their frame; their blur/contrast region tracks
-    // the actual animated panel background more closely than frameGeometry().
+    // Draw only in the final screen pass so the existing popup/window suppression
+    // applies to every part of the outline. Any window positioned above the
+    // outlined window in stacking order (e.g. notifications, KeepAbove/Always-on-top
+    // windows, OSD, popups, or overlapping dialogs) must occlude the outline so
+    // it never bleeds through surfaces in front of it.
     bool aboveOutlinedWindow = false;
     for (EffectWindow *candidate : effects->stackingOrder()) {
         if (candidate == outlinedWindow) {
@@ -926,12 +929,16 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
         if (aboveOutlinedWindow && !candidate->isDeleted()
             && candidate->isVisible() && !candidate->isMinimized()
             && candidate->isOnCurrentDesktop()
-            && !candidate->isHiddenByShowDesktop()) {
+            && !candidate->isHiddenByShowDesktop()
+            && !candidate->isOutline()
+            && !candidate->isDesktop()) {
             if (candidate->isDock()) {
                 scissorRegion -= viewport.mapToRenderTarget(panelOcclusionRegion(candidate));
-            } else if (isBlockingPopup(candidate)) {
-                const OutlineRegion popupRegion(QRegion(QRectF(candidate->frameGeometry()).toAlignedRect()));
-                scissorRegion -= viewport.mapToRenderTarget(popupRegion);
+            } else if (candidate->isNotification() || candidate->isCriticalNotification() || candidate->isOnScreenDisplay()) {
+                scissorRegion -= viewport.mapToRenderTarget(panelOcclusionRegion(candidate));
+            } else {
+                const OutlineRegion occludingRegion(QRegion(QRectF(candidate->frameGeometry()).toAlignedRect()));
+                scissorRegion -= viewport.mapToRenderTarget(occludingRegion);
             }
         }
     }
@@ -1251,6 +1258,12 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
 void ActiveWindowOutlineEffect::slotWindowFrameGeometryChanged(EffectWindow *w,
                                                             const QRectF &oldGeometry)
 {
+    if (m_activeWindow && w != m_activeWindow) {
+        const QRectF activeGeo = expandedGeometryFor(m_activeWindow);
+        if (oldGeometry.intersects(activeGeo) || w->frameGeometry().intersects(activeGeo)) {
+            effects->addRepaint(activeGeo);
+        }
+    }
     if (!shouldOutlineWindow(w) && !isBlockingPopup(w) && m_delayedHideWindow != w) {
         return;
     }
@@ -1317,10 +1330,11 @@ void ActiveWindowOutlineEffect::slotWindowMinimizedChanged(EffectWindow *w)
         }
         effects->addRepaint(expandedGeometryFor(w));
     }
-    if (!shouldOutlineWindow(w)) {
-        return;
+    if (shouldOutlineWindow(w)) {
+        effects->addRepaint(expandedGeometryFor(w));
+    } else if (m_activeWindow && w != m_activeWindow) {
+        effects->addRepaint(expandedGeometryFor(m_activeWindow));
     }
-    effects->addRepaint(expandedGeometryFor(w));
 }
 
 void ActiveWindowOutlineEffect::slotWindowFullScreenChanged(EffectWindow *w)

@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.10] - 2026-10-21
+
+### Fixed
+
+- **Outline bleed-through over notifications and Always-on-Top windows**: Fixed an issue where the active window outline was drawn on top of windows higher in the stacking order (such as notifications, OSD, "Keep Above / Always on top" windows, and overlapping dialogs):
+  - In `renderOutline`, extended the occlusion clipping to all visible windows positioned above the outlined window in `effects->stackingOrder()`.
+  - Notifications and OSDs now clip using their accurate blur/panel geometry, while standard windows clip using their frame geometry.
+  - Connected `EffectsHandler::stackingOrderChanged` to immediately repaint and update outline occlusion when windows are reordered or promoted to KeepAbove.
+  - Added dynamic repaint triggers in `slotWindowFrameGeometryChanged` and `slotWindowMinimizedChanged` when overlapping windows move or change state.
+
 ## [1.4.9] - 2026-10-21
 
 ### Fixed
