@@ -1587,7 +1587,8 @@ void ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
         return;
     }
 
-    const QSize sampleSize(16, 16);
+    constexpr int kSampleDim = 32;
+    const QSize sampleSize(kSampleDim, kSampleDim);
 
     // If running with a software/QImage render target:
     if (renderTarget.image()) {
@@ -1629,7 +1630,7 @@ void ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
         return;
     }
 
-    uint8_t pixels[16 * 16 * 4];
+    uint8_t pixels[kSampleDim * kSampleDim * 4];
     GLFramebuffer::pushFramebuffer(m_ambilightFbo.get());
     glReadPixels(0, 0, sampleSize.width(), sampleSize.height(), GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     GLFramebuffer::popFramebuffer();

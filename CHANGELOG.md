@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.2] - 2026-10-21
+
+### Changed
+
+- **Ambilight color mixing algorithm**: Switched from circular polar hue vector averaging to weighted additive RGB light mixing. In polar hue space, opposing colorful elements (e.g. syntax highlighting, diverse UI icons, charts) cancel each other's vectors out to near zero, causing erratic quadrant-flipping and jumping colors. Additive RGB blending harmoniously merges multiple colors into stable, pleasing composite accents (e.g. red + blue -> magenta, complementary pairs -> neutral slate).
+- **Higher resolution sampling grid**: Increased Ambilight sampling resolution from 16×16 (256 samples) to 32×32 (1024 samples). The 4× denser sampling eliminates spatial aliasing on small text and micro-elements across large 1080p/4K windows while preserving sub-millisecond readback performance.
+
 ## [1.4.1] - 2026-10-21
 
 ### Fixed

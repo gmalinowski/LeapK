@@ -20,8 +20,9 @@ struct Settings
 
 /**
  * Computes an adaptive ambilight color from a raw RGBA buffer of sampled window pixels.
- * Uses saturation-weighted circular hue averaging and lightness clamping inspired by Vivaldi's
- * adaptive theme color scoring.
+ * Uses weighted additive RGB light mixing to prevent erratic hue jumps when a window
+ * contains many diverse colorful elements, with perceptual saturation boosting and
+ * contrast clamping.
  */
 inline QColor processRgbaSamples(const uint8_t *rgba, int pixelCount, const Settings &settings = Settings())
 {
@@ -29,13 +30,10 @@ inline QColor processRgbaSamples(const uint8_t *rgba, int pixelCount, const Sett
         return QColor(61, 174, 233);
     }
 
-    qreal sumCos = 0.0;
-    qreal sumSin = 0.0;
-    qreal sumSaturation = 0.0;
-    qreal sumLightness = 0.0;
+    qreal sumR = 0.0;
+    qreal sumG = 0.0;
+    qreal sumB = 0.0;
     qreal totalWeight = 0.0;
-
-    qreal unweightedLightnessSum = 0.0;
     int validPixels = 0;
 
     for (int i = 0; i < pixelCount; ++i) {
@@ -52,29 +50,23 @@ inline QColor processRgbaSamples(const uint8_t *rgba, int pixelCount, const Sett
         const QColor col(r, g, b);
         float h = 0.0f, s = 0.0f, l = 0.0f;
         col.getHslF(&h, &s, &l);
-
-        unweightedLightnessSum += l;
         validPixels++;
 
-        // Vivaldi-inspired scoring:
-        // Strongly favor saturated brand/accent colors over large plain background canvas.
-        // Penalize extreme near-black (< 0.08) and extreme near-white (> 0.92, s < 0.15).
-        qreal w = std::pow(s, 1.4) + 0.01;
+        // Balanced perceptual weighting:
+        // Saturated colors have priority over dull gray canvas, but in an additive
+        // blend rather than polar coordinates to keep multi-colored windows stable.
+        qreal w = s + 0.15;
 
+        // Down-weight extreme backgrounds (pitch black or pure white)
         if (l < 0.08) {
-            w *= std::max(0.01, static_cast<double>(l / 0.08));
+            w *= std::max(0.05, static_cast<double>(l / 0.08));
         } else if (l > 0.92 && s < 0.15) {
-            w *= std::max(0.01, static_cast<double>((1.0 - l) / 0.08));
+            w *= std::max(0.05, static_cast<double>((1.0 - l) / 0.08));
         }
 
-        if (h >= 0.0) {
-            const qreal angle = h * 2.0 * M_PI;
-            sumCos += w * std::cos(angle);
-            sumSin += w * std::sin(angle);
-        }
-
-        sumSaturation += w * s;
-        sumLightness += w * l;
+        sumR += w * r;
+        sumG += w * g;
+        sumB += w * b;
         totalWeight += w;
     }
 
@@ -82,29 +74,27 @@ inline QColor processRgbaSamples(const uint8_t *rgba, int pixelCount, const Sett
         return QColor(61, 174, 233);
     }
 
-    const qreal avgSaturation = sumSaturation / totalWeight;
+    const int avgR = qBound(0, qRound(sumR / totalWeight), 255);
+    const int avgG = qBound(0, qRound(sumG / totalWeight), 255);
+    const int avgB = qBound(0, qRound(sumB / totalWeight), 255);
+
+    QColor avgColor(avgR, avgG, avgB);
+    float h = 0.0f, s = 0.0f, l = 0.0f;
+    avgColor.getHslF(&h, &s, &l);
 
     // Monochrome / grayscale fallback
-    if (avgSaturation < 0.04) {
-        const qreal avgL = unweightedLightnessSum / validPixels;
-        const qreal clampedL = qBound<qreal>(settings.minBrightness, avgL, settings.maxBrightness);
+    if (s < 0.03f) {
+        const qreal clampedL = qBound<qreal>(settings.minBrightness, l, settings.maxBrightness);
         return QColor::fromHslF(0.0, 0.0, clampedL);
     }
 
-    // Circular mean hue
-    qreal avgH = std::atan2(sumSin, sumCos) / (2.0 * M_PI);
-    if (avgH < 0.0) {
-        avgH += 1.0;
-    }
-
     // Apply saturation boost
-    const qreal boostedS = qBound<qreal>(0.0, avgSaturation * settings.saturationBoost, 1.0);
+    const qreal boostedS = qBound<qreal>(0.0, s * settings.saturationBoost, 1.0);
 
     // Apply lightness clamp
-    const qreal avgL = sumLightness / totalWeight;
-    const qreal clampedL = qBound<qreal>(settings.minBrightness, avgL, settings.maxBrightness);
+    const qreal clampedL = qBound<qreal>(settings.minBrightness, l, settings.maxBrightness);
 
-    return QColor::fromHslF(qBound<qreal>(0.0, avgH, 1.0), boostedS, clampedL);
+    return QColor::fromHslF(qBound<qreal>(0.0, h, 1.0), boostedS, clampedL);
 }
 
 } // namespace OutlineAmbilight

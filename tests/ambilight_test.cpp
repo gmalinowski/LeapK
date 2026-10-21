@@ -128,6 +128,53 @@ int main()
         checkNear(h1, h2, 0.02, "hue preserved under boost");
     }
 
+    // 7. Multi-colored elements: Red and Blue elements blend into stable Magenta/Purple
+    {
+        // 50% pure red, 50% pure blue
+        std::vector<uint8_t> pixels(100 * 4);
+        for (int i = 0; i < 50; ++i) {
+            pixels[i * 4 + 0] = 255;
+            pixels[i * 4 + 1] = 0;
+            pixels[i * 4 + 2] = 0;
+            pixels[i * 4 + 3] = 255;
+        }
+        for (int i = 50; i < 100; ++i) {
+            pixels[i * 4 + 0] = 0;
+            pixels[i * 4 + 1] = 0;
+            pixels[i * 4 + 2] = 255;
+            pixels[i * 4 + 3] = 255;
+        }
+        const QColor c = processRgbaSamples(pixels.data(), 100);
+        float h = 0.0f, s = 0.0f, l = 0.0f;
+        c.getHslF(&h, &s, &l);
+        // Magenta / Purple is around 300 degrees = 300 / 360 = 0.833
+        check(h >= 0.75f && h <= 0.90f, "red + blue blends into stable magenta hue");
+        check(s > 0.5f, "magenta blend has rich saturation");
+    }
+
+    // 8. Opposing colors: Red and Cyan produce stable desaturated composite without jumping
+    {
+        // 50% red, 50% cyan
+        std::vector<uint8_t> pixels(100 * 4);
+        for (int i = 0; i < 50; ++i) {
+            pixels[i * 4 + 0] = 255;
+            pixels[i * 4 + 1] = 0;
+            pixels[i * 4 + 2] = 0;
+            pixels[i * 4 + 3] = 255;
+        }
+        for (int i = 50; i < 100; ++i) {
+            pixels[i * 4 + 0] = 0;
+            pixels[i * 4 + 1] = 255;
+            pixels[i * 4 + 2] = 255;
+            pixels[i * 4 + 3] = 255;
+        }
+        const QColor c = processRgbaSamples(pixels.data(), 100);
+        check(c.isValid(), "opposing colors blend stably");
+        float h = 0.0f, s = 0.0f, l = 0.0f;
+        c.getHslF(&h, &s, &l);
+        check(s < 0.1f, "opposing complementary colors neutralize cleanly");
+    }
+
     std::printf("ambilight_test: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }
