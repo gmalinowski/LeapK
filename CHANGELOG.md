@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.11] - 2026-10-21
+
+### Added
+
+- **"True Ambilight (Video / Cinema)" Preset**: Added a dedicated profile specifically tuned for dynamic video playback, live streams, and cinema in windowed mode:
+  - **High-frequency sampling**: 5.0 Hz sampling rate (evaluates active window colors every 200 ms).
+  - **Ultra-low latency transitions**: 0.2 s crossfade duration matches the 200 ms sampling interval for smooth, continuous color tracking with zero perceptible lag and no strobe-like eye strain.
+  - **Balanced Average lighting**: Integrates scene lighting additively without erratic jumps from moving foreground objects or subtitles, and automatically down-weights black cinematic letterbox bars.
+  - **Expanded dynamic range**: High saturation target (75%) and expanded brightness range (15% - 90%) for deep dark scenes and vivid daylight scenes.
+  - Updated configuration UI and contextual help guides in Polish and English with full descriptions of the new profile.
+
 ## [1.4.10] - 2026-10-21
 
 ### Fixed

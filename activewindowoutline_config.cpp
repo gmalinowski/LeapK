@@ -98,6 +98,7 @@ static const AmbilightPreset s_ambilightPresets[] = {
     {  2,  75,  0.5,  1.2, 45, 50, 20, 75 }, // 3: Subtle & Calm
     {  0, 100,  0.2,  1.0, 65, 50, 25, 85 }, // 4: Eco (Low CPU)
     {  0, 100,  1.0,  0.5, 75, 90, 35, 90 }, // 5: High Contrast
+    {  2, 100,  5.0,  0.2, 75, 50, 15, 90 }, // 6: True Ambilight (Video / Cinema)
 };
 
 bool matchesPreset(Ui::ActiveWindowOutlineConfigForm *ui, const AmbilightPreset &p)
@@ -128,6 +129,13 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     if (isPolish) {
         m_ui->btnCheckUpdate->setText(QStringLiteral("Sprawdź aktualizacje"));
         m_ui->btnCheckUpdate->setToolTip(QStringLiteral("Sprawdź na GitHubie, czy dostępna jest nowsza wersja wtyczki"));
+        m_ui->comboAmbilightPreset->setItemText(0, QStringLiteral("Własny (Custom)"));
+        m_ui->comboAmbilightPreset->setItemText(1, QStringLiteral("Zrównoważony / Domyślny (Balanced)"));
+        m_ui->comboAmbilightPreset->setItemText(2, QStringLiteral("Jaskrawy i dynamiczny (Vivid & Dynamic)"));
+        m_ui->comboAmbilightPreset->setItemText(3, QStringLiteral("Subtelny i stonowany (Subtle & Calm)"));
+        m_ui->comboAmbilightPreset->setItemText(4, QStringLiteral("Oszczędny CPU (Eco)"));
+        m_ui->comboAmbilightPreset->setItemText(5, QStringLiteral("Wysoki kontrast (High Contrast)"));
+        m_ui->comboAmbilightPreset->setItemText(6, QStringLiteral("True Ambilight (Film / Wideo)"));
     }
     m_ui->btnCheckUpdate->setIcon(QIcon::fromTheme(QStringLiteral("system-software-update"),
                                                   QIcon::fromTheme(QStringLiteral("view-refresh"))));
@@ -569,6 +577,7 @@ void ActiveWindowOutlineConfig::showAmbilightHelpDialog()
   <li><b>Subtelny i stonowany (Subtle &amp; Calm):</b> Uśrednione barwy całego okna, stonowane nasycenie, obniżona przezroczystość (75%), niska częstotliwość (0.5&nbsp;Hz) i bardzo długie, łagodne przenikanie barw (1.2&nbsp;s).</li>
   <li><b>Oszczędny CPU (Eco):</b> Minimalne obciążenie procesora i akumulatora w laptopach. Próbkowanie raz na 5 sekund (0.2&nbsp;Hz) z płynnym przejściem 1.0&nbsp;s. Zmiana kart/stron i tak wyzwala natychmiastowe odświeżenie barwy.</li>
   <li><b>Wysoki kontrast (High Contrast):</b> Maksymalna czytelność i odcięcie obrysu. Silne odróżnienie fallbacku (90%) i wysoka saturacja gwarantują, że ramka zawsze wyraźnie odetnie się od tła okna.</li>
+  <li><b>True Ambilight (Film / Wideo):</b> Stworzony specjalnie do oglądania filmów, wideo i streamów w oknie. Błyskawiczne próbkowanie 5.0&nbsp;Hz (co 200&nbsp;ms) z płynnym, szybkim przejściem 0.2&nbsp;s natychmiast dopasowuje barwę ramki do zmian ujęć w wideo bez zauważalnego opóźnienia i bez męczącego stroboskopu. Wykorzystuje addytywne uśrednianie barw (<i>Balanced average</i>), ignorując czarne pasy kinowe i odzwierciedlając ogólne światło sceny, z poszerzoną dynamiką jasności (15&ndash;90%).</li>
   <li><b>Własny (Custom):</b> Wybiera się automatycznie, gdy ręcznie zmodyfikujesz którykolwiek z suwaków.</li>
 </ul>
 
@@ -620,6 +629,7 @@ void ActiveWindowOutlineConfig::showAmbilightHelpDialog()
   <li><b>Subtle &amp; Calm:</b> Balanced composite color blending across the whole window, reduced opacity (75%), relaxed 0.5&nbsp;Hz sampling, and slow, gentle crossfades (1.2&nbsp;s).</li>
   <li><b>Eco (Low CPU):</b> Minimal CPU and laptop battery usage. Samples once every 5 seconds (0.2&nbsp;Hz) with smooth 1.0&nbsp;s crossfading. Tab switching and page navigations still trigger instant updates.</li>
   <li><b>High Contrast:</b> Maximum visibility and outline differentiation. High fallback pop (90%) and strong saturation leveling ensure the outline always stands out clearly from window content.</li>
+  <li><b>True Ambilight (Video / Cinema):</b> Tailored specifically for watching movies, videos, and live streams in a window. Ultra-responsive 5.0&nbsp;Hz sampling (every 200&nbsp;ms) combined with snappy 0.2&nbsp;s crossfading follows scene cuts in real-time with minimal latency and zero eye fatigue or strobing. Uses <i>Balanced average</i> additive mixing to reflect atmospheric scene lighting while ignoring black letterbox bars, with an expanded dynamic brightness range (15&ndash;90%).</li>
   <li><b>Custom:</b> Automatically selected whenever individual parameters are adjusted manually.</li>
 </ul>
 

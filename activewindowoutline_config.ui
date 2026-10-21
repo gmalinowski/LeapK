@@ -149,6 +149,11 @@
                 <string>High Contrast</string>
                </property>
               </item>
+              <item>
+               <property name="text">
+                <string>True Ambilight (Video / Cinema)</string>
+               </property>
+              </item>
              </widget>
             </item>
             <item>

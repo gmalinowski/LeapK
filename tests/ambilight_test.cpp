@@ -339,6 +339,50 @@ int main()
         checkNear(defSettings.fallbackStrength, 0.50, 0.01, "preset balanced: fallback strength 0.50");
         checkNear(defSettings.minBrightness, 0.25, 0.01, "preset balanced: min brightness 0.25");
         checkNear(defSettings.maxBrightness, 0.85, 0.01, "preset balanced: max brightness 0.85");
+
+        // True Ambilight (Video / Cinema) settings & cinematic video simulation
+        Settings videoSettings;
+        videoSettings.mode = Mode::Balanced;
+        videoSettings.saturationLeveling = 0.75;
+        videoSettings.fallbackStrength = 0.50;
+        videoSettings.minBrightness = 0.15;
+        videoSettings.maxBrightness = 0.90;
+        check(videoSettings.mode == Mode::Balanced, "preset video: balanced average mode");
+        checkNear(videoSettings.saturationLeveling, 0.75, 0.01, "preset video: saturation leveling 0.75");
+        checkNear(videoSettings.minBrightness, 0.15, 0.01, "preset video: min brightness 0.15");
+        checkNear(videoSettings.maxBrightness, 0.90, 0.01, "preset video: max brightness 0.90");
+
+        // Simulate 16:9 movie with 21:9 aspect ratio (black letterbox bars on top/bottom) and warm sunset scene
+        std::vector<uint8_t> moviePixels(100 * 4);
+        // Top 20 pixels: pure black letterbox (R=0, G=0, B=0)
+        for (int i = 0; i < 20; ++i) {
+            moviePixels[i * 4 + 0] = 0;
+            moviePixels[i * 4 + 1] = 0;
+            moviePixels[i * 4 + 2] = 0;
+            moviePixels[i * 4 + 3] = 255;
+        }
+        // Middle 60 pixels: vibrant warm sunset scene (R=230, G=110, B=20)
+        for (int i = 20; i < 80; ++i) {
+            moviePixels[i * 4 + 0] = 230;
+            moviePixels[i * 4 + 1] = 110;
+            moviePixels[i * 4 + 2] = 20;
+            moviePixels[i * 4 + 3] = 255;
+        }
+        // Bottom 20 pixels: pure black letterbox (R=0, G=0, B=0)
+        for (int i = 80; i < 100; ++i) {
+            moviePixels[i * 4 + 0] = 0;
+            moviePixels[i * 4 + 1] = 0;
+            moviePixels[i * 4 + 2] = 0;
+            moviePixels[i * 4 + 3] = 255;
+        }
+
+        const QColor cVideo = processRgbaSamples(moviePixels.data(), 100, videoSettings);
+        float h = 0.0f, s = 0.0f, l = 0.0f;
+        cVideo.getHslF(&h, &s, &l);
+        // Orange hue range is ~0.04 to 0.10
+        check(h >= 0.04f && h <= 0.12f, "video preset: captures warm sunset orange hue despite letterbox bars");
+        check(s >= 0.70f, "video preset: high saturation leveling produces vivid ambient color");
+        check(l >= 0.40f && l <= 0.60f, "video preset: balanced lightness avoids black bar dilution");
     }
 
     // 14. Grayscale slate dark-theme window (e.g. KDE Breeze Dark #232629 / Firefox #2b2a33)
