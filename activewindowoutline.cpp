@@ -1976,3 +1976,5 @@ void ActiveWindowOutlineEffect::generateRoundedRectStrip(
 }
 
 } // namespace KWin
+
+#include "activewindowoutline.moc"
