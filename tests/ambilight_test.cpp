@@ -406,6 +406,43 @@ int main()
         }
     }
 
+    // 15. High Contrast preset: slate dark window and light window
+    {
+        Settings highContrastSettings;
+        highContrastSettings.saturationLeveling = 0.75;
+        highContrastSettings.fallbackStrength = 0.90;
+        highContrastSettings.minBrightness = 0.20;
+        highContrastSettings.maxBrightness = 0.92;
+
+        // 15a. Dark slate window (R=45, G=50, B=60 - Nord/Slate background with ~14% blue tint)
+        std::vector<uint8_t> darkSlate(64 * 4);
+        for (size_t i = 0; i < 64; ++i) {
+            darkSlate[i * 4 + 0] = 45;
+            darkSlate[i * 4 + 1] = 50;
+            darkSlate[i * 4 + 2] = 60;
+            darkSlate[i * 4 + 3] = 255;
+        }
+        for (const auto mode : {Mode::Smart, Mode::Dominant, Mode::Balanced}) {
+            highContrastSettings.mode = mode;
+            const QColor c = processRgbaSamples(darkSlate.data(), 64, highContrastSettings);
+            float h = 0.0f, s = 0.0f, l = 0.0f;
+            c.getHslF(&h, &s, &l);
+            checkNear(s, 0.0, 0.001, "high contrast: dark slate window strictly monochrome (zero blue cast)");
+            check(l >= 0.88f, "high contrast: dark slate window produces luminous bright silver outline (L >= 0.88)");
+        }
+
+        // 15b. Bright white window (R=250, G=250, B=250)
+        std::vector<uint8_t> lightWin(64 * 4, 250);
+        for (const auto mode : {Mode::Smart, Mode::Dominant, Mode::Balanced}) {
+            highContrastSettings.mode = mode;
+            const QColor c = processRgbaSamples(lightWin.data(), 64, highContrastSettings);
+            float h = 0.0f, s = 0.0f, l = 0.0f;
+            c.getHslF(&h, &s, &l);
+            checkNear(s, 0.0, 0.001, "high contrast: bright window strictly monochrome");
+            check(l <= 0.25f, "high contrast: bright window produces deep crisp charcoal outline (L <= 0.25)");
+        }
+    }
+
     std::printf("ambilight_test: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

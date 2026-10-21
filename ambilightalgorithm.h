@@ -39,37 +39,37 @@ inline qreal getHighContrastMonochromeLuminance(qreal windowL, qreal minB, qreal
 {
     const qreal fs = qBound<qreal>(0.0, fallbackStrength, 1.0);
     qreal targetL;
-    if (windowL < 0.50) {
-        // Dark to mid-dark window -> bright silver outline (e.g. 0.75 - 0.85)
-        const qreal base = maxB - (0.15 * (1.0 - fs) * (windowL / 0.50));
-        targetL = qMax<qreal>(0.65, base);
+    if (windowL < 0.55) {
+        // Dark to mid-dark window -> bright silver outline (e.g. 0.70 - 0.95)
+        const qreal base = maxB - (0.15 * (1.0 - fs) * (windowL / 0.55));
+        targetL = qMax<qreal>(0.70, base);
     } else {
-        // Mid-light to bright window -> dark charcoal outline (e.g. 0.25 - 0.35)
-        const qreal base = minB + (0.15 * (1.0 - fs) * ((1.0 - windowL) / 0.50));
-        targetL = qMin<qreal>(0.35, base);
+        // Mid-light to bright window -> dark charcoal outline (e.g. 0.15 - 0.30)
+        const qreal base = minB + (0.15 * (1.0 - fs) * ((1.0 - windowL) / 0.45));
+        targetL = qMin<qreal>(0.30, base);
     }
     return qBound<qreal>(minB, targetL, maxB);
 }
 
 /**
  * Normalizes saturation towards settings.saturationLeveling:
- * - Low saturation below achromatic threshold (s < 0.12) is smoothly attenuated to pure monochrome
+ * - Low saturation below achromatic threshold (s < 0.22) is smoothly attenuated to pure monochrome
  *   (s = 0.0), completely preventing cool slate/gray themes (like KDE Breeze, Firefox, VS Code)
  *   from producing an accidental grayish-violet or blue cast.
- * - Real chromatic pastels (s >= 0.12) are gently boosted towards target level.
+ * - Real chromatic pastels (s >= 0.22) are gently boosted towards target level.
  * - Harsh neon colors (s > 0.70) are softly compressed towards target level.
  */
 inline qreal applySaturationLeveling(qreal s, qreal target)
 {
     // Achromatic deadband: suppress accidental tint in gray/slate themes
-    if (s < 0.12) {
-        if (s < 0.06) {
+    if (s < 0.22) {
+        if (s < 0.10) {
             return 0.0;
         }
-        const qreal t = (s - 0.06) / 0.06;
-        return s * (t * t); // smooth quadratic falloff into pure monochrome
+        const qreal t = (s - 0.10) / 0.12;
+        return s * (t * t * (3.0 - 2.0 * t)); // smooth cubic Hermite falloff into pure monochrome
     }
-    const qreal weight = qBound<qreal>(0.0, (s - 0.12) / 0.18, 1.0);
+    const qreal weight = qBound<qreal>(0.0, (s - 0.22) / 0.18, 1.0);
     const qreal leveled = s + weight * 0.5 * (target - s);
     return qBound<qreal>(0.0, leveled, 1.0);
 }
@@ -138,8 +138,8 @@ inline QColor processBalancedAverage(const uint8_t *rgba, int pixelCount, const 
     float h = 0.0f, s = 0.0f, l = 0.0f;
     avgColor.getHslF(&h, &s, &l);
 
-    // Monochrome / grayscale fallback
-    if (s < 0.08f) {
+    // Monochrome / grayscale fallback (including slate and cool gray themes)
+    if (s < 0.22f) {
         const qreal clampedL = getHighContrastMonochromeLuminance(l, settings.minBrightness, settings.maxBrightness, settings.fallbackStrength);
         return QColor::fromHslF(0.0, 0.0, clampedL);
     }
@@ -202,8 +202,8 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
         validPixels++;
         unweightedLightnessSum += l;
 
-        // Skip near-monochrome canvas or extreme black/white for chromatic binning
-        if (s < 0.15f || l < 0.08f || (l > 0.94f && s < 0.20f)) {
+        // Skip near-monochrome canvas (gray, slate, charcoal) and extreme black/white for chromatic binning
+        if (s < 0.22f || l < 0.08f || (l > 0.93f && s < 0.28f)) {
             continue;
         }
 
@@ -260,7 +260,7 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
 
     // If no meaningful chromatic accent was found (e.g. grayscale document or terminal),
     // fallback to high-contrast neutral tone.
-    if (bestBin < 0 || maxScore < 0.08) {
+    if (bestBin < 0 || maxScore < 0.12) {
         const qreal avgL = unweightedLightnessSum / validPixels;
         const qreal clampedL = getHighContrastMonochromeLuminance(avgL, settings.minBrightness, settings.maxBrightness, settings.fallbackStrength);
         return QColor::fromHslF(0.0, 0.0, clampedL);
@@ -287,6 +287,13 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
     QColor winningColor(avgR, avgG, avgB);
     float h = 0.0f, s = 0.0f, l = 0.0f;
     winningColor.getHslF(&h, &s, &l);
+
+    // If the winning cluster itself has low saturation, it is not a genuine chromatic accent
+    if (s < 0.25f) {
+        const qreal avgL = unweightedLightnessSum / validPixels;
+        const qreal clampedL = getHighContrastMonochromeLuminance(avgL, settings.minBrightness, settings.maxBrightness, settings.fallbackStrength);
+        return QColor::fromHslF(0.0, 0.0, clampedL);
+    }
 
     const qreal leveledS = applySaturationLeveling(s, settings.saturationLeveling);
     if (leveledS < 0.02) {
@@ -327,8 +334,9 @@ inline QColor processSmartAdaptive(const uint8_t *rgba, int pixelCount, const Se
     float hb = 0.0f, sb = 0.0f, lb = 0.0f;
     bal.getHslF(&hb, &sb, &lb);
 
-    // If dominant color has negligible saturation, return dominant (which is already high-contrast monochrome)
-    if (sd < 0.06f) {
+    // If dominant color is monochrome or near-monochrome, or if the whole window is achromatic,
+    // return high-contrast monochrome
+    if (sd < 0.10f || (sb < 0.10f && sd < 0.25f)) {
         return dom;
     }
 
@@ -357,11 +365,12 @@ inline QColor processSmartAdaptive(const uint8_t *rgba, int pixelCount, const Se
 
         // Optimize lightness contrast against homogeneous backgrounds
         qreal adjustedL = ld;
-        const qreal lightShift = (0.15 * settings.fallbackStrength) * similarity;
         if (adjustedL > 0.65) {
-            adjustedL = qMax<qreal>(0.55, adjustedL - lightShift); // Richer midtone, avoids white blowout
-        } else if (adjustedL < 0.40) {
-            adjustedL = qMin<qreal>(0.45, adjustedL + lightShift); // Avoids sinking into dark background
+            const qreal lightShift = (adjustedL - settings.minBrightness) * (0.50 * settings.fallbackStrength) * similarity;
+            adjustedL = qMax<qreal>(settings.minBrightness, adjustedL - lightShift);
+        } else if (adjustedL < 0.45) {
+            const qreal lightShift = (settings.maxBrightness - adjustedL) * (0.60 * settings.fallbackStrength) * similarity;
+            adjustedL = qMin<qreal>(settings.maxBrightness, adjustedL + lightShift);
         }
 
         const qreal clampedL = qBound<qreal>(settings.minBrightness, adjustedL, settings.maxBrightness);

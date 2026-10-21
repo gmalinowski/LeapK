@@ -1014,8 +1014,8 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
     const float minCutoff = qMax<float>(4.0f * float(scale), cornerRadiusPx);
     const float cornerCutoff = m_drawInside ? qMax<float>(minCutoff, float(m_width * scale)) : minCutoff;
     const float edgeHalfMin = float(qMin<qreal>(cache.outerRect.width(), cache.outerRect.height()) * scale * 0.5);
-    const float maxFade = qMax<float>(10.0f * float(scale), edgeHalfMin - cornerCutoff - 5.0f * float(scale));
-    const float fadeDist = std::clamp<float>(45.0f * float(scale), 15.0f * float(scale), maxFade);
+    const float maxFade = qMax<float>(15.0f * float(scale), edgeHalfMin - cornerCutoff - 10.0f * float(scale));
+    const float fadeDist = std::clamp<float>(120.0f * float(scale), 20.0f * float(scale), maxFade);
 
     if (m_glowEnabled && dynamicColor.alpha() > 0) {
         if (!m_glowShader) {

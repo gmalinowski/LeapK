@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.17] - 2026-10-21
+
+### Fixed
+- **Ambilight Slate Gray & Monochrome Handling**:
+  - Eliminated faint blue/violet tint on gray and dark theme windows (KDE Breeze Dark, Nord, Catppuccin, One Dark, terminals, VS Code).
+  - Raised achromatic deadband and chromatic binning thresholds to filter out slate-tinted canvas pixels (`s < 0.22`), strictly mapping gray/monochrome windows to pure neutral tones.
+  - Resolved `Smart Adaptive` lightness ceiling issue where outlines on dark windows were trapped at dim mid-tones (`L <= 0.45`), allowing full contrast divergence.
+
+### Changed
+- **High Contrast Preset & Dynamic Range**:
+  - Optimized the **High Contrast** Ambilight preset with expanded dynamic range (`minBrightness = 20`, `maxBrightness = 92`), delivering a brilliant bright silver/white outline (`L >= 0.88`) on dark windows and deep crisp charcoal outline (`L <= 0.25`) on light windows.
+- **Smoother Corner Fading (Fade Corners)**:
+  - Extended the fade transition distance from 45px to 120px for the "Fade out corners" feature, producing a significantly smoother, more gradual, and elegant falloff towards the window corners.
+
 ## [1.4.16] - 2026-10-21
 
 ### Added

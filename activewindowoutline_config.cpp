@@ -97,7 +97,7 @@ static const AmbilightPreset s_ambilightPresets[] = {
     {  1, 100,  3.0,  0.25, 80, 50, 30, 95 }, // 2: Vivid & Dynamic
     {  2,  75,  1.0,  1.0, 45, 50, 20, 75 }, // 3: Subtle & Calm
     {  0, 100,  0.5,  1.0, 65, 50, 25, 85 }, // 4: Eco (Battery Saver)
-    {  0, 100,  2.0,  0.4, 75, 90, 35, 90 }, // 5: High Contrast
+    {  0, 100,  2.0,  0.4, 75, 90, 20, 92 }, // 5: High Contrast
     {  2, 100,  6.0,  0.15, 75, 50, 15, 90 }, // 6: True Ambilight (Video / Cinema)
 };
 
