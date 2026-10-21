@@ -112,11 +112,16 @@
           <item row="1" column="1">
            <widget class="QComboBox" name="kcfg_AmbilightMode">
             <property name="toolTip">
-             <string>Dominant accent (Vivaldi): Aggressively locks onto prominent vibrant accents. Balanced average: Smoothly blends all window colors into an averaged tone.</string>
+             <string>Smart Adaptive (Hybrid): Evaluates dominant accent against window average, boosting vibrance when colors align. Dominant accent: Decisively locks onto prominent vibrant accents. Balanced average: Smoothly blends all window colors into an averaged tone.</string>
             </property>
             <item>
              <property name="text">
-              <string>Dominant accent (Vivaldi)</string>
+              <string>Smart Adaptive (Hybrid)</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Dominant accent</string>
              </property>
             </item>
             <item>

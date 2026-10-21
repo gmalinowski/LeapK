@@ -184,7 +184,7 @@ private:
 
     // Config - Ambilight
     bool m_ambilightEnabled = false;
-    int m_ambilightMode = 0; // 0: Dominant (Vivaldi), 1: Balanced
+    int m_ambilightMode = 0; // 0: Smart Adaptive, 1: Dominant, 2: Balanced
     int m_ambilightOpacity = 100;
     qreal m_ambilightFrequency = 1.0;
     qreal m_ambilightDuration = 0.6;

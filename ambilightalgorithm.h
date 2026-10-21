@@ -13,13 +13,14 @@ namespace OutlineAmbilight
 
 enum class Mode
 {
-    Dominant = 0, // Dominant accent (Vivaldi-style aggressive tracking)
-    Balanced = 1  // Balanced average (smooth additive light mixing)
+    Smart = 0,    // Smart Adaptive (Hybrid): Dominant accent with automatic vibrancy boost when matching average tone
+    Dominant = 1, // Dominant accent: Decisively locks onto the most prominent vibrant accent
+    Balanced = 2  // Balanced average: Smooth additive light mixing of all window colors
 };
 
 struct Settings
 {
-    Mode mode = Mode::Dominant;
+    Mode mode = Mode::Smart;
     qreal saturationBoost = 1.3;
     qreal minBrightness = 0.25; // 0.0 - 1.0 (25%)
     qreal maxBrightness = 0.85; // 0.0 - 1.0 (85%)
@@ -106,8 +107,8 @@ inline QColor processBalancedAverage(const uint8_t *rgba, int pixelCount, const 
 }
 
 /**
- * Dominant Accent mode (Vivaldi-style):
- * Discretizes window colors into 24 chromatic hue clusters and heavily scores them by
+ * Dominant Accent mode:
+ * Discretizes window colors into 24 chromatic hue clusters and scores them by
  * saturation and midtone presence. The most prominent vibrant accent wins decisively,
  * producing aggressive, punchy accent tracking without diluting into muddy averages.
  */
@@ -158,7 +159,7 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
             binIdx += kNumBins;
         }
 
-        // Vivaldi scoring: strongly emphasize saturated accent/brand colors (s^1.8)
+        // Scoring: strongly emphasize saturated accent/brand colors (s^1.8)
         qreal w = std::pow(static_cast<double>(s), 1.8);
 
         // Midtone preference (penalize extreme brightness)
@@ -241,15 +242,90 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
 }
 
 /**
+ * Smart Adaptive (Hybrid) mode:
+ * Evaluates both the dominant accent and the balanced average of the window content.
+ * When the dominant accent is very similar in hue and tone to the balanced average
+ * (indicating a homogeneous window or that the whole window content shares that color),
+ * it dynamically boosts saturation and contrast so the outline pops out vibrantly instead
+ * of blending into the window. When diverse accents or contrasting elements are present,
+ * it maintains clean, decisive dominant accent tracking.
+ */
+inline QColor processSmartAdaptive(const uint8_t *rgba, int pixelCount, const Settings &settings)
+{
+    Settings subSettings = settings;
+
+    // 1. Calculate dominant accent
+    subSettings.mode = Mode::Dominant;
+    const QColor dom = processDominantAccent(rgba, pixelCount, subSettings);
+
+    // 2. Calculate balanced average
+    subSettings.mode = Mode::Balanced;
+    const QColor bal = processBalancedAverage(rgba, pixelCount, subSettings);
+
+    float hd = 0.0f, sd = 0.0f, ld = 0.0f;
+    dom.getHslF(&hd, &sd, &ld);
+
+    float hb = 0.0f, sb = 0.0f, lb = 0.0f;
+    bal.getHslF(&hb, &sb, &lb);
+
+    // If dominant color has negligible saturation, return dominant (which is already contrast-clamped monochrome)
+    if (sd < 0.04f) {
+        return dom;
+    }
+
+    // Circular hue difference [0.0, 0.5]
+    qreal hueDiff = std::abs(hd - hb);
+    if (hueDiff > 0.5) {
+        hueDiff = 1.0 - hueDiff;
+    }
+
+    const qreal lightDiff = std::abs(ld - lb);
+    const qreal satDiff = std::abs(sd - sb);
+
+    // Circular hue similarity: 1.0 when identical, decays to 0.0 at 60 degrees (0.166)
+    const qreal hueSimilarity = std::max(0.0, 1.0 - (hueDiff / 0.166));
+
+    // Tone similarity in lightness and saturation
+    const qreal toneSimilarity = std::max(0.0, 1.0 - (lightDiff * 0.8 + satDiff * 0.4));
+
+    // Overall similarity factor [0.0, 1.0]
+    const qreal similarity = qBound<qreal>(0.0, hueSimilarity * toneSimilarity, 1.0);
+
+    // When dominant accent aligns closely with the window average, boost vibrancy and contrast
+    if (similarity > 0.25) {
+        const qreal extraBoost = 1.0 + 0.35 * similarity; // Up to 35% extra saturation pop
+        const qreal boostedS = qBound<qreal>(0.0, sd * extraBoost, 1.0);
+
+        // Optimize lightness contrast against homogeneous backgrounds
+        qreal adjustedL = ld;
+        if (adjustedL > 0.70) {
+            adjustedL = qMax<qreal>(0.60, adjustedL - 0.06 * similarity); // Richer midtone, avoids white blowout
+        } else if (adjustedL < 0.30) {
+            adjustedL = qMin<qreal>(0.40, adjustedL + 0.06 * similarity); // Avoids sinking into dark background
+        }
+
+        const qreal clampedL = qBound<qreal>(settings.minBrightness, adjustedL, settings.maxBrightness);
+        return QColor::fromHslF(qBound<qreal>(0.0, hd, 1.0), boostedS, clampedL);
+    }
+
+    return dom;
+}
+
+/**
  * Computes an adaptive ambilight color from a raw RGBA buffer of sampled window pixels.
- * Dispatches to Dominant Accent (Vivaldi-style) or Balanced Average mode based on settings.
+ * Dispatches to Smart Adaptive (Hybrid), Dominant Accent, or Balanced Average mode based on settings.
  */
 inline QColor processRgbaSamples(const uint8_t *rgba, int pixelCount, const Settings &settings = Settings())
 {
-    if (settings.mode == Mode::Balanced) {
+    switch (settings.mode) {
+    case Mode::Smart:
+        return processSmartAdaptive(rgba, pixelCount, settings);
+    case Mode::Balanced:
         return processBalancedAverage(rgba, pixelCount, settings);
+    case Mode::Dominant:
+    default:
+        return processDominantAccent(rgba, pixelCount, settings);
     }
-    return processDominantAccent(rgba, pixelCount, settings);
 }
 
 } // namespace OutlineAmbilight

@@ -28,7 +28,7 @@
         <entry name="AmbilightMode" type="Int">
             <default>0</default>
             <min>0</min>
-            <max>1</max>
+            <max>2</max>
         </entry>
         <entry name="AmbilightOpacity" type="Int">
             <default>100</default>

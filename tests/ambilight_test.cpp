@@ -33,7 +33,7 @@ int main()
         check(fallback.isValid(), "null fallback is valid");
     }
 
-    // 2. Solid pure red pixels (both Dominant and Balanced)
+    // 2. Solid pure red pixels (Smart, Dominant and Balanced)
     {
         std::vector<uint8_t> pixels(64 * 4);
         for (size_t i = 0; i < 64; ++i) {
@@ -42,7 +42,7 @@ int main()
             pixels[i * 4 + 2] = 0;
             pixels[i * 4 + 3] = 255;
         }
-        for (const auto mode : {Mode::Dominant, Mode::Balanced}) {
+        for (const auto mode : {Mode::Smart, Mode::Dominant, Mode::Balanced}) {
             Settings settings;
             settings.mode = mode;
             const QColor c = processRgbaSamples(pixels.data(), 64, settings);
@@ -55,7 +55,7 @@ int main()
         }
     }
 
-    // 3. Vivaldi Dominant scoring: Vibrant accent (10% blue) over large white canvas (90% white)
+    // 3. Dominant scoring: Vibrant accent (10% blue) over large white canvas (90% white)
     {
         std::vector<uint8_t> pixels(100 * 4);
         for (int i = 0; i < 90; ++i) {
@@ -80,13 +80,13 @@ int main()
         check(s > 0.6f, "dominant accent saturation retained");
     }
 
-    // 4. Pure black window: clamped to minBrightness (both modes)
+    // 4. Pure black window: clamped to minBrightness (all modes)
     {
         std::vector<uint8_t> pixels(64 * 4, 0);
         for (size_t i = 0; i < 64; ++i) {
             pixels[i * 4 + 3] = 255; // Alpha
         }
-        for (const auto mode : {Mode::Dominant, Mode::Balanced}) {
+        for (const auto mode : {Mode::Smart, Mode::Dominant, Mode::Balanced}) {
             Settings settings;
             settings.mode = mode;
             settings.minBrightness = 0.25;
@@ -98,10 +98,10 @@ int main()
         }
     }
 
-    // 5. Pure white window: clamped to maxBrightness (both modes)
+    // 5. Pure white window: clamped to maxBrightness (all modes)
     {
         std::vector<uint8_t> pixels(64 * 4, 255);
-        for (const auto mode : {Mode::Dominant, Mode::Balanced}) {
+        for (const auto mode : {Mode::Smart, Mode::Dominant, Mode::Balanced}) {
             Settings settings;
             settings.mode = mode;
             settings.maxBrightness = 0.85;
@@ -193,7 +193,7 @@ int main()
         check(s < 0.1f, "balanced: opposing complementary colors neutralize cleanly");
     }
 
-    // 9. Dominant mode (Vivaldi-style): Strongly locks onto dominant accent among multiple colors
+    // 9. Dominant mode: Strongly locks onto dominant accent among multiple colors
     {
         // 80% dark background (RGB 20, 20, 20)
         // 15% Spotify Neon Green (RGB 30, 215, 96) -> H ~ 141 deg (0.39)
@@ -260,6 +260,62 @@ int main()
         float hr = 0.0f, sr = 0.0f, lr = 0.0f;
         cRed.getHslF(&hr, &sr, &lr);
         check(hr <= 0.05f || hr >= 0.95f, "dominant inertia: holds previous red hue on equal competition");
+    }
+
+    // 11. Smart Adaptive mode: Automatically boosts saturation when dominant accent aligns with window average
+    {
+        // Homogeneous pastel blue window (RGB 100, 150, 220) -> H ~ 0.597, S ~ 0.63, L ~ 0.63
+        std::vector<uint8_t> pixels(100 * 4);
+        for (int i = 0; i < 100; ++i) {
+            pixels[i * 4 + 0] = 100;
+            pixels[i * 4 + 1] = 150;
+            pixels[i * 4 + 2] = 220;
+            pixels[i * 4 + 3] = 255;
+        }
+
+        Settings dominantSettings;
+        dominantSettings.mode = Mode::Dominant;
+        dominantSettings.saturationBoost = 1.0;
+        const QColor cDom = processRgbaSamples(pixels.data(), 100, dominantSettings);
+
+        Settings smartSettings;
+        smartSettings.mode = Mode::Smart;
+        smartSettings.saturationBoost = 1.0;
+        const QColor cSmart = processRgbaSamples(pixels.data(), 100, smartSettings);
+
+        float hd = 0.0f, sd = 0.0f, ld = 0.0f;
+        float hs = 0.0f, ss = 0.0f, ls = 0.0f;
+        cDom.getHslF(&hd, &sd, &ld);
+        cSmart.getHslF(&hs, &ss, &ls);
+
+        checkNear(hd, hs, 0.02, "smart: hue preserved with dominant accent");
+        check(ss > sd, "smart: boosts saturation when dominant accent aligns with balanced average");
+    }
+
+    // 12. Smart Adaptive mode: Retains dominant accent on contrasting backgrounds
+    {
+        // 80% dark background, 20% vibrant red button
+        std::vector<uint8_t> pixels(100 * 4);
+        for (int i = 0; i < 80; ++i) {
+            pixels[i * 4 + 0] = 30;
+            pixels[i * 4 + 1] = 30;
+            pixels[i * 4 + 2] = 30;
+            pixels[i * 4 + 3] = 255;
+        }
+        for (int i = 80; i < 100; ++i) {
+            pixels[i * 4 + 0] = 255;
+            pixels[i * 4 + 1] = 0;
+            pixels[i * 4 + 2] = 0;
+            pixels[i * 4 + 3] = 255;
+        }
+
+        Settings smartSettings;
+        smartSettings.mode = Mode::Smart;
+        const QColor cSmart = processRgbaSamples(pixels.data(), 100, smartSettings);
+        float h = 0.0f, s = 0.0f, l = 0.0f;
+        cSmart.getHslF(&h, &s, &l);
+        check(h < 0.05f || h > 0.95f, "smart: locks onto dominant red accent on contrasting background");
+        check(s > 0.6f, "smart: rich saturation on contrasting accent");
     }
 
     std::printf("ambilight_test: %d checks, %d failures\n", checks, failures);

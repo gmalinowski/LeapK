@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.4] - 2026-10-21
+
+### Added
+
+- **Smart Adaptive (Hybrid) Ambilight mode**: Added a new intelligent hybrid detection mode set as default (`AmbilightMode = 0`):
+  - Simultaneously tracks both the dominant accent and the balanced average of the window.
+  - When the dominant accent matches or aligns with the overall window average (e.g. homogeneous themed apps or single-tone windows), it dynamically applies an extra vibrancy and contrast boost (up to +35% saturation pop) so the outline stands out boldly rather than blending into the window canvas.
+  - When contrasting elements or diverse UI accents are present, it decisively maintains crisp dominant accent tracking.
+- **Renamed detection modes**: Cleaned up UI terminology by removing the "Vivaldi" reference, resulting in three clean options: `Smart Adaptive (Hybrid)` (default), `Dominant accent`, and `Balanced average`.
+
 ## [1.4.3] - 2026-10-21
 
 ### Added

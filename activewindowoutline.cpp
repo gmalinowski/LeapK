@@ -376,7 +376,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_accentOpacity = qBound(0, config.readEntry("AccentOpacity", 66), 100);
     m_customColor = config.readEntry("CustomColor", QColor(61, 174, 233));
     m_ambilightEnabled = config.readEntry("AmbilightEnabled", false);
-    m_ambilightMode = qBound(0, config.readEntry("AmbilightMode", 0), 1);
+    m_ambilightMode = qBound(0, config.readEntry("AmbilightMode", 0), 2);
     m_ambilightOpacity = qBound(0, config.readEntry("AmbilightOpacity", 100), 100);
     m_ambilightFrequency = qBound<qreal>(0.1, config.readEntry("AmbilightFrequency", 1.0), 10.0);
     m_ambilightDuration = qBound<qreal>(0.1, config.readEntry("AmbilightDuration", 0.6), 5.0);
