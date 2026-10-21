@@ -250,6 +250,8 @@ set_default UseAccentColor true
 set_default AccentOpacity 66
 set_default CustomColor "61, 174, 233"
 set_default AmbilightEnabled false
+set_default AmbilightOpacity 100
+set_default AmbilightFrequency 1.0
 set_default AmbilightDuration 0.6
 set_default AmbilightSaturationBoost 1.3
 set_default AmbilightMinBrightness 25

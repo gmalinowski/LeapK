@@ -184,6 +184,8 @@ private:
 
     // Config - Ambilight
     bool m_ambilightEnabled = false;
+    int m_ambilightOpacity = 100;
+    qreal m_ambilightFrequency = 1.0;
     qreal m_ambilightDuration = 0.6;
     qreal m_ambilightSaturationBoost = 1.3;
     int m_ambilightMinBrightness = 25;

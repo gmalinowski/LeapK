@@ -25,6 +25,16 @@
         <entry name="AmbilightEnabled" type="Bool">
             <default>false</default>
         </entry>
+        <entry name="AmbilightOpacity" type="Int">
+            <default>100</default>
+            <min>0</min>
+            <max>100</max>
+        </entry>
+        <entry name="AmbilightFrequency" type="Double">
+            <default>1.0</default>
+            <min>0.1</min>
+            <max>10.0</max>
+        </entry>
         <entry name="AmbilightDuration" type="Double">
             <default>0.6</default>
             <min>0.1</min>

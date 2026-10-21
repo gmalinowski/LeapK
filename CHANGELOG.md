@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.1] - 2026-10-21
+
+### Fixed
+
+- **Appearance tab layout alignment**: Fixed an issue in `activewindowoutline_config.ui` where row numbers in the Appearance form layout collided, causing an unlabeled spinbox with "px" to display errantly without a label.
+
+### Added
+
+- **Ambilight sampling frequency control**: Added a configurable sampling frequency slider (`AmbilightFrequency`, 0.1 to 10.0 Hz, default 1.0 Hz) with an informative notice explaining that higher frequencies react faster to dynamic video content but increase CPU utilization.
+- **Ambilight opacity control**: Added an opacity slider (`AmbilightOpacity`, 0 to 100%, default 100%) to allow transparency in Ambilight mode.
+- **Mutual exclusion with Color Sequence**: When Color Sequence is enabled, Appearance color settings (Accent color, Custom color) and the entire Ambilight group are automatically disabled / grayed out.
+
 ## [1.4.0] - 2026-10-21
 
 ### Added

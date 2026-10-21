@@ -376,10 +376,16 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_accentOpacity = qBound(0, config.readEntry("AccentOpacity", 66), 100);
     m_customColor = config.readEntry("CustomColor", QColor(61, 174, 233));
     m_ambilightEnabled = config.readEntry("AmbilightEnabled", false);
+    m_ambilightOpacity = qBound(0, config.readEntry("AmbilightOpacity", 100), 100);
+    m_ambilightFrequency = qBound<qreal>(0.1, config.readEntry("AmbilightFrequency", 1.0), 10.0);
     m_ambilightDuration = qBound<qreal>(0.1, config.readEntry("AmbilightDuration", 0.6), 5.0);
     m_ambilightSaturationBoost = qBound<qreal>(1.0, config.readEntry("AmbilightSaturationBoost", 1.3), 3.0);
     m_ambilightMinBrightness = qBound(0, config.readEntry("AmbilightMinBrightness", 25), 50);
     m_ambilightMaxBrightness = qBound(50, config.readEntry("AmbilightMaxBrightness", 85), 100);
+
+    if (m_ambilightTimer) {
+        m_ambilightTimer->setInterval(qRound(1000.0 / m_ambilightFrequency));
+    }
 
     if (m_ambilightEnabled) {
         m_ambilightSampleNeeded = true;
@@ -619,6 +625,7 @@ QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity) const
         color = const_cast<ActiveWindowOutlineEffect *>(this)->currentCycleColor(elapsedSec);
     } else if (m_ambilightEnabled) {
         color = const_cast<ActiveWindowOutlineEffect *>(this)->currentAmbilightColor(elapsedSec);
+        color.setAlphaF(color.alphaF() * (m_ambilightOpacity / 100.0));
     } else if (m_useAccentColor) {
         color = qApp->palette().color(QPalette::Highlight);
         color.setAlphaF(color.alphaF() * m_accentOpacity / 100.0);

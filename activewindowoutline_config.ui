@@ -103,13 +103,62 @@
            </widget>
           </item>
           <item row="1" column="0">
+           <widget class="QLabel" name="label_ambilightOpacity">
+            <property name="text">
+             <string>Opacity:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QSpinBox" name="kcfg_AmbilightOpacity">
+            <property name="minimum">
+             <number>0</number>
+            </property>
+            <property name="maximum">
+             <number>100</number>
+            </property>
+            <property name="value">
+             <number>100</number>
+            </property>
+            <property name="suffix">
+             <string> %</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_ambilightFrequency">
+            <property name="text">
+             <string>Sampling frequency:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QDoubleSpinBox" name="kcfg_AmbilightFrequency">
+            <property name="minimum">
+             <double>0.1</double>
+            </property>
+            <property name="maximum">
+             <double>10.0</double>
+            </property>
+            <property name="singleStep">
+             <double>0.5</double>
+            </property>
+            <property name="value">
+             <double>1.0</double>
+            </property>
+            <property name="suffix">
+             <string> Hz</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
            <widget class="QLabel" name="label_ambilightDuration">
             <property name="text">
              <string>Transition duration:</string>
             </property>
            </widget>
           </item>
-          <item row="1" column="1">
+          <item row="3" column="1">
            <widget class="QDoubleSpinBox" name="kcfg_AmbilightDuration">
             <property name="minimum">
              <double>0.1</double>
@@ -128,14 +177,14 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="0">
+          <item row="4" column="0">
            <widget class="QLabel" name="label_ambilightSaturationBoost">
             <property name="text">
              <string>Saturation boost:</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="1">
+          <item row="4" column="1">
            <widget class="QDoubleSpinBox" name="kcfg_AmbilightSaturationBoost">
             <property name="minimum">
              <double>1.0</double>
@@ -154,14 +203,14 @@
             </property>
            </widget>
           </item>
-          <item row="3" column="0">
+          <item row="5" column="0">
            <widget class="QLabel" name="label_ambilightMinBrightness">
             <property name="text">
              <string>Minimum brightness:</string>
             </property>
            </widget>
           </item>
-          <item row="3" column="1">
+          <item row="5" column="1">
            <widget class="QSpinBox" name="kcfg_AmbilightMinBrightness">
             <property name="minimum">
              <number>0</number>
@@ -177,14 +226,14 @@
             </property>
            </widget>
           </item>
-          <item row="4" column="0">
+          <item row="6" column="0">
            <widget class="QLabel" name="label_ambilightMaxBrightness">
             <property name="text">
              <string>Maximum brightness:</string>
             </property>
            </widget>
           </item>
-          <item row="4" column="1">
+          <item row="6" column="1">
            <widget class="QSpinBox" name="kcfg_AmbilightMaxBrightness">
             <property name="minimum">
              <number>50</number>
@@ -197,6 +246,16 @@
             </property>
             <property name="suffix">
              <string> %</string>
+            </property>
+           </widget>
+          </item>
+          <item row="7" column="0" colspan="2">
+           <widget class="QLabel" name="label_ambilightWarning">
+            <property name="text">
+             <string>ℹ️ Higher sampling frequency reacts faster to video and dynamic content, but increases CPU usage. 1.0 Hz is recommended for everyday desktop usage.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
             </property>
            </widget>
           </item>
@@ -228,14 +287,14 @@
         </widget>
        </item>
 
-       <item row="4" column="0">
+       <item row="5" column="0">
         <widget class="QLabel" name="label_outlineGap">
          <property name="text">
           <string>Outline offset:</string>
          </property>
         </widget>
        </item>
-       <item row="4" column="1">
+       <item row="5" column="1">
         <widget class="QSpinBox" name="kcfg_OutlineGap">
          <property name="minimum">
           <number>0</number>
@@ -252,14 +311,14 @@
         </widget>
        </item>
 
-       <item row="5" column="0">
+       <item row="6" column="0">
         <widget class="QLabel" name="label_borderRadius">
          <property name="text">
           <string>Border radius:</string>
          </property>
         </widget>
        </item>
-       <item row="5" column="1">
+       <item row="6" column="1">
         <widget class="QSpinBox" name="kcfg_BorderRadius">
          <property name="minimum">
           <number>0</number>
@@ -276,14 +335,14 @@
         </widget>
        </item>
 
-       <item row="6" column="0">
+       <item row="7" column="0">
         <widget class="QLabel" name="label_drawInside">
          <property name="text">
           <string>Draw inside window:</string>
          </property>
         </widget>
        </item>
-       <item row="6" column="1">
+       <item row="7" column="1">
         <widget class="QCheckBox" name="kcfg_DrawInside">
          <property name="checked">
           <bool>true</bool>
@@ -291,7 +350,7 @@
         </widget>
        </item>
 
-       <item row="7" column="0" colspan="2">
+       <item row="8" column="0" colspan="2">
         <widget class="QCheckBox" name="kcfg_SmoothEdges">
          <property name="text">
           <string>Smooth edges</string>
@@ -302,7 +361,7 @@
         </widget>
        </item>
 
-       <item row="8" column="0" colspan="2">
+       <item row="9" column="0" colspan="2">
         <widget class="QCheckBox" name="kcfg_GlowEnabled">
          <property name="text">
           <string>Soft glow</string>
@@ -313,14 +372,14 @@
         </widget>
        </item>
 
-       <item row="9" column="0">
+       <item row="10" column="0">
         <widget class="QLabel" name="label_glowRadius">
          <property name="text">
           <string>Glow size:</string>
          </property>
         </widget>
        </item>
-       <item row="9" column="1">
+       <item row="10" column="1">
         <widget class="QSpinBox" name="kcfg_GlowRadius">
          <property name="minimum">
           <number>1</number>
@@ -337,7 +396,7 @@
         </widget>
        </item>
 
-       <item row="10" column="0" colspan="2">
+       <item row="11" column="0" colspan="2">
         <widget class="QLabel" name="label_info">
          <property name="text">
           <string>ℹ️ “Draw inside” keeps the outline visible on maximized and tiled windows. When disabled, the outline is drawn outside the window.</string>
@@ -351,14 +410,14 @@
         </widget>
        </item>
 
-       <item row="11" column="0">
+       <item row="12" column="0">
         <widget class="QLabel" name="label_version">
          <property name="text">
           <string>Version:</string>
          </property>
         </widget>
        </item>
-       <item row="11" column="1">
+       <item row="12" column="1">
         <widget class="QLabel" name="label_versionValue">
          <property name="text">
           <string>development</string>
