@@ -82,7 +82,7 @@ int main()
         check(s > 0.6f, "dominant accent saturation retained");
     }
 
-    // 4. Pure black window: clamped to minBrightness (all modes)
+    // 4. Pure black window: high-contrast silver outline (all modes)
     {
         std::vector<uint8_t> pixels(64 * 4, 0);
         for (size_t i = 0; i < 64; ++i) {
@@ -92,25 +92,27 @@ int main()
             Settings settings;
             settings.mode = mode;
             settings.minBrightness = 0.25;
+            settings.maxBrightness = 0.85;
             const QColor c = processRgbaSamples(pixels.data(), 64, settings);
             float h = 0.0f, s = 0.0f, l = 0.0f;
             c.getHslF(&h, &s, &l);
-            checkNear(l, 0.25, 0.01, "black clamped to minBrightness 0.25");
+            checkNear(l, 0.85, 0.01, "black window gets high-contrast bright silver outline 0.85");
             check(s < 0.05f, "black has no saturation");
         }
     }
 
-    // 5. Pure white window: clamped to maxBrightness (all modes)
+    // 5. Pure white window: high-contrast dark charcoal outline (all modes)
     {
         std::vector<uint8_t> pixels(64 * 4, 255);
         for (const auto mode : {Mode::Smart, Mode::Dominant, Mode::Balanced}) {
             Settings settings;
             settings.mode = mode;
+            settings.minBrightness = 0.25;
             settings.maxBrightness = 0.85;
             const QColor c = processRgbaSamples(pixels.data(), 64, settings);
             float h = 0.0f, s = 0.0f, l = 0.0f;
             c.getHslF(&h, &s, &l);
-            checkNear(l, 0.85, 0.01, "white clamped to maxBrightness 0.85");
+            checkNear(l, 0.25, 0.01, "white window gets high-contrast dark charcoal outline 0.25");
             check(s < 0.05f, "white has no saturation");
         }
     }
@@ -135,6 +137,10 @@ int main()
         // 6d. Neutral monochrome (0.0) untouched
         const qreal sZero = 0.0;
         checkNear(applySaturationLeveling(sZero, 0.65), 0.0, 0.001, "saturation leveling leaves zero saturation untouched");
+
+        // 6e. Sub-threshold cool slate tint suppressed into pure neutral
+        const qreal sSlate = 0.05;
+        checkNear(applySaturationLeveling(sSlate, 0.65), 0.0, 0.001, "sub-threshold slate tint flattened to pure monochrome");
     }
 
     // 7. Balanced mode: Multi-colored elements blend into harmonious composite (Magenta/Purple)
@@ -333,6 +339,27 @@ int main()
         checkNear(defSettings.fallbackStrength, 0.50, 0.01, "preset balanced: fallback strength 0.50");
         checkNear(defSettings.minBrightness, 0.25, 0.01, "preset balanced: min brightness 0.25");
         checkNear(defSettings.maxBrightness, 0.85, 0.01, "preset balanced: max brightness 0.85");
+    }
+
+    // 14. Grayscale slate dark-theme window (e.g. KDE Breeze Dark #232629 / Firefox #2b2a33)
+    {
+        // Dark slate window (R=35, G=38, B=41) -> cool gray with ~4.6% accidental blue tint
+        std::vector<uint8_t> pixels(64 * 4);
+        for (size_t i = 0; i < 64; ++i) {
+            pixels[i * 4 + 0] = 35;
+            pixels[i * 4 + 1] = 38;
+            pixels[i * 4 + 2] = 41;
+            pixels[i * 4 + 3] = 255;
+        }
+        for (const auto mode : {Mode::Smart, Mode::Dominant, Mode::Balanced}) {
+            Settings settings;
+            settings.mode = mode;
+            const QColor c = processRgbaSamples(pixels.data(), 64, settings);
+            float h = 0.0f, s = 0.0f, l = 0.0f;
+            c.getHslF(&h, &s, &l);
+            checkNear(s, 0.0, 0.02, "slate dark theme has zero saturation (no blue/violet cast)");
+            check(l >= 0.70f, "dark slate window gets bright, clearly visible silver outline");
+        }
     }
 
     std::printf("ambilight_test: %d checks, %d failures\n", checks, failures);

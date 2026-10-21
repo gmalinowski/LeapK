@@ -29,17 +29,47 @@ struct Settings
 };
 
 /**
+ * Calculates a high-contrast monochrome outline luminance based on window lightness.
+ * Ensures grayscale windows are always crisp and clearly defined:
+ * - Dark windows (e.g. dark mode, dark terminal) receive a bright, crisp silver outline.
+ * - Light windows (e.g. white PDF, document) receive a sleek, dark charcoal outline.
+ * - Settings.fallbackStrength scales the separation: 0.0 = moderate, 1.0 = bold distinction.
+ */
+inline qreal getHighContrastMonochromeLuminance(qreal windowL, qreal minB, qreal maxB, qreal fallbackStrength = 0.50)
+{
+    const qreal fs = qBound<qreal>(0.0, fallbackStrength, 1.0);
+    qreal targetL;
+    if (windowL < 0.50) {
+        // Dark to mid-dark window -> bright silver outline (e.g. 0.75 - 0.85)
+        const qreal base = maxB - (0.15 * (1.0 - fs) * (windowL / 0.50));
+        targetL = qMax<qreal>(0.65, base);
+    } else {
+        // Mid-light to bright window -> dark charcoal outline (e.g. 0.25 - 0.35)
+        const qreal base = minB + (0.15 * (1.0 - fs) * ((1.0 - windowL) / 0.50));
+        targetL = qMin<qreal>(0.35, base);
+    }
+    return qBound<qreal>(minB, targetL, maxB);
+}
+
+/**
  * Normalizes saturation towards settings.saturationLeveling:
- * - High saturation (e.g. 1.0) is smoothly toned down towards target.
- * - Weak/pale saturation (e.g. 0.2) is boosted towards target.
- * - Near-monochrome (s < 0.03) remains untouched (s = 0.0).
+ * - Low saturation below achromatic threshold (s < 0.12) is smoothly attenuated to pure monochrome
+ *   (s = 0.0), completely preventing cool slate/gray themes (like KDE Breeze, Firefox, VS Code)
+ *   from producing an accidental grayish-violet or blue cast.
+ * - Real chromatic pastels (s >= 0.12) are gently boosted towards target level.
+ * - Harsh neon colors (s > 0.70) are softly compressed towards target level.
  */
 inline qreal applySaturationLeveling(qreal s, qreal target)
 {
-    if (s < 0.03) {
-        return 0.0;
+    // Achromatic deadband: suppress accidental tint in gray/slate themes
+    if (s < 0.12) {
+        if (s < 0.06) {
+            return 0.0;
+        }
+        const qreal t = (s - 0.06) / 0.06;
+        return s * (t * t); // smooth quadratic falloff into pure monochrome
     }
-    const qreal weight = qBound<qreal>(0.0, (s - 0.03) / 0.12, 1.0);
+    const qreal weight = qBound<qreal>(0.0, (s - 0.12) / 0.18, 1.0);
     const qreal leveled = s + weight * 0.5 * (target - s);
     return qBound<qreal>(0.0, leveled, 1.0);
 }
@@ -109,13 +139,19 @@ inline QColor processBalancedAverage(const uint8_t *rgba, int pixelCount, const 
     avgColor.getHslF(&h, &s, &l);
 
     // Monochrome / grayscale fallback
-    if (s < 0.03f) {
-        const qreal clampedL = qBound<qreal>(settings.minBrightness, l, settings.maxBrightness);
+    if (s < 0.08f) {
+        const qreal clampedL = getHighContrastMonochromeLuminance(l, settings.minBrightness, settings.maxBrightness, settings.fallbackStrength);
         return QColor::fromHslF(0.0, 0.0, clampedL);
     }
 
     // Apply saturation leveling
     const qreal leveledS = applySaturationLeveling(s, settings.saturationLeveling);
+
+    // If leveled saturation falls into the achromatic range, treat as pure monochrome
+    if (leveledS < 0.02) {
+        const qreal clampedL = getHighContrastMonochromeLuminance(l, settings.minBrightness, settings.maxBrightness, settings.fallbackStrength);
+        return QColor::fromHslF(0.0, 0.0, clampedL);
+    }
 
     // Apply lightness clamp
     const qreal clampedL = qBound<qreal>(settings.minBrightness, l, settings.maxBrightness);
@@ -167,7 +203,7 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
         unweightedLightnessSum += l;
 
         // Skip near-monochrome canvas or extreme black/white for chromatic binning
-        if (s < 0.10f || l < 0.08f || (l > 0.94f && s < 0.20f)) {
+        if (s < 0.15f || l < 0.08f || (l > 0.94f && s < 0.20f)) {
             continue;
         }
 
@@ -223,10 +259,10 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
     }
 
     // If no meaningful chromatic accent was found (e.g. grayscale document or terminal),
-    // fallback to contrast-clamped neutral tone.
-    if (bestBin < 0 || maxScore < 0.05) {
+    // fallback to high-contrast neutral tone.
+    if (bestBin < 0 || maxScore < 0.08) {
         const qreal avgL = unweightedLightnessSum / validPixels;
-        const qreal clampedL = qBound<qreal>(settings.minBrightness, avgL, settings.maxBrightness);
+        const qreal clampedL = getHighContrastMonochromeLuminance(avgL, settings.minBrightness, settings.maxBrightness, settings.fallbackStrength);
         return QColor::fromHslF(0.0, 0.0, clampedL);
     }
 
@@ -240,7 +276,7 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
 
     if (clusterW <= 0.0) {
         const qreal avgL = unweightedLightnessSum / validPixels;
-        const qreal clampedL = qBound<qreal>(settings.minBrightness, avgL, settings.maxBrightness);
+        const qreal clampedL = getHighContrastMonochromeLuminance(avgL, settings.minBrightness, settings.maxBrightness, settings.fallbackStrength);
         return QColor::fromHslF(0.0, 0.0, clampedL);
     }
 
@@ -253,6 +289,12 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
     winningColor.getHslF(&h, &s, &l);
 
     const qreal leveledS = applySaturationLeveling(s, settings.saturationLeveling);
+    if (leveledS < 0.02) {
+        const qreal avgL = unweightedLightnessSum / validPixels;
+        const qreal clampedL = getHighContrastMonochromeLuminance(avgL, settings.minBrightness, settings.maxBrightness, settings.fallbackStrength);
+        return QColor::fromHslF(0.0, 0.0, clampedL);
+    }
+
     const qreal clampedL = qBound<qreal>(settings.minBrightness, l, settings.maxBrightness);
 
     return QColor::fromHslF(qBound<qreal>(0.0, h, 1.0), leveledS, clampedL);
@@ -285,8 +327,8 @@ inline QColor processSmartAdaptive(const uint8_t *rgba, int pixelCount, const Se
     float hb = 0.0f, sb = 0.0f, lb = 0.0f;
     bal.getHslF(&hb, &sb, &lb);
 
-    // If dominant color has negligible saturation, return dominant (which is already contrast-clamped monochrome)
-    if (sd < 0.04f) {
+    // If dominant color has negligible saturation, return dominant (which is already high-contrast monochrome)
+    if (sd < 0.06f) {
         return dom;
     }
 

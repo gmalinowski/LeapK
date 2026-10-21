@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.9] - 2026-10-21
+
+### Fixed
+
+- **Grayscale and slate-theme Ambilight color cast**: Eliminated unwanted grayish-violet/blue outline tint on dark gray and monochrome windows (e.g. KDE Breeze Dark `#232629`, Firefox `#2b2a33`, VS Code, dark terminals). Introduced an achromatic deadband in `applySaturationLeveling` ($s < 0.12$) that cleanly attenuates accidental cool slate temperature bias to pure neutral monochrome ($s = 0.0$).
+- **Monochrome outline visibility and contrast**: Replaced same-luminance clamping with intelligent high-contrast luminance inversion (`getHighContrastMonochromeLuminance`):
+  - Dark windows (dark mode, terminals, dark editors) now receive a bright, crisp silver outline ($L \approx 0.80 - 0.85$) instead of sinking invisibly into dark gray.
+  - Light/white windows (documents, PDFs) receive a sleek, dark charcoal outline ($L \approx 0.25 - 0.30$).
+  - Full contrast visibility is maintained across all presets.
+
 ## [1.4.8] - 2026-10-21
 
 ### Added
