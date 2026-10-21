@@ -41,7 +41,7 @@ include(KDECompilerSettings NO_POLICY_SCOPE)
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Widgets Quick)
+find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Widgets Quick Network)
 find_package(KF6 REQUIRED COMPONENTS CoreAddons ConfigWidgets KCMUtils GlobalAccel)
 find_package(${KWIN_PACKAGE} REQUIRED)
 
@@ -123,6 +123,7 @@ target_include_directories(kwin_active-window-outline_config PRIVATE ${CMAKE_CUR
 target_link_libraries(kwin_active-window-outline_config PRIVATE
     Qt6::DBus
     Qt6::Widgets
+    Qt6::Network
     KF6::CoreAddons
     KF6::ConfigWidgets
     KF6::KCMUtils
@@ -162,6 +163,11 @@ if(OUTLINE_BUILD_TESTS)
     target_include_directories(outline-visibility-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(outline-visibility-test PRIVATE Qt6::Core)
     add_test(NAME outline-visibility COMMAND outline-visibility-test)
+
+    add_executable(outline-versioncheck-test tests/versioncheck_test.cpp)
+    target_include_directories(outline-versioncheck-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-versioncheck-test PRIVATE Qt6::Core)
+    add_test(NAME outline-versioncheck COMMAND outline-versioncheck-test)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)

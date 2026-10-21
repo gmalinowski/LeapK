@@ -15,6 +15,7 @@ class ActiveWindowOutlineConfigForm;
 }
 
 class KConfigSkeleton;
+class QNetworkAccessManager;
 
 class ActiveWindowOutlineConfig : public KCModule
 {
@@ -34,8 +35,10 @@ private:
 
     void updatePresetSelector();
     void showAmbilightHelpDialog();
+    void checkForUpdates();
 
     Ui::ActiveWindowOutlineConfigForm *m_ui;
     KConfigSkeleton *m_configSkeleton = nullptr;
+    QNetworkAccessManager *m_networkManager = nullptr;
     bool m_isApplyingPreset = false;
 };

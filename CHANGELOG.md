@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.8] - 2026-10-21
+
+### Added
+
+- **Check for Updates button ("Sprawdź aktualizacje")**: Added a dedicated update checker button in the settings panel next to the version indicator:
+  - Queries GitHub API asynchronously for the latest release/pre-release.
+  - Automatically compares semantic version numbers against the currently installed version.
+  - Shows clear inline feedback and opens a dialog with the release notes, a one-click button to view on GitHub, and a "Copy Command" button for instant terminal updates (`curl ... | bash`).
+  - Supports English and Polish localizations based on system language.
+
 ## [1.4.7] - 2026-10-21
 
 ### Added
