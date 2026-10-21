@@ -15,6 +15,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Backwards-compatible with older configs by automatically reading and synchronizing both `EnsurePerimeterContrast` and `AmbilightEnsureContrast`.
 
 ### Fixed
+- **Plugin Metadata Restoration**:
+  - Restored `#include "activewindowoutline.moc"` and added KWin factory macros to `CMAKE_AUTOMOC_MACRO_NAMES`, resolving the `No plug-in meta-data found` failure during installation while maintaining zero AutoMoc warnings.
 - **Accurate Outside Perimeter Sampling & FBO Separation**:
   - Separated window content sampling and desktop wallpaper sampling into two dedicated framebuffers (`m_ambilightFbo` 32x32 and `m_outsideFbo` 32x8), eliminating coordinate inversion and row-offset overlap where window tabs were mistakenly sampled as outside wallpaper.
   - Expanded `expandedGeometryFor` repaint region by 18px when perimeter contrast is active, ensuring KWin compositing repaints the desktop wallpaper band around the active window so fresh wallpaper pixels are always available for contrast evaluation.
