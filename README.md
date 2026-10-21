@@ -7,6 +7,7 @@ The effect is useful with minimal window decorations and tiling layouts, where i
 ## Features
 
 [kawo_screencast_20261021_8mb.webm](https://github.com/user-attachments/assets/e51be9f1-3e2d-4128-8c69-c4aa3ba57af5)
+
 [ensure_perimeter_contrast_20261021.webm](https://github.com/user-attachments/assets/41c4764e-6141-4c06-8243-9a116a77bd43)
 
 ![Active Window Outline with the default settings in a tiled window layout](screenshot_defaults.png)
