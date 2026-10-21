@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.16] - 2026-10-21
+
+### Added
+- **Documentation**:
+  - Comprehensive documentation added for **Ambilight (Adaptive Window Color)**, presets (`True Ambilight`, `Balanced`, `Vivid & Dynamic`, `Subtle & Calm`, `Eco`, `High Contrast`), and all fine-tuning parameters in `README.md`.
+  - Documented the **Fade out corners (highlight edges only)** feature and default settings in `README.md`.
+
+### Verified
+- Verified edge illumination and smooth Hermite corner falloff behavior across varied window types and theme combinations.
+- Confirmed full UI layout alignment and English localization consistency.
+
 ## [1.4.15] - 2026-10-21
 
 ### Changed

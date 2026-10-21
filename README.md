@@ -174,11 +174,28 @@ Open the gear button next to **Active Window Outline** in Desktop Effects.
 | Custom color | `#3daee9` | Used when accent-color tracking is disabled. |
 | Border width | 2 px | Thickness of the outline. |
 | Outline offset | 0 px | Distance between the window edge and the outline. |
-| Border radius | 6 px | Corner radius of the outline. |
+| Border radius | 6 px | Corner radius of the outline (when corner fading is disabled). |
+| Fade out corners | On | Disables corner curves and smoothly fades out the outline towards corners, illuminating only the straight edges of the window. |
 | Draw inside window | On | Draws the outline over the inside edge of the window. |
 | Smooth edges | On | Adds a subtle antialiased feather to both outline edges. |
 | Soft glow | On | Adds a subtle colored halo around the outline. |
 | Glow size | 6 px | Controls how far the halo extends. |
+
+#### Ambilight (Adaptive Window Color)
+
+Dynamically analyzes the active window's visual contents and synchronizes the outline and neon glow with matching ambient colors in real time.
+
+| Setting | Default | Description |
+| --- | ---: | --- |
+| Enable Ambilight | Off | Analyzes active window pixels to dynamically tint the outline. |
+| Presets | Balanced | Pre-configured tuning profiles (`Balanced`, `Vivid & Dynamic`, `Subtle & Calm`, `Eco`, `High Contrast`, `True Ambilight`, `Custom`). |
+| Detection mode | Smart Adaptive | Algorithm used to extract color (`Smart Adaptive`, `Dominant Accent`, `Balanced Average`). |
+| Opacity | 80% | Base opacity of the Ambilight outline. |
+| Update frequency | 1.5 Hz | How often window colors are sampled (up to 6.0 Hz for video/gaming). |
+| Transition duration | 0.5 s | Crossfade duration when animating between sampled colors. |
+| Saturation leveling | 50% | Normalizes saturation: softens oversaturated neons and boosts pale tones. |
+| Fallback distinction | 75% | Contrasts the outline when window content matches the accent color. |
+| Min / Max brightness | 25% / 85% | Prevents outlines from becoming invisible on dark windows or blindingly bright on pure white documents. |
 
 ### Tab 2: Color Sequence
 
