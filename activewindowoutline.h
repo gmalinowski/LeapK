@@ -173,6 +173,7 @@ private:
     bool m_useAccentColor = true;
     int m_accentOpacity = 66;
     QColor m_customColor = QColor(61, 174, 233);
+    bool m_ensurePerimeterContrast = true;
     int m_width = 2;
     int m_gap = 0;
     int m_radius = 6;
@@ -259,6 +260,8 @@ private:
     mutable bool m_ambilightInTransition = false;
     std::unique_ptr<GLTexture> m_ambilightTexture;
     std::unique_ptr<GLFramebuffer> m_ambilightFbo;
+    std::unique_ptr<GLTexture> m_outsideTexture;
+    std::unique_ptr<GLFramebuffer> m_outsideFbo;
 };
 
 } // namespace KWin

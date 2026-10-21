@@ -303,7 +303,7 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
     m_ambilightTimer = new QTimer(this);
     m_ambilightTimer->setInterval(1000);
     connect(m_ambilightTimer, &QTimer::timeout, this, [this] {
-        if (m_ambilightEnabled && m_activeWindow && !m_activeWindow->isMinimized() && m_activeWindow->isOnCurrentDesktop()) {
+        if ((m_ambilightEnabled || m_ensurePerimeterContrast) && m_activeWindow && !m_activeWindow->isMinimized() && m_activeWindow->isOnCurrentDesktop()) {
             m_ambilightSampleNeeded = true;
             effects->addRepaint(expandedGeometryFor(m_activeWindow));
         }
@@ -427,6 +427,8 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_useAccentColor = config.readEntry("UseAccentColor", true);
     m_accentOpacity = qBound(0, config.readEntry("AccentOpacity", 66), 100);
     m_customColor = config.readEntry("CustomColor", QColor(61, 174, 233));
+    m_ensurePerimeterContrast = config.readEntry("EnsurePerimeterContrast", config.readEntry("AmbilightEnsureContrast", true));
+    m_ambilightEnsureContrast = m_ensurePerimeterContrast;
     m_ambilightEnabled = config.readEntry("AmbilightEnabled", false);
     m_ambilightMode = qBound(0, config.readEntry("AmbilightMode", 0), 2);
     m_ambilightOpacity = qBound(0, config.readEntry("AmbilightOpacity", 100), 100);
@@ -436,14 +438,15 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_ambilightFallbackStrength = qBound(0, config.readEntry("AmbilightFallbackStrength", 50), 100);
     m_ambilightMinBrightness = qBound(0, config.readEntry("AmbilightMinBrightness", 25), 50);
     m_ambilightMaxBrightness = qBound(50, config.readEntry("AmbilightMaxBrightness", 85), 100);
-    m_ambilightEnsureContrast = config.readEntry("AmbilightEnsureContrast", true);
 
     if (m_ambilightTimer) {
         m_ambilightTimer->setInterval(qRound(1000.0 / m_ambilightFrequency));
     }
 
-    if (m_ambilightEnabled) {
+    if (m_ambilightEnabled || m_ensurePerimeterContrast) {
         m_ambilightSampleNeeded = true;
+        m_ambilightTargetColor = QColor();
+        m_ambilightCurrentColor = QColor();
         if (m_ambilightTimer && !m_ambilightTimer->isActive()) {
             m_ambilightTimer->start();
         }
@@ -452,6 +455,8 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
             m_ambilightTimer->stop();
         }
         m_ambilightInTransition = false;
+        m_ambilightTargetColor = QColor();
+        m_ambilightCurrentColor = QColor();
     }
 
     m_width = qBound(1, config.readEntry("BorderWidth", 2), 20);
@@ -682,6 +687,12 @@ QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity) const
     } else if (m_ambilightEnabled) {
         color = const_cast<ActiveWindowOutlineEffect *>(this)->currentAmbilightColor(elapsedSec);
         color.setAlphaF(color.alphaF() * (m_ambilightOpacity / 100.0));
+    } else if (m_ensurePerimeterContrast && m_ambilightCurrentColor.isValid()) {
+        color = const_cast<ActiveWindowOutlineEffect *>(this)->currentAmbilightColor(elapsedSec);
+        const qreal opacityFraction = m_useAccentColor
+            ? (m_accentOpacity / 100.0)
+            : (m_customColor.alphaF());
+        color.setAlphaF(color.alphaF() * opacityFraction);
     } else if (m_useAccentColor) {
         color = qApp->palette().color(QPalette::Highlight);
         color.setAlphaF(color.alphaF() * m_accentOpacity / 100.0);
@@ -1261,7 +1272,7 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
         return;
     }
 
-    if (m_ambilightEnabled) {
+    if (m_ambilightEnabled || m_ensurePerimeterContrast) {
         m_ambilightSampleNeeded = true;
     }
 
@@ -1369,6 +1380,9 @@ void ActiveWindowOutlineEffect::slotWindowFrameGeometryChanged(EffectWindow *w,
         : m_width + m_gap + glowExtent + 1.0;
     effects->addRepaint(oldGeometry.adjusted(-extent, -extent, extent, extent));
     effects->addRepaint(expandedGeometryFor(w));
+    if (w == m_activeWindow && (m_ambilightEnabled || m_ensurePerimeterContrast)) {
+        m_ambilightSampleNeeded = true;
+    }
     if (isBlockingPopup(w)) {
         updatePopupBlockingState();
     }
@@ -1463,9 +1477,12 @@ QRectF ActiveWindowOutlineEffect::expandedGeometryFor(EffectWindow *w) const
         return QRectF();
     }
     const qreal glowExtent = m_glowEnabled ? m_glowRadius : 0;
-    const qreal extent = m_drawInside
+    qreal extent = m_drawInside
         ? glowExtent + 1.0
         : m_width + m_gap + glowExtent + 1.0;
+    if (m_ensurePerimeterContrast) {
+        extent = std::max(extent, 18.0);
+    }
     return w->frameGeometry().adjusted(-extent, -extent, extent, extent);
 }
 
@@ -1647,7 +1664,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     const qreal sampleInterval = 1.0 / qMax<qreal>(0.1, m_ambilightFrequency);
     const bool timeToSample = m_ambilightSampleNeeded || ((elapsedSec - m_lastAmbilightSampleTime) >= sampleInterval);
 
-    if (m_ambilightEnabled && m_activeWindow && timeToSample) {
+    if ((m_ambilightEnabled || m_ensurePerimeterContrast) && m_activeWindow && timeToSample) {
         const QPoint windowCenter = m_activeWindow->frameGeometry().center().toPoint();
         const bool isScreenForWindow = !screen || QRect(screen->geometry()).contains(windowCenter);
         if (isScreenForWindow) {
@@ -1713,7 +1730,6 @@ bool ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
     constexpr int kSampleDim = 32;
     constexpr int kOutsideDim = 8;
     const QSize contentSize(kSampleDim, kSampleDim);
-    const QSize totalFboSize(kSampleDim, kSampleDim + kOutsideDim);
 
     // Inset sample geometry to strictly sample window content and avoid rounded corners / drop shadows
     // where desktop wallpaper bleed can occur.
@@ -1740,17 +1756,24 @@ bool ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
         settings.fallbackStrength = m_ambilightFallbackStrength / 100.0;
         settings.minBrightness = m_ambilightMinBrightness / 100.0;
         settings.maxBrightness = m_ambilightMaxBrightness / 100.0;
-        settings.ensureContrast = m_ambilightEnsureContrast;
+        settings.ensureContrast = m_ensurePerimeterContrast;
         settings.sampleWidth = contentSize.width();
         settings.sampleHeight = contentSize.height();
 
         QImage outsideCombined;
-        if (m_ambilightEnsureContrast) {
+        if (m_ensurePerimeterContrast) {
             constexpr int margin = 16;
-            const QRect topSrc = QRect(frameGeo.left(), frameGeo.top() - margin, frameGeo.width(), margin).intersected(img->rect());
-            const QRect botSrc = QRect(frameGeo.left(), frameGeo.bottom(), frameGeo.width(), margin).intersected(img->rect());
-            const QRect leftSrc = QRect(frameGeo.left() - margin, frameGeo.top(), margin, frameGeo.height()).intersected(img->rect());
-            const QRect rightSrc = QRect(frameGeo.right(), frameGeo.top(), margin, frameGeo.height()).intersected(img->rect());
+            const int left = static_cast<int>(std::floor(frameGeo.left()));
+            const int top = static_cast<int>(std::floor(frameGeo.top()));
+            const int right = static_cast<int>(std::ceil(frameGeo.right()));
+            const int bottom = static_cast<int>(std::ceil(frameGeo.bottom()));
+            const int width = right - left + 1;
+            const int height = bottom - top + 1;
+
+            const QRect topSrc = QRect(left, top - margin, width, margin).intersected(img->rect());
+            const QRect botSrc = QRect(left, bottom + 1, width, margin).intersected(img->rect());
+            const QRect leftSrc = QRect(left - margin, top, margin, height).intersected(img->rect());
+            const QRect rightSrc = QRect(right + 1, top, margin, height).intersected(img->rect());
 
             outsideCombined = QImage(kSampleDim, kOutsideDim, QImage::Format_RGBA8888);
             outsideCombined.fill(0);
@@ -1772,14 +1795,21 @@ bool ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
                 settings.previousHue = prevH;
             }
         }
-        const QColor sampledColor = OutlineAmbilight::processRgbaSamples(scaled.constBits(), contentSize.width() * contentSize.height(), settings);
-        applyNewAmbilightColor(sampledColor);
+
+        QColor newTargetColor;
+        if (m_ambilightEnabled) {
+            newTargetColor = OutlineAmbilight::processRgbaSamples(scaled.constBits(), contentSize.width() * contentSize.height(), settings);
+        } else {
+            const QColor baseColor = m_useAccentColor ? qApp->palette().color(QPalette::Highlight) : m_customColor;
+            newTargetColor = OutlineAmbilight::enforcePerimeterContrast(baseColor, scaled.constBits(), contentSize.width(), contentSize.height(), settings);
+        }
+        applyNewAmbilightColor(newTargetColor);
         return true;
     }
 
     // OpenGL compositing path:
-    if (!m_ambilightTexture || m_ambilightTexture->size() != totalFboSize) {
-        m_ambilightTexture = GLTexture::allocate(GL_RGBA8, totalFboSize);
+    if (!m_ambilightTexture || m_ambilightTexture->size() != contentSize) {
+        m_ambilightTexture = GLTexture::allocate(GL_RGBA8, contentSize);
         if (m_ambilightTexture) {
             m_ambilightFbo = std::make_unique<GLFramebuffer>(m_ambilightTexture.get());
         }
@@ -1800,32 +1830,57 @@ bool ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
         return false;
     }
 
-    if (m_ambilightEnsureContrast) {
-        constexpr int margin = 16;
-        const QRect viewRect = QRectF(viewport.renderRect()).toRect();
-        const QRect topSrc = QRect(frameGeo.left(), frameGeo.top() - margin, frameGeo.width(), margin).intersected(viewRect);
-        const QRect botSrc = QRect(frameGeo.left(), frameGeo.bottom(), frameGeo.width(), margin).intersected(viewRect);
-        const QRect leftSrc = QRect(frameGeo.left() - margin, frameGeo.top(), margin, frameGeo.height()).intersected(viewRect);
-        const QRect rightSrc = QRect(frameGeo.right(), frameGeo.top(), margin, frameGeo.height()).intersected(viewRect);
+    uint8_t windowPixels[kSampleDim * kSampleDim * 4];
+    GLFramebuffer::pushFramebuffer(m_ambilightFbo.get());
+    glReadPixels(0, 0, kSampleDim, kSampleDim, GL_RGBA, GL_UNSIGNED_BYTE, windowPixels);
+    GLFramebuffer::popFramebuffer();
 
-        if (topSrc.width() >= 4 && topSrc.height() >= 1) {
-            m_ambilightFbo->blitFromRenderTarget(renderTarget, viewport, Rect(topSrc), Rect(0, 32, 32, 2));
+    uint8_t outsidePixels[kSampleDim * kOutsideDim * 4];
+    bool hasOutside = false;
+
+    if (m_ensurePerimeterContrast) {
+        const QSize outsideSize(kSampleDim, kOutsideDim);
+        if (!m_outsideTexture || m_outsideTexture->size() != outsideSize) {
+            m_outsideTexture = GLTexture::allocate(GL_RGBA8, outsideSize);
+            if (m_outsideTexture) {
+                m_outsideFbo = std::make_unique<GLFramebuffer>(m_outsideTexture.get());
+            }
         }
-        if (botSrc.width() >= 4 && botSrc.height() >= 1) {
-            m_ambilightFbo->blitFromRenderTarget(renderTarget, viewport, Rect(botSrc), Rect(0, 34, 32, 2));
-        }
-        if (leftSrc.width() >= 1 && leftSrc.height() >= 4) {
-            m_ambilightFbo->blitFromRenderTarget(renderTarget, viewport, Rect(leftSrc), Rect(0, 36, 32, 2));
-        }
-        if (rightSrc.width() >= 1 && rightSrc.height() >= 4) {
-            m_ambilightFbo->blitFromRenderTarget(renderTarget, viewport, Rect(rightSrc), Rect(0, 38, 32, 2));
+
+        if (m_outsideFbo && m_outsideFbo->valid()) {
+            constexpr int margin = 16;
+            const QRect viewRect = QRectF(viewport.renderRect()).toRect();
+            const int left = static_cast<int>(std::floor(frameGeo.left()));
+            const int top = static_cast<int>(std::floor(frameGeo.top()));
+            const int right = static_cast<int>(std::ceil(frameGeo.right()));
+            const int bottom = static_cast<int>(std::ceil(frameGeo.bottom()));
+            const int width = right - left + 1;
+            const int height = bottom - top + 1;
+
+            const QRect topSrc = QRect(left, top - margin, width, margin).intersected(viewRect);
+            const QRect botSrc = QRect(left, bottom + 1, width, margin).intersected(viewRect);
+            const QRect leftSrc = QRect(left - margin, top, margin, height).intersected(viewRect);
+            const QRect rightSrc = QRect(right + 1, top, margin, height).intersected(viewRect);
+
+            if (topSrc.width() >= 4 && topSrc.height() >= 1) {
+                m_outsideFbo->blitFromRenderTarget(renderTarget, viewport, Rect(topSrc), Rect(0, 0, 32, 2));
+            }
+            if (botSrc.width() >= 4 && botSrc.height() >= 1) {
+                m_outsideFbo->blitFromRenderTarget(renderTarget, viewport, Rect(botSrc), Rect(0, 2, 32, 2));
+            }
+            if (leftSrc.width() >= 1 && leftSrc.height() >= 4) {
+                m_outsideFbo->blitFromRenderTarget(renderTarget, viewport, Rect(leftSrc), Rect(0, 4, 32, 2));
+            }
+            if (rightSrc.width() >= 1 && rightSrc.height() >= 4) {
+                m_outsideFbo->blitFromRenderTarget(renderTarget, viewport, Rect(rightSrc), Rect(0, 6, 32, 2));
+            }
+
+            GLFramebuffer::pushFramebuffer(m_outsideFbo.get());
+            glReadPixels(0, 0, kSampleDim, kOutsideDim, GL_RGBA, GL_UNSIGNED_BYTE, outsidePixels);
+            GLFramebuffer::popFramebuffer();
+            hasOutside = true;
         }
     }
-
-    uint8_t pixels[kSampleDim * (kSampleDim + kOutsideDim) * 4];
-    GLFramebuffer::pushFramebuffer(m_ambilightFbo.get());
-    glReadPixels(0, 0, kSampleDim, kSampleDim + kOutsideDim, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-    GLFramebuffer::popFramebuffer();
 
     if (savedFbo && GLFramebuffer::currentFramebuffer() != savedFbo) {
         GLFramebuffer::pushFramebuffer(savedFbo);
@@ -1837,11 +1892,11 @@ bool ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
     settings.fallbackStrength = m_ambilightFallbackStrength / 100.0;
     settings.minBrightness = m_ambilightMinBrightness / 100.0;
     settings.maxBrightness = m_ambilightMaxBrightness / 100.0;
-    settings.ensureContrast = m_ambilightEnsureContrast;
+    settings.ensureContrast = m_ensurePerimeterContrast;
     settings.sampleWidth = kSampleDim;
     settings.sampleHeight = kSampleDim;
-    if (m_ambilightEnsureContrast) {
-        settings.outsideRgba = pixels + (kSampleDim * kSampleDim * 4);
+    if (m_ensurePerimeterContrast && hasOutside) {
+        settings.outsideRgba = outsidePixels;
         settings.outsidePixelCount = kSampleDim * kOutsideDim;
     }
     if (m_ambilightTargetColor.isValid()) {
@@ -1852,8 +1907,14 @@ bool ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
         }
     }
 
-    const QColor sampledColor = OutlineAmbilight::processRgbaSamples(pixels, kSampleDim * kSampleDim, settings);
-    applyNewAmbilightColor(sampledColor);
+    QColor newTargetColor;
+    if (m_ambilightEnabled) {
+        newTargetColor = OutlineAmbilight::processRgbaSamples(windowPixels, kSampleDim * kSampleDim, settings);
+    } else {
+        const QColor baseColor = m_useAccentColor ? qApp->palette().color(QPalette::Highlight) : m_customColor;
+        newTargetColor = OutlineAmbilight::enforcePerimeterContrast(baseColor, windowPixels, kSampleDim, kSampleDim, settings);
+    }
+    applyNewAmbilightColor(newTargetColor);
     return true;
 }
 

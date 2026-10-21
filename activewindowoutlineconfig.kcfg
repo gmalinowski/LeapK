@@ -20,6 +20,9 @@
         <entry name="CustomColor" type="Color">
             <default>#3daee9</default>
         </entry>
+        <entry name="EnsurePerimeterContrast" type="Bool">
+            <default>true</default>
+        </entry>
 
         <!-- Ambilight Settings -->
         <entry name="AmbilightEnabled" type="Bool">

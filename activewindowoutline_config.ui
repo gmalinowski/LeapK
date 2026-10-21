@@ -90,6 +90,20 @@
        </item>
 
        <item row="3" column="0" colspan="2">
+        <widget class="QCheckBox" name="kcfg_EnsurePerimeterContrast">
+         <property name="text">
+          <string>Ensure perimeter contrast (adapt outline if it blends with window or wallpaper)</string>
+         </property>
+         <property name="toolTip">
+          <string>Monitors the window perimeter and the desktop wallpaper behind the outline. If the outline color blends into the window border or desktop background, brightness, saturation, and hue are dynamically adjusted to maintain crisp visibility across all color modes.</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+
+       <item row="4" column="0" colspan="2">
         <widget class="QGroupBox" name="groupAmbilight">
          <property name="title">
           <string>Ambilight (Adaptive Window Color)</string>
@@ -410,16 +424,6 @@
            </widget>
           </item>
           <item row="10" column="0" colspan="2">
-           <widget class="QCheckBox" name="kcfg_AmbilightEnsureContrast">
-            <property name="text">
-             <string>Ensure perimeter contrast (prevent blending with window edges)</string>
-            </property>
-            <property name="toolTip">
-             <string>Analyzes the window borders and perimeter where the outline is drawn. If window edges or title bars match the outline color or are dark, brightness and saturation are dynamically adjusted so the outline never blends in.</string>
-            </property>
-           </widget>
-          </item>
-          <item row="11" column="0" colspan="2">
            <widget class="QLabel" name="label_ambilightWarning">
             <property name="text">
              <string>💡 Tip: 1.5 Hz is ideal for everyday desktop tasks and web browsing. For movies, video streams, or gaming, higher frequencies (like 3.0–6.0 Hz in Vivid or True Ambilight) provide seamless real-time color tracking.</string>
@@ -433,14 +437,14 @@
         </widget>
        </item>
 
-       <item row="4" column="0">
+       <item row="5" column="0">
         <widget class="QLabel" name="label_borderWidth">
          <property name="text">
           <string>Border width:</string>
          </property>
         </widget>
        </item>
-       <item row="4" column="1">
+       <item row="5" column="1">
         <widget class="QSpinBox" name="kcfg_BorderWidth">
          <property name="minimum">
           <number>1</number>
@@ -457,14 +461,14 @@
         </widget>
        </item>
 
-       <item row="5" column="0">
+       <item row="6" column="0">
         <widget class="QLabel" name="label_outlineGap">
          <property name="text">
           <string>Outline offset:</string>
          </property>
         </widget>
        </item>
-       <item row="5" column="1">
+       <item row="6" column="1">
         <widget class="QSpinBox" name="kcfg_OutlineGap">
          <property name="minimum">
           <number>0</number>
@@ -481,14 +485,14 @@
         </widget>
        </item>
 
-       <item row="6" column="0">
+       <item row="7" column="0">
         <widget class="QLabel" name="label_borderRadius">
          <property name="text">
           <string>Border radius:</string>
          </property>
         </widget>
        </item>
-       <item row="6" column="1">
+       <item row="7" column="1">
         <widget class="QSpinBox" name="kcfg_BorderRadius">
          <property name="minimum">
           <number>0</number>
@@ -505,7 +509,7 @@
         </widget>
        </item>
 
-       <item row="7" column="0" colspan="2">
+       <item row="8" column="0" colspan="2">
         <widget class="QCheckBox" name="kcfg_FadeCorners">
          <property name="text">
           <string>Fade out corners (highlight edges only)</string>
@@ -519,14 +523,14 @@
         </widget>
        </item>
 
-       <item row="8" column="0">
+       <item row="9" column="0">
         <widget class="QLabel" name="label_drawInside">
          <property name="text">
           <string>Draw inside window:</string>
          </property>
         </widget>
        </item>
-       <item row="8" column="1">
+       <item row="9" column="1">
         <widget class="QCheckBox" name="kcfg_DrawInside">
          <property name="checked">
           <bool>true</bool>
@@ -534,7 +538,7 @@
         </widget>
        </item>
 
-       <item row="9" column="0" colspan="2">
+       <item row="10" column="0" colspan="2">
         <widget class="QCheckBox" name="kcfg_SmoothEdges">
          <property name="text">
           <string>Smooth edges</string>
@@ -545,7 +549,7 @@
         </widget>
        </item>
 
-       <item row="10" column="0" colspan="2">
+       <item row="11" column="0" colspan="2">
         <widget class="QCheckBox" name="kcfg_GlowEnabled">
          <property name="text">
           <string>Soft glow</string>
@@ -556,14 +560,14 @@
         </widget>
        </item>
 
-       <item row="11" column="0">
+       <item row="12" column="0">
         <widget class="QLabel" name="label_glowRadius">
          <property name="text">
           <string>Glow size:</string>
          </property>
         </widget>
        </item>
-       <item row="11" column="1">
+       <item row="12" column="1">
         <widget class="QSpinBox" name="kcfg_GlowRadius">
          <property name="minimum">
           <number>1</number>
@@ -580,7 +584,7 @@
         </widget>
        </item>
 
-       <item row="12" column="0" colspan="2">
+       <item row="13" column="0" colspan="2">
         <widget class="QLabel" name="label_info">
          <property name="text">
           <string>ℹ️ “Draw inside” keeps the outline visible on maximized and tiled windows. When disabled, the outline is drawn outside the window.</string>
@@ -594,14 +598,14 @@
         </widget>
        </item>
 
-       <item row="13" column="0">
+       <item row="14" column="0">
         <widget class="QLabel" name="label_version">
          <property name="text">
           <string>Version:</string>
          </property>
         </widget>
        </item>
-       <item row="13" column="1">
+       <item row="14" column="1">
         <layout class="QHBoxLayout" name="layoutVersion">
          <property name="spacing">
           <number>10</number>

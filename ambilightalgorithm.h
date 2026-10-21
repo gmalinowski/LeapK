@@ -644,10 +644,10 @@ inline QColor enforcePerimeterContrast(const QColor &targetColor, const uint8_t 
     // If outside wallpaper is chromatic and outline clashes with it, shift hue away from wallpaper
     if (st >= 0.20f && outHasColor && clashesWith(ht, outH, outHasColor)) {
         for (int attempt = 0; attempt < 4; ++attempt) {
+            ht = std::fmod(ht + 0.25f, 1.0f);
             if (!clashesWith(ht, outH, outHasColor) && !clashesWith(ht, hp, insideHasColor)) {
                 break;
             }
-            ht = std::fmod(ht + 0.25f, 1.0f);
         }
     }
 
@@ -667,6 +667,18 @@ inline QColor enforcePerimeterContrast(const QColor &targetColor, const uint8_t 
                 lt = qBound<qreal>(settings.minBrightness, 0.56, settings.maxBrightness);
                 st = qMin<qreal>(1.0, qMax<qreal>(st, 0.82));
             }
+
+            // Ensure sufficient lightness separation from window edge if hue is similar
+            qreal hueDiffInside = std::abs(ht - hp);
+            if (hueDiffInside > 0.5) hueDiffInside = 1.0 - hueDiffInside;
+            if (insideHasColor && hueDiffInside < 0.12 && std::abs(lt - lp) < 0.25) {
+                if (lp >= 0.50) {
+                    lt = qBound<qreal>(settings.minBrightness, qMin<qreal>(lt, lp - 0.28), 0.42);
+                } else {
+                    lt = qBound<qreal>(0.65, qMax<qreal>(lt, lp + 0.28), settings.maxBrightness);
+                }
+            }
+
             return QColor::fromHslF(qBound<qreal>(0.0, ht, 1.0), st, lt);
         } else {
             // Monochrome outline
@@ -709,7 +721,7 @@ inline QColor enforcePerimeterContrast(const QColor &targetColor, const uint8_t 
                 return QColor::fromHslF(qBound<qreal>(0.0, ht, 1.0), richS, richL);
             }
         }
-        return targetColor;
+        return QColor::fromHslF(qBound<qreal>(0.0, ht, 1.0), st, lt);
     }
 
     // Case 2: Perimeter is predominantly DARK (lp < 0.50)
@@ -745,7 +757,7 @@ inline QColor enforcePerimeterContrast(const QColor &targetColor, const uint8_t 
         }
     }
 
-    return targetColor;
+    return QColor::fromHslF(qBound<qreal>(0.0, ht, 1.0), st, lt);
 }
 
 /**

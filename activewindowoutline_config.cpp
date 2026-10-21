@@ -112,7 +112,7 @@ bool matchesPreset(Ui::ActiveWindowOutlineConfigForm *ui, const AmbilightPreset 
     if (p.mode == 0 && ui->kcfg_AmbilightFallbackStrength->value() != p.fallbackStrength) return false;
     if (ui->kcfg_AmbilightMinBrightness->value() != p.minBrightness) return false;
     if (ui->kcfg_AmbilightMaxBrightness->value() != p.maxBrightness) return false;
-    if (ui->kcfg_AmbilightEnsureContrast->isChecked() != p.ensureContrast) return false;
+    if (ui->kcfg_EnsurePerimeterContrast->isChecked() != p.ensureContrast) return false;
     return true;
 }
 
@@ -145,6 +145,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemBool(QStringLiteral("UseAccentColor"), *new bool, true);
     m_configSkeleton->addItemInt(QStringLiteral("AccentOpacity"), *new int, 66);
     m_configSkeleton->addItemColor(QStringLiteral("CustomColor"), *new QColor, QColor(61, 174, 233));
+    m_configSkeleton->addItemBool(QStringLiteral("EnsurePerimeterContrast"), *new bool, true);
     m_configSkeleton->addItemBool(QStringLiteral("AmbilightEnabled"), *new bool, false);
     m_configSkeleton->addItemInt(QStringLiteral("AmbilightMode"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("AmbilightOpacity"), *new int, 100);
@@ -326,9 +327,10 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
         m_ui->kcfg_AmbilightMinBrightness->setEnabled(allowAmbilightDetails);
         m_ui->label_ambilightMaxBrightness->setEnabled(allowAmbilightDetails);
         m_ui->kcfg_AmbilightMaxBrightness->setEnabled(allowAmbilightDetails);
-        m_ui->kcfg_AmbilightEnsureContrast->setEnabled(allowAmbilightDetails);
+        m_ui->kcfg_EnsurePerimeterContrast->setEnabled(!colorCycle);
         m_ui->label_ambilightWarning->setEnabled(allowAmbilightDetails);
     };
+    connect(m_ui->kcfg_EnsurePerimeterContrast, &QCheckBox::toggled, this, updateColorEnabled);
     connect(m_ui->kcfg_UseAccentColor, &QCheckBox::toggled, this, updateColorEnabled);
     connect(m_ui->kcfg_AmbilightEnabled, &QCheckBox::toggled, this, updateColorEnabled);
     connect(m_ui->kcfg_AmbilightMode, &QComboBox::currentIndexChanged, this, updateColorEnabled);
@@ -369,7 +371,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
         m_ui->kcfg_AmbilightFallbackStrength->setValue(p.fallbackStrength);
         m_ui->kcfg_AmbilightMinBrightness->setValue(p.minBrightness);
         m_ui->kcfg_AmbilightMaxBrightness->setValue(p.maxBrightness);
-        m_ui->kcfg_AmbilightEnsureContrast->setChecked(p.ensureContrast);
+        m_ui->kcfg_EnsurePerimeterContrast->setChecked(p.ensureContrast);
         m_isApplyingPreset = false;
         updateColorEnabled();
         markAsChanged();
@@ -388,7 +390,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->kcfg_AmbilightFallbackStrength, &QSpinBox::valueChanged, this, onAmbilightValueChanged);
     connect(m_ui->kcfg_AmbilightMinBrightness, &QSpinBox::valueChanged, this, onAmbilightValueChanged);
     connect(m_ui->kcfg_AmbilightMaxBrightness, &QSpinBox::valueChanged, this, onAmbilightValueChanged);
-    connect(m_ui->kcfg_AmbilightEnsureContrast, &QCheckBox::toggled, this, onAmbilightValueChanged);
+    connect(m_ui->kcfg_EnsurePerimeterContrast, &QCheckBox::toggled, this, onAmbilightValueChanged);
 
     auto updateGlowEnabled = [this] {
         const bool enabled = m_ui->kcfg_GlowEnabled->isChecked();
@@ -684,6 +686,8 @@ void ActiveWindowOutlineConfig::load()
 {
     KCModule::load();
     KConfigGroup group = KSharedConfig::openConfig(QStringLiteral("kwinrc"))->group(QStringLiteral("Effect-active-window-outline"));
+    const bool ensureContrast = group.readEntry("EnsurePerimeterContrast", group.readEntry("AmbilightEnsureContrast", true));
+    m_ui->kcfg_EnsurePerimeterContrast->setChecked(ensureContrast);
     populateColorTable(group.readEntry(QStringLiteral("ColorList"), QStringLiteral("#3daee9:3.0;#2ecc71:3.0;#9b59b6:3.0")));
     updatePresetSelector();
     const bool fadeCorners = m_ui->kcfg_FadeCorners->isChecked();
@@ -855,6 +859,7 @@ void ActiveWindowOutlineConfig::save()
 
     KConfigGroup group = KSharedConfig::openConfig(QStringLiteral("kwinrc"))->group(QStringLiteral("Effect-active-window-outline"));
     group.writeEntry(QStringLiteral("ColorList"), serializeColorTable());
+    group.writeEntry(QStringLiteral("AmbilightEnsureContrast"), m_ui->kcfg_EnsurePerimeterContrast->isChecked());
     group.sync();
 
     QDBusMessage message = QDBusMessage::createMethodCall(

@@ -826,6 +826,134 @@ int main()
         check(diffBlue >= 0.15, "two-sided contrast: contrasts with blue wallpaper outside (diff >= 0.15)");
     }
 
+    // 22. Global perimeter contrast on static custom colors & KDE accent colors
+    // Verifies that when Ensure Perimeter Contrast is active globally, static colors
+    // (such as static green or system accent blue) dynamically adapt if they clash with
+    // the window border or desktop wallpaper.
+    {
+        constexpr int kGrid = 16;
+        constexpr int kTotal = kGrid * kGrid;
+        std::vector<uint8_t> darkWindow(kTotal * 4, 30);
+        for (int i = 0; i < kTotal; ++i) {
+            darkWindow[i * 4 + 3] = 255;
+        }
+
+        constexpr int kOutPixels = 32 * 8;
+        // Rich green wallpaper (RGB 30, 200, 50 -> H ~ 0.35)
+        std::vector<uint8_t> greenWallpaper(kOutPixels * 4);
+        for (int i = 0; i < kOutPixels; ++i) {
+            greenWallpaper[i * 4 + 0] = 30;
+            greenWallpaper[i * 4 + 1] = 200;
+            greenWallpaper[i * 4 + 2] = 50;
+            greenWallpaper[i * 4 + 3] = 255;
+        }
+
+        // Rich blue wallpaper (RGB 20, 100, 220 -> H ~ 0.59)
+        std::vector<uint8_t> blueWallpaper(kOutPixels * 4);
+        for (int i = 0; i < kOutPixels; ++i) {
+            blueWallpaper[i * 4 + 0] = 20;
+            blueWallpaper[i * 4 + 1] = 100;
+            blueWallpaper[i * 4 + 2] = 220;
+            blueWallpaper[i * 4 + 3] = 255;
+        }
+
+        // 22a. Static green outline on green wallpaper:
+        // User sets custom color to green (H ~ 0.33), wallpaper is green (H ~ 0.35).
+        // enforcePerimeterContrast must shift hue away so the outline does not blend in!
+        const QColor staticGreen(0, 255, 0);
+        Settings greenSettings;
+        greenSettings.ensureContrast = true;
+        greenSettings.sampleWidth = kGrid;
+        greenSettings.sampleHeight = kGrid;
+        greenSettings.outsideRgba = greenWallpaper.data();
+        greenSettings.outsidePixelCount = kOutPixels;
+
+        const QColor adjustedGreen = enforcePerimeterContrast(staticGreen, darkWindow.data(), kGrid, kGrid, greenSettings);
+        float hg = 0.0f, sg = 0.0f, lg = 0.0f;
+        adjustedGreen.getHslF(&hg, &sg, &lg);
+
+        qreal diffWallpaper = std::abs(hg - 0.35f);
+        if (diffWallpaper > 0.5) diffWallpaper = 1.0 - diffWallpaper;
+        check(diffWallpaper >= 0.15, "global contrast: static green shifts away from green wallpaper (diff >= 0.15)");
+        check(sg >= 0.75, "global contrast: shifted outline retains high saturation");
+
+        // 22b. Static green on green wallpaper with ensureContrast = false:
+        // Preserves static green without shifting.
+        Settings noContrast = greenSettings;
+        noContrast.ensureContrast = false;
+        const QColor rawGreen = enforcePerimeterContrast(staticGreen, darkWindow.data(), kGrid, kGrid, noContrast);
+        check(rawGreen == staticGreen, "global contrast disabled: static green is preserved exactly");
+
+        // 22c. System accent blue on blue wallpaper:
+        // KDE Highlight is blue (H ~ 0.58), wallpaper is blue.
+        // enforcePerimeterContrast must shift hue away from blue!
+        const QColor accentBlue(29, 153, 243);
+        Settings blueSettings;
+        blueSettings.ensureContrast = true;
+        blueSettings.sampleWidth = kGrid;
+        blueSettings.sampleHeight = kGrid;
+        blueSettings.outsideRgba = blueWallpaper.data();
+        blueSettings.outsidePixelCount = kOutPixels;
+
+        const QColor adjustedBlue = enforcePerimeterContrast(accentBlue, darkWindow.data(), kGrid, kGrid, blueSettings);
+        float hb = 0.0f, sb = 0.0f, lb = 0.0f;
+        adjustedBlue.getHslF(&hb, &sb, &lb);
+
+        qreal diffBlueWp = std::abs(hb - 0.58f);
+        if (diffBlueWp > 0.5) diffBlueWp = 1.0 - diffBlueWp;
+        check(diffBlueWp >= 0.15, "global contrast: system accent blue shifts away from blue wallpaper (diff >= 0.15)");
+
+        // 22d. Window edge inside has green borders, wallpaper is neutral dark:
+        // staticGreen clashes with window border inside: shifts hue away from green!
+        std::vector<uint8_t> greenBorderWindow = darkWindow;
+        for (int y = 0; y < kGrid; ++y) {
+            for (int x = 0; x < kGrid; ++x) {
+                if (y < 2 || y >= kGrid - 2 || x < 2 || x >= kGrid - 2) {
+                    const int idx = (y * kGrid + x) * 4;
+                    greenBorderWindow[idx + 0] = 30;
+                    greenBorderWindow[idx + 1] = 220;
+                    greenBorderWindow[idx + 2] = 40;
+                }
+            }
+        }
+        std::vector<uint8_t> neutralDarkWallpaper(kOutPixels * 4, 25);
+        for (int i = 0; i < kOutPixels; ++i) neutralDarkWallpaper[i * 4 + 3] = 255;
+
+        Settings insideSettings = greenSettings;
+        insideSettings.outsideRgba = neutralDarkWallpaper.data();
+        const QColor adjustedInside = enforcePerimeterContrast(staticGreen, greenBorderWindow.data(), kGrid, kGrid, insideSettings);
+        float hi = 0.0f, si = 0.0f, li = 0.0f;
+        adjustedInside.getHslF(&hi, &si, &li);
+
+        qreal diffInside = std::abs(hi - 0.34f);
+        if (diffInside > 0.5) diffInside = 1.0 - diffInside;
+        const qreal lightDiffInside = std::abs(li - 0.49);
+        check(lightDiffInside >= 0.20 || diffInside >= 0.15, "global contrast: static green contrasts with green window edge inside (diff >= 0.15 or lightDiff >= 0.20)");
+
+        // 22e. Static color on dark window + dark wallpaper:
+        // Luminous bright neon boost (L >= 0.65)
+        const QColor redBase(200, 30, 30);
+        const QColor adjustedDark = enforcePerimeterContrast(redBase, darkWindow.data(), kGrid, kGrid, insideSettings);
+        float hd = 0.0f, sd = 0.0f, ld = 0.0f;
+        adjustedDark.getHslF(&hd, &sd, &ld);
+        check(ld >= 0.65, "global contrast: boosts lightness on dark window + dark wallpaper (L >= 0.65)");
+
+        // 22f. Static pastel on white window + white wallpaper:
+        // Rich accent darkening (L <= 0.45)
+        std::vector<uint8_t> whiteWindow(kTotal * 4, 245);
+        for (int i = 0; i < kTotal; ++i) whiteWindow[i * 4 + 3] = 255;
+        std::vector<uint8_t> whiteWallpaper(kOutPixels * 4, 250);
+        for (int i = 0; i < kOutPixels; ++i) whiteWallpaper[i * 4 + 3] = 255;
+
+        Settings whiteSettings = greenSettings;
+        whiteSettings.outsideRgba = whiteWallpaper.data();
+        const QColor pastelRed(255, 180, 180);
+        const QColor adjustedLight = enforcePerimeterContrast(pastelRed, whiteWindow.data(), kGrid, kGrid, whiteSettings);
+        float hl = 0.0f, sl = 0.0f, ll = 0.0f;
+        adjustedLight.getHslF(&hl, &sl, &ll);
+        check(ll <= 0.45, "global contrast: deepens lightness on white window + white wallpaper (L <= 0.45)");
+    }
+
     std::printf("ambilight_test: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

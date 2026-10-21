@@ -4,6 +4,25 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.24] - 2026-10-21
+
+### Added
+- **Global Perimeter Contrast Enforcement (`EnsurePerimeterContrast`)**:
+  - Promoted "Ensure perimeter contrast" to a top-level setting in the Appearance tab, functioning globally across all color modes:
+    - **Static Custom Color**: When a static color (e.g. green) is chosen, the engine monitors the perimeter. If the static color blends with the window border or desktop wallpaper, the outline dynamically adjusts lightness and shifts hue to maintain clear separation.
+    - **KDE Accent Color**: When using system accent color (e.g. Breeze Blue), the outline adjusts if it clashes with the wallpaper (e.g. blue outline on blue wallpaper) or dark window frames.
+    - **Ambilight (Adaptive Color)**: Continues to ensure Ambilight outlines never blend with window edges or wallpapers.
+  - Backwards-compatible with older configs by automatically reading and synchronizing both `EnsurePerimeterContrast` and `AmbilightEnsureContrast`.
+
+### Fixed
+- **Accurate Outside Perimeter Sampling & FBO Separation**:
+  - Separated window content sampling and desktop wallpaper sampling into two dedicated framebuffers (`m_ambilightFbo` 32x32 and `m_outsideFbo` 32x8), eliminating coordinate inversion and row-offset overlap where window tabs were mistakenly sampled as outside wallpaper.
+  - Expanded `expandedGeometryFor` repaint region by 18px when perimeter contrast is active, ensuring KWin compositing repaints the desktop wallpaper band around the active window so fresh wallpaper pixels are always available for contrast evaluation.
+  - Used strict outward-bounding rectangles (`top - margin` to `top - 1`, `bottom + 1` to `bottom + margin`, `left - margin` to `left - 1`, `right + 1` to `right + margin`) preventing window border pixels from contaminating wallpaper samples.
+- **Two-Sided Contrast Separation**:
+  - Ensured hue shifting only triggers when the outline clashes with the background desktop wallpaper (`outHasColor`), preserving authentic window accent matches while preventing outlines from blending into the desktop wallpaper.
+  - When the outline hue matches the window edge inside, enforced at least 0.28 lightness separation so the outline remains distinct and visible against the window frame.
+
 ## [1.4.23] - 2026-10-21
 
 ### Fixed

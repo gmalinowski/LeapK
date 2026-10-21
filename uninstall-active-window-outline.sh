@@ -75,7 +75,7 @@ else
 fi
 
 echo "[3/4] Removing the effect settings…"
-for key in UseAccentColor AccentOpacity CustomColor BorderWidth OutlineGap \
+for key in UseAccentColor AccentOpacity CustomColor EnsurePerimeterContrast BorderWidth OutlineGap \
            AmbilightEnabled AmbilightMode AmbilightOpacity AmbilightFrequency AmbilightDuration AmbilightSaturationBoost AmbilightSaturationLeveling AmbilightFallbackStrength AmbilightMinBrightness AmbilightMaxBrightness AmbilightEnsureContrast \
            BorderRadius FadeCorners DrawInside SmoothEdges GlowEnabled GlowRadius HideOnFullScreen \
            ColorCycleEnabled ColorList ColorTransitionDuration ColorCycleOrder ColorCycleEasing \

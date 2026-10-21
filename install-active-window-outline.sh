@@ -249,6 +249,7 @@ set_default() {
 set_default UseAccentColor true
 set_default AccentOpacity 66
 set_default CustomColor "61, 174, 233"
+set_default EnsurePerimeterContrast true
 set_default AmbilightEnabled false
 set_default AmbilightMode 0
 set_default AmbilightOpacity 100
