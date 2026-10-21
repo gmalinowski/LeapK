@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.22] - 2026-10-21
+
+### Added
+- **Two-Sided Perimeter Contrast Enforcement (Window Edge + Desktop Wallpaper)**:
+  - `Ensure Perimeter Contrast` now samples and enforces contrast in **both directions simultaneously**:
+    1. **Outside the window**: Samples the 4 outer collar strips (16px surrounding `frameGeometry`) from the desktop scene, capturing the underlying desktop wallpaper or background windows.
+    2. **Inside the window**: Samples the window's own inner perimeter (titlebar, borders, decorations).
+  - If the outline's candidate or detected hue clashes with the desktop wallpaper outside (e.g. blue outline on a blue wallpaper, $|\Delta H| < 0.15$), the hue rotates away in $+0.25$ quadrant steps until it contrasts cleanly with **both** the wallpaper and the window edge.
+  - Lightness is tuned to contrast against both sides:
+    - If both sides are dark (e.g. dark terminal on dark wallpaper), outline is luminous neon ($L \ge 0.70$).
+    - If both sides are light (e.g. light document on light wallpaper), outline is deep dark ($L \le 0.44$).
+    - If one side is dark and one side is light, outline settles on a punchy midtone ($L \approx 0.56$) that clearly pops against both.
+
 ## [1.4.21] - 2026-10-21
 
 ### Fixed

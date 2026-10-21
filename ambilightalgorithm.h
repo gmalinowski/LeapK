@@ -26,9 +26,11 @@ struct Settings
     qreal minBrightness = 0.25;      // 0.0 - 1.0 (25%)
     qreal maxBrightness = 0.85;      // 0.0 - 1.0 (85%)
     float previousHue = -1.0f;       // For hysteresis/stickiness in Dominant mode [0.0, 1.0]
-    bool ensureContrast = true;      // Guarantees contrast against window perimeter/borders
+    bool ensureContrast = true;      // Guarantees contrast against window perimeter/borders & desktop background
     int sampleWidth = 32;            // Grid width of the sampled RGBA buffer
     int sampleHeight = 32;           // Grid height of the sampled RGBA buffer
+    const uint8_t *outsideRgba = nullptr; // Samples immediately outside the window (wallpaper / desktop background)
+    int outsidePixelCount = 0;            // Number of sampled pixels in outsideRgba
 };
 
 /**
@@ -167,15 +169,18 @@ inline QColor processBalancedAverage(const uint8_t *rgba, int pixelCount, const 
  * (e.g. monochrome dark or white windows, black-and-white text documents, terminals):
  * - Black, white, and shades of gray are completely excluded in Accent/Smart modes.
  * - Starts from candidate hue (settings.previousHue if valid, or KDE Breeze Blue 0.555).
- * - If settings.ensureContrast is enabled: samples the window perimeter. If the perimeter
- *   is chromatic and clashes with the candidate hue, shifts the hue (by +0.25, up to 4 attempts)
- *   until a high-contrast hue is found. Tunes lightness for maximum contrast against perimeter.
+ * - If settings.ensureContrast is enabled: checks contrast in BOTH directions:
+ *     1. Inside the window: samples the window perimeter (decorations/frame/edges).
+ *     2. Outside the window: samples the desktop background / wallpaper surrounding the window.
+ *   If the candidate hue clashes with either side, shifts the hue (by +0.25, up to 4 attempts)
+ *   until a high-contrast hue is found. Tunes lightness for maximum contrast against both sides.
  * - If settings.ensureContrast is disabled: uses candidate hue directly without perimeter shifting.
  */
 inline QColor resolveFallbackAccent(const uint8_t *rgba, int width, int height, const Settings &settings)
 {
     float candidateH = (settings.previousHue >= 0.0f && settings.previousHue <= 1.0f) ? settings.previousHue : 0.555f;
     float perimH = 0.0f, perimS = 0.0f, perimL = 0.5f;
+    bool insideHasColor = false;
 
     if (settings.ensureContrast && rgba && width >= 4 && height >= 4) {
         qreal sumR = 0.0, sumG = 0.0, sumB = 0.0;
@@ -212,23 +217,85 @@ inline QColor resolveFallbackAccent(const uint8_t *rgba, int width, int height, 
             const QColor perimColor(avgR, avgG, avgB);
             perimColor.getHslF(&perimH, &perimS, &perimL);
 
-            // If the perimeter has color, shift candidate hue until no color clash (bounded to 4 steps)
-            if (perimS >= 0.18f) {
-                for (int attempt = 0; attempt < 4; ++attempt) {
-                    qreal diff = std::abs(candidateH - perimH);
-                    if (diff > 0.5) diff = 1.0 - diff;
-                    if (diff >= 0.15) {
-                        break; // Contrast achieved
-                    }
-                    candidateH = std::fmod(candidateH + 0.25f, 1.0f);
-                }
+            const qreal chroma = (std::max({avgR, avgG, avgB}) - std::min({avgR, avgG, avgB})) / 255.0;
+            if (perimS >= 0.18f && chroma >= 0.08) {
+                insideHasColor = true;
             }
         }
     }
 
+    // Analyze outside perimeter (desktop wallpaper / background behind window outline)
+    float outH = 0.0f, outS = 0.0f, outL = 0.5f;
+    bool outHasColor = false;
+    bool hasOutside = false;
+
+    if (settings.ensureContrast && settings.outsideRgba && settings.outsidePixelCount > 0) {
+        qreal sumR = 0.0, sumG = 0.0, sumB = 0.0;
+        int totalCount = 0;
+        for (int i = 0; i < settings.outsidePixelCount; ++i) {
+            const int idx = i * 4;
+            const int r = settings.outsideRgba[idx + 0];
+            const int g = settings.outsideRgba[idx + 1];
+            const int b = settings.outsideRgba[idx + 2];
+            const int a = settings.outsideRgba[idx + 3];
+            if (a >= 25) {
+                sumR += r;
+                sumG += g;
+                sumB += b;
+                totalCount++;
+            }
+        }
+        if (totalCount > 0) {
+            hasOutside = true;
+            const int avgR = qBound(0, qRound(sumR / totalCount), 255);
+            const int avgG = qBound(0, qRound(sumG / totalCount), 255);
+            const int avgB = qBound(0, qRound(sumB / totalCount), 255);
+            const QColor outColor(avgR, avgG, avgB);
+            outColor.getHslF(&outH, &outS, &outL);
+
+            const qreal chroma = (std::max({avgR, avgG, avgB}) - std::min({avgR, avgG, avgB})) / 255.0;
+            if (outS >= 0.18f && chroma >= 0.08) {
+                outHasColor = true;
+            }
+        }
+    }
+
+    // Shift candidate hue if it clashes with either inside (window) or outside (wallpaper)
+    if (settings.ensureContrast && (insideHasColor || outHasColor)) {
+        const auto clashesWith = [](float cand, float targetH, bool active) {
+            if (!active) return false;
+            qreal diff = std::abs(cand - targetH);
+            if (diff > 0.5) diff = 1.0 - diff;
+            return (diff < 0.15);
+        };
+
+        for (int attempt = 0; attempt < 4; ++attempt) {
+            if (!clashesWith(candidateH, perimH, insideHasColor) &&
+                !clashesWith(candidateH, outH, outHasColor)) {
+                break; // Achieved contrast with both inside and outside
+            }
+            candidateH = std::fmod(candidateH + 0.25f, 1.0f);
+        }
+    }
+
     const qreal targetS = qBound<qreal>(0.75, qMax<qreal>(settings.saturationLeveling, 0.85), 1.0);
-    const qreal targetL = (perimL >= 0.50) ? qBound<qreal>(settings.minBrightness, 0.40, 0.44)
-                                         : qBound<qreal>(0.68, settings.maxBrightness, 0.78);
+    qreal targetL = 0.50;
+
+    if (!hasOutside) {
+        targetL = (perimL >= 0.50) ? qBound<qreal>(settings.minBrightness, 0.40, 0.44)
+                                   : qBound<qreal>(0.68, settings.maxBrightness, 0.78);
+    } else {
+        if (perimL >= 0.50 && outL >= 0.50) {
+            // Both inside and outside are light -> deep, dark contrasting tone
+            targetL = qBound<qreal>(settings.minBrightness, 0.40, 0.44);
+        } else if (perimL < 0.50 && outL < 0.50) {
+            // Both inside and outside are dark -> luminous bright neon tone
+            targetL = qBound<qreal>(0.68, settings.maxBrightness, 0.78);
+        } else {
+            // One side light, one side dark -> midtone pop that stands out on both
+            targetL = qBound<qreal>(settings.minBrightness, 0.56, settings.maxBrightness);
+        }
+    }
 
     return QColor::fromHslF(qBound<qreal>(0.0, candidateH, 1.0), targetS, targetL);
 }
@@ -530,6 +597,94 @@ inline QColor enforcePerimeterContrast(const QColor &targetColor, const uint8_t 
     float ht = 0.0f, st = 0.0f, lt = 0.0f;
     targetColor.getHslF(&ht, &st, &lt);
 
+    const qreal insideChroma = (std::max({avgR, avgG, avgB}) - std::min({avgR, avgG, avgB})) / 255.0;
+    const bool insideHasColor = (sp >= 0.18f && insideChroma >= 0.08);
+
+    // Analyze outside perimeter (desktop wallpaper / background behind window outline)
+    float outH = 0.0f, outS = 0.0f, outL = 0.5f;
+    bool hasOutside = false;
+    bool outHasColor = false;
+
+    if (settings.outsideRgba && settings.outsidePixelCount > 0) {
+        qreal sumOutR = 0.0, sumOutG = 0.0, sumOutB = 0.0;
+        int outCount = 0;
+        for (int i = 0; i < settings.outsidePixelCount; ++i) {
+            const int idx = i * 4;
+            const int r = settings.outsideRgba[idx + 0];
+            const int g = settings.outsideRgba[idx + 1];
+            const int b = settings.outsideRgba[idx + 2];
+            const int a = settings.outsideRgba[idx + 3];
+            if (a >= 25) {
+                sumOutR += r;
+                sumOutG += g;
+                sumOutB += b;
+                outCount++;
+            }
+        }
+        if (outCount > 0) {
+            hasOutside = true;
+            const int avgOutR = qBound(0, qRound(sumOutR / outCount), 255);
+            const int avgOutG = qBound(0, qRound(sumOutG / outCount), 255);
+            const int avgOutB = qBound(0, qRound(sumOutB / outCount), 255);
+            const QColor outColor(avgOutR, avgOutG, avgOutB);
+            outColor.getHslF(&outH, &outS, &outL);
+
+            const qreal outChroma = (std::max({avgOutR, avgOutG, avgOutB}) - std::min({avgOutR, avgOutG, avgOutB})) / 255.0;
+            if (outS >= 0.18f && outChroma >= 0.08) {
+                outHasColor = true;
+            }
+        }
+    }
+
+    const auto clashesWith = [](float cand, float targetH, bool active) {
+        if (!active) return false;
+        qreal diff = std::abs(cand - targetH);
+        if (diff > 0.5) diff = 1.0 - diff;
+        return (diff < 0.15);
+    };
+
+    // If outside wallpaper is chromatic and outline clashes with it, shift hue away from wallpaper
+    if (st >= 0.20f && outHasColor && clashesWith(ht, outH, outHasColor)) {
+        for (int attempt = 0; attempt < 4; ++attempt) {
+            if (!clashesWith(ht, outH, outHasColor) && !clashesWith(ht, hp, insideHasColor)) {
+                break;
+            }
+            ht = std::fmod(ht + 0.25f, 1.0f);
+        }
+    }
+
+    // Two-sided lightness contrast when outside wallpaper is available
+    if (hasOutside) {
+        if (st >= 0.20f) {
+            if (lp >= 0.50 && outL >= 0.50) {
+                // Both inside and outside are light -> deep, rich accent tone
+                lt = qBound<qreal>(settings.minBrightness, qMin<qreal>(lt, 0.42), 0.45);
+                st = qMin<qreal>(1.0, qMax<qreal>(st, 0.82));
+            } else if (lp < 0.50 && outL < 0.50) {
+                // Both inside and outside are dark -> luminous bright neon tone
+                lt = qBound<qreal>(0.65, qMax<qreal>(lt, 0.70), settings.maxBrightness);
+                st = qMin<qreal>(1.0, qMax<qreal>(st, 0.85));
+            } else {
+                // One side light, one side dark -> vivid midtone pop contrasting with both
+                lt = qBound<qreal>(settings.minBrightness, 0.56, settings.maxBrightness);
+                st = qMin<qreal>(1.0, qMax<qreal>(st, 0.82));
+            }
+            return QColor::fromHslF(qBound<qreal>(0.0, ht, 1.0), st, lt);
+        } else {
+            // Monochrome outline
+            if (lp >= 0.50 && outL >= 0.50) {
+                const qreal darkL = qBound<qreal>(settings.minBrightness, 0.25, 0.28);
+                return QColor::fromHslF(0.0, 0.0, darkL);
+            } else if (lp < 0.50 && outL < 0.50) {
+                const qreal brightL = qBound<qreal>(0.80, settings.maxBrightness, 1.0);
+                return QColor::fromHslF(0.0, 0.0, brightL);
+            } else {
+                return QColor::fromHslF(0.0, 0.0, 0.55);
+            }
+        }
+    }
+
+    // Single-sided contrast (inside window edge only, when outside is not available)
     // Circular hue difference [0.0, 0.5]
     qreal hueDiff = std::abs(ht - hp);
     if (hueDiff > 0.5) {

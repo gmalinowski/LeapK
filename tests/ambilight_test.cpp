@@ -738,6 +738,94 @@ int main()
         check(diffNoShift < 0.05, "hue shifting off: preserves candidate hue when ensureContrast is false");
     }
 
+    // 21. Two-sided perimeter contrast check (inside window edge + outside desktop wallpaper)
+    // Verifies that the outline checks contrast in BOTH directions:
+    // - From outside the window (wallpaper / desktop background)
+    // - From inside the window (window border / titlebar)
+    {
+        constexpr int kGrid = 16;
+        constexpr int kTotal = kGrid * kGrid;
+        std::vector<uint8_t> darkWindow(kTotal * 4);
+        for (int i = 0; i < kTotal; ++i) {
+            darkWindow[i * 4 + 0] = 30;
+            darkWindow[i * 4 + 1] = 30;
+            darkWindow[i * 4 + 2] = 30;
+            darkWindow[i * 4 + 3] = 255;
+        }
+
+        // Simulate 32x8 outside strip sampled from a rich blue desktop wallpaper (RGB 20, 100, 220 -> H ~ 0.59)
+        constexpr int kOutPixels = 32 * 8;
+        std::vector<uint8_t> blueWallpaper(kOutPixels * 4);
+        for (int i = 0; i < kOutPixels; ++i) {
+            blueWallpaper[i * 4 + 0] = 20;
+            blueWallpaper[i * 4 + 1] = 100;
+            blueWallpaper[i * 4 + 2] = 220;
+            blueWallpaper[i * 4 + 3] = 255;
+        }
+
+        // 21a. Dark window on blue wallpaper with ensureContrast = true:
+        // Candidate hue is Blue (0.58). It clashes with the blue wallpaper outside the window,
+        // so it must shift hue away from blue to avoid blending into the wallpaper!
+        Settings contrastOn;
+        contrastOn.mode = Mode::Dominant;
+        contrastOn.ensureContrast = true;
+        contrastOn.previousHue = 0.58f; // Blue
+        contrastOn.sampleWidth = kGrid;
+        contrastOn.sampleHeight = kGrid;
+        contrastOn.outsideRgba = blueWallpaper.data();
+        contrastOn.outsidePixelCount = kOutPixels;
+
+        const QColor cOn = processRgbaSamples(darkWindow.data(), kTotal, contrastOn);
+        float hon = 0.0f, son = 0.0f, lon = 0.0f;
+        cOn.getHslF(&hon, &son, &lon);
+
+        qreal diffOn = std::abs(hon - 0.58f);
+        if (diffOn > 0.5) diffOn = 1.0 - diffOn;
+        check(diffOn >= 0.15, "two-sided contrast: shifts hue away from blue wallpaper clash (diff >= 0.15)");
+        check(son >= 0.75f, "two-sided contrast: retains rich vibrant accent saturation");
+        check(lon >= 0.65f, "two-sided contrast: luminous outline on dark window and wallpaper");
+
+        // 21b. Dark window on blue wallpaper with ensureContrast = false:
+        // When ensureContrast is false, hue is preserved without shifting.
+        Settings contrastOff = contrastOn;
+        contrastOff.ensureContrast = false;
+
+        const QColor cOff = processRgbaSamples(darkWindow.data(), kTotal, contrastOff);
+        float hoff = 0.0f, soff = 0.0f, loff = 0.0f;
+        cOff.getHslF(&hoff, &soff, &loff);
+
+        qreal diffOff = std::abs(hoff - 0.58f);
+        if (diffOff > 0.5) diffOff = 1.0 - diffOff;
+        check(diffOff < 0.05, "two-sided contrast off: preserves candidate hue when ensureContrast is false");
+
+        // 21c. Green window border inside, blue wallpaper outside:
+        // Outline must shift to a color that contrasts with BOTH the green window AND the blue wallpaper!
+        std::vector<uint8_t> greenBorderWindow = darkWindow;
+        for (int y = 0; y < kGrid; ++y) {
+            for (int x = 0; x < kGrid; ++x) {
+                if (y < 2 || y >= kGrid - 2 || x < 2 || x >= kGrid - 2) {
+                    const int idx = (y * kGrid + x) * 4;
+                    greenBorderWindow[idx + 0] = 35;
+                    greenBorderWindow[idx + 1] = 145;
+                    greenBorderWindow[idx + 2] = 60;
+                }
+            }
+        }
+
+        Settings bothSides = contrastOn;
+        bothSides.previousHue = 0.58f; // Start from blue
+        const QColor cBoth = processRgbaSamples(greenBorderWindow.data(), kTotal, bothSides);
+        float hb = 0.0f, sb = 0.0f, lb = 0.0f;
+        cBoth.getHslF(&hb, &sb, &lb);
+
+        qreal diffGreen = std::abs(hb - 0.38f);
+        if (diffGreen > 0.5) diffGreen = 1.0 - diffGreen;
+        qreal diffBlue = std::abs(hb - 0.58f);
+        if (diffBlue > 0.5) diffBlue = 1.0 - diffBlue;
+        check(diffGreen >= 0.15, "two-sided contrast: contrasts with green window inside (diff >= 0.15)");
+        check(diffBlue >= 0.15, "two-sided contrast: contrasts with blue wallpaper outside (diff >= 0.15)");
+    }
+
     std::printf("ambilight_test: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }
