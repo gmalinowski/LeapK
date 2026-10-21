@@ -176,7 +176,7 @@ private:
     int m_width = 2;
     int m_gap = 0;
     int m_radius = 6;
-    bool m_fadeCorners = false;
+    bool m_fadeCorners = true;
     bool m_drawInside = true;
     bool m_smoothEdges = true;
     bool m_glowEnabled = true;

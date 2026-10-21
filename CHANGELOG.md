@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.15] - 2026-10-21
+
+### Changed
+
+- **Default Setting for Fade Out Corners**:
+  - Enabled "Fade out corners (highlight edges only)" (`FadeCorners=true`) by default for clean, modern aesthetics where only window edges illuminate with smooth corner falloff.
+
 ## [1.4.14] - 2026-10-21
 
 ### Fixed

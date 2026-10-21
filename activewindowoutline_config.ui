@@ -504,7 +504,7 @@
           <string>Disables corners completely and smoothly fades out the outline towards each corner, illuminating only the straight edges of the window.</string>
          </property>
          <property name="checked">
-          <bool>false</bool>
+          <bool>true</bool>
          </property>
         </widget>
        </item>

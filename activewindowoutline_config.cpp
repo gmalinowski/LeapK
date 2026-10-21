@@ -155,7 +155,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("BorderWidth"), *new int, 2);
     m_configSkeleton->addItemInt(QStringLiteral("OutlineGap"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("BorderRadius"), *new int, 6);
-    m_configSkeleton->addItemBool(QStringLiteral("FadeCorners"), *new bool, false);
+    m_configSkeleton->addItemBool(QStringLiteral("FadeCorners"), *new bool, true);
     m_configSkeleton->addItemBool(QStringLiteral("DrawInside"), *new bool, true);
     m_configSkeleton->addItemBool(QStringLiteral("SmoothEdges"), *new bool, true);
     m_configSkeleton->addItemBool(QStringLiteral("GlowEnabled"), *new bool, true);

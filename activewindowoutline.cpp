@@ -455,7 +455,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_width = qBound(1, config.readEntry("BorderWidth", 2), 20);
     m_gap = qBound(0, config.readEntry("OutlineGap", 0), 30);
     m_radius = qBound(0, config.readEntry("BorderRadius", 6), 30);
-    m_fadeCorners = config.readEntry("FadeCorners", false);
+    m_fadeCorners = config.readEntry("FadeCorners", true);
     m_drawInside = config.readEntry("DrawInside", true);
     m_smoothEdges = config.readEntry("SmoothEdges", true);
     m_glowEnabled = config.readEntry("GlowEnabled", true);

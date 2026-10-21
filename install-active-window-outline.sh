@@ -261,7 +261,7 @@ set_default AmbilightMaxBrightness 85
 set_default BorderWidth 2
 set_default OutlineGap 0
 set_default BorderRadius 6
-set_default FadeCorners false
+set_default FadeCorners true
 set_default DrawInside true
 set_default SmoothEdges true
 set_default GlowEnabled true
