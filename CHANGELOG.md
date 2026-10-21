@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.20] - 2026-10-21
+
+### Fixed
+- **Perimeter Contrast on White Windows**:
+  - Fixed a critical regression in `enforcePerimeterContrast` where dark browser tab bars caused the minimum edge lightness to trigger the dark-window boost, erroneously forcing white outlines on white web pages.
+  - White and light web pages now strictly maintain a crisp, high-contrast dark charcoal outline ($L \le 0.28$) or deep, rich accent colors, never blending into the page.
+- **Vibrant Accent & Photo Colors (Google Images / Accents)**:
+  - Eliminated washed-out, pale pastel mint tints ($L = 0.85$) on colorful pages like Google Images search results.
+  - On light pages, chromatic outlines are guaranteed to be deep, rich, and punchy ($L \le 0.45, S \ge 0.80$).
+  - Removed artificial 50% dampening in `applySaturationLeveling`, allowing chromatic accents to reach their full intended target saturation ($\ge 75\%$).
+  - Corrected `processSmartAdaptive` background lightness reference so that white backgrounds pull chromatic outlines deeper into contrast rather than pushing them into white.
+- **Sensitive Accent Detection**:
+  - Tuned accent quorum thresholds (`minPixelQuorum` to ~0.4%, `minScoreQuorum` to 1.8) so that real UI accent elements—such as red underlines, colored badges, buttons, and links—are reliably detected and emphasized.
+
 ## [1.4.19] - 2026-10-21
 
 ### Fixed
