@@ -195,6 +195,7 @@ Dynamically analyzes the active window's visual contents and synchronizes the ou
 | Saturation leveling | 50% | Normalizes saturation: softens oversaturated neons and boosts pale tones. |
 | Fallback distinction | 75% | Contrasts the outline when window content matches the accent color. |
 | Min / Max brightness | 25% / 85% | Prevents outlines from becoming invisible on dark windows or blindingly bright on pure white documents. |
+| Ensure perimeter contrast | On | Analyzes the window edges, borders, and title bars to prevent the outline from blending in (enabled by default and in High Contrast; disabled in True Ambilight). |
 
 ### Tab 2: Color Sequence
 

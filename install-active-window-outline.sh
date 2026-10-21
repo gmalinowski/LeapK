@@ -258,6 +258,7 @@ set_default AmbilightSaturationLeveling 65
 set_default AmbilightFallbackStrength 50
 set_default AmbilightMinBrightness 25
 set_default AmbilightMaxBrightness 85
+set_default AmbilightEnsureContrast true
 set_default BorderWidth 2
 set_default OutlineGap 0
 set_default BorderRadius 6

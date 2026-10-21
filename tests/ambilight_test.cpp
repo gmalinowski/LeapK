@@ -46,6 +46,7 @@ int main()
             Settings settings;
             settings.mode = mode;
             settings.saturationLeveling = 1.0;
+            settings.ensureContrast = false;
             const QColor c = processRgbaSamples(pixels.data(), 64, settings);
             check(c.isValid(), "pure red valid");
             float h = 0.0f, s = 0.0f, l = 0.0f;
@@ -339,6 +340,7 @@ int main()
         checkNear(defSettings.fallbackStrength, 0.50, 0.01, "preset balanced: fallback strength 0.50");
         checkNear(defSettings.minBrightness, 0.25, 0.01, "preset balanced: min brightness 0.25");
         checkNear(defSettings.maxBrightness, 0.85, 0.01, "preset balanced: max brightness 0.85");
+        check(defSettings.ensureContrast == true, "preset balanced: ensure contrast true");
 
         // True Ambilight (Video / Cinema) settings & cinematic video simulation
         Settings videoSettings;
@@ -347,7 +349,9 @@ int main()
         videoSettings.fallbackStrength = 0.50;
         videoSettings.minBrightness = 0.15;
         videoSettings.maxBrightness = 0.90;
+        videoSettings.ensureContrast = false;
         check(videoSettings.mode == Mode::Balanced, "preset video: balanced average mode");
+        check(videoSettings.ensureContrast == false, "preset video: ensure contrast false (ambient movie lighting)");
         checkNear(videoSettings.saturationLeveling, 0.75, 0.01, "preset video: saturation leveling 0.75");
         checkNear(videoSettings.minBrightness, 0.15, 0.01, "preset video: min brightness 0.15");
         checkNear(videoSettings.maxBrightness, 0.90, 0.01, "preset video: max brightness 0.90");
@@ -441,6 +445,65 @@ int main()
             checkNear(s, 0.0, 0.001, "high contrast: bright window strictly monochrome");
             check(l <= 0.25f, "high contrast: bright window produces deep crisp charcoal outline (L <= 0.25)");
         }
+    }
+
+    // 16. Perimeter contrast enforcement (Ensure edge contrast)
+    {
+        // 16a. White window (R=250, G=250, B=250) with black titlebar on top edge (R=20, G=20, B=20)
+        constexpr int kGridW = 16;
+        constexpr int kGridH = 16;
+        std::vector<uint8_t> whiteWithDarkHeader(kGridW * kGridH * 4);
+        for (int y = 0; y < kGridH; ++y) {
+            for (int x = 0; x < kGridW; ++x) {
+                const int idx = (y * kGridW + x) * 4;
+                const uint8_t val = (y >= kGridH - 2) ? 20 : 250;
+                whiteWithDarkHeader[idx + 0] = val;
+                whiteWithDarkHeader[idx + 1] = val;
+                whiteWithDarkHeader[idx + 2] = val;
+                whiteWithDarkHeader[idx + 3] = 255;
+            }
+        }
+
+        Settings contrastOn;
+        contrastOn.ensureContrast = true;
+        contrastOn.sampleWidth = kGridW;
+        contrastOn.sampleHeight = kGridH;
+        const QColor cOn = processRgbaSamples(whiteWithDarkHeader.data(), kGridW * kGridH, contrastOn);
+        float hon = 0.0f, son = 0.0f, lon = 0.0f;
+        cOn.getHslF(&hon, &son, &lon);
+        check(lon >= 0.80f, "ensure contrast: white window with dark titlebar produces bright silver/white outline (not dark charcoal)");
+        checkNear(son, 0.0, 0.01, "ensure contrast: white window with dark titlebar maintains clean monochrome");
+
+        Settings contrastOff;
+        contrastOff.ensureContrast = false;
+        contrastOff.sampleWidth = kGridW;
+        contrastOff.sampleHeight = kGridH;
+        const QColor cOff = processRgbaSamples(whiteWithDarkHeader.data(), kGridW * kGridH, contrastOff);
+        float hoff = 0.0f, soff = 0.0f, loff = 0.0f;
+        cOff.getHslF(&hoff, &soff, &loff);
+        check(loff <= 0.35f, "ensure contrast off: white window produces standard dark charcoal outline");
+
+        // 16b. Solid mid-green window (RGB 35, 145, 60)
+        // Without contrast enforcement: outline is green (lightness ~0.35, same as window).
+        // With contrast enforcement: outline pops into bright neon lime/mint (lightness >= 0.78, saturation >= 0.75).
+        std::vector<uint8_t> greenWindow(kGridW * kGridH * 4);
+        for (int i = 0; i < kGridW * kGridH; ++i) {
+            greenWindow[i * 4 + 0] = 35;
+            greenWindow[i * 4 + 1] = 145;
+            greenWindow[i * 4 + 2] = 60;
+            greenWindow[i * 4 + 3] = 255;
+        }
+
+        const QColor cGreenOn = processRgbaSamples(greenWindow.data(), kGridW * kGridH, contrastOn);
+        float hgOn = 0.0f, sgOn = 0.0f, lgOn = 0.0f;
+        cGreenOn.getHslF(&hgOn, &sgOn, &lgOn);
+        check(lgOn >= 0.78f, "ensure contrast: green window outline pops into luminous bright neon green (L >= 0.78)");
+        check(sgOn >= 0.75f, "ensure contrast: green window outline has rich vivid saturation");
+
+        const QColor cGreenOff = processRgbaSamples(greenWindow.data(), kGridW * kGridH, contrastOff);
+        float hgOff = 0.0f, sgOff = 0.0f, lgOff = 0.0f;
+        cGreenOff.getHslF(&hgOff, &sgOff, &lgOff);
+        check(lgOff < 0.55f, "ensure contrast off: green window keeps matching mid-tone green outline");
     }
 
     std::printf("ambilight_test: %d checks, %d failures\n", checks, failures);

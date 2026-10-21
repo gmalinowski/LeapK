@@ -410,6 +410,16 @@
            </widget>
           </item>
           <item row="10" column="0" colspan="2">
+           <widget class="QCheckBox" name="kcfg_AmbilightEnsureContrast">
+            <property name="text">
+             <string>Ensure perimeter contrast (prevent blending with window edges)</string>
+            </property>
+            <property name="toolTip">
+             <string>Analyzes the window borders and perimeter where the outline is drawn. If window edges or title bars match the outline color or are dark, brightness and saturation are dynamically adjusted so the outline never blends in.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="11" column="0" colspan="2">
            <widget class="QLabel" name="label_ambilightWarning">
             <property name="text">
              <string>💡 Tip: 1.5 Hz is ideal for everyday desktop tasks and web browsing. For movies, video streams, or gaming, higher frequencies (like 3.0–6.0 Hz in Vivid or True Ambilight) provide seamless real-time color tracking.</string>

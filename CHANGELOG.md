@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.18] - 2026-10-21
+
+### Added
+- **Ensure Perimeter Contrast (Smart Edge Separation)**:
+  - Added new option `AmbilightEnsureContrast` ("Ensure perimeter contrast (prevent blending with window edges)") with a dedicated checkbox in the Ambilight settings.
+  - Dynamically samples the outer perimeter and title bar of the active window where the outline actually sits.
+  - Resolves contrast loss on white windows with dark title bars: prevents the outline from sinking into dark charcoal against dark headers, boosting it into crisp bright silver/white ($L \ge 0.85$).
+  - Resolves matching color blending on colored windows (e.g. green outline on a green window): automatically enforces $\Delta L \ge 0.40$ separation, turning the outline into a radiant electric neon pop ($L \ge 0.80, S \ge 0.80$) on dark/mid-toned windows, or a deep contrasting shade on light pastel windows.
+  - Enabled by default across `Balanced (Default)`, `High Contrast`, `Vivid & Dynamic`, `Subtle & Calm`, and `Eco` profiles; explicitly disabled in `True Ambilight (Video / Cinema)` to preserve ambient scene lighting.
+
 ## [1.4.17] - 2026-10-21
 
 ### Fixed

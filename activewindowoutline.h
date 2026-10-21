@@ -194,6 +194,7 @@ private:
     int m_ambilightFallbackStrength = 50;
     int m_ambilightMinBrightness = 25;
     int m_ambilightMaxBrightness = 85;
+    bool m_ambilightEnsureContrast = true;
 
     // Config - Color Cycling
     bool m_colorCycleEnabled = false;

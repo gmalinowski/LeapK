@@ -435,6 +435,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_ambilightFallbackStrength = qBound(0, config.readEntry("AmbilightFallbackStrength", 50), 100);
     m_ambilightMinBrightness = qBound(0, config.readEntry("AmbilightMinBrightness", 25), 50);
     m_ambilightMaxBrightness = qBound(50, config.readEntry("AmbilightMaxBrightness", 85), 100);
+    m_ambilightEnsureContrast = config.readEntry("AmbilightEnsureContrast", true);
 
     if (m_ambilightTimer) {
         m_ambilightTimer->setInterval(qRound(1000.0 / m_ambilightFrequency));
@@ -1726,6 +1727,9 @@ bool ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
         settings.fallbackStrength = m_ambilightFallbackStrength / 100.0;
         settings.minBrightness = m_ambilightMinBrightness / 100.0;
         settings.maxBrightness = m_ambilightMaxBrightness / 100.0;
+        settings.ensureContrast = m_ambilightEnsureContrast;
+        settings.sampleWidth = sampleSize.width();
+        settings.sampleHeight = sampleSize.height();
         if (m_ambilightTargetColor.isValid()) {
             float prevH = 0.0f, prevS = 0.0f, prevL = 0.0f;
             m_ambilightTargetColor.getHslF(&prevH, &prevS, &prevL);
@@ -1776,6 +1780,9 @@ bool ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
     settings.fallbackStrength = m_ambilightFallbackStrength / 100.0;
     settings.minBrightness = m_ambilightMinBrightness / 100.0;
     settings.maxBrightness = m_ambilightMaxBrightness / 100.0;
+    settings.ensureContrast = m_ambilightEnsureContrast;
+    settings.sampleWidth = sampleSize.width();
+    settings.sampleHeight = sampleSize.height();
     if (m_ambilightTargetColor.isValid()) {
         float prevH = 0.0f, prevS = 0.0f, prevL = 0.0f;
         m_ambilightTargetColor.getHslF(&prevH, &prevS, &prevL);

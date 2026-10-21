@@ -26,6 +26,9 @@ struct Settings
     qreal minBrightness = 0.25;      // 0.0 - 1.0 (25%)
     qreal maxBrightness = 0.85;      // 0.0 - 1.0 (85%)
     float previousHue = -1.0f;       // For hysteresis/stickiness in Dominant mode [0.0, 1.0]
+    bool ensureContrast = true;      // Guarantees contrast against window perimeter/borders
+    int sampleWidth = 32;            // Grid width of the sampled RGBA buffer
+    int sampleHeight = 32;           // Grid height of the sampled RGBA buffer
 };
 
 /**
@@ -381,20 +384,146 @@ inline QColor processSmartAdaptive(const uint8_t *rgba, int pixelCount, const Se
 }
 
 /**
+ * Analyzes the perimeter where the outline is drawn and ensures that targetColor
+ * maintains high contrast against the window edges and borders:
+ * - If the window has dark borders/titlebars, prevents the outline from being dark charcoal.
+ * - If the window color matches the outline color (e.g. green on green), dynamically
+ *   boosts or shifts lightness and saturation to guarantee clear edge separation (delta L >= 0.40).
+ */
+inline QColor enforcePerimeterContrast(const QColor &targetColor, const uint8_t *rgba, int width, int height, const Settings &settings)
+{
+    if (!settings.ensureContrast || !targetColor.isValid() || !rgba || width < 4 || height < 4) {
+        return targetColor;
+    }
+
+    qreal sumR = 0.0, sumG = 0.0, sumB = 0.0;
+    qreal topSumL = 0.0, bottomSumL = 0.0;
+    int topCount = 0, bottomCount = 0;
+    int totalCount = 0;
+
+    const int ringThickness = std::max(1, std::min(width, height) / 8);
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            const bool isTop = (y >= height - ringThickness);
+            const bool isBottom = (y < ringThickness);
+            const bool isLeft = (x < ringThickness);
+            const bool isRight = (x >= width - ringThickness);
+
+            if (isTop || isBottom || isLeft || isRight) {
+                const int idx = (y * width + x) * 4;
+                const int r = rgba[idx + 0];
+                const int g = rgba[idx + 1];
+                const int b = rgba[idx + 2];
+                const int a = rgba[idx + 3];
+                if (a >= 25) {
+                    sumR += r;
+                    sumG += g;
+                    sumB += b;
+                    totalCount++;
+
+                    const qreal l = (std::max({r, g, b}) + std::min({r, g, b})) / (2.0 * 255.0);
+                    if (isTop) {
+                        topSumL += l;
+                        topCount++;
+                    }
+                    if (isBottom) {
+                        bottomSumL += l;
+                        bottomCount++;
+                    }
+                }
+            }
+        }
+    }
+
+    if (totalCount == 0) {
+        return targetColor;
+    }
+
+    const int avgR = qBound(0, qRound(sumR / totalCount), 255);
+    const int avgG = qBound(0, qRound(sumG / totalCount), 255);
+    const int avgB = qBound(0, qRound(sumB / totalCount), 255);
+    const QColor perimColor(avgR, avgG, avgB);
+
+    float hp = 0.0f, sp = 0.0f, lp = 0.0f;
+    perimColor.getHslF(&hp, &sp, &lp);
+
+    const qreal topL = (topCount > 0) ? (topSumL / topCount) : lp;
+    const qreal bottomL = (bottomCount > 0) ? (bottomSumL / bottomCount) : lp;
+    const qreal minEdgeL = std::min({topL, bottomL, static_cast<qreal>(lp)});
+    const qreal edgeL = (minEdgeL < 0.50) ? minEdgeL : lp;
+
+    float ht = 0.0f, st = 0.0f, lt = 0.0f;
+    targetColor.getHslF(&ht, &st, &lt);
+
+    // Circular hue difference [0.0, 0.5]
+    qreal hueDiff = std::abs(ht - hp);
+    if (hueDiff > 0.5) {
+        hueDiff = 1.0 - hueDiff;
+    }
+    const qreal lightDiff = std::abs(lt - edgeL);
+
+    // Case 1: Monochromatic / neutral tone clash
+    // Target is dark charcoal or neutral, but window edge/titlebar is also dark -> INVISIBLE!
+    if (st < 0.20 && lt < 0.50 && edgeL < 0.50) {
+        // Boost to brilliant bright silver/white
+        const qreal brightL = qBound<qreal>(0.75, settings.maxBrightness, 1.0);
+        return QColor::fromHslF(0.0, 0.0, brightL);
+    }
+
+    // Case 2: Matching color clash (e.g. green outline on green window, or blue on blue)
+    // Both share similar hue (hueDiff < 0.12 ~ 43 deg) and insufficient lightness separation (lightDiff < 0.38)
+    const bool isColorClash = (st >= 0.15 && sp >= 0.15 && hueDiff < 0.12 && lightDiff < 0.38);
+    const bool isLightnessClash = (lightDiff < 0.25);
+
+    if (isColorClash || (st < 0.20 && isLightnessClash)) {
+        if (edgeL < 0.55) {
+            // Dark / mid-tone edge -> boost outline into luminous neon pop
+            const qreal boostedL = qBound<qreal>(settings.minBrightness, qMax<qreal>(0.80, edgeL + 0.40), settings.maxBrightness);
+            const qreal boostedS = (st >= 0.15) ? qMin<qreal>(1.0, qMax<qreal>(st, 0.85)) : 0.0;
+            return QColor::fromHslF(qBound<qreal>(0.0, ht, 1.0), boostedS, boostedL);
+        } else {
+            // Light / pastel edge -> pull outline into deep, crisp, contrasting shade
+            const qreal darkL = qBound<qreal>(settings.minBrightness, qMin<qreal>(0.25, edgeL - 0.40), settings.maxBrightness);
+            const qreal darkS = (st >= 0.15) ? qMin<qreal>(1.0, qMax<qreal>(st, 0.80)) : 0.0;
+            return QColor::fromHslF(qBound<qreal>(0.0, ht, 1.0), darkS, darkL);
+        }
+    }
+
+    return targetColor;
+}
+
+/**
  * Computes an adaptive ambilight color from a raw RGBA buffer of sampled window pixels.
  * Dispatches to Smart Adaptive (Hybrid), Dominant Accent, or Balanced Average mode based on settings.
  */
 inline QColor processRgbaSamples(const uint8_t *rgba, int pixelCount, const Settings &settings = Settings())
 {
+    QColor rawColor;
     switch (settings.mode) {
     case Mode::Smart:
-        return processSmartAdaptive(rgba, pixelCount, settings);
+        rawColor = processSmartAdaptive(rgba, pixelCount, settings);
+        break;
     case Mode::Balanced:
-        return processBalancedAverage(rgba, pixelCount, settings);
+        rawColor = processBalancedAverage(rgba, pixelCount, settings);
+        break;
     case Mode::Dominant:
     default:
-        return processDominantAccent(rgba, pixelCount, settings);
+        rawColor = processDominantAccent(rgba, pixelCount, settings);
+        break;
     }
+
+    if (settings.ensureContrast) {
+        int w = settings.sampleWidth;
+        int h = settings.sampleHeight;
+        if (w <= 0 || h <= 0 || w * h != pixelCount) {
+            w = static_cast<int>(std::sqrt(pixelCount));
+            h = (w > 0) ? (pixelCount / w) : 0;
+        }
+        return enforcePerimeterContrast(rawColor, rgba, w, h, settings);
+    }
+
+    return rawColor;
 }
 
 } // namespace OutlineAmbilight

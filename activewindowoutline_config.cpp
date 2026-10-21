@@ -88,17 +88,18 @@ struct AmbilightPreset {
     int fallbackStrength;
     int minBrightness;
     int maxBrightness;
+    bool ensureContrast;
 };
 
 // Preset index 0 is "Custom"
 static const AmbilightPreset s_ambilightPresets[] = {
-    { -1,  -1, -1.0, -1.0, -1, -1, -1, -1 }, // 0: Custom
-    {  0, 100,  1.5,  0.5, 65, 50, 25, 85 }, // 1: Balanced (Default)
-    {  1, 100,  3.0,  0.25, 80, 50, 30, 95 }, // 2: Vivid & Dynamic
-    {  2,  75,  1.0,  1.0, 45, 50, 20, 75 }, // 3: Subtle & Calm
-    {  0, 100,  0.5,  1.0, 65, 50, 25, 85 }, // 4: Eco (Battery Saver)
-    {  0, 100,  2.0,  0.4, 75, 90, 20, 92 }, // 5: High Contrast
-    {  2, 100,  6.0,  0.15, 75, 50, 15, 90 }, // 6: True Ambilight (Video / Cinema)
+    { -1,  -1, -1.0, -1.0, -1, -1, -1, -1, false }, // 0: Custom
+    {  0, 100,  1.5,  0.5, 65, 50, 25, 85,  true }, // 1: Balanced (Default)
+    {  1, 100,  3.0,  0.25, 80, 50, 30, 95,  true }, // 2: Vivid & Dynamic
+    {  2,  75,  1.0,  1.0, 45, 50, 20, 75,  true }, // 3: Subtle & Calm
+    {  0, 100,  0.5,  1.0, 65, 50, 25, 85,  true }, // 4: Eco (Battery Saver)
+    {  0, 100,  2.0,  0.4, 75, 90, 20, 92,  true }, // 5: High Contrast
+    {  2, 100,  6.0,  0.15, 75, 50, 15, 90, false }, // 6: True Ambilight (Video / Cinema)
 };
 
 bool matchesPreset(Ui::ActiveWindowOutlineConfigForm *ui, const AmbilightPreset &p)
@@ -111,6 +112,7 @@ bool matchesPreset(Ui::ActiveWindowOutlineConfigForm *ui, const AmbilightPreset 
     if (p.mode == 0 && ui->kcfg_AmbilightFallbackStrength->value() != p.fallbackStrength) return false;
     if (ui->kcfg_AmbilightMinBrightness->value() != p.minBrightness) return false;
     if (ui->kcfg_AmbilightMaxBrightness->value() != p.maxBrightness) return false;
+    if (ui->kcfg_AmbilightEnsureContrast->isChecked() != p.ensureContrast) return false;
     return true;
 }
 
@@ -152,6 +154,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("AmbilightFallbackStrength"), *new int, 50);
     m_configSkeleton->addItemInt(QStringLiteral("AmbilightMinBrightness"), *new int, 25);
     m_configSkeleton->addItemInt(QStringLiteral("AmbilightMaxBrightness"), *new int, 85);
+    m_configSkeleton->addItemBool(QStringLiteral("AmbilightEnsureContrast"), *new bool, true);
     m_configSkeleton->addItemInt(QStringLiteral("BorderWidth"), *new int, 2);
     m_configSkeleton->addItemInt(QStringLiteral("OutlineGap"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("BorderRadius"), *new int, 6);
@@ -323,6 +326,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
         m_ui->kcfg_AmbilightMinBrightness->setEnabled(allowAmbilightDetails);
         m_ui->label_ambilightMaxBrightness->setEnabled(allowAmbilightDetails);
         m_ui->kcfg_AmbilightMaxBrightness->setEnabled(allowAmbilightDetails);
+        m_ui->kcfg_AmbilightEnsureContrast->setEnabled(allowAmbilightDetails);
         m_ui->label_ambilightWarning->setEnabled(allowAmbilightDetails);
     };
     connect(m_ui->kcfg_UseAccentColor, &QCheckBox::toggled, this, updateColorEnabled);
@@ -365,6 +369,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
         m_ui->kcfg_AmbilightFallbackStrength->setValue(p.fallbackStrength);
         m_ui->kcfg_AmbilightMinBrightness->setValue(p.minBrightness);
         m_ui->kcfg_AmbilightMaxBrightness->setValue(p.maxBrightness);
+        m_ui->kcfg_AmbilightEnsureContrast->setChecked(p.ensureContrast);
         m_isApplyingPreset = false;
         updateColorEnabled();
         markAsChanged();
@@ -383,6 +388,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->kcfg_AmbilightFallbackStrength, &QSpinBox::valueChanged, this, onAmbilightValueChanged);
     connect(m_ui->kcfg_AmbilightMinBrightness, &QSpinBox::valueChanged, this, onAmbilightValueChanged);
     connect(m_ui->kcfg_AmbilightMaxBrightness, &QSpinBox::valueChanged, this, onAmbilightValueChanged);
+    connect(m_ui->kcfg_AmbilightEnsureContrast, &QCheckBox::toggled, this, onAmbilightValueChanged);
 
     auto updateGlowEnabled = [this] {
         const bool enabled = m_ui->kcfg_GlowEnabled->isChecked();
@@ -595,6 +601,7 @@ void ActiveWindowOutlineConfig::showAmbilightHelpDialog()
   <li><b>Odróżnienie fallbacku (Fallback distinction):</b> <i>(Dostępne tylko w trybie Smart Adaptive)</i> Decyduje, jak mocno ramka ma zmodyfikować swój kolor i odskoczyć od tła okna, gdy dominujący kolor zlewa się ze średnią okna (0% = subtelnie/brak zmiany, 100% = mocny kontrast i wyskok barwy).</li>
   <li><b>Minimalna jasność (Minimum brightness):</b> Zabezpieczenie przed zbyt ciemną ramką na czarnych oknach i ciemnych motywach (nie pozwala jasności ramki spaść poniżej tego progu).</li>
   <li><b>Maksymalna jasność (Maximum brightness):</b> Zabezpieczenie przed oślepiającą bielą ramki na bardzo jasnych stronach internetowych i dokumentach (nie pozwala jasności ramki przekroczyć tego progu).</li>
+  <li><b>Zapewnij kontrast krawędzi (Ensure perimeter contrast):</b> Analizuje obwód i krawędzie okna (m.in. pasek tytułowy/karty i obramowanie) w miejscu, gdzie faktycznie rysowany jest obrys. Jeśli tło pod ramką jest ciemne lub okno ma jednolity kolor (np. zielone okno przy zielonej ramce), algorytm dynamicznie koryguje jasność i saturację ramki, gwarantując jej stałą widoczność i odcięcie od krawędzi okna.</li>
 </ul>
 </body>
 </html>
@@ -647,6 +654,7 @@ void ActiveWindowOutlineConfig::showAmbilightHelpDialog()
   <li><b>Fallback distinction:</b> <i>(Smart Adaptive mode only)</i> How strongly the outline is modified to stand out when window content matches the dominant accent (0% = subtle/unchanged, 100% = bold contrast and vibrance pop).</li>
   <li><b>Minimum brightness:</b> Prevents the outline from becoming too dark on black or dark-mode windows (clamps luminance from falling below this threshold).</li>
   <li><b>Maximum brightness:</b> Prevents the outline from being blindingly bright on pure white windows or bright documents (clamps luminance from exceeding this threshold).</li>
+  <li><b>Ensure perimeter contrast:</b> Analyzes the window edges and perimeter (such as title bars, tab strips, and borders) directly beneath the outline. If the perimeter is dark, or if window colors match the outline (e.g. green outline on a green window), brightness and saturation are dynamically adjusted to guarantee crisp separation and high visibility.</li>
 </ul>
 </body>
 </html>

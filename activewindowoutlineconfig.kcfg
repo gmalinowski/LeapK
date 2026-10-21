@@ -65,6 +65,9 @@
             <min>50</min>
             <max>100</max>
         </entry>
+        <entry name="AmbilightEnsureContrast" type="Bool">
+            <default>true</default>
+        </entry>
         <entry name="BorderWidth" type="Int">
             <default>2</default>
             <min>1</min>
