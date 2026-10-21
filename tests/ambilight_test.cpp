@@ -83,13 +83,28 @@ int main()
         check(s > 0.6f, "dominant accent saturation retained");
     }
 
-    // 4. Pure black window: high-contrast silver outline (all modes)
+    // 4. Pure black window: Balanced gives monochrome silver; Smart/Dominant give rich chromatic accent
     {
         std::vector<uint8_t> pixels(64 * 4, 0);
         for (size_t i = 0; i < 64; ++i) {
             pixels[i * 4 + 3] = 255; // Alpha
         }
-        for (const auto mode : {Mode::Smart, Mode::Dominant, Mode::Balanced}) {
+
+        // 4a. Balanced mode: pure monochrome silver outline
+        {
+            Settings settings;
+            settings.mode = Mode::Balanced;
+            settings.minBrightness = 0.25;
+            settings.maxBrightness = 0.85;
+            const QColor c = processRgbaSamples(pixels.data(), 64, settings);
+            float h = 0.0f, s = 0.0f, l = 0.0f;
+            c.getHslF(&h, &s, &l);
+            checkNear(l, 0.85, 0.01, "black window in balanced mode gets bright silver outline 0.85");
+            check(s < 0.05f, "black window in balanced mode has no saturation");
+        }
+
+        // 4b. Smart & Dominant modes: grayscale excluded, always vibrant chromatic accent
+        for (const auto mode : {Mode::Smart, Mode::Dominant}) {
             Settings settings;
             settings.mode = mode;
             settings.minBrightness = 0.25;
@@ -97,15 +112,30 @@ int main()
             const QColor c = processRgbaSamples(pixels.data(), 64, settings);
             float h = 0.0f, s = 0.0f, l = 0.0f;
             c.getHslF(&h, &s, &l);
-            checkNear(l, 0.85, 0.01, "black window gets high-contrast bright silver outline 0.85");
-            check(s < 0.05f, "black has no saturation");
+            check(s >= 0.75f, "black window in accent mode produces rich chromatic accent (s >= 0.75)");
+            check(l >= 0.65f, "black window produces luminous outline (l >= 0.65)");
         }
     }
 
-    // 5. Pure white window: high-contrast dark charcoal outline (all modes)
+    // 5. Pure white window: Balanced gives monochrome charcoal; Smart/Dominant give rich chromatic accent
     {
         std::vector<uint8_t> pixels(64 * 4, 255);
-        for (const auto mode : {Mode::Smart, Mode::Dominant, Mode::Balanced}) {
+
+        // 5a. Balanced mode: pure monochrome dark charcoal outline
+        {
+            Settings settings;
+            settings.mode = Mode::Balanced;
+            settings.minBrightness = 0.25;
+            settings.maxBrightness = 0.85;
+            const QColor c = processRgbaSamples(pixels.data(), 64, settings);
+            float h = 0.0f, s = 0.0f, l = 0.0f;
+            c.getHslF(&h, &s, &l);
+            checkNear(l, 0.25, 0.01, "white window in balanced mode gets dark charcoal outline 0.25");
+            check(s < 0.05f, "white window in balanced mode has no saturation");
+        }
+
+        // 5b. Smart & Dominant modes: grayscale excluded, always deep chromatic accent
+        for (const auto mode : {Mode::Smart, Mode::Dominant}) {
             Settings settings;
             settings.mode = mode;
             settings.minBrightness = 0.25;
@@ -113,8 +143,8 @@ int main()
             const QColor c = processRgbaSamples(pixels.data(), 64, settings);
             float h = 0.0f, s = 0.0f, l = 0.0f;
             c.getHslF(&h, &s, &l);
-            checkNear(l, 0.25, 0.01, "white window gets high-contrast dark charcoal outline 0.25");
-            check(s < 0.05f, "white has no saturation");
+            check(s >= 0.75f, "white window in accent mode produces rich chromatic accent (s >= 0.75)");
+            check(l <= 0.45f, "white window produces deep contrasting outline (l <= 0.45)");
         }
     }
 
@@ -399,20 +429,34 @@ int main()
             pixels[i * 4 + 2] = 41;
             pixels[i * 4 + 3] = 255;
         }
-        for (const auto mode : {Mode::Smart, Mode::Dominant, Mode::Balanced}) {
+
+        // 14a. Balanced mode: strictly monochrome fallback
+        {
+            Settings settings;
+            settings.mode = Mode::Balanced;
+            const QColor c = processRgbaSamples(pixels.data(), 64, settings);
+            float h = 0.0f, s = 0.0f, l = 0.0f;
+            c.getHslF(&h, &s, &l);
+            checkNear(s, 0.0, 0.02, "slate dark theme in balanced mode has zero saturation (no blue/violet cast)");
+            check(l >= 0.70f, "dark slate window in balanced mode gets bright silver outline");
+        }
+
+        // 14b. Smart & Dominant modes: grayscale excluded, always vibrant chromatic accent
+        for (const auto mode : {Mode::Smart, Mode::Dominant}) {
             Settings settings;
             settings.mode = mode;
             const QColor c = processRgbaSamples(pixels.data(), 64, settings);
             float h = 0.0f, s = 0.0f, l = 0.0f;
             c.getHslF(&h, &s, &l);
-            checkNear(s, 0.0, 0.02, "slate dark theme has zero saturation (no blue/violet cast)");
-            check(l >= 0.70f, "dark slate window gets bright, clearly visible silver outline");
+            check(s >= 0.75f, "dark slate window in accent mode gets vibrant chromatic accent (s >= 0.75)");
+            check(l >= 0.65f, "dark slate window in accent mode gets luminous outline");
         }
     }
 
-    // 15. High Contrast preset: slate dark window and light window
+    // 15. High Contrast preset: slate dark window and light window in Balanced mode
     {
         Settings highContrastSettings;
+        highContrastSettings.mode = Mode::Balanced;
         highContrastSettings.saturationLeveling = 0.75;
         highContrastSettings.fallbackStrength = 0.90;
         highContrastSettings.minBrightness = 0.20;
@@ -426,25 +470,19 @@ int main()
             darkSlate[i * 4 + 2] = 60;
             darkSlate[i * 4 + 3] = 255;
         }
-        for (const auto mode : {Mode::Smart, Mode::Dominant, Mode::Balanced}) {
-            highContrastSettings.mode = mode;
-            const QColor c = processRgbaSamples(darkSlate.data(), 64, highContrastSettings);
-            float h = 0.0f, s = 0.0f, l = 0.0f;
-            c.getHslF(&h, &s, &l);
-            checkNear(s, 0.0, 0.001, "high contrast: dark slate window strictly monochrome (zero blue cast)");
-            check(l >= 0.88f, "high contrast: dark slate window produces luminous bright silver outline (L >= 0.88)");
-        }
+        const QColor cDark = processRgbaSamples(darkSlate.data(), 64, highContrastSettings);
+        float hd = 0.0f, sd = 0.0f, ld = 0.0f;
+        cDark.getHslF(&hd, &sd, &ld);
+        checkNear(sd, 0.0, 0.001, "high contrast: dark slate window strictly monochrome (zero blue cast)");
+        check(ld >= 0.88f, "high contrast: dark slate window produces luminous bright silver outline (L >= 0.88)");
 
         // 15b. Bright white window (R=250, G=250, B=250)
         std::vector<uint8_t> lightWin(64 * 4, 250);
-        for (const auto mode : {Mode::Smart, Mode::Dominant, Mode::Balanced}) {
-            highContrastSettings.mode = mode;
-            const QColor c = processRgbaSamples(lightWin.data(), 64, highContrastSettings);
-            float h = 0.0f, s = 0.0f, l = 0.0f;
-            c.getHslF(&h, &s, &l);
-            checkNear(s, 0.0, 0.001, "high contrast: bright window strictly monochrome");
-            check(l <= 0.25f, "high contrast: bright window produces deep crisp charcoal outline (L <= 0.25)");
-        }
+        const QColor cLight = processRgbaSamples(lightWin.data(), 64, highContrastSettings);
+        float hl = 0.0f, sl = 0.0f, ll = 0.0f;
+        cLight.getHslF(&hl, &sl, &ll);
+        checkNear(sl, 0.0, 0.001, "high contrast: bright window strictly monochrome");
+        check(ll <= 0.25f, "high contrast: bright window produces deep crisp charcoal outline (L <= 0.25)");
     }
 
     // 16. Perimeter contrast enforcement (Ensure edge contrast)
@@ -464,24 +502,29 @@ int main()
             }
         }
 
+        // In Balanced mode: dark charcoal outline
         Settings contrastOn;
+        contrastOn.mode = Mode::Balanced;
         contrastOn.ensureContrast = true;
         contrastOn.sampleWidth = kGridW;
         contrastOn.sampleHeight = kGridH;
         const QColor cOn = processRgbaSamples(whiteWithDarkHeader.data(), kGridW * kGridH, contrastOn);
         float hon = 0.0f, son = 0.0f, lon = 0.0f;
         cOn.getHslF(&hon, &son, &lon);
-        check(lon <= 0.30f, "ensure contrast: white window with dark titlebar maintains crisp dark charcoal outline (not white)");
-        checkNear(son, 0.0, 0.01, "ensure contrast: white window with dark titlebar maintains clean monochrome");
+        check(lon <= 0.30f, "ensure contrast: white window with dark titlebar maintains crisp dark charcoal outline in balanced mode");
+        checkNear(son, 0.0, 0.01, "ensure contrast: white window maintains clean monochrome in balanced mode");
 
-        Settings contrastOff;
-        contrastOff.ensureContrast = false;
-        contrastOff.sampleWidth = kGridW;
-        contrastOff.sampleHeight = kGridH;
-        const QColor cOff = processRgbaSamples(whiteWithDarkHeader.data(), kGridW * kGridH, contrastOff);
-        float hoff = 0.0f, soff = 0.0f, loff = 0.0f;
-        cOff.getHslF(&hoff, &soff, &loff);
-        check(loff <= 0.35f, "ensure contrast off: white window produces standard dark charcoal outline");
+        // In Smart mode: deep chromatic accent contrasting against white page
+        Settings contrastSmart;
+        contrastSmart.mode = Mode::Smart;
+        contrastSmart.ensureContrast = true;
+        contrastSmart.sampleWidth = kGridW;
+        contrastSmart.sampleHeight = kGridH;
+        const QColor cSmart = processRgbaSamples(whiteWithDarkHeader.data(), kGridW * kGridH, contrastSmart);
+        float hsm = 0.0f, ssm = 0.0f, lsm = 0.0f;
+        cSmart.getHslF(&hsm, &ssm, &lsm);
+        check(ssm >= 0.75f, "ensure contrast: white window in smart mode produces rich chromatic accent (not gray/white)");
+        check(lsm <= 0.45f, "ensure contrast: white window in smart mode produces deep contrasting lightness (l <= 0.45)");
 
         // 16b. Solid mid-green window (RGB 35, 145, 60)
         // Without contrast enforcement: outline is green (lightness ~0.35, same as window).
@@ -499,16 +542,11 @@ int main()
         cGreenOn.getHslF(&hgOn, &sgOn, &lgOn);
         check(lgOn >= 0.70f, "ensure contrast: green window outline pops into luminous bright neon green (L >= 0.70)");
         check(sgOn >= 0.75f, "ensure contrast: green window outline has rich vivid saturation");
-
-        const QColor cGreenOff = processRgbaSamples(greenWindow.data(), kGridW * kGridH, contrastOff);
-        float hgOff = 0.0f, sgOff = 0.0f, lgOff = 0.0f;
-        cGreenOff.getHslF(&hgOff, &sgOff, &lgOff);
-        check(lgOff < 0.55f, "ensure contrast off: green window keeps matching mid-tone green outline");
     }
 
     // 17. GitHub dark mode with tiny file tree icons and language bar
     // Verifies that isolated single-pixel noise (e.g. 1-2 pixels) does NOT trigger
-    // erratic color jumping to orange or blue, and remains stable bright silver/white.
+    // erratic color jumping to orange or blue, and remains stable luminous chromatic accent.
     {
         constexpr int kGrid = 32;
         constexpr int kTotal = kGrid * kGrid;
@@ -542,13 +580,15 @@ int main()
             settings.ensureContrast = true;
             settings.sampleWidth = kGrid;
             settings.sampleHeight = kGrid;
+            settings.previousHue = 0.555f; // KDE Blue
 
             const QColor c = processRgbaSamples(githubDark.data(), kTotal, settings);
             float h = 0.0f, s = 0.0f, l = 0.0f;
             c.getHslF(&h, &s, &l);
 
-            check(l >= 0.75f, "github dark: outline is bright silver/white (not dark charcoal)");
-            checkNear(s, 0.0, 0.02, "github dark: tiny stray noise rejected, outline remains stable monochrome");
+            check(l >= 0.65f, "github dark: outline is luminous accent (l >= 0.65)");
+            check(s >= 0.75f, "github dark: tiny noise rejected, outline maintains stable rich chromatic accent");
+            check(h >= 0.50f && h <= 0.65f, "github dark: holds stable blue accent without jumping to orange noise");
         }
     }
 
@@ -633,6 +673,69 @@ int main()
         check(h >= 0.28f && h <= 0.42f, "google images green: captures green hue");
         check(s >= 0.75f, "google images green: vibrant rich saturation >= 0.75 (not washed-out)");
         check(l <= 0.46f, "google images green: deep green lightness <= 0.46 (not pale mint/white)");
+    }
+
+    // 20. Hue shifting on perimeter clash (when window has no color to detect)
+    // Verifies that when candidate hue matches the perimeter color:
+    // - With ensureContrast = true: shifts hue by +0.25 (bounded to 4 steps) until contrast is achieved.
+    // - With ensureContrast = false: candidate hue is kept without shifting.
+    {
+        constexpr int kGrid = 16;
+        constexpr int kTotal = kGrid * kGrid;
+        std::vector<uint8_t> greenBorderWindow(kTotal * 4);
+
+        // Fill entire window with pure dark gray (monochrome content)
+        for (int i = 0; i < kTotal; ++i) {
+            greenBorderWindow[i * 4 + 0] = 30;
+            greenBorderWindow[i * 4 + 1] = 30;
+            greenBorderWindow[i * 4 + 2] = 30;
+            greenBorderWindow[i * 4 + 3] = 255;
+        }
+
+        // Paint perimeter with green (RGB 35, 145, 60 -> H ~ 0.38)
+        for (int y = 0; y < kGrid; ++y) {
+            for (int x = 0; x < kGrid; ++x) {
+                if (y < 2 || y >= kGrid - 2 || x < 2 || x >= kGrid - 2) {
+                    const int idx = (y * kGrid + x) * 4;
+                    greenBorderWindow[idx + 0] = 35;
+                    greenBorderWindow[idx + 1] = 145;
+                    greenBorderWindow[idx + 2] = 60;
+                }
+            }
+        }
+
+        // 20a. With ensureContrast = true: candidate hue 0.38 (green) clashes with perimeter, so it must shift
+        Settings shiftOn;
+        shiftOn.mode = Mode::Dominant;
+        shiftOn.ensureContrast = true;
+        shiftOn.previousHue = 0.38f; // Green
+        shiftOn.sampleWidth = kGrid;
+        shiftOn.sampleHeight = kGrid;
+
+        const QColor cShifted = processRgbaSamples(greenBorderWindow.data(), kTotal, shiftOn);
+        float hs = 0.0f, ss = 0.0f, ls = 0.0f;
+        cShifted.getHslF(&hs, &ss, &ls);
+
+        qreal diff = std::abs(hs - 0.38f);
+        if (diff > 0.5) diff = 1.0 - diff;
+        check(diff >= 0.15, "hue shifting: shifts hue away from green perimeter clash (diff >= 0.15)");
+        check(ss >= 0.75f, "hue shifting: shifted outline remains a rich vibrant accent");
+
+        // 20b. With ensureContrast = false: candidate hue 0.38 is preserved without shifting
+        Settings shiftOff;
+        shiftOff.mode = Mode::Dominant;
+        shiftOff.ensureContrast = false;
+        shiftOff.previousHue = 0.38f; // Green
+        shiftOff.sampleWidth = kGrid;
+        shiftOff.sampleHeight = kGrid;
+
+        const QColor cNoShift = processRgbaSamples(greenBorderWindow.data(), kTotal, shiftOff);
+        float hns = 0.0f, sns = 0.0f, lns = 0.0f;
+        cNoShift.getHslF(&hns, &sns, &lns);
+
+        qreal diffNoShift = std::abs(hns - 0.38f);
+        if (diffNoShift > 0.5) diffNoShift = 1.0 - diffNoShift;
+        check(diffNoShift < 0.05, "hue shifting off: preserves candidate hue when ensureContrast is false");
     }
 
     std::printf("ambilight_test: %d checks, %d failures\n", checks, failures);

@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.21] - 2026-10-21
+
+### Fixed
+- **Grayscale Completely Disabled in Smart Adaptive & Dominant Accent Modes**:
+  - Black, white, silver, and shades of gray are now strictly excluded from Smart Adaptive (`Mode::Smart`) and Dominant Accent (`Mode::Dominant`) modes. An accent outline is always guaranteed to be a rich, distinct chromatic color ($S \ge 0.75$).
+  - When window content contains no chromatic accents (e.g. black-and-white text documents, monochrome terminals, plain code editors), the algorithm resolves a vibrant chromatic fallback accent starting from the candidate hue (`previousHue` or KDE Breeze Blue $H = 0.555$).
+- **Bounded Hue Shifting on Perimeter Clash (`Ensure Perimeter Contrast`)**:
+  - When a window has no chromatic color to detect and `Ensure Perimeter Contrast` is enabled, the algorithm samples the window perimeter. If the candidate hue clashes with a colored window decoration or frame (e.g. green outline on a green window border, $|\Delta H| < 0.15$), the hue shifts in $+0.25$ quadrant steps (bounded to at most 4 attempts, preventing infinite loops) until high color contrast is achieved.
+  - Lightness is automatically tuned for optimal separation ($L \le 0.44$ on light edges, $L \ge 0.68$ on dark edges).
+  - When `Ensure Perimeter Contrast` is disabled, candidate hue is preserved directly without perimeter sampling or shifting.
+- **Window Frame vs Content Separation**:
+  - Added interior content tracking (`interiorCount`) in `processDominantAccent` so that window decoration borders/titlebars do not hijack the accent detection when the page itself is monochrome.
+
 ## [1.4.20] - 2026-10-21
 
 ### Fixed

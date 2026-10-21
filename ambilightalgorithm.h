@@ -33,10 +33,9 @@ struct Settings
 
 /**
  * Calculates a high-contrast monochrome outline luminance based on window lightness.
- * Ensures grayscale windows are always crisp and clearly defined:
- * - Dark windows (e.g. dark mode, dark terminal) receive a bright, crisp silver outline.
- * - Light windows (e.g. white PDF, document) receive a sleek, dark charcoal outline.
- * - Settings.fallbackStrength scales the separation: 0.0 = moderate, 1.0 = bold distinction.
+ * Used exclusively for Balanced Average mode when reflecting neutral ambient lighting:
+ * - Dark windows receive a bright, crisp silver outline.
+ * - Light windows receive a sleek, dark charcoal outline.
  */
 inline qreal getHighContrastMonochromeLuminance(qreal windowL, qreal minB, qreal maxB, qreal fallbackStrength = 0.50)
 {
@@ -49,7 +48,7 @@ inline qreal getHighContrastMonochromeLuminance(qreal windowL, qreal minB, qreal
     } else {
         // Mid-light to bright window -> dark charcoal outline (e.g. 0.15 - 0.30)
         const qreal base = minB + (0.15 * (1.0 - fs) * ((1.0 - windowL) / 0.45));
-        targetL = qMin<qreal>(0.30, base);
+        targetL = qMin<qreal>(0.28, base);
     }
     return qBound<qreal>(minB, targetL, maxB);
 }
@@ -59,8 +58,8 @@ inline qreal getHighContrastMonochromeLuminance(qreal windowL, qreal minB, qreal
  * - Low saturation below achromatic threshold (s < 0.22) is smoothly attenuated to pure monochrome
  *   (s = 0.0), completely preventing cool slate/gray themes (like KDE Breeze, Firefox, VS Code)
  *   from producing an accidental grayish-violet or blue cast.
- * - Real chromatic pastels (s >= 0.22) are gently boosted towards target level.
- * - Harsh neon colors (s > 0.70) are softly compressed towards target level.
+ * - Real chromatic pastels (s >= 0.22) are boosted towards target level.
+ * - Harsh neon colors (s > target) are softly compressed towards target level.
  */
 inline qreal applySaturationLeveling(qreal s, qreal target)
 {
@@ -164,15 +163,94 @@ inline QColor processBalancedAverage(const uint8_t *rgba, int pixelCount, const 
 }
 
 /**
+ * Resolves a vibrant chromatic fallback accent color when a window has no detected color
+ * (e.g. monochrome dark or white windows, black-and-white text documents, terminals):
+ * - Black, white, and shades of gray are completely excluded in Accent/Smart modes.
+ * - Starts from candidate hue (settings.previousHue if valid, or KDE Breeze Blue 0.555).
+ * - If settings.ensureContrast is enabled: samples the window perimeter. If the perimeter
+ *   is chromatic and clashes with the candidate hue, shifts the hue (by +0.25, up to 4 attempts)
+ *   until a high-contrast hue is found. Tunes lightness for maximum contrast against perimeter.
+ * - If settings.ensureContrast is disabled: uses candidate hue directly without perimeter shifting.
+ */
+inline QColor resolveFallbackAccent(const uint8_t *rgba, int width, int height, const Settings &settings)
+{
+    float candidateH = (settings.previousHue >= 0.0f && settings.previousHue <= 1.0f) ? settings.previousHue : 0.555f;
+    float perimH = 0.0f, perimS = 0.0f, perimL = 0.5f;
+
+    if (settings.ensureContrast && rgba && width >= 4 && height >= 4) {
+        qreal sumR = 0.0, sumG = 0.0, sumB = 0.0;
+        int totalCount = 0;
+        const int ringThickness = std::max(1, std::min(width, height) / 8);
+
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                const bool isTop = (y >= height - ringThickness);
+                const bool isBottom = (y < ringThickness);
+                const bool isLeft = (x < ringThickness);
+                const bool isRight = (x >= width - ringThickness);
+
+                if (isTop || isBottom || isLeft || isRight) {
+                    const int idx = (y * width + x) * 4;
+                    const int r = rgba[idx + 0];
+                    const int g = rgba[idx + 1];
+                    const int b = rgba[idx + 2];
+                    const int a = rgba[idx + 3];
+                    if (a >= 25) {
+                        sumR += r;
+                        sumG += g;
+                        sumB += b;
+                        totalCount++;
+                    }
+                }
+            }
+        }
+
+        if (totalCount > 0) {
+            const int avgR = qBound(0, qRound(sumR / totalCount), 255);
+            const int avgG = qBound(0, qRound(sumG / totalCount), 255);
+            const int avgB = qBound(0, qRound(sumB / totalCount), 255);
+            const QColor perimColor(avgR, avgG, avgB);
+            perimColor.getHslF(&perimH, &perimS, &perimL);
+
+            // If the perimeter has color, shift candidate hue until no color clash (bounded to 4 steps)
+            if (perimS >= 0.18f) {
+                for (int attempt = 0; attempt < 4; ++attempt) {
+                    qreal diff = std::abs(candidateH - perimH);
+                    if (diff > 0.5) diff = 1.0 - diff;
+                    if (diff >= 0.15) {
+                        break; // Contrast achieved
+                    }
+                    candidateH = std::fmod(candidateH + 0.25f, 1.0f);
+                }
+            }
+        }
+    }
+
+    const qreal targetS = qBound<qreal>(0.75, qMax<qreal>(settings.saturationLeveling, 0.85), 1.0);
+    const qreal targetL = (perimL >= 0.50) ? qBound<qreal>(settings.minBrightness, 0.40, 0.44)
+                                         : qBound<qreal>(0.68, settings.maxBrightness, 0.78);
+
+    return QColor::fromHslF(qBound<qreal>(0.0, candidateH, 1.0), targetS, targetL);
+}
+
+/**
  * Dominant Accent mode:
  * Discretizes window colors into 24 chromatic hue clusters and scores them by
  * saturation and midtone presence. The most prominent vibrant accent wins decisively,
  * producing aggressive, punchy accent tracking without diluting into muddy averages.
+ * Grayscale (black, gray, white) is excluded: an accent is always a vibrant chromatic color.
  */
 inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const Settings &settings)
 {
     if (!rgba || pixelCount <= 0) {
         return QColor(61, 174, 233);
+    }
+
+    int gridW = settings.sampleWidth;
+    int gridH = settings.sampleHeight;
+    if (gridW <= 0 || gridH <= 0 || gridW * gridH != pixelCount) {
+        gridW = static_cast<int>(std::sqrt(pixelCount));
+        gridH = (gridW > 0) ? (pixelCount / gridW) : 0;
     }
 
     constexpr int kNumBins = 24;
@@ -183,6 +261,7 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
         qreal sumB = 0.0;
         qreal totalWeight = 0.0;
         int count = 0;
+        int interiorCount = 0;
     };
 
     Bucket buckets[kNumBins];
@@ -201,41 +280,50 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
         }
 
         const QColor col(r, g, b);
-        float h = 0.0f, s = 0.0f, l = 0.0f;
-        col.getHslF(&h, &s, &l);
+        float hc = 0.0f, sc = 0.0f, lc = 0.0f;
+        col.getHslF(&hc, &sc, &lc);
         validPixels++;
-        unweightedLightnessSum += l;
+        unweightedLightnessSum += lc;
 
         // Skip near-monochrome canvas (gray, slate, charcoal) and extreme black/white for chromatic binning
-        if (s < 0.22f || l < 0.08f || (l > 0.93f && s < 0.28f)) {
+        if (sc < 0.22f || lc < 0.08f || (lc > 0.93f && sc < 0.28f)) {
             continue;
         }
 
-        int binIdx = static_cast<int>(h * kNumBins) % kNumBins;
+        int binIdx = static_cast<int>(hc * kNumBins) % kNumBins;
         if (binIdx < 0) {
             binIdx += kNumBins;
         }
 
         // Scoring: strongly emphasize saturated accent/brand colors (s^1.8)
-        qreal w = std::pow(static_cast<double>(s), 1.8);
+        qreal weight = std::pow(static_cast<double>(sc), 1.8);
 
         // Midtone preference (penalize extreme brightness)
-        if (l < 0.20f) {
-            w *= std::max(0.1, static_cast<double>((l - 0.08f) / 0.12f));
-        } else if (l > 0.80f) {
-            w *= std::max(0.1, static_cast<double>((0.94f - l) / 0.14f));
+        if (lc < 0.20f) {
+            weight *= std::max(0.1, static_cast<double>((lc - 0.08f) / 0.12f));
+        } else if (lc > 0.80f) {
+            weight *= std::max(0.1, static_cast<double>((0.94f - lc) / 0.14f));
         }
 
-        buckets[binIdx].score += w;
-        buckets[binIdx].sumR += w * r;
-        buckets[binIdx].sumG += w * g;
-        buckets[binIdx].sumB += w * b;
-        buckets[binIdx].totalWeight += w;
+        const int x = (gridW > 0) ? (i % gridW) : 0;
+        const int y = (gridW > 0) ? (i / gridW) : 0;
+        const int ringThickness = std::max(1, std::min(gridW, gridH) / 8);
+        const bool isPerimeter = (x < ringThickness || x >= gridW - ringThickness ||
+                                  y < ringThickness || y >= gridH - ringThickness);
+
+        buckets[binIdx].score += weight;
+        buckets[binIdx].sumR += weight * r;
+        buckets[binIdx].sumG += weight * g;
+        buckets[binIdx].sumB += weight * b;
+        buckets[binIdx].totalWeight += weight;
         buckets[binIdx].count++;
+        if (!isPerimeter) {
+            buckets[binIdx].interiorCount++;
+        }
     }
 
     if (validPixels == 0) {
-        return QColor(61, 174, 233);
+        return resolveFallbackAccent(rgba, gridW, gridH, settings);
     }
 
     // Circular 3-tap smoothing to avoid edge artifacts between adjacent hue bins
@@ -250,7 +338,7 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
     if (settings.previousHue >= 0.0f && settings.previousHue <= 1.0f) {
         int prevBin = static_cast<int>(settings.previousHue * kNumBins) % kNumBins;
         if (prevBin < 0) prevBin += kNumBins;
-        smoothedScores[prevBin] *= 1.35;
+        smoothedScores[prevBin] *= 1.50;
     }
 
     int bestBin = -1;
@@ -270,12 +358,14 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
     const int minPixelQuorum = std::max(3, validPixels / 250); // ~0.4% (e.g. 4 pixels in 32x32)
     const qreal minScoreQuorum = std::max(1.8, validPixels * 0.002);
 
-    // If no meaningful chromatic accent was found (e.g. grayscale document or terminal),
-    // fallback to high-contrast neutral tone.
-    if (bestBin < 0 || maxScore < minScoreQuorum || bestCount < minPixelQuorum) {
-        const qreal avgL = unweightedLightnessSum / validPixels;
-        const qreal clampedL = getHighContrastMonochromeLuminance(avgL, settings.minBrightness, settings.maxBrightness, settings.fallbackStrength);
-        return QColor::fromHslF(0.0, 0.0, clampedL);
+    // If no meaningful chromatic accent was found in the window content:
+    // In Dominant mode, black, gray, and white are excluded.
+    // If chromatic pixels exist exclusively on the window perimeter (the outer frame/decorations)
+    // while the interior page content is monochrome, the window has no content accent to detect.
+    // Fallback to a vibrant chromatic accent starting from candidate hue, shifting if clash occurs.
+    const bool isPerimeterDecorationOnly = (gridW >= 12 && gridH >= 12 && bestBin >= 0 && buckets[bestBin].interiorCount == 0);
+    if (bestBin < 0 || maxScore < minScoreQuorum || bestCount < minPixelQuorum || isPerimeterDecorationOnly) {
+        return resolveFallbackAccent(rgba, gridW, gridH, settings);
     }
 
     // Reconstruct representative color from the winning bin and its immediate neighbors
@@ -287,9 +377,7 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
     const qreal clusterW = buckets[bestBin].totalWeight + 0.5 * (buckets[prev].totalWeight + buckets[next].totalWeight);
 
     if (clusterW <= 0.0) {
-        const qreal avgL = unweightedLightnessSum / validPixels;
-        const qreal clampedL = getHighContrastMonochromeLuminance(avgL, settings.minBrightness, settings.maxBrightness, settings.fallbackStrength);
-        return QColor::fromHslF(0.0, 0.0, clampedL);
+        return resolveFallbackAccent(rgba, gridW, gridH, settings);
     }
 
     const int avgR = qBound(0, qRound(clusterR / clusterW), 255);
@@ -302,23 +390,16 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
 
     // If the winning cluster itself has low saturation, it is not a genuine chromatic accent
     if (s < 0.25f) {
-        const qreal avgL = unweightedLightnessSum / validPixels;
-        const qreal clampedL = getHighContrastMonochromeLuminance(avgL, settings.minBrightness, settings.maxBrightness, settings.fallbackStrength);
-        return QColor::fromHslF(0.0, 0.0, clampedL);
+        return resolveFallbackAccent(rgba, gridW, gridH, settings);
     }
 
     // Ensure detected chromatic accents are rich and vivid (at least 75% saturation target)
-    const qreal targetS = qBound<qreal>(0.0, qMax<qreal>(settings.saturationLeveling, 0.75), 1.0);
+    const qreal targetS = qBound<qreal>(0.75, qMax<qreal>(settings.saturationLeveling, 0.85), 1.0);
     const qreal leveledS = applySaturationLeveling(s, targetS);
-    if (leveledS < 0.02) {
-        const qreal avgL = unweightedLightnessSum / validPixels;
-        const qreal clampedL = getHighContrastMonochromeLuminance(avgL, settings.minBrightness, settings.maxBrightness, settings.fallbackStrength);
-        return QColor::fromHslF(0.0, 0.0, clampedL);
-    }
-
+    const qreal finalS = qBound<qreal>(0.0, qMax<qreal>(leveledS, 0.75), 1.0);
     const qreal clampedL = qBound<qreal>(settings.minBrightness, l, settings.maxBrightness);
 
-    return QColor::fromHslF(qBound<qreal>(0.0, h, 1.0), leveledS, clampedL);
+    return QColor::fromHslF(qBound<qreal>(0.0, h, 1.0), finalS, clampedL);
 }
 
 /**
@@ -329,12 +410,13 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
  * it dynamically modifies saturation and contrast so the outline pops out vibrantly instead
  * of blending into the window. The strength of this differentiation is controlled by
  * settings.fallbackStrength (0%: subtle/identical, 100%: strong contrast & vibrance pop).
+ * Grayscale (black, gray, white) is excluded: always returns a rich chromatic color.
  */
 inline QColor processSmartAdaptive(const uint8_t *rgba, int pixelCount, const Settings &settings)
 {
     Settings subSettings = settings;
 
-    // 1. Calculate dominant accent
+    // 1. Calculate dominant accent (always chromatic)
     subSettings.mode = Mode::Dominant;
     const QColor dom = processDominantAccent(rgba, pixelCount, subSettings);
 
@@ -348,9 +430,8 @@ inline QColor processSmartAdaptive(const uint8_t *rgba, int pixelCount, const Se
     float hb = 0.0f, sb = 0.0f, lb = 0.0f;
     bal.getHslF(&hb, &sb, &lb);
 
-    // If dominant color is monochrome or near-monochrome, or if the whole window is achromatic,
-    // return high-contrast monochrome
-    if (sd < 0.10f || (sb < 0.10f && sd < 0.25f)) {
+    // If balanced average is achromatic, dominant accent stands on its own
+    if (sb < 0.15f) {
         return dom;
     }
 
@@ -365,17 +446,13 @@ inline QColor processSmartAdaptive(const uint8_t *rgba, int pixelCount, const Se
 
     // Circular hue similarity: 1.0 when identical, decays to 0.0 at 60 degrees (0.166)
     const qreal hueSimilarity = std::max(0.0, 1.0 - (hueDiff / 0.166));
-
-    // Tone similarity in lightness and saturation
     const qreal toneSimilarity = std::max(0.0, 1.0 - (lightDiff * 0.8 + satDiff * 0.4));
-
-    // Overall similarity factor [0.0, 1.0]
     const qreal similarity = qBound<qreal>(0.0, hueSimilarity * toneSimilarity, 1.0);
 
     // When dominant accent aligns closely with the window average, apply fallback contrast differentiation
     if (similarity > 0.25 && settings.fallbackStrength > 0.001) {
         const qreal extraBoost = 1.0 + (0.60 * settings.fallbackStrength) * similarity;
-        const qreal boostedS = qBound<qreal>(0.0, sd * extraBoost, 1.0);
+        const qreal boostedS = qBound<qreal>(0.75, sd * extraBoost, 1.0);
 
         // Optimize lightness contrast against homogeneous backgrounds:
         // When the window is overwhelmingly homogeneous in the same color,
@@ -399,9 +476,10 @@ inline QColor processSmartAdaptive(const uint8_t *rgba, int pixelCount, const Se
 /**
  * Analyzes the perimeter where the outline is drawn and ensures that targetColor
  * maintains high contrast against the window edges and borders:
- * - If the window has dark borders/titlebars, prevents the outline from being dark charcoal.
- * - If the window color matches the outline color (e.g. green on green), dynamically
- *   boosts or shifts lightness and saturation to guarantee clear edge separation (delta L >= 0.40).
+ * - If the window has colored borders/titlebars matching targetColor, shifts hue (up to 4 steps)
+ *   to guarantee unmistakable color separation.
+ * - If perimeter is predominantly light (e.g. white web page), enforces deep, rich accent tone (L <= 0.45).
+ * - If perimeter is predominantly dark (e.g. dark mode, terminal), enforces luminous neon tone (L >= 0.68).
  */
 inline QColor enforcePerimeterContrast(const QColor &targetColor, const uint8_t *rgba, int width, int height, const Settings &settings)
 {
@@ -513,8 +591,6 @@ inline QColor enforcePerimeterContrast(const QColor &targetColor, const uint8_t 
             return QColor::fromHslF(qBound<qreal>(0.0, ht, 1.0), darkS, darkL);
         }
     }
-
-    return targetColor;
 
     return targetColor;
 }
