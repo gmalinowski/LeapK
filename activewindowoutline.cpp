@@ -1712,10 +1712,20 @@ bool ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
     constexpr int kSampleDim = 32;
     const QSize sampleSize(kSampleDim, kSampleDim);
 
+    // Inset sample geometry to strictly sample window content and avoid rounded corners / drop shadows
+    // where desktop wallpaper bleed can occur.
+    QRectF sampleGeo = w->clientGeometry();
+    if (sampleGeo.isEmpty() || sampleGeo.width() < 20 || sampleGeo.height() < 20) {
+        sampleGeo = frameGeo;
+    }
+    const int insetX = std::min(8, static_cast<int>(sampleGeo.width() / 4));
+    const int insetY = std::min(8, static_cast<int>(sampleGeo.height() / 4));
+    sampleGeo = sampleGeo.adjusted(insetX, insetY, -insetX, -insetY);
+
     // If running with a software/QImage render target:
     if (renderTarget.image()) {
         const QImage *img = renderTarget.image();
-        const QRect windowRect = frameGeo.toRect();
+        const QRect windowRect = sampleGeo.toRect();
         const QRect targetRect = windowRect.intersected(img->rect());
         if (targetRect.isEmpty() || targetRect.width() < 10 || targetRect.height() < 10) {
             return false;
@@ -1754,7 +1764,7 @@ bool ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
         return false;
     }
 
-    const Rect windowRect(frameGeo.toRect());
+    const Rect windowRect(sampleGeo.toRect());
     const Rect destRect(0, 0, sampleSize.width(), sampleSize.height());
     GLFramebuffer *savedFbo = GLFramebuffer::currentFramebuffer();
     const bool blitOk = m_ambilightFbo->blitFromRenderTarget(renderTarget, viewport, windowRect, destRect);

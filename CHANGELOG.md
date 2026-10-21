@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.19] - 2026-10-21
+
+### Fixed
+- **Dominant Accent Quorum & Jitter Prevention**:
+  - Implemented strict visual mass quorum requirements (`minPixelQuorum = std::max(4, validPixels / 35)` ~2.8% of window area, and `minScoreQuorum = std::max(2.5, validPixels * 0.025)`).
+  - Prevents tiny isolated elements—such as 16x16 file icons in GitHub/file manager tree views, thin language/breakdown bars, and code syntax highlighting tokens (orange strings, blue keywords)—from hijacking the dominant accent and causing erratic color jumping when hovering or scrolling.
+  - Increased previous hue inertia multiplier from `1.15` to `1.35` in `processDominantAccent` to eliminate rapid flip-flopping between close candidate hues.
+- **Desktop Wallpaper Bleed on Rounded Window Corners**:
+  - Inset ambilight sampling geometry by 8px inside client geometry (`w->clientGeometry().adjusted(inset, inset, -inset, -inset)`).
+  - Eliminates desktop wallpaper (e.g. purple desktop background) leaking into the sampled pixel grid through the window's transparent rounded corner radiuses and drop shadows.
+- **Perimeter Contrast Stability on Dark Windows**:
+  - Revised `enforcePerimeterContrast` clash rules to strictly guarantee bright, high-contrast silver/white or vibrant neon outlines ($L \ge 0.80$) on all dark windows, preventing outlines from erroneously falling into dark charcoal gray ($L \le 0.25$) when header elements are present.
+  - Restricted chromatic clash logic strictly to distinctly saturated edges ($S \ge 0.20$).
+
 ## [1.4.18] - 2026-10-21
 
 ### Added

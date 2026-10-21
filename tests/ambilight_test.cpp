@@ -506,6 +506,59 @@ int main()
         check(lgOff < 0.55f, "ensure contrast off: green window keeps matching mid-tone green outline");
     }
 
+    // 17. GitHub dark mode with tiny file tree icons and language bar
+    // Verifies that 1% isolated colored pixels (e.g. 10 pixels out of 1024) do NOT trigger
+    // erratic color jumping to orange or blue, and remain stable bright silver/white.
+    {
+        constexpr int kGrid = 32;
+        constexpr int kTotal = kGrid * kGrid;
+        std::vector<uint8_t> githubDark(kTotal * 4);
+
+        // Fill background with GitHub dark #0d1117 (R=13, G=17, B=23)
+        for (int i = 0; i < kTotal; ++i) {
+            githubDark[i * 4 + 0] = 13;
+            githubDark[i * 4 + 1] = 17;
+            githubDark[i * 4 + 2] = 23;
+            githubDark[i * 4 + 3] = 255;
+        }
+
+        // Add 80 pixels of white text (R=230, G=230, B=230)
+        for (int i = 100; i < 180; ++i) {
+            githubDark[i * 4 + 0] = 230;
+            githubDark[i * 4 + 1] = 230;
+            githubDark[i * 4 + 2] = 230;
+        }
+
+        // Add 10 pixels of Rust / HTML orange file icon (R=230, G=100, B=30)
+        for (int i = 300; i < 310; ++i) {
+            githubDark[i * 4 + 0] = 230;
+            githubDark[i * 4 + 1] = 100;
+            githubDark[i * 4 + 2] = 30;
+        }
+
+        // Add 5 pixels of blue folder / CSS icon (R=40, G=120, B=240)
+        for (int i = 500; i < 505; ++i) {
+            githubDark[i * 4 + 0] = 40;
+            githubDark[i * 4 + 1] = 120;
+            githubDark[i * 4 + 2] = 240;
+        }
+
+        for (const auto mode : {Mode::Smart, Mode::Dominant}) {
+            Settings settings;
+            settings.mode = mode;
+            settings.ensureContrast = true;
+            settings.sampleWidth = kGrid;
+            settings.sampleHeight = kGrid;
+
+            const QColor c = processRgbaSamples(githubDark.data(), kTotal, settings);
+            float h = 0.0f, s = 0.0f, l = 0.0f;
+            c.getHslF(&h, &s, &l);
+
+            check(l >= 0.75f, "github dark: outline is bright silver/white (not dark charcoal)");
+            checkNear(s, 0.0, 0.02, "github dark: tiny 1% file icons rejected, outline remains stable monochrome");
+        }
+    }
+
     std::printf("ambilight_test: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

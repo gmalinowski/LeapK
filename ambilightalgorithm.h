@@ -249,21 +249,30 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
     if (settings.previousHue >= 0.0f && settings.previousHue <= 1.0f) {
         int prevBin = static_cast<int>(settings.previousHue * kNumBins) % kNumBins;
         if (prevBin < 0) prevBin += kNumBins;
-        smoothedScores[prevBin] *= 1.15;
+        smoothedScores[prevBin] *= 1.35;
     }
 
     int bestBin = -1;
     qreal maxScore = 0.0;
+    int bestCount = 0;
     for (int i = 0; i < kNumBins; ++i) {
         if (smoothedScores[i] > maxScore) {
             maxScore = smoothedScores[i];
             bestBin = i;
+            bestCount = buckets[i].count;
         }
     }
 
+    // An accent is only "dominant" if it represents a meaningful visual element of the window.
+    // Isolated syntax-highlighting keywords (e.g. 2-3 words of code on GitHub), single file icons
+    // in a file tree, thin language bars, or stray pixels must not cause the entire window outline
+    // to violently flip colors or jitter when hovering or scrolling.
+    const int minPixelQuorum = std::max(4, validPixels / 35); // at least ~2.8% of sampled pixels (~29 / 1024)
+    const qreal minScoreQuorum = std::max(2.5, validPixels * 0.025);
+
     // If no meaningful chromatic accent was found (e.g. grayscale document or terminal),
     // fallback to high-contrast neutral tone.
-    if (bestBin < 0 || maxScore < 0.12) {
+    if (bestBin < 0 || maxScore < minScoreQuorum || bestCount < minPixelQuorum) {
         const qreal avgL = unweightedLightnessSum / validPixels;
         const qreal clampedL = getHighContrastMonochromeLuminance(avgL, settings.minBrightness, settings.maxBrightness, settings.fallbackStrength);
         return QColor::fromHslF(0.0, 0.0, clampedL);
@@ -451,7 +460,7 @@ inline QColor enforcePerimeterContrast(const QColor &targetColor, const uint8_t 
     const qreal topL = (topCount > 0) ? (topSumL / topCount) : lp;
     const qreal bottomL = (bottomCount > 0) ? (bottomSumL / bottomCount) : lp;
     const qreal minEdgeL = std::min({topL, bottomL, static_cast<qreal>(lp)});
-    const qreal edgeL = (minEdgeL < 0.50) ? minEdgeL : lp;
+    const qreal maxEdgeL = std::max({topL, bottomL, static_cast<qreal>(lp)});
 
     float ht = 0.0f, st = 0.0f, lt = 0.0f;
     targetColor.getHslF(&ht, &st, &lt);
@@ -461,31 +470,39 @@ inline QColor enforcePerimeterContrast(const QColor &targetColor, const uint8_t 
     if (hueDiff > 0.5) {
         hueDiff = 1.0 - hueDiff;
     }
-    const qreal lightDiff = std::abs(lt - edgeL);
+    const qreal lightDiff = std::abs(lt - lp);
 
-    // Case 1: Monochromatic / neutral tone clash
-    // Target is dark charcoal or neutral, but window edge/titlebar is also dark -> INVISIBLE!
-    if (st < 0.20 && lt < 0.50 && edgeL < 0.50) {
-        // Boost to brilliant bright silver/white
-        const qreal brightL = qBound<qreal>(0.75, settings.maxBrightness, 1.0);
-        return QColor::fromHslF(0.0, 0.0, brightL);
+    // Rule 1: A dark window or dark window edge/titlebar MUST NEVER have a dark outline.
+    // If target outline is dark (lt < 0.50) while the window perimeter is also dark (minEdgeL < 0.50),
+    // it would blend into the dark window. Guarantee a bright, highly legible outline.
+    if (lt < 0.50 && minEdgeL < 0.50) {
+        const qreal brightL = qBound<qreal>(0.80, settings.maxBrightness, 1.0);
+        const qreal finalS = (st >= 0.20) ? qMin<qreal>(1.0, qMax<qreal>(st, 0.85)) : 0.0;
+        return QColor::fromHslF(qBound<qreal>(0.0, ht, 1.0), finalS, brightL);
     }
 
-    // Case 2: Matching color clash (e.g. green outline on green window, or blue on blue)
-    // Both share similar hue (hueDiff < 0.12 ~ 43 deg) and insufficient lightness separation (lightDiff < 0.38)
-    const bool isColorClash = (st >= 0.15 && sp >= 0.15 && hueDiff < 0.12 && lightDiff < 0.38);
-    const bool isLightnessClash = (lightDiff < 0.25);
+    // Rule 2: A light window or light window edge MUST NEVER have a light outline.
+    // If target outline is light (lt > 0.60) while the window perimeter is also light (maxEdgeL >= 0.55),
+    // it would blend into the light window. Guarantee a dark, crisp outline.
+    if (lt > 0.60 && maxEdgeL >= 0.55 && (lt - minEdgeL < 0.35)) {
+        const qreal darkL = qBound<qreal>(settings.minBrightness, 0.25, 0.35);
+        const qreal finalS = (st >= 0.20) ? qMin<qreal>(1.0, qMax<qreal>(st, 0.80)) : 0.0;
+        return QColor::fromHslF(qBound<qreal>(0.0, ht, 1.0), finalS, darkL);
+    }
 
-    if (isColorClash || (st < 0.20 && isLightnessClash)) {
-        if (edgeL < 0.55) {
-            // Dark / mid-tone edge -> boost outline into luminous neon pop
-            const qreal boostedL = qBound<qreal>(settings.minBrightness, qMax<qreal>(0.80, edgeL + 0.40), settings.maxBrightness);
-            const qreal boostedS = (st >= 0.15) ? qMin<qreal>(1.0, qMax<qreal>(st, 0.85)) : 0.0;
+    // Rule 3: Matching color clash on chromatic windows (e.g. green outline on green window, blue on blue)
+    // Only applies when both outline and perimeter are distinctly chromatic (st >= 0.20 && sp >= 0.20)
+    // and share similar hue (hueDiff < 0.12 ~ 43 deg) with insufficient lightness separation (lightDiff < 0.38).
+    if (st >= 0.20 && sp >= 0.20 && hueDiff < 0.12 && lightDiff < 0.38) {
+        if (lp < 0.55) {
+            // Dark chromatic edge -> pop to luminous neon
+            const qreal boostedL = qBound<qreal>(settings.minBrightness, qMax<qreal>(0.80, lp + 0.40), settings.maxBrightness);
+            const qreal boostedS = qMin<qreal>(1.0, qMax<qreal>(st, 0.85));
             return QColor::fromHslF(qBound<qreal>(0.0, ht, 1.0), boostedS, boostedL);
         } else {
-            // Light / pastel edge -> pull outline into deep, crisp, contrasting shade
-            const qreal darkL = qBound<qreal>(settings.minBrightness, qMin<qreal>(0.25, edgeL - 0.40), settings.maxBrightness);
-            const qreal darkS = (st >= 0.15) ? qMin<qreal>(1.0, qMax<qreal>(st, 0.80)) : 0.0;
+            // Light chromatic edge -> pull to deep contrasting shade
+            const qreal darkL = qBound<qreal>(settings.minBrightness, qMin<qreal>(0.25, lp - 0.40), settings.maxBrightness);
+            const qreal darkS = qMin<qreal>(1.0, qMax<qreal>(st, 0.80));
             return QColor::fromHslF(qBound<qreal>(0.0, ht, 1.0), darkS, darkL);
         }
     }
