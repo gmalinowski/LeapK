@@ -32,6 +32,10 @@ private:
     QString serializeColorTable() const;
     void addColorRow(const QColor &color, double holdTime);
 
+    void updatePresetSelector();
+    void showAmbilightHelpDialog();
+
     Ui::ActiveWindowOutlineConfigForm *m_ui;
     KConfigSkeleton *m_configSkeleton = nullptr;
+    bool m_isApplyingPreset = false;
 };

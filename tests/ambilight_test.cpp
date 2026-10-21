@@ -324,6 +324,17 @@ int main()
         check(s > 0.6f, "smart: rich saturation on contrasting accent");
     }
 
+    // 13. Preset presets sanity checks
+    {
+        // Balanced (Default) matches default Settings
+        Settings defSettings;
+        check(defSettings.mode == Mode::Smart, "preset balanced: smart mode");
+        checkNear(defSettings.saturationLeveling, 0.65, 0.01, "preset balanced: saturation leveling 0.65");
+        checkNear(defSettings.fallbackStrength, 0.50, 0.01, "preset balanced: fallback strength 0.50");
+        checkNear(defSettings.minBrightness, 0.25, 0.01, "preset balanced: min brightness 0.25");
+        checkNear(defSettings.maxBrightness, 0.85, 0.01, "preset balanced: max brightness 0.85");
+    }
+
     std::printf("ambilight_test: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

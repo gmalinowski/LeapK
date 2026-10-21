@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.7] - 2026-10-21
+
+### Added
+
+- **Ambilight Presets ("Profile Ambilight")**: Added a presets dropdown selector with 5 preconfigured profiles and automatic "Custom" tracking:
+  - **Balanced (Default)**: Optimized for everyday desktop use (Smart Adaptive, 1.0 Hz, 0.6s transition, 65% leveling, 50% fallback).
+  - **Vivid & Dynamic**: Fast, aggressive accent tracking for videos and gaming (Dominant accent, 2.0 Hz, 0.3s transition, 80% leveling).
+  - **Subtle & Calm**: Harmonious, gentle ambient glow (Balanced average, 75% opacity, 0.5 Hz, 1.2s transition, 45% leveling).
+  - **Eco (Low CPU)**: Minimal CPU & battery consumption (Smart Adaptive, 0.2 Hz / once per 5s, 1.0s transition).
+  - **High Contrast**: Maximum outline clarity and distinction (Smart Adaptive, 90% fallback distinction pop, 75% leveling).
+  - **Custom**: Automatically selected when individual parameters are fine-tuned manually.
+- **Help Button & Detailed Parameters Guide**: Added a contextual help button (`?`) in the Ambilight section that opens an interactive, formatted guide dialog with comprehensive explanations of each parameter, detection mode, and preset in Polish and English.
+- **Tooltips on all Ambilight controls**: Added explanatory tooltips to all labels and input fields in the Ambilight settings.
+
 ## [1.4.6] - 2026-10-21
 
 ### Added

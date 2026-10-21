@@ -103,13 +103,77 @@
            </widget>
           </item>
           <item row="1" column="0">
-           <widget class="QLabel" name="label_ambilightMode">
+           <widget class="QLabel" name="label_ambilightPreset">
             <property name="text">
-             <string>Detection mode:</string>
+             <string>Preset:</string>
+            </property>
+            <property name="toolTip">
+             <string>Select a preconfigured profile or fine-tune individual settings manually.</string>
             </property>
            </widget>
           </item>
           <item row="1" column="1">
+           <layout class="QHBoxLayout" name="layoutAmbilightPreset">
+            <item>
+             <widget class="QComboBox" name="comboAmbilightPreset">
+              <property name="toolTip">
+               <string>Select a preconfigured profile or fine-tune individual settings manually.</string>
+              </property>
+              <item>
+               <property name="text">
+                <string>Custom</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Balanced (Default)</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Vivid &amp; Dynamic</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Subtle &amp; Calm</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Eco (Low CPU)</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>High Contrast</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+            <item>
+             <widget class="QToolButton" name="btnAmbilightHelp">
+              <property name="text">
+               <string>?</string>
+              </property>
+              <property name="toolTip">
+               <string>Click for detailed explanation of all Ambilight parameters and presets</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_ambilightMode">
+            <property name="text">
+             <string>Detection mode:</string>
+            </property>
+            <property name="toolTip">
+             <string>Algorithm used to extract the accent color from window pixels.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
            <widget class="QComboBox" name="kcfg_AmbilightMode">
             <property name="toolTip">
              <string>Smart Adaptive (Hybrid): Evaluates dominant accent against window average, boosting vibrance when colors align. Dominant accent: Decisively locks onto prominent vibrant accents. Balanced average: Smoothly blends all window colors into an averaged tone.</string>
@@ -131,15 +195,21 @@
             </item>
            </widget>
           </item>
-          <item row="2" column="0">
+          <item row="3" column="0">
            <widget class="QLabel" name="label_ambilightOpacity">
             <property name="text">
              <string>Opacity:</string>
             </property>
+            <property name="toolTip">
+             <string>Outline opacity level (0% is completely transparent, 100% is fully opaque).</string>
+            </property>
            </widget>
           </item>
-          <item row="2" column="1">
+          <item row="3" column="1">
            <widget class="QSpinBox" name="kcfg_AmbilightOpacity">
+            <property name="toolTip">
+             <string>Outline opacity level (0% is completely transparent, 100% is fully opaque).</string>
+            </property>
             <property name="minimum">
              <number>0</number>
             </property>
@@ -154,15 +224,21 @@
             </property>
            </widget>
           </item>
-          <item row="3" column="0">
+          <item row="4" column="0">
            <widget class="QLabel" name="label_ambilightFrequency">
             <property name="text">
              <string>Sampling frequency:</string>
             </property>
+            <property name="toolTip">
+             <string>How often (in Hz) window pixels are analyzed. Higher values react faster to videos but consume more CPU (1.0 Hz is recommended).</string>
+            </property>
            </widget>
           </item>
-          <item row="3" column="1">
+          <item row="4" column="1">
            <widget class="QDoubleSpinBox" name="kcfg_AmbilightFrequency">
+            <property name="toolTip">
+             <string>How often (in Hz) window pixels are analyzed. Higher values react faster to videos but consume more CPU (1.0 Hz is recommended).</string>
+            </property>
             <property name="minimum">
              <double>0.1</double>
             </property>
@@ -180,15 +256,21 @@
             </property>
            </widget>
           </item>
-          <item row="4" column="0">
+          <item row="5" column="0">
            <widget class="QLabel" name="label_ambilightDuration">
             <property name="text">
              <string>Transition duration:</string>
             </property>
+            <property name="toolTip">
+             <string>Crossfade duration (in seconds) when animating between previous and newly sampled outline colors.</string>
+            </property>
            </widget>
           </item>
-          <item row="4" column="1">
+          <item row="5" column="1">
            <widget class="QDoubleSpinBox" name="kcfg_AmbilightDuration">
+            <property name="toolTip">
+             <string>Crossfade duration (in seconds) when animating between previous and newly sampled outline colors.</string>
+            </property>
             <property name="minimum">
              <double>0.1</double>
             </property>
@@ -206,14 +288,17 @@
             </property>
            </widget>
           </item>
-          <item row="5" column="0">
+          <item row="6" column="0">
            <widget class="QLabel" name="label_ambilightSaturationLeveling">
             <property name="text">
              <string>Saturation leveling:</string>
             </property>
+            <property name="toolTip">
+             <string>Normalizes outline saturation: softens overly harsh neon colors and boosts pale, weak colors towards the target level.</string>
+            </property>
            </widget>
           </item>
-          <item row="5" column="1">
+          <item row="6" column="1">
            <widget class="QSpinBox" name="kcfg_AmbilightSaturationLeveling">
             <property name="toolTip">
              <string>Normalizes outline saturation: softens overly harsh neon colors and boosts pale, weak colors towards the target level.</string>
@@ -232,14 +317,17 @@
             </property>
            </widget>
           </item>
-          <item row="6" column="0">
+          <item row="7" column="0">
            <widget class="QLabel" name="label_ambilightFallbackStrength">
             <property name="text">
              <string>Fallback distinction:</string>
             </property>
+            <property name="toolTip">
+             <string>Controls how strongly the outline is modified to stand out when window content matches the dominant accent in Smart Adaptive mode (0%: subtle/identical, 100%: strong contrast &amp; vibrance pop).</string>
+            </property>
            </widget>
           </item>
-          <item row="6" column="1">
+          <item row="7" column="1">
            <widget class="QSpinBox" name="kcfg_AmbilightFallbackStrength">
             <property name="toolTip">
              <string>Controls how strongly the outline is modified to stand out when window content matches the dominant accent in Smart Adaptive mode (0%: subtle/identical, 100%: strong contrast &amp; vibrance pop).</string>
@@ -258,15 +346,21 @@
             </property>
            </widget>
           </item>
-          <item row="7" column="0">
+          <item row="8" column="0">
            <widget class="QLabel" name="label_ambilightMinBrightness">
             <property name="text">
              <string>Minimum brightness:</string>
             </property>
+            <property name="toolTip">
+             <string>Prevents the outline from becoming too dark on black or dark-mode windows.</string>
+            </property>
            </widget>
           </item>
-          <item row="7" column="1">
+          <item row="8" column="1">
            <widget class="QSpinBox" name="kcfg_AmbilightMinBrightness">
+            <property name="toolTip">
+             <string>Prevents the outline from becoming too dark on black or dark-mode windows.</string>
+            </property>
             <property name="minimum">
              <number>0</number>
             </property>
@@ -281,15 +375,21 @@
             </property>
            </widget>
           </item>
-          <item row="8" column="0">
+          <item row="9" column="0">
            <widget class="QLabel" name="label_ambilightMaxBrightness">
             <property name="text">
              <string>Maximum brightness:</string>
             </property>
+            <property name="toolTip">
+             <string>Prevents the outline from being blindingly bright on pure white windows or bright documents.</string>
+            </property>
            </widget>
           </item>
-          <item row="8" column="1">
+          <item row="9" column="1">
            <widget class="QSpinBox" name="kcfg_AmbilightMaxBrightness">
+            <property name="toolTip">
+             <string>Prevents the outline from being blindingly bright on pure white windows or bright documents.</string>
+            </property>
             <property name="minimum">
              <number>50</number>
             </property>
@@ -304,7 +404,7 @@
             </property>
            </widget>
           </item>
-          <item row="9" column="0" colspan="2">
+          <item row="10" column="0" colspan="2">
            <widget class="QLabel" name="label_ambilightWarning">
             <property name="text">
              <string>ℹ️ Higher sampling frequency reacts faster to video and dynamic content, but increases CPU usage. 1.0 Hz is recommended for everyday desktop usage.</string>

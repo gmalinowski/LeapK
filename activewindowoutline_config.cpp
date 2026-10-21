@@ -15,10 +15,18 @@
 #include <QColorDialog>
 #include <QDBusConnection>
 #include <QDBusMessage>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QHeaderView>
+#include <QIcon>
+#include <QLocale>
 #include <QPainter>
 #include <QPixmap>
+#include <QTextBrowser>
+#include <QToolButton>
+#include <QVBoxLayout>
+#include <cmath>
 
 #ifndef ACTIVE_WINDOW_OUTLINE_VERSION
 #define ACTIVE_WINDOW_OUTLINE_VERSION "development"
@@ -55,6 +63,40 @@ QPixmap createColorIcon(const QColor &color)
         p.drawRect(0, 0, 23, 23);
     }
     return iconPix;
+}
+
+struct AmbilightPreset {
+    int mode;
+    int opacity;
+    double frequency;
+    double duration;
+    int saturationLeveling;
+    int fallbackStrength;
+    int minBrightness;
+    int maxBrightness;
+};
+
+// Preset index 0 is "Custom"
+static const AmbilightPreset s_ambilightPresets[] = {
+    { -1,  -1, -1.0, -1.0, -1, -1, -1, -1 }, // 0: Custom
+    {  0, 100,  1.0,  0.6, 65, 50, 25, 85 }, // 1: Balanced (Default)
+    {  1, 100,  2.0,  0.3, 80, 50, 30, 95 }, // 2: Vivid & Dynamic
+    {  2,  75,  0.5,  1.2, 45, 50, 20, 75 }, // 3: Subtle & Calm
+    {  0, 100,  0.2,  1.0, 65, 50, 25, 85 }, // 4: Eco (Low CPU)
+    {  0, 100,  1.0,  0.5, 75, 90, 35, 90 }, // 5: High Contrast
+};
+
+bool matchesPreset(Ui::ActiveWindowOutlineConfigForm *ui, const AmbilightPreset &p)
+{
+    if (ui->kcfg_AmbilightMode->currentIndex() != p.mode) return false;
+    if (ui->kcfg_AmbilightOpacity->value() != p.opacity) return false;
+    if (std::abs(ui->kcfg_AmbilightFrequency->value() - p.frequency) > 0.05) return false;
+    if (std::abs(ui->kcfg_AmbilightDuration->value() - p.duration) > 0.05) return false;
+    if (ui->kcfg_AmbilightSaturationLeveling->value() != p.saturationLeveling) return false;
+    if (p.mode == 0 && ui->kcfg_AmbilightFallbackStrength->value() != p.fallbackStrength) return false;
+    if (ui->kcfg_AmbilightMinBrightness->value() != p.minBrightness) return false;
+    if (ui->kcfg_AmbilightMaxBrightness->value() != p.maxBrightness) return false;
+    return true;
 }
 
 } // namespace
@@ -242,6 +284,9 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
 
         const bool allowAmbilightDetails = !colorCycle && ambilight;
         const bool isSmartMode = (m_ui->kcfg_AmbilightMode->currentIndex() == 0);
+        m_ui->label_ambilightPreset->setEnabled(allowAmbilightDetails);
+        m_ui->comboAmbilightPreset->setEnabled(allowAmbilightDetails);
+        m_ui->btnAmbilightHelp->setEnabled(!colorCycle);
         m_ui->label_ambilightMode->setEnabled(allowAmbilightDetails);
         m_ui->kcfg_AmbilightMode->setEnabled(allowAmbilightDetails);
         m_ui->label_ambilightOpacity->setEnabled(allowAmbilightDetails);
@@ -265,6 +310,51 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->kcfg_AmbilightMode, &QComboBox::currentIndexChanged, this, updateColorEnabled);
     connect(m_ui->kcfg_ColorCycleEnabled, &QCheckBox::toggled, this, updateColorEnabled);
     updateColorEnabled();
+
+    const QIcon helpIcon = QIcon::fromTheme(QStringLiteral("help-contextual"),
+                                            QIcon::fromTheme(QStringLiteral("dialog-information")));
+    if (!helpIcon.isNull()) {
+        m_ui->btnAmbilightHelp->setIcon(helpIcon);
+    } else {
+        m_ui->btnAmbilightHelp->setText(QStringLiteral("?"));
+    }
+    m_ui->btnAmbilightHelp->setFixedWidth(28);
+    m_ui->btnAmbilightHelp->setCursor(Qt::PointingHandCursor);
+    connect(m_ui->btnAmbilightHelp, &QToolButton::clicked, this, &ActiveWindowOutlineConfig::showAmbilightHelpDialog);
+
+    connect(m_ui->comboAmbilightPreset, qOverload<int>(&QComboBox::activated), this, [this, updateColorEnabled](int index) {
+        const int numPresets = static_cast<int>(sizeof(s_ambilightPresets) / sizeof(s_ambilightPresets[0]));
+        if (index <= 0 || index >= numPresets) {
+            return;
+        }
+        m_isApplyingPreset = true;
+        const auto &p = s_ambilightPresets[index];
+        m_ui->kcfg_AmbilightMode->setCurrentIndex(p.mode);
+        m_ui->kcfg_AmbilightOpacity->setValue(p.opacity);
+        m_ui->kcfg_AmbilightFrequency->setValue(p.frequency);
+        m_ui->kcfg_AmbilightDuration->setValue(p.duration);
+        m_ui->kcfg_AmbilightSaturationLeveling->setValue(p.saturationLeveling);
+        m_ui->kcfg_AmbilightFallbackStrength->setValue(p.fallbackStrength);
+        m_ui->kcfg_AmbilightMinBrightness->setValue(p.minBrightness);
+        m_ui->kcfg_AmbilightMaxBrightness->setValue(p.maxBrightness);
+        m_isApplyingPreset = false;
+        updateColorEnabled();
+        markAsChanged();
+    });
+
+    auto onAmbilightValueChanged = [this] {
+        if (!m_isApplyingPreset) {
+            updatePresetSelector();
+        }
+    };
+    connect(m_ui->kcfg_AmbilightMode, &QComboBox::currentIndexChanged, this, onAmbilightValueChanged);
+    connect(m_ui->kcfg_AmbilightOpacity, &QSpinBox::valueChanged, this, onAmbilightValueChanged);
+    connect(m_ui->kcfg_AmbilightFrequency, &QDoubleSpinBox::valueChanged, this, onAmbilightValueChanged);
+    connect(m_ui->kcfg_AmbilightDuration, &QDoubleSpinBox::valueChanged, this, onAmbilightValueChanged);
+    connect(m_ui->kcfg_AmbilightSaturationLeveling, &QSpinBox::valueChanged, this, onAmbilightValueChanged);
+    connect(m_ui->kcfg_AmbilightFallbackStrength, &QSpinBox::valueChanged, this, onAmbilightValueChanged);
+    connect(m_ui->kcfg_AmbilightMinBrightness, &QSpinBox::valueChanged, this, onAmbilightValueChanged);
+    connect(m_ui->kcfg_AmbilightMaxBrightness, &QSpinBox::valueChanged, this, onAmbilightValueChanged);
 
     auto updateGlowEnabled = [this] {
         const bool enabled = m_ui->kcfg_GlowEnabled->isChecked();
@@ -403,11 +493,161 @@ QString ActiveWindowOutlineConfig::serializeColorTable() const
     return entries.join(QLatin1Char(';'));
 }
 
+void ActiveWindowOutlineConfig::updatePresetSelector()
+{
+    if (m_isApplyingPreset) {
+        return;
+    }
+    int matchedIndex = 0; // 0 is Custom
+    const int numPresets = static_cast<int>(sizeof(s_ambilightPresets) / sizeof(s_ambilightPresets[0]));
+    for (int i = 1; i < numPresets; ++i) {
+        if (matchesPreset(m_ui, s_ambilightPresets[i])) {
+            matchedIndex = i;
+            break;
+        }
+    }
+    const QSignalBlocker blocker(m_ui->comboAmbilightPreset);
+    m_ui->comboAmbilightPreset->setCurrentIndex(matchedIndex);
+}
+
+void ActiveWindowOutlineConfig::showAmbilightHelpDialog()
+{
+    const bool isPolish = (QLocale().language() == QLocale::Polish);
+
+    const QString title = isPolish
+        ? QStringLiteral("Przewodnik po parametrach i profilach Ambilight")
+        : QStringLiteral("Ambilight Parameters & Presets Guide");
+
+    const QString html = isPolish ? QStringLiteral(R"raw(
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { font-size: 10pt; line-height: 1.45; }
+  h3 { margin-top: 0px; margin-bottom: 8px; color: palette(highlight); }
+  h4 { margin-top: 14px; margin-bottom: 6px; }
+  p { margin: 6px 0; }
+  ul { margin-top: 4px; margin-bottom: 8px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  hr { border: 0; height: 1px; background: rgba(128, 128, 128, 0.35); margin: 12px 0; }
+  b { font-weight: bold; }
+  i { font-style: italic; }
+</style>
+</head>
+<body>
+<h3>Ambilight &ndash; Adaptacyjny kolor ramki okna</h3>
+<p>Funkcja <b>Ambilight</b> w czasie rzeczywistym analizuje kolorystykę zawartości aktywnego okna i płynnie animuje barwę ramki, dopasowując ją do aktualnie wyświetlanej treści.</p>
+
+<hr>
+<h4>Gotowe profile (Presety)</h4>
+<ul>
+  <li><b>Zrównoważony / Domyślny (Balanced):</b> Rekomendowany do codziennego użytku na pulpicie. Używa inteligentnego trybu <i>Smart Adaptive</i> z częstotliwością 1.0&nbsp;Hz, płynnym przejściem 0.6&nbsp;s i zrównoważonym zużyciem procesora.</li>
+  <li><b>Jaskrawy i dynamiczny (Vivid &amp; Dynamic):</b> Zwiększona częstotliwość 2.0&nbsp;Hz, agresywne śledzenie akcentów w oknie, szybkie przejście 0.3&nbsp;s i mocniejsze nasycenie barw. Idealny do gier, filmów i teledysków.</li>
+  <li><b>Subtelny i stonowany (Subtle &amp; Calm):</b> Uśrednione barwy całego okna, stonowane nasycenie, obniżona przezroczystość (75%), niska częstotliwość (0.5&nbsp;Hz) i bardzo długie, łagodne przenikanie barw (1.2&nbsp;s).</li>
+  <li><b>Oszczędny CPU (Eco):</b> Minimalne obciążenie procesora i akumulatora w laptopach. Próbkowanie raz na 5 sekund (0.2&nbsp;Hz) z płynnym przejściem 1.0&nbsp;s. Zmiana kart/stron i tak wyzwala natychmiastowe odświeżenie barwy.</li>
+  <li><b>Wysoki kontrast (High Contrast):</b> Maksymalna czytelność i odcięcie obrysu. Silne odróżnienie fallbacku (90%) i wysoka saturacja gwarantują, że ramka zawsze wyraźnie odetnie się od tła okna.</li>
+  <li><b>Własny (Custom):</b> Wybiera się automatycznie, gdy ręcznie zmodyfikujesz którykolwiek z suwaków.</li>
+</ul>
+
+<hr>
+<h4>Szczegółowe wyjaśnienie parametrów</h4>
+<ul>
+  <li><b>Tryb wykrywania (Detection mode):</b>
+    <ul>
+      <li><i>Smart Adaptive (Hybrydowy):</i> Domyślny i najbardziej zaawansowany tryb. Analizuje jednocześnie kolor dominujący oraz średnią całego okna. Jeśli kolor dominujący zlewa się z tłem okna (np. jednolicie ciemne lub jasne okno programu), ramka automatycznie podbija kontrast i nasycenie, aby pozostać czytelna.</li>
+      <li><i>Dominant accent:</i> Agresywnie blokuje się na najbardziej nasyconym, żywym kolorze w oknie (np. czerwony pasek YouTube, logo programu, miniaturka), stosując 15% histerezę chroniącą przed drganiem barw.</li>
+      <li><i>Balanced average:</i> Miesza addytywnie barwy wszystkich elementów okna w jeden spokojny, spójny odcień kompozytowy.</li>
+    </ul>
+  </li>
+  <li><b>Przezroczystość (Opacity):</b> Poziom krycia ramki Ambilight (0% to całkowita niewidoczność, 100% to pełne, jednolite krycie).</li>
+  <li><b>Częstotliwość próbkowania (Sampling frequency):</b> Jak często (w hercach, czyli ile razy na sekundę) okno jest analizowane. Wyższe wartości (np. 2.0&ndash;5.0&nbsp;Hz) dają błyskawiczną reakcję na wideo, ale zwiększają obciążenie CPU. Wartość 1.0&nbsp;Hz jest optymalna. Nawigacja po stronach WWW i przełączanie zakładek wyzwalają odświeżenie natychmiast bez opóźnień.</li>
+  <li><b>Czas przejścia (Transition duration):</b> Czas trwania animacji (w sekundach) przy płynnym przenikaniu starego koloru ramki w nowo wykryty kolor.</li>
+  <li><b>Wygładzenie saturacji (Saturation leveling):</b> Inteligentna normalizacja nasycenia barwy. Łagodnie desaturuje/uspokaja zbyt krzykliwe neony, a blade i pastelowe kolory podciąga w stronę wybranego poziomu docelowego. Czyste szarości i czerń pozostają neutralne.</li>
+  <li><b>Odróżnienie fallbacku (Fallback distinction):</b> <i>(Dostępne tylko w trybie Smart Adaptive)</i> Decyduje, jak mocno ramka ma zmodyfikować swój kolor i odskoczyć od tła okna, gdy dominujący kolor zlewa się ze średnią okna (0% = subtelnie/brak zmiany, 100% = mocny kontrast i wyskok barwy).</li>
+  <li><b>Minimalna jasność (Minimum brightness):</b> Zabezpieczenie przed zbyt ciemną ramką na czarnych oknach i ciemnych motywach (nie pozwala jasności ramki spaść poniżej tego progu).</li>
+  <li><b>Maksymalna jasność (Maximum brightness):</b> Zabezpieczenie przed oślepiającą bielą ramki na bardzo jasnych stronach internetowych i dokumentach (nie pozwala jasności ramki przekroczyć tego progu).</li>
+</ul>
+</body>
+</html>
+)raw") : QStringLiteral(R"raw(
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { font-size: 10pt; line-height: 1.45; }
+  h3 { margin-top: 0px; margin-bottom: 8px; color: palette(highlight); }
+  h4 { margin-top: 14px; margin-bottom: 6px; }
+  p { margin: 6px 0; }
+  ul { margin-top: 4px; margin-bottom: 8px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  hr { border: 0; height: 1px; background: rgba(128, 128, 128, 0.35); margin: 12px 0; }
+  b { font-weight: bold; }
+  i { font-style: italic; }
+</style>
+</head>
+<body>
+<h3>Ambilight &ndash; Adaptive Window Outline</h3>
+<p><b>Ambilight</b> dynamically analyzes active window contents in real time and smoothly animates the outline color to match the displayed content.</p>
+
+<hr>
+<h4>Built-in Presets</h4>
+<ul>
+  <li><b>Balanced (Default):</b> Recommended for everyday desktop work. Uses intelligent <i>Smart Adaptive</i> mode with 1.0&nbsp;Hz sampling, smooth 0.6&nbsp;s transitions, and balanced CPU usage.</li>
+  <li><b>Vivid &amp; Dynamic:</b> Elevated 2.0&nbsp;Hz sampling, assertive accent locking, snappy 0.3&nbsp;s transitions, and boosted saturation. Perfect for gaming, videos, and music clips.</li>
+  <li><b>Subtle &amp; Calm:</b> Balanced composite color blending across the whole window, reduced opacity (75%), relaxed 0.5&nbsp;Hz sampling, and slow, gentle crossfades (1.2&nbsp;s).</li>
+  <li><b>Eco (Low CPU):</b> Minimal CPU and laptop battery usage. Samples once every 5 seconds (0.2&nbsp;Hz) with smooth 1.0&nbsp;s crossfading. Tab switching and page navigations still trigger instant updates.</li>
+  <li><b>High Contrast:</b> Maximum visibility and outline differentiation. High fallback pop (90%) and strong saturation leveling ensure the outline always stands out clearly from window content.</li>
+  <li><b>Custom:</b> Automatically selected whenever individual parameters are adjusted manually.</li>
+</ul>
+
+<hr>
+<h4>Detailed Parameter Explanations</h4>
+<ul>
+  <li><b>Detection mode:</b>
+    <ul>
+      <li><i>Smart Adaptive (Hybrid):</i> Default and most intelligent mode. Simultaneously analyzes dominant accent and average window tone. If the dominant accent matches the background canvas, it automatically shifts vibrance and contrast to prevent the outline from blending in.</li>
+      <li><i>Dominant accent:</i> Decisively locks onto the most vibrant chromatic accent (e.g. YouTube red, Spotify green) with 15% inertia hysteresis to prevent flickering between competing colors.</li>
+      <li><i>Balanced average:</i> Harmoniously merges all window colors using additive RGB light mixing into a calm, unified composite tone.</li>
+    </ul>
+  </li>
+  <li><b>Opacity:</b> Transparency level of the Ambilight outline (0% is completely invisible, 100% is fully opaque).</li>
+  <li><b>Sampling frequency:</b> How often (in Hertz / times per second) active window pixels are analyzed. Higher values (e.g. 2.0&ndash;5.0&nbsp;Hz) follow dynamic video content closely but increase CPU usage. 1.0&nbsp;Hz is recommended. Browser navigations and active window repaints trigger opportunistic updates immediately.</li>
+  <li><b>Transition duration:</b> Animation duration (in seconds) when crossfading from the previous outline color into newly sampled colors.</li>
+  <li><b>Saturation leveling:</b> Normalizes outline saturation towards a balanced target. Softens harsh neon colors while lifting pale pastels. Pure monochrome grays remain neutral.</li>
+  <li><b>Fallback distinction:</b> <i>(Smart Adaptive mode only)</i> How strongly the outline is modified to stand out when window content matches the dominant accent (0% = subtle/unchanged, 100% = bold contrast and vibrance pop).</li>
+  <li><b>Minimum brightness:</b> Prevents the outline from becoming too dark on black or dark-mode windows (clamps luminance from falling below this threshold).</li>
+  <li><b>Maximum brightness:</b> Prevents the outline from being blindingly bright on pure white windows or bright documents (clamps luminance from exceeding this threshold).</li>
+</ul>
+</body>
+</html>
+)raw");
+
+    QDialog dialog(widget());
+    dialog.setWindowTitle(title);
+    dialog.resize(620, 560);
+
+    auto *layout = new QVBoxLayout(&dialog);
+    layout->setContentsMargins(14, 14, 14, 14);
+    layout->setSpacing(12);
+
+    auto *viewer = new QTextBrowser(&dialog);
+    viewer->setOpenExternalLinks(false);
+    viewer->setHtml(html);
+    layout->addWidget(viewer);
+
+    auto *buttonBox = new QDialogButtonBox(QDialogButtonBox::Close, &dialog);
+    connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::accept);
+    layout->addWidget(buttonBox);
+
+    dialog.exec();
+}
+
 void ActiveWindowOutlineConfig::load()
 {
     KCModule::load();
     KConfigGroup group = KSharedConfig::openConfig(QStringLiteral("kwinrc"))->group(QStringLiteral("Effect-active-window-outline"));
     populateColorTable(group.readEntry(QStringLiteral("ColorList"), QStringLiteral("#3daee9:3.0;#2ecc71:3.0;#9b59b6:3.0")));
+    updatePresetSelector();
     setNeedsSave(false);
 }
 
@@ -415,6 +655,7 @@ void ActiveWindowOutlineConfig::defaults()
 {
     KCModule::defaults();
     populateColorTable(QStringLiteral("#3daee9:3.0;#2ecc71:3.0;#9b59b6:3.0"));
+    updatePresetSelector();
     markAsChanged();
 }
 
