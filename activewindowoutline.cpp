@@ -380,7 +380,8 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_ambilightOpacity = qBound(0, config.readEntry("AmbilightOpacity", 100), 100);
     m_ambilightFrequency = qBound<qreal>(0.1, config.readEntry("AmbilightFrequency", 1.0), 10.0);
     m_ambilightDuration = qBound<qreal>(0.1, config.readEntry("AmbilightDuration", 0.6), 5.0);
-    m_ambilightSaturationBoost = qBound<qreal>(1.0, config.readEntry("AmbilightSaturationBoost", 1.3), 3.0);
+    m_ambilightSaturationLeveling = qBound(0, config.readEntry("AmbilightSaturationLeveling", 65), 100);
+    m_ambilightFallbackStrength = qBound(0, config.readEntry("AmbilightFallbackStrength", 50), 100);
     m_ambilightMinBrightness = qBound(0, config.readEntry("AmbilightMinBrightness", 25), 50);
     m_ambilightMaxBrightness = qBound(50, config.readEntry("AmbilightMaxBrightness", 85), 100);
 
@@ -1612,7 +1613,8 @@ bool ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
         const QImage scaled = img->copy(targetRect).scaled(sampleSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation).convertToFormat(QImage::Format_RGBA8888);
         OutlineAmbilight::Settings settings;
         settings.mode = static_cast<OutlineAmbilight::Mode>(m_ambilightMode);
-        settings.saturationBoost = m_ambilightSaturationBoost;
+        settings.saturationLeveling = m_ambilightSaturationLeveling / 100.0;
+        settings.fallbackStrength = m_ambilightFallbackStrength / 100.0;
         settings.minBrightness = m_ambilightMinBrightness / 100.0;
         settings.maxBrightness = m_ambilightMaxBrightness / 100.0;
         if (m_ambilightTargetColor.isValid()) {
@@ -1661,7 +1663,8 @@ bool ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
 
     OutlineAmbilight::Settings settings;
     settings.mode = static_cast<OutlineAmbilight::Mode>(m_ambilightMode);
-    settings.saturationBoost = m_ambilightSaturationBoost;
+    settings.saturationLeveling = m_ambilightSaturationLeveling / 100.0;
+    settings.fallbackStrength = m_ambilightFallbackStrength / 100.0;
     settings.minBrightness = m_ambilightMinBrightness / 100.0;
     settings.maxBrightness = m_ambilightMaxBrightness / 100.0;
     if (m_ambilightTargetColor.isValid()) {

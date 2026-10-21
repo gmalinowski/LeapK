@@ -87,7 +87,8 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("AmbilightOpacity"), *new int, 100);
     m_configSkeleton->addItemDouble(QStringLiteral("AmbilightFrequency"), *new double, 1.0);
     m_configSkeleton->addItemDouble(QStringLiteral("AmbilightDuration"), *new double, 0.6);
-    m_configSkeleton->addItemDouble(QStringLiteral("AmbilightSaturationBoost"), *new double, 1.3);
+    m_configSkeleton->addItemInt(QStringLiteral("AmbilightSaturationLeveling"), *new int, 65);
+    m_configSkeleton->addItemInt(QStringLiteral("AmbilightFallbackStrength"), *new int, 50);
     m_configSkeleton->addItemInt(QStringLiteral("AmbilightMinBrightness"), *new int, 25);
     m_configSkeleton->addItemInt(QStringLiteral("AmbilightMaxBrightness"), *new int, 85);
     m_configSkeleton->addItemInt(QStringLiteral("BorderWidth"), *new int, 2);
@@ -240,6 +241,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
         m_ui->groupAmbilight->setEnabled(!colorCycle);
 
         const bool allowAmbilightDetails = !colorCycle && ambilight;
+        const bool isSmartMode = (m_ui->kcfg_AmbilightMode->currentIndex() == 0);
         m_ui->label_ambilightMode->setEnabled(allowAmbilightDetails);
         m_ui->kcfg_AmbilightMode->setEnabled(allowAmbilightDetails);
         m_ui->label_ambilightOpacity->setEnabled(allowAmbilightDetails);
@@ -248,8 +250,10 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
         m_ui->kcfg_AmbilightFrequency->setEnabled(allowAmbilightDetails);
         m_ui->label_ambilightDuration->setEnabled(allowAmbilightDetails);
         m_ui->kcfg_AmbilightDuration->setEnabled(allowAmbilightDetails);
-        m_ui->label_ambilightSaturationBoost->setEnabled(allowAmbilightDetails);
-        m_ui->kcfg_AmbilightSaturationBoost->setEnabled(allowAmbilightDetails);
+        m_ui->label_ambilightSaturationLeveling->setEnabled(allowAmbilightDetails);
+        m_ui->kcfg_AmbilightSaturationLeveling->setEnabled(allowAmbilightDetails);
+        m_ui->label_ambilightFallbackStrength->setEnabled(allowAmbilightDetails && isSmartMode);
+        m_ui->kcfg_AmbilightFallbackStrength->setEnabled(allowAmbilightDetails && isSmartMode);
         m_ui->label_ambilightMinBrightness->setEnabled(allowAmbilightDetails);
         m_ui->kcfg_AmbilightMinBrightness->setEnabled(allowAmbilightDetails);
         m_ui->label_ambilightMaxBrightness->setEnabled(allowAmbilightDetails);
@@ -258,6 +262,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     };
     connect(m_ui->kcfg_UseAccentColor, &QCheckBox::toggled, this, updateColorEnabled);
     connect(m_ui->kcfg_AmbilightEnabled, &QCheckBox::toggled, this, updateColorEnabled);
+    connect(m_ui->kcfg_AmbilightMode, &QComboBox::currentIndexChanged, this, updateColorEnabled);
     connect(m_ui->kcfg_ColorCycleEnabled, &QCheckBox::toggled, this, updateColorEnabled);
     updateColorEnabled();
 

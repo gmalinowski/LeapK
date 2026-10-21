@@ -207,39 +207,65 @@
            </widget>
           </item>
           <item row="5" column="0">
-           <widget class="QLabel" name="label_ambilightSaturationBoost">
+           <widget class="QLabel" name="label_ambilightSaturationLeveling">
             <property name="text">
-             <string>Saturation boost:</string>
+             <string>Saturation leveling:</string>
             </property>
            </widget>
           </item>
           <item row="5" column="1">
-           <widget class="QDoubleSpinBox" name="kcfg_AmbilightSaturationBoost">
+           <widget class="QSpinBox" name="kcfg_AmbilightSaturationLeveling">
+            <property name="toolTip">
+             <string>Normalizes outline saturation: softens overly harsh neon colors and boosts pale, weak colors towards the target level.</string>
+            </property>
             <property name="minimum">
-             <double>1.0</double>
+             <number>0</number>
             </property>
             <property name="maximum">
-             <double>3.0</double>
-            </property>
-            <property name="singleStep">
-             <double>0.1</double>
+             <number>100</number>
             </property>
             <property name="value">
-             <double>1.3</double>
+             <number>65</number>
             </property>
             <property name="suffix">
-             <string> x</string>
+             <string> %</string>
             </property>
            </widget>
           </item>
           <item row="6" column="0">
+           <widget class="QLabel" name="label_ambilightFallbackStrength">
+            <property name="text">
+             <string>Fallback distinction:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="6" column="1">
+           <widget class="QSpinBox" name="kcfg_AmbilightFallbackStrength">
+            <property name="toolTip">
+             <string>Controls how strongly the outline is modified to stand out when window content matches the dominant accent in Smart Adaptive mode (0%: subtle/identical, 100%: strong contrast &amp; vibrance pop).</string>
+            </property>
+            <property name="minimum">
+             <number>0</number>
+            </property>
+            <property name="maximum">
+             <number>100</number>
+            </property>
+            <property name="value">
+             <number>50</number>
+            </property>
+            <property name="suffix">
+             <string> %</string>
+            </property>
+           </widget>
+          </item>
+          <item row="7" column="0">
            <widget class="QLabel" name="label_ambilightMinBrightness">
             <property name="text">
              <string>Minimum brightness:</string>
             </property>
            </widget>
           </item>
-          <item row="6" column="1">
+          <item row="7" column="1">
            <widget class="QSpinBox" name="kcfg_AmbilightMinBrightness">
             <property name="minimum">
              <number>0</number>
@@ -255,14 +281,14 @@
             </property>
            </widget>
           </item>
-          <item row="7" column="0">
+          <item row="8" column="0">
            <widget class="QLabel" name="label_ambilightMaxBrightness">
             <property name="text">
              <string>Maximum brightness:</string>
             </property>
            </widget>
           </item>
-          <item row="7" column="1">
+          <item row="8" column="1">
            <widget class="QSpinBox" name="kcfg_AmbilightMaxBrightness">
             <property name="minimum">
              <number>50</number>
@@ -278,7 +304,7 @@
             </property>
            </widget>
           </item>
-          <item row="8" column="0" colspan="2">
+          <item row="9" column="0" colspan="2">
            <widget class="QLabel" name="label_ambilightWarning">
             <property name="text">
              <string>ℹ️ Higher sampling frequency reacts faster to video and dynamic content, but increases CPU usage. 1.0 Hz is recommended for everyday desktop usage.</string>

@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.6] - 2026-10-21
+
+### Added
+
+- **Saturation Leveling ("Wygładzenie saturacji")**: Replaced raw linear saturation multiplier with a target saturation leveling algorithm (`AmbilightSaturationLeveling`, 0–100%, default 65%). Instead of blowing out neon colors into harsh over-saturated hues or failing to lift pastels, leveling pulls low saturation gently upward while compressing extreme saturation downward towards the desired target level. Monochrome grays remain intact.
+- **Fallback Distinction Strength ("Odróżnienie fallbacku")**: Added a dedicated slider (`AmbilightFallbackStrength`, 0–100%, default 50%) for the Smart Adaptive detection mode. Controls how boldly the outline modifies and separates itself from the window content when dominant colors align with the window average: from subtle blending (0%) to distinct contrast pop (100%). Dynamically enabled in the settings UI only when Smart Adaptive mode is selected.
+
 ## [1.4.5] - 2026-10-21
 
 ### Fixed

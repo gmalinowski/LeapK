@@ -21,16 +21,33 @@ enum class Mode
 struct Settings
 {
     Mode mode = Mode::Smart;
-    qreal saturationBoost = 1.3;
-    qreal minBrightness = 0.25; // 0.0 - 1.0 (25%)
-    qreal maxBrightness = 0.85; // 0.0 - 1.0 (85%)
-    float previousHue = -1.0f;  // For hysteresis/stickiness in Dominant mode [0.0, 1.0]
+    qreal saturationLeveling = 0.65; // Target saturation level [0.0, 1.0] (default 65%)
+    qreal fallbackStrength = 0.50;   // Fallback contrast differentiation strength [0.0, 1.0] (default 50%)
+    qreal minBrightness = 0.25;      // 0.0 - 1.0 (25%)
+    qreal maxBrightness = 0.85;      // 0.0 - 1.0 (85%)
+    float previousHue = -1.0f;       // For hysteresis/stickiness in Dominant mode [0.0, 1.0]
 };
+
+/**
+ * Normalizes saturation towards settings.saturationLeveling:
+ * - High saturation (e.g. 1.0) is smoothly toned down towards target.
+ * - Weak/pale saturation (e.g. 0.2) is boosted towards target.
+ * - Near-monochrome (s < 0.03) remains untouched (s = 0.0).
+ */
+inline qreal applySaturationLeveling(qreal s, qreal target)
+{
+    if (s < 0.03) {
+        return 0.0;
+    }
+    const qreal weight = qBound<qreal>(0.0, (s - 0.03) / 0.12, 1.0);
+    const qreal leveled = s + weight * 0.5 * (target - s);
+    return qBound<qreal>(0.0, leveled, 1.0);
+}
 
 /**
  * Balanced Average mode:
  * Uses weighted additive RGB light mixing to prevent erratic hue jumps when a window
- * contains many diverse colorful elements, with perceptual saturation boosting and
+ * contains many diverse colorful elements, with perceptual saturation leveling and
  * contrast clamping.
  */
 inline QColor processBalancedAverage(const uint8_t *rgba, int pixelCount, const Settings &settings)
@@ -97,13 +114,13 @@ inline QColor processBalancedAverage(const uint8_t *rgba, int pixelCount, const 
         return QColor::fromHslF(0.0, 0.0, clampedL);
     }
 
-    // Apply saturation boost
-    const qreal boostedS = qBound<qreal>(0.0, s * settings.saturationBoost, 1.0);
+    // Apply saturation leveling
+    const qreal leveledS = applySaturationLeveling(s, settings.saturationLeveling);
 
     // Apply lightness clamp
     const qreal clampedL = qBound<qreal>(settings.minBrightness, l, settings.maxBrightness);
 
-    return QColor::fromHslF(qBound<qreal>(0.0, h, 1.0), boostedS, clampedL);
+    return QColor::fromHslF(qBound<qreal>(0.0, h, 1.0), leveledS, clampedL);
 }
 
 /**
@@ -235,10 +252,10 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
     float h = 0.0f, s = 0.0f, l = 0.0f;
     winningColor.getHslF(&h, &s, &l);
 
-    const qreal boostedS = qBound<qreal>(0.0, s * settings.saturationBoost, 1.0);
+    const qreal leveledS = applySaturationLeveling(s, settings.saturationLeveling);
     const qreal clampedL = qBound<qreal>(settings.minBrightness, l, settings.maxBrightness);
 
-    return QColor::fromHslF(qBound<qreal>(0.0, h, 1.0), boostedS, clampedL);
+    return QColor::fromHslF(qBound<qreal>(0.0, h, 1.0), leveledS, clampedL);
 }
 
 /**
@@ -246,9 +263,9 @@ inline QColor processDominantAccent(const uint8_t *rgba, int pixelCount, const S
  * Evaluates both the dominant accent and the balanced average of the window content.
  * When the dominant accent is very similar in hue and tone to the balanced average
  * (indicating a homogeneous window or that the whole window content shares that color),
- * it dynamically boosts saturation and contrast so the outline pops out vibrantly instead
- * of blending into the window. When diverse accents or contrasting elements are present,
- * it maintains clean, decisive dominant accent tracking.
+ * it dynamically modifies saturation and contrast so the outline pops out vibrantly instead
+ * of blending into the window. The strength of this differentiation is controlled by
+ * settings.fallbackStrength (0%: subtle/identical, 100%: strong contrast & vibrance pop).
  */
 inline QColor processSmartAdaptive(const uint8_t *rgba, int pixelCount, const Settings &settings)
 {
@@ -291,17 +308,18 @@ inline QColor processSmartAdaptive(const uint8_t *rgba, int pixelCount, const Se
     // Overall similarity factor [0.0, 1.0]
     const qreal similarity = qBound<qreal>(0.0, hueSimilarity * toneSimilarity, 1.0);
 
-    // When dominant accent aligns closely with the window average, boost vibrancy and contrast
-    if (similarity > 0.25) {
-        const qreal extraBoost = 1.0 + 0.35 * similarity; // Up to 35% extra saturation pop
+    // When dominant accent aligns closely with the window average, apply fallback contrast differentiation
+    if (similarity > 0.25 && settings.fallbackStrength > 0.001) {
+        const qreal extraBoost = 1.0 + (0.60 * settings.fallbackStrength) * similarity;
         const qreal boostedS = qBound<qreal>(0.0, sd * extraBoost, 1.0);
 
         // Optimize lightness contrast against homogeneous backgrounds
         qreal adjustedL = ld;
-        if (adjustedL > 0.70) {
-            adjustedL = qMax<qreal>(0.60, adjustedL - 0.06 * similarity); // Richer midtone, avoids white blowout
-        } else if (adjustedL < 0.30) {
-            adjustedL = qMin<qreal>(0.40, adjustedL + 0.06 * similarity); // Avoids sinking into dark background
+        const qreal lightShift = (0.15 * settings.fallbackStrength) * similarity;
+        if (adjustedL > 0.65) {
+            adjustedL = qMax<qreal>(0.55, adjustedL - lightShift); // Richer midtone, avoids white blowout
+        } else if (adjustedL < 0.40) {
+            adjustedL = qMin<qreal>(0.45, adjustedL + lightShift); // Avoids sinking into dark background
         }
 
         const qreal clampedL = qBound<qreal>(settings.minBrightness, adjustedL, settings.maxBrightness);

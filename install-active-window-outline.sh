@@ -254,7 +254,8 @@ set_default AmbilightMode 0
 set_default AmbilightOpacity 100
 set_default AmbilightFrequency 1.0
 set_default AmbilightDuration 0.6
-set_default AmbilightSaturationBoost 1.3
+set_default AmbilightSaturationLeveling 65
+set_default AmbilightFallbackStrength 50
 set_default AmbilightMinBrightness 25
 set_default AmbilightMaxBrightness 85
 set_default BorderWidth 2

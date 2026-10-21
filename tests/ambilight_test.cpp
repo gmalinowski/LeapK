@@ -45,6 +45,7 @@ int main()
         for (const auto mode : {Mode::Smart, Mode::Dominant, Mode::Balanced}) {
             Settings settings;
             settings.mode = mode;
+            settings.saturationLeveling = 1.0;
             const QColor c = processRgbaSamples(pixels.data(), 64, settings);
             check(c.isValid(), "pure red valid");
             float h = 0.0f, s = 0.0f, l = 0.0f;
@@ -72,6 +73,7 @@ int main()
         }
         Settings settings;
         settings.mode = Mode::Dominant;
+        settings.saturationLeveling = 0.85;
         const QColor c = processRgbaSamples(pixels.data(), 100, settings);
         float h = 0.0f, s = 0.0f, l = 0.0f;
         c.getHslF(&h, &s, &l);
@@ -113,33 +115,26 @@ int main()
         }
     }
 
-    // 6. Saturation boost check
+    // 6. Saturation leveling: softens harsh neon and boosts pale pastel towards target
     {
-        // Pastel orange: R=200, G=150, B=130
-        std::vector<uint8_t> pixels(64 * 4);
-        for (size_t i = 0; i < 64; ++i) {
-            pixels[i * 4 + 0] = 200;
-            pixels[i * 4 + 1] = 150;
-            pixels[i * 4 + 2] = 130;
-            pixels[i * 4 + 3] = 255;
-        }
-        Settings normal;
-        normal.mode = Mode::Balanced;
-        normal.saturationBoost = 1.0;
-        const QColor cNormal = processRgbaSamples(pixels.data(), 64, normal);
+        // 6a. High saturation (1.0) leveled towards 0.60 -> tones down
+        const qreal sHigh = 1.0;
+        const qreal leveledHigh = applySaturationLeveling(sHigh, 0.60);
+        check(leveledHigh < 1.0 && leveledHigh >= 0.75, "saturation leveling tones down harsh neon saturation");
 
-        Settings boosted;
-        boosted.mode = Mode::Balanced;
-        boosted.saturationBoost = 1.5;
-        const QColor cBoosted = processRgbaSamples(pixels.data(), 64, boosted);
+        // 6b. Weak pastel saturation (0.25) leveled towards 0.65 -> boosts up
+        const qreal sLow = 0.25;
+        const qreal leveledLow = applySaturationLeveling(sLow, 0.65);
+        check(leveledLow > 0.25 && leveledLow <= 0.55, "saturation leveling boosts weak pale saturation");
 
-        float h1 = 0.0f, s1 = 0.0f, l1 = 0.0f;
-        float h2 = 0.0f, s2 = 0.0f, l2 = 0.0f;
-        cNormal.getHslF(&h1, &s1, &l1);
-        cBoosted.getHslF(&h2, &s2, &l2);
+        // 6c. Target match preserved
+        const qreal sTarget = 0.65;
+        const qreal leveledTarget = applySaturationLeveling(sTarget, 0.65);
+        checkNear(leveledTarget, 0.65, 0.01, "saturation leveling preserves target level");
 
-        checkNear(s2, s1 * 1.5, 0.02, "saturation boost scaling");
-        checkNear(h1, h2, 0.02, "hue preserved under boost");
+        // 6d. Neutral monochrome (0.0) untouched
+        const qreal sZero = 0.0;
+        checkNear(applySaturationLeveling(sZero, 0.65), 0.0, 0.001, "saturation leveling leaves zero saturation untouched");
     }
 
     // 7. Balanced mode: Multi-colored elements blend into harmonious composite (Magenta/Purple)
@@ -160,6 +155,7 @@ int main()
         }
         Settings settings;
         settings.mode = Mode::Balanced;
+        settings.saturationLeveling = 0.85;
         const QColor c = processRgbaSamples(pixels.data(), 100, settings);
         float h = 0.0f, s = 0.0f, l = 0.0f;
         c.getHslF(&h, &s, &l);
@@ -220,6 +216,7 @@ int main()
 
         Settings settings;
         settings.mode = Mode::Dominant;
+        settings.saturationLeveling = 0.85;
         const QColor c = processRgbaSamples(pixels.data(), 100, settings);
         float h = 0.0f, s = 0.0f, l = 0.0f;
         c.getHslF(&h, &s, &l);
@@ -262,9 +259,9 @@ int main()
         check(hr <= 0.05f || hr >= 0.95f, "dominant inertia: holds previous red hue on equal competition");
     }
 
-    // 11. Smart Adaptive mode: Automatically boosts saturation when dominant accent aligns with window average
+    // 11. Smart Adaptive mode: Fallback distinction strength scaling
     {
-        // Homogeneous pastel blue window (RGB 100, 150, 220) -> H ~ 0.597, S ~ 0.63, L ~ 0.63
+        // Homogeneous pastel blue window (RGB 100, 150, 220)
         std::vector<uint8_t> pixels(100 * 4);
         for (int i = 0; i < 100; ++i) {
             pixels[i * 4 + 0] = 100;
@@ -275,21 +272,29 @@ int main()
 
         Settings dominantSettings;
         dominantSettings.mode = Mode::Dominant;
-        dominantSettings.saturationBoost = 1.0;
         const QColor cDom = processRgbaSamples(pixels.data(), 100, dominantSettings);
 
-        Settings smartSettings;
-        smartSettings.mode = Mode::Smart;
-        smartSettings.saturationBoost = 1.0;
-        const QColor cSmart = processRgbaSamples(pixels.data(), 100, smartSettings);
+        // Fallback strength 0% (subtle - identical to dominant)
+        Settings smartSubtle;
+        smartSubtle.mode = Mode::Smart;
+        smartSubtle.fallbackStrength = 0.0;
+        const QColor cSubtle = processRgbaSamples(pixels.data(), 100, smartSubtle);
+
+        // Fallback strength 100% (bold distinction)
+        Settings smartBold;
+        smartBold.mode = Mode::Smart;
+        smartBold.fallbackStrength = 1.0;
+        const QColor cBold = processRgbaSamples(pixels.data(), 100, smartBold);
 
         float hd = 0.0f, sd = 0.0f, ld = 0.0f;
         float hs = 0.0f, ss = 0.0f, ls = 0.0f;
+        float hb = 0.0f, sb = 0.0f, lb = 0.0f;
         cDom.getHslF(&hd, &sd, &ld);
-        cSmart.getHslF(&hs, &ss, &ls);
+        cSubtle.getHslF(&hs, &ss, &ls);
+        cBold.getHslF(&hb, &sb, &lb);
 
-        checkNear(hd, hs, 0.02, "smart: hue preserved with dominant accent");
-        check(ss > sd, "smart: boosts saturation when dominant accent aligns with balanced average");
+        checkNear(sd, ss, 0.01, "fallback 0%: saturation matches dominant (subtle)");
+        check(sb > sd, "fallback 100%: saturation boosted significantly above dominant");
     }
 
     // 12. Smart Adaptive mode: Retains dominant accent on contrasting backgrounds
@@ -311,6 +316,7 @@ int main()
 
         Settings smartSettings;
         smartSettings.mode = Mode::Smart;
+        smartSettings.saturationLeveling = 0.85;
         const QColor cSmart = processRgbaSamples(pixels.data(), 100, smartSettings);
         float h = 0.0f, s = 0.0f, l = 0.0f;
         cSmart.getHslF(&h, &s, &l);

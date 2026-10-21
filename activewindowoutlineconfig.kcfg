@@ -45,10 +45,15 @@
             <min>0.1</min>
             <max>5.0</max>
         </entry>
-        <entry name="AmbilightSaturationBoost" type="Double">
-            <default>1.3</default>
-            <min>1.0</min>
-            <max>3.0</max>
+        <entry name="AmbilightSaturationLeveling" type="Int">
+            <default>65</default>
+            <min>0</min>
+            <max>100</max>
+        </entry>
+        <entry name="AmbilightFallbackStrength" type="Int">
+            <default>50</default>
+            <min>0</min>
+            <max>100</max>
         </entry>
         <entry name="AmbilightMinBrightness" type="Int">
             <default>25</default>
