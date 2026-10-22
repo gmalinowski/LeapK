@@ -1481,14 +1481,14 @@
              <string>Recent window opacity:</string>
             </property>
             <property name="toolTip">
-             <string>Opacity percentage of the previous window outline (default: 50%).</string>
+             <string>Base opacity for recent windows (default: 50%). When multiple windows are tracked, opacity decreases proportionally for older windows (e.g. at 50%: 1st = 50%, 2nd = 25%, 3rd = 12.5%).</string>
             </property>
            </widget>
           </item>
           <item row="4" column="1">
            <widget class="QSpinBox" name="kcfg_RecentWindowOpacity">
             <property name="toolTip">
-             <string>Opacity percentage of the previous window outline (default: 50%).</string>
+             <string>Base opacity for recent windows (default: 50%). When multiple windows are tracked, opacity decreases proportionally for older windows (e.g. at 50%: 1st = 50%, 2nd = 25%, 3rd = 12.5%).</string>
             </property>
             <property name="minimum">
              <number>10</number>

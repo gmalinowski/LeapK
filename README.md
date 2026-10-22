@@ -256,7 +256,7 @@ Configure buffering delays and window state handling.
 | **Highlight recent window(s)** | Off | Keeps a subdued outline on recent previously active window(s) to help track focus history when multitasking or tiling windows. |
 | **Recent windows count** | 1 | Number of previously focused windows to keep highlighted (1–5). Older windows automatically attenuate their opacity for clear visual hierarchy. |
 | **Recent outline color** | Match active | Color style for recent windows: either match the active window's color mode (including individual Ambilight colors) or use a custom static color. |
-| **Recent window opacity** | 50% | Base opacity percentage for recent window outlines. |
+| **Recent window opacity** | 50% | Base opacity percentage for recent window outlines. When multiple recent windows are tracked, opacity decreases proportionally (e.g. at 50%: 1st = 50%, 2nd = 25%, 3rd = 12.5%). |
 | **Hide on fullscreen** | On | Automatically hides the outline and glow when the active window is fullscreen. |
 
 ### Keyboard shortcut

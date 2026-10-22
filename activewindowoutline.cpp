@@ -1868,8 +1868,10 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 m_lastGeometry[recent] = recentGeo;
             }
 
-            const qreal stepFactor = (m_recentWindowsCount > 1) ? std::max(0.4, 1.0 - i * 0.2) : 1.0;
-            const qreal recentOpacity = (m_recentWindowOpacity / 100.0) * stepFactor * m_visibilityState.visibilityOpacity;
+            const qreal baseOpacity = qBound<qreal>(0.05, m_recentWindowOpacity / 100.0, 1.0);
+            // Proportional exponential decay: 1st window = base, 2nd = base * base, 3rd = base^3, etc.
+            const qreal decayedOpacity = (m_recentWindowsCount > 1) ? std::pow(baseOpacity, i + 1) : baseOpacity;
+            const qreal recentOpacity = decayedOpacity * m_visibilityState.visibilityOpacity;
             renderOutline(renderTarget, viewport, m_outlineCache[recent], deviceRegion, recent, recentOpacity);
         }
     }

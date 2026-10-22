@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Recent / Previously Active Window Highlight (`HighlightRecentWindow`)**:
   - Added the ability to keep a subdued outline on recent previously active window(s) to track keyboard focus history and enhance multitasking / tiling workflows:
     - **Configurable History Depth (`RecentWindowsCount`)**: Highlight between 1 and 5 recent windows (default: 1).
-    - **Visual Recency Attenuation**: Older windows in the history automatically step down their opacity for an intuitive visual hierarchy.
+    - **Proportional Exponential Recency Decay**: Older windows in the history decrease opacity proportionally based on the configured base opacity: 1st = base opacity (e.g. 50%), 2nd = 50% of 1st (25%), 3rd = 50% of 2nd (12.5%), etc.
     - **Color Mode Flexibility (`RecentWindowColorMode`)**:
       - **Match active window color**: Mirrors the active color mode (System Accent, Custom Color, or frozen per-window Ambilight colors) with dimmed opacity (default: 50%).
       - **Custom static color (`RecentWindowCustomColor`)**: Explicitly assign a dedicated color for recent windows (e.g. slate gray, muted cyan).
