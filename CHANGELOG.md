@@ -20,6 +20,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     - **Occlusion-Aware**: Fully clipped against higher windows in the KWin stacking order; if windows overlap, active windows naturally occlude underlying recent outlines.
     - **Chromatic Recency Hue Shifting (`RecentWindowHueShift`)**: Optional setting to rotate the outline's hue angle (-180° to +180°) for each older window in the history (0° = no change), creating an intuitive visual color trail indicating focus progression.
 
+### Fixed
+- **Shader Effects & Hologram Suppression on Recent Windows**:
+  - Fixed an issue where the Futuristic Hologram (Sci-Fi glitch) GPU fragment shader remained active on recent window outlines. Holographic scanlines, rolling sweep beam, micro-jitter, and anomaly surges are now strictly disabled on older windows.
+  - Preserved static color for Color Cycling on recent windows by snapshotting the active cycle color upon focus departure, preventing older windows from actively cycling colors.
+
 ## [1.4.24] - 2026-10-21
 
 ### Added

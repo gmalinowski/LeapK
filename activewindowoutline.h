@@ -156,6 +156,7 @@ private:
     EffectWindow *m_activeWindow = nullptr;
     QList<EffectWindow *> m_recentWindows;
     mutable QMap<EffectWindow *, QColor> m_recentAmbilightColors;
+    mutable QMap<EffectWindow *, QColor> m_recentCycleColors;
 #ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
     QPointer<SceneView> m_sceneView;
 #endif

@@ -516,10 +516,12 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
         }
         m_recentWindows.clear();
         m_recentAmbilightColors.clear();
+        m_recentCycleColors.clear();
     } else {
         while (m_recentWindows.size() > m_recentWindowsCount) {
             EffectWindow *oldWindow = m_recentWindows.takeLast();
             m_recentAmbilightColors.remove(oldWindow);
+            m_recentCycleColors.remove(oldWindow);
             if (oldWindow) {
                 effects->addRepaint(expandedGeometryFor(oldWindow));
                 m_outlineCache.remove(oldWindow);
@@ -714,7 +716,11 @@ QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity, EffectWindow
     if (isRecent && m_recentWindowColorMode == 1) {
         color = m_recentWindowCustomColor;
     } else if (m_colorCycleEnabled && !m_colorStops.isEmpty()) {
-        color = const_cast<ActiveWindowOutlineEffect *>(this)->currentCycleColor(elapsedSec);
+        if (isRecent && m_recentCycleColors.contains(w) && m_recentCycleColors.value(w).isValid()) {
+            color = m_recentCycleColors.value(w);
+        } else {
+            color = const_cast<ActiveWindowOutlineEffect *>(this)->currentCycleColor(elapsedSec);
+        }
     } else if (m_ambilightEnabled) {
         if (isRecent && m_recentAmbilightColors.contains(w) && m_recentAmbilightColors.value(w).isValid()) {
             color = m_recentAmbilightColors.value(w);
@@ -852,6 +858,7 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
     }
     m_recentWindows.removeAll(w);
     m_recentAmbilightColors.remove(w);
+    m_recentCycleColors.remove(w);
     m_suppressedWindows.remove(w);
     m_lastGeometry.remove(w);
     m_outlineCache.remove(w);
@@ -1089,7 +1096,10 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
     const float maxFade = qMax<float>(15.0f * float(scale), edgeHalfMin - cornerCutoff - 10.0f * float(scale));
     const float fadeDist = std::clamp<float>(120.0f * float(scale), 20.0f * float(scale), maxFade);
 
-    if (m_glowEnabled && dynamicColor.alpha() > 0) {
+    const bool isRecent = (outlinedWindow != nullptr && m_recentWindows.contains(outlinedWindow) && outlinedWindow != m_activeWindow);
+    const bool enableGlow = isRecent ? m_glowEnabled : (m_glowEnabled || m_glitchEnabled);
+
+    if (enableGlow && dynamicColor.alpha() > 0) {
         if (!m_glowShader) {
 #ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
             m_glowShader = ShaderManager::instance()->generateCustomShader(
@@ -1150,10 +1160,11 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
 
                 const float elapsedSec = m_animationClock.isValid() ? float(m_animationClock.elapsed() / 1000.0) : 0.0f;
                 shader->setUniform("time", elapsedSec);
-                shader->setUniform("glitchActive", m_glitchEnabled ? 1.0f : 0.0f);
+                const bool applyGlitch = m_glitchEnabled && !isRecent;
+                shader->setUniform("glitchActive", applyGlitch ? 1.0f : 0.0f);
                 shader->setUniform("glitchSpeed", float(m_glitchSpeed));
                 shader->setUniform("glitchIntensity", float(m_glitchIntensity));
-                shader->setUniform("glitchAnomalyActive", (m_glitchEnabled && m_glitchAnomalyEnabled) ? 1.0f : 0.0f);
+                shader->setUniform("glitchAnomalyActive", (applyGlitch && m_glitchAnomalyEnabled) ? 1.0f : 0.0f);
                 shader->setUniform("glitchFrequency", float(m_glitchFrequency));
 
                 glEnable(GL_BLEND);
@@ -1347,16 +1358,22 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
             if (m_ambilightCurrentColor.isValid()) {
                 m_recentAmbilightColors[previous] = m_ambilightCurrentColor;
             }
+            if (m_colorCycleEnabled && !m_colorStops.isEmpty()) {
+                const qreal elapsedSec = m_animationClock.isValid() ? (m_animationClock.elapsed() / 1000.0) : 0.0;
+                m_recentCycleColors[previous] = currentCycleColor(elapsedSec);
+            }
         }
 
         if (w) {
             m_recentWindows.removeAll(w);
             m_recentAmbilightColors.remove(w);
+            m_recentCycleColors.remove(w);
         }
 
         while (m_recentWindows.size() > m_recentWindowsCount) {
             EffectWindow *oldWindow = m_recentWindows.takeLast();
             m_recentAmbilightColors.remove(oldWindow);
+            m_recentCycleColors.remove(oldWindow);
             if (oldWindow) {
                 effects->addRepaint(expandedGeometryFor(oldWindow));
                 m_outlineCache.remove(oldWindow);
@@ -1393,6 +1410,7 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
             }
             m_recentWindows.clear();
             m_recentAmbilightColors.clear();
+            m_recentCycleColors.clear();
         }
 
         if (previous) {
@@ -1491,7 +1509,8 @@ void ActiveWindowOutlineEffect::slotWindowFrameGeometryChanged(EffectWindow *w,
     if (!shouldOutlineWindow(w) && !isBlockingPopup(w) && m_delayedHideWindow != w && !isRecent) {
         return;
     }
-    const qreal glowExtent = m_glowEnabled ? m_glowRadius : 0;
+    const bool hasGlow = (w == m_activeWindow) ? (m_glowEnabled || m_glitchEnabled) : m_glowEnabled;
+    const qreal glowExtent = hasGlow ? m_glowRadius : 0;
     const qreal extent = m_drawInside
         ? glowExtent + 1.0
         : m_width + m_gap + glowExtent + 1.0;
@@ -1609,7 +1628,8 @@ QRectF ActiveWindowOutlineEffect::expandedGeometryFor(EffectWindow *w) const
     if (!w) {
         return QRectF();
     }
-    const qreal glowExtent = m_glowEnabled ? m_glowRadius : 0;
+    const bool hasGlow = (w == m_activeWindow) ? (m_glowEnabled || m_glitchEnabled) : m_glowEnabled;
+    const qreal glowExtent = hasGlow ? m_glowRadius : 0;
     qreal extent = m_drawInside
         ? glowExtent + 1.0
         : m_width + m_gap + glowExtent + 1.0;
