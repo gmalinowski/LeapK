@@ -14,11 +14,13 @@ Whether you are using tiling window management (such as Bismuth, Polonium, or Kr
 
 - **Active Window Focus Tracking**: Automatically follows and highlights the currently focused window with smooth, responsive transitions.
 - **Recent Window(s) Focus History Highlight**:
-  - Keep a subdued outline on previously focused window(s) (customizable count: 1–5, default: 1).
-  - Helps effortlessly track multitasking context between windows (e.g. editor and browser, or tiling layouts).
-  - Choose between matching the active window color mode or setting a dedicated custom static color.
-  - In Ambilight mode, recent windows preserve their own sampled accent colors!
-  - When tracking multiple recent windows, older windows automatically interpolate opacity and desaturate into monochrome for intuitive visual hierarchy.
+  - Keep subdued outlines on recently focused windows (track between 1 and 5 recent windows) to easily navigate keyboard focus trails in multitasking, split-screen, and tiling setups.
+  - **Multi-Window Opacity Decay**: Configure the opacity of the oldest window (default: 20%); intermediate windows interpolate linearly between 100% and this floor.
+  - **Monochrome / Grayscale Desaturation**: Older windows proportionally lose color saturation towards a target value (default: 0% / full grayscale), providing an unmistakable visual focus hierarchy.
+  - **Stepwise Border Width Reduction**: Optional reduction of border thickness per previous window (down to 1 px) for a clean physical taper across background windows.
+  - **Chromatic Hue Progression**: Rotate hues by a configurable angle (-180° to +180°) across the recent window trail.
+  - **Color Mode Flexibility**: Match active window color (including per-window frozen Ambilight samples) or assign a dedicated static custom color.
+  - **Calm & Subdued**: Animated shader effects (breathe, hologram, flicker) are automatically suppressed on recent windows to prevent visual distraction.
 - **Global Shortcut**: Press **Meta+Ctrl+O** (configurable) to instantly toggle the outline and focus border on or off.
 - **Multiple Color Modes**:
   - **System Accent Color**: Seamlessly matches your KDE Plasma accent color.
@@ -257,7 +259,7 @@ Configure buffering delays and window state handling.
 | **Recent windows count** | 1 | Number of previously focused windows to keep highlighted (1–5). Older windows automatically attenuate their opacity for clear visual hierarchy. |
 | **Recent outline color** | Match active | Color style for recent windows: either match the active window's color mode (including individual Ambilight colors) or use a custom static color. |
 | **Last window opacity** | 20% | Opacity percentage for the oldest tracked recent window outline. Older windows proportionally interpolate between 100% (active window) and this minimum opacity. |
-| **Hue shift per window** | 0° (None) | Rotates the color hue by this angle for each successive window in history (-180° to +180°). Creates an intuitive chromatic trail indicating focus progression. |
+| **Hue shift per window** | 0° (None) | Rotates the color hue by this angle for each successive window in history (-180° to +180°). In Match Active mode, shifting begins on the 1st recent window; in Custom Color mode, the 1st recent window keeps the exact chosen color and shifting begins on the 2nd recent window. |
 | **Last window saturation** | 0% (Grayscale) | Color saturation for the oldest tracked window (0% to 100%). Older windows proportionally lose saturation towards this value, smoothly fading from vibrant color into monochrome grayscale. |
 | **Width reduction per window** | 0 px (None) | Step in pixels by which each successive older window reduces its outline border thickness (0–10 px). Clamped to a minimum thickness of 1 px. |
 | **Hide on fullscreen** | On | Automatically hides the outline and glow when the active window is fullscreen. |
