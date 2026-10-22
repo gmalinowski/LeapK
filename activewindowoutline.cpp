@@ -506,6 +506,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_recentWindowOpacity = qBound(5, config.readEntry("RecentWindowOpacity", 20), 100);
     m_recentWindowHueShift = qBound(-180, config.readEntry("RecentWindowHueShift", 0), 180);
     m_recentWindowSaturation = qBound(0, config.readEntry("RecentWindowSaturation", 0), 100);
+    m_recentWindowWidthReduction = qBound(0, config.readEntry("RecentWindowWidthReduction", 0), 10);
     if (!m_highlightRecentWindow) {
         for (EffectWindow *recent : m_recentWindows) {
             if (recent) {
@@ -1092,7 +1093,8 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
     };
     const float cornerRadiusPx = float(cache.outerRadius * scale);
     const float minCutoff = qMax<float>(4.0f * float(scale), cornerRadiusPx);
-    const float cornerCutoff = m_drawInside ? qMax<float>(minCutoff, float(m_width * scale)) : minCutoff;
+    const qreal effectiveWidth = (cache.borderWidth > 0.0) ? cache.borderWidth : m_width;
+    const float cornerCutoff = m_drawInside ? qMax<float>(minCutoff, float(effectiveWidth * scale)) : minCutoff;
     const float edgeHalfMin = float(qMin<qreal>(cache.outerRect.width(), cache.outerRect.height()) * scale * 0.5);
     const float maxFade = qMax<float>(15.0f * float(scale), edgeHalfMin - cornerCutoff - 10.0f * float(scale));
     const float fadeDist = std::clamp<float>(120.0f * float(scale), 20.0f * float(scale), maxFade);
@@ -1274,7 +1276,7 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
     }
 }
 
-void ActiveWindowOutlineEffect::cacheWindowOutline(EffectWindow *w, const QRectF &geo)
+void ActiveWindowOutlineEffect::cacheWindowOutline(EffectWindow *w, const QRectF &geo, qreal customWidth)
 {
     OutlineCache cache;
 
@@ -1283,7 +1285,8 @@ void ActiveWindowOutlineEffect::cacheWindowOutline(EffectWindow *w, const QRectF
         ? qMin<qreal>(m_gap, qMax<qreal>(0.0, minDimension / 2.0 - 1.0))
         : m_gap;
     const qreal maxInsideWidth = qMax<qreal>(0.0, minDimension / 2.0 - gap);
-    const qreal bw = m_drawInside ? qMin<qreal>(m_width, maxInsideWidth) : m_width;
+    const qreal baseW = (customWidth > 0.0) ? customWidth : m_width;
+    const qreal bw = m_drawInside ? qMin<qreal>(baseW, maxInsideWidth) : baseW;
     if (bw <= 0.0) {
         m_outlineCache[w] = cache;
         return;
@@ -1302,6 +1305,7 @@ void ActiveWindowOutlineEffect::cacheWindowOutline(EffectWindow *w, const QRectF
     cache.innerRect = innerRect;
     cache.outerRadius = outerRadius;
     cache.innerRadius = innerRadius;
+    cache.borderWidth = bw;
 
     const auto appendLayer = [this, &cache](const QRectF &outer, qreal outerR,
                                             const QRectF &inner, qreal innerR,
@@ -1875,8 +1879,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
 
     if (drawDelayed) {
         const QRectF delayedGeo = m_delayedHideWindow->frameGeometry();
-        if (!m_outlineCache.contains(m_delayedHideWindow) || m_lastGeometry.value(m_delayedHideWindow) != delayedGeo) {
-            cacheWindowOutline(m_delayedHideWindow, delayedGeo);
+        if (!m_outlineCache.contains(m_delayedHideWindow) || m_lastGeometry.value(m_delayedHideWindow) != delayedGeo || m_outlineCache.value(m_delayedHideWindow).borderWidth != m_width) {
+            cacheWindowOutline(m_delayedHideWindow, delayedGeo, m_width);
             m_lastGeometry[m_delayedHideWindow] = delayedGeo;
         }
         renderOutline(renderTarget, viewport, m_outlineCache[m_delayedHideWindow], deviceRegion, m_delayedHideWindow, m_delayedHideState.opacity);
@@ -1893,8 +1897,9 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             }
 
             const QRectF recentGeo = recent->frameGeometry();
-            if (!m_outlineCache.contains(recent) || m_lastGeometry.value(recent) != recentGeo) {
-                cacheWindowOutline(recent, recentGeo);
+            const qreal recentWidth = OutlineGeometry::computeRecentWindowWidth(i, m_width, m_recentWindowWidthReduction);
+            if (!m_outlineCache.contains(recent) || m_lastGeometry.value(recent) != recentGeo || m_outlineCache.value(recent).borderWidth != recentWidth) {
+                cacheWindowOutline(recent, recentGeo, recentWidth);
                 m_lastGeometry[recent] = recentGeo;
             }
 
@@ -1906,8 +1911,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
 
     if (drawOutline) {
         const QRectF currentGeo = w->frameGeometry();
-        if (!m_outlineCache.contains(w) || m_lastGeometry.value(w) != currentGeo) {
-            cacheWindowOutline(w, currentGeo);
+        if (!m_outlineCache.contains(w) || m_lastGeometry.value(w) != currentGeo || m_outlineCache.value(w).borderWidth != m_width) {
+            cacheWindowOutline(w, currentGeo, m_width);
             m_lastGeometry[w] = currentGeo;
         }
         renderOutline(renderTarget, viewport, m_outlineCache[w], deviceRegion, w, m_visibilityState.visibilityOpacity);

@@ -259,6 +259,7 @@ Configure buffering delays and window state handling.
 | **Last window opacity** | 20% | Opacity percentage for the oldest tracked recent window outline. Older windows proportionally interpolate between 100% (active window) and this minimum opacity. |
 | **Hue shift per window** | 0° (None) | Rotates the color hue by this angle for each successive window in history (-180° to +180°). Creates an intuitive chromatic trail indicating focus progression. |
 | **Last window saturation** | 0% (Grayscale) | Color saturation for the oldest tracked window (0% to 100%). Older windows proportionally lose saturation towards this value, smoothly fading from vibrant color into monochrome grayscale. |
+| **Width reduction per window** | 0 px (None) | Step in pixels by which each successive older window reduces its outline border thickness (0–10 px). Clamped to a minimum thickness of 1 px. |
 | **Hide on fullscreen** | On | Automatically hides the outline and glow when the active window is fullscreen. |
 
 ### Keyboard shortcut

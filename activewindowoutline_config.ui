@@ -1577,6 +1577,41 @@
             </property>
            </widget>
           </item>
+          <item row="7" column="0">
+           <widget class="QLabel" name="label_recentWindowWidthReduction">
+            <property name="text">
+             <string>Width reduction per window:</string>
+            </property>
+            <property name="toolTip">
+             <string>Reduces the outline border width for each successive older window by this amount in pixels (default: 0 px / same width). Once an outline reaches 1 px, it stays at 1 px.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="7" column="1">
+           <widget class="QSpinBox" name="kcfg_RecentWindowWidthReduction">
+            <property name="toolTip">
+             <string>Reduces the outline border width for each successive older window by this amount in pixels (default: 0 px / same width). Once an outline reaches 1 px, it stays at 1 px.</string>
+            </property>
+            <property name="minimum">
+             <number>0</number>
+            </property>
+            <property name="maximum">
+             <number>10</number>
+            </property>
+            <property name="singleStep">
+             <number>1</number>
+            </property>
+            <property name="value">
+             <number>0</number>
+            </property>
+            <property name="suffix">
+             <string> px</string>
+            </property>
+            <property name="specialValueText">
+             <string>0 px (same width)</string>
+            </property>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>

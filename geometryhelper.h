@@ -85,4 +85,13 @@ inline void buildRoundedRectStrip(const QRectF &outer, qreal outerRadius,
     }
 }
 
+inline qreal computeRecentWindowWidth(int recentIdx, qreal baseWidth, int widthReductionPx)
+{
+    if (widthReductionPx <= 0) {
+        return baseWidth;
+    }
+    const int step = std::max(1, recentIdx + 1);
+    return std::max<qreal>(1.0, baseWidth - static_cast<qreal>(step * widthReductionPx));
+}
+
 } // namespace OutlineGeometry

@@ -96,6 +96,27 @@ int main()
         check(correctlyScaled, "scale factor multiplies all vertex coordinates accurately");
     }
 
+    // 5. Recent window width reduction
+    {
+        // 0 px reduction keeps base width unchanged
+        check(std::abs(computeRecentWindowWidth(0, 5.0, 0) - 5.0) < 0.001, "0px reduction on window 0 keeps base width");
+        check(std::abs(computeRecentWindowWidth(2, 5.0, 0) - 5.0) < 0.001, "0px reduction on window 2 keeps base width");
+
+        // 2 px reduction on 5 px base width:
+        // Window 1 (recentIdx = 0): step 1 -> 5 - 2 = 3 px
+        check(std::abs(computeRecentWindowWidth(0, 5.0, 2) - 3.0) < 0.001, "window 0 reduced by 2px (5 -> 3px)");
+        // Window 2 (recentIdx = 1): step 2 -> 5 - 4 = 1 px
+        check(std::abs(computeRecentWindowWidth(1, 5.0, 2) - 1.0) < 0.001, "window 1 reduced by 4px (5 -> 1px)");
+        // Window 3 (recentIdx = 2): step 3 -> 5 - 6 = -1 -> clamped at 1 px
+        check(std::abs(computeRecentWindowWidth(2, 5.0, 2) - 1.0) < 0.001, "window 2 clamped at minimum 1px");
+
+        // Edge case: base width is already 1 px -> stays 1 px
+        check(std::abs(computeRecentWindowWidth(0, 1.0, 2) - 1.0) < 0.001, "1px base width stays 1px");
+
+        // Safety clamp on negative index
+        check(std::abs(computeRecentWindowWidth(-1, 5.0, 2) - 3.0) < 0.001, "negative index clamped to step 1");
+    }
+
     std::printf("geometry_test: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

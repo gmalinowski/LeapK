@@ -166,6 +166,11 @@
             <min>0</min>
             <max>100</max>
         </entry>
+        <entry name="RecentWindowWidthReduction" type="Int">
+            <default>0</default>
+            <min>0</min>
+            <max>10</max>
+        </entry>
 
         <!-- Color Cycling Settings -->
         <entry name="ColorCycleEnabled" type="Bool">

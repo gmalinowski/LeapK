@@ -59,6 +59,7 @@ struct OutlineCache {
     QRectF innerRect;
     qreal outerRadius = 0;
     qreal innerRadius = 0;
+    qreal borderWidth = 0;
 };
 
 
@@ -138,7 +139,7 @@ private:
                        EffectWindow *outlinedWindow,
                        qreal windowOpacity = 1.0);
 
-    void cacheWindowOutline(EffectWindow *w, const QRectF &geo);
+    void cacheWindowOutline(EffectWindow *w, const QRectF &geo, qreal customWidth = -1);
 
     QColor resolveColor(qreal windowOpacity = 1.0, EffectWindow *w = nullptr) const;
     QColor currentCycleColor(qreal elapsedSec);
@@ -240,6 +241,7 @@ private:
     int m_recentWindowOpacity = 20;
     int m_recentWindowHueShift = 0;
     int m_recentWindowSaturation = 0;
+    int m_recentWindowWidthReduction = 0;
 
     // Runtime delay, buffer & visibility transition state
     OutlineVisibility::StateMachine m_visibilityState;

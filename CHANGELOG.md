@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     - **Subdued & Calm**: Recent window outlines remain static without distracting shader animations (breathe, neon flicker, strobe).
     - **Occlusion-Aware**: Fully clipped against higher windows in the KWin stacking order; if windows overlap, active windows naturally occlude underlying recent outlines.
     - **Chromatic Recency Hue Shifting (`RecentWindowHueShift`)**: Optional setting to rotate the outline's hue angle (-180° to +180°) for each older window in the history (0° = no change), creating an intuitive visual color trail indicating focus progression.
+    - **Stepwise Border Width Reduction (`RecentWindowWidthReduction`)**: Configure a step in pixels (0–10 px, default: 0 px / same width) by which each successive older window reduces its outline border thickness (`max(1, W - step * R)`). If the border reaches 1 px, it stops reducing and remains at 1 px, establishing an unmistakable physical thickness hierarchy.
 
 ### Fixed
 - **Shader Effects & Hologram Suppression on Recent Windows**:
