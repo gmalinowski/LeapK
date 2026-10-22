@@ -504,6 +504,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_recentWindowColorMode = qBound(0, config.readEntry("RecentWindowColorMode", 0), 1);
     m_recentWindowCustomColor = config.readEntry("RecentWindowCustomColor", QColor(127, 140, 141));
     m_recentWindowOpacity = qBound(10, config.readEntry("RecentWindowOpacity", 50), 100);
+    m_recentWindowHueShift = qBound(-180, config.readEntry("RecentWindowHueShift", 0), 180);
     if (!m_highlightRecentWindow) {
         for (EffectWindow *recent : m_recentWindows) {
             if (recent) {
@@ -735,6 +736,19 @@ QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity, EffectWindow
         color.setAlphaF(color.alphaF() * m_accentOpacity / 100.0);
     } else {
         color = m_customColor;
+    }
+
+    if (isRecent && m_recentWindowHueShift != 0) {
+        const int recentIdx = m_recentWindows.indexOf(w);
+        if (recentIdx >= 0) {
+            float h = 0.0f, s = 0.0f, l = 0.0f, a = 0.0f;
+            color.getHslF(&h, &s, &l, &a);
+            if (h >= 0.0f && s > 0.05f) {
+                const float shift = float((recentIdx + 1) * m_recentWindowHueShift) / 360.0f;
+                h = std::fmod(h + shift + 10.0f, 1.0f);
+                color.setHslF(h, s, l, a);
+            }
+        }
     }
 
     if (!isRecent && (m_breatheEnabled || m_neonFlickerEnabled || m_flashEnabled || m_glitchEnabled)) {

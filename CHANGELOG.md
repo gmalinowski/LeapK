@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     - **Ambilight Color Memory**: When Ambilight is active, recent windows retain the exact accent color that was sampled while they were active!
     - **Subdued & Calm**: Recent window outlines remain static without distracting shader animations (breathe, neon flicker, strobe).
     - **Occlusion-Aware**: Fully clipped against higher windows in the KWin stacking order; if windows overlap, active windows naturally occlude underlying recent outlines.
+    - **Chromatic Recency Hue Shifting (`RecentWindowHueShift`)**: Optional setting to rotate the outline's hue angle (-180° to +180°) for each older window in the history (0° = no change), creating a visual color trail indicating focus progression.
     - **Configurable Opacity (`RecentWindowOpacity`)**: Adjust recent outline opacity from 10% to 100% (default: 50%).
 
 ## [1.4.24] - 2026-10-21

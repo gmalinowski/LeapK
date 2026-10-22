@@ -177,6 +177,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("RecentWindowColorMode"), *new int, 0);
     m_configSkeleton->addItemColor(QStringLiteral("RecentWindowCustomColor"), *new QColor, QColor(127, 140, 141));
     m_configSkeleton->addItemInt(QStringLiteral("RecentWindowOpacity"), *new int, 50);
+    m_configSkeleton->addItemInt(QStringLiteral("RecentWindowHueShift"), *new int, 0);
 
     // Tab 2: Color Cycling
     m_configSkeleton->addItemBool(QStringLiteral("ColorCycleEnabled"), *new bool, false);
@@ -484,6 +485,8 @@ void ActiveWindowOutlineConfig::updateRecentWindowUI()
     m_ui->kcfg_RecentWindowCustomColor->setEnabled(isCustom);
     m_ui->label_recentWindowOpacity->setEnabled(enabled);
     m_ui->kcfg_RecentWindowOpacity->setEnabled(enabled);
+    m_ui->label_recentWindowHueShift->setEnabled(enabled);
+    m_ui->kcfg_RecentWindowHueShift->setEnabled(enabled);
 }
 
 void ActiveWindowOutlineConfig::addColorRow(const QColor &color, double holdTime)

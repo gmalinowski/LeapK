@@ -1507,6 +1507,41 @@
             </property>
            </widget>
           </item>
+          <item row="5" column="0">
+           <widget class="QLabel" name="label_recentWindowHueShift">
+            <property name="text">
+             <string>Hue shift per window:</string>
+            </property>
+            <property name="toolTip">
+             <string>Rotates the color hue for each successive previous window on the color wheel (0°: no hue change, positive: clockwise e.g. blue to purple, negative: counter-clockwise e.g. blue to green).</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="1">
+           <widget class="QSpinBox" name="kcfg_RecentWindowHueShift">
+            <property name="toolTip">
+             <string>Rotates the color hue for each successive previous window on the color wheel (0°: no hue change, positive: clockwise e.g. blue to purple, negative: counter-clockwise e.g. blue to green).</string>
+            </property>
+            <property name="minimum">
+             <number>-180</number>
+            </property>
+            <property name="maximum">
+             <number>180</number>
+            </property>
+            <property name="singleStep">
+             <number>5</number>
+            </property>
+            <property name="value">
+             <number>0</number>
+            </property>
+            <property name="suffix">
+             <string> °</string>
+            </property>
+            <property name="specialValueText">
+             <string>0 ° (no shift)</string>
+            </property>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>
