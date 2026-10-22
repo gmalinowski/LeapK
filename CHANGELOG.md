@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.25] - 2026-10-22
+
+### Added
+- **Recent / Previously Active Window Highlight (`HighlightRecentWindow`)**:
+  - Added the ability to keep a subdued outline on recent previously active window(s) to track keyboard focus history and enhance multitasking / tiling workflows:
+    - **Configurable History Depth (`RecentWindowsCount`)**: Highlight between 1 and 5 recent windows (default: 1).
+    - **Visual Recency Attenuation**: Older windows in the history automatically step down their opacity for an intuitive visual hierarchy.
+    - **Color Mode Flexibility (`RecentWindowColorMode`)**:
+      - **Match active window color**: Mirrors the active color mode (System Accent, Custom Color, or frozen per-window Ambilight colors) with dimmed opacity (default: 50%).
+      - **Custom static color (`RecentWindowCustomColor`)**: Explicitly assign a dedicated color for recent windows (e.g. slate gray, muted cyan).
+    - **Ambilight Color Memory**: When Ambilight is active, recent windows retain the exact accent color that was sampled while they were active!
+    - **Subdued & Calm**: Recent window outlines remain static without distracting shader animations (breathe, neon flicker, strobe).
+    - **Occlusion-Aware**: Fully clipped against higher windows in the KWin stacking order; if windows overlap, active windows naturally occlude underlying recent outlines.
+    - **Configurable Opacity (`RecentWindowOpacity`)**: Adjust recent outline opacity from 10% to 100% (default: 50%).
+
 ## [1.4.24] - 2026-10-21
 
 ### Added

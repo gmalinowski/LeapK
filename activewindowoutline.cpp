@@ -499,6 +499,32 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_menuShowDelay = qBound(0, config.readEntry("MenuShowDelay", 300), 2000);
     m_windowHideDelay = qBound(0, config.readEntry("WindowHideDelay", 0), 2000);
     m_windowShowDelay = qBound(0, config.readEntry("WindowShowDelay", 0), 2000);
+    m_highlightRecentWindow = config.readEntry("HighlightRecentWindow", false);
+    m_recentWindowsCount = qBound(1, config.readEntry("RecentWindowsCount", 1), 5);
+    m_recentWindowColorMode = qBound(0, config.readEntry("RecentWindowColorMode", 0), 1);
+    m_recentWindowCustomColor = config.readEntry("RecentWindowCustomColor", QColor(127, 140, 141));
+    m_recentWindowOpacity = qBound(10, config.readEntry("RecentWindowOpacity", 50), 100);
+    if (!m_highlightRecentWindow) {
+        for (EffectWindow *recent : m_recentWindows) {
+            if (recent) {
+                effects->addRepaint(expandedGeometryFor(recent));
+                m_outlineCache.remove(recent);
+                m_lastGeometry.remove(recent);
+            }
+        }
+        m_recentWindows.clear();
+        m_recentAmbilightColors.clear();
+    } else {
+        while (m_recentWindows.size() > m_recentWindowsCount) {
+            EffectWindow *oldWindow = m_recentWindows.takeLast();
+            m_recentAmbilightColors.remove(oldWindow);
+            if (oldWindow) {
+                effects->addRepaint(expandedGeometryFor(oldWindow));
+                m_outlineCache.remove(oldWindow);
+                m_lastGeometry.remove(oldWindow);
+            }
+        }
+    }
 
     m_visibilityConfig.fadeDuration = m_fadeDuration;
     m_visibilityConfig.menuHideDelay = m_menuHideDelay;
@@ -677,18 +703,29 @@ qreal ActiveWindowOutlineEffect::computeGlitchFactor(qreal elapsedSec) const
     return OutlineShader::computeGlitchFactor(elapsedSec, m_glitchEnabled, m_glitchAnomalyEnabled, m_glitchSpeed, m_glitchFrequency, m_glitchIntensity);
 }
 
-QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity) const
+QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity, EffectWindow *w) const
 {
     QColor color;
     const qreal elapsedSec = m_animationClock.isValid() ? (m_animationClock.elapsed() / 1000.0) : 0.0;
+    const bool isRecent = (w != nullptr && m_recentWindows.contains(w) && w != m_activeWindow);
 
-    if (m_colorCycleEnabled && !m_colorStops.isEmpty()) {
+    if (isRecent && m_recentWindowColorMode == 1) {
+        color = m_recentWindowCustomColor;
+    } else if (m_colorCycleEnabled && !m_colorStops.isEmpty()) {
         color = const_cast<ActiveWindowOutlineEffect *>(this)->currentCycleColor(elapsedSec);
     } else if (m_ambilightEnabled) {
-        color = const_cast<ActiveWindowOutlineEffect *>(this)->currentAmbilightColor(elapsedSec);
+        if (isRecent && m_recentAmbilightColors.contains(w) && m_recentAmbilightColors.value(w).isValid()) {
+            color = m_recentAmbilightColors.value(w);
+        } else {
+            color = const_cast<ActiveWindowOutlineEffect *>(this)->currentAmbilightColor(elapsedSec);
+        }
         color.setAlphaF(color.alphaF() * (m_ambilightOpacity / 100.0));
-    } else if (m_ensurePerimeterContrast && m_ambilightCurrentColor.isValid()) {
-        color = const_cast<ActiveWindowOutlineEffect *>(this)->currentAmbilightColor(elapsedSec);
+    } else if (m_ensurePerimeterContrast && (isRecent && m_recentAmbilightColors.contains(w) ? m_recentAmbilightColors.value(w).isValid() : m_ambilightCurrentColor.isValid())) {
+        if (isRecent && m_recentAmbilightColors.contains(w) && m_recentAmbilightColors.value(w).isValid()) {
+            color = m_recentAmbilightColors.value(w);
+        } else {
+            color = const_cast<ActiveWindowOutlineEffect *>(this)->currentAmbilightColor(elapsedSec);
+        }
         const qreal opacityFraction = m_useAccentColor
             ? (m_accentOpacity / 100.0)
             : (m_customColor.alphaF());
@@ -700,7 +737,7 @@ QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity) const
         color = m_customColor;
     }
 
-    if (m_breatheEnabled || m_neonFlickerEnabled || m_flashEnabled || m_glitchEnabled) {
+    if (!isRecent && (m_breatheEnabled || m_neonFlickerEnabled || m_flashEnabled || m_glitchEnabled)) {
         const qreal breathe = computeBreatheFactor(elapsedSec);
         const qreal neon = computeNeonFactor(elapsedSec);
         const qreal flash = computeFlashFactor(elapsedSec);
@@ -804,6 +841,8 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
             m_windowShowTimer->stop();
         }
     }
+    m_recentWindows.removeAll(w);
+    m_recentAmbilightColors.remove(w);
     m_suppressedWindows.remove(w);
     m_lastGeometry.remove(w);
     m_outlineCache.remove(w);
@@ -818,6 +857,11 @@ void ActiveWindowOutlineEffect::slotWindowHiddenChanged(EffectWindow *w)
     updatePopupBlockingState();
     if (m_activeWindow) {
         effects->addRepaint(expandedGeometryFor(m_activeWindow));
+    }
+    for (EffectWindow *recent : m_recentWindows) {
+        if (recent) {
+            effects->addRepaint(expandedGeometryFor(recent));
+        }
     }
 }
 
@@ -862,6 +906,12 @@ void ActiveWindowOutlineEffect::repaintAllOutlines()
     if (m_delayedHideWindow && !m_delayedHideWindow->isDeleted()
         && m_delayedHideWindow->isOnCurrentDesktop() && !m_delayedHideWindow->isMinimized()) {
         effects->addRepaint(expandedGeometryFor(m_delayedHideWindow));
+    }
+    for (EffectWindow *recent : m_recentWindows) {
+        if (recent && !recent->isDeleted()
+            && recent->isOnCurrentDesktop() && !recent->isMinimized()) {
+            effects->addRepaint(expandedGeometryFor(recent));
+        }
     }
     if (m_activeWindow) {
         effects->addRepaint(expandedGeometryFor(m_activeWindow));
@@ -1015,7 +1065,7 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
         return;
     }
 
-    const QColor dynamicColor = resolveColor(windowOpacity);
+    const QColor dynamicColor = resolveColor(windowOpacity, outlinedWindow);
 
     const auto box = [scale](const QRectF &rect) {
         return QVector4D(rect.center().x() * scale,
@@ -1280,41 +1330,98 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
         m_windowShowTimer->stop();
     }
 
-    if (previous) {
-        const bool willDelayOrFade = (!previous->isDeleted() && previous->isOnCurrentDesktop())
-            && (m_windowHideDelay > 0 || m_visibilityConfig.fadeDuration > 0);
-
-        if (willDelayOrFade) {
-            if (m_delayedHideWindow && m_delayedHideWindow != previous) {
-                effects->addRepaint(expandedGeometryFor(m_delayedHideWindow));
-                m_suppressedWindows.remove(m_delayedHideWindow);
-                m_lastGeometry.remove(m_delayedHideWindow);
-                m_outlineCache.remove(m_delayedHideWindow);
-                m_delayedHideWindow = nullptr;
-                m_delayedHideState.reset();
+    if (m_highlightRecentWindow) {
+        if (previous && !previous->isDeleted() && !previous->isDesktop() && !previous->isDock()
+            && !(m_hideOnFullScreen && previous->isFullScreen()) && !isBlockingPopup(previous)) {
+            m_recentWindows.removeAll(previous);
+            m_recentWindows.prepend(previous);
+            if (m_ambilightCurrentColor.isValid()) {
+                m_recentAmbilightColors[previous] = m_ambilightCurrentColor;
             }
-            m_delayedHideWindow = previous;
-            effects->addRepaint(expandedGeometryFor(previous));
+        }
 
-            if (m_windowHideDelay > 0) {
-                m_delayedHideState.startBuffer();
-                if (m_windowHideTimer) {
-                    m_windowHideTimer->start(m_windowHideDelay);
+        if (w) {
+            m_recentWindows.removeAll(w);
+            m_recentAmbilightColors.remove(w);
+        }
+
+        while (m_recentWindows.size() > m_recentWindowsCount) {
+            EffectWindow *oldWindow = m_recentWindows.takeLast();
+            m_recentAmbilightColors.remove(oldWindow);
+            if (oldWindow) {
+                effects->addRepaint(expandedGeometryFor(oldWindow));
+                m_outlineCache.remove(oldWindow);
+                m_lastGeometry.remove(oldWindow);
+            }
+        }
+
+        for (EffectWindow *recent : m_recentWindows) {
+            if (recent) {
+                effects->addRepaint(expandedGeometryFor(recent));
+            }
+        }
+
+        if (m_delayedHideWindow) {
+            if (!m_recentWindows.contains(m_delayedHideWindow) && m_delayedHideWindow != w) {
+                effects->addRepaint(expandedGeometryFor(m_delayedHideWindow));
+                m_outlineCache.remove(m_delayedHideWindow);
+                m_lastGeometry.remove(m_delayedHideWindow);
+            }
+            m_delayedHideWindow = nullptr;
+            m_delayedHideState.reset();
+            if (m_windowHideTimer) {
+                m_windowHideTimer->stop();
+            }
+        }
+    } else {
+        if (!m_recentWindows.isEmpty()) {
+            for (EffectWindow *recent : m_recentWindows) {
+                if (recent) {
+                    effects->addRepaint(expandedGeometryFor(recent));
+                    m_outlineCache.remove(recent);
+                    m_lastGeometry.remove(recent);
+                }
+            }
+            m_recentWindows.clear();
+            m_recentAmbilightColors.clear();
+        }
+
+        if (previous) {
+            const bool willDelayOrFade = (!previous->isDeleted() && previous->isOnCurrentDesktop())
+                && (m_windowHideDelay > 0 || m_visibilityConfig.fadeDuration > 0);
+
+            if (willDelayOrFade) {
+                if (m_delayedHideWindow && m_delayedHideWindow != previous) {
+                    effects->addRepaint(expandedGeometryFor(m_delayedHideWindow));
+                    m_suppressedWindows.remove(m_delayedHideWindow);
+                    m_lastGeometry.remove(m_delayedHideWindow);
+                    m_outlineCache.remove(m_delayedHideWindow);
+                    m_delayedHideWindow = nullptr;
+                    m_delayedHideState.reset();
+                }
+                m_delayedHideWindow = previous;
+                effects->addRepaint(expandedGeometryFor(previous));
+
+                if (m_windowHideDelay > 0) {
+                    m_delayedHideState.startBuffer();
+                    if (m_windowHideTimer) {
+                        m_windowHideTimer->start(m_windowHideDelay);
+                    }
+                } else {
+                    m_delayedHideState.startFade(m_visibilityConfig.fadeDuration);
+                    updateAnimationTimer();
                 }
             } else {
-                m_delayedHideState.startFade(m_visibilityConfig.fadeDuration);
-                updateAnimationTimer();
-            }
-        } else {
-            effects->addRepaint(expandedGeometryFor(previous));
-            m_suppressedWindows.remove(previous);
-            m_lastGeometry.remove(previous);
-            m_outlineCache.remove(previous);
-            if (m_delayedHideWindow == previous) {
-                m_delayedHideWindow = nullptr;
-                m_delayedHideState.reset();
-                if (m_windowHideTimer) {
-                    m_windowHideTimer->stop();
+                effects->addRepaint(expandedGeometryFor(previous));
+                m_suppressedWindows.remove(previous);
+                m_lastGeometry.remove(previous);
+                m_outlineCache.remove(previous);
+                if (m_delayedHideWindow == previous) {
+                    m_delayedHideWindow = nullptr;
+                    m_delayedHideState.reset();
+                    if (m_windowHideTimer) {
+                        m_windowHideTimer->stop();
+                    }
                 }
             }
         }
@@ -1371,7 +1478,8 @@ void ActiveWindowOutlineEffect::slotWindowFrameGeometryChanged(EffectWindow *w,
             effects->addRepaint(activeGeo);
         }
     }
-    if (!shouldOutlineWindow(w) && !isBlockingPopup(w) && m_delayedHideWindow != w) {
+    const bool isRecent = (m_highlightRecentWindow && m_recentWindows.contains(w));
+    if (!shouldOutlineWindow(w) && !isBlockingPopup(w) && m_delayedHideWindow != w && !isRecent) {
         return;
     }
     const qreal glowExtent = m_glowEnabled ? m_glowRadius : 0;
@@ -1400,6 +1508,11 @@ void ActiveWindowOutlineEffect::slotToggleAction()
         if (m_activeWindow) {
             effects->addRepaint(expandedGeometryFor(m_activeWindow));
         }
+        for (EffectWindow *recent : m_recentWindows) {
+            if (recent) {
+                effects->addRepaint(expandedGeometryFor(recent));
+            }
+        }
     } else {
         m_visibilityState.targetOpacity = 0.0;
         m_visibilityState.visibilityOpacity = 0.0;
@@ -1415,6 +1528,11 @@ void ActiveWindowOutlineEffect::slotToggleAction()
         }
         if (m_menuHideTimer) {
             m_menuHideTimer->stop();
+        }
+        for (EffectWindow *recent : m_recentWindows) {
+            if (recent) {
+                effects->addRepaint(expandedGeometryFor(recent));
+            }
         }
         if (m_delayedHideWindow) {
             effects->addRepaint(expandedGeometryFor(m_delayedHideWindow));
@@ -1440,6 +1558,9 @@ void ActiveWindowOutlineEffect::slotWindowMinimizedChanged(EffectWindow *w)
         }
         effects->addRepaint(expandedGeometryFor(w));
     }
+    if (m_recentWindows.contains(w)) {
+        effects->addRepaint(expandedGeometryFor(w));
+    }
     if (shouldOutlineWindow(w)) {
         effects->addRepaint(expandedGeometryFor(w));
     } else if (m_activeWindow && w != m_activeWindow) {
@@ -1455,6 +1576,9 @@ void ActiveWindowOutlineEffect::slotWindowFullScreenChanged(EffectWindow *w)
         if (m_windowHideTimer) {
             m_windowHideTimer->stop();
         }
+        effects->addRepaint(expandedGeometryFor(w));
+    }
+    if (m_recentWindows.contains(w)) {
         effects->addRepaint(expandedGeometryFor(w));
     }
     if (w && w == m_activeWindow) {
@@ -1493,7 +1617,17 @@ bool ActiveWindowOutlineEffect::isActive() const
     const bool delayedEligible = (m_delayedHideWindow && !m_delayedHideWindow->isDeleted()
         && !m_delayedHideWindow->isMinimized() && !m_delayedHideWindow->isHiddenByShowDesktop()
         && m_delayedHideWindow->isOnCurrentDesktop() && m_delayedHideState.isEffectivelyVisible());
-    return OutlineVisibility::StateMachine::isEffectActive(m_outlineEnabled, showPending, activeEligible, delayedEligible);
+    bool recentEligible = false;
+    if (m_highlightRecentWindow) {
+        for (EffectWindow *recent : m_recentWindows) {
+            if (recent && !recent->isDeleted() && !recent->isMinimized()
+                && !recent->isHiddenByShowDesktop() && recent->isOnCurrentDesktop()) {
+                recentEligible = true;
+                break;
+            }
+        }
+    }
+    return m_outlineEnabled && (recentEligible || OutlineVisibility::StateMachine::isEffectActive(m_outlineEnabled, showPending, activeEligible, delayedEligible));
 }
 
 QString ActiveWindowOutlineEffect::debug(const QString &parameter) const
@@ -1524,7 +1658,7 @@ QString ActiveWindowOutlineEffect::debug(const QString &parameter) const
         return QStringLiteral("[%1,%2 %3x%4]")
             .arg(rect.x()).arg(rect.y()).arg(rect.width()).arg(rect.height());
     };
-    result += QStringLiteral("\nblockingPopup=%1 popupBlocked=%2 visibilityOpacity=%3 targetOpacity=%4 delayedHideWindow=%5 delayedHideOpacity=%6 showTimerActive=%7 effectActive=%8")
+    result += QStringLiteral("\nblockingPopup=%1 popupBlocked=%2 visibilityOpacity=%3 targetOpacity=%4 delayedHideWindow=%5 delayedHideOpacity=%6 showTimerActive=%7 recentCount=%8 recentOpacity=%9 effectActive=%10")
         .arg(hasVisibleBlockingPopup())
         .arg(m_visibilityState.popupBlocked)
         .arg(m_visibilityState.visibilityOpacity)
@@ -1532,6 +1666,8 @@ QString ActiveWindowOutlineEffect::debug(const QString &parameter) const
         .arg(m_delayedHideWindow != nullptr)
         .arg(m_delayedHideState.opacity)
         .arg(m_windowShowTimer && m_windowShowTimer->isActive())
+        .arg(m_recentWindows.size())
+        .arg(m_recentWindowOpacity)
         .arg(isActive());
     int index = 0;
     // Intentionally omit window titles, application IDs and document names.
@@ -1602,6 +1738,18 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
         && !m_delayedHideWindow->isHiddenByShowDesktop() && m_delayedHideState.isEffectivelyVisible()) {
         data.paint += expandedGeometryFor(m_delayedHideWindow).toAlignedRect();
     }
+
+    if (m_highlightRecentWindow) {
+        for (EffectWindow *recent : m_recentWindows) {
+            if (recent && recent != w && !recent->isDeleted()
+                && recent->isOnCurrentDesktop() && !recent->isMinimized()
+                && !recent->isHiddenByShowDesktop()
+                && !(m_hideOnFullScreen && recent->isFullScreen())
+                && !isBlockingPopup(recent)) {
+                data.paint += expandedGeometryFor(recent).toAlignedRect();
+            }
+        }
+    }
 }
 
 #ifdef ACTIVE_WINDOW_OUTLINE_PREPAINT_PRESENT_TIME
@@ -1637,11 +1785,23 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         && !m_delayedHideWindow->isDeleted() && !m_delayedHideWindow->isMinimized()
         && !m_delayedHideWindow->isHiddenByShowDesktop() && m_delayedHideWindow->isOnCurrentDesktop()
         && m_delayedHideState.isEffectivelyVisible());
+    bool hasRecentToDraw = false;
+    if (m_highlightRecentWindow && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked) {
+        for (EffectWindow *recent : m_recentWindows) {
+            if (recent && recent != w && !recent->isDeleted() && !recent->isMinimized()
+                && !recent->isHiddenByShowDesktop() && recent->isOnCurrentDesktop()
+                && !(m_hideOnFullScreen && recent->isFullScreen())
+                && !isBlockingPopup(recent)) {
+                hasRecentToDraw = true;
+                break;
+            }
+        }
+    }
 #ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
     std::unique_ptr<OutlineCursorOverlay> cursorOverlay;
     // Only defer the cursor for the ordinary output pass. Transformed/offscreen
     // effects own their own cursor handling and must retain their scene filters.
-    if ((drawOutline || drawDelayed) && m_sceneView && m_sceneView->scene() == effects->scene()
+    if ((drawOutline || drawDelayed || hasRecentToDraw) && m_sceneView && m_sceneView->scene() == effects->scene()
         && m_sceneView->logicalOutput() == screen
         && m_sceneView->viewport() == viewport.renderRect()
         && m_sceneView->scale() == viewport.scale()
@@ -1675,7 +1835,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         }
     }
 
-    if (!drawOutline && !drawDelayed) {
+    if (!drawOutline && !drawDelayed && !hasRecentToDraw) {
 #ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
         return true;
 #else
@@ -1690,6 +1850,28 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             m_lastGeometry[m_delayedHideWindow] = delayedGeo;
         }
         renderOutline(renderTarget, viewport, m_outlineCache[m_delayedHideWindow], deviceRegion, m_delayedHideWindow, m_delayedHideState.opacity);
+    }
+
+    if (hasRecentToDraw) {
+        for (int i = m_recentWindows.size() - 1; i >= 0; --i) {
+            EffectWindow *recent = m_recentWindows.at(i);
+            if (!recent || recent == w || recent->isDeleted() || recent->isMinimized()
+                || recent->isHiddenByShowDesktop() || !recent->isOnCurrentDesktop()
+                || (m_hideOnFullScreen && recent->isFullScreen())
+                || isBlockingPopup(recent)) {
+                continue;
+            }
+
+            const QRectF recentGeo = recent->frameGeometry();
+            if (!m_outlineCache.contains(recent) || m_lastGeometry.value(recent) != recentGeo) {
+                cacheWindowOutline(recent, recentGeo);
+                m_lastGeometry[recent] = recentGeo;
+            }
+
+            const qreal stepFactor = (m_recentWindowsCount > 1) ? std::max(0.4, 1.0 - i * 0.2) : 1.0;
+            const qreal recentOpacity = (m_recentWindowOpacity / 100.0) * stepFactor * m_visibilityState.visibilityOpacity;
+            renderOutline(renderTarget, viewport, m_outlineCache[recent], deviceRegion, recent, recentOpacity);
+        }
     }
 
     if (drawOutline) {

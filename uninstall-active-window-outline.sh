@@ -83,7 +83,8 @@ for key in UseAccentColor AccentOpacity CustomColor EnsurePerimeterContrast Bord
            GlitchEnabled GlitchSpeed GlitchIntensity GlitchAnomalyEnabled GlitchFrequency \
            NeonFlickerEnabled NeonFlickerInterval NeonFlickerDuration NeonFlickerIntensity \
            FlashEnabled FlashInterval FlashDuration \
-           FadeDuration MenuHideDelay MenuShowDelay WindowHideDelay WindowShowDelay; do
+           FadeDuration MenuHideDelay MenuShowDelay WindowHideDelay WindowShowDelay \
+           HighlightRecentWindow RecentWindowsCount RecentWindowColorMode RecentWindowCustomColor RecentWindowOpacity; do
   kwriteconfig6 --file kwinrc --group "$config_group" --key "$key" --delete ''
 done
 kwriteconfig6 --file kwinrc --group Plugins \

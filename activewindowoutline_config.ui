@@ -1392,6 +1392,126 @@
        </item>
 
        <item>
+        <widget class="QGroupBox" name="groupRecentWindow">
+         <property name="title">
+          <string>Previous (Recent) Window Highlight</string>
+         </property>
+         <layout class="QFormLayout" name="formLayoutRecentWindow">
+          <item row="0" column="0" colspan="2">
+           <widget class="QCheckBox" name="kcfg_HighlightRecentWindow">
+            <property name="text">
+             <string>Keep outline on previously active window(s)</string>
+            </property>
+            <property name="toolTip">
+             <string>Draws a subdued outline around recent windows to help track focus history when multitasking or tiling windows.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_recentWindowsCount">
+            <property name="text">
+             <string>Recent windows count:</string>
+            </property>
+            <property name="toolTip">
+             <string>How many previously focused windows to highlight (1–5).</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QSpinBox" name="kcfg_RecentWindowsCount">
+            <property name="toolTip">
+             <string>How many previously focused windows to highlight (1–5).</string>
+            </property>
+            <property name="minimum">
+             <number>1</number>
+            </property>
+            <property name="maximum">
+             <number>5</number>
+            </property>
+            <property name="value">
+             <number>1</number>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_recentWindowColorMode">
+            <property name="text">
+             <string>Recent outline color:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QComboBox" name="kcfg_RecentWindowColorMode">
+            <item>
+             <property name="text">
+              <string>Match active window color</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Custom static color</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="label_recentWindowCustomColor">
+            <property name="text">
+             <string>Custom color:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="KColorButton" name="kcfg_RecentWindowCustomColor">
+            <property name="alphaChannelEnabled">
+             <bool>true</bool>
+            </property>
+            <property name="color">
+             <color alpha="255">
+              <red>127</red>
+              <green>140</green>
+              <blue>141</blue>
+             </color>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QLabel" name="label_recentWindowOpacity">
+            <property name="text">
+             <string>Recent window opacity:</string>
+            </property>
+            <property name="toolTip">
+             <string>Opacity percentage of the previous window outline (default: 50%).</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="1">
+           <widget class="QSpinBox" name="kcfg_RecentWindowOpacity">
+            <property name="toolTip">
+             <string>Opacity percentage of the previous window outline (default: 50%).</string>
+            </property>
+            <property name="minimum">
+             <number>10</number>
+            </property>
+            <property name="maximum">
+             <number>100</number>
+            </property>
+            <property name="singleStep">
+             <number>5</number>
+            </property>
+            <property name="value">
+             <number>50</number>
+            </property>
+            <property name="suffix">
+             <string> %</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+
+       <item>
         <widget class="QGroupBox" name="groupWindowStates">
          <property name="title">
           <string>Window State</string>

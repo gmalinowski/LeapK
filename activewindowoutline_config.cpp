@@ -172,6 +172,11 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("MenuShowDelay"), *new int, 300);
     m_configSkeleton->addItemInt(QStringLiteral("WindowHideDelay"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("WindowShowDelay"), *new int, 0);
+    m_configSkeleton->addItemBool(QStringLiteral("HighlightRecentWindow"), *new bool, false);
+    m_configSkeleton->addItemInt(QStringLiteral("RecentWindowsCount"), *new int, 1);
+    m_configSkeleton->addItemInt(QStringLiteral("RecentWindowColorMode"), *new int, 0);
+    m_configSkeleton->addItemColor(QStringLiteral("RecentWindowCustomColor"), *new QColor, QColor(127, 140, 141));
+    m_configSkeleton->addItemInt(QStringLiteral("RecentWindowOpacity"), *new int, 50);
 
     // Tab 2: Color Cycling
     m_configSkeleton->addItemBool(QStringLiteral("ColorCycleEnabled"), *new bool, false);
@@ -460,7 +465,25 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->kcfg_FlashEnabled, &QCheckBox::toggled, this, updateFlashUI);
     updateFlashUI();
 
+    connect(m_ui->kcfg_HighlightRecentWindow, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateRecentWindowUI);
+    connect(m_ui->kcfg_RecentWindowColorMode, qOverload<int>(&QComboBox::currentIndexChanged), this, &ActiveWindowOutlineConfig::updateRecentWindowUI);
+    updateRecentWindowUI();
+
     load();
+}
+
+void ActiveWindowOutlineConfig::updateRecentWindowUI()
+{
+    const bool enabled = m_ui->kcfg_HighlightRecentWindow->isChecked();
+    m_ui->label_recentWindowsCount->setEnabled(enabled);
+    m_ui->kcfg_RecentWindowsCount->setEnabled(enabled);
+    m_ui->label_recentWindowColorMode->setEnabled(enabled);
+    m_ui->kcfg_RecentWindowColorMode->setEnabled(enabled);
+    const bool isCustom = enabled && (m_ui->kcfg_RecentWindowColorMode->currentIndex() == 1);
+    m_ui->label_recentWindowCustomColor->setEnabled(isCustom);
+    m_ui->kcfg_RecentWindowCustomColor->setEnabled(isCustom);
+    m_ui->label_recentWindowOpacity->setEnabled(enabled);
+    m_ui->kcfg_RecentWindowOpacity->setEnabled(enabled);
 }
 
 void ActiveWindowOutlineConfig::addColorRow(const QColor &color, double holdTime)
@@ -693,6 +716,7 @@ void ActiveWindowOutlineConfig::load()
     const bool fadeCorners = m_ui->kcfg_FadeCorners->isChecked();
     m_ui->label_borderRadius->setEnabled(!fadeCorners);
     m_ui->kcfg_BorderRadius->setEnabled(!fadeCorners);
+    updateRecentWindowUI();
     setNeedsSave(false);
 }
 
@@ -704,6 +728,7 @@ void ActiveWindowOutlineConfig::defaults()
     const bool fadeCorners = m_ui->kcfg_FadeCorners->isChecked();
     m_ui->label_borderRadius->setEnabled(!fadeCorners);
     m_ui->kcfg_BorderRadius->setEnabled(!fadeCorners);
+    updateRecentWindowUI();
     markAsChanged();
 }
 

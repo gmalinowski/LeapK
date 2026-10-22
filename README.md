@@ -13,6 +13,12 @@ Whether you are using tiling window management (such as Bismuth, Polonium, or Kr
 ![Active Window Outline with the default settings in a tiled window layout](screenshot_defaults.png)
 
 - **Active Window Focus Tracking**: Automatically follows and highlights the currently focused window with smooth, responsive transitions.
+- **Recent Window(s) Focus History Highlight**:
+  - Keep a subdued outline on previously focused window(s) (customizable count: 1–5, default: 1).
+  - Helps effortlessly track multitasking context between windows (e.g. editor and browser, or tiling layouts).
+  - Choose between matching the active window color mode (with dimmed opacity, e.g. 50%) or setting a dedicated custom static color.
+  - In Ambilight mode, recent windows preserve their own sampled accent colors!
+  - When tracking multiple recent windows, older windows automatically attenuate opacity for intuitive visual hierarchy.
 - **Global Shortcut**: Press **Meta+Ctrl+O** (configurable) to instantly toggle the outline and focus border on or off.
 - **Multiple Color Modes**:
   - **System Accent Color**: Seamlessly matches your KDE Plasma accent color.
@@ -247,6 +253,10 @@ Configure buffering delays and window state handling.
 | **Menu show delay** | 300 ms | Delay before restoring the outline after menus close. Prevents outline flashing when navigating between submenus or menu items. |
 | **Switch hide delay** | 0 ms (Instant) | Delay before removing the outline from the previously active window. |
 | **Switch show delay** | 0 ms (Instant) | Delay before drawing the outline on a newly focused window (useful for focus-follows-mouse setups). |
+| **Highlight recent window(s)** | Off | Keeps a subdued outline on recent previously active window(s) to help track focus history when multitasking or tiling windows. |
+| **Recent windows count** | 1 | Number of previously focused windows to keep highlighted (1–5). Older windows automatically attenuate their opacity for clear visual hierarchy. |
+| **Recent outline color** | Match active | Color style for recent windows: either match the active window's color mode (including individual Ambilight colors) or use a custom static color. |
+| **Recent window opacity** | 50% | Base opacity percentage for recent window outlines. |
 | **Hide on fullscreen** | On | Automatically hides the outline and glow when the active window is fullscreen. |
 
 ### Keyboard shortcut

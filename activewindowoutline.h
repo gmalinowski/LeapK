@@ -140,7 +140,7 @@ private:
 
     void cacheWindowOutline(EffectWindow *w, const QRectF &geo);
 
-    QColor resolveColor(qreal windowOpacity = 1.0) const;
+    QColor resolveColor(qreal windowOpacity = 1.0, EffectWindow *w = nullptr) const;
     QColor currentCycleColor(qreal elapsedSec);
     QColor currentAmbilightColor(qreal elapsedSec);
     bool sampleAmbilightColor(const RenderTarget &renderTarget, const RenderViewport &viewport, EffectWindow *w);
@@ -154,6 +154,8 @@ private:
     qreal computeGlitchFactor(qreal elapsedSec) const;
 
     EffectWindow *m_activeWindow = nullptr;
+    QList<EffectWindow *> m_recentWindows;
+    mutable QMap<EffectWindow *, QColor> m_recentAmbilightColors;
 #ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
     QPointer<SceneView> m_sceneView;
 #endif
@@ -230,6 +232,11 @@ private:
     int m_menuShowDelay = 300;
     int m_windowHideDelay = 0;
     int m_windowShowDelay = 0;
+    bool m_highlightRecentWindow = false;
+    int m_recentWindowsCount = 1;
+    int m_recentWindowColorMode = 0;
+    QColor m_recentWindowCustomColor = QColor(127, 140, 141);
+    int m_recentWindowOpacity = 50;
 
     // Runtime delay, buffer & visibility transition state
     OutlineVisibility::StateMachine m_visibilityState;

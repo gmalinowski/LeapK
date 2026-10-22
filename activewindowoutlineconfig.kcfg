@@ -134,6 +134,29 @@
             <max>2000</max>
         </entry>
 
+        <!-- Recent Window Highlight Settings -->
+        <entry name="HighlightRecentWindow" type="Bool">
+            <default>false</default>
+        </entry>
+        <entry name="RecentWindowsCount" type="Int">
+            <default>1</default>
+            <min>1</min>
+            <max>5</max>
+        </entry>
+        <entry name="RecentWindowColorMode" type="Int">
+            <default>0</default>
+            <min>0</min>
+            <max>1</max>
+        </entry>
+        <entry name="RecentWindowCustomColor" type="Color">
+            <default>#7f8c8d</default>
+        </entry>
+        <entry name="RecentWindowOpacity" type="Int">
+            <default>50</default>
+            <min>10</min>
+            <max>100</max>
+        </entry>
+
         <!-- Color Cycling Settings -->
         <entry name="ColorCycleEnabled" type="Bool">
             <default>false</default>
