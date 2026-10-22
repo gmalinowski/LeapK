@@ -1,8 +1,8 @@
-# KDE / KWin Active Window Outline
+# KDE / KWin Active Window Outline & Focus Highlight
 
-A native KWin effect for KDE Plasma 6 that draws a configurable, theme-independent outline around the active window.
+A native KWin effect for KDE Plasma 6 that draws a configurable, theme-independent outline and colored border around the active, focused window.
 
-The effect is useful with minimal window decorations and tiling layouts, where it can otherwise be difficult to see which window currently has keyboard focus. It works at compositor level instead of relying on the selected Plasma theme, Aurorae decoration, or application toolkit.
+Whether you are using tiling window management (such as Bismuth, Polonium, or Krohnkite), borderless themes, or multi-monitor setups, it can be challenging to see which window currently has keyboard focus. **Active Window Outline** provides a crisp, customizable **focus indicator** and **window highlight** directly at the compositor level—independent of application toolkits (Qt, GTK, Electron), client-side decorations (CSD), or Aurorae themes.
 
 ## Features
 
@@ -12,32 +12,48 @@ The effect is useful with minimal window decorations and tiling layouts, where i
 
 ![Active Window Outline with the default settings in a tiled window layout](screenshot_defaults.png)
 
-- Follows the active KWin window automatically.
-- Global shortcut (default: **Meta+Ctrl+O**) to quickly toggle the outline on or off.
-- Uses the current Plasma accent color, a custom color, or an animated multi-color sequence.
-- **Dynamic Multi-Color Cycling**: add any number of colors with custom hold durations per color, global transition time, sequential or random order, and CSS-style easing curves (Ease-in-out, Linear, Ease-in, Ease-out).
-- **Modular Visual & Shader Effects** (can be mixed and matched together):
-  - **Breathe / Pulse**: smooth cyclic brightness and alpha breathing with adjustable speed and depth.
-  - **Futuristic Hologram**: sci-fi holographic scanlines, rolling sweep beam, ionization glow, and optional periodic glitch disturbances.
-  - **Neon Flicker**: realistic neon tube voltage-drop flickering.
-  - **Flash / Strobe**: intermittent strobe burst effects with configurable intervals and flash duration.
-- Highly optimized: animation timer only ticks when visual effects are enabled and repaints strictly the active window outline; zero background CPU/GPU overhead when static, minimized, or fullscreen.
-- **Configurable Visibility & Buffering Delays**: independent show and hide buffers for context menus/popups (preventing flicker when navigating menus) and window focus switching.
-- Option to automatically hide the outline when the active window is in fullscreen mode.
-- Configurable width, corner radius, and offset from the window edge.
-- Can draw inside the window, keeping the outline visible on maximized and tiled windows.
-- Optional edge smoothing for a cleaner outline at fractional display scales.
-- Optional smooth, accent-colored glow with a configurable size.
-- Works independently of Qt, GTK, client-side decorations, and the current window theme.
-- Temporarily hides the outline while context menus, submenus, dropdowns,
-  combo-box lists, or Plasma panel popups are visible, including Firefox
-  context menus and KWin's titlebar menu.
-- Clips the outline around visible panels, using the animated panel background
-  mask on Wayland when available to follow floating-panel transitions.
-- Defers software cursor rendering on Wayland with KWin 6.6+ so the cursor is
-  not obscured by the outline or glow.
-- Provides a tabbed graphical configuration page in Desktop Effects.
-- Shows the installed effect version in the configuration page.
+- **Active Window Focus Tracking**: Automatically follows and highlights the currently focused window with smooth, responsive transitions.
+- **Global Shortcut**: Press **Meta+Ctrl+O** (configurable) to instantly toggle the outline and focus border on or off.
+- **Multiple Color Modes**:
+  - **System Accent Color**: Seamlessly matches your KDE Plasma accent color.
+  - **Custom Static Color**: Set any custom color and opacity (e.g. vibrant green, cyan, or neon purple).
+  - **Ambilight (Adaptive Window Color)**: Dynamically extracts dominant accent colors from active window pixels in real time.
+  - **Color Cycling**: Create animated multi-color sequences with customizable hold times, transition durations, and CSS-style easing curves.
+- **Global Perimeter Contrast Enforcement**:
+  - Automatically analyzes the window border inside and the desktop wallpaper outside.
+  - If the outline color clashes with the wallpaper (e.g. blue outline on blue wallpaper) or blends with the window frame, it dynamically rotates hue and tunes brightness ($L \ge 0.65$ on dark backgrounds, $L \le 0.45$ on light backgrounds) so the focus border is always crisp and visible.
+- **Modular Visual & Shader Effects** (mix and match):
+  - **Breathe / Pulse**: Smooth sinusoidal alpha and glow pulsation with adjustable speed and depth.
+  - **Futuristic Hologram**: Sci-fi holographic scanlines, rolling sweep beam, ionization glow, and optional glitch disturbances.
+  - **Neon Flicker**: Realistic neon tube voltage-drop flickering.
+  - **Flash / Strobe**: Intermittent light bursts with customizable intervals and duration.
+- **Corner Fading & Geometry Controls**:
+  - **Fade Out Corners**: Softly fades out the outline towards each corner, illuminating only the straight window edges.
+  - **Corner Radius**: Matches rounded window corners smoothly.
+  - **Border Width & Offset**: Customize line thickness and distance from the window edge.
+  - **Draw Inside / Outside**: Draw inside the window frame (recommended for tiling and maximized windows) or outside with gap offsets.
+  - **Smooth Edges**: Optional antialiased feathering for clean rendering at fractional display scaling.
+  - **Soft Glow**: Adds a subtle colored halo around the outline.
+- **Smart Popup & Menu Suppression**:
+  - Automatically hides the outline while context menus, dropdowns, combo boxes, or Plasma popups are open (preventing visual clutter and flicker).
+  - Configurable show/hide buffer delays for buttery-smooth menu navigation.
+  - Option to automatically hide the outline when the active window is in fullscreen mode.
+- **Zero Idle Overhead**:
+  - Highly optimized: animation timers only tick when shader effects or color transitions are active.
+  - Repaints strictly the damaged boundary area; zero CPU/GPU overhead when static, minimized, or fullscreen.
+- **Display Server & Wayland Integration**:
+  - Built natively for KWin on Wayland (and X11).
+  - Clips around floating Plasma panels.
+  - Defers software cursor rendering on Wayland with KWin 6.6+ so the mouse pointer is never obscured.
+- **Graphical Configuration Module**:
+  - Integrated into **System Settings → Window Management → Desktop Effects**.
+
+## Use Cases
+
+- **Tiling Window Management (Polonium, Bismuth, Krohnkite)**: Serves as an instant, clear active window border and focus highlight without requiring window titlebars.
+- **Minimalist & Borderless Desktops**: Highlights the active window with a thin, glowing outline when titlebars or window decorations are hidden.
+- **Multi-Monitor & Ultrawide Productivity**: Effortlessly locate which window has keyboard focus across large or multiple displays.
+- **Accessibility & Focus Visibility**: Enhances window separation for users who need a high-contrast focus indicator or glowing border.
 
 ## Compatibility
 
@@ -172,6 +188,7 @@ Open the gear button next to **Active Window Outline** in Desktop Effects.
 | Use accent color | On | Follows the current Plasma accent color. |
 | Accent opacity | 66% | Controls the outline and glow opacity when using the accent color. |
 | Custom color | `#3daee9` | Used when accent-color tracking is disabled. |
+| Ensure perimeter contrast | On | Global contrast protection: monitors window borders and desktop wallpaper to prevent the outline from blending in across all color modes (Static, Accent, Ambilight). |
 | Border width | 2 px | Thickness of the outline. |
 | Outline offset | 0 px | Distance between the window edge and the outline. |
 | Border radius | 6 px | Corner radius of the outline (when corner fading is disabled). |
@@ -196,7 +213,6 @@ Dynamically analyzes the active window's visual contents and synchronizes the ou
 | Saturation leveling | 50% | Normalizes saturation: softens oversaturated neons and boosts pale tones. |
 | Fallback distinction | 75% | Contrasts the outline when window content matches the accent color. |
 | Min / Max brightness | 25% / 85% | Prevents outlines from becoming invisible on dark windows or blindingly bright on pure white documents. |
-| Ensure perimeter contrast | On | Analyzes the window edges, borders, and title bars to prevent the outline from blending in (enabled by default and in High Contrast; disabled in True Ambilight). |
 
 ### Tab 2: Color Sequence
 

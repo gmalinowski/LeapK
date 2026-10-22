@@ -9,7 +9,7 @@
             }
         ],
         "Category": "Appearance",
-        "Description": "Draws a theme-independent colored outline around the active window",
+        "Description": "Draws a theme-independent colored outline and focus highlight border around the active window",
         "EnabledByDefault": false,
         "Id": "active-window-outline",
         "License": "GPL-3.0-or-later",
