@@ -236,8 +236,9 @@ private:
     int m_recentWindowsCount = 1;
     int m_recentWindowColorMode = 0;
     QColor m_recentWindowCustomColor = QColor(127, 140, 141);
-    int m_recentWindowOpacity = 50;
+    int m_recentWindowOpacity = 20;
     int m_recentWindowHueShift = 0;
+    int m_recentWindowSaturation = 0;
 
     // Runtime delay, buffer & visibility transition state
     OutlineVisibility::StateMachine m_visibilityState;

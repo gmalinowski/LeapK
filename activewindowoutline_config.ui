@@ -1478,20 +1478,20 @@
           <item row="4" column="0">
            <widget class="QLabel" name="label_recentWindowOpacity">
             <property name="text">
-             <string>Recent window opacity:</string>
+             <string>Last window opacity:</string>
             </property>
             <property name="toolTip">
-             <string>Base opacity for recent windows (default: 50%). When multiple windows are tracked, opacity decreases proportionally for older windows (e.g. at 50%: 1st = 50%, 2nd = 25%, 3rd = 12.5%).</string>
+             <string>Defines the outline opacity of the oldest tracked recent window (e.g. 20%). Recent windows proportionally interpolate between 100% (active window) and this minimum opacity.</string>
             </property>
            </widget>
           </item>
           <item row="4" column="1">
            <widget class="QSpinBox" name="kcfg_RecentWindowOpacity">
             <property name="toolTip">
-             <string>Base opacity for recent windows (default: 50%). When multiple windows are tracked, opacity decreases proportionally for older windows (e.g. at 50%: 1st = 50%, 2nd = 25%, 3rd = 12.5%).</string>
+             <string>Defines the outline opacity of the oldest tracked recent window (e.g. 20%). Recent windows proportionally interpolate between 100% (active window) and this minimum opacity.</string>
             </property>
             <property name="minimum">
-             <number>10</number>
+             <number>5</number>
             </property>
             <property name="maximum">
              <number>100</number>
@@ -1500,7 +1500,7 @@
              <number>5</number>
             </property>
             <property name="value">
-             <number>50</number>
+             <number>20</number>
             </property>
             <property name="suffix">
              <string> %</string>
@@ -1539,6 +1539,41 @@
             </property>
             <property name="specialValueText">
              <string>0 ° (no shift)</string>
+            </property>
+           </widget>
+          </item>
+          <item row="6" column="0">
+           <widget class="QLabel" name="label_recentWindowSaturation">
+            <property name="text">
+             <string>Last window saturation:</string>
+            </property>
+            <property name="toolTip">
+             <string>Defines the color saturation of the oldest tracked recent window (0%: fully desaturated / grayscale, 100%: unchanged full color). Older windows proportionally lose saturation towards this value.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="6" column="1">
+           <widget class="QSpinBox" name="kcfg_RecentWindowSaturation">
+            <property name="toolTip">
+             <string>Defines the color saturation of the oldest tracked recent window (0%: fully desaturated / grayscale, 100%: unchanged full color). Older windows proportionally lose saturation towards this value.</string>
+            </property>
+            <property name="minimum">
+             <number>0</number>
+            </property>
+            <property name="maximum">
+             <number>100</number>
+            </property>
+            <property name="singleStep">
+             <number>5</number>
+            </property>
+            <property name="value">
+             <number>0</number>
+            </property>
+            <property name="suffix">
+             <string> %</string>
+            </property>
+            <property name="specialValueText">
+             <string>0 % (Grayscale)</string>
             </property>
            </widget>
           </item>

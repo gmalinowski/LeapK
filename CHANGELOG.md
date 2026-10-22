@@ -10,15 +10,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Recent / Previously Active Window Highlight (`HighlightRecentWindow`)**:
   - Added the ability to keep a subdued outline on recent previously active window(s) to track keyboard focus history and enhance multitasking / tiling workflows:
     - **Configurable History Depth (`RecentWindowsCount`)**: Highlight between 1 and 5 recent windows (default: 1).
-    - **Proportional Exponential Recency Decay**: Older windows in the history decrease opacity proportionally based on the configured base opacity: 1st = base opacity (e.g. 50%), 2nd = 50% of 1st (25%), 3rd = 50% of 2nd (12.5%), etc.
+    - **Linear Proportional Opacity Decay (`RecentWindowOpacity`)**: The user configures the outline opacity of the oldest tracked window (5% to 100%, default: 20%). Recent windows proportionally interpolate opacity between 100% (active window) and this minimum threshold (`1.0 - (step / N) * (1.0 - minOpacity)`).
+    - **Proportional Saturation Decay / Grayscale Fade (`RecentWindowSaturation`)**: Each older window in history proportionally loses saturation down to the configured saturation of the oldest window (0% to 100%, default: 0% / full grayscale). Fades smoothly from full vibrant color on the active window into muted pastels and neutral monochrome on older windows.
     - **Color Mode Flexibility (`RecentWindowColorMode`)**:
-      - **Match active window color**: Mirrors the active color mode (System Accent, Custom Color, or frozen per-window Ambilight colors) with dimmed opacity (default: 50%).
+      - **Match active window color**: Mirrors the active color mode (System Accent, Custom Color, or frozen per-window Ambilight colors).
       - **Custom static color (`RecentWindowCustomColor`)**: Explicitly assign a dedicated color for recent windows (e.g. slate gray, muted cyan).
     - **Ambilight Color Memory**: When Ambilight is active, recent windows retain the exact accent color that was sampled while they were active!
     - **Subdued & Calm**: Recent window outlines remain static without distracting shader animations (breathe, neon flicker, strobe).
     - **Occlusion-Aware**: Fully clipped against higher windows in the KWin stacking order; if windows overlap, active windows naturally occlude underlying recent outlines.
-    - **Chromatic Recency Hue Shifting (`RecentWindowHueShift`)**: Optional setting to rotate the outline's hue angle (-180° to +180°) for each older window in the history (0° = no change), creating a visual color trail indicating focus progression.
-    - **Configurable Opacity (`RecentWindowOpacity`)**: Adjust recent outline opacity from 10% to 100% (default: 50%).
+    - **Chromatic Recency Hue Shifting (`RecentWindowHueShift`)**: Optional setting to rotate the outline's hue angle (-180° to +180°) for each older window in the history (0° = no change), creating an intuitive visual color trail indicating focus progression.
 
 ## [1.4.24] - 2026-10-21
 

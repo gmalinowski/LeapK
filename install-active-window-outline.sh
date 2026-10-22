@@ -298,8 +298,9 @@ set_default HighlightRecentWindow false
 set_default RecentWindowsCount 1
 set_default RecentWindowColorMode 0
 set_default RecentWindowCustomColor "127, 140, 141"
-set_default RecentWindowOpacity 50
+set_default RecentWindowOpacity 20
 set_default RecentWindowHueShift 0
+set_default RecentWindowSaturation 0
 
 if command -v qdbus6 >/dev/null 2>&1; then
   qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true

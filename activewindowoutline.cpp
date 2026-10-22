@@ -503,8 +503,9 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_recentWindowsCount = qBound(1, config.readEntry("RecentWindowsCount", 1), 5);
     m_recentWindowColorMode = qBound(0, config.readEntry("RecentWindowColorMode", 0), 1);
     m_recentWindowCustomColor = config.readEntry("RecentWindowCustomColor", QColor(127, 140, 141));
-    m_recentWindowOpacity = qBound(10, config.readEntry("RecentWindowOpacity", 50), 100);
+    m_recentWindowOpacity = qBound(5, config.readEntry("RecentWindowOpacity", 20), 100);
     m_recentWindowHueShift = qBound(-180, config.readEntry("RecentWindowHueShift", 0), 180);
+    m_recentWindowSaturation = qBound(0, config.readEntry("RecentWindowSaturation", 0), 100);
     if (!m_highlightRecentWindow) {
         for (EffectWindow *recent : m_recentWindows) {
             if (recent) {
@@ -738,16 +739,10 @@ QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity, EffectWindow
         color = m_customColor;
     }
 
-    if (isRecent && m_recentWindowHueShift != 0) {
+    if (isRecent) {
         const int recentIdx = m_recentWindows.indexOf(w);
         if (recentIdx >= 0) {
-            float h = 0.0f, s = 0.0f, l = 0.0f, a = 0.0f;
-            color.getHslF(&h, &s, &l, &a);
-            if (h >= 0.0f && s > 0.05f) {
-                const float shift = float((recentIdx + 1) * m_recentWindowHueShift) / 360.0f;
-                h = std::fmod(h + shift + 10.0f, 1.0f);
-                color.setHslF(h, s, l, a);
-            }
+            color = OutlineColor::applyRecentWindowStyling(color, recentIdx, m_recentWindowsCount, m_recentWindowHueShift, m_recentWindowSaturation);
         }
     }
 
@@ -1882,10 +1877,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 m_lastGeometry[recent] = recentGeo;
             }
 
-            const qreal baseOpacity = qBound<qreal>(0.05, m_recentWindowOpacity / 100.0, 1.0);
-            // Proportional exponential decay: 1st window = base, 2nd = base * base, 3rd = base^3, etc.
-            const qreal decayedOpacity = (m_recentWindowsCount > 1) ? std::pow(baseOpacity, i + 1) : baseOpacity;
-            const qreal recentOpacity = decayedOpacity * m_visibilityState.visibilityOpacity;
+            const qreal interpolatedOpacity = OutlineColor::computeRecentWindowOpacity(i, m_recentWindowsCount, m_recentWindowOpacity);
+            const qreal recentOpacity = interpolatedOpacity * m_visibilityState.visibilityOpacity;
             renderOutline(renderTarget, viewport, m_outlineCache[recent], deviceRegion, recent, recentOpacity);
         }
     }

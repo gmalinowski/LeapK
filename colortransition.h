@@ -8,6 +8,7 @@
 #include <QStringList>
 #include <QtGlobal>
 #include <cmath>
+#include <algorithm>
 
 namespace OutlineColor
 {
@@ -80,6 +81,41 @@ inline QColor interpolateColors(const QColor &c1, const QColor &c2, qreal progre
     const int b = qRound(c1.blue() + (c2.blue() - c1.blue()) * f);
     const int a = qRound(c1.alpha() + (c2.alpha() - c1.alpha()) * f);
     return QColor(qBound(0, r, 255), qBound(0, g, 255), qBound(0, b, 255), qBound(0, a, 255));
+}
+
+inline qreal computeRecentWindowOpacity(int recentIdx, int totalCount, int lastWindowOpacityPercent)
+{
+    const qreal minOpacity = qBound<qreal>(0.01, lastWindowOpacityPercent / 100.0, 1.0);
+    const int totalSteps = std::max(1, totalCount);
+    const int step = std::clamp(recentIdx + 1, 1, totalSteps);
+    const qreal stepRatio = static_cast<qreal>(step) / static_cast<qreal>(totalSteps);
+    const qreal interpolatedOpacity = 1.0 - stepRatio * (1.0 - minOpacity);
+    return qBound<qreal>(0.0, interpolatedOpacity, 1.0);
+}
+
+inline QColor applyRecentWindowStyling(const QColor &color, int recentIdx, int totalCount, int hueShiftDeg, int lastWindowSaturationPercent)
+{
+    if (hueShiftDeg == 0 && lastWindowSaturationPercent >= 100) {
+        return color;
+    }
+    float h = 0.0f, s = 0.0f, l = 0.0f, a = 0.0f;
+    color.getHslF(&h, &s, &l, &a);
+
+    if (hueShiftDeg != 0 && h >= 0.0f && s > 0.05f) {
+        const float shift = float((recentIdx + 1) * hueShiftDeg) / 360.0f;
+        h = std::fmod(h + shift + 10.0f, 1.0f);
+    }
+
+    if (lastWindowSaturationPercent < 100) {
+        const int totalSteps = std::max(1, totalCount);
+        const int step = std::clamp(recentIdx + 1, 1, totalSteps);
+        const float stepRatio = static_cast<float>(step) / static_cast<float>(totalSteps);
+        const float minSatRatio = qBound<float>(0.0f, static_cast<float>(lastWindowSaturationPercent) / 100.0f, 1.0f);
+        const float satMultiplier = 1.0f - stepRatio * (1.0f - minSatRatio);
+        s = qBound<float>(0.0f, s * satMultiplier, 1.0f);
+    }
+
+    return QColor::fromHslF(h < 0.0f ? 0.0f : h, s, l, a);
 }
 
 } // namespace OutlineColor

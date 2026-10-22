@@ -147,6 +147,53 @@ int main()
         check(midAlpha.alpha() == 150, "alpha channel interpolation");
     }
 
+    // 4. Recent Window Opacity Interpolation
+    {
+        // 1 recent window: step 1/1 -> exactly minOpacity (20%)
+        checkNear(computeRecentWindowOpacity(0, 1, 20), 0.20, 0.001, "single recent window opacity 20%");
+
+        // 3 recent windows: 100% (active) -> window 0 (73.3%) -> window 1 (46.7%) -> window 2 (20.0%)
+        checkNear(computeRecentWindowOpacity(0, 3, 20), 1.0 - (1.0 / 3.0) * 0.8, 0.001, "3 recent windows: 1st window opacity");
+        checkNear(computeRecentWindowOpacity(1, 3, 20), 1.0 - (2.0 / 3.0) * 0.8, 0.001, "3 recent windows: 2nd window opacity");
+        checkNear(computeRecentWindowOpacity(2, 3, 20), 0.20, 0.001, "3 recent windows: 3rd window opacity (last)");
+
+        // Out-of-bounds safety clamp
+        checkNear(computeRecentWindowOpacity(-1, 3, 20), 1.0 - (1.0 / 3.0) * 0.8, 0.001, "negative index clamped to first step");
+        checkNear(computeRecentWindowOpacity(10, 3, 20), 0.20, 0.001, "large index clamped to last step");
+    }
+
+    // 5. Recent Window Saturation & Hue Shift Styling
+    {
+        const QColor red(255, 0, 0, 200);
+
+        // No hue shift & 100% saturation: remains unchanged
+        const QColor unchanged = applyRecentWindowStyling(red, 0, 1, 0, 100);
+        checkEqualColor(unchanged, red, "unchanged styling at hue=0, sat=100");
+
+        // 1 recent window, 0% saturation: fully desaturated to grayscale with preserved alpha
+        const QColor gray = applyRecentWindowStyling(red, 0, 1, 0, 0);
+        check(gray.red() == gray.green() && gray.green() == gray.blue(), "0% saturation produces neutral grayscale");
+        check(gray.alpha() == 200, "saturation decay preserves alpha channel");
+        checkNear(gray.red(), 128, 2, "desaturated red lightness ~ 128");
+
+        // 2 recent windows, 0% saturation: window 0 halfway desaturated, window 1 fully gray
+        const QColor halfSat = applyRecentWindowStyling(red, 0, 2, 0, 0);
+        float h0 = 0, s0 = 0, l0 = 0, a0 = 0;
+        halfSat.getHslF(&h0, &s0, &l0, &a0);
+        checkNear(s0, 0.50, 0.02, "2 recent windows: 1st window saturation is 50%");
+
+        const QColor fullGray = applyRecentWindowStyling(red, 1, 2, 0, 0);
+        float h1 = 0, s1 = 0, l1 = 0, a1 = 0;
+        fullGray.getHslF(&h1, &s1, &l1, &a1);
+        checkNear(s1, 0.00, 0.01, "2 recent windows: 2nd window saturation is 0%");
+
+        // Hue shift: 120° rotation on red (hue 0.0 -> 0.333 green)
+        const QColor greenShifted = applyRecentWindowStyling(QColor(255, 0, 0, 255), 0, 1, 120, 100);
+        float hg = 0, sg = 0, lg = 0, ag = 0;
+        greenShifted.getHslF(&hg, &sg, &lg, &ag);
+        checkNear(hg, 1.0 / 3.0, 0.02, "120 degree hue shift rotates red to green");
+    }
+
     std::printf("colortransition_test: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }
