@@ -187,11 +187,32 @@ int main()
         fullGray.getHslF(&h1, &s1, &l1, &a1);
         checkNear(s1, 0.00, 0.01, "2 recent windows: 2nd window saturation is 0%");
 
-        // Hue shift: 120° rotation on red (hue 0.0 -> 0.333 green)
-        const QColor greenShifted = applyRecentWindowStyling(QColor(255, 0, 0, 255), 0, 1, 120, 100);
+        // Hue shift for Match Active mode (shifts starting from window 1, step = 1):
+        // 120° rotation on red (hue 0.0 -> 0.333 green)
+        const QColor greenShifted = applyRecentWindowStyling(QColor(255, 0, 0, 255), 0, 1, 120, 100, false);
         float hg = 0, sg = 0, lg = 0, ag = 0;
         greenShifted.getHslF(&hg, &sg, &lg, &ag);
-        checkNear(hg, 1.0 / 3.0, 0.02, "120 degree hue shift rotates red to green");
+        checkNear(hg, 1.0 / 3.0, 0.02, "match active mode: 1st window rotates red to green");
+
+        // Hue shift for Custom Color mode (Window 1 has exact custom color, hue shift starts at Window 2):
+        const QColor customRed(255, 0, 0, 255);
+        // Window 1 (recentIdx = 0): 0 shift, remains exact custom color (red)
+        const QColor win1Custom = applyRecentWindowStyling(customRed, 0, 3, 120, 100, true);
+        float hw1 = 0, sw1 = 0, lw1 = 0, aw1 = 0;
+        win1Custom.getHslF(&hw1, &sw1, &lw1, &aw1);
+        checkNear(hw1, 0.0, 0.01, "custom color mode: window 1 keeps exact custom color (0 shift)");
+
+        // Window 2 (recentIdx = 1): 1 * 120° shift -> green
+        const QColor win2Custom = applyRecentWindowStyling(customRed, 1, 3, 120, 100, true);
+        float hw2 = 0, sw2 = 0, lw2 = 0, aw2 = 0;
+        win2Custom.getHslF(&hw2, &sw2, &lw2, &aw2);
+        checkNear(hw2, 1.0 / 3.0, 0.02, "custom color mode: window 2 shifts by 1x (red to green)");
+
+        // Window 3 (recentIdx = 2): 2 * 120° = 240° shift -> blue
+        const QColor win3Custom = applyRecentWindowStyling(customRed, 2, 3, 120, 100, true);
+        float hw3 = 0, sw3 = 0, lw3 = 0, aw3 = 0;
+        win3Custom.getHslF(&hw3, &sw3, &lw3, &aw3);
+        checkNear(hw3, 2.0 / 3.0, 0.02, "custom color mode: window 3 shifts by 2x (red to blue)");
     }
 
     std::printf("colortransition_test: %d checks, %d failures\n", checks, failures);

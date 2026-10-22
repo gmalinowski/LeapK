@@ -748,7 +748,8 @@ QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity, EffectWindow
     if (isRecent) {
         const int recentIdx = m_recentWindows.indexOf(w);
         if (recentIdx >= 0) {
-            color = OutlineColor::applyRecentWindowStyling(color, recentIdx, m_recentWindowsCount, m_recentWindowHueShift, m_recentWindowSaturation);
+            const bool isCustom = (m_recentWindowColorMode == 1);
+            color = OutlineColor::applyRecentWindowStyling(color, recentIdx, m_recentWindowsCount, m_recentWindowHueShift, m_recentWindowSaturation, isCustom);
         }
     }
 

@@ -1513,14 +1513,14 @@
              <string>Hue shift per window:</string>
             </property>
             <property name="toolTip">
-             <string>Rotates the color hue for each successive previous window on the color wheel (0°: no hue change, positive: clockwise e.g. blue to purple, negative: counter-clockwise e.g. blue to green).</string>
+             <string>Rotates the color hue for each successive previous window on the color wheel (0°: no hue change, positive: clockwise e.g. blue to purple, negative: counter-clockwise e.g. blue to green). In Match Active mode, shifting begins on the 1st recent window; in Custom Color mode, the 1st recent window keeps the exact chosen color and shifting begins on the 2nd recent window.</string>
             </property>
            </widget>
           </item>
           <item row="5" column="1">
            <widget class="QSpinBox" name="kcfg_RecentWindowHueShift">
             <property name="toolTip">
-             <string>Rotates the color hue for each successive previous window on the color wheel (0°: no hue change, positive: clockwise e.g. blue to purple, negative: counter-clockwise e.g. blue to green).</string>
+             <string>Rotates the color hue for each successive previous window on the color wheel (0°: no hue change, positive: clockwise e.g. blue to purple, negative: counter-clockwise e.g. blue to green). In Match Active mode, shifting begins on the 1st recent window; in Custom Color mode, the 1st recent window keeps the exact chosen color and shifting begins on the 2nd recent window.</string>
             </property>
             <property name="minimum">
              <number>-180</number>

@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Shader Effects & Hologram Suppression on Recent Windows**:
   - Fixed an issue where the Futuristic Hologram (Sci-Fi glitch) GPU fragment shader remained active on recent window outlines. Holographic scanlines, rolling sweep beam, micro-jitter, and anomaly surges are now strictly disabled on older windows.
   - Preserved static color for Color Cycling on recent windows by snapshotting the active cycle color upon focus departure, preventing older windows from actively cycling colors.
+- **Recent Window Custom Color Hue Shifting Offset**:
+  - When Custom Color mode is selected, the first recent window now strictly retains the exact configured custom color (0 shift), and chromatic hue rotation begins on the second recent window (window 2 shifts by 1x, window 3 by 2x). In Match Active mode, shifting begins from the first recent window relative to the active window.
 
 ## [1.4.24] - 2026-10-21
 

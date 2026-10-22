@@ -93,7 +93,7 @@ inline qreal computeRecentWindowOpacity(int recentIdx, int totalCount, int lastW
     return qBound<qreal>(0.0, interpolatedOpacity, 1.0);
 }
 
-inline QColor applyRecentWindowStyling(const QColor &color, int recentIdx, int totalCount, int hueShiftDeg, int lastWindowSaturationPercent)
+inline QColor applyRecentWindowStyling(const QColor &color, int recentIdx, int totalCount, int hueShiftDeg, int lastWindowSaturationPercent, bool isCustomColor = false)
 {
     if (hueShiftDeg == 0 && lastWindowSaturationPercent >= 100) {
         return color;
@@ -102,8 +102,11 @@ inline QColor applyRecentWindowStyling(const QColor &color, int recentIdx, int t
     color.getHslF(&h, &s, &l, &a);
 
     if (hueShiftDeg != 0 && h >= 0.0f && s > 0.05f) {
-        const float shift = float((recentIdx + 1) * hueShiftDeg) / 360.0f;
-        h = std::fmod(h + shift + 10.0f, 1.0f);
+        const int hueSteps = isCustomColor ? recentIdx : (recentIdx + 1);
+        if (hueSteps > 0) {
+            const float shift = float(hueSteps * hueShiftDeg) / 360.0f;
+            h = std::fmod(h + shift + 10.0f, 1.0f);
+        }
     }
 
     if (lastWindowSaturationPercent < 100) {
