@@ -18,6 +18,7 @@ Whether you are using tiling window management (such as Bismuth, Polonium, or Kr
   - **Multi-Window Opacity Decay**: Configure the opacity of the oldest window (default: 20%); intermediate windows interpolate linearly between 100% and this floor.
   - **Monochrome / Grayscale Desaturation**: Older windows proportionally lose color saturation towards a target value (default: 0% / full grayscale), providing an unmistakable visual focus hierarchy.
   - **Stepwise Border Width Reduction**: Optional reduction of border thickness per previous window (down to 1 px) for a clean physical taper across background windows.
+  - **Dashed Outline with Age-Widening Gaps**: Toggle dashed borders for recent windows where the gaps between dashes progressively widen for older windows, making the temporal focus depth instantly recognizable at a glance.
   - **Chromatic Hue Progression**: Rotate hues by a configurable angle (-180° to +180°) across the recent window trail.
   - **Color Mode Flexibility**: Match active window color (including per-window frozen Ambilight samples) or assign a dedicated static custom color.
   - **Calm & Subdued**: Animated shader effects (breathe, hologram, flicker) are automatically suppressed on recent windows to prevent visual distraction.
@@ -262,6 +263,7 @@ Configure buffering delays and window state handling.
 | **Hue shift per window** | 0° (None) | Rotates the color hue by this angle for each successive window in history (-180° to +180°). In Match Active mode, shifting begins on the 1st recent window; in Custom Color mode, the 1st recent window keeps the exact chosen color and shifting begins on the 2nd recent window. |
 | **Last window saturation** | 0% (Grayscale) | Color saturation for the oldest tracked window (0% to 100%). Older windows proportionally lose saturation towards this value, smoothly fading from vibrant color into monochrome grayscale. |
 | **Width reduction per window** | 0 px (None) | Step in pixels by which each successive older window reduces its outline border thickness (0–10 px). Clamped to a minimum thickness of 1 px. |
+| **Dashed outline for previous windows** | Off | Renders recent window outlines with a dashed line pattern instead of a solid line. Older windows in the history have progressively wider gaps between dashes. |
 | **Hide on fullscreen** | On | Automatically hides the outline and glow when the active window is fullscreen. |
 
 ### Keyboard shortcut

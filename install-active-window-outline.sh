@@ -302,6 +302,7 @@ set_default RecentWindowOpacity 20
 set_default RecentWindowHueShift 0
 set_default RecentWindowSaturation 0
 set_default RecentWindowWidthReduction 0
+set_default RecentWindowDashed false
 
 if command -v qdbus6 >/dev/null 2>&1; then
   qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true

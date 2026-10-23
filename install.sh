@@ -10,11 +10,11 @@ forward_args=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --main|--dev)
+    --main|--dev|--beta)
       target_ref="main"
       shift
       ;;
-    --beta|--pre|--prerelease)
+    --pre|--prerelease)
       use_prerelease=true
       shift
       ;;

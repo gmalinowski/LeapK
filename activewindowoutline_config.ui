@@ -1612,6 +1612,16 @@
             </property>
            </widget>
           </item>
+          <item row="8" column="0" colspan="2">
+           <widget class="QCheckBox" name="kcfg_RecentWindowDashed">
+            <property name="text">
+             <string>Dashed outline for previous windows (gaps widen with age)</string>
+            </property>
+            <property name="toolTip">
+             <string>Renders recent window outlines with a dashed line pattern instead of a solid line. Older windows in the history have progressively wider gaps between dashes.</string>
+            </property>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>

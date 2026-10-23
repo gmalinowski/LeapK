@@ -117,6 +117,92 @@ int main()
         check(std::abs(computeRecentWindowWidth(-1, 5.0, 2) - 3.0) < 0.001, "negative index clamped to step 1");
     }
 
+    // 6. Rounded rect perimeter
+    {
+        const QRectF rect(0, 0, 100, 100);
+        // Radius 0 -> sharp 100x100 square perimeter = 400
+        check(std::abs(computeRoundedRectPerimeter(rect, 0.0, 1.0) - 400.0) < 0.001, "sharp square perimeter is 400");
+        // Radius 50 -> circle radius 50 perimeter = 2 * PI * 50 = 100 * PI ~ 314.159
+        check(std::abs(computeRoundedRectPerimeter(rect, 50.0, 1.0) - (100.0 * M_PI)) < 0.001, "circle perimeter is 100*PI");
+        // Scale 2.0 -> square perimeter = 800
+        check(std::abs(computeRoundedRectPerimeter(rect, 0.0, 2.0) - 800.0) < 0.001, "scaled square perimeter is 800");
+        // Degenerate
+        check(computeRoundedRectPerimeter(QRectF(0, 0, 0, 100), 5.0, 1.0) == 0.0, "degenerate rect has 0 perimeter");
+    }
+
+    // 7. Recent window dash pattern progression
+    {
+        const qreal perimeter = 1000.0;
+        const qreal scale = 1.0;
+
+        qreal dash0 = 0.0, period0 = 0.0;
+        computeRecentWindowDashPattern(0, perimeter, scale, dash0, period0);
+        const qreal gap0 = period0 - dash0;
+
+        qreal dash1 = 0.0, period1 = 0.0;
+        computeRecentWindowDashPattern(1, perimeter, scale, dash1, period1);
+        const qreal gap1 = period1 - dash1;
+
+        qreal dash2 = 0.0, period2 = 0.0;
+        computeRecentWindowDashPattern(2, perimeter, scale, dash2, period2);
+        const qreal gap2 = period2 - dash2;
+
+        qreal dash3 = 0.0, period3 = 0.0;
+        computeRecentWindowDashPattern(3, perimeter, scale, dash3, period3);
+        const qreal gap3 = period3 - dash3;
+
+        // Gap must strictly increase for older windows
+        check(gap0 > 0.0, "window 0 gap is positive");
+        check(gap1 > gap0, "window 1 gap is larger than window 0");
+        check(gap2 > gap1, "window 2 gap is larger than window 1");
+        check(gap3 > gap2, "window 3 gap is larger than window 2");
+
+        // Dash length stays close to base dash length (~12px)
+        check(std::abs(dash0 - 12.0) < 1.0, "window 0 dash length close to 12px");
+        check(std::abs(dash1 - 12.0) < 1.0, "window 1 dash length close to 12px");
+        check(std::abs(dash2 - 12.0) < 1.0, "window 2 dash length close to 12px");
+
+        // Period must divide perimeter into an integer number of repetitions
+        const qreal count0 = perimeter / period0;
+        check(std::abs(count0 - std::round(count0)) < 1e-4, "period0 evenly divides perimeter");
+        const qreal count1 = perimeter / period1;
+        check(std::abs(count1 - std::round(count1)) < 1e-4, "period1 evenly divides perimeter");
+
+        // High-DPI scale (2.0) doubles dash and gap lengths
+        qreal dashScale2 = 0.0, periodScale2 = 0.0;
+        computeRecentWindowDashPattern(0, perimeter * 2.0, 2.0, dashScale2, periodScale2);
+        check(std::abs(dashScale2 - 24.0) < 2.0, "2x scale doubles base dash to ~24px");
+    }
+
+    // 8. Perimeter distance continuity around rounded rect
+    {
+        const QRectF rect(0, 0, 200, 100);
+        const qreal radius = 10.0;
+        const qreal scale = 1.0;
+        const qreal totalPerim = computeRoundedRectPerimeter(rect, radius, scale);
+
+        // Top edge start (-w0, -h0) -> near (10, 0)
+        const qreal sTopLeft = computePerimeterDistance(QPointF(10, 0), rect, radius, scale);
+        check(std::abs(sTopLeft) < 1.0, "start of top edge is near s=0");
+
+        // Top edge end (w0, -h0) -> (190, 0)
+        const qreal sTopRight = computePerimeterDistance(QPointF(190, 0), rect, radius, scale);
+        check(sTopRight > sTopLeft, "perimeter distance increases along top edge");
+
+        // Right edge middle -> (200, 50)
+        const qreal sRightMid = computePerimeterDistance(QPointF(200, 50), rect, radius, scale);
+        check(sRightMid > sTopRight, "perimeter distance increases along right edge");
+
+        // Bottom edge middle -> (100, 100)
+        const qreal sBottomMid = computePerimeterDistance(QPointF(100, 100), rect, radius, scale);
+        check(sBottomMid > sRightMid, "perimeter distance increases along bottom edge");
+
+        // Left edge middle -> (0, 50)
+        const qreal sLeftMid = computePerimeterDistance(QPointF(0, 50), rect, radius, scale);
+        check(sLeftMid > sBottomMid, "perimeter distance increases along left edge");
+        check(sLeftMid < totalPerim, "perimeter distance before wrap is less than total perimeter");
+    }
+
     std::printf("geometry_test: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

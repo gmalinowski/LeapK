@@ -94,4 +94,86 @@ inline qreal computeRecentWindowWidth(int recentIdx, qreal baseWidth, int widthR
     return std::max<qreal>(1.0, baseWidth - static_cast<qreal>(step * widthReductionPx));
 }
 
+inline qreal computeRoundedRectPerimeter(const QRectF &rect, qreal radius, qreal scale)
+{
+    const qreal w = rect.width() * scale;
+    const qreal h = rect.height() * scale;
+    if (w <= 0.0 || h <= 0.0) {
+        return 0.0;
+    }
+    const qreal r = qBound<qreal>(0.0, radius * scale, qMin(w, h) / 2.0);
+    const qreal w0 = std::max<qreal>(0.0, w / 2.0 - r);
+    const qreal h0 = std::max<qreal>(0.0, h / 2.0 - r);
+    return 4.0 * w0 + 4.0 * h0 + 2.0 * M_PI * r;
+}
+
+inline void computeRecentWindowDashPattern(int recentIdx, qreal perimeter, qreal scale,
+                                           qreal &effectiveDashLength, qreal &effectiveDashPeriod)
+{
+    const qreal baseDash = 12.0 * scale;
+    const qreal baseGap = 8.0 * scale;
+    const qreal gapStep = 6.0 * scale;
+    const int step = std::max(0, recentIdx);
+
+    const qreal dashLength = baseDash;
+    const qreal gapLength = baseGap + step * gapStep;
+    const qreal period = dashLength + gapLength;
+
+    if (perimeter <= 0.0 || period <= 0.0) {
+        effectiveDashLength = dashLength;
+        effectiveDashPeriod = period;
+        return;
+    }
+
+    const qreal count = std::max<qreal>(1.0, std::round(perimeter / period));
+    effectiveDashPeriod = perimeter / count;
+    const qreal ratio = effectiveDashPeriod / period;
+    effectiveDashLength = dashLength * ratio;
+}
+
+inline qreal computePerimeterDistance(const QPointF &pt, const QRectF &rect, qreal radius, qreal scale)
+{
+    const qreal w = rect.width() * scale;
+    const qreal h = rect.height() * scale;
+    if (w <= 0.0 || h <= 0.0) {
+        return 0.0;
+    }
+    const qreal r = qBound<qreal>(0.0, radius * scale, qMin(w, h) / 2.0);
+    const QPointF center(rect.center().x() * scale, rect.center().y() * scale);
+    const QPointF q = pt - center;
+    const qreal w0 = std::max<qreal>(0.0, w / 2.0 - r);
+    const qreal h0 = std::max<qreal>(0.0, h / 2.0 - r);
+    const qreal Lx = 2.0 * w0;
+    const qreal Ly = 2.0 * h0;
+    const qreal Lc = 0.5 * M_PI * r;
+
+    if (q.x() > w0 && q.y() < -h0) {
+        const qreal angle = std::atan2(q.x() - w0, -(q.y() + h0));
+        return Lx + r * angle;
+    }
+    if (q.x() > w0 && q.y() > h0) {
+        const qreal angle = std::atan2(q.y() - h0, q.x() - w0);
+        return Lx + Lc + Ly + r * angle;
+    }
+    if (q.x() < -w0 && q.y() > h0) {
+        const qreal angle = std::atan2(-(q.x() + w0), q.y() - h0);
+        return 2.0 * Lx + 2.0 * Lc + Ly + r * angle;
+    }
+    if (q.x() < -w0 && q.y() < -h0) {
+        const qreal angle = std::atan2(-(q.y() + h0), -(q.x() + w0));
+        return 2.0 * Lx + 3.0 * Lc + 2.0 * Ly + r * angle;
+    }
+
+    if (q.y() < -h0) {
+        return std::clamp(q.x() + w0, 0.0, Lx);
+    }
+    if (q.x() > w0) {
+        return Lx + Lc + std::clamp(q.y() + h0, 0.0, Ly);
+    }
+    if (q.y() > h0) {
+        return Lx + Lc + Ly + Lc + std::clamp(w0 - q.x(), 0.0, Lx);
+    }
+    return 2.0 * Lx + 3.0 * Lc + Ly + std::clamp(h0 - q.y(), 0.0, Ly);
+}
+
 } // namespace OutlineGeometry

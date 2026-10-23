@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.26] - 2026-10-23
+
+### Added
+- **Dashed Outline for Recent Windows (`RecentWindowDashed`)**:
+  - Added option to render recent window outlines using a dashed line pattern instead of a solid line.
+  - **Dynamic Age-Widening Gaps**: Gaps between dashes progressively increase for each older window in the focus history:
+    - 1st recent window: ~8 px gap
+    - 2nd recent window: ~14 px gap
+    - 3rd recent window: ~20 px gap
+    - 4th recent window: ~26 px gap
+    - 5th recent window: ~32 px gap
+  - **Seamless Loop & Subpixel Antialiasing**: Dash periods are adjusted to divide the window perimeter evenly with no truncated segments at corners, and dash boundaries are rendered with 1-pixel subpixel antialiasing.
+  - **Matching Dashed Glow**: When glow is enabled, the soft glow shader adopts the exact same dash pattern and gaps.
+  - **One-Liner Installer Update**: The `--beta` flag now directly targets the latest development build from the `main` branch.
+
 ## [1.4.25] - 2026-10-22
 
 ### Added
