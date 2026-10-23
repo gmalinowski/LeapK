@@ -281,15 +281,15 @@ Configure buffering delays and window state handling.
 
 The effect registers global shortcuts with KWin:
 
-- **Toggle Active Window Outline** (`Meta+Ctrl+O`): Turn the active window outline on or off at any time.
-- **Toggle Mark Window** (`Meta+Ctrl+M`): Pin or unpin a permanent outline frame on the active window using the default mark color.
-- **Mark Window with Color Picker** (`Meta+Ctrl+Shift+M`): Open the native KDE color palette picker to choose an exact custom color for the active window.
+- **KAWO: Toggle Active Window Outline** (`Meta+Ctrl+O`): Turn the active window outline on or off at any time.
+- **KAWO: Toggle Mark Window** (`Meta+Ctrl+M`): Pin or unpin a permanent outline frame on the active window using the default mark color.
+- **KAWO: Mark Window with Color Picker** (`Meta+Ctrl+Shift+M`): Open the native KDE color palette picker to choose an exact custom color for the active window.
 
 ![KWin global shortcut configuration](shortcuts.png)
 
 The shortcuts can be customized or disabled in:
 
-**System Settings → Shortcuts → KWin** (`Toggle Active Window Outline`, `Toggle Mark Window`, `Mark Window with Color Picker`)
+**System Settings → Shortcuts → KWin** (search for `KAWO`)
 
 ### Inside and outside drawing
 

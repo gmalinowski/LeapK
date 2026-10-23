@@ -554,21 +554,21 @@ void ActiveWindowOutlineEffect::initShortcuts()
 {
     QAction *toggleAction = new QAction(this);
     toggleAction->setObjectName(QStringLiteral("ToggleActiveWindowOutline"));
-    toggleAction->setText(QStringLiteral("Toggle Active Window Outline"));
+    toggleAction->setText(QStringLiteral("KAWO: Toggle Active Window Outline"));
     KGlobalAccel::self()->setDefaultShortcut(toggleAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_O));
     KGlobalAccel::self()->setGlobalShortcut(toggleAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_O));
     connect(toggleAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotToggleAction);
 
     QAction *markAction = new QAction(this);
     markAction->setObjectName(QStringLiteral("MarkActiveWindow"));
-    markAction->setText(QStringLiteral("Toggle Mark Window"));
+    markAction->setText(QStringLiteral("KAWO: Toggle Mark Window"));
     KGlobalAccel::self()->setDefaultShortcut(markAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_M));
     KGlobalAccel::self()->setGlobalShortcut(markAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_M));
     connect(markAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotMarkWindowToggle);
 
     QAction *markWithColorAction = new QAction(this);
     markWithColorAction->setObjectName(QStringLiteral("MarkActiveWindowWithColor"));
-    markWithColorAction->setText(QStringLiteral("Mark Window with Color Picker"));
+    markWithColorAction->setText(QStringLiteral("KAWO: Mark Window with Color Picker"));
     KGlobalAccel::self()->setDefaultShortcut(markWithColorAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::SHIFT | Qt::Key_M));
     KGlobalAccel::self()->setGlobalShortcut(markWithColorAction, QKeySequence(Qt::META | Qt::CTRL | Qt::SHIFT | Qt::Key_M));
     connect(markWithColorAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotMarkWindowWithColor);
