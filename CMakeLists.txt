@@ -66,6 +66,7 @@ kcoreaddons_add_plugin(active-window-outline
 target_link_libraries(active-window-outline PRIVATE
     ${KWIN_TARGET}
     KF6::GlobalAccel
+    Qt6::Widgets
 )
 # Identify the loaded library, including uncommitted test builds.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS

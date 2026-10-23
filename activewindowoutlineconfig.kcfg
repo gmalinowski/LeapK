@@ -183,6 +183,11 @@
             <default>false</default>
         </entry>
 
+        <!-- Mark Window Settings -->
+        <entry name="MarkDefaultColor" type="Color">
+            <default>#e74c3c</default>
+        </entry>
+
         <!-- Color Cycling Settings -->
         <entry name="ColorCycleEnabled" type="Bool">
             <default>false</default>

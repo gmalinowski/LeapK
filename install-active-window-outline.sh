@@ -305,6 +305,7 @@ set_default RecentWindowWidthReduction 0
 set_default RecentWindowDashed false
 set_default RecentWindowGapGrowth 6
 set_default RecentWindowDashSmooth false
+set_default MarkDefaultColor "231, 76, 60"
 
 if command -v qdbus6 >/dev/null 2>&1; then
   qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
@@ -318,6 +319,7 @@ echo
 echo "Done. Active Window Outline v$version has been installed."
 echo "Configure it in System Settings → Desktop Effects → Active Window Outline."
 echo "Toggle outline shortcut: Meta+Ctrl+O (configurable in System Settings → Shortcuts → KWin)."
+echo "Mark window shortcuts: Meta+Ctrl+M (toggle mark), Meta+Ctrl+Shift+M (mark with palette)."
 if [[ "$updating_existing" == true ]]; then
   echo
   echo "IMPORTANT: This was an update of a native KWin plugin."

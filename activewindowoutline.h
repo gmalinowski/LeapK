@@ -112,6 +112,8 @@ private Q_SLOTS:
     void slotWindowFullScreenChanged(KWin::EffectWindow *w);
     void slotShowingDesktopChanged();
     void slotToggleAction();
+    void slotMarkWindowToggle();
+    void slotMarkWindowWithColor();
     void slotAnimationTick();
 
 private:
@@ -140,6 +142,8 @@ private:
                        qreal windowOpacity = 1.0);
 
     void cacheWindowOutline(EffectWindow *w, const QRectF &geo, qreal customWidth = -1);
+    void toggleWindowMark(EffectWindow *w);
+    void setWindowMarkColor(EffectWindow *w, const QColor &color);
 
     QColor resolveColor(qreal windowOpacity = 1.0, EffectWindow *w = nullptr) const;
     QColor currentCycleColor(qreal elapsedSec);
@@ -245,6 +249,13 @@ private:
     bool m_recentWindowDashed = false;
     int m_recentWindowGapGrowth = 6;
     bool m_recentWindowDashSmooth = false;
+
+    // Config - Mark Window
+    QColor m_markDefaultColor = QColor(QStringLiteral("#e74c3c"));
+
+    // Runtime mark window state
+    QMap<EffectWindow *, QColor> m_markedWindows;
+    QColor m_lastMarkColor = QColor(QStringLiteral("#e74c3c"));
 
     // Runtime delay, buffer & visibility transition state
     OutlineVisibility::StateMachine m_visibilityState;

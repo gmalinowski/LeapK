@@ -84,6 +84,7 @@ for key in UseAccentColor AccentOpacity CustomColor EnsurePerimeterContrast Bord
            NeonFlickerEnabled NeonFlickerInterval NeonFlickerDuration NeonFlickerIntensity \
            FlashEnabled FlashInterval FlashDuration \
            FadeDuration MenuHideDelay MenuShowDelay WindowHideDelay WindowShowDelay \
+           MarkDefaultColor \
            HighlightRecentWindow RecentWindowsCount RecentWindowColorMode RecentWindowCustomColor RecentWindowOpacity RecentWindowHueShift RecentWindowSaturation RecentWindowWidthReduction RecentWindowDashed RecentWindowGapGrowth RecentWindowDashSmooth; do
   kwriteconfig6 --file kwinrc --group "$config_group" --key "$key" --delete ''
 done
@@ -91,6 +92,10 @@ kwriteconfig6 --file kwinrc --group Plugins \
   --key "${effect_id}Enabled" --delete ''
 kwriteconfig6 --file kglobalshortcutsrc --group kwin \
   --key "ToggleActiveWindowOutline" --delete ''
+kwriteconfig6 --file kglobalshortcutsrc --group kwin \
+  --key "MarkActiveWindow" --delete ''
+kwriteconfig6 --file kglobalshortcutsrc --group kwin \
+  --key "MarkActiveWindowWithColor" --delete ''
 
 echo "[4/4] Refreshing KDE…"
 if command -v kbuildsycoca6 >/dev/null 2>&1; then

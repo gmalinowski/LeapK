@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.27] - 2026-10-23
+
+### Added
+- **Mark Window / Permanent Outline Frame (`m_markedWindows`)**:
+  - Ability to pin a permanent outline frame to specific windows across their entire lifecycle.
+  - **Immutable Window Color**: Marked windows strictly maintain their assigned mark color regardless of active outline color modes (System Accent, Custom Color, Ambilight, or Color Cycling), and never undergo hue shifting or saturation desaturation when aged or unfocused.
+  - **Adaptive Hierarchy & Geometry**:
+    - **Focused / Active State**: Marked windows adopt active outline properties (full border width, 100% opacity, solid border, glow and active shader animations).
+    - **Recent / Background / Aged State**: Marked windows gracefully adopt recent/background styles (linear opacity decay, stepwise width reduction, and widening dashed patterns if enabled), while retaining their vibrant permanent color.
+  - **Global Shortcuts**:
+    - **`Meta+Ctrl+M` (`MarkActiveWindow`)**: Toggle permanent mark outline on the active window using the default mark color (configurable, default: `#e74c3c` red).
+    - **`Meta+Ctrl+Shift+M` (`MarkActiveWindowWithColor`)**: Open KDE's native color palette picker (`kdialog --getcolor` with non-modal `QColorDialog` fallback) to precisely choose any custom color for the active window without blocking the compositor event loop.
+  - **KCM Configuration Setting (`MarkDefaultColor`)**: Added a default mark color picker in the System Settings KCM behavior tab.
+
 ## [1.4.26] - 2026-10-23
 
 ### Added

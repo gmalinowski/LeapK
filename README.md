@@ -22,7 +22,15 @@ Whether you are using tiling window management (such as Bismuth, Polonium, or Kr
   - **Chromatic Hue Progression**: Rotate hues by a configurable angle (-180° to +180°) across the recent window trail.
   - **Color Mode Flexibility**: Match active window color (including per-window frozen Ambilight samples) or assign a dedicated static custom color.
   - **Calm & Subdued**: Animated shader effects (breathe, hologram, flicker) are automatically suppressed on recent windows to prevent visual distraction.
-- **Global Shortcut**: Press **Meta+Ctrl+O** (configurable) to instantly toggle the outline and focus border on or off.
+- **Window Marking & Permanent Frames**:
+  - **Pin Custom Frames**: Pin a permanent outline frame to specific windows across their full lifecycle.
+  - **Color Independence**: Marked windows maintain their assigned color across active, recent, and background states, overriding general outline color modes without hue shift or desaturation.
+  - **Dynamic Style Adoption**: When focused, marked windows adopt active focus geometry and shader animations; when unfocused or aged, they adopt recent/background styles (width reduction, opacity floor, dashed pattern).
+  - **Interactive Color Palette**: Press **Meta+Ctrl+Shift+M** to open KDE's native color picker (`kdialog`) and assign any precise color directly to the window, or press **Meta+Ctrl+M** to toggle the mark using the default mark color.
+- **Global Shortcuts**:
+  - **Meta+Ctrl+O**: Toggle the active window outline on or off.
+  - **Meta+Ctrl+M**: Toggle permanent mark frame on the active window.
+  - **Meta+Ctrl+Shift+M**: Mark the active window with interactive color palette picker.
 - **Multiple Color Modes**:
   - **System Accent Color**: Seamlessly matches your KDE Plasma accent color.
   - **Custom Static Color**: Set any custom color and opacity (e.g. vibrant green, cyan, or neon purple).
@@ -266,17 +274,22 @@ Configure buffering delays and window state handling.
 | **Dashed outline for previous windows** | Off | Renders recent window outlines with a dashed line pattern instead of a solid line. Older windows in the history have progressively wider gaps between dashes. |
 | **Gap growth per window** | 6 px | Step in pixels by which the gap between dashes widens for each successive older window (0–30 px), taking effect immediately from the 1st recent window. Set to 0 px for uniform constant gaps across all recent windows. |
 | **Smooth dash transitions** | Off | Applies a smooth alpha gradient fade between dashes and gaps instead of crisp cutoffs. |
+| **Default mark color** | `#e74c3c` (Red) | Default outline color applied when toggling permanent window marks via shortcut. |
 | **Hide on fullscreen** | On | Automatically hides the outline and glow when the active window is fullscreen. |
 
-### Keyboard shortcut
+### Keyboard shortcuts
 
-You can toggle the active window outline on or off at any time using the global shortcut **Meta+Ctrl+O**.
+The effect registers global shortcuts with KWin:
+
+- **Toggle Active Window Outline** (`Meta+Ctrl+O`): Turn the active window outline on or off at any time.
+- **Toggle Mark Window** (`Meta+Ctrl+M`): Pin or unpin a permanent outline frame on the active window using the default mark color.
+- **Mark Window with Color Picker** (`Meta+Ctrl+Shift+M`): Open the native KDE color palette picker to choose an exact custom color for the active window.
 
 ![KWin global shortcut configuration](shortcuts.png)
 
-The shortcut can be customized or disabled in:
+The shortcuts can be customized or disabled in:
 
-**System Settings → Shortcuts → KWin → Toggle Active Window Outline**
+**System Settings → Shortcuts → KWin** (`Toggle Active Window Outline`, `Toggle Mark Window`, `Mark Window with Color Picker`)
 
 ### Inside and outside drawing
 
