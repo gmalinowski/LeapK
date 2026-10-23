@@ -275,10 +275,10 @@ Configure buffering delays and window state handling.
 | **Dashed outline for previous windows** | Off | Renders recent window outlines with a dashed line pattern instead of a solid line. Older windows in the history have progressively wider gaps between dashes. |
 | **Gap growth per window** | 6 px | Step in pixels by which the gap between dashes widens for each successive older window (0–30 px), taking effect immediately from the 1st recent window. Set to 0 px for uniform constant gaps across all recent windows. |
 | **Smooth dash transitions** | Off | Applies a smooth alpha gradient fade between dashes and gaps instead of crisp cutoffs. |
-| **Default mark color** | `#e74c3c` (Red) | Default outline color applied when toggling permanent window marks via shortcut. |
-| **Inactive window opacity** | 60% | Outline opacity of marked windows when they are inactive or unfocused in the background (5–100%). |
+| **Default mark color** | `#e74c3c` (Red) | Default outline color applied when toggling permanent window marks via shortcut. Supports alpha channel transparency. |
 | **Inactive width reduction** | 0 px | Reduces the outline border thickness for inactive marked windows by this amount in pixels (0–10 px, clamped to min 1 px). |
 | **Dashed outline for inactive marked windows** | Off | Renders inactive marked window outlines with a dashed line pattern instead of a solid line. |
+| **Dash gap (Marked)** | 6 px | Spacing / gap between dashes in pixels for inactive marked window outlines (1–40 px). |
 | **Smooth dash transitions (Marked)** | Off | Applies a smooth alpha gradient fade between dashes and gaps on inactive marked window outlines. |
 | **Hide on fullscreen** | On | Automatically hides the outline and glow when the active window is fullscreen. |
 

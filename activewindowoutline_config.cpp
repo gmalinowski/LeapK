@@ -184,9 +184,9 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("RecentWindowGapGrowth"), *new int, 6);
     m_configSkeleton->addItemBool(QStringLiteral("RecentWindowDashSmooth"), *new bool, false);
     m_configSkeleton->addItemColor(QStringLiteral("MarkDefaultColor"), *new QColor, QColor(QStringLiteral("#e74c3c")));
-    m_configSkeleton->addItemInt(QStringLiteral("MarkInactiveOpacity"), *new int, 60);
     m_configSkeleton->addItemInt(QStringLiteral("MarkInactiveWidthReduction"), *new int, 0);
     m_configSkeleton->addItemBool(QStringLiteral("MarkInactiveDashed"), *new bool, false);
+    m_configSkeleton->addItemInt(QStringLiteral("MarkInactiveDashGap"), *new int, 6);
     m_configSkeleton->addItemBool(QStringLiteral("MarkInactiveDashSmooth"), *new bool, false);
 
     // Tab 2: Color Cycling
@@ -515,6 +515,8 @@ void ActiveWindowOutlineConfig::updateRecentWindowUI()
 void ActiveWindowOutlineConfig::updateMarkWindowUI()
 {
     const bool dashed = m_ui->kcfg_MarkInactiveDashed->isChecked();
+    m_ui->label_markInactiveDashGap->setEnabled(dashed);
+    m_ui->kcfg_MarkInactiveDashGap->setEnabled(dashed);
     m_ui->kcfg_MarkInactiveDashSmooth->setEnabled(dashed);
 }
 

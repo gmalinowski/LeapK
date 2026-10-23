@@ -59,6 +59,12 @@ plugin_files=(
   "$plugin_dir/kwin/effects/configs/kwin_active-window-outline_config.so"
   "$plugin_dir/kwin-x11/effects/plugins/active-window-outline.so"
   "$plugin_dir/kwin-x11/effects/configs/kwin_active-window-outline_config.so"
+  "/usr/libexec/active-window-outline-colorpicker"
+  "/usr/lib/x86_64-linux-gnu/libexec/active-window-outline-colorpicker"
+  "/usr/lib/libexec/active-window-outline-colorpicker"
+  "/usr/local/libexec/active-window-outline-colorpicker"
+  "/usr/local/bin/active-window-outline-colorpicker"
+  "/usr/bin/active-window-outline-colorpicker"
 )
 
 installed_files=()
@@ -84,7 +90,7 @@ for key in UseAccentColor AccentOpacity CustomColor EnsurePerimeterContrast Bord
            NeonFlickerEnabled NeonFlickerInterval NeonFlickerDuration NeonFlickerIntensity \
            FlashEnabled FlashInterval FlashDuration \
            FadeDuration MenuHideDelay MenuShowDelay WindowHideDelay WindowShowDelay \
-           MarkDefaultColor MarkInactiveOpacity MarkInactiveWidthReduction MarkInactiveDashed MarkInactiveDashSmooth \
+           MarkDefaultColor MarkInactiveDashGap MarkInactiveWidthReduction MarkInactiveDashed MarkInactiveDashSmooth \
            HighlightRecentWindow RecentWindowsCount RecentWindowColorMode RecentWindowCustomColor RecentWindowOpacity RecentWindowHueShift RecentWindowSaturation RecentWindowWidthReduction RecentWindowDashed RecentWindowGapGrowth RecentWindowDashSmooth; do
   kwriteconfig6 --file kwinrc --group "$config_group" --key "$key" --delete ''
 done

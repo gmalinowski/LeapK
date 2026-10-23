@@ -132,6 +132,25 @@ inline void computeRecentWindowDashPattern(int recentIdx, qreal perimeter, qreal
     effectiveDashLength = dashLength * ratio;
 }
 
+inline void computeCustomDashPattern(qreal dashLengthPx, qreal gapLengthPx, qreal perimeter, qreal scale,
+                                     qreal &effectiveDashLength, qreal &effectiveDashPeriod)
+{
+    const qreal dashLength = std::max<qreal>(1.0, dashLengthPx) * scale;
+    const qreal gapLength = std::max<qreal>(1.0, gapLengthPx) * scale;
+    const qreal period = dashLength + gapLength;
+
+    if (perimeter <= 0.0 || period <= 0.0) {
+        effectiveDashLength = dashLength;
+        effectiveDashPeriod = period;
+        return;
+    }
+
+    const qreal count = std::max<qreal>(1.0, std::round(perimeter / period));
+    effectiveDashPeriod = perimeter / count;
+    const qreal ratio = effectiveDashPeriod / period;
+    effectiveDashLength = dashLength * ratio;
+}
+
 inline qreal computePerimeterDistance(const QPointF &pt, const QRectF &rect, qreal radius, qreal scale)
 {
     const qreal w = rect.width() * scale;

@@ -83,6 +83,7 @@ target_compile_definitions(active-window-outline PRIVATE
     ACTIVE_WINDOW_OUTLINE_VERSION="${PROJECT_VERSION}"
     ACTIVE_WINDOW_OUTLINE_BUILD_ID="${OUTLINE_BUILD_ID}"
     ACTIVE_WINDOW_OUTLINE_KWIN_VERSION="${DETECTED_KWIN_VERSION}"
+    COLORPICKER_INSTALL_DIR="${KDE_INSTALL_FULL_LIBEXECDIR}"
 )
 
 if(KWIN_BACKEND STREQUAL "X11")
@@ -138,6 +139,15 @@ target_link_libraries(kwin_active-window-outline_config PRIVATE
 )
 target_compile_definitions(kwin_active-window-outline_config PRIVATE
     ACTIVE_WINDOW_OUTLINE_VERSION="${PROJECT_VERSION}"
+)
+
+# --- Standalone Color Picker helper ---
+add_executable(active-window-outline-colorpicker colorpicker.cpp)
+target_link_libraries(active-window-outline-colorpicker PRIVATE
+    Qt6::Widgets
+)
+install(TARGETS active-window-outline-colorpicker
+    DESTINATION ${KDE_INSTALL_LIBEXECDIR}
 )
 
 option(OUTLINE_BUILD_TESTS "Build popup and cursor regression tests" OFF)

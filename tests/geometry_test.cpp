@@ -228,6 +228,30 @@ int main()
         check(sLeftMid < totalPerim, "perimeter distance before wrap is less than total perimeter");
     }
 
+    // 9. Custom dash pattern (e.g. for marked windows)
+    {
+        const qreal perimeter = 1000.0;
+        const qreal scale = 1.0;
+
+        qreal dashA = 0.0, periodA = 0.0;
+        computeCustomDashPattern(12.0, 4.0, perimeter, scale, dashA, periodA);
+        const qreal gapA = periodA - dashA;
+
+        qreal dashB = 0.0, periodB = 0.0;
+        computeCustomDashPattern(12.0, 16.0, perimeter, scale, dashB, periodB);
+        const qreal gapB = periodB - dashB;
+
+        check(gapA > 2.0 && gapA < 6.0, "gap for 4px config is near 4px");
+        check(gapB > 12.0 && gapB < 20.0, "gap for 16px config is near 16px");
+        check(gapB > gapA + 8.0, "16px gap is strictly larger than 4px gap");
+
+        // Perimeter must be integer multiple of period
+        const qreal countA = perimeter / periodA;
+        check(std::abs(countA - std::round(countA)) < 0.001, "countA divides perimeter evenly");
+        const qreal countB = perimeter / periodB;
+        check(std::abs(countB - std::round(countB)) < 0.001, "countB divides perimeter evenly");
+    }
+
     std::printf("geometry_test: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

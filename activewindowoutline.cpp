@@ -673,9 +673,9 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_recentWindowGapGrowth = qBound(0, config.readEntry("RecentWindowGapGrowth", 6), 30);
     m_recentWindowDashSmooth = config.readEntry("RecentWindowDashSmooth", false);
     m_markDefaultColor = config.readEntry("MarkDefaultColor", QColor(QStringLiteral("#e74c3c")));
-    m_markInactiveOpacity = qBound(5, config.readEntry("MarkInactiveOpacity", 60), 100);
     m_markInactiveWidthReduction = qBound(0, config.readEntry("MarkInactiveWidthReduction", 0), 10);
     m_markInactiveDashed = config.readEntry("MarkInactiveDashed", false);
+    m_markInactiveDashGap = qBound(1, config.readEntry("MarkInactiveDashGap", 6), 40);
     m_markInactiveDashSmooth = config.readEntry("MarkInactiveDashSmooth", false);
     if (!m_lastMarkColor.isValid()) {
         m_lastMarkColor = m_markDefaultColor;
@@ -1303,7 +1303,7 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
         isSmooth = m_markInactiveDashSmooth;
         if (isDashed) {
             const qreal perimeter = OutlineGeometry::computeRoundedRectPerimeter(cache.outerRect, cache.outerRadius, scale);
-            OutlineGeometry::computeRecentWindowDashPattern(0, perimeter, scale, effDash, effPeriod, 0);
+            OutlineGeometry::computeCustomDashPattern(12.0, m_markInactiveDashGap, perimeter, scale, effDash, effPeriod);
         }
     } else if (isRecent) {
         isDashed = m_recentWindowDashed && (recentIdx >= 0);
@@ -1867,24 +1867,86 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
         ? m_markedWindows.value(target)
         : (m_lastMarkColor.isValid() ? m_lastMarkColor : m_markDefaultColor);
 
+    const auto applyPickedColor = [this, targetWindow](const QColor &picked) {
+        if (picked.isValid() && targetWindow) {
+            setWindowMarkColor(targetWindow.data(), picked);
+        }
+    };
+
+    // 1. Dedicated Qt6 color picker helper (natively supports alpha channel)
+    QStringList candidateDirs;
+#ifdef COLORPICKER_INSTALL_DIR
+    candidateDirs << QStringLiteral(COLORPICKER_INSTALL_DIR);
+#endif
+    candidateDirs << QCoreApplication::applicationDirPath()
+                  << QStringLiteral("/usr/libexec")
+                  << QStringLiteral("/usr/lib/libexec")
+                  << QStringLiteral("/usr/local/bin")
+                  << QStringLiteral("/usr/bin");
+
+    const QString customPicker = QStandardPaths::findExecutable(QStringLiteral("active-window-outline-colorpicker"), candidateDirs);
+    if (!customPicker.isEmpty()) {
+        QProcess *process = new QProcess(this);
+        connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
+                this, [process, applyPickedColor](int exitCode, QProcess::ExitStatus exitStatus) {
+            process->deleteLater();
+            if (exitStatus == QProcess::NormalExit && exitCode == 0) {
+                const QString out = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
+                if (!out.isEmpty()) {
+                    applyPickedColor(QColor(out));
+                }
+            }
+        });
+        connect(process, &QProcess::errorOccurred, this, [process]() {
+            process->deleteLater();
+        });
+        process->start(customPicker, {initialColor.name(QColor::HexArgb)});
+        return;
+    }
+
+    // 2. Zenity color picker with alpha support
+    const QString zenityPath = QStandardPaths::findExecutable(QStringLiteral("zenity"));
+    if (!zenityPath.isEmpty()) {
+        QProcess *process = new QProcess(this);
+        QStringList args;
+        args << QStringLiteral("--color-selection")
+             << QStringLiteral("--show-palette")
+             << QStringLiteral("--color=%1").arg(initialColor.name(QColor::HexArgb))
+             << QStringLiteral("--title") << tr("Select Window Mark Color");
+
+        connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
+                this, [process, applyPickedColor](int exitCode, QProcess::ExitStatus exitStatus) {
+            process->deleteLater();
+            if (exitStatus == QProcess::NormalExit && exitCode == 0) {
+                const QString out = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
+                if (!out.isEmpty()) {
+                    applyPickedColor(QColor(out));
+                }
+            }
+        });
+        connect(process, &QProcess::errorOccurred, this, [process]() {
+            process->deleteLater();
+        });
+        process->start(zenityPath, args);
+        return;
+    }
+
+    // 3. KDialog fallback
     const QString kdialogPath = QStandardPaths::findExecutable(QStringLiteral("kdialog"));
     if (!kdialogPath.isEmpty()) {
         QProcess *process = new QProcess(this);
         QStringList args;
         args << QStringLiteral("--getcolor")
-             << QStringLiteral("--default") << initialColor.name()
+             << QStringLiteral("--default") << initialColor.name(QColor::HexArgb)
              << QStringLiteral("--title") << tr("Select Window Mark Color");
 
         connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
-                this, [this, process, targetWindow](int exitCode, QProcess::ExitStatus exitStatus) {
+                this, [process, applyPickedColor](int exitCode, QProcess::ExitStatus exitStatus) {
             process->deleteLater();
             if (exitStatus == QProcess::NormalExit && exitCode == 0) {
                 const QString out = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
                 if (!out.isEmpty()) {
-                    const QColor picked(out);
-                    if (picked.isValid() && targetWindow) {
-                        setWindowMarkColor(targetWindow.data(), picked);
-                    }
+                    applyPickedColor(QColor(out));
                 }
             }
         });
@@ -1895,14 +1957,13 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
         return;
     }
 
-    // Fallback: non-modal QColorDialog so KWin compositor loop never blocks
+    // 4. Non-modal QColorDialog with ShowAlphaChannel fallback
     QColorDialog *dialog = new QColorDialog(initialColor);
+    dialog->setOption(QColorDialog::ShowAlphaChannel, true);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->setWindowTitle(tr("Select Window Mark Color"));
-    connect(dialog, &QColorDialog::colorSelected, this, [this, targetWindow](const QColor &color) {
-        if (color.isValid() && targetWindow) {
-            setWindowMarkColor(targetWindow.data(), color);
-        }
+    connect(dialog, &QColorDialog::colorSelected, this, [applyPickedColor](const QColor &color) {
+        applyPickedColor(color);
     });
     dialog->show();
 }
@@ -2319,7 +2380,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 m_lastGeometry[marked] = markedGeo;
             }
 
-            const qreal inactiveOpacity = (m_markInactiveOpacity / 100.0) * m_visibilityState.visibilityOpacity;
+            const qreal inactiveOpacity = m_visibilityState.visibilityOpacity;
             renderOutline(renderTarget, viewport, m_outlineCache[marked], deviceRegion, marked, inactiveOpacity);
         }
     }

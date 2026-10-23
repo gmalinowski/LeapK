@@ -253,9 +253,9 @@ private:
 
     // Config - Mark Window
     QColor m_markDefaultColor = QColor(QStringLiteral("#e74c3c"));
-    int m_markInactiveOpacity = 60;
     int m_markInactiveWidthReduction = 0;
     bool m_markInactiveDashed = false;
+    int m_markInactiveDashGap = 6;
     bool m_markInactiveDashSmooth = false;
 
     // Runtime mark window state
