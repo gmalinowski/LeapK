@@ -522,6 +522,10 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
             this, &ActiveWindowOutlineEffect::slotWindowDeleted);
     connect(effects, &EffectsHandler::showingDesktopChanged,
             this, &ActiveWindowOutlineEffect::slotShowingDesktopChanged);
+    connect(effects, &EffectsHandler::activeFullScreenEffectChanged,
+            this, &ActiveWindowOutlineEffect::slotActiveFullScreenEffectChanged);
+    connect(effects, &EffectsHandler::hasActiveFullScreenEffectChanged,
+            this, &ActiveWindowOutlineEffect::slotActiveFullScreenEffectChanged);
     connect(effects, &EffectsHandler::stackingOrderChanged,
             this, &ActiveWindowOutlineEffect::repaintAllOutlines);
 
@@ -1940,6 +1944,15 @@ void ActiveWindowOutlineEffect::slotShowingDesktopChanged()
     repaintAllOutlines();
 }
 
+void ActiveWindowOutlineEffect::slotActiveFullScreenEffectChanged()
+{
+    // Fullscreen interactive effects (Overview, Present Windows, Desktop Grid)
+    // arrange window thumbnails in a transformed QML canvas. Damage old bands
+    // so outlines disappear cleanly upon entering and reappear when exiting.
+    m_suppressedWindows.clear();
+    repaintAllOutlines();
+}
+
 QRectF ActiveWindowOutlineEffect::expandedGeometryFor(EffectWindow *w) const
 {
     if (!w) {
@@ -1958,6 +1971,9 @@ QRectF ActiveWindowOutlineEffect::expandedGeometryFor(EffectWindow *w) const
 
 bool ActiveWindowOutlineEffect::isActive() const
 {
+    if (effects->hasActiveFullScreenEffect()) {
+        return false;
+    }
     const bool showPending = (m_windowShowTimer && m_windowShowTimer->isActive());
     const bool activeEligible = shouldOutlineWindow(m_activeWindow) && m_visibilityState.isEffectivelyVisible();
     const bool delayedEligible = (m_delayedHideWindow && !m_delayedHideWindow->isDeleted()
@@ -2065,6 +2081,31 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
     }
 
     EffectWindow *w = m_activeWindow;
+    if (effects->hasActiveFullScreenEffect()) {
+        if (w && !m_suppressedWindows.contains(w)) {
+            m_suppressedWindows.insert(w);
+            data.paint += expandedGeometryFor(w).toAlignedRect();
+        }
+        if (m_delayedHideWindow && !m_suppressedWindows.contains(m_delayedHideWindow)) {
+            m_suppressedWindows.insert(m_delayedHideWindow);
+            data.paint += expandedGeometryFor(m_delayedHideWindow).toAlignedRect();
+        }
+        for (EffectWindow *recent : m_recentWindows) {
+            if (recent && !m_suppressedWindows.contains(recent)) {
+                m_suppressedWindows.insert(recent);
+                data.paint += expandedGeometryFor(recent).toAlignedRect();
+            }
+        }
+        for (auto it = m_markedWindows.constBegin(); it != m_markedWindows.constEnd(); ++it) {
+            EffectWindow *marked = it.key();
+            if (marked && !m_suppressedWindows.contains(marked)) {
+                m_suppressedWindows.insert(marked);
+                data.paint += expandedGeometryFor(marked).toAlignedRect();
+            }
+        }
+        return;
+    }
+
     const bool showPending = (m_windowShowTimer && m_windowShowTimer->isActive());
     const bool wantsOutline = m_visibilityState.isEffectivelyVisible()
         || m_visibilityState.isTransitionActive(m_visibilityConfig.fadeDuration);
@@ -2152,15 +2193,19 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                                          OutlineOutput *screen)
 {
     EffectWindow *w = m_activeWindow;
+    const bool isFullScreenActive = effects->hasActiveFullScreenEffect();
+    const bool isScreenTransformed = (mask & (PAINT_SCREEN_TRANSFORMED | PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS));
+    const bool inhibited = isFullScreenActive || isScreenTransformed;
+
     const bool showPending = (m_windowShowTimer && m_windowShowTimer->isActive());
-    const bool drawOutline = !showPending && shouldOutlineWindow(w) && m_visibilityState.isEffectivelyVisible()
+    const bool drawOutline = !inhibited && !showPending && shouldOutlineWindow(w) && m_visibilityState.isEffectivelyVisible()
         && !w->isMinimized() && !w->isHiddenByShowDesktop() && w->isOnCurrentDesktop();
-    const bool drawDelayed = (m_delayedHideWindow && m_delayedHideWindow != w
+    const bool drawDelayed = !inhibited && (m_delayedHideWindow && m_delayedHideWindow != w
         && !m_delayedHideWindow->isDeleted() && !m_delayedHideWindow->isMinimized()
         && !m_delayedHideWindow->isHiddenByShowDesktop() && m_delayedHideWindow->isOnCurrentDesktop()
         && m_delayedHideState.isEffectivelyVisible());
     bool hasRecentToDraw = false;
-    if (m_highlightRecentWindow && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked) {
+    if (!inhibited && m_highlightRecentWindow && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked) {
         for (EffectWindow *recent : m_recentWindows) {
             if (recent && recent != w && !recent->isDeleted() && !recent->isMinimized()
                 && !recent->isHiddenByShowDesktop() && recent->isOnCurrentDesktop()
@@ -2172,7 +2217,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         }
     }
     bool hasMarkedToDraw = false;
-    if (!hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked) {
+    if (!inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked) {
         for (auto it = m_markedWindows.constBegin(); it != m_markedWindows.constEnd(); ++it) {
             EffectWindow *marked = it.key();
             if (marked && marked != w && (!m_highlightRecentWindow || !m_recentWindows.contains(marked))
@@ -2212,7 +2257,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     const qreal sampleInterval = 1.0 / qMax<qreal>(0.1, m_ambilightFrequency);
     const bool timeToSample = m_ambilightSampleNeeded || ((elapsedSec - m_lastAmbilightSampleTime) >= sampleInterval);
 
-    if ((m_ambilightEnabled || m_ensurePerimeterContrast) && m_activeWindow && timeToSample) {
+    if (!inhibited && (m_ambilightEnabled || m_ensurePerimeterContrast) && m_activeWindow && timeToSample) {
         const QPoint windowCenter = m_activeWindow->frameGeometry().center().toPoint();
         const bool isScreenForWindow = !screen || QRect(screen->geometry()).contains(windowCenter);
         if (isScreenForWindow) {

@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     - **`Meta+Ctrl+M` (`MarkActiveWindow`)**: Toggle permanent mark outline on the active window using the default mark color (configurable, default: `#e74c3c` red).
     - **`Meta+Ctrl+Shift+M` (`MarkActiveWindowWithColor`)**: Open KDE's native color palette picker (`kdialog --getcolor` with non-modal `QColorDialog` fallback) to precisely choose any custom color for the active window without blocking the compositor event loop.
   - **KCM Configuration Setting (`MarkDefaultColor`)**: Added a default mark color picker in the System Settings KCM behavior tab.
+- **Overview & Fullscreen Effect Clean Suppression**:
+  - Automatically suppresses and clears outline frames when fullscreen interactive effects (such as Overview / `Super+W`, Present Windows, Desktop Grid, or transformed desktop switches) are active.
+  - Prevents outline borders from remaining frozen in their original static screen positions across the miniaturized window thumbnails in the Overview grid.
+  - Outlines cleanly disappear upon entering Overview and instantly reappear when exiting back to the workspace.
 
 ## [1.4.26] - 2026-10-23
 

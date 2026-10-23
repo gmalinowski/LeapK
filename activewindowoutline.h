@@ -111,6 +111,7 @@ private Q_SLOTS:
     void slotWindowHiddenChanged(KWin::EffectWindow *w);
     void slotWindowFullScreenChanged(KWin::EffectWindow *w);
     void slotShowingDesktopChanged();
+    void slotActiveFullScreenEffectChanged();
     void slotToggleAction();
     void slotMarkWindowToggle();
     void slotMarkWindowWithColor();
