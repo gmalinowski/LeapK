@@ -4,6 +4,7 @@
 
 import sys
 import re
+import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -12,6 +13,8 @@ def main():
     kcfg_file = repo_dir / "activewindowoutlineconfig.kcfg"
     install_file = repo_dir / "install-active-window-outline.sh"
     uninstall_file = repo_dir / "uninstall-active-window-outline.sh"
+    version_file = repo_dir / "VERSION"
+    metadata_file = repo_dir / "metadata.json"
 
     if not kcfg_file.exists():
         sys.exit(f"Error: {kcfg_file} not found")
@@ -50,6 +53,15 @@ def main():
         pattern = rf"\b{re.escape(key)}\b"
         if not re.search(pattern, uninstall_content):
             print(f"FAIL: Key '{key}' defined in {kcfg_file.name} is missing cleanup in {uninstall_file.name}", file=sys.stderr)
+            failures += 1
+
+    # 4. Check VERSION matches metadata.json Version
+    if version_file.exists() and metadata_file.exists():
+        version = version_file.read_text(encoding="utf-8").strip()
+        metadata_json = json.loads(metadata_file.read_text(encoding="utf-8"))
+        metadata_version = metadata_json.get("KPlugin", {}).get("Version")
+        if metadata_version != version:
+            print(f"FAIL: metadata.json Version '{metadata_version}' does not match VERSION '{version}'", file=sys.stderr)
             failures += 1
 
     if failures:
