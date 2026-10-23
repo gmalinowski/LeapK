@@ -37,6 +37,7 @@ private:
     void showAmbilightHelpDialog();
     void checkForUpdates();
     void updateRecentWindowUI();
+    void updateMarkWindowUI();
 
     Ui::ActiveWindowOutlineConfigForm *m_ui;
     KConfigSkeleton *m_configSkeleton = nullptr;

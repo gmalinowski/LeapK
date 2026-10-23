@@ -84,7 +84,7 @@ for key in UseAccentColor AccentOpacity CustomColor EnsurePerimeterContrast Bord
            NeonFlickerEnabled NeonFlickerInterval NeonFlickerDuration NeonFlickerIntensity \
            FlashEnabled FlashInterval FlashDuration \
            FadeDuration MenuHideDelay MenuShowDelay WindowHideDelay WindowShowDelay \
-           MarkDefaultColor \
+           MarkDefaultColor MarkInactiveOpacity MarkInactiveWidthReduction MarkInactiveDashed MarkInactiveDashSmooth \
            HighlightRecentWindow RecentWindowsCount RecentWindowColorMode RecentWindowCustomColor RecentWindowOpacity RecentWindowHueShift RecentWindowSaturation RecentWindowWidthReduction RecentWindowDashed RecentWindowGapGrowth RecentWindowDashSmooth; do
   kwriteconfig6 --file kwinrc --group "$config_group" --key "$key" --delete ''
 done

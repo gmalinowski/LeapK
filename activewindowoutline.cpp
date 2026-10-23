@@ -673,6 +673,10 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_recentWindowGapGrowth = qBound(0, config.readEntry("RecentWindowGapGrowth", 6), 30);
     m_recentWindowDashSmooth = config.readEntry("RecentWindowDashSmooth", false);
     m_markDefaultColor = config.readEntry("MarkDefaultColor", QColor(QStringLiteral("#e74c3c")));
+    m_markInactiveOpacity = qBound(5, config.readEntry("MarkInactiveOpacity", 60), 100);
+    m_markInactiveWidthReduction = qBound(0, config.readEntry("MarkInactiveWidthReduction", 0), 10);
+    m_markInactiveDashed = config.readEntry("MarkInactiveDashed", false);
+    m_markInactiveDashSmooth = config.readEntry("MarkInactiveDashSmooth", false);
     if (!m_lastMarkColor.isValid()) {
         m_lastMarkColor = m_markDefaultColor;
     }
@@ -1284,20 +1288,32 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
     const float maxFade = qMax<float>(15.0f * float(scale), edgeHalfMin - cornerCutoff - 10.0f * float(scale));
     const float fadeDist = std::clamp<float>(120.0f * float(scale), 20.0f * float(scale), maxFade);
 
-    const bool isRecent = (outlinedWindow != nullptr && m_recentWindows.contains(outlinedWindow) && outlinedWindow != m_activeWindow);
-    const int recentIdx = isRecent ? m_recentWindows.indexOf(outlinedWindow) : -1;
+    const bool isFocus = (outlinedWindow == m_activeWindow);
     const bool isMarked = (outlinedWindow != nullptr && m_markedWindows.contains(outlinedWindow));
-    const bool isDashed = (isRecent || (isMarked && outlinedWindow != m_activeWindow)) && m_recentWindowDashed;
-    const int dashIndex = isRecent ? recentIdx : m_recentWindowsCount;
+    const bool isRecent = (!isMarked && outlinedWindow != nullptr && m_recentWindows.contains(outlinedWindow) && !isFocus);
+    const int recentIdx = isRecent ? m_recentWindows.indexOf(outlinedWindow) : -1;
 
+    bool isDashed = false;
+    bool isSmooth = false;
     qreal effDash = 12.0 * scale;
     qreal effPeriod = 20.0 * scale;
-    if (isDashed) {
-        const qreal perimeter = OutlineGeometry::computeRoundedRectPerimeter(cache.outerRect, cache.outerRadius, scale);
-        OutlineGeometry::computeRecentWindowDashPattern(dashIndex, perimeter, scale, effDash, effPeriod, m_recentWindowGapGrowth);
+
+    if (isMarked && !isFocus) {
+        isDashed = m_markInactiveDashed;
+        isSmooth = m_markInactiveDashSmooth;
+        if (isDashed) {
+            const qreal perimeter = OutlineGeometry::computeRoundedRectPerimeter(cache.outerRect, cache.outerRadius, scale);
+            OutlineGeometry::computeRecentWindowDashPattern(0, perimeter, scale, effDash, effPeriod, 0);
+        }
+    } else if (isRecent) {
+        isDashed = m_recentWindowDashed && (recentIdx >= 0);
+        isSmooth = m_recentWindowDashSmooth;
+        if (isDashed) {
+            const qreal perimeter = OutlineGeometry::computeRoundedRectPerimeter(cache.outerRect, cache.outerRadius, scale);
+            OutlineGeometry::computeRecentWindowDashPattern(recentIdx, perimeter, scale, effDash, effPeriod, m_recentWindowGapGrowth);
+        }
     }
 
-    const bool isFocus = (outlinedWindow == m_activeWindow);
     const bool enableGlow = isFocus ? (m_glowEnabled || m_glitchEnabled) : m_glowEnabled;
 
     if (enableGlow && dynamicColor.alpha() > 0) {
@@ -1361,7 +1377,7 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
                 shader->setUniform("dashActive", isDashed ? 1.0f : 0.0f);
                 shader->setUniform("dashLength", float(effDash));
                 shader->setUniform("dashPeriod", float(effPeriod));
-                shader->setUniform("dashSmooth", m_recentWindowDashSmooth ? 1.0f : 0.0f);
+                shader->setUniform("dashSmooth", isSmooth ? 1.0f : 0.0f);
 
                 const float elapsedSec = m_animationClock.isValid() ? float(m_animationClock.elapsed() / 1000.0) : 0.0f;
                 shader->setUniform("time", elapsedSec);
@@ -1417,7 +1433,7 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
         activeShader->setUniform("dashActive", isDashed ? 1.0f : 0.0f);
         activeShader->setUniform("dashLength", float(effDash));
         activeShader->setUniform("dashPeriod", float(effPeriod));
-        activeShader->setUniform("dashSmooth", m_recentWindowDashSmooth ? 1.0f : 0.0f);
+        activeShader->setUniform("dashSmooth", isSmooth ? 1.0f : 0.0f);
     } else {
         defaultBinder = std::make_unique<ShaderBinder>(ShaderTrait::UniformColor | ShaderTrait::TransformColorspace);
         activeShader = defaultBinder->shader();
@@ -2138,7 +2154,7 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
 
     if (m_highlightRecentWindow) {
         for (EffectWindow *recent : m_recentWindows) {
-            if (recent && recent != w && !recent->isDeleted()
+            if (recent && recent != w && !m_markedWindows.contains(recent) && !recent->isDeleted()
                 && recent->isOnCurrentDesktop() && !recent->isMinimized()
                 && !recent->isHiddenByShowDesktop()
                 && !(m_hideOnFullScreen && recent->isFullScreen())
@@ -2207,7 +2223,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     bool hasRecentToDraw = false;
     if (!inhibited && m_highlightRecentWindow && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked) {
         for (EffectWindow *recent : m_recentWindows) {
-            if (recent && recent != w && !recent->isDeleted() && !recent->isMinimized()
+            if (recent && recent != w && !m_markedWindows.contains(recent) && !recent->isDeleted() && !recent->isMinimized()
                 && !recent->isHiddenByShowDesktop() && recent->isOnCurrentDesktop()
                 && !(m_hideOnFullScreen && recent->isFullScreen())
                 && !isBlockingPopup(recent)) {
@@ -2220,7 +2236,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     if (!inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked) {
         for (auto it = m_markedWindows.constBegin(); it != m_markedWindows.constEnd(); ++it) {
             EffectWindow *marked = it.key();
-            if (marked && marked != w && (!m_highlightRecentWindow || !m_recentWindows.contains(marked))
+            if (marked && marked != w
                 && !marked->isDeleted() && !marked->isMinimized()
                 && !marked->isHiddenByShowDesktop() && marked->isOnCurrentDesktop()
                 && !(m_hideOnFullScreen && marked->isFullScreen())
@@ -2288,7 +2304,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     if (hasMarkedToDraw) {
         for (auto it = m_markedWindows.constBegin(); it != m_markedWindows.constEnd(); ++it) {
             EffectWindow *marked = it.key();
-            if (!marked || marked == w || (m_highlightRecentWindow && m_recentWindows.contains(marked))
+            if (!marked || marked == w
                 || marked->isDeleted() || marked->isMinimized()
                 || marked->isHiddenByShowDesktop() || !marked->isOnCurrentDesktop()
                 || (m_hideOnFullScreen && marked->isFullScreen())
@@ -2297,21 +2313,21 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             }
 
             const QRectF markedGeo = marked->frameGeometry();
-            const qreal markedWidth = OutlineGeometry::computeRecentWindowWidth(m_recentWindowsCount, m_width, m_recentWindowWidthReduction);
+            const qreal markedWidth = std::max<qreal>(1.0, m_width - m_markInactiveWidthReduction);
             if (!m_outlineCache.contains(marked) || m_lastGeometry.value(marked) != markedGeo || m_outlineCache.value(marked).borderWidth != markedWidth) {
                 cacheWindowOutline(marked, markedGeo, markedWidth);
                 m_lastGeometry[marked] = markedGeo;
             }
 
-            const qreal agedOpacity = OutlineColor::computeRecentWindowOpacity(m_recentWindowsCount, m_recentWindowsCount, m_recentWindowOpacity) * m_visibilityState.visibilityOpacity;
-            renderOutline(renderTarget, viewport, m_outlineCache[marked], deviceRegion, marked, agedOpacity);
+            const qreal inactiveOpacity = (m_markInactiveOpacity / 100.0) * m_visibilityState.visibilityOpacity;
+            renderOutline(renderTarget, viewport, m_outlineCache[marked], deviceRegion, marked, inactiveOpacity);
         }
     }
 
     if (hasRecentToDraw) {
         for (int i = m_recentWindows.size() - 1; i >= 0; --i) {
             EffectWindow *recent = m_recentWindows.at(i);
-            if (!recent || recent == w || recent->isDeleted() || recent->isMinimized()
+            if (!recent || recent == w || m_markedWindows.contains(recent) || recent->isDeleted() || recent->isMinimized()
                 || recent->isHiddenByShowDesktop() || !recent->isOnCurrentDesktop()
                 || (m_hideOnFullScreen && recent->isFullScreen())
                 || isBlockingPopup(recent)) {

@@ -10,13 +10,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Mark Window / Permanent Outline Frame (`m_markedWindows`)**:
   - Ability to pin a permanent outline frame to specific windows across their entire lifecycle.
   - **Immutable Window Color**: Marked windows strictly maintain their assigned mark color regardless of active outline color modes (System Accent, Custom Color, Ambilight, or Color Cycling), and never undergo hue shifting or saturation desaturation when aged or unfocused.
+  - **Decoupled Inactive Appearance Settings**:
+    - Marked windows have completely independent styling settings from Recent Windows:
+      - `MarkInactiveOpacity` (5–100%, default: 60%)
+      - `MarkInactiveWidthReduction` (0–10 px, default: 0 px)
+      - `MarkInactiveDashed` (default: false)
+      - `MarkInactiveDashSmooth` (default: false)
+    - Inactive marked windows are always configurable and rendered according to their dedicated settings regardless of whether `HighlightRecentWindow` is enabled or disabled.
   - **Adaptive Hierarchy & Geometry**:
     - **Focused / Active State**: Marked windows adopt active outline properties (full border width, 100% opacity, solid border, glow and active shader animations).
-    - **Recent / Background / Aged State**: Marked windows gracefully adopt recent/background styles (linear opacity decay, stepwise width reduction, and widening dashed patterns if enabled), while retaining their vibrant permanent color.
-  - **Global Shortcuts**:
-    - **`Meta+Ctrl+M` (`MarkActiveWindow`)**: Toggle permanent mark outline on the active window using the default mark color (configurable, default: `#e74c3c` red).
-    - **`Meta+Ctrl+Shift+M` (`MarkActiveWindowWithColor`)**: Open KDE's native color palette picker (`kdialog --getcolor` with non-modal `QColorDialog` fallback) to precisely choose any custom color for the active window without blocking the compositor event loop.
-  - **KCM Configuration Setting (`MarkDefaultColor`)**: Added a default mark color picker in the System Settings KCM behavior tab.
+    - **Inactive / Background State**: Marked windows adopt their dedicated inactive settings (opacity, width reduction, dashed pattern) while retaining their permanent custom color.
+  - **Global Shortcuts (Prefixed with `KAWO:` for quick searching)**:
+    - **`Meta+Ctrl+M` (`KAWO: Toggle Mark Window`)**: Toggle permanent mark outline on the active window using the default mark color (configurable, default: `#e74c3c` red).
+    - **`Meta+Ctrl+Shift+M` (`KAWO: Mark Window with Color Picker`)**: Open KDE's native color palette picker (`kdialog --getcolor` with non-modal `QColorDialog` fallback) to precisely choose any custom color for the active window without blocking the compositor event loop.
+  - **KCM Configuration Section**: Dedicated Mark Window section in the System Settings KCM with controls for default color, inactive opacity, width reduction, and dashed styling.
 - **Overview & Fullscreen Effect Clean Suppression**:
   - Automatically suppresses and clears outline frames when fullscreen interactive effects (such as Overview / `Super+W`, Present Windows, Desktop Grid, or transformed desktop switches) are active.
   - Prevents outline borders from remaining frozen in their original static screen positions across the miniaturized window thumbnails in the Overview grid.

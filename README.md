@@ -24,8 +24,9 @@ Whether you are using tiling window management (such as Bismuth, Polonium, or Kr
   - **Calm & Subdued**: Animated shader effects (breathe, hologram, flicker) are automatically suppressed on recent windows to prevent visual distraction.
 - **Window Marking & Permanent Frames**:
   - **Pin Custom Frames**: Pin a permanent outline frame to specific windows across their full lifecycle.
-  - **Color Independence**: Marked windows maintain their assigned color across active, recent, and background states, overriding general outline color modes without hue shift or desaturation.
-  - **Dynamic Style Adoption**: When focused, marked windows adopt active focus geometry and shader animations; when unfocused or aged, they adopt recent/background styles (width reduction, opacity floor, dashed pattern).
+  - **Color Independence**: Marked windows maintain their assigned color across active and background states, overriding general outline color modes without hue shift or desaturation.
+  - **Independent Inactive Appearance**: Dedicated controls for inactive marked window appearance (opacity, width reduction, dashed outline, and smooth dash transitions), fully decoupled from Recent Windows settings.
+  - **Dynamic Style Adoption**: When focused, marked windows adopt active focus geometry and shader animations; when unfocused or inactive in the background, they adopt marked inactive settings.
   - **Interactive Color Palette**: Press **Meta+Ctrl+Shift+M** to open KDE's native color picker (`kdialog`) and assign any precise color directly to the window, or press **Meta+Ctrl+M** to toggle the mark using the default mark color.
 - **Global Shortcuts**:
   - **Meta+Ctrl+O**: Toggle the active window outline on or off.
@@ -275,6 +276,10 @@ Configure buffering delays and window state handling.
 | **Gap growth per window** | 6 px | Step in pixels by which the gap between dashes widens for each successive older window (0–30 px), taking effect immediately from the 1st recent window. Set to 0 px for uniform constant gaps across all recent windows. |
 | **Smooth dash transitions** | Off | Applies a smooth alpha gradient fade between dashes and gaps instead of crisp cutoffs. |
 | **Default mark color** | `#e74c3c` (Red) | Default outline color applied when toggling permanent window marks via shortcut. |
+| **Inactive window opacity** | 60% | Outline opacity of marked windows when they are inactive or unfocused in the background (5–100%). |
+| **Inactive width reduction** | 0 px | Reduces the outline border thickness for inactive marked windows by this amount in pixels (0–10 px, clamped to min 1 px). |
+| **Dashed outline for inactive marked windows** | Off | Renders inactive marked window outlines with a dashed line pattern instead of a solid line. |
+| **Smooth dash transitions (Marked)** | Off | Applies a smooth alpha gradient fade between dashes and gaps on inactive marked window outlines. |
 | **Hide on fullscreen** | On | Automatically hides the outline and glow when the active window is fullscreen. |
 
 ### Keyboard shortcuts

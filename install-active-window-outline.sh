@@ -306,6 +306,10 @@ set_default RecentWindowDashed false
 set_default RecentWindowGapGrowth 6
 set_default RecentWindowDashSmooth false
 set_default MarkDefaultColor "231, 76, 60"
+set_default MarkInactiveOpacity 60
+set_default MarkInactiveWidthReduction 0
+set_default MarkInactiveDashed false
+set_default MarkInactiveDashSmooth false
 
 if command -v qdbus6 >/dev/null 2>&1; then
   qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true

@@ -184,6 +184,10 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("RecentWindowGapGrowth"), *new int, 6);
     m_configSkeleton->addItemBool(QStringLiteral("RecentWindowDashSmooth"), *new bool, false);
     m_configSkeleton->addItemColor(QStringLiteral("MarkDefaultColor"), *new QColor, QColor(QStringLiteral("#e74c3c")));
+    m_configSkeleton->addItemInt(QStringLiteral("MarkInactiveOpacity"), *new int, 60);
+    m_configSkeleton->addItemInt(QStringLiteral("MarkInactiveWidthReduction"), *new int, 0);
+    m_configSkeleton->addItemBool(QStringLiteral("MarkInactiveDashed"), *new bool, false);
+    m_configSkeleton->addItemBool(QStringLiteral("MarkInactiveDashSmooth"), *new bool, false);
 
     // Tab 2: Color Cycling
     m_configSkeleton->addItemBool(QStringLiteral("ColorCycleEnabled"), *new bool, false);
@@ -477,6 +481,9 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->kcfg_RecentWindowDashed, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateRecentWindowUI);
     updateRecentWindowUI();
 
+    connect(m_ui->kcfg_MarkInactiveDashed, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
+    updateMarkWindowUI();
+
     load();
 }
 
@@ -503,6 +510,12 @@ void ActiveWindowOutlineConfig::updateRecentWindowUI()
     m_ui->label_recentWindowGapGrowth->setEnabled(dashed);
     m_ui->kcfg_RecentWindowGapGrowth->setEnabled(dashed);
     m_ui->kcfg_RecentWindowDashSmooth->setEnabled(dashed);
+}
+
+void ActiveWindowOutlineConfig::updateMarkWindowUI()
+{
+    const bool dashed = m_ui->kcfg_MarkInactiveDashed->isChecked();
+    m_ui->kcfg_MarkInactiveDashSmooth->setEnabled(dashed);
 }
 
 void ActiveWindowOutlineConfig::addColorRow(const QColor &color, double holdTime)
@@ -736,6 +749,7 @@ void ActiveWindowOutlineConfig::load()
     m_ui->label_borderRadius->setEnabled(!fadeCorners);
     m_ui->kcfg_BorderRadius->setEnabled(!fadeCorners);
     updateRecentWindowUI();
+    updateMarkWindowUI();
     setNeedsSave(false);
 }
 
@@ -748,6 +762,7 @@ void ActiveWindowOutlineConfig::defaults()
     m_ui->label_borderRadius->setEnabled(!fadeCorners);
     m_ui->kcfg_BorderRadius->setEnabled(!fadeCorners);
     updateRecentWindowUI();
+    updateMarkWindowUI();
     markAsChanged();
 }
 
