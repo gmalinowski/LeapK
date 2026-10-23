@@ -1622,6 +1622,51 @@
             </property>
            </widget>
           </item>
+          <item row="9" column="0">
+           <widget class="QLabel" name="label_recentWindowGapGrowth">
+            <property name="text">
+             <string>Gap growth per window:</string>
+            </property>
+            <property name="toolTip">
+             <string>Defines how much the gap between dashes increases for each successive older window in pixels (default: 6 px). If set to 0 px, all recent windows use the same constant gap length.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="9" column="1">
+           <widget class="QSpinBox" name="kcfg_RecentWindowGapGrowth">
+            <property name="toolTip">
+             <string>Defines how much the gap between dashes increases for each successive older window in pixels (default: 6 px). If set to 0 px, all recent windows use the same constant gap length.</string>
+            </property>
+            <property name="minimum">
+             <number>0</number>
+            </property>
+            <property name="maximum">
+             <number>30</number>
+            </property>
+            <property name="singleStep">
+             <number>1</number>
+            </property>
+            <property name="value">
+             <number>6</number>
+            </property>
+            <property name="suffix">
+             <string> px</string>
+            </property>
+            <property name="specialValueText">
+             <string>0 px (constant gaps)</string>
+            </property>
+           </widget>
+          </item>
+          <item row="10" column="0" colspan="2">
+           <widget class="QCheckBox" name="kcfg_RecentWindowDashSmooth">
+            <property name="text">
+             <string>Smooth dash transitions (soft fading)</string>
+            </property>
+            <property name="toolTip">
+             <string>Applies a smooth alpha gradient fade between dashes and gaps instead of crisp cutoffs.</string>
+            </property>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>

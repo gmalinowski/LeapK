@@ -303,6 +303,8 @@ set_default RecentWindowHueShift 0
 set_default RecentWindowSaturation 0
 set_default RecentWindowWidthReduction 0
 set_default RecentWindowDashed false
+set_default RecentWindowGapGrowth 6
+set_default RecentWindowDashSmooth false
 
 if command -v qdbus6 >/dev/null 2>&1; then
   qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true

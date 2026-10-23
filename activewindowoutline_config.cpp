@@ -181,6 +181,8 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("RecentWindowSaturation"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("RecentWindowWidthReduction"), *new int, 0);
     m_configSkeleton->addItemBool(QStringLiteral("RecentWindowDashed"), *new bool, false);
+    m_configSkeleton->addItemInt(QStringLiteral("RecentWindowGapGrowth"), *new int, 6);
+    m_configSkeleton->addItemBool(QStringLiteral("RecentWindowDashSmooth"), *new bool, false);
 
     // Tab 2: Color Cycling
     m_configSkeleton->addItemBool(QStringLiteral("ColorCycleEnabled"), *new bool, false);
@@ -471,6 +473,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
 
     connect(m_ui->kcfg_HighlightRecentWindow, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateRecentWindowUI);
     connect(m_ui->kcfg_RecentWindowColorMode, qOverload<int>(&QComboBox::currentIndexChanged), this, &ActiveWindowOutlineConfig::updateRecentWindowUI);
+    connect(m_ui->kcfg_RecentWindowDashed, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateRecentWindowUI);
     updateRecentWindowUI();
 
     load();
@@ -495,6 +498,10 @@ void ActiveWindowOutlineConfig::updateRecentWindowUI()
     m_ui->label_recentWindowWidthReduction->setEnabled(enabled);
     m_ui->kcfg_RecentWindowWidthReduction->setEnabled(enabled);
     m_ui->kcfg_RecentWindowDashed->setEnabled(enabled);
+    const bool dashed = enabled && m_ui->kcfg_RecentWindowDashed->isChecked();
+    m_ui->label_recentWindowGapGrowth->setEnabled(dashed);
+    m_ui->kcfg_RecentWindowGapGrowth->setEnabled(dashed);
+    m_ui->kcfg_RecentWindowDashSmooth->setEnabled(dashed);
 }
 
 void ActiveWindowOutlineConfig::addColorRow(const QColor &color, double holdTime)

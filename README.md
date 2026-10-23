@@ -18,7 +18,7 @@ Whether you are using tiling window management (such as Bismuth, Polonium, or Kr
   - **Multi-Window Opacity Decay**: Configure the opacity of the oldest window (default: 20%); intermediate windows interpolate linearly between 100% and this floor.
   - **Monochrome / Grayscale Desaturation**: Older windows proportionally lose color saturation towards a target value (default: 0% / full grayscale), providing an unmistakable visual focus hierarchy.
   - **Stepwise Border Width Reduction**: Optional reduction of border thickness per previous window (down to 1 px) for a clean physical taper across background windows.
-  - **Dashed Outline with Age-Widening Gaps**: Toggle dashed borders for recent windows where the gaps between dashes progressively widen for older windows, making the temporal focus depth instantly recognizable at a glance.
+  - **Dashed Outline with Configurable Gap Progression**: Toggle dashed borders for recent windows with adjustable gap growth per step (0–30 px) and optional smooth alpha transitions (soft fading instead of crisp cuts), making temporal focus depth instantly recognizable at a glance.
   - **Chromatic Hue Progression**: Rotate hues by a configurable angle (-180° to +180°) across the recent window trail.
   - **Color Mode Flexibility**: Match active window color (including per-window frozen Ambilight samples) or assign a dedicated static custom color.
   - **Calm & Subdued**: Animated shader effects (breathe, hologram, flicker) are automatically suppressed on recent windows to prevent visual distraction.
@@ -264,6 +264,8 @@ Configure buffering delays and window state handling.
 | **Last window saturation** | 0% (Grayscale) | Color saturation for the oldest tracked window (0% to 100%). Older windows proportionally lose saturation towards this value, smoothly fading from vibrant color into monochrome grayscale. |
 | **Width reduction per window** | 0 px (None) | Step in pixels by which each successive older window reduces its outline border thickness (0–10 px). Clamped to a minimum thickness of 1 px. |
 | **Dashed outline for previous windows** | Off | Renders recent window outlines with a dashed line pattern instead of a solid line. Older windows in the history have progressively wider gaps between dashes. |
+| **Gap growth per window** | 6 px | Step in pixels by which the gap between dashes widens for each successive older window (0–30 px). Set to 0 px for uniform constant gaps across all recent windows. |
+| **Smooth dash transitions** | Off | Applies a smooth alpha gradient fade between dashes and gaps instead of crisp cutoffs. |
 | **Hide on fullscreen** | On | Automatically hides the outline and glow when the active window is fullscreen. |
 
 ### Keyboard shortcut

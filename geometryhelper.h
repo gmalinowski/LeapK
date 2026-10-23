@@ -108,11 +108,12 @@ inline qreal computeRoundedRectPerimeter(const QRectF &rect, qreal radius, qreal
 }
 
 inline void computeRecentWindowDashPattern(int recentIdx, qreal perimeter, qreal scale,
-                                           qreal &effectiveDashLength, qreal &effectiveDashPeriod)
+                                           qreal &effectiveDashLength, qreal &effectiveDashPeriod,
+                                           int gapGrowthPx = 6)
 {
     const qreal baseDash = 12.0 * scale;
     const qreal baseGap = 8.0 * scale;
-    const qreal gapStep = 6.0 * scale;
+    const qreal gapStep = std::max(0, gapGrowthPx) * scale;
     const int step = std::max(0, recentIdx);
 
     const qreal dashLength = baseDash;

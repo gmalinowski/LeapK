@@ -88,6 +88,7 @@ uniform float fadeDistance;
 uniform float dashActive;
 uniform float dashLength;
 uniform float dashPeriod;
+uniform float dashSmooth;
 
 float roundedBoxDistance(vec2 point, vec4 box, float radius)
 {
@@ -206,13 +207,24 @@ void main()
     if (dashActive > 0.5 && dashPeriod > 0.0) {
         float s = computePerimeterDistance(position0, outerBox, outerRadius);
         float d = mod(s, dashPeriod);
-        float distFromCenter = abs(d - dashLength * 0.5);
-        float edgeDist = dashLength * 0.5 - distFromCenter;
-        if (d > dashPeriod - 0.5) {
-            edgeDist = d - dashPeriod;
+        float edgeDist;
+        if (d < dashLength) {
+            edgeDist = min(d, dashLength - d);
+        } else {
+            float gapLength = dashPeriod - dashLength;
+            float distFromDash = d - dashLength;
+            edgeDist = -min(distFromDash, gapLength - distFromDash);
         }
-        float dashAlpha = clamp(edgeDist + 0.5, 0.0, 1.0);
-        if (dashAlpha <= 0.0) {
+
+        float dashAlpha;
+        if (dashSmooth > 0.5) {
+            float fadeWidth = max(1.0, min(dashLength * 0.5, (dashPeriod - dashLength) * 0.5));
+            dashAlpha = smoothstep(-fadeWidth, fadeWidth, edgeDist);
+        } else {
+            dashAlpha = clamp(edgeDist + 0.5, 0.0, 1.0);
+        }
+
+        if (dashAlpha <= 0.001) {
             discard;
         }
         fragColor.a *= dashAlpha;
@@ -252,6 +264,7 @@ uniform float fadeDistance;
 uniform float dashActive;
 uniform float dashLength;
 uniform float dashPeriod;
+uniform float dashSmooth;
 
 float computePerimeterDistance(vec2 pt, vec4 box, float r)
 {
@@ -304,13 +317,24 @@ void main()
     if (dashActive > 0.5 && dashPeriod > 0.0) {
         float s = computePerimeterDistance(position0, outerBox, outerRadius);
         float d = mod(s, dashPeriod);
-        float distFromCenter = abs(d - dashLength * 0.5);
-        float edgeDist = dashLength * 0.5 - distFromCenter;
-        if (d > dashPeriod - 0.5) {
-            edgeDist = d - dashPeriod;
+        float edgeDist;
+        if (d < dashLength) {
+            edgeDist = min(d, dashLength - d);
+        } else {
+            float gapLength = dashPeriod - dashLength;
+            float distFromDash = d - dashLength;
+            edgeDist = -min(distFromDash, gapLength - distFromDash);
         }
-        float dashAlpha = clamp(edgeDist + 0.5, 0.0, 1.0);
-        if (dashAlpha <= 0.0) {
+
+        float dashAlpha;
+        if (dashSmooth > 0.5) {
+            float fadeWidth = max(1.0, min(dashLength * 0.5, (dashPeriod - dashLength) * 0.5));
+            dashAlpha = smoothstep(-fadeWidth, fadeWidth, edgeDist);
+        } else {
+            dashAlpha = clamp(edgeDist + 0.5, 0.0, 1.0);
+        }
+
+        if (dashAlpha <= 0.001) {
             discard;
         }
         fragColor = vec4(geometryColor.rgb, geometryColor.a * cornerFade * dashAlpha);
@@ -626,6 +650,8 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_recentWindowSaturation = qBound(0, config.readEntry("RecentWindowSaturation", 0), 100);
     m_recentWindowWidthReduction = qBound(0, config.readEntry("RecentWindowWidthReduction", 0), 10);
     m_recentWindowDashed = config.readEntry("RecentWindowDashed", false);
+    m_recentWindowGapGrowth = qBound(0, config.readEntry("RecentWindowGapGrowth", 6), 30);
+    m_recentWindowDashSmooth = config.readEntry("RecentWindowDashSmooth", false);
     if (!m_highlightRecentWindow) {
         for (EffectWindow *recent : m_recentWindows) {
             if (recent) {
@@ -1226,7 +1252,7 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
     qreal effPeriod = 20.0 * scale;
     if (isDashed) {
         const qreal perimeter = OutlineGeometry::computeRoundedRectPerimeter(cache.outerRect, cache.outerRadius, scale);
-        OutlineGeometry::computeRecentWindowDashPattern(recentIdx, perimeter, scale, effDash, effPeriod);
+        OutlineGeometry::computeRecentWindowDashPattern(recentIdx, perimeter, scale, effDash, effPeriod, m_recentWindowGapGrowth);
     }
 
     const bool enableGlow = isRecent ? m_glowEnabled : (m_glowEnabled || m_glitchEnabled);
@@ -1292,6 +1318,7 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
                 shader->setUniform("dashActive", isDashed ? 1.0f : 0.0f);
                 shader->setUniform("dashLength", float(effDash));
                 shader->setUniform("dashPeriod", float(effPeriod));
+                shader->setUniform("dashSmooth", m_recentWindowDashSmooth ? 1.0f : 0.0f);
 
                 const float elapsedSec = m_animationClock.isValid() ? float(m_animationClock.elapsed() / 1000.0) : 0.0f;
                 shader->setUniform("time", elapsedSec);
@@ -1347,6 +1374,7 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
         activeShader->setUniform("dashActive", isDashed ? 1.0f : 0.0f);
         activeShader->setUniform("dashLength", float(effDash));
         activeShader->setUniform("dashPeriod", float(effPeriod));
+        activeShader->setUniform("dashSmooth", m_recentWindowDashSmooth ? 1.0f : 0.0f);
     } else {
         defaultBinder = std::make_unique<ShaderBinder>(ShaderTrait::UniformColor | ShaderTrait::TransformColorspace);
         activeShader = defaultBinder->shader();

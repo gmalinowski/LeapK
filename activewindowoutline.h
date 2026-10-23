@@ -243,6 +243,8 @@ private:
     int m_recentWindowSaturation = 0;
     int m_recentWindowWidthReduction = 0;
     bool m_recentWindowDashed = false;
+    int m_recentWindowGapGrowth = 6;
+    bool m_recentWindowDashSmooth = false;
 
     // Runtime delay, buffer & visibility transition state
     OutlineVisibility::StateMachine m_visibilityState;

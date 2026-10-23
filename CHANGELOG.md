@@ -15,6 +15,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     - 3rd recent window: ~20 px gap
     - 4th recent window: ~26 px gap
     - 5th recent window: ~32 px gap
+  - **Configurable Gap Growth (`RecentWindowGapGrowth`)**: Adjust how rapidly gaps expand per older window (0–30 px, default: 6 px). Setting to 0 px keeps gaps identical across all recent windows.
+  - **Smooth Dash Transitions (`RecentWindowDashSmooth`)**: Toggle smooth cubic Hermite (`smoothstep`) gradient fading between dashes and gaps for a softer, organic aesthetic instead of crisp cutoffs.
   - **Seamless Loop & Subpixel Antialiasing**: Dash periods are adjusted to divide the window perimeter evenly with no truncated segments at corners, and dash boundaries are rendered with 1-pixel subpixel antialiasing.
   - **Matching Dashed Glow**: When glow is enabled, the soft glow shader adopts the exact same dash pattern and gaps.
   - **One-Liner Installer Update**: The `--beta` flag now directly targets the latest development build from the `main` branch.

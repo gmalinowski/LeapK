@@ -172,6 +172,20 @@ int main()
         qreal dashScale2 = 0.0, periodScale2 = 0.0;
         computeRecentWindowDashPattern(0, perimeter * 2.0, 2.0, dashScale2, periodScale2);
         check(std::abs(dashScale2 - 24.0) < 2.0, "2x scale doubles base dash to ~24px");
+
+        // Configurable gap growth (gapGrowthPx = 0 -> constant gaps)
+        qreal cDash0 = 0.0, cPeriod0 = 0.0;
+        computeRecentWindowDashPattern(0, perimeter, 1.0, cDash0, cPeriod0, 0);
+        qreal cDash2 = 0.0, cPeriod2 = 0.0;
+        computeRecentWindowDashPattern(2, perimeter, 1.0, cDash2, cPeriod2, 0);
+        check(std::abs((cPeriod0 - cDash0) - (cPeriod2 - cDash2)) < 0.1, "0px gap growth yields constant gap between windows");
+
+        // Fast gap growth (gapGrowthPx = 12 -> 12px jump per step)
+        qreal fDash0 = 0.0, fPeriod0 = 0.0;
+        computeRecentWindowDashPattern(0, perimeter, 1.0, fDash0, fPeriod0, 12);
+        qreal fDash1 = 0.0, fPeriod1 = 0.0;
+        computeRecentWindowDashPattern(1, perimeter, 1.0, fDash1, fPeriod1, 12);
+        check((fPeriod1 - fDash1) - (fPeriod0 - fDash0) > 10.0, "12px gap growth increases gap by ~12px per window");
     }
 
     // 8. Perimeter distance continuity around rounded rect
