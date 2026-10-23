@@ -890,8 +890,7 @@ QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity, EffectWindow
     const bool isRecent = (w != nullptr && m_recentWindows.contains(w) && !isFocus);
     const bool isMarked = (w != nullptr && m_markedWindows.contains(w));
 
-    const bool activeColorIsStatic = !m_colorCycleEnabled && !m_ambilightEnabled;
-    const bool activeOverridesMark = isFocus && m_markActiveColorPriority && activeColorIsStatic;
+    const bool activeOverridesMark = isFocus && m_markActiveColorPriority;
 
     if (isMarked && !activeOverridesMark) {
         color = m_markedWindows.value(w);

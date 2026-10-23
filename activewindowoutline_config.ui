@@ -1713,7 +1713,7 @@
              <string>Active window color takes priority over mark color when focused</string>
             </property>
             <property name="toolTip">
-             <string>When enabled, marked windows will display the regular active outline color (only when in static color mode: Accent or Custom) while focused, and only show their custom mark color when inactive.</string>
+             <string>When enabled, marked windows will display the regular active outline color (Accent, Ambilight, Custom, or Cycling) while focused, and only show their custom mark color when inactive.</string>
             </property>
            </widget>
           </item>
