@@ -186,6 +186,17 @@ int main()
         qreal fDash1 = 0.0, fPeriod1 = 0.0;
         computeRecentWindowDashPattern(1, perimeter, 1.0, fDash1, fPeriod1, 12);
         check((fPeriod1 - fDash1) - (fPeriod0 - fDash0) > 10.0, "12px gap growth increases gap by ~12px per window");
+
+        // Gap growth takes effect immediately on window 1 (recentIdx = 0)
+        qreal g0Dash = 0.0, g0Period = 0.0;
+        computeRecentWindowDashPattern(0, perimeter, 1.0, g0Dash, g0Period, 0);
+        qreal g6Dash = 0.0, g6Period = 0.0;
+        computeRecentWindowDashPattern(0, perimeter, 1.0, g6Dash, g6Period, 6);
+        qreal g12Dash = 0.0, g12Period = 0.0;
+        computeRecentWindowDashPattern(0, perimeter, 1.0, g12Dash, g12Period, 12);
+
+        check((g6Period - g6Dash) > (g0Period - g0Dash) + 4.0, "gap growth affects window 1 gap immediately (6px vs 0px)");
+        check((g12Period - g12Dash) > (g6Period - g6Dash) + 4.0, "gap growth affects window 1 gap immediately (12px vs 6px)");
     }
 
     // 8. Perimeter distance continuity around rounded rect

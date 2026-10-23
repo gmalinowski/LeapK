@@ -259,12 +259,12 @@ Configure buffering delays and window state handling.
 | **Highlight recent window(s)** | Off | Keeps a subdued outline on recent previously active window(s) to help track focus history when multitasking or tiling windows. |
 | **Recent windows count** | 1 | Number of previously focused windows to keep highlighted (1–5). Older windows automatically attenuate their opacity for clear visual hierarchy. |
 | **Recent outline color** | Match active | Color style for recent windows: either match the active window's color mode (including individual Ambilight colors) or use a custom static color. |
-| **Last window opacity** | 20% | Opacity percentage for the oldest tracked recent window outline. Older windows proportionally interpolate between 100% (active window) and this minimum opacity. |
+| **Oldest window opacity (fades with age)** | 20% | Minimum outline opacity reached by the oldest tracked window in history. Previous windows fade progressively with age, linearly interpolating between 100% (the active window) down to this floor for the oldest window. |
 | **Hue shift per window** | 0° (None) | Rotates the color hue by this angle for each successive window in history (-180° to +180°). In Match Active mode, shifting begins on the 1st recent window; in Custom Color mode, the 1st recent window keeps the exact chosen color and shifting begins on the 2nd recent window. |
-| **Last window saturation** | 0% (Grayscale) | Color saturation for the oldest tracked window (0% to 100%). Older windows proportionally lose saturation towards this value, smoothly fading from vibrant color into monochrome grayscale. |
+| **Oldest window saturation (fades to gray)** | 0% (Grayscale) | Color saturation floor reached by the oldest tracked window in history (0% = grayscale, 100% = full color). Previous windows progressively lose saturation with age, smoothly fading from vibrant color into muted tones. |
 | **Width reduction per window** | 0 px (None) | Step in pixels by which each successive older window reduces its outline border thickness (0–10 px). Clamped to a minimum thickness of 1 px. |
 | **Dashed outline for previous windows** | Off | Renders recent window outlines with a dashed line pattern instead of a solid line. Older windows in the history have progressively wider gaps between dashes. |
-| **Gap growth per window** | 6 px | Step in pixels by which the gap between dashes widens for each successive older window (0–30 px). Set to 0 px for uniform constant gaps across all recent windows. |
+| **Gap growth per window** | 6 px | Step in pixels by which the gap between dashes widens for each successive older window (0–30 px), taking effect immediately from the 1st recent window. Set to 0 px for uniform constant gaps across all recent windows. |
 | **Smooth dash transitions** | Off | Applies a smooth alpha gradient fade between dashes and gaps instead of crisp cutoffs. |
 | **Hide on fullscreen** | On | Automatically hides the outline and glow when the active window is fullscreen. |
 

@@ -1478,17 +1478,17 @@
           <item row="4" column="0">
            <widget class="QLabel" name="label_recentWindowOpacity">
             <property name="text">
-             <string>Last window opacity:</string>
+             <string>Oldest window opacity (fades with age):</string>
             </property>
             <property name="toolTip">
-             <string>Defines the outline opacity of the oldest tracked recent window (e.g. 20%). Recent windows proportionally interpolate between 100% (active window) and this minimum opacity.</string>
+             <string>Sets the minimum outline opacity reached by the oldest window in the focus history (e.g. 20%). Each window in history fades progressively with age, linearly interpolating between 100% (active window) down to this floor for the oldest window.</string>
             </property>
            </widget>
           </item>
           <item row="4" column="1">
            <widget class="QSpinBox" name="kcfg_RecentWindowOpacity">
             <property name="toolTip">
-             <string>Defines the outline opacity of the oldest tracked recent window (e.g. 20%). Recent windows proportionally interpolate between 100% (active window) and this minimum opacity.</string>
+             <string>Sets the minimum outline opacity reached by the oldest window in the focus history (e.g. 20%). Each window in history fades progressively with age, linearly interpolating between 100% (active window) down to this floor for the oldest window.</string>
             </property>
             <property name="minimum">
              <number>5</number>
@@ -1545,17 +1545,17 @@
           <item row="6" column="0">
            <widget class="QLabel" name="label_recentWindowSaturation">
             <property name="text">
-             <string>Last window saturation:</string>
+             <string>Oldest window saturation (fades to gray):</string>
             </property>
             <property name="toolTip">
-             <string>Defines the color saturation of the oldest tracked recent window (0%: fully desaturated / grayscale, 100%: unchanged full color). Older windows proportionally lose saturation towards this value.</string>
+             <string>Sets the color saturation floor reached by the oldest window in the focus history (0% = monochrome grayscale, 100% = full color). Each window in history progressively loses saturation with age, fading gradually from vibrant color into muted tones and grayscale.</string>
             </property>
            </widget>
           </item>
           <item row="6" column="1">
            <widget class="QSpinBox" name="kcfg_RecentWindowSaturation">
             <property name="toolTip">
-             <string>Defines the color saturation of the oldest tracked recent window (0%: fully desaturated / grayscale, 100%: unchanged full color). Older windows proportionally lose saturation towards this value.</string>
+             <string>Sets the color saturation floor reached by the oldest window in the focus history (0% = monochrome grayscale, 100% = full color). Each window in history progressively loses saturation with age, fading gradually from vibrant color into muted tones and grayscale.</string>
             </property>
             <property name="minimum">
              <number>0</number>
