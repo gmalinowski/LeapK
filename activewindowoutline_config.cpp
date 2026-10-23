@@ -184,6 +184,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("RecentWindowGapGrowth"), *new int, 6);
     m_configSkeleton->addItemBool(QStringLiteral("RecentWindowDashSmooth"), *new bool, false);
     m_configSkeleton->addItemColor(QStringLiteral("MarkDefaultColor"), *new QColor, QColor(QStringLiteral("#e74c3c")));
+    m_configSkeleton->addItemBool(QStringLiteral("MarkActiveColorPriority"), *new bool, false);
     m_configSkeleton->addItemInt(QStringLiteral("MarkInactiveWidthReduction"), *new int, 0);
     m_configSkeleton->addItemBool(QStringLiteral("MarkInactiveDashed"), *new bool, false);
     m_configSkeleton->addItemInt(QStringLiteral("MarkInactiveDashGap"), *new int, 6);

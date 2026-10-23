@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - **Decoupled Inactive Appearance Settings**:
     - Marked windows have completely independent styling settings from Recent Windows:
       - **Alpha Channel Color Transparency**: Removed redundant `MarkInactiveOpacity` slider; opacity/transparency is now set directly via the color picker's alpha channel.
+      - **Active Color Priority Option (`MarkActiveColorPriority`)**: Optional checkbox to let the active outline color take priority over the mark color while focused (only when the active outline is configured to a static color: System Accent or Custom Color), gracefully returning to the custom mark color when unfocused.
       - `MarkInactiveWidthReduction` (0–10 px, default: 0 px)
       - `MarkInactiveDashed` (default: false)
       - `MarkInactiveDashGap` (1–40 px, default: 6 px) – configurable spacing between dashes when dashed outline is enabled.

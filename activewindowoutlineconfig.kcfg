@@ -187,10 +187,8 @@
         <entry name="MarkDefaultColor" type="Color">
             <default>#e74c3c</default>
         </entry>
-        <entry name="MarkInactiveDashGap" type="Int">
-            <default>6</default>
-            <min>1</min>
-            <max>40</max>
+        <entry name="MarkActiveColorPriority" type="Bool">
+            <default>false</default>
         </entry>
         <entry name="MarkInactiveWidthReduction" type="Int">
             <default>0</default>
@@ -199,6 +197,11 @@
         </entry>
         <entry name="MarkInactiveDashed" type="Bool">
             <default>false</default>
+        </entry>
+        <entry name="MarkInactiveDashGap" type="Int">
+            <default>6</default>
+            <min>1</min>
+            <max>40</max>
         </entry>
         <entry name="MarkInactiveDashSmooth" type="Bool">
             <default>false</default>

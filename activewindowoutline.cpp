@@ -673,6 +673,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_recentWindowGapGrowth = qBound(0, config.readEntry("RecentWindowGapGrowth", 6), 30);
     m_recentWindowDashSmooth = config.readEntry("RecentWindowDashSmooth", false);
     m_markDefaultColor = config.readEntry("MarkDefaultColor", QColor(QStringLiteral("#e74c3c")));
+    m_markActiveColorPriority = config.readEntry("MarkActiveColorPriority", false);
     m_markInactiveWidthReduction = qBound(0, config.readEntry("MarkInactiveWidthReduction", 0), 10);
     m_markInactiveDashed = config.readEntry("MarkInactiveDashed", false);
     m_markInactiveDashGap = qBound(1, config.readEntry("MarkInactiveDashGap", 6), 40);
@@ -885,10 +886,14 @@ QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity, EffectWindow
 {
     QColor color;
     const qreal elapsedSec = m_animationClock.isValid() ? (m_animationClock.elapsed() / 1000.0) : 0.0;
-    const bool isRecent = (w != nullptr && m_recentWindows.contains(w) && w != m_activeWindow);
+    const bool isFocus = (w == m_activeWindow);
+    const bool isRecent = (w != nullptr && m_recentWindows.contains(w) && !isFocus);
     const bool isMarked = (w != nullptr && m_markedWindows.contains(w));
 
-    if (isMarked) {
+    const bool activeColorIsStatic = !m_colorCycleEnabled && !m_ambilightEnabled;
+    const bool activeOverridesMark = isFocus && m_markActiveColorPriority && activeColorIsStatic;
+
+    if (isMarked && !activeOverridesMark) {
         color = m_markedWindows.value(w);
     } else if (isRecent && m_recentWindowColorMode == 1) {
         color = m_recentWindowCustomColor;
@@ -1644,40 +1649,46 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
         }
 
         if (previous) {
-            const bool willDelayOrFade = (!previous->isDeleted() && previous->isOnCurrentDesktop())
-                && (m_windowHideDelay > 0 || m_visibilityConfig.fadeDuration > 0);
-
-            if (willDelayOrFade) {
-                if (m_delayedHideWindow && m_delayedHideWindow != previous) {
-                    effects->addRepaint(expandedGeometryFor(m_delayedHideWindow));
-                    m_suppressedWindows.remove(m_delayedHideWindow);
-                    m_lastGeometry.remove(m_delayedHideWindow);
-                    m_outlineCache.remove(m_delayedHideWindow);
-                    m_delayedHideWindow = nullptr;
-                    m_delayedHideState.reset();
-                }
-                m_delayedHideWindow = previous;
+            if (m_markedWindows.contains(previous)) {
+                m_outlineCache.remove(previous);
+                m_lastGeometry.remove(previous);
                 effects->addRepaint(expandedGeometryFor(previous));
+            } else {
+                const bool willDelayOrFade = (!previous->isDeleted() && previous->isOnCurrentDesktop())
+                    && (m_windowHideDelay > 0 || m_visibilityConfig.fadeDuration > 0);
 
-                if (m_windowHideDelay > 0) {
-                    m_delayedHideState.startBuffer();
-                    if (m_windowHideTimer) {
-                        m_windowHideTimer->start(m_windowHideDelay);
+                if (willDelayOrFade) {
+                    if (m_delayedHideWindow && m_delayedHideWindow != previous) {
+                        effects->addRepaint(expandedGeometryFor(m_delayedHideWindow));
+                        m_suppressedWindows.remove(m_delayedHideWindow);
+                        m_lastGeometry.remove(m_delayedHideWindow);
+                        m_outlineCache.remove(m_delayedHideWindow);
+                        m_delayedHideWindow = nullptr;
+                        m_delayedHideState.reset();
+                    }
+                    m_delayedHideWindow = previous;
+                    effects->addRepaint(expandedGeometryFor(previous));
+
+                    if (m_windowHideDelay > 0) {
+                        m_delayedHideState.startBuffer();
+                        if (m_windowHideTimer) {
+                            m_windowHideTimer->start(m_windowHideDelay);
+                        }
+                    } else {
+                        m_delayedHideState.startFade(m_visibilityConfig.fadeDuration);
+                        updateAnimationTimer();
                     }
                 } else {
-                    m_delayedHideState.startFade(m_visibilityConfig.fadeDuration);
-                    updateAnimationTimer();
-                }
-            } else {
-                effects->addRepaint(expandedGeometryFor(previous));
-                m_suppressedWindows.remove(previous);
-                m_lastGeometry.remove(previous);
-                m_outlineCache.remove(previous);
-                if (m_delayedHideWindow == previous) {
-                    m_delayedHideWindow = nullptr;
-                    m_delayedHideState.reset();
-                    if (m_windowHideTimer) {
-                        m_windowHideTimer->stop();
+                    effects->addRepaint(expandedGeometryFor(previous));
+                    m_suppressedWindows.remove(previous);
+                    m_lastGeometry.remove(previous);
+                    m_outlineCache.remove(previous);
+                    if (m_delayedHideWindow == previous) {
+                        m_delayedHideWindow = nullptr;
+                        m_delayedHideState.reset();
+                        if (m_windowHideTimer) {
+                            m_windowHideTimer->stop();
+                        }
                     }
                 }
             }
@@ -1685,6 +1696,12 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
     }
 
     m_activeWindow = w;
+
+    if (w && m_markedWindows.contains(w)) {
+        m_outlineCache.remove(w);
+        m_lastGeometry.remove(w);
+        effects->addRepaint(expandedGeometryFor(w));
+    }
 
     if (!w) {
         m_visibilityState.setTargetOpacity(0.0, m_visibilityConfig.fadeDuration);

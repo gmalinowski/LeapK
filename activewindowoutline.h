@@ -253,6 +253,7 @@ private:
 
     // Config - Mark Window
     QColor m_markDefaultColor = QColor(QStringLiteral("#e74c3c"));
+    bool m_markActiveColorPriority = false;
     int m_markInactiveWidthReduction = 0;
     bool m_markInactiveDashed = false;
     int m_markInactiveDashGap = 6;
