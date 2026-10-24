@@ -538,6 +538,10 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
             this, &ActiveWindowOutlineEffect::slotActiveFullScreenEffectChanged);
     connect(effects, &EffectsHandler::stackingOrderChanged,
             this, &ActiveWindowOutlineEffect::repaintAllOutlines);
+    connect(effects, &EffectsHandler::desktopChanged,
+            this, [this]() {
+                repaintAllOutlines();
+            });
 
     initShortcuts();
 }
@@ -1112,11 +1116,11 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
         }
     }
     m_recentWindows.removeAll(w);
+    m_windowHistory.removeAll(w);
     m_recentAmbilightColors.remove(w);
     m_recentCycleColors.remove(w);
     m_markedWindows.remove(w);
     m_markedWindowLetters.remove(w);
-    m_historySnapshot.removeAll(w);
     for (auto it = m_jumpLetterToWindow.begin(); it != m_jumpLetterToWindow.end(); ) {
         if (it.value() == w) {
             it = m_jumpLetterToWindow.erase(it);
@@ -1189,6 +1193,9 @@ void ActiveWindowOutlineEffect::updatePopupBlockingState()
 
 void ActiveWindowOutlineEffect::repaintAllOutlines()
 {
+    if (m_badgeDisplayMode == 1 || m_jumpMode) {
+        effects->addRepaintFull();
+    }
     if (m_delayedHideWindow && !m_delayedHideWindow->isDeleted()
         && m_delayedHideWindow->isOnCurrentDesktop() && !m_delayedHideWindow->isMinimized()) {
         effects->addRepaint(expandedGeometryFor(m_delayedHideWindow));
@@ -1667,14 +1674,20 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
     }
 
     if (m_isHistoryNavigating) {
-        if (m_historyNavIndex >= 0 && m_historyNavIndex < m_historySnapshot.size()
-            && w == m_historySnapshot.at(m_historyNavIndex)) {
+        if (!w || w->isDeleted()) {
+            return;
+        }
+        if (m_historyNavIndex >= 0 && m_historyNavIndex < m_windowHistory.size()
+            && w == m_windowHistory.at(m_historyNavIndex)) {
             m_activeWindow = w;
+            updateRecentWindowsFromHistory();
             repaintAllOutlines();
             return;
-        } else {
-            slotCommitHistoryNavigation();
         }
+        if (m_historyCommitTimer && m_historyCommitTimer->isActive()) {
+            return;
+        }
+        m_isHistoryNavigating = false;
     }
 
     EffectWindow *previous = m_activeWindow;
@@ -1692,8 +1705,8 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
 
     if (previous && !previous->isDeleted() && !previous->isDesktop() && !previous->isDock()
         && !(m_hideOnFullScreen && previous->isFullScreen()) && !isBlockingPopup(previous)) {
-        m_recentWindows.removeAll(previous);
-        m_recentWindows.prepend(previous);
+        m_windowHistory.removeAll(previous);
+        m_windowHistory.prepend(previous);
         if (m_highlightRecentWindow) {
             if (m_ambilightCurrentColor.isValid()) {
                 m_recentAmbilightColors[previous] = m_ambilightCurrentColor;
@@ -1705,23 +1718,18 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
         }
     }
 
-    if (w) {
-        m_recentWindows.removeAll(w);
+    if (w && !w->isDeleted() && !w->isDesktop() && !w->isDock()) {
+        m_windowHistory.removeAll(w);
+        m_windowHistory.prepend(w);
         m_recentAmbilightColors.remove(w);
         m_recentCycleColors.remove(w);
     }
 
-    const int maxRecent = qMax(5, m_recentWindowsCount);
-    while (m_recentWindows.size() > maxRecent) {
-        EffectWindow *oldWindow = m_recentWindows.takeLast();
-        m_recentAmbilightColors.remove(oldWindow);
-        m_recentCycleColors.remove(oldWindow);
-        if (oldWindow) {
-            effects->addRepaint(expandedGeometryFor(oldWindow));
-            m_outlineCache.remove(oldWindow);
-            m_lastGeometry.remove(oldWindow);
-        }
+    m_historyNavIndex = 0;
+    while (m_windowHistory.size() > 50) {
+        m_windowHistory.removeLast();
     }
+    updateRecentWindowsFromHistory();
 
     if (m_highlightRecentWindow) {
         for (EffectWindow *recent : m_recentWindows) {
@@ -2253,34 +2261,82 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     cancelJumpMode();
 }
 
-void ActiveWindowOutlineEffect::slotPrevRecentWindow()
+void ActiveWindowOutlineEffect::updateRecentWindowsFromHistory()
 {
-    if (!m_isHistoryNavigating) {
-        m_historySnapshot.clear();
-        if (m_activeWindow && !m_activeWindow->isDeleted()) {
-            m_historySnapshot.append(m_activeWindow);
-        }
-        for (EffectWindow *recent : m_recentWindows) {
-            if (recent && !recent->isDeleted() && !m_historySnapshot.contains(recent)) {
-                m_historySnapshot.append(recent);
+    m_recentWindows.clear();
+    for (EffectWindow *win : m_windowHistory) {
+        if (win && win != m_activeWindow && !win->isDeleted() && !win->isDesktop() && !win->isDock()) {
+            m_recentWindows.append(win);
+            if (m_recentWindows.size() >= qMax(10, m_recentWindowsCount)) {
+                break;
             }
         }
-        m_historyNavIndex = 0;
-        m_isHistoryNavigating = true;
+    }
+}
+
+bool ActiveWindowOutlineEffect::isBadgeOccluded(EffectWindow *target, const QRectF &badgeRect) const
+{
+    if (!target) {
+        return true;
+    }
+    const QRectF badgeAligned = badgeRect.toAlignedRect();
+    bool aboveTarget = false;
+    const auto windows = effects->stackingOrder();
+    for (EffectWindow *candidate : windows) {
+        if (candidate == target) {
+            aboveTarget = true;
+            continue;
+        }
+        if (!aboveTarget) {
+            continue;
+        }
+        if (!candidate || candidate->isDeleted() || !candidate->isVisible()
+            || candidate->isMinimized() || !candidate->isOnCurrentDesktop()
+            || candidate->isHiddenByShowDesktop() || candidate->isOutline()
+            || candidate->isDesktop()) {
+            continue;
+        }
+        if (candidate->frameGeometry().intersects(badgeAligned)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void ActiveWindowOutlineEffect::slotPrevRecentWindow()
+{
+    for (auto it = m_windowHistory.begin(); it != m_windowHistory.end(); ) {
+        if (!(*it) || (*it)->isDeleted()) {
+            it = m_windowHistory.erase(it);
+        } else {
+            ++it;
+        }
     }
 
-    if (m_historySnapshot.size() < 2) {
-        if (m_historyCommitTimer) {
-            m_historyCommitTimer->start(1500);
-        }
+    if (!m_isHistoryNavigating && m_activeWindow && !m_activeWindow->isDeleted()
+        && !m_activeWindow->isDesktop() && !m_activeWindow->isDock()) {
+        m_windowHistory.removeAll(m_activeWindow);
+        m_windowHistory.prepend(m_activeWindow);
+        m_historyNavIndex = 0;
+    }
+
+    if (m_windowHistory.size() < 2) {
         return;
     }
 
     int nextIdx = m_historyNavIndex + 1;
-    while (nextIdx < m_historySnapshot.size()) {
-        EffectWindow *candidate = m_historySnapshot.at(nextIdx);
-        if (candidate && !candidate->isDeleted()) {
+    while (nextIdx < m_windowHistory.size()) {
+        EffectWindow *candidate = m_windowHistory.at(nextIdx);
+        if (candidate && !candidate->isDeleted() && !candidate->isDesktop() && !candidate->isDock()) {
             m_historyNavIndex = nextIdx;
+            m_isHistoryNavigating = true;
+
+            if (!candidate->isOnCurrentDesktop()) {
+                const auto desktops = candidate->desktops();
+                if (!desktops.isEmpty() && !candidate->isOnAllDesktops()) {
+                    effects->setCurrentDesktop(desktops.first());
+                }
+            }
             if (candidate->isMinimized()) {
                 candidate->setMinimized(false);
             }
@@ -2292,21 +2348,37 @@ void ActiveWindowOutlineEffect::slotPrevRecentWindow()
     }
 
     if (m_historyCommitTimer) {
-        m_historyCommitTimer->start(1500);
+        m_historyCommitTimer->start(2000);
     }
 }
 
 void ActiveWindowOutlineEffect::slotNextRecentWindow()
 {
-    if (!m_isHistoryNavigating || m_historySnapshot.isEmpty()) {
+    for (auto it = m_windowHistory.begin(); it != m_windowHistory.end(); ) {
+        if (!(*it) || (*it)->isDeleted()) {
+            it = m_windowHistory.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    if (m_windowHistory.size() < 2 || m_historyNavIndex <= 0) {
         return;
     }
 
     int prevIdx = m_historyNavIndex - 1;
     while (prevIdx >= 0) {
-        EffectWindow *candidate = m_historySnapshot.at(prevIdx);
-        if (candidate && !candidate->isDeleted()) {
+        EffectWindow *candidate = m_windowHistory.at(prevIdx);
+        if (candidate && !candidate->isDeleted() && !candidate->isDesktop() && !candidate->isDock()) {
             m_historyNavIndex = prevIdx;
+            m_isHistoryNavigating = true;
+
+            if (!candidate->isOnCurrentDesktop()) {
+                const auto desktops = candidate->desktops();
+                if (!desktops.isEmpty() && !candidate->isOnAllDesktops()) {
+                    effects->setCurrentDesktop(desktops.first());
+                }
+            }
             if (candidate->isMinimized()) {
                 candidate->setMinimized(false);
             }
@@ -2318,7 +2390,7 @@ void ActiveWindowOutlineEffect::slotNextRecentWindow()
     }
 
     if (m_historyCommitTimer) {
-        m_historyCommitTimer->start(1500);
+        m_historyCommitTimer->start(2000);
     }
 }
 
@@ -2328,8 +2400,16 @@ void ActiveWindowOutlineEffect::slotCommitHistoryNavigation()
         m_historyCommitTimer->stop();
     }
     m_isHistoryNavigating = false;
-    m_historySnapshot.clear();
+    if (m_historyNavIndex >= 0 && m_historyNavIndex < m_windowHistory.size()) {
+        EffectWindow *committedWindow = m_windowHistory.at(m_historyNavIndex);
+        if (committedWindow && !committedWindow->isDeleted()) {
+            m_windowHistory.removeAll(committedWindow);
+            m_windowHistory.prepend(committedWindow);
+        }
+    }
     m_historyNavIndex = 0;
+    updateRecentWindowsFromHistory();
+    repaintAllOutlines();
 }
 
 void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
@@ -2932,6 +3012,9 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             const QColor textCol = (bgCol.lightness() > 140) ? Qt::black : Qt::white;
             const QRectF geo = target->frameGeometry();
             const QRectF badgeRect = OutlineBadge::computeBadgeRect(geo, m_badgePosition, badgeW, badgeH, m_badgeMargin);
+            if (isBadgeOccluded(target, badgeRect)) {
+                continue;
+            }
             renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, false, m_badgeSize);
         }
     }
@@ -2952,7 +3035,23 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 : QColor(35, 38, 41, 235);
             const QColor textCol = (bgCol.lightness() > 140) ? Qt::black : Qt::white;
             const QRectF geo = target->frameGeometry();
-            const QRectF badgeRect = OutlineBadge::computeBadgeRect(geo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
+            QRectF badgeRect = OutlineBadge::computeBadgeRect(geo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
+            if (isBadgeOccluded(target, badgeRect)) {
+                const int altPositions[] = { 4 /* Center */, 0 /* TopLeft */, 2 /* TopRight */, 8 /* BottomRight */, 6 /* BottomLeft */ };
+                bool foundVisiblePosition = false;
+                for (int altPos : altPositions) {
+                    if (altPos == m_badgePosition) continue;
+                    const QRectF altRect = OutlineBadge::computeBadgeRect(geo, altPos, jumpW, jumpH, m_badgeMargin);
+                    if (!isBadgeOccluded(target, altRect)) {
+                        badgeRect = altRect;
+                        foundVisiblePosition = true;
+                        break;
+                    }
+                }
+                if (!foundVisiblePosition) {
+                    continue;
+                }
+            }
             renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, true, m_badgeSize);
         }
     }

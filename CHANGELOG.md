@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.5.0] - 2026-10-25
+
+### Added
+- **Multi-Desktop Virtual Desktop Focus History & Jump List (`Meta+Alt+[` / `Meta+Alt+]`)**:
+  - Full-capacity 50-window focus history queue (`m_windowHistory`) independent of outline highlight limits.
+  - Automatic virtual desktop switching (`effects->setCurrentDesktop(candidate->desktops().first())`) when jumping to windows residing on different virtual desktops.
+  - Safe navigation state tracking that prevents transient null focus or intermediate desktop switch events from prematurely resetting the history sequence.
+  - Seamless forward and backward traversal across any number of virtual desktops without scrambling or bouncing between the last two windows.
+- **Window Occlusion Detection for Letter Badges (`isBadgeOccluded`)**:
+  - Letter badges are now strictly hidden when occluded or covered by any overlapping window, dock/panel, or dialog higher in stacking order.
+  - Badges never bleed through or draw over foreground windows.
+  - In modal Jump Mode (`Meta+Alt+Space`), dynamically selects alternate visible corners/center if the primary position is covered; completely occluded windows do not display confusing floating badges.
+  - Real-time full repaint when stacking order or virtual desktop changes (`stackingOrderChanged`, `desktopChanged`).
+
 ## [1.4.30] - 2026-10-25
 
 ### Added

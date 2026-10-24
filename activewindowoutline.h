@@ -155,6 +155,8 @@ private:
     QChar nextAvailableLetter() const;
     QMap<QChar, EffectWindow *> assignJumpLetters() const;
     void cancelJumpMode();
+    bool isBadgeOccluded(EffectWindow *target, const QRectF &badgeRect) const;
+    void updateRecentWindowsFromHistory();
     void renderBadge(const RenderTarget &renderTarget,
                      const RenderViewport &viewport,
                      const QRectF &badgeRect,
@@ -303,7 +305,7 @@ private:
     // History Navigation
     bool m_isHistoryNavigating = false;
     int m_historyNavIndex = 0;
-    QList<EffectWindow *> m_historySnapshot;
+    QList<EffectWindow *> m_windowHistory;
     QTimer *m_historyCommitTimer = nullptr;
 
     // Badge OpenGL texture cache
