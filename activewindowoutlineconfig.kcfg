@@ -213,6 +213,26 @@
         <entry name="BadgesAlwaysVisible" type="Bool">
             <default>false</default>
         </entry>
+        <entry name="BadgeDisplayMode" type="Int">
+            <default>0</default>
+            <min>0</min>
+            <max>2</max>
+        </entry>
+        <entry name="BadgePosition" type="Int">
+            <default>0</default>
+            <min>0</min>
+            <max>8</max>
+        </entry>
+        <entry name="BadgeSize" type="Int">
+            <default>28</default>
+            <min>16</min>
+            <max>64</max>
+        </entry>
+        <entry name="BadgeMargin" type="Int">
+            <default>12</default>
+            <min>0</min>
+            <max>100</max>
+        </entry>
         <entry name="JumpTargets" type="Int">
             <default>0</default>
             <min>0</min>

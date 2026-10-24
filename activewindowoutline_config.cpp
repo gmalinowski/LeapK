@@ -193,6 +193,10 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemBool(QStringLiteral("MarkInactiveDashSmooth"), *new bool, false);
     m_configSkeleton->addItemBool(QStringLiteral("MarkShowLetterBadges"), *new bool, true);
     m_configSkeleton->addItemBool(QStringLiteral("BadgesAlwaysVisible"), *new bool, false);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeDisplayMode"), *new int, 0);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgePosition"), *new int, 0);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeSize"), *new int, 28);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeMargin"), *new int, 12);
     m_configSkeleton->addItemInt(QStringLiteral("JumpTargets"), *new int, 0);
 
     // Tab 2: Color Cycling
@@ -488,7 +492,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     updateRecentWindowUI();
 
     connect(m_ui->kcfg_MarkInactiveDashed, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
-    connect(m_ui->kcfg_MarkShowLetterBadges, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
+    connect(m_ui->kcfg_BadgeDisplayMode, qOverload<int>(&QComboBox::currentIndexChanged), this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
     updateMarkWindowUI();
 
     QString shortcutStr = QStringLiteral("Meta+Alt+Space");
@@ -550,8 +554,15 @@ void ActiveWindowOutlineConfig::updateMarkWindowUI()
     m_ui->kcfg_MarkInactiveDashGap->setEnabled(dashed);
     m_ui->kcfg_MarkInactiveDashSmooth->setEnabled(dashed);
 
-    const bool badgesEnabled = m_ui->kcfg_MarkShowLetterBadges->isChecked();
-    m_ui->kcfg_BadgesAlwaysVisible->setEnabled(badgesEnabled);
+    const bool badgesEnabled = (m_ui->kcfg_BadgeDisplayMode->currentIndex() != 2);
+    m_ui->label_badgePosition->setEnabled(badgesEnabled);
+    m_ui->kcfg_BadgePosition->setEnabled(badgesEnabled);
+    m_ui->label_badgeSize->setEnabled(badgesEnabled);
+    m_ui->kcfg_BadgeSize->setEnabled(badgesEnabled);
+    m_ui->label_badgeMargin->setEnabled(badgesEnabled);
+    m_ui->kcfg_BadgeMargin->setEnabled(badgesEnabled);
+    m_ui->label_jumpTargets->setEnabled(badgesEnabled);
+    m_ui->kcfg_JumpTargets->setEnabled(badgesEnabled);
 }
 
 void ActiveWindowOutlineConfig::populatePrecedenceList(const QString &serialized)
@@ -896,6 +907,15 @@ void ActiveWindowOutlineConfig::load()
     const bool fadeCorners = m_ui->kcfg_FadeCorners->isChecked();
     m_ui->label_borderRadius->setEnabled(!fadeCorners);
     m_ui->kcfg_BorderRadius->setEnabled(!fadeCorners);
+    if (!group.hasKey(QStringLiteral("BadgeDisplayMode"))) {
+        if (!group.readEntry("MarkShowLetterBadges", true)) {
+            m_ui->kcfg_BadgeDisplayMode->setCurrentIndex(2);
+        } else if (group.readEntry("BadgesAlwaysVisible", false)) {
+            m_ui->kcfg_BadgeDisplayMode->setCurrentIndex(1);
+        } else {
+            m_ui->kcfg_BadgeDisplayMode->setCurrentIndex(0);
+        }
+    }
     updateRecentWindowUI();
     updateMarkWindowUI();
     setNeedsSave(false);
@@ -910,6 +930,10 @@ void ActiveWindowOutlineConfig::defaults()
     const bool fadeCorners = m_ui->kcfg_FadeCorners->isChecked();
     m_ui->label_borderRadius->setEnabled(!fadeCorners);
     m_ui->kcfg_BorderRadius->setEnabled(!fadeCorners);
+    m_ui->kcfg_BadgeDisplayMode->setCurrentIndex(0);
+    m_ui->kcfg_BadgePosition->setCurrentIndex(0);
+    m_ui->kcfg_BadgeSize->setValue(28);
+    m_ui->kcfg_BadgeMargin->setValue(12);
     updateRecentWindowUI();
     updateMarkWindowUI();
     markAsChanged();
@@ -1069,6 +1093,9 @@ void ActiveWindowOutlineConfig::save()
     group.writeEntry(QStringLiteral("ColorList"), serializeColorTable());
     group.writeEntry(QStringLiteral("AmbilightEnsureContrast"), m_ui->kcfg_EnsurePerimeterContrast->isChecked());
     group.writeEntry(QStringLiteral("StylePrecedence"), serializePrecedenceList());
+    const int badgeMode = m_ui->kcfg_BadgeDisplayMode->currentIndex();
+    group.writeEntry(QStringLiteral("MarkShowLetterBadges"), badgeMode != 2);
+    group.writeEntry(QStringLiteral("BadgesAlwaysVisible"), badgeMode == 1);
     group.sync();
 
     QDBusMessage message = QDBusMessage::createMethodCall(

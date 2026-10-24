@@ -1794,27 +1794,165 @@
             </property>
            </widget>
           </item>
-          <item row="6" column="0" colspan="2">
-           <widget class="QCheckBox" name="kcfg_MarkShowLetterBadges">
+          <item row="6" column="0">
+           <widget class="QLabel" name="label_badgeDisplayMode">
             <property name="text">
-             <string>Show letter badges on all windows (except active window)</string>
+             <string>Letter badges visibility:</string>
             </property>
             <property name="toolTip">
-             <string>Displays letter badges on candidate windows for instant keyboard jump targeting. The currently active window is always excluded.</string>
+             <string>Controls when letter badges are shown on candidate windows. Active window is always excluded.</string>
             </property>
            </widget>
           </item>
-          <item row="7" column="0" colspan="2">
-           <widget class="QCheckBox" name="kcfg_BadgesAlwaysVisible">
+          <item row="6" column="1">
+           <widget class="QComboBox" name="kcfg_BadgeDisplayMode">
+            <property name="toolTip">
+             <string>Controls when letter badges are shown on candidate windows. Active window is always excluded.</string>
+            </property>
+            <item>
+             <property name="text">
+              <string>Only during Jump Mode (Meta+Alt+Space)</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Always visible on background windows</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Disabled</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="7" column="0">
+           <widget class="QLabel" name="label_badgePosition">
             <property name="text">
-             <string>Show letter badges continuously (uncheck to show only upon Jump shortcut)</string>
+             <string>Badge position:</string>
             </property>
             <property name="toolTip">
-             <string>When unchecked (recommended), letter badges only appear while Jump Mode is active (default shortcut: Meta+Alt+Space). When checked, letter badges remain continuously visible on all candidate background windows.</string>
+             <string>Position of the letter badge relative to the window frame.</string>
             </property>
+           </widget>
+          </item>
+          <item row="7" column="1">
+           <widget class="QComboBox" name="kcfg_BadgePosition">
+            <property name="toolTip">
+             <string>Position of the letter badge relative to the window frame.</string>
+            </property>
+            <item>
+             <property name="text">
+              <string>Top-Left</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Top</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Top-Right</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Left</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Center</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Right</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Bottom-Left</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Bottom</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Bottom-Right</string>
+             </property>
+            </item>
            </widget>
           </item>
           <item row="8" column="0">
+           <widget class="QLabel" name="label_badgeSize">
+            <property name="text">
+             <string>Badge size:</string>
+            </property>
+            <property name="toolTip">
+             <string>Height and proportional size of the letter badge in pixels (default: 28 px).</string>
+            </property>
+           </widget>
+          </item>
+          <item row="8" column="1">
+           <widget class="QSpinBox" name="kcfg_BadgeSize">
+            <property name="toolTip">
+             <string>Height and proportional size of the letter badge in pixels (default: 28 px).</string>
+            </property>
+            <property name="minimum">
+             <number>16</number>
+            </property>
+            <property name="maximum">
+             <number>64</number>
+            </property>
+            <property name="singleStep">
+             <number>2</number>
+            </property>
+            <property name="value">
+             <number>28</number>
+            </property>
+            <property name="suffix">
+             <string> px</string>
+            </property>
+           </widget>
+          </item>
+          <item row="9" column="0">
+           <widget class="QLabel" name="label_badgeMargin">
+            <property name="text">
+             <string>Badge margin:</string>
+            </property>
+            <property name="toolTip">
+             <string>Distance from window edges to the badge in pixels (default: 12 px).</string>
+            </property>
+           </widget>
+          </item>
+          <item row="9" column="1">
+           <widget class="QSpinBox" name="kcfg_BadgeMargin">
+            <property name="toolTip">
+             <string>Distance from window edges to the badge in pixels (default: 12 px).</string>
+            </property>
+            <property name="minimum">
+             <number>0</number>
+            </property>
+            <property name="maximum">
+             <number>100</number>
+            </property>
+            <property name="singleStep">
+             <number>2</number>
+            </property>
+            <property name="value">
+             <number>12</number>
+            </property>
+            <property name="suffix">
+             <string> px</string>
+            </property>
+           </widget>
+          </item>
+          <item row="10" column="0">
            <widget class="QLabel" name="label_jumpTargets">
             <property name="text">
              <string>Jump targets (default: Meta+Alt+Space):</string>
@@ -1824,7 +1962,7 @@
             </property>
            </widget>
           </item>
-          <item row="8" column="1">
+          <item row="10" column="1">
            <widget class="QComboBox" name="kcfg_JumpTargets">
             <property name="toolTip">
              <string>Scope of windows included when pressing the Jump to Window shortcut (default: Meta+Alt+Space).</string>

@@ -4,6 +4,27 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.30] - 2026-10-25
+
+### Added
+- **Configurable Letter Badge Position, Size, and Margin**:
+  - **Customizable Badge Position (`BadgePosition`)**: Selectable in System Settings KCM with 9 positions:
+    - `Top-Left`, `Top`, `Top-Right`
+    - `Left`, `Center`, `Right`
+    - `Bottom-Left`, `Bottom`, `Bottom-Right`
+  - **Adjustable Badge Size (`BadgeSize`)**: Range from 16 px to 64 px (default: 28 px) with proportional width scaling, dynamic font size, and corner radii.
+  - **Adjustable Edge Margin (`BadgeMargin`)**: Distance from window edges from 0 px to 100 px (default: 12 px) with automatic viewport boundary clamping.
+  - **Unified & Intuitive Display Modes (`BadgeDisplayMode`)**:
+    - `0`: *Only during Jump Mode (`Meta+Alt+Space`)* (clean desktop, badges only when navigating)
+    - `1`: *Always visible on background windows* (badges continuously visible on non-active windows)
+    - `2`: *Disabled* (completely disables letter badges)
+
+### Fixed
+- **Background Letter Badges Rendering & Visibility**:
+  - Fixed an issue where continuous background letter badges did not appear because `paintScreen()` prematurely early-returned when no outlines were actively updating.
+  - Fixed `isActive()` to return `true` when background badges are enabled, ensuring KWin compositor keeps the effect pipeline active.
+  - Fixed window frame geometry change tracking and window focus change repaints so badges smoothly follow moving windows and instantly update when focus switches.
+
 ## [1.4.29] - 2026-10-24
 
 ### Added

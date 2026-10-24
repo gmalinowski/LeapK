@@ -161,7 +161,8 @@ private:
                      const QChar &letter,
                      const QColor &bgColor,
                      const QColor &textColor,
-                     bool isJumpMode);
+                     bool isJumpMode,
+                     int badgeSize = 28);
 
     QColor resolveColor(qreal windowOpacity = 1.0, EffectWindow *w = nullptr) const;
     QColor currentCycleColor(qreal elapsedSec);
@@ -288,6 +289,10 @@ private:
     QColor m_lastMarkColor = QColor(QStringLiteral("#e74c3c"));
     bool m_markShowLetterBadges = true;
     bool m_badgesAlwaysVisible = false;
+    int m_badgeDisplayMode = 0; // 0 = Only during jump, 1 = Always visible, 2 = Disabled
+    int m_badgePosition = 0;    // 0 = TopLeft, 1 = Top, 2 = TopRight, 3 = Left, 4 = Center, 5 = Right, 6 = BottomLeft, 7 = Bottom, 8 = BottomRight
+    int m_badgeSize = 28;       // Height in pixels (16 to 64)
+    int m_badgeMargin = 12;     // Margin from window edge in pixels (0 to 100)
 
     // Jump to Window
     bool m_jumpMode = false;

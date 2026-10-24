@@ -720,8 +720,21 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_markInactiveDashGap = qBound(1, config.readEntry("MarkInactiveDashGap", 6), 40);
     m_markInactiveDashSmooth = config.readEntry("MarkInactiveDashSmooth", false);
     m_stylePrecedence = OutlinePrecedence::parsePrecedence(config.readEntry("StylePrecedence", QStringLiteral("Active,Marked,Recent")));
-    m_markShowLetterBadges = config.readEntry("MarkShowLetterBadges", true);
-    m_badgesAlwaysVisible = config.readEntry("BadgesAlwaysVisible", false);
+     m_badgeDisplayMode = qBound(0, config.readEntry("BadgeDisplayMode", 0), 2);
+    if (config.hasKey("BadgesAlwaysVisible") && !config.hasKey("BadgeDisplayMode")) {
+        if (!config.readEntry("MarkShowLetterBadges", true)) {
+            m_badgeDisplayMode = 2;
+        } else if (config.readEntry("BadgesAlwaysVisible", false)) {
+            m_badgeDisplayMode = 1;
+        } else {
+            m_badgeDisplayMode = 0;
+        }
+    }
+    m_badgePosition = qBound(0, config.readEntry("BadgePosition", 0), 8);
+    m_badgeSize = qBound(16, config.readEntry("BadgeSize", 28), 64);
+    m_badgeMargin = qBound(0, config.readEntry("BadgeMargin", 12), 100);
+    m_markShowLetterBadges = (m_badgeDisplayMode != 2);
+    m_badgesAlwaysVisible = (m_badgeDisplayMode == 1);
     m_jumpTargets = qBound(0, config.readEntry("JumpTargets", 0), 1);
     m_badgeTextureCache.clear();
     if (!m_lastMarkColor.isValid()) {
@@ -1028,6 +1041,9 @@ void ActiveWindowOutlineEffect::slotWindowAdded(EffectWindow *w)
             this, &ActiveWindowOutlineEffect::slotWindowFullScreenChanged);
 
     updatePopupBlockingState();
+    if (m_badgeDisplayMode == 1) {
+        effects->addRepaintFull();
+    }
 }
 
 bool ActiveWindowOutlineEffect::shouldOutlineWindow(EffectWindow *w) const
@@ -1820,6 +1836,10 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
             effects->addRepaint(expandedGeometryFor(w));
         }
     }
+
+    if (m_badgeDisplayMode == 1) {
+        effects->addRepaintFull();
+    }
 }
 
 void ActiveWindowOutlineEffect::slotWindowFrameGeometryChanged(EffectWindow *w,
@@ -1833,7 +1853,8 @@ void ActiveWindowOutlineEffect::slotWindowFrameGeometryChanged(EffectWindow *w,
     }
     const bool isRecent = (m_highlightRecentWindow && m_recentWindows.contains(w));
     const bool isMarked = m_markedWindows.contains(w);
-    if (!shouldOutlineWindow(w) && !isBlockingPopup(w) && m_delayedHideWindow != w && !isRecent && !isMarked) {
+    const bool hasContinuousBadges = (m_badgeDisplayMode == 1) && (w != m_activeWindow) && !w->isDeleted() && w->isOnCurrentDesktop();
+    if (!shouldOutlineWindow(w) && !isBlockingPopup(w) && m_delayedHideWindow != w && !isRecent && !isMarked && !hasContinuousBadges) {
         return;
     }
     const bool hasGlow = (w == m_activeWindow) ? (m_glowEnabled || m_glitchEnabled) : m_glowEnabled;
@@ -2152,6 +2173,10 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
 
 void ActiveWindowOutlineEffect::slotTriggerJumpMode()
 {
+    if (m_badgeDisplayMode == 2) {
+        return;
+    }
+
     if (m_jumpMode) {
         cancelJumpMode();
         return;
@@ -2313,14 +2338,17 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
                                            const QChar &letter,
                                            const QColor &bgColor,
                                            const QColor &textColor,
-                                           bool isJumpMode)
+                                           bool isJumpMode,
+                                           int badgeSize)
 {
     const qreal scale = viewport.scale();
     const quint64 scaleKey = static_cast<quint64>(qRound(scale * 100));
+    const quint64 sizeKey = static_cast<quint64>(badgeSize);
     const quint64 key = (static_cast<quint64>(letter.unicode()) << 48)
         ^ (static_cast<quint64>(bgColor.rgba()) << 16)
         ^ (static_cast<quint64>(textColor.rgba()))
         ^ (scaleKey << 8)
+        ^ (sizeKey << 32)
         ^ (isJumpMode ? 1 : 0);
 
     std::shared_ptr<GLTexture> texture;
@@ -2329,7 +2357,7 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
         texture = it.value();
     }
     if (!texture || texture->isNull()) {
-        const QImage img = OutlineBadge::renderBadgeImage(letter, bgColor, textColor, isJumpMode, scale);
+        const QImage img = OutlineBadge::renderBadgeImage(letter, bgColor, textColor, isJumpMode, badgeSize, scale);
         auto uploaded = GLTexture::upload(img);
         if (!uploaded) {
             return;
@@ -2477,6 +2505,9 @@ bool ActiveWindowOutlineEffect::isActive() const
     }
     if (effects->hasActiveFullScreenEffect()) {
         return false;
+    }
+    if (m_badgeDisplayMode == 1) {
+        return true;
     }
     const bool showPending = (m_windowShowTimer && m_windowShowTimer->isActive());
     const bool activeEligible = shouldOutlineWindow(m_activeWindow) && m_visibilityState.isEffectivelyVisible();
@@ -2685,7 +2716,7 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
                 data.paint += jw->frameGeometry().toAlignedRect();
             }
         }
-    } else if (m_badgesAlwaysVisible && m_markShowLetterBadges) {
+    } else if (m_badgeDisplayMode == 1) {
         const QMap<QChar, EffectWindow *> backgroundBadges = assignJumpLetters();
         for (auto it = backgroundBadges.constBegin(); it != backgroundBadges.constEnd(); ++it) {
             EffectWindow *jw = it.value();
@@ -2805,7 +2836,10 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         }
     }
 
-    if (!drawOutline && !drawDelayed && !hasRecentToDraw && !hasMarkedToDraw && !m_jumpMode) {
+    const bool showContinuousBadges = (m_badgeDisplayMode == 1) && !inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked;
+    const bool hasBadgesToDraw = (showContinuousBadges || m_jumpMode);
+
+    if (!drawOutline && !drawDelayed && !hasRecentToDraw && !hasMarkedToDraw && !hasBadgesToDraw) {
 #ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
         return true;
 #else
@@ -2879,7 +2913,9 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         renderOutline(renderTarget, viewport, m_outlineCache[w], deviceRegion, w, m_visibilityState.visibilityOpacity);
     }
 
-    if (!m_jumpMode && m_badgesAlwaysVisible && m_markShowLetterBadges && !inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked) {
+    if (!m_jumpMode && showContinuousBadges) {
+        const int badgeH = m_badgeSize;
+        const int badgeW = qRound(badgeH * 1.35);
         const QMap<QChar, EffectWindow *> backgroundBadges = assignJumpLetters();
         for (auto it = backgroundBadges.constBegin(); it != backgroundBadges.constEnd(); ++it) {
             const QChar letter = it.key();
@@ -2895,12 +2931,14 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 : QColor(35, 38, 41, 235);
             const QColor textCol = (bgCol.lightness() > 140) ? Qt::black : Qt::white;
             const QRectF geo = target->frameGeometry();
-            const QRectF badgeRect(geo.left() + 10, geo.top() + 10, 36, 26);
-            renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, false);
+            const QRectF badgeRect = OutlineBadge::computeBadgeRect(geo, m_badgePosition, badgeW, badgeH, m_badgeMargin);
+            renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, false, m_badgeSize);
         }
     }
 
     if (m_jumpMode && !inhibited) {
+        const int jumpH = qRound(m_badgeSize * 1.25);
+        const int jumpW = qRound(jumpH * 1.35);
         for (auto it = m_jumpLetterToWindow.constBegin(); it != m_jumpLetterToWindow.constEnd(); ++it) {
             const QChar letter = it.key();
             EffectWindow *target = it.value();
@@ -2914,8 +2952,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 : QColor(35, 38, 41, 235);
             const QColor textCol = (bgCol.lightness() > 140) ? Qt::black : Qt::white;
             const QRectF geo = target->frameGeometry();
-            const QRectF badgeRect(geo.center().x() - 23, geo.center().y() - 17, 46, 34);
-            renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, true);
+            const QRectF badgeRect = OutlineBadge::computeBadgeRect(geo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
+            renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, true, m_badgeSize);
         }
     }
 
