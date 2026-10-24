@@ -744,29 +744,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     if (!m_lastMarkColor.isValid()) {
         m_lastMarkColor = m_markDefaultColor;
     }
-    if (!m_highlightRecentWindow) {
-        for (EffectWindow *recent : m_recentWindows) {
-            if (recent) {
-                effects->addRepaint(expandedGeometryFor(recent));
-                m_outlineCache.remove(recent);
-                m_lastGeometry.remove(recent);
-            }
-        }
-        m_recentAmbilightColors.clear();
-        m_recentCycleColors.clear();
-    } else {
-        const int maxRecent = qMax(5, m_recentWindowsCount);
-        while (m_recentWindows.size() > maxRecent) {
-            EffectWindow *oldWindow = m_recentWindows.takeLast();
-            m_recentAmbilightColors.remove(oldWindow);
-            m_recentCycleColors.remove(oldWindow);
-            if (oldWindow) {
-                effects->addRepaint(expandedGeometryFor(oldWindow));
-                m_outlineCache.remove(oldWindow);
-                m_lastGeometry.remove(oldWindow);
-            }
-        }
-    }
+    updateRecentWindowsFromHistory();
 
     m_visibilityConfig.fadeDuration = m_fadeDuration;
     m_visibilityConfig.menuHideDelay = m_menuHideDelay;
@@ -2263,13 +2241,26 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
 void ActiveWindowOutlineEffect::updateRecentWindowsFromHistory()
 {
+    const QList<EffectWindow *> oldRecents = m_recentWindows;
     m_recentWindows.clear();
-    for (EffectWindow *win : m_windowHistory) {
-        if (win && win != m_activeWindow && !win->isDeleted() && !win->isDesktop() && !win->isDock()) {
-            m_recentWindows.append(win);
-            if (m_recentWindows.size() >= qMax(10, m_recentWindowsCount)) {
-                break;
+    if (m_highlightRecentWindow) {
+        for (EffectWindow *win : m_windowHistory) {
+            if (win && win != m_activeWindow && !win->isDeleted() && !win->isDesktop() && !win->isDock()) {
+                m_recentWindows.append(win);
+                if (m_recentWindows.size() >= m_recentWindowsCount) {
+                    break;
+                }
             }
+        }
+    }
+
+    for (EffectWindow *oldWin : oldRecents) {
+        if (oldWin && !m_recentWindows.contains(oldWin) && oldWin != m_activeWindow && !m_markedWindows.contains(oldWin)) {
+            effects->addRepaint(expandedGeometryFor(oldWin));
+            m_outlineCache.remove(oldWin);
+            m_lastGeometry.remove(oldWin);
+            m_recentAmbilightColors.remove(oldWin);
+            m_recentCycleColors.remove(oldWin);
         }
     }
 }
@@ -2758,7 +2749,9 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
     const bool recentOverridesMark = (rankRecent < rankMarked);
 
     if (m_highlightRecentWindow) {
-        for (EffectWindow *recent : m_recentWindows) {
+        const int count = qMin(m_recentWindows.size(), m_recentWindowsCount);
+        for (int i = 0; i < count; ++i) {
+            EffectWindow *recent = m_recentWindows.at(i);
             const bool markedRecentSkipped = m_markedWindows.contains(recent) && !recentOverridesMark;
             if (recent && recent != w && !markedRecentSkipped && !recent->isDeleted()
                 && recent->isOnCurrentDesktop() && !recent->isMinimized()
@@ -2852,7 +2845,9 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
 
     bool hasRecentToDraw = false;
     if (!inhibited && m_highlightRecentWindow && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked) {
-        for (EffectWindow *recent : m_recentWindows) {
+        const int count = qMin(m_recentWindows.size(), m_recentWindowsCount);
+        for (int i = 0; i < count; ++i) {
+            EffectWindow *recent = m_recentWindows.at(i);
             const bool markedRecentSkipped = m_markedWindows.contains(recent) && !recentOverridesMark;
             if (recent && recent != w && !markedRecentSkipped && !recent->isDeleted() && !recent->isMinimized()
                 && !recent->isHiddenByShowDesktop() && recent->isOnCurrentDesktop()
@@ -2961,7 +2956,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     }
 
     if (hasRecentToDraw) {
-        for (int i = m_recentWindows.size() - 1; i >= 0; --i) {
+        const int count = qMin(m_recentWindows.size(), m_recentWindowsCount);
+        for (int i = count - 1; i >= 0; --i) {
             EffectWindow *recent = m_recentWindows.at(i);
             const bool markedRecentSkipped = m_markedWindows.contains(recent) && !recentOverridesMark;
             if (!recent || recent == w || markedRecentSkipped || recent->isDeleted() || recent->isMinimized()

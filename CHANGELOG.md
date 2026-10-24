@@ -18,6 +18,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - In modal Jump Mode (`Meta+Alt+Space`), dynamically selects alternate visible corners/center if the primary position is covered; completely occluded windows do not display confusing floating badges.
   - Real-time full repaint when stacking order or virtual desktop changes (`stackingOrderChanged`, `desktopChanged`).
 
+### Fixed
+- **Recent Window Highlight Count Limit (`RecentWindowsCount`)**:
+  - Fixed an issue where all windows in history received outlines regardless of the configured limit.
+  - The rendered recent window count now strictly honors `RecentWindowsCount` (e.g. 1 window only when set to 1), immediately erasing outlines and pruning cache when older windows cycle out of the recency limit.
+
 ## [1.4.30] - 2026-10-25
 
 ### Added
