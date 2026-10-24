@@ -11,6 +11,7 @@
 #include <KColorScheme>
 #include <KConfigGroup>
 #include <KConfigSkeleton>
+#include <KGlobalAccel>
 #include <KPluginFactory>
 #include <KSharedConfig>
 #include <QClipboard>
@@ -191,6 +192,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("MarkInactiveDashGap"), *new int, 6);
     m_configSkeleton->addItemBool(QStringLiteral("MarkInactiveDashSmooth"), *new bool, false);
     m_configSkeleton->addItemBool(QStringLiteral("MarkShowLetterBadges"), *new bool, true);
+    m_configSkeleton->addItemBool(QStringLiteral("BadgesAlwaysVisible"), *new bool, false);
     m_configSkeleton->addItemInt(QStringLiteral("JumpTargets"), *new int, 0);
 
     // Tab 2: Color Cycling
@@ -486,7 +488,17 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     updateRecentWindowUI();
 
     connect(m_ui->kcfg_MarkInactiveDashed, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
+    connect(m_ui->kcfg_MarkShowLetterBadges, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
     updateMarkWindowUI();
+
+    QString shortcutStr = QStringLiteral("Meta+Alt+Space");
+    const auto shortcuts = KGlobalAccel::self()->globalShortcut(QStringLiteral("kwin"), QStringLiteral("JumpToWindow"));
+    if (!shortcuts.isEmpty() && !shortcuts.first().isEmpty()) {
+        shortcutStr = shortcuts.first().toString(QKeySequence::NativeText);
+    }
+    m_ui->label_jumpTargets->setText(tr("Jump targets (default: %1):").arg(shortcutStr));
+    m_ui->label_jumpTargets->setToolTip(tr("Scope of windows included when pressing the Jump to Window shortcut (%1).").arg(shortcutStr));
+    m_ui->kcfg_JumpTargets->setToolTip(tr("Scope of windows included when pressing the Jump to Window shortcut (%1).").arg(shortcutStr));
 
     connect(m_ui->btnPrecedenceUp, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::movePrecedenceUp);
     connect(m_ui->btnPrecedenceDown, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::movePrecedenceDown);
@@ -537,6 +549,9 @@ void ActiveWindowOutlineConfig::updateMarkWindowUI()
     m_ui->label_markInactiveDashGap->setEnabled(dashed);
     m_ui->kcfg_MarkInactiveDashGap->setEnabled(dashed);
     m_ui->kcfg_MarkInactiveDashSmooth->setEnabled(dashed);
+
+    const bool badgesEnabled = m_ui->kcfg_MarkShowLetterBadges->isChecked();
+    m_ui->kcfg_BadgesAlwaysVisible->setEnabled(badgesEnabled);
 }
 
 void ActiveWindowOutlineConfig::populatePrecedenceList(const QString &serialized)

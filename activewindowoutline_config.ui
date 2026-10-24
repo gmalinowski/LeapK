@@ -1797,27 +1797,37 @@
           <item row="6" column="0" colspan="2">
            <widget class="QCheckBox" name="kcfg_MarkShowLetterBadges">
             <property name="text">
-             <string>Show letter badge on marked windows</string>
+             <string>Show letter badges on all windows (except active window)</string>
             </property>
             <property name="toolTip">
-             <string>Displays a small letter badge (e.g. [ A ], [ T ]) in the top-left corner of marked windows for quick visual identification and jump targeting.</string>
+             <string>Displays letter badges on candidate windows for instant keyboard jump targeting. The currently active window is always excluded.</string>
             </property>
            </widget>
           </item>
-          <item row="7" column="0">
+          <item row="7" column="0" colspan="2">
+           <widget class="QCheckBox" name="kcfg_BadgesAlwaysVisible">
+            <property name="text">
+             <string>Show letter badges continuously (uncheck to show only upon Jump shortcut)</string>
+            </property>
+            <property name="toolTip">
+             <string>When unchecked (recommended), letter badges only appear while Jump Mode is active (default shortcut: Meta+Alt+Space). When checked, letter badges remain continuously visible on all candidate background windows.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="8" column="0">
            <widget class="QLabel" name="label_jumpTargets">
             <property name="text">
-             <string>Jump targets (Meta+Ctrl+`):</string>
+             <string>Jump targets (default: Meta+Alt+Space):</string>
             </property>
             <property name="toolTip">
-             <string>Scope of windows included when pressing the Jump to Window shortcut (Meta+Ctrl+`).</string>
+             <string>Scope of windows included when pressing the Jump to Window shortcut (default: Meta+Alt+Space).</string>
             </property>
            </widget>
           </item>
-          <item row="7" column="1">
+          <item row="8" column="1">
            <widget class="QComboBox" name="kcfg_JumpTargets">
             <property name="toolTip">
-             <string>Scope of windows included when pressing the Jump to Window shortcut (Meta+Ctrl+`).</string>
+             <string>Scope of windows included when pressing the Jump to Window shortcut (default: Meta+Alt+Space).</string>
             </property>
             <item>
              <property name="text">

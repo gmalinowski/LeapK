@@ -601,8 +601,8 @@ void ActiveWindowOutlineEffect::initShortcuts()
     QAction *jumpAction = new QAction(this);
     jumpAction->setObjectName(QStringLiteral("JumpToWindow"));
     jumpAction->setText(QStringLiteral("KAWO: Jump to Window"));
-    KGlobalAccel::self()->setDefaultShortcut(jumpAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_QuoteLeft));
-    KGlobalAccel::self()->setGlobalShortcut(jumpAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_QuoteLeft));
+    KGlobalAccel::self()->setDefaultShortcut(jumpAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::ALT | Qt::Key_Space));
+    KGlobalAccel::self()->setGlobalShortcut(jumpAction, QKeySequence(Qt::META | Qt::ALT | Qt::Key_Space));
     connect(jumpAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotTriggerJumpMode);
 
     QAction *prevRecentAction = new QAction(this);
@@ -721,6 +721,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_markInactiveDashSmooth = config.readEntry("MarkInactiveDashSmooth", false);
     m_stylePrecedence = OutlinePrecedence::parsePrecedence(config.readEntry("StylePrecedence", QStringLiteral("Active,Marked,Recent")));
     m_markShowLetterBadges = config.readEntry("MarkShowLetterBadges", true);
+    m_badgesAlwaysVisible = config.readEntry("BadgesAlwaysVisible", false);
     m_jumpTargets = qBound(0, config.readEntry("JumpTargets", 0), 1);
     m_badgeTextureCache.clear();
     if (!m_lastMarkColor.isValid()) {
@@ -2096,19 +2097,13 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
     dialog->show();
 }
 
-void ActiveWindowOutlineEffect::slotTriggerJumpMode()
+QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
 {
-    if (m_jumpMode) {
-        cancelJumpMode();
-        return;
-    }
-
-    m_jumpLetterToWindow.clear();
-
+    QMap<QChar, EffectWindow *> map;
     const auto windows = effects->stackingOrder();
     QList<EffectWindow *> candidates;
     for (EffectWindow *w : windows) {
-        if (!w || w->isDeleted() || w->isDesktop() || w->isDock() || isBlockingPopup(w)) {
+        if (!w || w == m_activeWindow || w->isDeleted() || w->isDesktop() || w->isDock() || isBlockingPopup(w)) {
             continue;
         }
         if (w->isMinimized() || w->isHiddenByShowDesktop() || !w->isOnCurrentDesktop()) {
@@ -2121,7 +2116,7 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     }
 
     if (candidates.isEmpty()) {
-        return;
+        return map;
     }
 
     QSet<QChar> assignedLetters;
@@ -2130,7 +2125,7 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
         if (m_markedWindowLetters.contains(w)) {
             const QChar ch = m_markedWindowLetters.value(w).toUpper();
             if (!assignedLetters.contains(ch)) {
-                m_jumpLetterToWindow[ch] = w;
+                map[ch] = w;
                 assignedLetters.insert(ch);
                 continue;
             }
@@ -2146,12 +2141,23 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
         }
         if (poolIdx < pool.length()) {
             const QChar ch = pool.at(poolIdx);
-            m_jumpLetterToWindow[ch] = w;
+            map[ch] = w;
             assignedLetters.insert(ch);
             poolIdx++;
         }
     }
 
+    return map;
+}
+
+void ActiveWindowOutlineEffect::slotTriggerJumpMode()
+{
+    if (m_jumpMode) {
+        cancelJumpMode();
+        return;
+    }
+
+    m_jumpLetterToWindow = assignJumpLetters();
     if (m_jumpLetterToWindow.isEmpty()) {
         return;
     }
@@ -2679,6 +2685,14 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
                 data.paint += jw->frameGeometry().toAlignedRect();
             }
         }
+    } else if (m_badgesAlwaysVisible && m_markShowLetterBadges) {
+        const QMap<QChar, EffectWindow *> backgroundBadges = assignJumpLetters();
+        for (auto it = backgroundBadges.constBegin(); it != backgroundBadges.constEnd(); ++it) {
+            EffectWindow *jw = it.value();
+            if (jw && !jw->isDeleted() && jw->isOnCurrentDesktop()) {
+                data.paint += jw->frameGeometry().toAlignedRect();
+            }
+        }
     }
 }
 
@@ -2865,19 +2879,22 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         renderOutline(renderTarget, viewport, m_outlineCache[w], deviceRegion, w, m_visibilityState.visibilityOpacity);
     }
 
-    if (!m_jumpMode && m_markShowLetterBadges && !inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked) {
-        for (auto it = m_markedWindows.constBegin(); it != m_markedWindows.constEnd(); ++it) {
-            EffectWindow *marked = it.key();
-            if (!marked || marked->isDeleted() || marked->isMinimized()
-                || marked->isHiddenByShowDesktop() || !marked->isOnCurrentDesktop()
-                || (m_hideOnFullScreen && marked->isFullScreen())
-                || isBlockingPopup(marked)) {
+    if (!m_jumpMode && m_badgesAlwaysVisible && m_markShowLetterBadges && !inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked) {
+        const QMap<QChar, EffectWindow *> backgroundBadges = assignJumpLetters();
+        for (auto it = backgroundBadges.constBegin(); it != backgroundBadges.constEnd(); ++it) {
+            const QChar letter = it.key();
+            EffectWindow *target = it.value();
+            if (!target || target == w || target->isDeleted() || target->isMinimized()
+                || target->isHiddenByShowDesktop() || !target->isOnCurrentDesktop()
+                || (m_hideOnFullScreen && target->isFullScreen())
+                || isBlockingPopup(target)) {
                 continue;
             }
-            const QChar letter = m_markedWindowLetters.value(marked, nextAvailableLetter());
-            const QColor bgCol = it.value();
+            const QColor bgCol = m_markedWindows.contains(target)
+                ? m_markedWindows.value(target)
+                : QColor(35, 38, 41, 235);
             const QColor textCol = (bgCol.lightness() > 140) ? Qt::black : Qt::white;
-            const QRectF geo = marked->frameGeometry();
+            const QRectF geo = target->frameGeometry();
             const QRectF badgeRect(geo.left() + 10, geo.top() + 10, 36, 26);
             renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, false);
         }
@@ -2887,7 +2904,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         for (auto it = m_jumpLetterToWindow.constBegin(); it != m_jumpLetterToWindow.constEnd(); ++it) {
             const QChar letter = it.key();
             EffectWindow *target = it.value();
-            if (!target || target->isDeleted() || target->isMinimized()
+            if (!target || target == w || target->isDeleted() || target->isMinimized()
                 || target->isHiddenByShowDesktop() || !target->isOnCurrentDesktop()
                 || target->isDesktop() || target->isDock()) {
                 continue;

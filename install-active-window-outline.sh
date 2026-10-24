@@ -312,6 +312,7 @@ set_default MarkInactiveDashed false
 set_default MarkInactiveDashGap 6
 set_default MarkInactiveDashSmooth false
 set_default MarkShowLetterBadges true
+set_default BadgesAlwaysVisible false
 set_default JumpTargets 0
 
 if command -v qdbus6 >/dev/null 2>&1; then

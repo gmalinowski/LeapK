@@ -153,6 +153,7 @@ private:
     void setWindowMarkColor(EffectWindow *w, const QColor &color);
     void setWindowMark(EffectWindow *w, const QColor &color, const QChar &letter = QChar());
     QChar nextAvailableLetter() const;
+    QMap<QChar, EffectWindow *> assignJumpLetters() const;
     void cancelJumpMode();
     void renderBadge(const RenderTarget &renderTarget,
                      const RenderViewport &viewport,
@@ -286,6 +287,7 @@ private:
     QMap<EffectWindow *, QChar> m_markedWindowLetters;
     QColor m_lastMarkColor = QColor(QStringLiteral("#e74c3c"));
     bool m_markShowLetterBadges = true;
+    bool m_badgesAlwaysVisible = false;
 
     // Jump to Window
     bool m_jumpMode = false;

@@ -136,6 +136,7 @@ target_link_libraries(kwin_active-window-outline_config PRIVATE
     KF6::CoreAddons
     KF6::ConfigWidgets
     KF6::KCMUtils
+    KF6::GlobalAccel
 )
 target_compile_definitions(kwin_active-window-outline_config PRIVATE
     ACTIVE_WINDOW_OUTLINE_VERSION="${PROJECT_VERSION}"

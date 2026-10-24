@@ -8,13 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 - **Vim-like Window Marks with Letters & Instant Jump Mode**:
-  - **Modal Jump Mode (`Meta+Ctrl+\`` / `KAWO: Jump to Window`)**:
+  - **Modal Jump Mode (`Meta+Alt+Space` / `KAWO: Jump to Window`)**:
     - Enters modal window jump navigation via native KWin compositor keyboard grabbing (`effects->grabKeyboard`).
     - Windows with assigned marks display their permanent letter on custom-colored pill badges.
     - Other candidate windows dynamically receive transient letters from a prioritized keyboard pool (`ASDFJKLQWERTYUIOP...`).
+    - The currently active window is always excluded from displaying letter badges (`oprócz aktywnego okna`).
     - Instant window focus on single keypress (`effects->activateWindow`), automatically restoring minimized windows.
     - Safe cancel via `Esc` or 5-second automatic inactivity timeout.
-    - Configurable in KCM: **Jump Targets** (All visible windows vs Marked windows only) and **Show Letter Badges on Marked Windows**.
+    - Configurable in KCM: **Jump Targets** (dynamically showing current shortcut binding from KGlobalAccel), **Show Letter Badges on All Windows (except active window)**, and **Show Letter Badges Continuously** (disabled by default so badges only appear upon triggering Jump Mode).
   - **Quick & Detailed Window Marking**:
     - **`Meta+Ctrl+M` (`KAWO: Toggle Mark Window`)**: Quickly marks the active window with default color and automatically assigns the next available letter from the pool.
     - **`Meta+Ctrl+Shift+M` (`KAWO: Mark Window with Color Picker`)**: Opens dedicated native Qt dialog (`active-window-outline-colorpicker`) allowing setting both custom letter (`A-Z`, `0-9`) and custom mark color with alpha slider.
