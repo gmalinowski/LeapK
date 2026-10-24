@@ -22,16 +22,22 @@ Whether you are using tiling window management (such as Bismuth, Polonium, or Kr
   - **Chromatic Hue Progression**: Rotate hues by a configurable angle (-180° to +180°) across the recent window trail.
   - **Color Mode Flexibility**: Match active window color (including per-window frozen Ambilight samples) or assign a dedicated static custom color.
   - **Calm & Subdued**: Animated shader effects (breathe, hologram, flicker) are automatically suppressed on recent windows to prevent visual distraction.
-- **Window Marking & Permanent Frames**:
-  - **Pin Custom Frames**: Pin a permanent outline frame to specific windows across their full lifecycle.
-  - **Color Independence**: Marked windows maintain their assigned color across active and background states, overriding general outline color modes without hue shift or desaturation.
-  - **Independent Inactive Appearance**: Dedicated controls for inactive marked window appearance (opacity, width reduction, dashed outline, and smooth dash transitions), fully decoupled from Recent Windows settings.
-  - **Dynamic Style Adoption**: When focused, marked windows adopt active focus geometry and shader animations; when unfocused or inactive in the background, they adopt marked inactive settings.
-  - **Interactive Color Palette**: Press **Meta+Ctrl+Shift+M** to open KDE's native color picker (`kdialog`) and assign any precise color directly to the window, or press **Meta+Ctrl+M** to toggle the mark using the default mark color.
+- **Vim-like Window Marks & Instant Jump Navigation**:
+  - **Vim-like Marks with Letters**: Each marked window receives an assigned letter badge (displayed as a crisp antialiased pill badge).
+  - **Modal Jump Mode (`Meta+Ctrl+\``)**: Instantly enters modal jump mode where high-contrast letter badges pop on windows (marked windows keep their letter; other visible windows receive dynamically allocated letters from a prioritized keyboard pool `ASDFJKLQWERTY...`). Pressing a letter jumps directly to and activates that window. Pressing `Esc` or idling for 5 seconds exits jump mode.
+  - **Quick & Detailed Window Marking**:
+    - **`Meta+Ctrl+M`**: Instantly marks the active window with default color and auto-assigns next available letter from the pool.
+    - **`Meta+Ctrl+Shift+M`**: Opens a dedicated native Qt dialog (`active-window-outline-colorpicker`) to select both custom letter (`A-Z`, `0-9`) and custom mark color with alpha transparency.
+- **Recent Windows History Navigation (Jump List)**:
+  - **`Meta+Alt+[` / `Meta+Alt+]`**: Seamlessly cycle backward and forward through recent window focus history without scrambling the history stack.
+  - History changes commit automatically after 1.5 seconds of idle time.
 - **Global Shortcuts**:
-  - **Meta+Ctrl+O**: Toggle the active window outline on or off.
+  - **Meta+Ctrl+O**: Toggle active window outline on or off.
   - **Meta+Ctrl+M**: Toggle permanent mark frame on the active window.
-  - **Meta+Ctrl+Shift+M**: Mark the active window with interactive color palette picker.
+  - **Meta+Ctrl+Shift+M**: Mark active window with color and letter picker dialog.
+  - **Meta+Ctrl+\`**: Enter modal Jump to Window mode.
+  - **Meta+Alt+[**: Previous recent window in focus history.
+  - **Meta+Alt+]**: Next recent window in focus history.
 - **Multiple Color Modes**:
   - **System Accent Color**: Seamlessly matches your KDE Plasma accent color.
   - **Custom Static Color**: Set any custom color and opacity (e.g. vibrant green, cyan, or neon purple).

@@ -190,6 +190,8 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemBool(QStringLiteral("MarkInactiveDashed"), *new bool, false);
     m_configSkeleton->addItemInt(QStringLiteral("MarkInactiveDashGap"), *new int, 6);
     m_configSkeleton->addItemBool(QStringLiteral("MarkInactiveDashSmooth"), *new bool, false);
+    m_configSkeleton->addItemBool(QStringLiteral("MarkShowLetterBadges"), *new bool, true);
+    m_configSkeleton->addItemInt(QStringLiteral("JumpTargets"), *new int, 0);
 
     // Tab 2: Color Cycling
     m_configSkeleton->addItemBool(QStringLiteral("ColorCycleEnabled"), *new bool, false);

@@ -10,6 +10,7 @@
 #include <effect/globals.h>
 #include <opengl/glshader.h>
 #include <opengl/glvertexbuffer.h>
+#include "badgehelper.h"
 
 #include <QColor>
 #include <QElapsedTimer>
@@ -98,6 +99,7 @@ public:
 
     bool isActive() const override;
     QString debug(const QString &parameter) const override;
+    void grabbedKeyboardEvent(QKeyEvent *e) override;
 
     static bool supported();
 
@@ -115,6 +117,10 @@ private Q_SLOTS:
     void slotToggleAction();
     void slotMarkWindowToggle();
     void slotMarkWindowWithColor();
+    void slotTriggerJumpMode();
+    void slotPrevRecentWindow();
+    void slotNextRecentWindow();
+    void slotCommitHistoryNavigation();
     void slotAnimationTick();
 
 private:
@@ -145,6 +151,16 @@ private:
     void cacheWindowOutline(EffectWindow *w, const QRectF &geo, qreal customWidth = -1);
     void toggleWindowMark(EffectWindow *w);
     void setWindowMarkColor(EffectWindow *w, const QColor &color);
+    void setWindowMark(EffectWindow *w, const QColor &color, const QChar &letter = QChar());
+    QChar nextAvailableLetter() const;
+    void cancelJumpMode();
+    void renderBadge(const RenderTarget &renderTarget,
+                     const RenderViewport &viewport,
+                     const QRectF &badgeRect,
+                     const QChar &letter,
+                     const QColor &bgColor,
+                     const QColor &textColor,
+                     bool isJumpMode);
 
     QColor resolveColor(qreal windowOpacity = 1.0, EffectWindow *w = nullptr) const;
     QColor currentCycleColor(qreal elapsedSec);
@@ -267,7 +283,24 @@ private:
 
     // Runtime mark window state
     QMap<EffectWindow *, QColor> m_markedWindows;
+    QMap<EffectWindow *, QChar> m_markedWindowLetters;
     QColor m_lastMarkColor = QColor(QStringLiteral("#e74c3c"));
+    bool m_markShowLetterBadges = true;
+
+    // Jump to Window
+    bool m_jumpMode = false;
+    int m_jumpTargets = 0; // 0 = All visible windows, 1 = Marked windows only
+    QMap<QChar, EffectWindow *> m_jumpLetterToWindow;
+    QTimer *m_jumpTimeoutTimer = nullptr;
+
+    // History Navigation
+    bool m_isHistoryNavigating = false;
+    int m_historyNavIndex = 0;
+    QList<EffectWindow *> m_historySnapshot;
+    QTimer *m_historyCommitTimer = nullptr;
+
+    // Badge OpenGL texture cache
+    mutable QMap<quint64, std::shared_ptr<GLTexture>> m_badgeTextureCache;
 
     // Runtime delay, buffer & visibility transition state
     OutlineVisibility::StateMachine m_visibilityState;

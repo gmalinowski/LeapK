@@ -4,6 +4,26 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.29] - 2026-10-24
+
+### Added
+- **Vim-like Window Marks with Letters & Instant Jump Mode**:
+  - **Modal Jump Mode (`Meta+Ctrl+\`` / `KAWO: Jump to Window`)**:
+    - Enters modal window jump navigation via native KWin compositor keyboard grabbing (`effects->grabKeyboard`).
+    - Windows with assigned marks display their permanent letter on custom-colored pill badges.
+    - Other candidate windows dynamically receive transient letters from a prioritized keyboard pool (`ASDFJKLQWERTYUIOP...`).
+    - Instant window focus on single keypress (`effects->activateWindow`), automatically restoring minimized windows.
+    - Safe cancel via `Esc` or 5-second automatic inactivity timeout.
+    - Configurable in KCM: **Jump Targets** (All visible windows vs Marked windows only) and **Show Letter Badges on Marked Windows**.
+  - **Quick & Detailed Window Marking**:
+    - **`Meta+Ctrl+M` (`KAWO: Toggle Mark Window`)**: Quickly marks the active window with default color and automatically assigns the next available letter from the pool.
+    - **`Meta+Ctrl+Shift+M` (`KAWO: Mark Window with Color Picker`)**: Opens dedicated native Qt dialog (`active-window-outline-colorpicker`) allowing setting both custom letter (`A-Z`, `0-9`) and custom mark color with alpha slider.
+  - **Hardware-Accelerated Badge Rendering**: Crisp pill badge textures rendered via `QPainter` with antialiasing and drop shadows, cached as GPU textures and rendered with OpenGL blending.
+- **Recent Windows History Navigation (Vim-like Jump List)**:
+  - **`Meta+Alt+[` (`KAWO: Previous Recent Window`)**: Step backward through recent window focus history.
+  - **`Meta+Alt+]` (`KAWO: Next Recent Window`)**: Step forward through recent window focus history.
+  - History cursor snapshot prevents scrambling or modifying the window history order while actively cycling through windows; history commits after 1.5s of idle time.
+
 ## [1.4.28] - 2026-10-24
 
 ### Added

@@ -7,6 +7,7 @@
 #include "activewindowoutline.h"
 #include "popupfilter.h"
 #include "precedencehelper.h"
+#include <QKeyEvent>
 #include <QPainter>
 #include <effect/effecthandler.h>
 #include <effect/effectwindow.h>
@@ -454,6 +455,14 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
         }
     });
 
+    m_jumpTimeoutTimer = new QTimer(this);
+    m_jumpTimeoutTimer->setSingleShot(true);
+    connect(m_jumpTimeoutTimer, &QTimer::timeout, this, &ActiveWindowOutlineEffect::cancelJumpMode);
+
+    m_historyCommitTimer = new QTimer(this);
+    m_historyCommitTimer->setSingleShot(true);
+    connect(m_historyCommitTimer, &QTimer::timeout, this, &ActiveWindowOutlineEffect::slotCommitHistoryNavigation);
+
     reconfigure(ReconfigureAll);
 
     // Some third-party effect KCMs are not reliably reconfigured by KWin's
@@ -535,6 +544,17 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
 
 ActiveWindowOutlineEffect::~ActiveWindowOutlineEffect()
 {
+    if (m_jumpMode) {
+        cancelJumpMode();
+    }
+    if (m_jumpTimeoutTimer) {
+        m_jumpTimeoutTimer->stop();
+    }
+    if (m_historyCommitTimer) {
+        m_historyCommitTimer->stop();
+    }
+    m_badgeTextureCache.clear();
+
     if (m_animationTimer) {
         m_animationTimer->stop();
     }
@@ -577,6 +597,27 @@ void ActiveWindowOutlineEffect::initShortcuts()
     KGlobalAccel::self()->setDefaultShortcut(markWithColorAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::SHIFT | Qt::Key_M));
     KGlobalAccel::self()->setGlobalShortcut(markWithColorAction, QKeySequence(Qt::META | Qt::CTRL | Qt::SHIFT | Qt::Key_M));
     connect(markWithColorAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotMarkWindowWithColor);
+
+    QAction *jumpAction = new QAction(this);
+    jumpAction->setObjectName(QStringLiteral("JumpToWindow"));
+    jumpAction->setText(QStringLiteral("KAWO: Jump to Window"));
+    KGlobalAccel::self()->setDefaultShortcut(jumpAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_QuoteLeft));
+    KGlobalAccel::self()->setGlobalShortcut(jumpAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_QuoteLeft));
+    connect(jumpAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotTriggerJumpMode);
+
+    QAction *prevRecentAction = new QAction(this);
+    prevRecentAction->setObjectName(QStringLiteral("PrevRecentWindow"));
+    prevRecentAction->setText(QStringLiteral("KAWO: Previous Recent Window"));
+    KGlobalAccel::self()->setDefaultShortcut(prevRecentAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::ALT | Qt::Key_BracketLeft));
+    KGlobalAccel::self()->setGlobalShortcut(prevRecentAction, QKeySequence(Qt::META | Qt::ALT | Qt::Key_BracketLeft));
+    connect(prevRecentAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotPrevRecentWindow);
+
+    QAction *nextRecentAction = new QAction(this);
+    nextRecentAction->setObjectName(QStringLiteral("NextRecentWindow"));
+    nextRecentAction->setText(QStringLiteral("KAWO: Next Recent Window"));
+    KGlobalAccel::self()->setDefaultShortcut(nextRecentAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::ALT | Qt::Key_BracketRight));
+    KGlobalAccel::self()->setGlobalShortcut(nextRecentAction, QKeySequence(Qt::META | Qt::ALT | Qt::Key_BracketRight));
+    connect(nextRecentAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotNextRecentWindow);
 }
 
 bool ActiveWindowOutlineEffect::supported()
@@ -679,6 +720,9 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_markInactiveDashGap = qBound(1, config.readEntry("MarkInactiveDashGap", 6), 40);
     m_markInactiveDashSmooth = config.readEntry("MarkInactiveDashSmooth", false);
     m_stylePrecedence = OutlinePrecedence::parsePrecedence(config.readEntry("StylePrecedence", QStringLiteral("Active,Marked,Recent")));
+    m_markShowLetterBadges = config.readEntry("MarkShowLetterBadges", true);
+    m_jumpTargets = qBound(0, config.readEntry("JumpTargets", 0), 1);
+    m_badgeTextureCache.clear();
     if (!m_lastMarkColor.isValid()) {
         m_lastMarkColor = m_markDefaultColor;
     }
@@ -690,11 +734,11 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
                 m_lastGeometry.remove(recent);
             }
         }
-        m_recentWindows.clear();
         m_recentAmbilightColors.clear();
         m_recentCycleColors.clear();
     } else {
-        while (m_recentWindows.size() > m_recentWindowsCount) {
+        const int maxRecent = qMax(5, m_recentWindowsCount);
+        while (m_recentWindows.size() > maxRecent) {
             EffectWindow *oldWindow = m_recentWindows.takeLast();
             m_recentAmbilightColors.remove(oldWindow);
             m_recentCycleColors.remove(oldWindow);
@@ -1054,6 +1098,15 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
     m_recentAmbilightColors.remove(w);
     m_recentCycleColors.remove(w);
     m_markedWindows.remove(w);
+    m_markedWindowLetters.remove(w);
+    m_historySnapshot.removeAll(w);
+    for (auto it = m_jumpLetterToWindow.begin(); it != m_jumpLetterToWindow.end(); ) {
+        if (it.value() == w) {
+            it = m_jumpLetterToWindow.erase(it);
+        } else {
+            ++it;
+        }
+    }
     m_suppressedWindows.remove(w);
     m_lastGeometry.remove(w);
     m_outlineCache.remove(w);
@@ -1596,6 +1649,17 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
         return;
     }
 
+    if (m_isHistoryNavigating) {
+        if (m_historyNavIndex >= 0 && m_historyNavIndex < m_historySnapshot.size()
+            && w == m_historySnapshot.at(m_historyNavIndex)) {
+            m_activeWindow = w;
+            repaintAllOutlines();
+            return;
+        } else {
+            slotCommitHistoryNavigation();
+        }
+    }
+
     EffectWindow *previous = m_activeWindow;
     if (previous == w) {
         return;
@@ -1609,11 +1673,11 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
         m_windowShowTimer->stop();
     }
 
-    if (m_highlightRecentWindow) {
-        if (previous && !previous->isDeleted() && !previous->isDesktop() && !previous->isDock()
-            && !(m_hideOnFullScreen && previous->isFullScreen()) && !isBlockingPopup(previous)) {
-            m_recentWindows.removeAll(previous);
-            m_recentWindows.prepend(previous);
+    if (previous && !previous->isDeleted() && !previous->isDesktop() && !previous->isDock()
+        && !(m_hideOnFullScreen && previous->isFullScreen()) && !isBlockingPopup(previous)) {
+        m_recentWindows.removeAll(previous);
+        m_recentWindows.prepend(previous);
+        if (m_highlightRecentWindow) {
             if (m_ambilightCurrentColor.isValid()) {
                 m_recentAmbilightColors[previous] = m_ambilightCurrentColor;
             }
@@ -1622,24 +1686,27 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
                 m_recentCycleColors[previous] = currentCycleColor(elapsedSec);
             }
         }
+    }
 
-        if (w) {
-            m_recentWindows.removeAll(w);
-            m_recentAmbilightColors.remove(w);
-            m_recentCycleColors.remove(w);
+    if (w) {
+        m_recentWindows.removeAll(w);
+        m_recentAmbilightColors.remove(w);
+        m_recentCycleColors.remove(w);
+    }
+
+    const int maxRecent = qMax(5, m_recentWindowsCount);
+    while (m_recentWindows.size() > maxRecent) {
+        EffectWindow *oldWindow = m_recentWindows.takeLast();
+        m_recentAmbilightColors.remove(oldWindow);
+        m_recentCycleColors.remove(oldWindow);
+        if (oldWindow) {
+            effects->addRepaint(expandedGeometryFor(oldWindow));
+            m_outlineCache.remove(oldWindow);
+            m_lastGeometry.remove(oldWindow);
         }
+    }
 
-        while (m_recentWindows.size() > m_recentWindowsCount) {
-            EffectWindow *oldWindow = m_recentWindows.takeLast();
-            m_recentAmbilightColors.remove(oldWindow);
-            m_recentCycleColors.remove(oldWindow);
-            if (oldWindow) {
-                effects->addRepaint(expandedGeometryFor(oldWindow));
-                m_outlineCache.remove(oldWindow);
-                m_lastGeometry.remove(oldWindow);
-            }
-        }
-
+    if (m_highlightRecentWindow) {
         for (EffectWindow *recent : m_recentWindows) {
             if (recent) {
                 effects->addRepaint(expandedGeometryFor(recent));
@@ -1659,19 +1726,6 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
             }
         }
     } else {
-        if (!m_recentWindows.isEmpty()) {
-            for (EffectWindow *recent : m_recentWindows) {
-                if (recent) {
-                    effects->addRepaint(expandedGeometryFor(recent));
-                    m_outlineCache.remove(recent);
-                    m_lastGeometry.remove(recent);
-                }
-            }
-            m_recentWindows.clear();
-            m_recentAmbilightColors.clear();
-            m_recentCycleColors.clear();
-        }
-
         if (previous) {
             if (m_markedWindows.contains(previous)) {
                 m_outlineCache.remove(previous);
@@ -1858,14 +1912,35 @@ void ActiveWindowOutlineEffect::slotToggleAction()
     }
 }
 
-void ActiveWindowOutlineEffect::setWindowMarkColor(EffectWindow *w, const QColor &color)
+void ActiveWindowOutlineEffect::setWindowMark(EffectWindow *w, const QColor &color, const QChar &letter)
 {
     if (!w || !color.isValid()) {
         return;
     }
     m_markedWindows[w] = color;
     m_lastMarkColor = color;
+
+    QChar finalLetter = letter.toUpper();
+    if (finalLetter.isNull() || !finalLetter.isLetterOrNumber()) {
+        finalLetter = m_markedWindowLetters.contains(w) ? m_markedWindowLetters.value(w) : nextAvailableLetter();
+    }
+    m_markedWindowLetters[w] = finalLetter;
+
     effects->addRepaint(expandedGeometryFor(w));
+}
+
+void ActiveWindowOutlineEffect::setWindowMarkColor(EffectWindow *w, const QColor &color)
+{
+    setWindowMark(w, color, m_markedWindowLetters.value(w));
+}
+
+QChar ActiveWindowOutlineEffect::nextAvailableLetter() const
+{
+    QList<QChar> used;
+    for (auto it = m_markedWindowLetters.constBegin(); it != m_markedWindowLetters.constEnd(); ++it) {
+        used.append(it.value());
+    }
+    return OutlineBadge::findNextAvailableLetter(used);
 }
 
 void ActiveWindowOutlineEffect::toggleWindowMark(EffectWindow *w)
@@ -1875,10 +1950,12 @@ void ActiveWindowOutlineEffect::toggleWindowMark(EffectWindow *w)
     }
     if (m_markedWindows.contains(w)) {
         m_markedWindows.remove(w);
+        m_markedWindowLetters.remove(w);
         effects->addRepaint(expandedGeometryFor(w));
     } else {
         const QColor markCol = m_lastMarkColor.isValid() ? m_lastMarkColor : m_markDefaultColor;
-        setWindowMarkColor(w, markCol);
+        const QChar letter = nextAvailableLetter();
+        setWindowMark(w, markCol, letter);
     }
 }
 
@@ -1907,14 +1984,17 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
     const QColor initialColor = m_markedWindows.contains(target)
         ? m_markedWindows.value(target)
         : (m_lastMarkColor.isValid() ? m_lastMarkColor : m_markDefaultColor);
+    const QChar initialLetter = m_markedWindowLetters.contains(target)
+        ? m_markedWindowLetters.value(target)
+        : nextAvailableLetter();
 
-    const auto applyPickedColor = [this, targetWindow](const QColor &picked) {
-        if (picked.isValid() && targetWindow) {
-            setWindowMarkColor(targetWindow.data(), picked);
+    const auto applyMark = [this, targetWindow](const QColor &pickedCol, const QChar &pickedLetter) {
+        if (pickedCol.isValid() && targetWindow) {
+            setWindowMark(targetWindow.data(), pickedCol, pickedLetter);
         }
     };
 
-    // 1. Dedicated Qt6 color picker helper (natively supports alpha channel)
+    // 1. Dedicated Qt6 color picker helper (natively supports alpha channel and letter badge)
     QStringList candidateDirs;
 #ifdef COLORPICKER_INSTALL_DIR
     candidateDirs << QStringLiteral(COLORPICKER_INSTALL_DIR);
@@ -1929,19 +2009,26 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
     if (!customPicker.isEmpty()) {
         QProcess *process = new QProcess(this);
         connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
-                this, [process, applyPickedColor](int exitCode, QProcess::ExitStatus exitStatus) {
+                this, [process, applyMark, initialLetter](int exitCode, QProcess::ExitStatus exitStatus) {
             process->deleteLater();
             if (exitStatus == QProcess::NormalExit && exitCode == 0) {
                 const QString out = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
                 if (!out.isEmpty()) {
-                    applyPickedColor(QColor(out));
+                    const QStringList parts = out.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+                    if (!parts.isEmpty()) {
+                        const QColor picked(parts.at(0));
+                        const QChar pickedLetter = (parts.size() > 1 && !parts.at(1).isEmpty())
+                            ? parts.at(1).at(0).toUpper()
+                            : initialLetter;
+                        applyMark(picked, pickedLetter);
+                    }
                 }
             }
         });
         connect(process, &QProcess::errorOccurred, this, [process]() {
             process->deleteLater();
         });
-        process->start(customPicker, {initialColor.name(QColor::HexArgb)});
+        process->start(customPicker, {initialColor.name(QColor::HexArgb), QString(initialLetter)});
         return;
     }
 
@@ -1956,12 +2043,12 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
              << QStringLiteral("--title") << tr("Select Window Mark Color");
 
         connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
-                this, [process, applyPickedColor](int exitCode, QProcess::ExitStatus exitStatus) {
+                this, [process, applyMark, initialLetter](int exitCode, QProcess::ExitStatus exitStatus) {
             process->deleteLater();
             if (exitStatus == QProcess::NormalExit && exitCode == 0) {
                 const QString out = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
                 if (!out.isEmpty()) {
-                    applyPickedColor(QColor(out));
+                    applyMark(QColor(out), initialLetter);
                 }
             }
         });
@@ -1982,12 +2069,12 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
              << QStringLiteral("--title") << tr("Select Window Mark Color");
 
         connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
-                this, [process, applyPickedColor](int exitCode, QProcess::ExitStatus exitStatus) {
+                this, [process, applyMark, initialLetter](int exitCode, QProcess::ExitStatus exitStatus) {
             process->deleteLater();
             if (exitStatus == QProcess::NormalExit && exitCode == 0) {
                 const QString out = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
                 if (!out.isEmpty()) {
-                    applyPickedColor(QColor(out));
+                    applyMark(QColor(out), initialLetter);
                 }
             }
         });
@@ -2003,10 +2090,300 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
     dialog->setOption(QColorDialog::ShowAlphaChannel, true);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->setWindowTitle(tr("Select Window Mark Color"));
-    connect(dialog, &QColorDialog::colorSelected, this, [applyPickedColor](const QColor &color) {
-        applyPickedColor(color);
+    connect(dialog, &QColorDialog::colorSelected, this, [applyMark, initialLetter](const QColor &color) {
+        applyMark(color, initialLetter);
     });
     dialog->show();
+}
+
+void ActiveWindowOutlineEffect::slotTriggerJumpMode()
+{
+    if (m_jumpMode) {
+        cancelJumpMode();
+        return;
+    }
+
+    m_jumpLetterToWindow.clear();
+
+    const auto windows = effects->stackingOrder();
+    QList<EffectWindow *> candidates;
+    for (EffectWindow *w : windows) {
+        if (!w || w->isDeleted() || w->isDesktop() || w->isDock() || isBlockingPopup(w)) {
+            continue;
+        }
+        if (w->isMinimized() || w->isHiddenByShowDesktop() || !w->isOnCurrentDesktop()) {
+            continue;
+        }
+        if (m_jumpTargets == 1 && !m_markedWindows.contains(w)) {
+            continue;
+        }
+        candidates.append(w);
+    }
+
+    if (candidates.isEmpty()) {
+        return;
+    }
+
+    QSet<QChar> assignedLetters;
+    QList<EffectWindow *> unassignedCandidates;
+    for (EffectWindow *w : candidates) {
+        if (m_markedWindowLetters.contains(w)) {
+            const QChar ch = m_markedWindowLetters.value(w).toUpper();
+            if (!assignedLetters.contains(ch)) {
+                m_jumpLetterToWindow[ch] = w;
+                assignedLetters.insert(ch);
+                continue;
+            }
+        }
+        unassignedCandidates.append(w);
+    }
+
+    const QString &pool = OutlineBadge::preferredLetterPool();
+    int poolIdx = 0;
+    for (EffectWindow *w : unassignedCandidates) {
+        while (poolIdx < pool.length() && assignedLetters.contains(pool.at(poolIdx))) {
+            poolIdx++;
+        }
+        if (poolIdx < pool.length()) {
+            const QChar ch = pool.at(poolIdx);
+            m_jumpLetterToWindow[ch] = w;
+            assignedLetters.insert(ch);
+            poolIdx++;
+        }
+    }
+
+    if (m_jumpLetterToWindow.isEmpty()) {
+        return;
+    }
+
+    if (!effects->grabKeyboard(this)) {
+        m_jumpLetterToWindow.clear();
+        return;
+    }
+
+    m_jumpMode = true;
+    if (m_jumpTimeoutTimer) {
+        m_jumpTimeoutTimer->start(5000);
+    }
+    effects->addRepaintFull();
+}
+
+void ActiveWindowOutlineEffect::cancelJumpMode()
+{
+    if (!m_jumpMode) {
+        return;
+    }
+    m_jumpMode = false;
+    if (m_jumpTimeoutTimer && m_jumpTimeoutTimer->isActive()) {
+        m_jumpTimeoutTimer->stop();
+    }
+    m_jumpLetterToWindow.clear();
+    effects->ungrabKeyboard();
+    effects->addRepaintFull();
+}
+
+void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
+{
+    if (!m_jumpMode) {
+        return;
+    }
+    if (e->type() != QEvent::KeyPress) {
+        return;
+    }
+    if (e->key() == Qt::Key_Escape) {
+        cancelJumpMode();
+        return;
+    }
+
+    QString text = e->text().toUpper().trimmed();
+    if (text.isEmpty()) {
+        if (e->key() >= Qt::Key_A && e->key() <= Qt::Key_Z) {
+            text = QChar('A' + (e->key() - Qt::Key_A));
+        } else if (e->key() >= Qt::Key_0 && e->key() <= Qt::Key_9) {
+            text = QChar('0' + (e->key() - Qt::Key_0));
+        }
+    }
+
+    if (!text.isEmpty()) {
+        const QChar keyChar = text.at(0);
+        if (m_jumpLetterToWindow.contains(keyChar)) {
+            EffectWindow *target = m_jumpLetterToWindow.value(keyChar);
+            cancelJumpMode();
+            if (target && !target->isDeleted()) {
+                if (target->isMinimized()) {
+                    target->setMinimized(false);
+                }
+                effects->activateWindow(target);
+            }
+            return;
+        }
+    }
+
+    cancelJumpMode();
+}
+
+void ActiveWindowOutlineEffect::slotPrevRecentWindow()
+{
+    if (!m_isHistoryNavigating) {
+        m_historySnapshot.clear();
+        if (m_activeWindow && !m_activeWindow->isDeleted()) {
+            m_historySnapshot.append(m_activeWindow);
+        }
+        for (EffectWindow *recent : m_recentWindows) {
+            if (recent && !recent->isDeleted() && !m_historySnapshot.contains(recent)) {
+                m_historySnapshot.append(recent);
+            }
+        }
+        m_historyNavIndex = 0;
+        m_isHistoryNavigating = true;
+    }
+
+    if (m_historySnapshot.size() < 2) {
+        if (m_historyCommitTimer) {
+            m_historyCommitTimer->start(1500);
+        }
+        return;
+    }
+
+    int nextIdx = m_historyNavIndex + 1;
+    while (nextIdx < m_historySnapshot.size()) {
+        EffectWindow *candidate = m_historySnapshot.at(nextIdx);
+        if (candidate && !candidate->isDeleted()) {
+            m_historyNavIndex = nextIdx;
+            if (candidate->isMinimized()) {
+                candidate->setMinimized(false);
+            }
+            effects->activateWindow(candidate);
+            break;
+        } else {
+            nextIdx++;
+        }
+    }
+
+    if (m_historyCommitTimer) {
+        m_historyCommitTimer->start(1500);
+    }
+}
+
+void ActiveWindowOutlineEffect::slotNextRecentWindow()
+{
+    if (!m_isHistoryNavigating || m_historySnapshot.isEmpty()) {
+        return;
+    }
+
+    int prevIdx = m_historyNavIndex - 1;
+    while (prevIdx >= 0) {
+        EffectWindow *candidate = m_historySnapshot.at(prevIdx);
+        if (candidate && !candidate->isDeleted()) {
+            m_historyNavIndex = prevIdx;
+            if (candidate->isMinimized()) {
+                candidate->setMinimized(false);
+            }
+            effects->activateWindow(candidate);
+            break;
+        } else {
+            prevIdx--;
+        }
+    }
+
+    if (m_historyCommitTimer) {
+        m_historyCommitTimer->start(1500);
+    }
+}
+
+void ActiveWindowOutlineEffect::slotCommitHistoryNavigation()
+{
+    if (m_historyCommitTimer && m_historyCommitTimer->isActive()) {
+        m_historyCommitTimer->stop();
+    }
+    m_isHistoryNavigating = false;
+    m_historySnapshot.clear();
+    m_historyNavIndex = 0;
+}
+
+void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
+                                           const RenderViewport &viewport,
+                                           const QRectF &badgeRect,
+                                           const QChar &letter,
+                                           const QColor &bgColor,
+                                           const QColor &textColor,
+                                           bool isJumpMode)
+{
+    const qreal scale = viewport.scale();
+    const quint64 scaleKey = static_cast<quint64>(qRound(scale * 100));
+    const quint64 key = (static_cast<quint64>(letter.unicode()) << 48)
+        ^ (static_cast<quint64>(bgColor.rgba()) << 16)
+        ^ (static_cast<quint64>(textColor.rgba()))
+        ^ (scaleKey << 8)
+        ^ (isJumpMode ? 1 : 0);
+
+    std::shared_ptr<GLTexture> texture;
+    auto it = m_badgeTextureCache.find(key);
+    if (it != m_badgeTextureCache.end()) {
+        texture = it.value();
+    }
+    if (!texture || texture->isNull()) {
+        const QImage img = OutlineBadge::renderBadgeImage(letter, bgColor, textColor, isJumpMode, scale);
+        auto uploaded = GLTexture::upload(img);
+        if (!uploaded) {
+            return;
+        }
+        uploaded->setFilter(GL_LINEAR);
+        uploaded->setWrapMode(GL_CLAMP_TO_EDGE);
+        texture = std::shared_ptr<GLTexture>(uploaded.release());
+        m_badgeTextureCache[key] = texture;
+    }
+
+    const float x0 = badgeRect.left() * scale;
+    const float y0 = badgeRect.top() * scale;
+    const float x1 = badgeRect.right() * scale;
+    const float y1 = badgeRect.bottom() * scale;
+
+    const std::array<GLVertex2D, 6> verts = {{
+        {QVector2D(x0, y0), QVector2D(0.0f, 0.0f)},
+        {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+        {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+        {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+        {QVector2D(x1, y1), QVector2D(1.0f, 1.0f)},
+        {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+    }};
+
+    auto vbo = GLVertexBuffer::streamingBuffer();
+    vbo->setVertices(verts);
+
+    GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
+    GLint previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha;
+    glGetIntegerv(GL_BLEND_SRC_RGB, &previousSrcRgb);
+    glGetIntegerv(GL_BLEND_DST_RGB, &previousDstRgb);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &previousSrcAlpha);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &previousDstAlpha);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+    GLboolean scissorWasEnabled = glIsEnabled(GL_SCISSOR_TEST);
+    glDisable(GL_SCISSOR_TEST);
+
+    ShaderBinder binder(ShaderTrait::MapTexture | ShaderTrait::TransformColorspace);
+    GLShader *shader = binder.shader();
+    shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix, viewport.projectionMatrix());
+    shader->setUniform(GLShader::Mat4Uniform::TextureMatrix, texture->matrix(NormalizedCoordinates));
+    shader->setColorspaceUniforms(ColorDescription::sRGB, renderTarget.colorDescription(), RenderingIntent::Perceptual);
+
+    texture->bind();
+    vbo->render(GL_TRIANGLES);
+    texture->unbind();
+
+    if (scissorWasEnabled) {
+        glEnable(GL_SCISSOR_TEST);
+    }
+
+    glBlendFuncSeparate(previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha);
+    if (blendWasEnabled) {
+        glEnable(GL_BLEND);
+    } else {
+        glDisable(GL_BLEND);
+    }
 }
 
 void ActiveWindowOutlineEffect::slotWindowMinimizedChanged(EffectWindow *w)
@@ -2089,6 +2466,9 @@ QRectF ActiveWindowOutlineEffect::expandedGeometryFor(EffectWindow *w) const
 
 bool ActiveWindowOutlineEffect::isActive() const
 {
+    if (m_jumpMode) {
+        return true;
+    }
     if (effects->hasActiveFullScreenEffect()) {
         return false;
     }
@@ -2291,6 +2671,15 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
             data.paint += expandedGeometryFor(marked).toAlignedRect();
         }
     }
+
+    if (m_jumpMode) {
+        for (auto it = m_jumpLetterToWindow.constBegin(); it != m_jumpLetterToWindow.constEnd(); ++it) {
+            EffectWindow *jw = it.value();
+            if (jw && !jw->isDeleted() && jw->isOnCurrentDesktop()) {
+                data.paint += jw->frameGeometry().toAlignedRect();
+            }
+        }
+    }
 }
 
 #ifdef ACTIVE_WINDOW_OUTLINE_PREPAINT_PRESENT_TIME
@@ -2368,7 +2757,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     std::unique_ptr<OutlineCursorOverlay> cursorOverlay;
     // Only defer the cursor for the ordinary output pass. Transformed/offscreen
     // effects own their own cursor handling and must retain their scene filters.
-    if ((drawOutline || drawDelayed || hasRecentToDraw || hasMarkedToDraw) && m_sceneView && m_sceneView->scene() == effects->scene()
+    if ((drawOutline || drawDelayed || hasRecentToDraw || hasMarkedToDraw || m_jumpMode) && m_sceneView && m_sceneView->scene() == effects->scene()
         && m_sceneView->logicalOutput() == screen
         && m_sceneView->viewport() == viewport.renderRect()
         && m_sceneView->scale() == viewport.scale()
@@ -2402,7 +2791,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         }
     }
 
-    if (!drawOutline && !drawDelayed && !hasRecentToDraw && !hasMarkedToDraw) {
+    if (!drawOutline && !drawDelayed && !hasRecentToDraw && !hasMarkedToDraw && !m_jumpMode) {
 #ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
         return true;
 #else
@@ -2474,6 +2863,43 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             m_lastGeometry[w] = currentGeo;
         }
         renderOutline(renderTarget, viewport, m_outlineCache[w], deviceRegion, w, m_visibilityState.visibilityOpacity);
+    }
+
+    if (!m_jumpMode && m_markShowLetterBadges && !inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked) {
+        for (auto it = m_markedWindows.constBegin(); it != m_markedWindows.constEnd(); ++it) {
+            EffectWindow *marked = it.key();
+            if (!marked || marked->isDeleted() || marked->isMinimized()
+                || marked->isHiddenByShowDesktop() || !marked->isOnCurrentDesktop()
+                || (m_hideOnFullScreen && marked->isFullScreen())
+                || isBlockingPopup(marked)) {
+                continue;
+            }
+            const QChar letter = m_markedWindowLetters.value(marked, nextAvailableLetter());
+            const QColor bgCol = it.value();
+            const QColor textCol = (bgCol.lightness() > 140) ? Qt::black : Qt::white;
+            const QRectF geo = marked->frameGeometry();
+            const QRectF badgeRect(geo.left() + 10, geo.top() + 10, 36, 26);
+            renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, false);
+        }
+    }
+
+    if (m_jumpMode && !inhibited) {
+        for (auto it = m_jumpLetterToWindow.constBegin(); it != m_jumpLetterToWindow.constEnd(); ++it) {
+            const QChar letter = it.key();
+            EffectWindow *target = it.value();
+            if (!target || target->isDeleted() || target->isMinimized()
+                || target->isHiddenByShowDesktop() || !target->isOnCurrentDesktop()
+                || target->isDesktop() || target->isDock()) {
+                continue;
+            }
+            const QColor bgCol = m_markedWindows.contains(target)
+                ? m_markedWindows.value(target)
+                : QColor(35, 38, 41, 235);
+            const QColor textCol = (bgCol.lightness() > 140) ? Qt::black : Qt::white;
+            const QRectF geo = target->frameGeometry();
+            const QRectF badgeRect(geo.center().x() - 23, geo.center().y() - 17, 46, 34);
+            renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, true);
+        }
     }
 
 #ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES

@@ -311,6 +311,8 @@ set_default MarkInactiveWidthReduction 0
 set_default MarkInactiveDashed false
 set_default MarkInactiveDashGap 6
 set_default MarkInactiveDashSmooth false
+set_default MarkShowLetterBadges true
+set_default JumpTargets 0
 
 if command -v qdbus6 >/dev/null 2>&1; then
   qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
