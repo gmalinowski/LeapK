@@ -19,6 +19,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Real-time full repaint when stacking order or virtual desktop changes (`stackingOrderChanged`, `desktopChanged`).
 
 ### Fixed
+- **Immediate Previous Window Highlighting Order (`updateRecentWindowsFromHistory`)**:
+  - Fixed an issue where the most recently deactivated window was skipped and outlines erroneously started from the 2nd most recent window instead of the 1st.
+  - Active window assignment is now updated before computing recent window candidates from history, ensuring the immediate previous window is always at index 0 and highlighted as expected.
+  - Added modular `OutlineHistory` helper and comprehensive unit test suite (`outline-history-test`).
 - **Recent Window Highlight Count Limit (`RecentWindowsCount`)**:
   - Fixed an issue where all windows in history received outlines regardless of the configured limit.
   - The rendered recent window count now strictly honors `RecentWindowsCount` (e.g. 1 window only when set to 1), immediately erasing outlines and pruning cache when older windows cycle out of the recency limit.

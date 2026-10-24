@@ -11,6 +11,7 @@
 #include <opengl/glshader.h>
 #include <opengl/glvertexbuffer.h>
 #include "badgehelper.h"
+#include "historyhelper.h"
 
 #include <QColor>
 #include <QElapsedTimer>

@@ -1111,6 +1111,7 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
     m_outlineCache.remove(w);
 
     updatePopupBlockingState();
+    updateRecentWindowsFromHistory();
     repaintAllOutlines();
 }
 
@@ -1703,6 +1704,8 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
         m_recentCycleColors.remove(w);
     }
 
+    m_activeWindow = w;
+
     m_historyNavIndex = 0;
     while (m_windowHistory.size() > 50) {
         m_windowHistory.removeLast();
@@ -1710,6 +1713,11 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
     updateRecentWindowsFromHistory();
 
     if (m_highlightRecentWindow) {
+        if (previous) {
+            effects->addRepaint(expandedGeometryFor(previous));
+            m_outlineCache.remove(previous);
+            m_lastGeometry.remove(previous);
+        }
         for (EffectWindow *recent : m_recentWindows) {
             if (recent) {
                 effects->addRepaint(expandedGeometryFor(recent));
@@ -1776,12 +1784,12 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
         }
     }
 
-    m_activeWindow = w;
-
-    if (w && m_markedWindows.contains(w)) {
+    if (w) {
         m_outlineCache.remove(w);
         m_lastGeometry.remove(w);
-        effects->addRepaint(expandedGeometryFor(w));
+        if (m_markedWindows.contains(w)) {
+            effects->addRepaint(expandedGeometryFor(w));
+        }
     }
 
     if (!w) {
@@ -2242,17 +2250,14 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 void ActiveWindowOutlineEffect::updateRecentWindowsFromHistory()
 {
     const QList<EffectWindow *> oldRecents = m_recentWindows;
-    m_recentWindows.clear();
-    if (m_highlightRecentWindow) {
-        for (EffectWindow *win : m_windowHistory) {
-            if (win && win != m_activeWindow && !win->isDeleted() && !win->isDesktop() && !win->isDock()) {
-                m_recentWindows.append(win);
-                if (m_recentWindows.size() >= m_recentWindowsCount) {
-                    break;
-                }
-            }
-        }
-    }
+    m_recentWindows = OutlineHistory::computeRecentWindows(
+        m_windowHistory,
+        m_activeWindow,
+        m_recentWindowsCount,
+        m_highlightRecentWindow,
+        [](EffectWindow *win) {
+            return !win->isDeleted() && !win->isDesktop() && !win->isDock();
+        });
 
     for (EffectWindow *oldWin : oldRecents) {
         if (oldWin && !m_recentWindows.contains(oldWin) && oldWin != m_activeWindow && !m_markedWindows.contains(oldWin)) {
@@ -2396,6 +2401,7 @@ void ActiveWindowOutlineEffect::slotCommitHistoryNavigation()
         if (committedWindow && !committedWindow->isDeleted()) {
             m_windowHistory.removeAll(committedWindow);
             m_windowHistory.prepend(committedWindow);
+            m_activeWindow = committedWindow;
         }
     }
     m_historyNavIndex = 0;
