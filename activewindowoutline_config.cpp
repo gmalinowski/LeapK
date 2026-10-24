@@ -6,6 +6,7 @@
 
 #include "activewindowoutline_config.h"
 #include "ui_activewindowoutline_config.h"
+#include "precedencehelper.h"
 
 #include <KColorScheme>
 #include <KConfigGroup>
@@ -184,7 +185,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("RecentWindowGapGrowth"), *new int, 6);
     m_configSkeleton->addItemBool(QStringLiteral("RecentWindowDashSmooth"), *new bool, false);
     m_configSkeleton->addItemColor(QStringLiteral("MarkDefaultColor"), *new QColor, QColor(QStringLiteral("#e74c3c")));
-    m_configSkeleton->addItemBool(QStringLiteral("MarkActiveColorPriority"), *new bool, false);
+    m_configSkeleton->addItemString(QStringLiteral("StylePrecedence"), *new QString, QStringLiteral("Active,Marked,Recent"));
     m_configSkeleton->addItemInt(QStringLiteral("MarkInactiveWidthReduction"), *new int, 0);
     m_configSkeleton->addItemBool(QStringLiteral("MarkInactiveDashed"), *new bool, false);
     m_configSkeleton->addItemInt(QStringLiteral("MarkInactiveDashGap"), *new int, 6);
@@ -485,6 +486,21 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->kcfg_MarkInactiveDashed, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
     updateMarkWindowUI();
 
+    connect(m_ui->btnPrecedenceUp, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::movePrecedenceUp);
+    connect(m_ui->btnPrecedenceDown, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::movePrecedenceDown);
+    connect(m_ui->btnPrecedenceReset, &QPushButton::clicked, this, [this] {
+        populatePrecedenceList(QStringLiteral("Active,Marked,Recent"));
+        markAsChanged();
+    });
+    connect(m_ui->listPrecedence, &QListWidget::currentRowChanged, this, [this] {
+        updatePrecedenceButtons();
+    });
+    connect(m_ui->listPrecedence->model(), &QAbstractItemModel::rowsMoved, this, [this] {
+        updatePrecedenceButtons();
+        updatePrecedenceExplanation();
+        markAsChanged();
+    });
+
     load();
 }
 
@@ -519,6 +535,117 @@ void ActiveWindowOutlineConfig::updateMarkWindowUI()
     m_ui->label_markInactiveDashGap->setEnabled(dashed);
     m_ui->kcfg_MarkInactiveDashGap->setEnabled(dashed);
     m_ui->kcfg_MarkInactiveDashSmooth->setEnabled(dashed);
+}
+
+void ActiveWindowOutlineConfig::populatePrecedenceList(const QString &serialized)
+{
+    m_ui->listPrecedence->clear();
+    const QStringList keys = OutlinePrecedence::parsePrecedence(serialized);
+
+    for (const QString &key : keys) {
+        if (key.compare(QStringLiteral("Active"), Qt::CaseInsensitive) == 0) {
+            auto *item = new QListWidgetItem(QIcon::fromTheme(QStringLiteral("preferences-system-windows")),
+                                             tr("Active Window (focused window, active color & animations)"));
+            item->setData(Qt::UserRole, QStringLiteral("Active"));
+            m_ui->listPrecedence->addItem(item);
+        } else if (key.compare(QStringLiteral("Marked"), Qt::CaseInsensitive) == 0) {
+            auto *item = new QListWidgetItem(QIcon::fromTheme(QStringLiteral("bookmarks")),
+                                             tr("Marked Windows (pinned window with custom mark color & style)"));
+            item->setData(Qt::UserRole, QStringLiteral("Marked"));
+            m_ui->listPrecedence->addItem(item);
+        } else if (key.compare(QStringLiteral("Recent"), Qt::CaseInsensitive) == 0) {
+            auto *item = new QListWidgetItem(QIcon::fromTheme(QStringLiteral("document-open-recent")),
+                                             tr("Recent Windows (previously focused history)"));
+            item->setData(Qt::UserRole, QStringLiteral("Recent"));
+            m_ui->listPrecedence->addItem(item);
+        }
+    }
+    if (m_ui->listPrecedence->count() > 0) {
+        m_ui->listPrecedence->setCurrentRow(0);
+    }
+    updatePrecedenceButtons();
+    updatePrecedenceExplanation();
+}
+
+QString ActiveWindowOutlineConfig::serializePrecedenceList() const
+{
+    QStringList keys;
+    for (int i = 0; i < m_ui->listPrecedence->count(); ++i) {
+        keys.append(m_ui->listPrecedence->item(i)->data(Qt::UserRole).toString());
+    }
+    return keys.join(QLatin1Char(','));
+}
+
+void ActiveWindowOutlineConfig::updatePrecedenceButtons()
+{
+    const int row = m_ui->listPrecedence->currentRow();
+    const int count = m_ui->listPrecedence->count();
+    m_ui->btnPrecedenceUp->setEnabled(row > 0);
+    m_ui->btnPrecedenceDown->setEnabled(row >= 0 && row < count - 1);
+}
+
+void ActiveWindowOutlineConfig::updatePrecedenceExplanation()
+{
+    QStringList order;
+    for (int i = 0; i < m_ui->listPrecedence->count(); ++i) {
+        order.append(m_ui->listPrecedence->item(i)->data(Qt::UserRole).toString());
+    }
+    const int rankActive = order.indexOf(QStringLiteral("Active"));
+    const int rankMarked = order.indexOf(QStringLiteral("Marked"));
+    const int rankRecent = order.indexOf(QStringLiteral("Recent"));
+
+    QString explanation;
+    explanation += QStringLiteral("<b>Priority order:</b> ");
+    QStringList names;
+    for (int i = 0; i < order.size(); ++i) {
+        names.append(QStringLiteral("%1. %2").arg(i + 1).arg(order.at(i)));
+    }
+    explanation += names.join(QStringLiteral(" &gt; "));
+    explanation += QStringLiteral("<br><br>");
+
+    if (rankActive >= 0 && rankMarked >= 0) {
+        if (rankActive < rankMarked) {
+            explanation += tr("• <b>Focused marked window</b>: <i>Active style wins</i> — uses full active outline appearance (active color/ambilight/cycle, border width, and shader animations).<br>");
+        } else {
+            explanation += tr("• <b>Focused marked window</b>: <i>Marked style wins</i> — keeps its custom mark color and style without being overridden by active color or active shaders.<br>");
+        }
+    }
+
+    if (rankMarked >= 0 && rankRecent >= 0) {
+        if (rankMarked < rankRecent) {
+            explanation += tr("• <b>Inactive marked window in recent history</b>: <i>Marked style wins</i> — retains its custom mark color and style, ignoring recent decay (saturation drop, hue shift, gap growth, width reduction).<br>");
+        } else {
+            explanation += tr("• <b>Inactive marked window in recent history</b>: <i>Recent style wins</i> — participates in recent window decay (takes recent color, opacity decay, width reduction, and dash gap growth).<br>");
+        }
+    }
+
+    explanation += tr("<br><i>Note: Active and Recent are mutually exclusive because a window cannot be focused and inactive simultaneously.</i>");
+
+    m_ui->label_precedenceExplanation->setText(explanation);
+}
+
+void ActiveWindowOutlineConfig::movePrecedenceUp()
+{
+    int row = m_ui->listPrecedence->currentRow();
+    if (row <= 0) return;
+    QListWidgetItem *item = m_ui->listPrecedence->takeItem(row);
+    m_ui->listPrecedence->insertItem(row - 1, item);
+    m_ui->listPrecedence->setCurrentRow(row - 1);
+    updatePrecedenceButtons();
+    updatePrecedenceExplanation();
+    markAsChanged();
+}
+
+void ActiveWindowOutlineConfig::movePrecedenceDown()
+{
+    int row = m_ui->listPrecedence->currentRow();
+    if (row < 0 || row >= m_ui->listPrecedence->count() - 1) return;
+    QListWidgetItem *item = m_ui->listPrecedence->takeItem(row);
+    m_ui->listPrecedence->insertItem(row + 1, item);
+    m_ui->listPrecedence->setCurrentRow(row + 1);
+    updatePrecedenceButtons();
+    updatePrecedenceExplanation();
+    markAsChanged();
 }
 
 void ActiveWindowOutlineConfig::addColorRow(const QColor &color, double holdTime)
@@ -747,6 +874,7 @@ void ActiveWindowOutlineConfig::load()
     const bool ensureContrast = group.readEntry("EnsurePerimeterContrast", group.readEntry("AmbilightEnsureContrast", true));
     m_ui->kcfg_EnsurePerimeterContrast->setChecked(ensureContrast);
     populateColorTable(group.readEntry(QStringLiteral("ColorList"), QStringLiteral("#3daee9:3.0;#2ecc71:3.0;#9b59b6:3.0")));
+    populatePrecedenceList(group.readEntry(QStringLiteral("StylePrecedence"), QStringLiteral("Active,Marked,Recent")));
     updatePresetSelector();
     const bool fadeCorners = m_ui->kcfg_FadeCorners->isChecked();
     m_ui->label_borderRadius->setEnabled(!fadeCorners);
@@ -760,6 +888,7 @@ void ActiveWindowOutlineConfig::defaults()
 {
     KCModule::defaults();
     populateColorTable(QStringLiteral("#3daee9:3.0;#2ecc71:3.0;#9b59b6:3.0"));
+    populatePrecedenceList(QStringLiteral("Active,Marked,Recent"));
     updatePresetSelector();
     const bool fadeCorners = m_ui->kcfg_FadeCorners->isChecked();
     m_ui->label_borderRadius->setEnabled(!fadeCorners);
@@ -922,6 +1051,7 @@ void ActiveWindowOutlineConfig::save()
     KConfigGroup group = KSharedConfig::openConfig(QStringLiteral("kwinrc"))->group(QStringLiteral("Effect-active-window-outline"));
     group.writeEntry(QStringLiteral("ColorList"), serializeColorTable());
     group.writeEntry(QStringLiteral("AmbilightEnsureContrast"), m_ui->kcfg_EnsurePerimeterContrast->isChecked());
+    group.writeEntry(QStringLiteral("StylePrecedence"), serializePrecedenceList());
     group.sync();
 
     QDBusMessage message = QDBusMessage::createMethodCall(

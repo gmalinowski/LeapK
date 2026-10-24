@@ -39,6 +39,13 @@ private:
     void updateRecentWindowUI();
     void updateMarkWindowUI();
 
+    void populatePrecedenceList(const QString &serialized);
+    QString serializePrecedenceList() const;
+    void updatePrecedenceExplanation();
+    void updatePrecedenceButtons();
+    void movePrecedenceUp();
+    void movePrecedenceDown();
+
     Ui::ActiveWindowOutlineConfigForm *m_ui;
     KConfigSkeleton *m_configSkeleton = nullptr;
     QNetworkAccessManager *m_networkManager = nullptr;

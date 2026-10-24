@@ -6,6 +6,7 @@
 
 #include "activewindowoutline.h"
 #include "popupfilter.h"
+#include "precedencehelper.h"
 #include <QPainter>
 #include <effect/effecthandler.h>
 #include <effect/effectwindow.h>
@@ -673,11 +674,11 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_recentWindowGapGrowth = qBound(0, config.readEntry("RecentWindowGapGrowth", 6), 30);
     m_recentWindowDashSmooth = config.readEntry("RecentWindowDashSmooth", false);
     m_markDefaultColor = config.readEntry("MarkDefaultColor", QColor(QStringLiteral("#e74c3c")));
-    m_markActiveColorPriority = config.readEntry("MarkActiveColorPriority", false);
     m_markInactiveWidthReduction = qBound(0, config.readEntry("MarkInactiveWidthReduction", 0), 10);
     m_markInactiveDashed = config.readEntry("MarkInactiveDashed", false);
     m_markInactiveDashGap = qBound(1, config.readEntry("MarkInactiveDashGap", 6), 40);
     m_markInactiveDashSmooth = config.readEntry("MarkInactiveDashSmooth", false);
+    m_stylePrecedence = OutlinePrecedence::parsePrecedence(config.readEntry("StylePrecedence", QStringLiteral("Active,Marked,Recent")));
     if (!m_lastMarkColor.isValid()) {
         m_lastMarkColor = m_markDefaultColor;
     }
@@ -887,30 +888,41 @@ QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity, EffectWindow
     QColor color;
     const qreal elapsedSec = m_animationClock.isValid() ? (m_animationClock.elapsed() / 1000.0) : 0.0;
     const bool isFocus = (w == m_activeWindow);
-    const bool isRecent = (w != nullptr && m_recentWindows.contains(w) && !isFocus);
+    const bool isRecentInHistory = (w != nullptr && m_recentWindows.contains(w) && !isFocus);
     const bool isMarked = (w != nullptr && m_markedWindows.contains(w));
 
-    const bool activeOverridesMark = isFocus && m_markActiveColorPriority;
+    int rankActive = m_stylePrecedence.indexOf(QStringLiteral("Active"));
+    int rankMarked = m_stylePrecedence.indexOf(QStringLiteral("Marked"));
+    int rankRecent = m_stylePrecedence.indexOf(QStringLiteral("Recent"));
+    if (rankActive < 0) rankActive = 0;
+    if (rankMarked < 0) rankMarked = 1;
+    if (rankRecent < 0) rankRecent = 2;
 
-    if (isMarked && !activeOverridesMark) {
+    const bool activeOverridesMark = isFocus && (rankActive < rankMarked);
+    const bool recentOverridesMark = isRecentInHistory && (rankRecent < rankMarked);
+
+    const bool treatAsMarked = isMarked && !activeOverridesMark && !recentOverridesMark;
+    const bool treatAsRecent = isRecentInHistory && (!isMarked || recentOverridesMark);
+
+    if (treatAsMarked) {
         color = m_markedWindows.value(w);
-    } else if (isRecent && m_recentWindowColorMode == 1) {
+    } else if (treatAsRecent && m_recentWindowColorMode == 1) {
         color = m_recentWindowCustomColor;
     } else if (m_colorCycleEnabled && !m_colorStops.isEmpty()) {
-        if (isRecent && m_recentCycleColors.contains(w) && m_recentCycleColors.value(w).isValid()) {
+        if (treatAsRecent && m_recentCycleColors.contains(w) && m_recentCycleColors.value(w).isValid()) {
             color = m_recentCycleColors.value(w);
         } else {
             color = const_cast<ActiveWindowOutlineEffect *>(this)->currentCycleColor(elapsedSec);
         }
     } else if (m_ambilightEnabled) {
-        if (isRecent && m_recentAmbilightColors.contains(w) && m_recentAmbilightColors.value(w).isValid()) {
+        if (treatAsRecent && m_recentAmbilightColors.contains(w) && m_recentAmbilightColors.value(w).isValid()) {
             color = m_recentAmbilightColors.value(w);
         } else {
             color = const_cast<ActiveWindowOutlineEffect *>(this)->currentAmbilightColor(elapsedSec);
         }
         color.setAlphaF(color.alphaF() * (m_ambilightOpacity / 100.0));
-    } else if (m_ensurePerimeterContrast && (isRecent && m_recentAmbilightColors.contains(w) ? m_recentAmbilightColors.value(w).isValid() : m_ambilightCurrentColor.isValid())) {
-        if (isRecent && m_recentAmbilightColors.contains(w) && m_recentAmbilightColors.value(w).isValid()) {
+    } else if (m_ensurePerimeterContrast && (treatAsRecent && m_recentAmbilightColors.contains(w) ? m_recentAmbilightColors.value(w).isValid() : m_ambilightCurrentColor.isValid())) {
+        if (treatAsRecent && m_recentAmbilightColors.contains(w) && m_recentAmbilightColors.value(w).isValid()) {
             color = m_recentAmbilightColors.value(w);
         } else {
             color = const_cast<ActiveWindowOutlineEffect *>(this)->currentAmbilightColor(elapsedSec);
@@ -926,7 +938,7 @@ QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity, EffectWindow
         color = m_customColor;
     }
 
-    if (isRecent && !isMarked) {
+    if (treatAsRecent) {
         const int recentIdx = m_recentWindows.indexOf(w);
         if (recentIdx >= 0) {
             const bool isCustom = (m_recentWindowColorMode == 1);
@@ -934,7 +946,7 @@ QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity, EffectWindow
         }
     }
 
-    if (w == m_activeWindow && (m_breatheEnabled || m_neonFlickerEnabled || m_flashEnabled || m_glitchEnabled)) {
+    if (w == m_activeWindow && !treatAsMarked && (m_breatheEnabled || m_neonFlickerEnabled || m_flashEnabled || m_glitchEnabled)) {
         const qreal breathe = computeBreatheFactor(elapsedSec);
         const qreal neon = computeNeonFactor(elapsedSec);
         const qreal flash = computeFlashFactor(elapsedSec);
@@ -1294,22 +1306,35 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
 
     const bool isFocus = (outlinedWindow == m_activeWindow);
     const bool isMarked = (outlinedWindow != nullptr && m_markedWindows.contains(outlinedWindow));
-    const bool isRecent = (!isMarked && outlinedWindow != nullptr && m_recentWindows.contains(outlinedWindow) && !isFocus);
-    const int recentIdx = isRecent ? m_recentWindows.indexOf(outlinedWindow) : -1;
+    const bool isRecentInHistory = (outlinedWindow != nullptr && m_recentWindows.contains(outlinedWindow) && !isFocus);
+
+    int rankActive = m_stylePrecedence.indexOf(QStringLiteral("Active"));
+    int rankMarked = m_stylePrecedence.indexOf(QStringLiteral("Marked"));
+    int rankRecent = m_stylePrecedence.indexOf(QStringLiteral("Recent"));
+    if (rankActive < 0) rankActive = 0;
+    if (rankMarked < 0) rankMarked = 1;
+    if (rankRecent < 0) rankRecent = 2;
+
+    const bool activeOverridesMark = isFocus && (rankActive < rankMarked);
+    const bool recentOverridesMark = isRecentInHistory && (rankRecent < rankMarked);
+
+    const bool treatAsMarked = isMarked && !activeOverridesMark && !recentOverridesMark;
+    const bool treatAsRecent = isRecentInHistory && (!isMarked || recentOverridesMark);
+    const int recentIdx = treatAsRecent ? m_recentWindows.indexOf(outlinedWindow) : -1;
 
     bool isDashed = false;
     bool isSmooth = false;
     qreal effDash = 12.0 * scale;
     qreal effPeriod = 20.0 * scale;
 
-    if (isMarked && !isFocus) {
+    if (treatAsMarked && !isFocus) {
         isDashed = m_markInactiveDashed;
         isSmooth = m_markInactiveDashSmooth;
         if (isDashed) {
             const qreal perimeter = OutlineGeometry::computeRoundedRectPerimeter(cache.outerRect, cache.outerRadius, scale);
             OutlineGeometry::computeCustomDashPattern(12.0, m_markInactiveDashGap, perimeter, scale, effDash, effPeriod);
         }
-    } else if (isRecent) {
+    } else if (treatAsRecent) {
         isDashed = m_recentWindowDashed && (recentIdx >= 0);
         isSmooth = m_recentWindowDashSmooth;
         if (isDashed) {
@@ -2229,9 +2254,16 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
         data.paint += expandedGeometryFor(m_delayedHideWindow).toAlignedRect();
     }
 
+    int rankMarked = m_stylePrecedence.indexOf(QStringLiteral("Marked"));
+    int rankRecent = m_stylePrecedence.indexOf(QStringLiteral("Recent"));
+    if (rankMarked < 0) rankMarked = 1;
+    if (rankRecent < 0) rankRecent = 2;
+    const bool recentOverridesMark = (rankRecent < rankMarked);
+
     if (m_highlightRecentWindow) {
         for (EffectWindow *recent : m_recentWindows) {
-            if (recent && recent != w && !m_markedWindows.contains(recent) && !recent->isDeleted()
+            const bool markedRecentSkipped = m_markedWindows.contains(recent) && !recentOverridesMark;
+            if (recent && recent != w && !markedRecentSkipped && !recent->isDeleted()
                 && recent->isOnCurrentDesktop() && !recent->isMinimized()
                 && !recent->isHiddenByShowDesktop()
                 && !(m_hideOnFullScreen && recent->isFullScreen())
@@ -2243,7 +2275,8 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
 
     for (auto it = m_markedWindows.constBegin(); it != m_markedWindows.constEnd(); ++it) {
         EffectWindow *marked = it.key();
-        if (!marked || marked == w || marked->isDeleted() || !marked->isOnCurrentDesktop()) {
+        const bool recentMarkedSkipped = m_highlightRecentWindow && m_recentWindows.contains(marked) && recentOverridesMark;
+        if (!marked || marked == w || recentMarkedSkipped || marked->isDeleted() || !marked->isOnCurrentDesktop()) {
             continue;
         }
         if (marked->isMinimized() || marked->isHiddenByShowDesktop()) {
@@ -2297,10 +2330,17 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         && !m_delayedHideWindow->isDeleted() && !m_delayedHideWindow->isMinimized()
         && !m_delayedHideWindow->isHiddenByShowDesktop() && m_delayedHideWindow->isOnCurrentDesktop()
         && m_delayedHideState.isEffectivelyVisible());
+    int rankMarked = m_stylePrecedence.indexOf(QStringLiteral("Marked"));
+    int rankRecent = m_stylePrecedence.indexOf(QStringLiteral("Recent"));
+    if (rankMarked < 0) rankMarked = 1;
+    if (rankRecent < 0) rankRecent = 2;
+    const bool recentOverridesMark = (rankRecent < rankMarked);
+
     bool hasRecentToDraw = false;
     if (!inhibited && m_highlightRecentWindow && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked) {
         for (EffectWindow *recent : m_recentWindows) {
-            if (recent && recent != w && !m_markedWindows.contains(recent) && !recent->isDeleted() && !recent->isMinimized()
+            const bool markedRecentSkipped = m_markedWindows.contains(recent) && !recentOverridesMark;
+            if (recent && recent != w && !markedRecentSkipped && !recent->isDeleted() && !recent->isMinimized()
                 && !recent->isHiddenByShowDesktop() && recent->isOnCurrentDesktop()
                 && !(m_hideOnFullScreen && recent->isFullScreen())
                 && !isBlockingPopup(recent)) {
@@ -2313,7 +2353,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     if (!inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked) {
         for (auto it = m_markedWindows.constBegin(); it != m_markedWindows.constEnd(); ++it) {
             EffectWindow *marked = it.key();
-            if (marked && marked != w
+            const bool recentMarkedSkipped = m_highlightRecentWindow && m_recentWindows.contains(marked) && recentOverridesMark;
+            if (marked && marked != w && !recentMarkedSkipped
                 && !marked->isDeleted() && !marked->isMinimized()
                 && !marked->isHiddenByShowDesktop() && marked->isOnCurrentDesktop()
                 && !(m_hideOnFullScreen && marked->isFullScreen())
@@ -2381,7 +2422,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     if (hasMarkedToDraw) {
         for (auto it = m_markedWindows.constBegin(); it != m_markedWindows.constEnd(); ++it) {
             EffectWindow *marked = it.key();
-            if (!marked || marked == w
+            const bool recentMarkedSkipped = m_highlightRecentWindow && m_recentWindows.contains(marked) && recentOverridesMark;
+            if (!marked || marked == w || recentMarkedSkipped
                 || marked->isDeleted() || marked->isMinimized()
                 || marked->isHiddenByShowDesktop() || !marked->isOnCurrentDesktop()
                 || (m_hideOnFullScreen && marked->isFullScreen())
@@ -2404,7 +2446,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     if (hasRecentToDraw) {
         for (int i = m_recentWindows.size() - 1; i >= 0; --i) {
             EffectWindow *recent = m_recentWindows.at(i);
-            if (!recent || recent == w || m_markedWindows.contains(recent) || recent->isDeleted() || recent->isMinimized()
+            const bool markedRecentSkipped = m_markedWindows.contains(recent) && !recentOverridesMark;
+            if (!recent || recent == w || markedRecentSkipped || recent->isDeleted() || recent->isMinimized()
                 || recent->isHiddenByShowDesktop() || !recent->isOnCurrentDesktop()
                 || (m_hideOnFullScreen && recent->isFullScreen())
                 || isBlockingPopup(recent)) {

@@ -187,6 +187,11 @@ if(OUTLINE_BUILD_TESTS)
     target_link_libraries(outline-versioncheck-test PRIVATE Qt6::Core)
     add_test(NAME outline-versioncheck COMMAND outline-versioncheck-test)
 
+    add_executable(outline-precedence-test tests/precedence_test.cpp)
+    target_include_directories(outline-precedence-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-precedence-test PRIVATE Qt6::Core)
+    add_test(NAME outline-precedence COMMAND outline-precedence-test)
+
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
         add_test(NAME outline-config-sync COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/configsync_test.py)

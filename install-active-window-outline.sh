@@ -306,7 +306,7 @@ set_default RecentWindowDashed false
 set_default RecentWindowGapGrowth 6
 set_default RecentWindowDashSmooth false
 set_default MarkDefaultColor "231, 76, 60"
-set_default MarkActiveColorPriority false
+set_default StylePrecedence "Active,Marked,Recent"
 set_default MarkInactiveWidthReduction 0
 set_default MarkInactiveDashed false
 set_default MarkInactiveDashGap 6

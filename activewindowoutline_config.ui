@@ -1707,17 +1707,7 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="0" colspan="2">
-           <widget class="QCheckBox" name="kcfg_MarkActiveColorPriority">
-            <property name="text">
-             <string>Active window color takes priority over mark color when focused</string>
-            </property>
-            <property name="toolTip">
-             <string>When enabled, marked windows will display the regular active outline color (Accent, Ambilight, Custom, or Cycling) while focused, and only show their custom mark color when inactive.</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0">
+          <item row="2" column="0">
            <widget class="QLabel" name="label_markInactiveWidthReduction">
             <property name="text">
              <string>Inactive width reduction:</string>
@@ -1727,7 +1717,7 @@
             </property>
            </widget>
           </item>
-          <item row="3" column="1">
+          <item row="2" column="1">
            <widget class="QSpinBox" name="kcfg_MarkInactiveWidthReduction">
             <property name="toolTip">
              <string>Reduces the outline border thickness for inactive marked windows by this amount in pixels (default: 0 px / same width). Clamped to a minimum of 1 px.</string>
@@ -1752,7 +1742,7 @@
             </property>
            </widget>
           </item>
-          <item row="4" column="0" colspan="2">
+          <item row="3" column="0" colspan="2">
            <widget class="QCheckBox" name="kcfg_MarkInactiveDashed">
             <property name="text">
              <string>Dashed outline for inactive marked windows</string>
@@ -1762,7 +1752,7 @@
             </property>
            </widget>
           </item>
-          <item row="5" column="0">
+          <item row="4" column="0">
            <widget class="QLabel" name="label_markInactiveDashGap">
             <property name="text">
              <string>Dash gap:</string>
@@ -1772,7 +1762,7 @@
             </property>
            </widget>
           </item>
-          <item row="5" column="1">
+          <item row="4" column="1">
            <widget class="QSpinBox" name="kcfg_MarkInactiveDashGap">
             <property name="toolTip">
              <string>Spacing / gap between dashes in pixels for inactive marked window outlines (default: 6 px).</string>
@@ -1794,7 +1784,7 @@
             </property>
            </widget>
           </item>
-          <item row="6" column="0" colspan="2">
+          <item row="5" column="0" colspan="2">
            <widget class="QCheckBox" name="kcfg_MarkInactiveDashSmooth">
             <property name="text">
              <string>Smooth dash transitions (soft fading)</string>
@@ -1845,6 +1835,131 @@
       </layout>
      </widget>
 
+     <widget class="QWidget" name="tabPrecedence">
+      <attribute name="title">
+       <string>Precedence</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayoutPrecedence">
+       <item>
+        <widget class="QGroupBox" name="groupPrecedence">
+         <property name="title">
+          <string>Outline Style Precedence</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayoutGroupPrecedence">
+          <item>
+           <widget class="QLabel" name="label_precedenceDesc">
+            <property name="text">
+             <string>When a window matches multiple outline states (e.g. a marked window that is currently active, or a marked window in recent focus history), the highest priority state in this list completely determines the outline's appearance (color, width, dash style, glow, and animations).</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayoutPrecedenceControls">
+            <item>
+             <widget class="QListWidget" name="listPrecedence">
+              <property name="dragDropMode">
+               <enum>QAbstractItemView::InternalMove</enum>
+              </property>
+              <property name="defaultDropAction">
+               <enum>Qt::MoveAction</enum>
+              </property>
+              <property name="selectionMode">
+               <enum>QAbstractItemView::SingleSelection</enum>
+              </property>
+              <property name="movement">
+               <enum>QListView::Snap</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QVBoxLayout" name="verticalLayoutPrecedenceButtons">
+              <item>
+               <widget class="QPushButton" name="btnPrecedenceUp">
+                <property name="text">
+                 <string>Move Up</string>
+                </property>
+                <property name="icon">
+                 <iconset theme="go-up"/>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnPrecedenceDown">
+                <property name="text">
+                 <string>Move Down</string>
+                </property>
+                <property name="icon">
+                 <iconset theme="go-down"/>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnPrecedenceReset">
+                <property name="text">
+                 <string>Reset Order</string>
+                </property>
+                <property name="icon">
+                 <iconset theme="edit-undo"/>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="verticalSpacerPrecedenceButtons">
+                <property name="orientation">
+                 <enum>Qt::Vertical</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>20</width>
+                  <height>40</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QGroupBox" name="groupPrecedenceSummary">
+            <property name="title">
+             <string>Current Rule Summary</string>
+            </property>
+            <layout class="QVBoxLayout" name="verticalLayoutPrecedenceSummary">
+             <item>
+              <widget class="QLabel" name="label_precedenceExplanation">
+               <property name="text">
+                <string>...</string>
+               </property>
+               <property name="wordWrap">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <spacer name="verticalSpacerPrecedence">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
 
     </widget>
    </item>

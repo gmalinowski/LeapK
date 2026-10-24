@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.4.28] - 2026-10-24
+
+### Added
+- **Outline Style Precedence System (`StylePrecedence`)**:
+  - Replaced isolated priority checkboxes with a dedicated **Precedence** tab in the System Settings configuration module.
+  - Interactive reorderable priority list (`QListWidget`) supporting both **Move Up / Move Down / Reset** buttons and smooth native drag-and-drop reordering.
+  - Full definition priority semantics (**"w pełni definicji"**): the winning state in precedence completely dictates the window's outline appearance (color, width, dash pattern, gap, glow, and shader animations):
+    - **Active > Marked**: Focused marked windows take the full active outline appearance (Accent, Custom, Ambilight, or Color Cycling, full border width, solid line, and active shaders).
+    - **Marked > Active**: Focused marked windows retain their custom mark color and style without being overridden by active color or active shader effects.
+    - **Marked > Recent**: Inactive marked windows in recent focus history retain their custom mark color and style, completely ignoring recent decay (saturation drop, hue shift, gap growth, and width reduction).
+    - **Recent > Marked**: Inactive marked windows in recent focus history participate in recent window decay (taking recent color mode, opacity decay, width reduction, and dash gap growth).
+  - Dynamic rule summary card that explains in plain language how the currently selected precedence order behaves.
+  - New modular precedence parser and state resolver in `precedencehelper.h` accompanied by comprehensive unit tests (`outline-precedence`).
+
 ## [1.4.27] - 2026-10-23
 
 ### Added
