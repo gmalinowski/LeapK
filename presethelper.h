@@ -138,7 +138,7 @@ inline QList<PresetInfo> getBuiltInPresets()
         p.description = QStringLiteral("Floating screen HUD hints with window titles and icons, instant letter jumping, and recent focus history trail.");
         p.isBuiltIn = true;
         p.settings = getDefaultSettings();
-        p.settings[QStringLiteral("BadgeDisplayMode")] = 2; // Screen HUD Overlay
+        p.settings[QStringLiteral("BadgeDisplayMode")] = 1; // Always visible on background windows
         p.settings[QStringLiteral("BadgeHudPosition")] = 0; // Bottom
         p.settings[QStringLiteral("BadgeSize")] = 28;
         p.settings[QStringLiteral("JumpTargets")] = 2; // All windows across all virtual desktops (visible & minimized)
