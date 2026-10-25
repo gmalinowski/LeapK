@@ -515,14 +515,14 @@ private slots:
         if (m_isPolish) {
             rows += formatRow(scJump, QStringLiteral("Skocz do okna (Jump Mode z literami)"));
             rows += formatRow(scMark, QStringLiteral("Oznacz / Odznacz aktywne okno"));
-            rows += formatRow(scMarkColor, QStringLiteral("Oznacz okno z wyborem koloru / litery"));
+            rows += formatRow(scMarkColor, QStringLiteral("Własne oznaczenie okna (kolor, litera, etykieta)"));
             rows += formatRow(scToggle, QStringLiteral("Włącz / Wyłącz aktywny obrys"));
             rows += formatRow(scPrev, QStringLiteral("Przejdź do poprzedniego okna w historii"));
             rows += formatRow(scNext, QStringLiteral("Przejdź do następnego okna w historii"));
         } else {
             rows += formatRow(scJump, QStringLiteral("Jump to Window (interactive letter jump)"));
             rows += formatRow(scMark, QStringLiteral("Mark / Unmark Active Window"));
-            rows += formatRow(scMarkColor, QStringLiteral("Mark Window with Color Picker / Letter"));
+            rows += formatRow(scMarkColor, QStringLiteral("Custom Mark Window (Color, Letter, Label)"));
             rows += formatRow(scToggle, QStringLiteral("Toggle Active Window Outline on/off"));
             rows += formatRow(scPrev, QStringLiteral("Navigate to Previous Window in focus history"));
             rows += formatRow(scNext, QStringLiteral("Navigate to Next Window in focus history"));
@@ -735,7 +735,7 @@ private slots:
             m_actMark->setText(formatMenuText(m_isPolish ? QStringLiteral("🏷️ Oznacz / Odznacz okno") : QStringLiteral("🏷️ Mark / Unmark Window"), scMark));
         }
         if (m_actMarkColor) {
-            m_actMarkColor->setText(formatMenuText(m_isPolish ? QStringLiteral("🎨 Oznacz z paletą barw...") : QStringLiteral("🎨 Custom Mark Window..."), scMarkColor));
+            m_actMarkColor->setText(formatMenuText(m_isPolish ? QStringLiteral("🎨 Własne oznaczenie (kolor, litera, etykieta)...") : QStringLiteral("🎨 Custom Mark (Color, Letter, Label)..."), scMarkColor));
         }
         if (m_actToggle) {
             m_actToggle->setText(formatMenuText(m_isPolish ? QStringLiteral("🖼️ Włącz / Wyłącz obrys") : QStringLiteral("🖼️ Toggle Outline"), scToggle));

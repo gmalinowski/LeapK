@@ -173,7 +173,7 @@ private:
     void cacheWindowOutline(EffectWindow *w, const QRectF &geo, qreal customWidth = -1);
     void toggleWindowMark(EffectWindow *w);
     void setWindowMarkColor(EffectWindow *w, const QColor &color);
-    void setWindowMark(EffectWindow *w, const QColor &color, const QChar &letter = QChar());
+    void setWindowMark(EffectWindow *w, const QColor &color, const QChar &letter = QChar(), const QString &label = QString());
     QColor generateRandomMarkColor() const;
     QColor detectSmartAccentForWindow(EffectWindow *w) const;
     QChar nextAvailableLetter() const;
@@ -188,7 +188,8 @@ private:
                      const QColor &bgColor,
                      const QColor &textColor,
                      bool isJumpMode,
-                     int badgeSize = 28);
+                     int badgeSize = 28,
+                     const QString &customLabel = QString());
     void renderOffscreenJumpTargets(const RenderTarget &renderTarget,
                                    const RenderViewport &viewport,
                                    const QList<QPair<QChar, EffectWindow *>> &targets,
@@ -318,6 +319,7 @@ private:
     // Runtime mark window state
     QMap<EffectWindow *, QColor> m_markedWindows;
     QMap<EffectWindow *, QChar> m_markedWindowLetters;
+    QMap<EffectWindow *, QString> m_markedWindowLabels;
     mutable QMap<EffectWindow *, QColor> m_smartAccentCache;
     QColor m_lastMarkColor = QColor(QStringLiteral("#e74c3c"));
     bool m_markShowLetterBadges = true;

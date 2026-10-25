@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.5.0] - 2026-10-25
 
 ### Added
+- **Custom Window Labels for Marked Windows (`Meta+Ctrl+Shift+M`)**:
+  - Added an optional "Custom label (optional) / Własna etykieta" text field to the Custom Mark dialog (`active-window-outline-colorpicker`).
+  - Allows assigning custom names/tags (e.g. "Backend", "Terminal", "Projekt A") to marked windows.
+  - Displayed prominently in **Hint Cards** ("karty podpowiedzi") during Jump Mode (`Meta+Space`): Line 1 shows the bold white label, and Line 2 displays the location and window title (e.g. `Pulpit 1 · bash` or `Schowane · Alacritty`), solving the ambiguity when multiple windows share identical process/window names.
+  - Automatically reflected on window letter badges (`[ A | Label ]`) when labels are defined, with smart width calculation and contrasting text separator.
+  - Existing labels are prefilled when re-opening the custom mark dialog, allowing easy editing or clearing.
 - **Redesigned Companion System Tray Icon & Standalone Settings GUI (`active-window-outline-tray` & `active-window-outline-settings`)**:
   - Dedicated lightweight Qt6 companion tray application with custom-drawn dynamic glowing icon (reflecting active outline state and accent color).
   - Single left click on the tray icon toggles the outline effect on and off immediately.

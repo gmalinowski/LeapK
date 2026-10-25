@@ -39,6 +39,7 @@
 #include <KConfigGroup>
 #include <QGuiApplication>
 #include <QFileInfo>
+#include <QDir>
 #include <QFileSystemWatcher>
 #include <QPalette>
 #include <QColorDialog>
@@ -1128,6 +1129,7 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
     m_smartAccentCache.remove(w);
     m_markedWindows.remove(w);
     m_markedWindowLetters.remove(w);
+    m_markedWindowLabels.remove(w);
     for (auto it = m_jumpLetterToWindow.begin(); it != m_jumpLetterToWindow.end(); ) {
         if (it.value() == w) {
             it = m_jumpLetterToWindow.erase(it);
@@ -2025,6 +2027,7 @@ void ActiveWindowOutlineEffect::clearAllMarks()
 {
     m_markedWindows.clear();
     m_markedWindowLetters.clear();
+    m_markedWindowLabels.clear();
     m_badgeTextureCache.clear();
     repaintAllOutlines();
     effects->addRepaintFull();
@@ -2058,7 +2061,7 @@ void ActiveWindowOutlineEffect::applyPreset(const QString &presetName)
     }
 }
 
-void ActiveWindowOutlineEffect::setWindowMark(EffectWindow *w, const QColor &color, const QChar &letter)
+void ActiveWindowOutlineEffect::setWindowMark(EffectWindow *w, const QColor &color, const QChar &letter, const QString &label)
 {
     if (!w || !color.isValid()) {
         return;
@@ -2073,6 +2076,13 @@ void ActiveWindowOutlineEffect::setWindowMark(EffectWindow *w, const QColor &col
         m_markedWindowLetters[w] = finalLetter;
     }
 
+    const QString cleanLabel = label.trimmed();
+    if (cleanLabel.isEmpty()) {
+        m_markedWindowLabels.remove(w);
+    } else {
+        m_markedWindowLabels[w] = cleanLabel;
+    }
+
     effects->addRepaint(expandedGeometryFor(w));
     if (m_badgeDisplayMode == 1 || m_jumpMode) {
         effects->addRepaintFull();
@@ -2081,7 +2091,7 @@ void ActiveWindowOutlineEffect::setWindowMark(EffectWindow *w, const QColor &col
 
 void ActiveWindowOutlineEffect::setWindowMarkColor(EffectWindow *w, const QColor &color)
 {
-    setWindowMark(w, color, m_markedWindowLetters.value(w));
+    setWindowMark(w, color, m_markedWindowLetters.value(w), m_markedWindowLabels.value(w));
 }
 
 QChar ActiveWindowOutlineEffect::nextAvailableLetter() const
@@ -2149,6 +2159,7 @@ void ActiveWindowOutlineEffect::toggleWindowMark(EffectWindow *w)
     if (m_markedWindows.contains(w)) {
         m_markedWindows.remove(w);
         m_markedWindowLetters.remove(w);
+        m_markedWindowLabels.remove(w);
         effects->addRepaint(expandedGeometryFor(w));
     } else {
         const QColor markCol = m_markSmartAdaptive
@@ -2192,8 +2203,9 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
     const QChar initialLetter = m_markedWindowLetters.contains(target)
         ? m_markedWindowLetters.value(target)
         : nextAvailableLetter();
+    const QString initialLabel = m_markedWindowLabels.value(target);
 
-    const auto applyMark = [this, targetWindow](const QColor &pickedCol, const QChar &pickedLetter, bool useColor = true, bool useLetter = true) {
+    const auto applyMark = [this, targetWindow](const QColor &pickedCol, const QChar &pickedLetter, const QString &pickedLabel, bool useColor = true, bool useLetter = true) {
         if (!targetWindow) {
             return;
         }
@@ -2210,15 +2222,16 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
             ? pickedLetter.toUpper()
             : QChar();
 
-        setWindowMark(w, markCol, letter);
+        setWindowMark(w, markCol, letter, pickedLabel);
     };
 
-    // 1. Dedicated Qt6 color picker helper (natively supports alpha channel and letter badge)
+    // 1. Dedicated Qt6 color picker helper (natively supports alpha channel, letter badge, and custom label)
     QStringList candidateDirs;
 #ifdef COLORPICKER_INSTALL_DIR
     candidateDirs << QStringLiteral(COLORPICKER_INSTALL_DIR);
 #endif
-    candidateDirs << QCoreApplication::applicationDirPath()
+    candidateDirs << QDir::homePath() + QStringLiteral("/.local/bin")
+                  << QCoreApplication::applicationDirPath()
                   << QStringLiteral("/usr/libexec")
                   << QStringLiteral("/usr/lib/libexec")
                   << QStringLiteral("/usr/local/bin")
@@ -2233,10 +2246,21 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
             if (exitStatus == QProcess::NormalExit && exitCode == 0) {
                 const QString out = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
                 if (!out.isEmpty()) {
-                    const QStringList parts = out.split(QLatin1Char(' '), Qt::SkipEmptyParts);
-                    if (!parts.isEmpty()) {
-                        const QString colorStr = parts.at(0);
-                        const QString letterStr = (parts.size() > 1) ? parts.at(1) : QString();
+                    const int firstSpace = out.indexOf(QLatin1Char(' '));
+                    if (firstSpace != -1) {
+                        const QString colorStr = out.left(firstSpace).trimmed();
+                        const int secondSpace = out.indexOf(QLatin1Char(' '), firstSpace + 1);
+                        QString letterStr;
+                        QString labelStr;
+                        if (secondSpace != -1) {
+                            letterStr = out.mid(firstSpace + 1, secondSpace - firstSpace - 1).trimmed();
+                            labelStr = out.mid(secondSpace + 1).trimmed();
+                            if (labelStr == QStringLiteral("-")) {
+                                labelStr.clear();
+                            }
+                        } else {
+                            letterStr = out.mid(firstSpace + 1).trimmed();
+                        }
 
                         const bool useColor = (colorStr.compare(QStringLiteral("none"), Qt::CaseInsensitive) != 0
                                             && colorStr.compare(QStringLiteral("auto"), Qt::CaseInsensitive) != 0
@@ -2249,7 +2273,7 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
                         const QColor picked = useColor ? QColor(colorStr) : QColor();
                         const QChar pickedLetter = useLetter ? letterStr.at(0).toUpper() : QChar();
 
-                        applyMark(picked, pickedLetter, useColor, useLetter);
+                        applyMark(picked, pickedLetter, labelStr, useColor, useLetter);
                     }
                 }
             }
@@ -2263,6 +2287,11 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
         if (m_markedWindows.contains(target)) {
             args << (m_markedWindowLetters.contains(target) ? QStringLiteral("1") : QStringLiteral("0"));
             args << QStringLiteral("1");
+            args << initialLabel;
+        } else {
+            args << QStringLiteral("1");
+            args << QStringLiteral("1");
+            args << initialLabel;
         }
         process->start(customPicker, args);
         return;
@@ -2279,12 +2308,12 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
              << QStringLiteral("--title") << tr("Select Window Mark Color");
 
         connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
-                this, [process, applyMark, initialLetter](int exitCode, QProcess::ExitStatus exitStatus) {
+                this, [process, applyMark, initialLetter, initialLabel](int exitCode, QProcess::ExitStatus exitStatus) {
             process->deleteLater();
             if (exitStatus == QProcess::NormalExit && exitCode == 0) {
                 const QString out = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
                 if (!out.isEmpty()) {
-                    applyMark(QColor(out), initialLetter, true, true);
+                    applyMark(QColor(out), initialLetter, initialLabel, true, true);
                 }
             }
         });
@@ -2305,12 +2334,12 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
              << QStringLiteral("--title") << tr("Select Window Mark Color");
 
         connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
-                this, [process, applyMark, initialLetter](int exitCode, QProcess::ExitStatus exitStatus) {
+                this, [process, applyMark, initialLetter, initialLabel](int exitCode, QProcess::ExitStatus exitStatus) {
             process->deleteLater();
             if (exitStatus == QProcess::NormalExit && exitCode == 0) {
                 const QString out = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
                 if (!out.isEmpty()) {
-                    applyMark(QColor(out), initialLetter, true, true);
+                    applyMark(QColor(out), initialLetter, initialLabel, true, true);
                 }
             }
         });
@@ -2326,8 +2355,8 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
     dialog->setOption(QColorDialog::ShowAlphaChannel, true);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->setWindowTitle(tr("Select Window Mark Color"));
-    connect(dialog, &QColorDialog::colorSelected, this, [applyMark, initialLetter](const QColor &color) {
-        applyMark(color, initialLetter, true, true);
+    connect(dialog, &QColorDialog::colorSelected, this, [applyMark, initialLetter, initialLabel](const QColor &color) {
+        applyMark(color, initialLetter, initialLabel, true, true);
     });
     dialog->show();
 }
@@ -2674,16 +2703,19 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
                                            const QColor &bgColor,
                                            const QColor &textColor,
                                            bool isJumpMode,
-                                           int badgeSize)
+                                           int badgeSize,
+                                           const QString &customLabel)
 {
     const qreal scale = viewport.scale();
     const quint64 scaleKey = static_cast<quint64>(qRound(scale * 100));
     const quint64 sizeKey = static_cast<quint64>(badgeSize);
+    const quint64 labelKey = static_cast<quint64>(qHash(customLabel));
     const quint64 key = (static_cast<quint64>(letter.unicode()) << 48)
         ^ (static_cast<quint64>(bgColor.rgba()) << 16)
         ^ (static_cast<quint64>(textColor.rgba()))
         ^ (scaleKey << 8)
         ^ (sizeKey << 32)
+        ^ (labelKey << 24)
         ^ (isJumpMode ? 1 : 0);
 
     std::shared_ptr<GLTexture> texture;
@@ -2692,7 +2724,7 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
         texture = it.value();
     }
     if (!texture || texture->isNull()) {
-        const QImage img = OutlineBadge::renderBadgeImage(letter, bgColor, textColor, isJumpMode, badgeSize, scale);
+        const QImage img = OutlineBadge::renderBadgeImage(letter, bgColor, textColor, isJumpMode, badgeSize, scale, customLabel);
         auto uploaded = GLTexture::upload(img);
         if (!uploaded) {
             return;
@@ -2809,8 +2841,9 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         }
 
         const QString caption = target->caption();
+        const QString customLabel = m_markedWindowLabels.value(target);
 
-        const QImage img = OutlineBadge::renderOffscreenTargetPill(letter, bgCol, textCol, loc, caption, badgeSize, scale);
+        const QImage img = OutlineBadge::renderOffscreenTargetPill(letter, bgCol, textCol, loc, caption, badgeSize, scale, customLabel);
         auto uploaded = GLTexture::upload(img);
         if (!uploaded) {
             continue;
@@ -3399,7 +3432,6 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
 
     if (!m_jumpMode && showContinuousBadges) {
         const int badgeH = m_badgeSize;
-        const int badgeW = qRound(badgeH * 1.35);
         const QMap<QChar, EffectWindow *> backgroundBadges = assignJumpLetters();
         for (auto it = backgroundBadges.constBegin(); it != backgroundBadges.constEnd(); ++it) {
             const QChar letter = it.key();
@@ -3414,6 +3446,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 ? m_markedWindows.value(target)
                 : QColor(35, 38, 41, 235);
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
+            const QString customLabel = m_markedWindowLabels.value(target);
+            const qreal badgeW = OutlineBadge::computeBadgeWidth(badgeH, customLabel);
             const QRectF geo = target->frameGeometry();
             QRectF badgeRect = OutlineBadge::computeBadgeRect(geo, m_badgePosition, badgeW, badgeH, m_badgeMargin);
             if (isBadgeOccluded(target, badgeRect)) {
@@ -3432,13 +3466,12 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                     continue;
                 }
             }
-            renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, false, m_badgeSize);
+            renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, false, m_badgeSize, customLabel);
         }
     }
 
     if (m_jumpMode && !inhibited) {
         const int jumpH = qRound(m_badgeSize * 1.25);
-        const int jumpW = qRound(jumpH * 1.35);
 
         QList<QPair<QChar, EffectWindow *>> offscreenTargets;
 
@@ -3463,6 +3496,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 ? m_markedWindows.value(target)
                 : QColor(35, 38, 41, 235);
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
+            const QString customLabel = m_markedWindowLabels.value(target);
+            const qreal jumpW = OutlineBadge::computeBadgeWidth(jumpH, customLabel);
             const QRectF geo = target->frameGeometry();
             QRectF badgeRect = OutlineBadge::computeBadgeRect(geo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
             if (isBadgeOccluded(target, badgeRect)) {
@@ -3482,7 +3517,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                     continue;
                 }
             }
-            renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, true, m_badgeSize);
+            renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, true, m_badgeSize, customLabel);
         }
 
         if (!offscreenTargets.isEmpty()) {

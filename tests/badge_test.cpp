@@ -36,6 +36,17 @@ void testOffscreenTargetPill()
     assert(!pillCoveredEn.isNull());
     assert(pillCoveredEn.width() > 50);
     assert(pillCoveredEn.height() > 30);
+
+    // Pill with custom label
+    QImage pillWithLabel = renderOffscreenTargetPill(QLatin1Char('B'), QColor(231, 76, 60), Qt::white, QStringLiteral("Pulpit 1"), QStringLiteral("bash"), 28, 1.0, QStringLiteral("Backend"));
+    assert(!pillWithLabel.isNull());
+    assert(pillWithLabel.width() > 60);
+    assert(pillWithLabel.height() > 30);
+
+    // Pill with long custom label (eliding check)
+    QImage pillLongLabel = renderOffscreenTargetPill(QLatin1Char('Z'), QColor(52, 152, 219), Qt::white, QStringLiteral("Schowane"), QStringLiteral("Super Long Process Name"), 28, 1.0, QStringLiteral("Very Long Custom Label Exceeding Normal Width"));
+    assert(!pillLongLabel.isNull());
+    assert(pillLongLabel.width() > 100);
 }
 
 void testRandomMarkColor()
@@ -92,6 +103,16 @@ void testBadgeRendering()
     assert(!jumpBadge.isNull());
     assert(jumpBadge.width() == 94);
     assert(jumpBadge.height() == 70);
+
+    // Normal badge with custom label
+    QImage labeledBadge = renderBadgeImage(QLatin1Char('A'), QColor(231, 76, 60), Qt::white, false, 28, 1.0, QStringLiteral("Backend"));
+    assert(!labeledBadge.isNull());
+    assert(labeledBadge.width() > 38);
+    assert(labeledBadge.height() == 28);
+
+    // computeBadgeWidth tests
+    assert(qRound(OutlineBadge::computeBadgeWidth(28)) == qRound(28 * 1.35));
+    assert(OutlineBadge::computeBadgeWidth(28, QStringLiteral("Backend")) > 38);
 }
 
 void testBadgePositioning()

@@ -62,9 +62,16 @@ int main(int argc, char *argv[])
         }
     }
 
+    QString currentLabel;
+    if (argc > 5 && argv[5]) {
+        currentLabel = QString::fromUtf8(argv[5]).trimmed();
+    }
+
+    const bool isPolish = (QLocale().language() == QLocale::Polish);
+
     QDialog dlg;
-    dlg.setWindowTitle(QObject::tr("Mark Window Settings"));
-    dlg.setMinimumWidth(350);
+    dlg.setWindowTitle(isPolish ? QStringLiteral("Ustawienia oznaczenia okna") : QObject::tr("Mark Window Settings"));
+    dlg.setMinimumWidth(380);
 
     auto *layout = new QVBoxLayout(&dlg);
     layout->setSpacing(14);
@@ -73,7 +80,7 @@ int main(int argc, char *argv[])
     auto *formLayout = new QFormLayout();
     formLayout->setSpacing(12);
 
-    auto *chkLetter = new QCheckBox(QObject::tr("Mark with fixed letter:"), &dlg);
+    auto *chkLetter = new QCheckBox(isPolish ? QStringLiteral("Oznacz stałą literą:") : QObject::tr("Mark with fixed letter:"), &dlg);
     chkLetter->setChecked(useLetter);
 
     auto *letterEdit = new QLineEdit(&dlg);
@@ -91,14 +98,14 @@ int main(int argc, char *argv[])
     }
     formLayout->addRow(chkLetter, letterEdit);
 
-    auto *chkColor = new QCheckBox(QObject::tr("Custom mark color:"), &dlg);
+    auto *chkColor = new QCheckBox(isPolish ? QStringLiteral("Własny kolor oznaczenia:") : QObject::tr("Custom mark color:"), &dlg);
     chkColor->setChecked(useColor);
 
     auto *colorBtn = new QPushButton(&dlg);
-    const auto updateColorBtn = [colorBtn, chkColor, &currentColor]() {
+    const auto updateColorBtn = [colorBtn, chkColor, &currentColor, isPolish]() {
         const QString hex = (currentColor.alpha() < 255) ? currentColor.name(QColor::HexArgb) : currentColor.name(QColor::HexRgb);
         if (chkColor && !chkColor->isChecked()) {
-            colorBtn->setText(QObject::tr("Default / Random Color"));
+            colorBtn->setText(isPolish ? QStringLiteral("Domyślny / Losowy kolor") : QObject::tr("Default / Random Color"));
         } else {
             colorBtn->setText(hex);
         }
@@ -112,10 +119,10 @@ int main(int argc, char *argv[])
     updateColorBtn();
     colorBtn->setEnabled(useColor);
 
-    QObject::connect(colorBtn, &QPushButton::clicked, [&dlg, &currentColor, updateColorBtn]() {
+    QObject::connect(colorBtn, &QPushButton::clicked, [&dlg, &currentColor, updateColorBtn, isPolish]() {
         QColorDialog colDlg(currentColor, &dlg);
         colDlg.setOption(QColorDialog::ShowAlphaChannel, true);
-        colDlg.setWindowTitle(QObject::tr("Select Mark Color"));
+        colDlg.setWindowTitle(isPolish ? QStringLiteral("Wybierz kolor oznaczenia") : QObject::tr("Select Mark Color"));
         if (colDlg.exec() == QDialog::Accepted) {
             currentColor = colDlg.selectedColor();
             updateColorBtn();
@@ -123,30 +130,39 @@ int main(int argc, char *argv[])
     });
     formLayout->addRow(chkColor, colorBtn);
 
+    auto *lblLabel = new QLabel(isPolish ? QStringLiteral("Własna etykieta (opcjonalnie):") : QObject::tr("Window label (optional):"), &dlg);
+    auto *labelEdit = new QLineEdit(&dlg);
+    labelEdit->setText(currentLabel);
+    labelEdit->setPlaceholderText(isPolish ? QStringLiteral("np. Backend, Terminal, Projekt A...") : QObject::tr("e.g. Backend, Terminal, Project A..."));
+    labelEdit->setClearButtonEnabled(true);
+    labelEdit->setMaxLength(50);
+    formLayout->addRow(lblLabel, labelEdit);
+
     layout->addLayout(formLayout);
 
     auto *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
     layout->addWidget(buttonBox);
 
-    const auto updateUI = [chkLetter, letterEdit, chkColor, colorBtn, buttonBox, updateColorBtn]() {
+    const auto updateUI = [chkLetter, letterEdit, chkColor, colorBtn, labelEdit, buttonBox, updateColorBtn, isPolish]() {
         const bool letOn = chkLetter->isChecked();
         const bool colOn = chkColor->isChecked();
         letterEdit->setEnabled(letOn);
         if (letOn) {
             letterEdit->setPlaceholderText(QString());
         } else {
-            letterEdit->setPlaceholderText(QObject::tr("Auto"));
+            letterEdit->setPlaceholderText(isPolish ? QStringLiteral("Auto") : QObject::tr("Auto"));
         }
         colorBtn->setEnabled(colOn);
         updateColorBtn();
         auto *okBtn = buttonBox->button(QDialogButtonBox::Ok);
         if (okBtn) {
-            okBtn->setEnabled(letOn || colOn);
+            okBtn->setEnabled(letOn || colOn || !labelEdit->text().trimmed().isEmpty());
         }
     };
 
     QObject::connect(chkLetter, &QCheckBox::toggled, &dlg, updateUI);
     QObject::connect(chkColor, &QCheckBox::toggled, &dlg, updateUI);
+    QObject::connect(labelEdit, &QLineEdit::textChanged, &dlg, updateUI);
     updateUI();
 
     QObject::connect(buttonBox, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
@@ -172,7 +188,12 @@ int main(int argc, char *argv[])
             finalColor = (currentColor.alpha() < 255) ? currentColor.name(QColor::HexArgb) : currentColor.name(QColor::HexRgb);
         }
 
-        std::cout << finalColor.toStdString() << " " << finalLetter.toStdString() << std::endl;
+        QString finalLabel = labelEdit->text().trimmed();
+        if (finalLabel.isEmpty()) {
+            finalLabel = QStringLiteral("-");
+        }
+
+        std::cout << finalColor.toStdString() << " " << finalLetter.toStdString() << " " << finalLabel.toStdString() << std::endl;
         return 0;
     }
     return 1;

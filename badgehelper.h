@@ -196,11 +196,57 @@ inline QRectF computeBadgeRect(const QRectF &geo, int position, qreal badgeWidth
     return QRectF(x, y, badgeWidth, badgeHeight);
 }
 
+inline qreal computeBadgeWidth(qreal baseHeight, const QString &customLabel = QString())
+{
+    const qreal baseW = qRound(baseHeight * 1.35);
+    const QString cleanLabel = customLabel.trimmed();
+    if (cleanLabel.isEmpty()) {
+        return baseW;
+    }
+
+    QFont labelFont(QStringLiteral("sans-serif"));
+    labelFont.setPixelSize(qMax(8, qRound(baseHeight * 0.44)));
+    labelFont.setBold(true);
+    QFontMetrics fm(labelFont);
+
+    QString displayLabel = cleanLabel;
+    const int maxLabelW = 160;
+    if (fm.horizontalAdvance(displayLabel) > maxLabelW) {
+        displayLabel = fm.elidedText(displayLabel, Qt::ElideRight, maxLabelW);
+    }
+
+    const int labelW = fm.horizontalAdvance(displayLabel);
+    return baseW + labelW + 18.0;
+}
+
 inline QImage renderBadgeImage(const QChar &letter, const QColor &bgColor, const QColor &textColor = QColor(),
-                               bool isJumpMode = false, int baseSize = 28, qreal scale = 1.0)
+                               bool isJumpMode = false, int baseSize = 28, qreal scale = 1.0,
+                               const QString &customLabel = QString())
 {
     const int effectiveBaseHeight = isJumpMode ? qRound(baseSize * 1.25) : baseSize;
-    const int effectiveBaseWidth = qRound(effectiveBaseHeight * 1.35);
+    const QString cleanLabel = customLabel.trimmed();
+    const bool hasLabel = !cleanLabel.isEmpty();
+
+    QFont labelFont(QStringLiteral("sans-serif"));
+    labelFont.setPixelSize(qMax(8, qRound(effectiveBaseHeight * 0.44 * scale)));
+    labelFont.setBold(true);
+    QFontMetrics fmLabel(labelFont);
+
+    QString displayLabel = cleanLabel;
+    int labelTextWidth = 0;
+    if (hasLabel) {
+        const int maxLabelW = qRound(160 * scale);
+        if (fmLabel.horizontalAdvance(displayLabel) > maxLabelW) {
+            displayLabel = fmLabel.elidedText(displayLabel, Qt::ElideRight, maxLabelW);
+        }
+        labelTextWidth = fmLabel.horizontalAdvance(displayLabel);
+    }
+
+    const int effectiveLetterWidth = qRound(effectiveBaseHeight * 1.35);
+    const int effectiveBaseWidth = hasLabel
+        ? effectiveLetterWidth + qRound((labelTextWidth + 18 * scale) / scale)
+        : effectiveLetterWidth;
+
     const int w = qMax(1, qRound(effectiveBaseWidth * scale));
     const int h = qMax(1, qRound(effectiveBaseHeight * scale));
 
@@ -232,14 +278,33 @@ inline QImage renderBadgeImage(const QChar &letter, const QColor &bgColor, const
     p.setPen(QPen(borderColor, isJumpMode ? (2.0 * scale) : (1.2 * scale)));
     p.drawRoundedRect(rect, radius, radius);
 
-    // Letter
     QFont font(QStringLiteral("sans-serif"));
     font.setBold(true);
     const int pixelSize = qMax(8, qRound(effectiveBaseHeight * 0.52 * scale));
     font.setPixelSize(pixelSize);
     p.setFont(font);
     p.setPen(effectiveTextColor);
-    p.drawText(rect, Qt::AlignCenter, QString(letter.toUpper()));
+
+    if (hasLabel) {
+        const qreal letterW = qRound(effectiveLetterWidth * scale);
+        const QRectF letterRect(margin, margin, letterW - margin, h - 2 * margin);
+        p.drawText(letterRect, Qt::AlignCenter, QString(letter.toUpper()));
+
+        // Vertical divider
+        const qreal sepX = margin + letterW - 2.0 * scale;
+        const QColor sepCol = isLightBg ? QColor(0, 0, 0, 70) : QColor(255, 255, 255, 90);
+        p.setPen(QPen(sepCol, 1.2 * scale));
+        p.drawLine(QPointF(sepX, margin + 4.0 * scale), QPointF(sepX, h - margin - 4.0 * scale));
+
+        // Label text
+        const qreal labelX = sepX + 6.0 * scale;
+        const QRectF labelRect(labelX, margin, w - margin - labelX, h - 2 * margin);
+        p.setFont(labelFont);
+        p.setPen(effectiveTextColor);
+        p.drawText(labelRect, Qt::AlignVCenter | Qt::AlignLeft, displayLabel);
+    } else {
+        p.drawText(rect, Qt::AlignCenter, QString(letter.toUpper()));
+    }
 
     p.end();
     return img;
@@ -251,7 +316,8 @@ inline QImage renderOffscreenTargetPill(const QChar &letter,
                                         const QString &locationText,
                                         const QString &caption,
                                         int badgeSize,
-                                        qreal scale)
+                                        qreal scale,
+                                        const QString &customLabel = QString())
 {
     const int pillH = qMax(32, qRound(badgeSize * 1.35 * scale));
     const int badgeDim = pillH - qRound(8 * scale);
@@ -269,14 +335,59 @@ inline QImage renderOffscreenTargetPill(const QChar &letter,
     QFontMetrics fmLoc(locFont);
     QFontMetrics fmCap(capFont);
 
-    QString displayCap = caption;
-    if (fmCap.horizontalAdvance(displayCap) > qRound(180 * scale)) {
-        displayCap = fmCap.elidedText(displayCap, Qt::ElideRight, qRound(180 * scale));
-    }
+    const QString cleanLabel = customLabel.trimmed();
+    const bool hasCustomLabel = !cleanLabel.isEmpty();
 
-    const int locWidth = fmLoc.horizontalAdvance(locationText);
-    const int capWidth = displayCap.isEmpty() ? 0 : fmCap.horizontalAdvance(displayCap);
-    const int textWidth = qMax(locWidth, capWidth);
+    QString line1Text;
+    QString line2Text;
+    int textWidth = 0;
+
+    QFont line1Font = locFont;
+    QFont line2Font = capFont;
+    QColor line1Color = QColor(241, 196, 15);
+    QColor line2Color = QColor(220, 225, 230);
+
+    if (hasCustomLabel) {
+        line1Font = locFont;
+        line1Font.setPixelSize(qMax(10, qRound(11.5 * scale)));
+        line1Font.setBold(true);
+        line1Color = Qt::white;
+
+        line2Font = capFont;
+        line2Color = QColor(241, 196, 15);
+
+        QFontMetrics fmLine1(line1Font);
+        QFontMetrics fmLine2(line2Font);
+
+        line1Text = cleanLabel;
+        if (fmLine1.horizontalAdvance(line1Text) > qRound(220 * scale)) {
+            line1Text = fmLine1.elidedText(line1Text, Qt::ElideRight, qRound(220 * scale));
+        }
+
+        line2Text = locationText;
+        if (!caption.trimmed().isEmpty()) {
+            line2Text += QStringLiteral(" · ") + caption.trimmed();
+        }
+        if (fmLine2.horizontalAdvance(line2Text) > qRound(240 * scale)) {
+            line2Text = fmLine2.elidedText(line2Text, Qt::ElideRight, qRound(240 * scale));
+        }
+
+        const int w1 = fmLine1.horizontalAdvance(line1Text);
+        const int w2 = fmLine2.horizontalAdvance(line2Text);
+        textWidth = qMax(w1, w2);
+    } else {
+        QString displayCap = caption;
+        if (fmCap.horizontalAdvance(displayCap) > qRound(180 * scale)) {
+            displayCap = fmCap.elidedText(displayCap, Qt::ElideRight, qRound(180 * scale));
+        }
+
+        line1Text = locationText;
+        line2Text = displayCap;
+
+        const int locWidth = fmLoc.horizontalAdvance(line1Text);
+        const int capWidth = line2Text.isEmpty() ? 0 : fmCap.horizontalAdvance(line2Text);
+        textWidth = qMax(locWidth, capWidth);
+    }
 
     const int pillW = padX + badgeDim + gapX + textWidth + padX;
 
@@ -324,23 +435,25 @@ inline QImage renderOffscreenTargetPill(const QChar &letter,
     p.drawText(badgeRect, Qt::AlignCenter, QString(letter.toUpper()));
 
     const int textLeft = padX + badgeDim + gapX;
-    if (displayCap.isEmpty()) {
+    if (line2Text.isEmpty()) {
         const QRectF locRect(textLeft, 0, textWidth, pillH);
-        p.setFont(locFont);
+        p.setFont(line1Font);
         p.setPen(Qt::white);
-        p.drawText(locRect, Qt::AlignVCenter | Qt::AlignLeft, locationText);
+        p.drawText(locRect, Qt::AlignVCenter | Qt::AlignLeft, line1Text);
     } else {
+        QFontMetrics fm1(line1Font);
+        QFontMetrics fm2(line2Font);
         const qreal midY = pillH / 2.0;
-        const QRectF locRect(textLeft, qRound(midY - fmLoc.height() * 0.95), textWidth, fmLoc.height());
-        const QRectF capRect(textLeft, qRound(midY + fmCap.height() * 0.05), textWidth, fmCap.height());
+        const QRectF r1(textLeft, qRound(midY - fm1.height() * 0.95), textWidth, fm1.height());
+        const QRectF r2(textLeft, qRound(midY + fm2.height() * 0.05), textWidth, fm2.height());
 
-        p.setFont(locFont);
-        p.setPen(QColor(241, 196, 15));
-        p.drawText(locRect, Qt::AlignLeft | Qt::AlignVCenter, locationText);
+        p.setFont(line1Font);
+        p.setPen(line1Color);
+        p.drawText(r1, Qt::AlignLeft | Qt::AlignVCenter, line1Text);
 
-        p.setFont(capFont);
-        p.setPen(QColor(220, 225, 230));
-        p.drawText(capRect, Qt::AlignLeft | Qt::AlignVCenter, displayCap);
+        p.setFont(line2Font);
+        p.setPen(line2Color);
+        p.drawText(r2, Qt::AlignLeft | Qt::AlignVCenter, line2Text);
     }
 
     p.end();
