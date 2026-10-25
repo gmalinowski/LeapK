@@ -31,6 +31,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Real-time full repaint when stacking order or virtual desktop changes (`stackingOrderChanged`, `desktopChanged`).
 
 ### Fixed
+- **Plugin Toggle Shortcut (`Meta+Ctrl+O`) Now Disables All Visual Elements & Badges**:
+  - Fixed an issue where toggling off the effect via `ToggleActiveWindowOutline` (`Meta+Ctrl+O`) only removed the active window outline while continuous badges/hints, recent outlines, and marked window outlines stayed painted on screen.
+  - Guarded `isActive()`, `prepareScreenPaint()`, `paintScreen()` (recent, marked, and continuous badge passes), and `slotTriggerJumpMode()` with strict `m_outlineEnabled` checks.
+  - Toggling off now terminates active Jump Mode, stops all animation/hide timers, clears cached outline data, and triggers a full screen repaint (`effects->addRepaintFull()`), cleanly clearing all overlays from the display.
 - **Immediate Previous Window Highlighting Order (`updateRecentWindowsFromHistory`)**:
   - Fixed an issue where the most recently deactivated window was skipped and outlines erroneously started from the 2nd most recent window instead of the 1st.
   - Active window assignment is now updated before computing recent window candidates from history, ensuring the immediate previous window is always at index 0 and highlighted as expected.

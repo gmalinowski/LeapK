@@ -1877,20 +1877,12 @@ void ActiveWindowOutlineEffect::slotToggleAction()
         }
         m_visibilityState.targetOpacity = hasVisibleBlockingPopup() ? 0.0 : 1.0;
         updateAnimationTimer();
-        if (m_activeWindow) {
-            effects->addRepaint(expandedGeometryFor(m_activeWindow));
-        }
-        for (EffectWindow *recent : m_recentWindows) {
-            if (recent) {
-                effects->addRepaint(expandedGeometryFor(recent));
-            }
-        }
-        for (auto it = m_markedWindows.constBegin(); it != m_markedWindows.constEnd(); ++it) {
-            if (it.key()) {
-                effects->addRepaint(expandedGeometryFor(it.key()));
-            }
-        }
+        repaintAllOutlines();
+        effects->addRepaintFull();
     } else {
+        if (m_jumpMode) {
+            cancelJumpMode();
+        }
         m_visibilityState.targetOpacity = 0.0;
         m_visibilityState.visibilityOpacity = 0.0;
         updateAnimationTimer();
@@ -1906,16 +1898,6 @@ void ActiveWindowOutlineEffect::slotToggleAction()
         if (m_menuHideTimer) {
             m_menuHideTimer->stop();
         }
-        for (EffectWindow *recent : m_recentWindows) {
-            if (recent) {
-                effects->addRepaint(expandedGeometryFor(recent));
-            }
-        }
-        for (auto it = m_markedWindows.constBegin(); it != m_markedWindows.constEnd(); ++it) {
-            if (it.key()) {
-                effects->addRepaint(expandedGeometryFor(it.key()));
-            }
-        }
         if (m_delayedHideWindow) {
             effects->addRepaint(expandedGeometryFor(m_delayedHideWindow));
             m_suppressedWindows.remove(m_delayedHideWindow);
@@ -1924,9 +1906,9 @@ void ActiveWindowOutlineEffect::slotToggleAction()
             m_delayedHideWindow = nullptr;
         }
         m_delayedHideState.reset();
-        if (m_activeWindow) {
-            effects->addRepaint(expandedGeometryFor(m_activeWindow));
-        }
+        m_outlineCache.clear();
+        repaintAllOutlines();
+        effects->addRepaintFull();
     }
 }
 
@@ -2192,7 +2174,7 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
 
 void ActiveWindowOutlineEffect::slotTriggerJumpMode()
 {
-    if (m_badgeDisplayMode == 2) {
+    if (!m_outlineEnabled || m_badgeDisplayMode == 2) {
         return;
     }
 
@@ -2742,6 +2724,9 @@ QRectF ActiveWindowOutlineEffect::expandedGeometryFor(EffectWindow *w) const
 
 bool ActiveWindowOutlineEffect::isActive() const
 {
+    if (!m_outlineEnabled) {
+        return false;
+    }
     if (m_jumpMode) {
         return true;
     }
@@ -2853,6 +2838,9 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
 #ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
     m_sceneView = qobject_cast<SceneView *>(data.view);
 #endif
+    if (!m_outlineEnabled) {
+        return;
+    }
     if (m_visibilityState.needsSelfHeal(hasVisibleBlockingPopup())) {
         updatePopupBlockingState();
     }
@@ -3016,7 +3004,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     const bool recentOverridesMark = (rankRecent < rankMarked);
 
     bool hasRecentToDraw = false;
-    if (!inhibited && m_highlightRecentWindow && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked) {
+    if (m_outlineEnabled && !inhibited && m_highlightRecentWindow && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked) {
         const int count = qMin(m_recentWindows.size(), m_recentWindowsCount);
         for (int i = 0; i < count; ++i) {
             EffectWindow *recent = m_recentWindows.at(i);
@@ -3031,7 +3019,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         }
     }
     bool hasMarkedToDraw = false;
-    if (!inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked) {
+    if (m_outlineEnabled && !inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked) {
         for (auto it = m_markedWindows.constBegin(); it != m_markedWindows.constEnd(); ++it) {
             EffectWindow *marked = it.key();
             const bool recentMarkedSkipped = m_highlightRecentWindow && m_recentWindows.contains(marked) && recentOverridesMark;
@@ -3083,10 +3071,10 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         }
     }
 
-    const bool showContinuousBadges = (m_badgeDisplayMode == 1) && !inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked;
-    const bool hasBadgesToDraw = (showContinuousBadges || m_jumpMode);
+    const bool showContinuousBadges = m_outlineEnabled && (m_badgeDisplayMode == 1) && !inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked;
+    const bool hasBadgesToDraw = (showContinuousBadges || (m_outlineEnabled && m_jumpMode));
 
-    if (!drawOutline && !drawDelayed && !hasRecentToDraw && !hasMarkedToDraw && !hasBadgesToDraw) {
+    if (!m_outlineEnabled || (!drawOutline && !drawDelayed && !hasRecentToDraw && !hasMarkedToDraw && !hasBadgesToDraw)) {
 #ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
         return true;
 #else
