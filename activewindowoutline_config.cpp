@@ -1050,8 +1050,9 @@ void ActiveWindowOutlineConfig::checkForUpdates()
     m_ui->label_updateStatus->setText(QStringLiteral("Connecting to GitHub…"));
     m_ui->label_updateStatus->setStyleSheet(QString());
 
-    QNetworkRequest request(QUrl(QStringLiteral("https://api.github.com/repos/gmalinowski/kwin-active-window-outline/releases")));
-    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("KLeap-KCM"));
+    QNetworkRequest request(QUrl(QStringLiteral("https://api.github.com/repos/gmalinowski/leapk/releases")));
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LeapK-KCM"));
     request.setRawHeader("Accept", "application/vnd.github.v3+json");
 
     QNetworkReply *reply = m_networkManager->get(request);
@@ -1107,7 +1108,7 @@ void ActiveWindowOutlineConfig::checkForUpdates()
 
             QMessageBox::information(widget(),
                 QStringLiteral("Plugin Updates"),
-                QStringLiteral("You have the latest version of KLeap installed (v%1).").arg(currentVerStr));
+                QStringLiteral("You have the latest version of LeapK installed (v%1).").arg(currentVerStr));
             return;
         }
 
@@ -1116,8 +1117,8 @@ void ActiveWindowOutlineConfig::checkForUpdates()
         m_ui->label_updateStatus->setStyleSheet(QStringLiteral("color: #3daee9; font-weight: bold;"));
 
         const QString installCmd = isPrerelease
-            ? QStringLiteral("curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/install.sh | bash -s -- --pre")
-            : QStringLiteral("curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/install.sh | bash");
+            ? QStringLiteral("curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash -s -- --pre")
+            : QStringLiteral("curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash");
 
         QDialog dlg(widget());
         dlg.setWindowTitle(QStringLiteral("New Version Available!"));

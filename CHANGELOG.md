@@ -78,14 +78,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Real-time full repaint when stacking order or virtual desktop changes (`stackingOrderChanged`, `desktopChanged`).
 
 ### Changed
-- **Rebranded Project to KLeap (`KLeap – Vim-style Window Navigator & Window Highlighter for KDE`)**:
-  - Rebranded the project from *Active Window Outline* / *KAWO* to **KLeap** to reflect its evolution into a full keyboard-driven window navigation, modal leaping, and focus highlight engine.
-  - Shortcut prefix renamed from `KAWO:` to `KLeap:` in KDE System Settings (e.g. `KLeap: Jump to Window`, `KLeap: Toggle Window Highlight`, `KLeap: Toggle Mark Window`).
-  - Standalone tools and executables now available as `kleap` / `kleap-settings` and `kleap-tray` (with backward compatibility symlinks `active-window-outline-*`).
-  - Added installer/uninstaller aliases `install-kleap.sh` and `uninstall-kleap.sh`.
-  - Added vector icon `kleap.svg` installed to the system hicolor scalable icon theme and embedded in Qt resources.
-  - Companion tray and settings window updated to KLeap branding with dual D-Bus interface support (`org.kde.KLeap` & `org.kde.ActiveWindowOutline`).
-  - Default built-in preset renamed to `KLeap Default (v1.5)`.
+- **Rebranded Project to LeapK (`LeapK – Vim-style Window Navigator & Window Highlighter for KDE`)**:
+  - Rebranded the project from *Active Window Outline* / *KAWO* to **LeapK** to reflect its evolution into a full keyboard-driven window navigation, modal leaping, and focus highlight engine.
+  - Shortcut prefix renamed from `KAWO:` to `LeapK:` in KDE System Settings (e.g. `LeapK: Jump to Window`, `LeapK: Toggle Window Highlight`, `LeapK: Toggle Mark Window`).
+  - Standalone tools and executables now available as `leapk` / `leapk-settings` and `leapk-tray` (with backward compatibility symlinks `kleap-*` and `active-window-outline-*`).
+  - Added installer/uninstaller aliases `install-leapk.sh` and `uninstall-leapk.sh`.
+  - Added vector icon `leapk.svg` installed to the system hicolor scalable icon theme and embedded in Qt resources.
+  - Companion tray and settings window updated to LeapK branding with multi-interface D-Bus support (`org.kde.LeapK`, `org.kde.KLeap` & `org.kde.ActiveWindowOutline`).
+  - Default built-in preset renamed to `LeapK Default (v1.5)`.
 - **Default Focus History Navigation Shortcuts Updated to `Meta+Ctrl+[` and `Meta+Ctrl+]`**:
   - Changed default previous recent window shortcut from `Meta+Alt+[` to `Meta+Ctrl+[`.
   - Changed default next recent window shortcut from `Meta+Alt+]` to `Meta+Ctrl+]`.

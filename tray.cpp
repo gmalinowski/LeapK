@@ -263,11 +263,20 @@ private slots:
 
         QDBusMessage msg = QDBusMessage::createMethodCall(
             QStringLiteral("org.kde.KWin"),
-            QStringLiteral("/KLeap"),
-            QStringLiteral("org.kde.KLeap"),
+            QStringLiteral("/LeapK"),
+            QStringLiteral("org.kde.LeapK"),
             QStringLiteral("applyPreset"));
         msg << presetName;
         QDBusReply<void> reply = QDBusConnection::sessionBus().call(msg);
+        if (!reply.isValid()) {
+            msg = QDBusMessage::createMethodCall(
+                QStringLiteral("org.kde.KWin"),
+                QStringLiteral("/KLeap"),
+                QStringLiteral("org.kde.KLeap"),
+                QStringLiteral("applyPreset"));
+            msg << presetName;
+            reply = QDBusConnection::sessionBus().call(msg);
+        }
         if (!reply.isValid()) {
             msg = QDBusMessage::createMethodCall(
                 QStringLiteral("org.kde.KWin"),
@@ -347,7 +356,7 @@ private slots:
     void onExportPreset()
     {
         const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd_HH-mm-ss"));
-        const QString defaultFileName = QStringLiteral("KLeap_Preset_%1.json").arg(timestamp);
+        const QString defaultFileName = QStringLiteral("LeapK_Preset_%1.json").arg(timestamp);
         const QString docsPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
         const QString initialPath = docsPath + QLatin1Char('/') + defaultFileName;
 
@@ -532,14 +541,14 @@ private slots:
             rows += formatRow(scJump, QStringLiteral("Jump to Window (interactive letter jump)"));
             rows += formatRow(scMark, QStringLiteral("Mark / Unmark Active Window"));
             rows += formatRow(scMarkColor, QStringLiteral("Custom Mark Window (Color, Letter, Label)"));
-            rows += formatRow(scToggle, QStringLiteral("Toggle KLeap window highlight on/off"));
+            rows += formatRow(scToggle, QStringLiteral("Toggle LeapK window highlight on/off"));
             rows += formatRow(scPrev, QStringLiteral("Navigate to Previous Window in focus history"));
             rows += formatRow(scNext, QStringLiteral("Navigate to Next Window in focus history"));
         }
 
         QMessageBox msgBox(nullptr);
-        msgBox.setWindowTitle(m_isPolish ? QStringLiteral("Skróty klawiszowe — KLeap")
-                                         : QStringLiteral("Keyboard Shortcuts — KLeap"));
+        msgBox.setWindowTitle(m_isPolish ? QStringLiteral("Skróty klawiszowe — LeapK")
+                                         : QStringLiteral("Keyboard Shortcuts — LeapK"));
         msgBox.setIcon(QMessageBox::Information);
         const QString text = m_isPolish
             ? QStringLiteral(
@@ -563,15 +572,16 @@ private slots:
         }
 
         m_trayIcon->showMessage(
-            QStringLiteral("Active Window Outline"),
+            QStringLiteral("LeapK"),
             m_isPolish ? QStringLiteral("Sprawdzanie dostępności aktualizacji na GitHubie…")
                        : QStringLiteral("Checking for updates on GitHub…"),
             QSystemTrayIcon::Information,
             2000
         );
 
-        QNetworkRequest request(QUrl(QStringLiteral("https://api.github.com/repos/gmalinowski/kwin-active-window-outline/releases")));
-        request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("KLeap-Tray"));
+        QNetworkRequest request(QUrl(QStringLiteral("https://api.github.com/repos/gmalinowski/leapk/releases")));
+        request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+        request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LeapK-Tray"));
         request.setRawHeader("Accept", "application/vnd.github.v3+json");
 
         QNetworkReply *reply = m_networkManager->get(request);
@@ -703,10 +713,19 @@ private slots:
     {
         QDBusMessage msg = QDBusMessage::createMethodCall(
             QStringLiteral("org.kde.KWin"),
+            QStringLiteral("/LeapK"),
+            QStringLiteral("org.kde.LeapK"),
+            QStringLiteral("isOutlineEnabled"));
+        QDBusReply<bool> reply = QDBusConnection::sessionBus().call(msg, QDBus::Block, 250);
+        if (reply.isValid()) {
+            return reply.value();
+        }
+        msg = QDBusMessage::createMethodCall(
+            QStringLiteral("org.kde.KWin"),
             QStringLiteral("/KLeap"),
             QStringLiteral("org.kde.KLeap"),
             QStringLiteral("isOutlineEnabled"));
-        QDBusReply<bool> reply = QDBusConnection::sessionBus().call(msg, QDBus::Block, 250);
+        reply = QDBusConnection::sessionBus().call(msg, QDBus::Block, 250);
         if (reply.isValid()) {
             return reply.value();
         }
@@ -805,10 +824,10 @@ private slots:
 
         m_trayIcon->setIcon(createTrayIconPixmap(enabled, outlineColor));
         const QString statusText = enabled
-            ? (m_isPolish ? QStringLiteral("KLeap: Włączony\n(Kliknij lewym przyciskiem myszy, aby wyłączyć)")
-                          : QStringLiteral("KLeap: Enabled\n(Click left mouse button to disable)"))
-            : (m_isPolish ? QStringLiteral("KLeap: Wyłączony\n(Kliknij lewym przyciskiem myszy, aby włączyć)")
-                          : QStringLiteral("KLeap: Disabled\n(Click left mouse button to enable)"));
+            ? (m_isPolish ? QStringLiteral("LeapK: Włączony\n(Kliknij lewym przyciskiem myszy, aby wyłączyć)")
+                          : QStringLiteral("LeapK: Enabled\n(Click left mouse button to disable)"))
+            : (m_isPolish ? QStringLiteral("LeapK: Wyłączony\n(Kliknij lewym przyciskiem myszy, aby włączyć)")
+                          : QStringLiteral("LeapK: Disabled\n(Click left mouse button to enable)"));
         m_trayIcon->setToolTip(statusText);
 
         rebuildPresetsMenu();
@@ -820,10 +839,19 @@ private:
     {
         QDBusMessage msg = QDBusMessage::createMethodCall(
             QStringLiteral("org.kde.KWin"),
+            QStringLiteral("/LeapK"),
+            QStringLiteral("org.kde.LeapK"),
+            methodName);
+        QDBusReply<void> reply = QDBusConnection::sessionBus().call(msg, QDBus::Block, 500);
+        if (reply.isValid()) {
+            return true;
+        }
+        msg = QDBusMessage::createMethodCall(
+            QStringLiteral("org.kde.KWin"),
             QStringLiteral("/KLeap"),
             QStringLiteral("org.kde.KLeap"),
             methodName);
-        QDBusReply<void> reply = QDBusConnection::sessionBus().call(msg, QDBus::Block, 500);
+        reply = QDBusConnection::sessionBus().call(msg, QDBus::Block, 500);
         if (reply.isValid()) {
             return true;
         }
@@ -843,15 +871,8 @@ private:
             QStringLiteral("/Effects"),
             QStringLiteral("org.kde.kwin.Effects"),
             QStringLiteral("reconfigureEffect"));
-        msg << QStringLiteral("kleap");
+        msg << QStringLiteral("active-window-outline");
         QDBusConnection::sessionBus().call(msg, QDBus::NoBlock);
-        QDBusMessage msg2 = QDBusMessage::createMethodCall(
-            QStringLiteral("org.kde.KWin"),
-            QStringLiteral("/Effects"),
-            QStringLiteral("org.kde.kwin.Effects"),
-            QStringLiteral("reconfigureEffect"));
-        msg2 << QStringLiteral("kleap");
-        QDBusConnection::sessionBus().call(msg2, QDBus::NoBlock);
     }
 
     void invokeShortcut(const QString &actionName)
@@ -872,7 +893,7 @@ private:
         connect(m_menu, &QMenu::aboutToShow, this, &OutlineTray::refreshStateFromConfig);
 
         // 1. Title / Header
-        QAction *actHeader = m_menu->addAction(QStringLiteral("🚀 KLeap v1.5"));
+        QAction *actHeader = m_menu->addAction(QStringLiteral("🚀 LeapK v1.5"));
         QFont headerFont = actHeader->font();
         headerFont.setBold(true);
         actHeader->setFont(headerFont);
@@ -1030,9 +1051,9 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("active-window-outline-tray"));
-    app.setApplicationDisplayName(QStringLiteral("KLeap Tray"));
-    app.setWindowIcon(QIcon::fromTheme(QStringLiteral("kleap"),
-                                       QIcon(QStringLiteral(":/icons/kleap.svg"))));
+    app.setApplicationDisplayName(QStringLiteral("LeapK Tray"));
+    app.setWindowIcon(QIcon::fromTheme(QStringLiteral("leapk"),
+                                       QIcon(QStringLiteral(":/icons/leapk.svg"))));
     app.setQuitOnLastWindowClosed(false);
 
     if (app.arguments().contains(QStringLiteral("--settings"))

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=LeapK Settings
+Name[pl]=Ustawienia LeapK
+GenericName=Window Navigator & Highlighter
+GenericName[pl]=Nawigator i podświetlanie okien
+Comment=LeapK – Vim-style Window Navigator & Window Highlighter for KDE
+Comment[pl]=LeapK – nawigator okien w stylu Vima i podświetlanie okien dla KDE
+Exec=leapk-settings
+Icon=leapk
+Categories=Settings;DesktopSettings;Qt;KDE;
+StartupNotify=true

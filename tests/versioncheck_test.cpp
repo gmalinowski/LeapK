@@ -56,13 +56,13 @@ int main()
             {
                 "tag_name": "v1.4.8",
                 "prerelease": true,
-                "html_url": "https://github.com/gmalinowski/kwin-active-window-outline/releases/tag/v1.4.8",
+                "html_url": "https://github.com/gmalinowski/leapk/releases/tag/v1.4.8",
                 "body": "Bugfixes and performance improvements"
             },
             {
                 "tag_name": "v1.3.6",
                 "prerelease": false,
-                "html_url": "https://github.com/gmalinowski/kwin-active-window-outline/releases/tag/v1.3.6",
+                "html_url": "https://github.com/gmalinowski/leapk/releases/tag/v1.3.6",
                 "body": "Stable release"
             }
         ])json";
@@ -82,8 +82,8 @@ int main()
         // Install command construction
         const bool isPre = latest.value(QStringLiteral("prerelease")).toBool();
         const QString cmd = isPre
-            ? QStringLiteral("curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/install.sh | bash -s -- --pre")
-            : QStringLiteral("curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/install.sh | bash");
+            ? QStringLiteral("curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash -s -- --pre")
+            : QStringLiteral("curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash");
         check(cmd.contains(QStringLiteral("--pre")), "prerelease command contains --pre flag");
     }
 

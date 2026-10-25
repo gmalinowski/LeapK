@@ -2,8 +2,8 @@
 
 ## Recommended GitHub repository
 
-- Repository name: `kwin-active-window-outline`
-- Description: `A theme-independent active window outline effect for KDE Plasma 6 and KWin.`
+- Repository name: `leapk`
+- Description: `Vim-style Window Navigator & Window Highlighter for KDE`
 - Website: leave empty until a KDE Store page exists
 - License: GPL-3.0
 - Suggested topics: `kde`, `kde-plasma`, `kwin`, `kwin-effect`, `plasma-6`, `wayland`, `window-manager`, `accessibility`, `focus`

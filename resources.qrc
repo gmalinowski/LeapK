@@ -1,6 +1,7 @@
 <RCC>
     <qresource prefix="/icons">
-        <file alias="kleap.svg">kleap.svg</file>
-        <file alias="active-window-outline.svg">kleap.svg</file>
+        <file alias="leapk.svg">leapk.svg</file>
+        <file alias="kleap.svg">leapk.svg</file>
+        <file alias="active-window-outline.svg">leapk.svg</file>
     </qresource>
 </RCC>

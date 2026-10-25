@@ -11,10 +11,14 @@ from pathlib import Path
 def main():
     repo_dir = Path(__file__).resolve().parent.parent
     kcfg_file = repo_dir / "activewindowoutlineconfig.kcfg"
-    install_file = repo_dir / "install-kleap.sh"
+    install_file = repo_dir / "install-leapk.sh"
+    if not install_file.exists():
+        install_file = repo_dir / "install-kleap.sh"
     if not install_file.exists():
         install_file = repo_dir / "install-active-window-outline.sh"
-    uninstall_file = repo_dir / "uninstall-kleap.sh"
+    uninstall_file = repo_dir / "uninstall-leapk.sh"
+    if not uninstall_file.exists():
+        uninstall_file = repo_dir / "uninstall-kleap.sh"
     if not uninstall_file.exists():
         uninstall_file = repo_dir / "uninstall-active-window-outline.sh"
     version_file = repo_dir / "VERSION"

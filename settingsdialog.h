@@ -25,10 +25,10 @@ public:
         : QDialog(parent)
         , m_isPolish(QLocale().language() == QLocale::Polish)
     {
-        setWindowTitle(m_isPolish ? QStringLiteral("KLeap — Ustawienia")
-                                  : QStringLiteral("KLeap — Settings"));
-        setWindowIcon(QIcon::fromTheme(QStringLiteral("kleap"),
-                                       QIcon(QStringLiteral(":/icons/kleap.svg"))));
+        setWindowTitle(m_isPolish ? QStringLiteral("LeapK — Ustawienia")
+                                  : QStringLiteral("LeapK — Settings"));
+        setWindowIcon(QIcon::fromTheme(QStringLiteral("leapk"),
+                                       QIcon(QStringLiteral(":/icons/leapk.svg"))));
         QScreen *screen = QGuiApplication::primaryScreen();
         const QRect avail = screen ? screen->availableGeometry() : QRect(0, 0, 1920, 1080);
         const int targetWidth = qBound(640, 880, avail.width() - 40);

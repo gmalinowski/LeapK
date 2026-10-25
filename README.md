@@ -1,8 +1,8 @@
-# KLeap – Vim-style Window Navigator & Window Highlighter for KDE
+# LeapK – Vim-style Window Navigator & Window Highlighter for KDE
 
 A native KWin effect for KDE Plasma 6 that draws a configurable, theme-independent outline and colored border around the active, focused window.
 
-**KLeap** is a native KWin effect and companion tool for KDE Plasma 6 that combines a Vim-style keyboard window navigator and target jumper with a configurable, theme-independent window highlighter and focus border. Whether you are using tiling window management (such as Bismuth, Polonium, or Krohnkite), borderless themes, or multi-monitor setups, **KLeap** provides lightning-fast window teleportation alongside a crisp, customizable focus indicator directly at the compositor level.
+**LeapK** is a native KWin effect and companion tool for KDE Plasma 6 that combines a Vim-style keyboard window navigator and target jumper with a configurable, theme-independent window highlighter and focus border. Whether you are using tiling window management (such as Bismuth, Polonium, or Krohnkite), borderless themes, or multi-monitor setups, **LeapK** provides lightning-fast window teleportation alongside a crisp, customizable focus indicator directly at the compositor level.
 
 ## Features
 
@@ -125,7 +125,7 @@ and an OBS update repository are not provided yet.
 Run this one-liner in your terminal to automatically download the latest release, compile against your running KWin version, and enable the effect (or update an existing installation):
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash
 ```
 
 The installer automatically detects the latest stable release from GitHub (`releases/latest`), installs any missing build dependencies for your distribution (Debian/Ubuntu, Fedora, Arch/CachyOS, openSUSE), and compiles the plugin for your local KWin ABI. Existing configuration settings are preserved on update.
@@ -133,28 +133,28 @@ The installer automatically detects the latest stable release from GitHub (`rele
 To install the latest **pre-release / beta** version instead:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/install.sh | bash -s -- --pre
+curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash -s -- --pre
 ```
 
 To install a specific version or test the development build from the `main` branch:
 
 ```bash
 # Specific version tag:
-curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/install.sh | bash -s -- --tag v1.3.2
+curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash -s -- --tag v1.3.2
 
 # Latest bleeding-edge development from main:
-curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/install.sh | bash -s -- --main
+curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash -s -- --main
 ```
 
-*(You can inspect the scripts before running: [`install.sh`](install.sh) or [`install-kleap.sh`](install-kleap.sh).)*
+*(You can inspect the scripts before running: [`install.sh`](install.sh) or [`install-leapk.sh`](install-leapk.sh).)*
 
 ### Guided installation from local source
 
-Clone the repository or download and extract a [source release](https://github.com/gmalinowski/kwin-active-window-outline/releases), then
+Clone the repository or download and extract a [source release](https://github.com/gmalinowski/leapk/releases), then
 run this command from the project directory:
 
 ```bash
-bash install-kleap.sh
+bash install-leapk.sh
 ```
 
 The installer detects Debian/Ubuntu (`apt`), Fedora (`dnf`), Arch/CachyOS (`pacman`),
@@ -166,11 +166,11 @@ binary shared across distributions: KWin plugins must match the local KWin ABI.
 For an overview without changing the system, run:
 
 ```bash
-bash install-kleap.sh --dry-run
+bash install-leapk.sh --dry-run
 ```
 
 On another distribution, or when the development dependencies are already
-installed, run `bash install-kleap.sh --skip-deps`. CMake will
+installed, run `bash install-leapk.sh --skip-deps`. CMake will
 report anything still missing. The guided installer currently targets Wayland;
 X11 remains an experimental manual build.
 
@@ -295,15 +295,15 @@ Configure buffering delays and window state handling.
 
 The effect registers global shortcuts with KWin:
 
-- **KLeap: Toggle Window Highlight** (`Meta+Ctrl+O`): Turn the active window outline on or off at any time.
-- **KLeap: Toggle Mark Window** (`Meta+Ctrl+Space`): Pin or unpin a permanent outline frame on the active window using the default mark color.
-- **KLeap: Mark Window with Color Picker** (`Meta+Ctrl+Shift+Space`): Open the native KDE color palette picker to choose an exact custom color and label for the active window.
+- **LeapK: Toggle Window Highlight** (`Meta+Ctrl+O`): Turn the active window outline on or off at any time.
+- **LeapK: Toggle Mark Window** (`Meta+Ctrl+Space`): Pin or unpin a permanent outline frame on the active window using the default mark color.
+- **LeapK: Mark Window with Color Picker** (`Meta+Ctrl+Shift+Space`): Open the native KDE color palette picker to choose an exact custom color and label for the active window.
 
 ![KWin global shortcut configuration](shortcuts.png)
 
 The shortcuts can be customized or disabled in:
 
-**System Settings → Shortcuts → KWin** (search for `KLeap`)
+**System Settings → Shortcuts → KWin** (search for `LeapK`)
 
 ### Inside and outside drawing
 
@@ -329,7 +329,7 @@ input-transparent surfaces are excluded from this fallback.
 To update an existing installation to the latest release, run the quick install command:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash
 ```
 
 The script automatically fetches the newest release, rebuilds the plugin, and preserves your existing settings.
@@ -338,7 +338,7 @@ Or when updating from a local clone:
 
 ```bash
 git pull
-bash install-kleap.sh
+bash install-leapk.sh
 ```
 
 After updating a native KWin plugin, log out and back in once so KWin loads the new library from disk.
@@ -348,13 +348,13 @@ After updating a native KWin plugin, log out and back in once so KWin loads the 
 ### Quick uninstall
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/uninstall.sh | bash
+curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/uninstall.sh | bash
 ```
 
 ### From local source
 
 ```bash
-bash uninstall-kleap.sh
+bash uninstall-leapk.sh
 ```
 
 The uninstaller disables the effect, removes its two plugin files, clears its KWin settings and shortcut, and refreshes KDE. It does not remove build dependencies, themes, window rules, or the downloaded source directory.

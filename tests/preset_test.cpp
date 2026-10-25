@@ -13,8 +13,8 @@ void testBuiltInPresets()
     const auto list = OutlinePreset::getBuiltInPresets();
     assert(list.size() == 5);
 
-    // Verify KLeap Default (v1.5)
-    assert(list[0].name == QStringLiteral("KLeap Default (v1.5)"));
+    // Verify LeapK Default (v1.5)
+    assert(list[0].name == QStringLiteral("LeapK Default (v1.5)"));
     assert(list[0].isBuiltIn == true);
     assert(list[0].settings[QStringLiteral("GlowEnabled")].toBool() == false);
     assert(list[0].settings[QStringLiteral("MenuHideDelay")].toInt() == 500);

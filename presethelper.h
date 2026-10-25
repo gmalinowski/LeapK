@@ -121,10 +121,10 @@ inline QList<PresetInfo> getBuiltInPresets()
 {
     QList<PresetInfo> list;
 
-    // 1. KLeap Default (v1.5)
+    // 1. LeapK Default (v1.5)
     {
         PresetInfo p;
-        p.name = QStringLiteral("KLeap Default (v1.5)");
+        p.name = QStringLiteral("LeapK Default (v1.5)");
         p.description = QStringLiteral("Standard balanced appearance with top badges, subtle dashed marks and neutral timing.");
         p.isBuiltIn = true;
         p.settings = getDefaultSettings();

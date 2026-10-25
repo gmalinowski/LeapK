@@ -13,7 +13,7 @@
         "EnabledByDefault": false,
         "Id": "active-window-outline",
         "License": "GPL-3.0-or-later",
-        "Name": "KLeap",
+        "Name": "LeapK",
         "Version": "1.5.0"
     },
     "X-KDE-ConfigModule": "kwin_active-window-outline_config"

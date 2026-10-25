@@ -6,7 +6,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: bash install-kleap.sh [--skip-deps] [--dry-run] [-j|--jobs N]
+Usage: bash install-leapk.sh [--skip-deps] [--dry-run] [-j|--jobs N]
 
 Build and install the KWin Wayland effect for the KWin version on this system.
 Dependencies are installed automatically on Debian/Ubuntu, Fedora, Arch,
@@ -85,7 +85,7 @@ if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Invalid project version: $version" >&2
   exit 1
 fi
-echo "KLeap v$version"
+echo "LeapK v$version"
 echo
 
 if [[ -r /etc/os-release ]]; then
@@ -241,7 +241,7 @@ fi
 build_dir="$(mktemp -d /tmp/active-window-outline-build.XXXXXX)"
 trap 'cmake -E remove_directory "$build_dir"' EXIT
 
-echo "[2/5] Building KLeap (using $parallel_jobs parallel jobs)…"
+echo "[2/5] Building LeapK (using $parallel_jobs parallel jobs)…"
 cmake -S "$project_dir" -B "$build_dir" \
   -DKWIN_BACKEND=WAYLAND \
   -DCMAKE_BUILD_TYPE=Release
@@ -364,16 +364,16 @@ set_default JumpTargets 0
 
 if command -v kreadconfig6 >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/null 2>&1; then
   current_jump_shortcut=$(kreadconfig6 --file kglobalshortcutsrc --group kwin --key "JumpToWindow" 2>/dev/null || true)
-  if [[ "$current_jump_shortcut" == *"Meta+Alt+Space"* || "$current_jump_shortcut" == *"KAWO:"* ]]; then
-    kwriteconfig6 --file kglobalshortcutsrc --group kwin --key "JumpToWindow" "Meta+Space,Meta+Space,KLeap: Jump to Window"
+  if [[ "$current_jump_shortcut" == *"Meta+Alt+Space"* || "$current_jump_shortcut" == *"KAWO:"* || "$current_jump_shortcut" == *"KLeap:"* ]]; then
+    kwriteconfig6 --file kglobalshortcutsrc --group kwin --key "JumpToWindow" "Meta+Space,Meta+Space,LeapK: Jump to Window"
   fi
   current_prev_shortcut=$(kreadconfig6 --file kglobalshortcutsrc --group kwin --key "PrevRecentWindow" 2>/dev/null || true)
-  if [[ "$current_prev_shortcut" == *"Meta+Alt+["* || "$current_prev_shortcut" == *"KAWO:"* ]]; then
-    kwriteconfig6 --file kglobalshortcutsrc --group kwin --key "PrevRecentWindow" "Meta+Ctrl+[,Meta+Ctrl+[,KLeap: Previous Recent Window"
+  if [[ "$current_prev_shortcut" == *"Meta+Alt+["* || "$current_prev_shortcut" == *"KAWO:"* || "$current_prev_shortcut" == *"KLeap:"* ]]; then
+    kwriteconfig6 --file kglobalshortcutsrc --group kwin --key "PrevRecentWindow" "Meta+Ctrl+[,Meta+Ctrl+[,LeapK: Previous Recent Window"
   fi
   current_next_shortcut=$(kreadconfig6 --file kglobalshortcutsrc --group kwin --key "NextRecentWindow" 2>/dev/null || true)
-  if [[ "$current_next_shortcut" == *"Meta+Alt+]"* || "$current_next_shortcut" == *"KAWO:"* ]]; then
-    kwriteconfig6 --file kglobalshortcutsrc --group kwin --key "NextRecentWindow" "Meta+Ctrl+],Meta+Ctrl+],KLeap: Next Recent Window"
+  if [[ "$current_next_shortcut" == *"Meta+Alt+]"* || "$current_next_shortcut" == *"KAWO:"* || "$current_next_shortcut" == *"KLeap:"* ]]; then
+    kwriteconfig6 --file kglobalshortcutsrc --group kwin --key "NextRecentWindow" "Meta+Ctrl+],Meta+Ctrl+],LeapK: Next Recent Window"
   fi
 fi
 
@@ -386,7 +386,9 @@ if command -v qdbus6 >/dev/null 2>&1; then
 fi
 
 mkdir -p "$HOME/.config/autostart"
-if [[ -f "$project_dir/kleap-tray.desktop" ]]; then
+if [[ -f "$project_dir/leapk-tray.desktop" ]]; then
+  cp "$project_dir/leapk-tray.desktop" "$HOME/.config/autostart/"
+elif [[ -f "$project_dir/kleap-tray.desktop" ]]; then
   cp "$project_dir/kleap-tray.desktop" "$HOME/.config/autostart/"
 elif [[ -f "$project_dir/active-window-outline-tray.desktop" ]]; then
   cp "$project_dir/active-window-outline-tray.desktop" "$HOME/.config/autostart/"
@@ -394,10 +396,14 @@ fi
 
 tray_enabled="$(kreadconfig6 --file kwinrc --group Effect-active-window-outline --key TrayIconEnabled --default true 2>/dev/null || echo true)"
 if [[ "$tray_enabled" == "true" ]]; then
-  if command -v kleap-tray >/dev/null 2>&1; then
+  if command -v leapk-tray >/dev/null 2>&1; then
+    leapk-tray >/dev/null 2>&1 &
+  elif command -v kleap-tray >/dev/null 2>&1; then
     kleap-tray >/dev/null 2>&1 &
   elif command -v active-window-outline-tray >/dev/null 2>&1; then
     active-window-outline-tray >/dev/null 2>&1 &
+  elif [[ -x "$build_dir/bin/leapk-tray" ]]; then
+    "$build_dir/bin/leapk-tray" >/dev/null 2>&1 &
   elif [[ -x "$build_dir/bin/kleap-tray" ]]; then
     "$build_dir/bin/kleap-tray" >/dev/null 2>&1 &
   elif [[ -x "$build_dir/bin/active-window-outline-tray" ]]; then
@@ -406,10 +412,10 @@ if [[ "$tray_enabled" == "true" ]]; then
 fi
 
 echo
-echo "Done. KLeap v$version has been installed."
-echo "Configure it in System Settings → Desktop Effects → KLeap (or via 'kleap-settings')."
-echo "Toggle window highlight: Meta+Ctrl+O (search for 'KLeap' in Shortcuts)."
-echo "Jump to window: Meta+Space (search for 'KLeap' in Shortcuts)."
+echo "Done. LeapK v$version has been installed."
+echo "Configure it in System Settings → Desktop Effects → LeapK (or via 'leapk-settings')."
+echo "Toggle window highlight: Meta+Ctrl+O (search for 'LeapK' in Shortcuts)."
+echo "Jump to window: Meta+Space (search for 'LeapK' in Shortcuts)."
 echo "Mark window: Meta+Ctrl+Space (toggle mark), Meta+Ctrl+Shift+Space (mark with palette)."
 if [[ "$updating_existing" == true ]]; then
   echo

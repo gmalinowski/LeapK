@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=LeapK Tray
+Comment=Companion tray icon for quick LeapK window navigation and focus controls
+Exec=leapk-tray
+Icon=leapk
+Categories=Utility;KDE;Qt;
+StartupNotify=false
+X-KDE-autostart-phase=2
+NoDisplay=true

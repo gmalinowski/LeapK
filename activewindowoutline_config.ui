@@ -1639,7 +1639,7 @@
           <item row="0" column="0" colspan="2">
            <widget class="QLabel" name="label_markWindowDescription">
             <property name="text">
-             <string>Allows pinning a permanent outline frame to specific windows. Marked windows keep their custom color across active and background states, with independent appearance settings for inactive windows.&lt;br&gt;&lt;br&gt;Default shortcuts (search for &lt;b&gt;KLeap&lt;/b&gt; in System Shortcuts):&lt;br&gt;&amp;bull; &lt;b&gt;Meta+Ctrl+Space&lt;/b&gt;: KLeap: Toggle Mark Window&lt;br&gt;&amp;bull; &lt;b&gt;Meta+Ctrl+Shift+Space&lt;/b&gt;: KLeap: Mark Window with Color Picker</string>
+             <string>Allows pinning a permanent outline frame to specific windows. Marked windows keep their custom color across active and background states, with independent appearance settings for inactive windows.&lt;br&gt;&lt;br&gt;Default shortcuts (search for &lt;b&gt;LeapK&lt;/b&gt; in System Shortcuts):&lt;br&gt;&amp;bull; &lt;b&gt;Meta+Ctrl+Space&lt;/b&gt;: LeapK: Toggle Mark Window&lt;br&gt;&amp;bull; &lt;b&gt;Meta+Ctrl+Shift+Space&lt;/b&gt;: LeapK: Mark Window with Color Picker</string>
             </property>
             <property name="wordWrap">
              <bool>true</bool>
@@ -2376,7 +2376,7 @@
        <item>
         <widget class="QGroupBox" name="groupAboutInfo">
          <property name="title">
-          <string>KLeap</string>
+          <string>LeapK</string>
          </property>
          <layout class="QFormLayout" name="formLayoutAboutInfo">
           <item row="0" column="0">
@@ -2389,7 +2389,7 @@
           <item row="0" column="1">
            <widget class="QLabel" name="label_aboutDescVal">
             <property name="text">
-             <string>KLeap – Vim-style Window Navigator &amp; Window Highlighter for KDE.</string>
+             <string>LeapK – Vim-style Window Navigator &amp; Window Highlighter for KDE.</string>
             </property>
             <property name="wordWrap">
              <bool>true</bool>
@@ -2440,7 +2440,7 @@
           <item row="3" column="1">
            <widget class="QLabel" name="label_websiteVal">
             <property name="text">
-             <string>&lt;a href=&quot;https://github.com/gmalinowski/kwin-active-window-outline&quot;&gt;https://github.com/gmalinowski/kwin-active-window-outline&lt;/a&gt;</string>
+             <string>&lt;a href=&quot;https://github.com/gmalinowski/leapk&quot;&gt;https://github.com/gmalinowski/leapk&lt;/a&gt;</string>
             </property>
             <property name="openExternalLinks">
              <bool>true</bool>
@@ -2474,7 +2474,7 @@
                <string>Check for updates</string>
               </property>
               <property name="toolTip">
-               <string>Check GitHub for newer versions of KLeap</string>
+               <string>Check GitHub for newer versions of LeapK</string>
               </property>
              </widget>
             </item>
