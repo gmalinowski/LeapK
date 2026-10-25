@@ -33,6 +33,19 @@ QList<WindowPtr> computeRecentWindows(const QList<WindowPtr> &history,
     return result;
 }
 
+template <typename WindowPtr, typename IsValidFunc>
+WindowPtr findRecentWindow(const QList<WindowPtr> &history,
+                           WindowPtr activeWindow,
+                           IsValidFunc isValid)
+{
+    for (const WindowPtr &win : history) {
+        if (win && win != activeWindow && isValid(win)) {
+            return win;
+        }
+    }
+    return nullptr;
+}
+
 template <typename WindowPtr>
 void recordWindowActivation(QList<WindowPtr> &history,
                             WindowPtr previousWindow,

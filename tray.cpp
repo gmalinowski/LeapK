@@ -558,9 +558,19 @@ private slots:
         invokeShortcut(QStringLiteral("NextRecentWindow"));
     }
 
+    void onJumpToRecentWindow()
+    {
+        if (callDBusMethod(QStringLiteral("slotJumpToRecentWindow"))) {
+            return;
+        }
+        invokeShortcut(QStringLiteral("RecentWindow"));
+    }
+
     void onShowShortcutsCheatSheet()
     {
         const QString scJump = getGlobalShortcutText(QStringLiteral("JumpToWindow"), QStringLiteral("Meta+Space"));
+        const QString scRecent = getGlobalShortcutText(QStringLiteral("RecentWindow"), QString());
+        const QString scJumpRecent = QStringLiteral("%1 Space").arg(scJump);
         const QString scMark = getGlobalShortcutText(QStringLiteral("MarkActiveWindow"), QStringLiteral("Meta+Ctrl+Space"));
         const QString scMarkColor = getGlobalShortcutText(QStringLiteral("MarkActiveWindowWithColor"), QStringLiteral("Meta+Ctrl+Shift+Space"));
         const QString scToggle = getGlobalShortcutText(QStringLiteral("ToggleActiveWindowOutline"), QStringLiteral("Meta+Ctrl+O"));
@@ -578,6 +588,10 @@ private slots:
         QString rows;
         if (m_isPolish) {
             rows += formatRow(scJump, QStringLiteral("Skocz do okna (Jump Mode z literami)"));
+            rows += formatRow(scJumpRecent, QStringLiteral("Skocz do ostatnio aktywnego okna (recent)"));
+            if (!scRecent.isEmpty() && scRecent.compare(QStringLiteral("none"), Qt::CaseInsensitive) != 0) {
+                rows += formatRow(scRecent, QStringLiteral("Przełącz na ostatnie okno (skrót bezpośredni)"));
+            }
             rows += formatRow(scMark, QStringLiteral("Oznacz / Odznacz aktywne okno"));
             rows += formatRow(scMarkColor, QStringLiteral("Własne oznaczenie okna (kolor, litera, etykieta)"));
             rows += formatRow(scToggle, QStringLiteral("Włącz / Wyłącz aktywny obrys"));
@@ -585,6 +599,10 @@ private slots:
             rows += formatRow(scNext, QStringLiteral("Przejdź do następnego okna w historii"));
         } else {
             rows += formatRow(scJump, QStringLiteral("Jump to Window (interactive letter jump)"));
+            rows += formatRow(scJumpRecent, QStringLiteral("Jump to last active window (recent)"));
+            if (!scRecent.isEmpty() && scRecent.compare(QStringLiteral("none"), Qt::CaseInsensitive) != 0) {
+                rows += formatRow(scRecent, QStringLiteral("Switch to recent window (direct shortcut)"));
+            }
             rows += formatRow(scMark, QStringLiteral("Mark / Unmark Active Window"));
             rows += formatRow(scMarkColor, QStringLiteral("Custom Mark Window (Color, Letter, Label)"));
             rows += formatRow(scToggle, QStringLiteral("Toggle LeapK window highlight on/off"));
@@ -756,6 +774,8 @@ private slots:
         }
 
         const QString scJump = getGlobalShortcutText(QStringLiteral("JumpToWindow"), QStringLiteral("Meta+Space"));
+        const QString scRecent = getGlobalShortcutText(QStringLiteral("RecentWindow"), QString());
+        const QString scJumpRecent = QStringLiteral("%1 Space").arg(scJump);
         const QString scMark = getGlobalShortcutText(QStringLiteral("MarkActiveWindow"), QStringLiteral("Meta+Ctrl+Space"));
         const QString scMarkColor = getGlobalShortcutText(QStringLiteral("MarkActiveWindowWithColor"), QStringLiteral("Meta+Ctrl+Shift+Space"));
         const QString scToggle = getGlobalShortcutText(QStringLiteral("ToggleActiveWindowOutline"), QStringLiteral("Meta+Ctrl+O"));
@@ -771,6 +791,12 @@ private slots:
 
         if (m_actJump) {
             m_actJump->setText(formatMenuText(m_isPolish ? QStringLiteral("🔲 Skocz do okna...") : QStringLiteral("🔲 Jump to Window..."), scJump));
+        }
+        if (m_actRecent) {
+            const QString recentShortcutDisp = (!scRecent.isEmpty() && scRecent.compare(QStringLiteral("none"), Qt::CaseInsensitive) != 0)
+                ? QStringLiteral("%1 / %2").arg(scJumpRecent, scRecent)
+                : scJumpRecent;
+            m_actRecent->setText(formatMenuText(m_isPolish ? QStringLiteral("🔀 Skocz do ostatniego okna (Recent)") : QStringLiteral("🔀 Jump to Recent Window"), recentShortcutDisp));
         }
         if (m_actMark) {
             m_actMark->setText(formatMenuText(m_isPolish ? QStringLiteral("🏷️ Oznacz / Odznacz okno") : QStringLiteral("🏷️ Mark / Unmark Window"), scMark));
@@ -926,6 +952,7 @@ private:
         connect(m_menuShortcuts, &QMenu::aboutToShow, this, &OutlineTray::updateShortcutsMenu);
 
         m_actJump = m_menuShortcuts->addAction(QString(), this, &OutlineTray::onTriggerJumpMode);
+        m_actRecent = m_menuShortcuts->addAction(QString(), this, &OutlineTray::onJumpToRecentWindow);
         m_actMark = m_menuShortcuts->addAction(QString(), this, &OutlineTray::onToggleWindowMark);
         m_actMarkColor = m_menuShortcuts->addAction(QString(), this, &OutlineTray::onMarkWindowWithColor);
         m_actToggle = m_menuShortcuts->addAction(QString(), this, &OutlineTray::onToggleOutline);
@@ -1111,6 +1138,7 @@ private:
     QMenu *m_menuShortcuts = nullptr;
     QAction *m_actEnable = nullptr;
     QAction *m_actJump = nullptr;
+    QAction *m_actRecent = nullptr;
     QAction *m_actMark = nullptr;
     QAction *m_actMarkColor = nullptr;
     QAction *m_actToggle = nullptr;

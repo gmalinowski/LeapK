@@ -45,6 +45,7 @@ curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | 
 | Shortcut | Action | Description |
 | :--- | :--- | :--- |
 | **`Meta + Space`** | **Jump to Window** | Enters modal Leap mode: shows letter badges on windows; press a letter to jump immediately. |
+| **`Meta + Space Space`** | **Jump to Recent Window** | Instantly switches to the most recently active window (`recent`). Works by tapping `Space` in Jump mode or double-pressing `Meta+Space`. |
 | **`Meta + Ctrl + Space`** | **Quick Mark Window** | Toggles a persistent mark outline and letter badge on the current window. |
 | **`Meta + Ctrl + Shift + Space`** | **Mark with Label & Color** | Opens the native mark dialog to set a custom label (e.g. `Server`), letter, and color. |
 | **`Meta + Ctrl + O`** | **Toggle LeapK** | Instantly toggles the outline effect and overlays on or off. |
@@ -58,7 +59,7 @@ curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | 
 ## ✨ Features at a Glance
 
 ### 🚀 Vim-Style Window Jumping & Multi-Position HUD
-- **Instant Leaping**: Press `Meta+Space` to display high-contrast letter badges on background windows. Hitting the letter raises, unminimizes, and focuses the target window instantly.
+- **Instant Leaping & Recent Switch**: Press `Meta+Space` to display high-contrast letter badges on background windows. Hitting the letter raises, unminimizes, and focuses the target window instantly. Tapping `Space` (giving `Meta+Space Space`) or double-pressing `Meta+Space` immediately switches to your last active window (`recent`).
 - **Cross-Desktop & Minimized Navigation**: Windows on other virtual desktops or hidden behind other windows appear in an elegant **HUD Pill Bar** at your chosen screen edge (**Bottom**, **Top**, **Left**, or **Right**) with auto-wrapping and centering.
 - **Window Labels**: Add semantic tags (e.g. `[ A | Work ]`, `[ B | Logs ]`) so you never confuse identical terminal or browser windows.
 

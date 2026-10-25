@@ -168,10 +168,62 @@ void testCrossDesktopJumpSuppressesIntermediateActivation()
     assert(recents.at(0) == &d2Active); // Must return directly to Desktop 2 window!
 }
 
+void testFindRecentWindowAndToggle()
+{
+    MockWindow w1{1};
+    MockWindow w2{2};
+    MockWindow w3{3};
+
+    auto isValid = [](MockWindow *w) {
+        return w && !w->deleted && !w->desktop && !w->dock;
+    };
+
+    QList<MockWindow *> history;
+    MockWindow *activeWindow = nullptr;
+
+    // Single window: no recent window exists
+    OutlineHistory::recordWindowActivation(history, activeWindow, &w1);
+    activeWindow = &w1;
+    assert(OutlineHistory::findRecentWindow(history, activeWindow, isValid) == nullptr);
+
+    // Two windows: w1 then w2 activated
+    OutlineHistory::recordWindowActivation(history, activeWindow, &w2);
+    activeWindow = &w2;
+    // Recent window must be w1
+    assert(OutlineHistory::findRecentWindow(history, activeWindow, isValid) == &w1);
+
+    // Three windows: w1, w2, then w3 activated
+    OutlineHistory::recordWindowActivation(history, activeWindow, &w3);
+    activeWindow = &w3;
+    // Recent window must be w2 (most recent previous)
+    assert(OutlineHistory::findRecentWindow(history, activeWindow, isValid) == &w2);
+
+    // Toggle back to w2 (simulate Meta+Space Space jump)
+    MockWindow *recent = OutlineHistory::findRecentWindow(history, activeWindow, isValid);
+    assert(recent == &w2);
+    OutlineHistory::recordWindowActivation(history, activeWindow, recent);
+    activeWindow = recent; // activeWindow is now w2
+    // Now recent window must be w3!
+    assert(OutlineHistory::findRecentWindow(history, activeWindow, isValid) == &w3);
+
+    // Toggle back to w3 (simulate second Meta+Space Space jump)
+    recent = OutlineHistory::findRecentWindow(history, activeWindow, isValid);
+    assert(recent == &w3);
+    OutlineHistory::recordWindowActivation(history, activeWindow, recent);
+    activeWindow = recent; // activeWindow is back to w3
+    // Now recent window must be w2 again!
+    assert(OutlineHistory::findRecentWindow(history, activeWindow, isValid) == &w2);
+
+    // If w2 is closed / deleted, recent must fall back to w1
+    w2.deleted = true;
+    assert(OutlineHistory::findRecentWindow(history, activeWindow, isValid) == &w1);
+}
+
 int main()
 {
     testRecentWindowsOrderAndLimit();
     testCrossDesktopJumpSuppressesIntermediateActivation();
+    testFindRecentWindowAndToggle();
     std::cout << "All history tests passed successfully." << std::endl;
     return 0;
 }

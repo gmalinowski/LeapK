@@ -645,6 +645,13 @@ void ActiveWindowOutlineEffect::initShortcuts()
     KGlobalAccel::self()->setGlobalShortcut(jumpAction, QKeySequence(Qt::META | Qt::Key_Space));
     connect(jumpAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotTriggerJumpMode);
 
+    QAction *recentAction = new QAction(this);
+    recentAction->setObjectName(QStringLiteral("RecentWindow"));
+    recentAction->setText(QStringLiteral("LeapK: Switch to Recent Window"));
+    KGlobalAccel::self()->setDefaultShortcut(recentAction, QList<QKeySequence>());
+    KGlobalAccel::self()->setGlobalShortcut(recentAction, QKeySequence());
+    connect(recentAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotJumpToRecentWindow);
+
     QAction *prevRecentAction = new QAction(this);
     prevRecentAction->setObjectName(QStringLiteral("PrevRecentWindow"));
     prevRecentAction->setText(QStringLiteral("LeapK: Previous Recent Window"));
@@ -2609,7 +2616,7 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     }
 
     if (m_jumpMode) {
-        cancelJumpMode();
+        slotJumpToRecentWindow();
         return;
     }
 
@@ -2656,6 +2663,10 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         cancelJumpMode();
         return;
     }
+    if (e->key() == Qt::Key_Space) {
+        slotJumpToRecentWindow();
+        return;
+    }
 
     QString text = e->text().toUpper().trimmed();
     if (text.isEmpty()) {
@@ -2692,6 +2703,60 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     }
 
     cancelJumpMode();
+}
+
+EffectWindow *ActiveWindowOutlineEffect::findRecentWindow() const
+{
+    EffectWindow *recent = OutlineHistory::findRecentWindow(
+        m_windowHistory,
+        m_activeWindow,
+        [this](EffectWindow *win) {
+            return isEligibleOutlineWindow(win);
+        });
+    if (recent) {
+        return recent;
+    }
+    const auto windows = effects->stackingOrder();
+    for (auto it = windows.rbegin(); it != windows.rend(); ++it) {
+        EffectWindow *candidate = *it;
+        if (candidate && !candidate->isDeleted() && candidate != m_activeWindow && isEligibleOutlineWindow(candidate)) {
+            return candidate;
+        }
+    }
+    return nullptr;
+}
+
+void ActiveWindowOutlineEffect::slotJumpToRecentWindow()
+{
+    if (m_jumpMode) {
+        cancelJumpMode();
+    }
+
+    m_isHistoryNavigating = false;
+    if (m_historyCommitTimer && m_historyCommitTimer->isActive()) {
+        m_historyCommitTimer->stop();
+    }
+
+    EffectWindow *target = findRecentWindow();
+    if (!target || target->isDeleted()) {
+        return;
+    }
+
+    m_expectedJumpTarget = target;
+    if (m_expectedJumpTargetTimer) {
+        m_expectedJumpTargetTimer->start(1000);
+    }
+
+    if (!target->isOnCurrentDesktop()) {
+        const auto desktops = target->desktops();
+        if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
+            effects->setCurrentDesktop(desktops.first());
+        }
+    }
+    if (target->isMinimized()) {
+        target->setMinimized(false);
+    }
+    effects->activateWindow(target);
 }
 
 void ActiveWindowOutlineEffect::updateRecentWindowsFromHistory()
@@ -3013,7 +3078,14 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         }
 
         const QString caption = target->caption();
-        const QString customLabel = m_markedWindowLabels.value(target);
+        QString customLabel = m_markedWindowLabels.value(target);
+        if (target == findRecentWindow()) {
+            if (customLabel.isEmpty()) {
+                customLabel = QStringLiteral("Space");
+            } else if (!customLabel.contains(QStringLiteral("Space"))) {
+                customLabel += QStringLiteral(" • Space");
+            }
+        }
 
         const QImage img = OutlineBadge::renderOffscreenTargetPill(letter, bgCol, textCol, loc, caption, badgeSize, scale, customLabel);
         auto uploaded = GLTexture::upload(img);
@@ -3692,7 +3764,14 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 ? m_markedWindows.value(target)
                 : QColor(35, 38, 41, 235);
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
-            const QString customLabel = m_markedWindowLabels.value(target);
+            QString customLabel = m_markedWindowLabels.value(target);
+            if (target == findRecentWindow()) {
+                if (customLabel.isEmpty()) {
+                    customLabel = QStringLiteral("Space");
+                } else if (!customLabel.contains(QStringLiteral("Space"))) {
+                    customLabel += QStringLiteral(" • Space");
+                }
+            }
             const qreal jumpW = OutlineBadge::computeBadgeWidth(jumpH, customLabel);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
             if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);

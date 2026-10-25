@@ -423,6 +423,7 @@ if command -v kreadconfig6 >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/nul
   migrate_shortcut "MarkActiveWindow" "Meta+Ctrl+Space" "LeapK: Toggle Mark Window"
   migrate_shortcut "MarkActiveWindowWithColor" "Meta+Ctrl+Shift+Space" "LeapK: Mark Window with Color Picker"
   migrate_shortcut "JumpToWindow" "Meta+Space" "LeapK: Jump to Window"
+  migrate_shortcut "RecentWindow" "" "LeapK: Switch to Recent Window"
   migrate_shortcut "PrevRecentWindow" "Meta+Ctrl+[" "LeapK: Previous Recent Window"
   migrate_shortcut "NextRecentWindow" "Meta+Ctrl+]" "LeapK: Next Recent Window"
 fi

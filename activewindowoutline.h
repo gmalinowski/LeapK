@@ -144,6 +144,7 @@ private Q_SLOTS:
     void slotMarkWindowToggle();
     void slotMarkWindowWithColor();
     void slotTriggerJumpMode();
+    void slotJumpToRecentWindow();
     void slotPrevRecentWindow();
     void slotNextRecentWindow();
     void slotCommitHistoryNavigation();
@@ -186,6 +187,7 @@ private:
     QMap<QChar, EffectWindow *> assignJumpLetters() const;
     void cancelJumpMode();
     bool isBadgeOccluded(EffectWindow *target, const QRectF &badgeRect) const;
+    EffectWindow *findRecentWindow() const;
     void updateRecentWindowsFromHistory();
     void renderBadge(const RenderTarget &renderTarget,
                      const RenderViewport &viewport,
