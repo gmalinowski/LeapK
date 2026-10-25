@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Active Window Outline Settings
+Name[pl]=Ustawienia Active Window Outline
+Comment=Configure outline colors, animations, presets, and shortcuts
+Comment[pl]=Konfiguracja kolorów obrysu, animacji, presetów i skrótów klawiszowych
+Exec=active-window-outline-settings
+Icon=preferences-system-windows
+Categories=Settings;DesktopSettings;Qt;KDE;
+StartupNotify=true

@@ -152,17 +152,53 @@ install(TARGETS active-window-outline-colorpicker
     DESTINATION ${KDE_INSTALL_LIBEXECDIR}
 )
 
-# --- Standalone Tray Companion ---
-add_executable(active-window-outline-tray tray.cpp)
+# --- Standalone Tray Companion & Settings GUI ---
+add_executable(active-window-outline-tray
+    tray.cpp
+    settingsdialog.cpp
+    activewindowoutline_config.cpp
+    ${CONFIG_UI_SRCS}
+)
+target_include_directories(active-window-outline-tray PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(active-window-outline-tray PRIVATE
     Qt6::Widgets
     Qt6::DBus
+    Qt6::Network
+    KF6::CoreAddons
     KF6::ConfigCore
+    KF6::ConfigWidgets
+    KF6::KCMUtils
+    KF6::GlobalAccel
 )
-install(TARGETS active-window-outline-tray
+target_compile_definitions(active-window-outline-tray PRIVATE
+    ACTIVE_WINDOW_OUTLINE_VERSION="${PROJECT_VERSION}"
+)
+
+add_executable(active-window-outline-settings
+    settingsmain.cpp
+    settingsdialog.cpp
+    activewindowoutline_config.cpp
+    ${CONFIG_UI_SRCS}
+)
+target_include_directories(active-window-outline-settings PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(active-window-outline-settings PRIVATE
+    Qt6::Widgets
+    Qt6::DBus
+    Qt6::Network
+    KF6::CoreAddons
+    KF6::ConfigCore
+    KF6::ConfigWidgets
+    KF6::KCMUtils
+    KF6::GlobalAccel
+)
+target_compile_definitions(active-window-outline-settings PRIVATE
+    ACTIVE_WINDOW_OUTLINE_VERSION="${PROJECT_VERSION}"
+)
+
+install(TARGETS active-window-outline-tray active-window-outline-settings
     DESTINATION ${KDE_INSTALL_BINDIR}
 )
-install(PROGRAMS active-window-outline-tray.desktop
+install(PROGRAMS active-window-outline-tray.desktop active-window-outline-settings.desktop
     DESTINATION ${KDE_INSTALL_APPDIR}
 )
 

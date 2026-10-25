@@ -598,6 +598,20 @@
         </widget>
        </item>
 
+       <item row="14" column="0" colspan="2">
+        <widget class="QCheckBox" name="kcfg_TrayIconEnabled">
+         <property name="text">
+          <string>Show system tray icon (companion for quick controls, presets, and shortcuts)</string>
+         </property>
+         <property name="toolTip">
+          <string>Displays an icon in the system tray area allowing quick outline toggling, preset activation, and shortcut reference.</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+
       </layout>
      </widget>
 
@@ -2389,38 +2403,6 @@
              <string>&lt;a href=&quot;https://github.com/gmalinowski/kwin-active-window-outline&quot;&gt;https://github.com/gmalinowski/kwin-active-window-outline&lt;/a&gt;</string>
             </property>
             <property name="openExternalLinks">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
-       <item>
-        <widget class="QGroupBox" name="groupTray">
-         <property name="title">
-          <string>System Tray Companion</string>
-         </property>
-         <layout class="QVBoxLayout" name="verticalLayoutTray">
-          <item>
-           <widget class="QLabel" name="label_trayDesc">
-            <property name="text">
-             <string>Runs a companion tray icon for rapid outline toggles, preset selection, and window actions.</string>
-            </property>
-            <property name="wordWrap">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QCheckBox" name="kcfg_TrayIconEnabled">
-            <property name="text">
-             <string>Show system tray icon</string>
-            </property>
-            <property name="toolTip">
-             <string>Enable the companion system tray icon in the system notification area.</string>
-            </property>
-            <property name="checked">
              <bool>true</bool>
             </property>
            </widget>

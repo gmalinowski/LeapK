@@ -18,14 +18,36 @@
 #include <QLockFile>
 #include <QProcess>
 #include <QLocale>
+#include <QDateTime>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QDesktopServices>
+#include <QUrl>
+#include <QLabel>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QPushButton>
+#include <QTextBrowser>
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusInterface>
 #include <QDBusReply>
+#include <QNetworkAccessManager>
+#include <QNetworkRequest>
+#include <QNetworkReply>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QVersionNumber>
 #include <KConfigGroup>
 #include <KSharedConfig>
 #include "presethelper.h"
+#include "settingsdialog.h"
 #include <iostream>
+
+#ifndef ACTIVE_WINDOW_OUTLINE_VERSION
+#define ACTIVE_WINDOW_OUTLINE_VERSION "1.5.0"
+#endif
 
 namespace
 {
@@ -112,6 +134,10 @@ public:
         if (m_trayIcon) {
             m_trayIcon->hide();
         }
+        if (m_settingsDialog) {
+            m_settingsDialog->close();
+            delete m_settingsDialog;
+        }
     }
 
 private slots:
@@ -120,63 +146,19 @@ private slots:
         if (callDBusMethod(QStringLiteral("toggleOutline"))) {
             return;
         }
-        // Fallback: write to kwinrc and call reconfigureEffect
-        KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
-        const bool current = group.readEntry(QStringLiteral("OutlineEnabled"), true);
-        group.writeEntry(QStringLiteral("OutlineEnabled"), !current);
-        group.sync();
-        notifyKWinReconfigure();
-        refreshStateFromConfig();
-    }
-
-    void onToggleAmbilight()
-    {
-        if (callDBusMethod(QStringLiteral("toggleAmbilight"))) {
-            return;
-        }
-        KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
-        const bool current = group.readEntry(QStringLiteral("AmbilightEnabled"), false);
-        group.writeEntry(QStringLiteral("AmbilightEnabled"), !current);
-        group.sync();
-        notifyKWinReconfigure();
-        refreshStateFromConfig();
-    }
-
-    void onToggleEnsureContrast()
-    {
-        KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
-        const bool current = group.readEntry(QStringLiteral("EnsurePerimeterContrast"), true);
-        group.writeEntry(QStringLiteral("EnsurePerimeterContrast"), !current);
-        group.sync();
-        notifyKWinReconfigure();
-        refreshStateFromConfig();
-    }
-
-    void onToggleGlow()
-    {
-        if (callDBusMethod(QStringLiteral("toggleGlow"))) {
-            return;
-        }
-        KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
-        const bool current = group.readEntry(QStringLiteral("GlowEnabled"), false);
-        group.writeEntry(QStringLiteral("GlowEnabled"), !current);
-        group.sync();
-        notifyKWinReconfigure();
-        refreshStateFromConfig();
-    }
-
-    void onToggleFadeCorners()
-    {
-        KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
-        const bool current = group.readEntry(QStringLiteral("FadeCorners"), true);
-        group.writeEntry(QStringLiteral("FadeCorners"), !current);
-        group.sync();
+        // Fallback: invoke shortcut ToggleActiveWindowOutline
+        invokeShortcut(QStringLiteral("ToggleActiveWindowOutline"));
         notifyKWinReconfigure();
         refreshStateFromConfig();
     }
 
     void onApplyPreset(const QString &presetName)
     {
+        // Remember active preset name in kwinrc
+        KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
+        group.writeEntry(QStringLiteral("ActivePreset"), presetName);
+        group.sync();
+
         QDBusMessage msg = QDBusMessage::createMethodCall(
             QStringLiteral("org.kde.KWin"),
             QStringLiteral("/ActiveWindowOutline"),
@@ -193,7 +175,6 @@ private slots:
         const auto presets = OutlinePreset::loadPresets(OutlinePreset::defaultPresetsDirectory());
         for (const auto &p : presets) {
             if (p.name == presetName) {
-                KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
                 for (auto it = p.settings.constBegin(); it != p.settings.constEnd(); ++it) {
                     group.writeEntry(it.key(), it.value().toVariant());
                 }
@@ -203,6 +184,164 @@ private slots:
                 break;
             }
         }
+    }
+
+    void onSaveCurrentPreset()
+    {
+        const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd_HH-mm-ss"));
+        const QString presetName = QStringLiteral("Preset_%1").arg(timestamp);
+
+        OutlinePreset::PresetInfo p;
+        p.name = presetName;
+        p.description = m_isPolish
+            ? QStringLiteral("Zapisano z tacki systemowej (%1)").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")))
+            : QStringLiteral("Saved from system tray (%1)").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")));
+        p.isBuiltIn = false;
+
+        KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
+        const QJsonObject defaults = OutlinePreset::getDefaultSettings();
+        for (auto it = defaults.constBegin(); it != defaults.constEnd(); ++it) {
+            const QString key = it.key();
+            if (group.hasKey(key)) {
+                const QVariant val = group.readEntry(key, it.value().toVariant());
+                p.settings[key] = QJsonValue::fromVariant(val);
+            } else {
+                p.settings[key] = it.value();
+            }
+        }
+
+        QString err;
+        if (!OutlinePreset::savePreset(OutlinePreset::defaultPresetsDirectory(), p, &err)) {
+            QMessageBox::warning(nullptr,
+                m_isPolish ? QStringLiteral("Błąd zapisu") : QStringLiteral("Save Error"),
+                m_isPolish ? QStringLiteral("Nie udało się zapisać presetu: %1").arg(err)
+                           : QStringLiteral("Failed to save preset: %1").arg(err));
+            return;
+        }
+
+        group.writeEntry(QStringLiteral("ActivePreset"), presetName);
+        group.sync();
+
+        rebuildPresetsMenu();
+
+        m_trayIcon->showMessage(
+            QStringLiteral("Active Window Outline"),
+            m_isPolish ? QStringLiteral("Zapisano nowy preset:\n%1").arg(presetName)
+                       : QStringLiteral("Saved new preset:\n%1").arg(presetName),
+            QSystemTrayIcon::Information,
+            3500
+        );
+    }
+
+    void onExportPreset()
+    {
+        const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd_HH-mm-ss"));
+        const QString defaultFileName = QStringLiteral("ActiveWindowOutline_Preset_%1.json").arg(timestamp);
+        const QString docsPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+        const QString initialPath = docsPath + QLatin1Char('/') + defaultFileName;
+
+        const QString filePath = QFileDialog::getSaveFileName(
+            nullptr,
+            m_isPolish ? QStringLiteral("Eksportuj obecny preset do pliku") : QStringLiteral("Export Current Preset to File"),
+            initialPath,
+            QStringLiteral("JSON Files (*.json)")
+        );
+        if (filePath.isEmpty()) {
+            return;
+        }
+
+        OutlinePreset::PresetInfo p;
+        p.name = QStringLiteral("Exported_%1").arg(timestamp);
+        p.description = m_isPolish
+            ? QStringLiteral("Wyeksportowano z ustawień: %1").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")))
+            : QStringLiteral("Exported at: %1").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")));
+        p.isBuiltIn = false;
+
+        KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
+        const QJsonObject defaults = OutlinePreset::getDefaultSettings();
+        for (auto it = defaults.constBegin(); it != defaults.constEnd(); ++it) {
+            const QString key = it.key();
+            if (group.hasKey(key)) {
+                const QVariant val = group.readEntry(key, it.value().toVariant());
+                p.settings[key] = QJsonValue::fromVariant(val);
+            } else {
+                p.settings[key] = it.value();
+            }
+        }
+
+        QFile file(filePath);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            QMessageBox::warning(nullptr,
+                m_isPolish ? QStringLiteral("Błąd eksportu") : QStringLiteral("Export Error"),
+                m_isPolish ? QStringLiteral("Nie można zapisać pliku: %1").arg(file.errorString())
+                       : QStringLiteral("Cannot write to file: %1").arg(file.errorString()));
+            return;
+        }
+        file.write(OutlinePreset::serializePreset(p));
+        file.close();
+
+        m_trayIcon->showMessage(
+            QStringLiteral("Active Window Outline"),
+            m_isPolish ? QStringLiteral("Preset pomyślnie wyeksportowany!")
+                       : QStringLiteral("Preset exported successfully!"),
+            QSystemTrayIcon::Information,
+            3000
+        );
+    }
+
+    void onImportPreset()
+    {
+        const QString filePath = QFileDialog::getOpenFileName(
+            nullptr,
+            m_isPolish ? QStringLiteral("Importuj plik presetu") : QStringLiteral("Import Preset File"),
+            QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
+            QStringLiteral("JSON Files (*.json)")
+        );
+        if (filePath.isEmpty()) {
+            return;
+        }
+
+        QFile file(filePath);
+        if (!file.open(QIODevice::ReadOnly)) {
+            QMessageBox::warning(nullptr,
+                m_isPolish ? QStringLiteral("Błąd importu") : QStringLiteral("Import Error"),
+                m_isPolish ? QStringLiteral("Nie można odczytać pliku: %1").arg(file.errorString())
+                           : QStringLiteral("Cannot read file: %1").arg(file.errorString()));
+            return;
+        }
+
+        OutlinePreset::PresetInfo preset;
+        QString err;
+        if (!OutlinePreset::parsePresetJson(file.readAll(), preset, &err)) {
+            QMessageBox::warning(nullptr,
+                m_isPolish ? QStringLiteral("Błąd importu") : QStringLiteral("Import Error"),
+                m_isPolish ? QStringLiteral("Nieprawidłowy format pliku presetu: %1").arg(err)
+                           : QStringLiteral("Invalid preset file format: %1").arg(err));
+            return;
+        }
+
+        if (preset.name.isEmpty()) {
+            preset.name = QFileInfo(filePath).baseName();
+        }
+        preset.isBuiltIn = false;
+
+        if (!OutlinePreset::savePreset(OutlinePreset::defaultPresetsDirectory(), preset, &err)) {
+            QMessageBox::warning(nullptr,
+                m_isPolish ? QStringLiteral("Błąd importu") : QStringLiteral("Import Error"),
+                m_isPolish ? QStringLiteral("Nie można zapisać presetu: %1").arg(err)
+                           : QStringLiteral("Could not save preset: %1").arg(err));
+            return;
+        }
+
+        onApplyPreset(preset.name);
+
+        m_trayIcon->showMessage(
+            QStringLiteral("Active Window Outline"),
+            m_isPolish ? QStringLiteral("Zaimportowano i aktywowano preset:\n%1").arg(preset.name)
+                       : QStringLiteral("Imported and activated preset:\n%1").arg(preset.name),
+            QSystemTrayIcon::Information,
+            3500
+        );
     }
 
     void onTriggerJumpMode()
@@ -218,7 +357,7 @@ private slots:
         if (callDBusMethod(QStringLiteral("toggleWindowMark"))) {
             return;
         }
-        invokeShortcut(QStringLiteral("MarkWindowToggle"));
+        invokeShortcut(QStringLiteral("MarkActiveWindow"));
     }
 
     void onMarkWindowWithColor()
@@ -226,7 +365,7 @@ private slots:
         if (callDBusMethod(QStringLiteral("markWindowWithColor"))) {
             return;
         }
-        invokeShortcut(QStringLiteral("MarkWindowWithColor"));
+        invokeShortcut(QStringLiteral("MarkActiveWindowWithColor"));
     }
 
     void onClearAllMarks()
@@ -253,15 +392,178 @@ private slots:
         invokeShortcut(QStringLiteral("NextRecentWindow"));
     }
 
+    void onShowShortcutsCheatSheet()
+    {
+        QMessageBox msgBox(nullptr);
+        msgBox.setWindowTitle(m_isPolish ? QStringLiteral("Skróty klawiszowe — Active Window Outline")
+                                         : QStringLiteral("Keyboard Shortcuts — Active Window Outline"));
+        msgBox.setIcon(QMessageBox::Information);
+        const QString text = m_isPolish
+            ? QStringLiteral(
+                "<h3>⌨️ Dostępne skróty klawiszowe:</h3>"
+                "<table cellpadding='4'>"
+                "<tr><td><b>Meta + Space</b></td><td>&nbsp;—&nbsp;</td><td>Skocz do okna (Jump Mode z literami)</td></tr>"
+                "<tr><td><b>Meta + Ctrl + M</b></td><td>&nbsp;—&nbsp;</td><td>Oznacz / Odznacz aktywne okno</td></tr>"
+                "<tr><td><b>Meta + Ctrl + Shift + M</b></td><td>&nbsp;—&nbsp;</td><td>Oznacz okno z wyborem koloru / litery</td></tr>"
+                "<tr><td><b>Meta + Ctrl + O</b></td><td>&nbsp;—&nbsp;</td><td>Włącz / Wyłącz aktywny obrys</td></tr>"
+                "<tr><td><b>Meta + Alt + [</b></td><td>&nbsp;—&nbsp;</td><td>Przejdź do poprzedniego okna w historii</td></tr>"
+                "<tr><td><b>Meta + Alt + ]</b></td><td>&nbsp;—&nbsp;</td><td>Przejdź do następnego okna w historii</td></tr>"
+                "</table>"
+                "<p><small>Skróty można w pełni dostosować w Ustawieniach systemowych → Skróty → KWin.</small></p>")
+            : QStringLiteral(
+                "<h3>⌨️ Available Keyboard Shortcuts:</h3>"
+                "<table cellpadding='4'>"
+                "<tr><td><b>Meta + Space</b></td><td>&nbsp;—&nbsp;</td><td>Jump to Window (interactive letter jump)</td></tr>"
+                "<tr><td><b>Meta + Ctrl + M</b></td><td>&nbsp;—&nbsp;</td><td>Mark / Unmark Active Window</td></tr>"
+                "<tr><td><b>Meta + Ctrl + Shift + M</b></td><td>&nbsp;—&nbsp;</td><td>Mark Window with Color Picker / Letter</td></tr>"
+                "<tr><td><b>Meta + Ctrl + O</b></td><td>&nbsp;—&nbsp;</td><td>Toggle Active Window Outline on/off</td></tr>"
+                "<tr><td><b>Meta + Alt + [</b></td><td>&nbsp;—&nbsp;</td><td>Navigate to Previous Window in focus history</td></tr>"
+                "<tr><td><b>Meta + Alt + ]</b></td><td>&nbsp;—&nbsp;</td><td>Navigate to Next Window in focus history</td></tr>"
+                "</table>"
+                "<p><small>Shortcuts can be customized in System Settings → Shortcuts → KWin.</small></p>");
+        msgBox.setText(text);
+        msgBox.exec();
+    }
+
+    void onCheckForUpdates()
+    {
+        if (!m_networkManager) {
+            m_networkManager = new QNetworkAccessManager(this);
+        }
+
+        m_trayIcon->showMessage(
+            QStringLiteral("Active Window Outline"),
+            m_isPolish ? QStringLiteral("Sprawdzanie dostępności aktualizacji na GitHubie…")
+                       : QStringLiteral("Checking for updates on GitHub…"),
+            QSystemTrayIcon::Information,
+            2000
+        );
+
+        QNetworkRequest request(QUrl(QStringLiteral("https://api.github.com/repos/gmalinowski/kwin-active-window-outline/releases")));
+        request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("ActiveWindowOutline-Tray"));
+        request.setRawHeader("Accept", "application/vnd.github.v3+json");
+
+        QNetworkReply *reply = m_networkManager->get(request);
+        connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+            reply->deleteLater();
+
+            if (reply->error() != QNetworkReply::NoError) {
+                const QString err = reply->errorString();
+                QMessageBox::warning(nullptr,
+                    m_isPolish ? QStringLiteral("Błąd aktualizacji") : QStringLiteral("Update Check Error"),
+                    m_isPolish ? QStringLiteral("Nie udało się połączyć z GitHubem:\n%1").arg(err)
+                               : QStringLiteral("Failed to connect to GitHub:\n%1").arg(err));
+                return;
+            }
+
+            const QByteArray responseData = reply->readAll();
+            QJsonParseError parseError;
+            const QJsonDocument doc = QJsonDocument::fromJson(responseData, &parseError);
+            if (parseError.error != QJsonParseError::NoError || !doc.isArray()) {
+                QMessageBox::warning(nullptr,
+                    m_isPolish ? QStringLiteral("Błąd aktualizacji") : QStringLiteral("Update Check Error"),
+                    m_isPolish ? QStringLiteral("Nieprawidłowa odpowiedź z serwera GitHub.")
+                               : QStringLiteral("Invalid response received from GitHub API."));
+                return;
+            }
+
+            const QJsonArray releases = doc.array();
+            if (releases.isEmpty()) {
+                m_trayIcon->showMessage(
+                    QStringLiteral("Active Window Outline"),
+                    m_isPolish ? QStringLiteral("Brak wydań na GitHubie.") : QStringLiteral("No releases found on GitHub."),
+                    QSystemTrayIcon::Information,
+                    3000
+                );
+                return;
+            }
+
+            const QJsonObject latestRelease = releases.first().toObject();
+            const QString tagName = latestRelease.value(QStringLiteral("tag_name")).toString();
+            const bool isPrerelease = latestRelease.value(QStringLiteral("prerelease")).toBool(false);
+            const QString htmlUrl = latestRelease.value(QStringLiteral("html_url")).toString();
+
+            QString cleanTag = tagName;
+            if (cleanTag.startsWith(QLatin1Char('v'), Qt::CaseInsensitive)) {
+                cleanTag.remove(0, 1);
+            }
+
+            const QString currentVerStr = QStringLiteral(ACTIVE_WINDOW_OUTLINE_VERSION);
+            const QVersionNumber currentVer = QVersionNumber::fromString(currentVerStr);
+            const QVersionNumber remoteVer = QVersionNumber::fromString(cleanTag);
+
+            const bool isDev = currentVer.isNull();
+            const bool hasUpdate = isDev || (remoteVer > currentVer);
+
+            if (!hasUpdate) {
+                m_trayIcon->showMessage(
+                    QStringLiteral("Active Window Outline"),
+                    m_isPolish ? QStringLiteral("Wtyczka jest aktualna! Zainstalowana wersja: v%1").arg(currentVerStr)
+                               : QStringLiteral("Plugin is up to date! Installed version: v%1").arg(currentVerStr),
+                    QSystemTrayIcon::Information,
+                    3000
+                );
+                return;
+            }
+
+            // New version available dialog
+            QDialog dlg(nullptr);
+            dlg.setWindowTitle(m_isPolish ? QStringLiteral("Dostępna jest nowa wersja!") : QStringLiteral("New Version Available!"));
+            dlg.resize(480, 260);
+
+            auto *vbox = new QVBoxLayout(&dlg);
+            vbox->setContentsMargins(16, 16, 16, 16);
+            vbox->setSpacing(12);
+
+            auto *lbl = new QLabel(&dlg);
+            lbl->setTextFormat(Qt::RichText);
+            lbl->setWordWrap(true);
+            lbl->setText(m_isPolish
+                ? QStringLiteral("<h3>🎉 Dostępna jest nowa wersja: <b>%1</b></h3>"
+                                 "<p>Obecnie zainstalowana wersja: <b>v%2</b><br>"
+                                 "Najnowsze wydanie na GitHubie: <b>%1</b> %3</p>")
+                    .arg(tagName, currentVerStr, isPrerelease ? QStringLiteral("(pre-release)") : QStringLiteral("(stabilne)"))
+                : QStringLiteral("<h3>🎉 A new version is available: <b>%1</b></h3>"
+                                 "<p>Currently installed: <b>v%2</b><br>"
+                                 "Latest release on GitHub: <b>%1</b> %3</p>")
+                    .arg(tagName, currentVerStr, isPrerelease ? QStringLiteral("(pre-release)") : QStringLiteral("(stable)")));
+            vbox->addWidget(lbl);
+
+            auto *btnBox = new QHBoxLayout();
+            auto *btnOpen = new QPushButton(m_isPolish ? QStringLiteral("🌐 Otwórz stronę wydania") : QStringLiteral("🌐 Open Release Page"), &dlg);
+            auto *btnClose = new QPushButton(m_isPolish ? QStringLiteral("Zamknij") : QStringLiteral("Close"), &dlg);
+            btnBox->addWidget(btnOpen);
+            btnBox->addStretch();
+            btnBox->addWidget(btnClose);
+            vbox->addLayout(btnBox);
+
+            connect(btnOpen, &QPushButton::clicked, [&dlg, htmlUrl]() {
+                QDesktopServices::openUrl(QUrl(htmlUrl));
+                dlg.accept();
+            });
+            connect(btnClose, &QPushButton::clicked, &dlg, &QDialog::reject);
+
+            dlg.exec();
+        });
+    }
+
     void onOpenSettings()
     {
-        QProcess::startDetached(QStringLiteral("kcmshell6"), {QStringLiteral("kwin_active-window-outline")});
+        if (!m_settingsDialog) {
+            m_settingsDialog = new SettingsDialog();
+            connect(m_settingsDialog, &QDialog::finished, this, [this]() {
+                refreshStateFromConfig();
+            });
+        }
+        m_settingsDialog->show();
+        m_settingsDialog->raise();
+        m_settingsDialog->activateWindow();
     }
 
     void onTrayActivated(QSystemTrayIcon::ActivationReason reason)
     {
         if (reason == QSystemTrayIcon::Trigger) {
-            // Single left click: toggle outline on/off quickly
+            // Single left click: toggle outline immediately
             onToggleOutline();
         }
     }
@@ -271,22 +573,21 @@ private slots:
         KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
 
         const bool enabled = group.readEntry(QStringLiteral("OutlineEnabled"), true);
-        const bool ambilight = group.readEntry(QStringLiteral("AmbilightEnabled"), false);
-        const bool contrast = group.readEntry(QStringLiteral("EnsurePerimeterContrast"), true);
-        const bool glow = group.readEntry(QStringLiteral("GlowEnabled"), false);
-        const bool fadeCorners = group.readEntry(QStringLiteral("FadeCorners"), true);
         const QColor customColor = group.readEntry(QStringLiteral("CustomColor"), QColor(QStringLiteral("#3daee9")));
 
-        if (m_actEnable) m_actEnable->setChecked(enabled);
-        if (m_actAmbilight) m_actAmbilight->setChecked(ambilight);
-        if (m_actEnsureContrast) m_actEnsureContrast->setChecked(contrast);
-        if (m_actGlow) m_actGlow->setChecked(glow);
-        if (m_actFadeCorners) m_actFadeCorners->setChecked(fadeCorners);
+        if (m_actEnable) {
+            m_actEnable->setChecked(enabled);
+            m_actEnable->setText(enabled
+                ? (m_isPolish ? QStringLiteral("✔ Obrys okna jest włączony (Meta+Ctrl+O)") : QStringLiteral("✔ Outline is Enabled (Meta+Ctrl+O)"))
+                : (m_isPolish ? QStringLiteral("✖ Włącz obrys okna (Meta+Ctrl+O)") : QStringLiteral("✖ Enable Outline (Meta+Ctrl+O)")));
+        }
 
         m_trayIcon->setIcon(createTrayIconPixmap(enabled, customColor.isValid() ? customColor : QColor(61, 174, 233)));
         const QString statusText = enabled
-            ? (m_isPolish ? QStringLiteral("Aktywny obrys okna: Włączony") : QStringLiteral("Active Window Outline: Enabled"))
-            : (m_isPolish ? QStringLiteral("Aktywny obrys okna: Wyłączony") : QStringLiteral("Active Window Outline: Disabled"));
+            ? (m_isPolish ? QStringLiteral("Active Window Outline: Włączony\n(Kliknij lewym przyciskiem myszy, aby wyłączyć)")
+                          : QStringLiteral("Active Window Outline: Enabled\n(Click left mouse button to disable)"))
+            : (m_isPolish ? QStringLiteral("Active Window Outline: Wyłączony\n(Kliknij lewym przyciskiem myszy, aby włączyć)")
+                          : QStringLiteral("Active Window Outline: Disabled\n(Click left mouse button to enable)"));
         m_trayIcon->setToolTip(statusText);
 
         rebuildPresetsMenu();
@@ -345,54 +646,62 @@ private:
                                         this, &OutlineTray::onToggleOutline);
         m_actEnable->setCheckable(true);
 
+        m_menu->addSeparator();
+
         // 3. Presets Submenu
         m_menuPresets = m_menu->addMenu(m_isPolish ? QStringLiteral("📁 Presety") : QStringLiteral("📁 Presets"));
 
         m_menu->addSeparator();
 
-        // 4. Visual Modifiers
-        m_actAmbilight = m_menu->addAction(m_isPolish ? QStringLiteral("Tryb Ambilight (kolor adaptacyjny)") : QStringLiteral("Ambilight Mode (Adaptive Color)"),
-                                           this, &OutlineTray::onToggleAmbilight);
-        m_actAmbilight->setCheckable(true);
+        // 4. Keyboard Shortcuts Submenu
+        m_menuShortcuts = m_menu->addMenu(m_isPolish ? QStringLiteral("⌨️ Skróty klawiszowe") : QStringLiteral("⌨️ Keyboard Shortcuts"));
 
-        m_actEnsureContrast = m_menu->addAction(m_isPolish ? QStringLiteral("Gwarantuj kontrast tła") : QStringLiteral("Ensure Perimeter Contrast"),
-                                                this, &OutlineTray::onToggleEnsureContrast);
-        m_actEnsureContrast->setCheckable(true);
+        m_menuShortcuts->addAction(
+            m_isPolish ? QStringLiteral("🔲 Skocz do okna...\tMeta+Space") : QStringLiteral("🔲 Jump to Window...\tMeta+Space"),
+            this, &OutlineTray::onTriggerJumpMode);
 
-        m_actGlow = m_menu->addAction(m_isPolish ? QStringLiteral("Miękka poświata (Glow)") : QStringLiteral("Soft Glow"),
-                                      this, &OutlineTray::onToggleGlow);
-        m_actGlow->setCheckable(true);
+        m_menuShortcuts->addAction(
+            m_isPolish ? QStringLiteral("🏷️ Oznacz / Odznacz okno\tMeta+Ctrl+M") : QStringLiteral("🏷️ Mark / Unmark Window\tMeta+Ctrl+M"),
+            this, &OutlineTray::onToggleWindowMark);
 
-        m_actFadeCorners = m_menu->addAction(m_isPolish ? QStringLiteral("Zanikanie narożników") : QStringLiteral("Fade Out Corners"),
-                                             this, &OutlineTray::onToggleFadeCorners);
-        m_actFadeCorners->setCheckable(true);
+        m_menuShortcuts->addAction(
+            m_isPolish ? QStringLiteral("🎨 Oznacz z paletą barw...\tMeta+Ctrl+Shift+M") : QStringLiteral("🎨 Custom Mark Window...\tMeta+Ctrl+Shift+M"),
+            this, &OutlineTray::onMarkWindowWithColor);
+
+        m_menuShortcuts->addAction(
+            m_isPolish ? QStringLiteral("🖼️ Włącz / Wyłącz obrys\tMeta+Ctrl+O") : QStringLiteral("🖼️ Toggle Outline\tMeta+Ctrl+O"),
+            this, &OutlineTray::onToggleOutline);
+
+        m_menuShortcuts->addAction(
+            m_isPolish ? QStringLiteral("⏮️ Poprzednie okno w historii\tMeta+Alt+[") : QStringLiteral("⏮️ Previous Window\tMeta+Alt+["),
+            this, &OutlineTray::onPrevRecentWindow);
+
+        m_menuShortcuts->addAction(
+            m_isPolish ? QStringLiteral("⏭️ Następne okno w historii\tMeta+Alt+]") : QStringLiteral("⏭️ Next Window\tMeta+Alt+]"),
+            this, &OutlineTray::onNextRecentWindow);
+
+        m_menuShortcuts->addSeparator();
+
+        m_menuShortcuts->addAction(
+            m_isPolish ? QStringLiteral("🧹 Wyczyść wszystkie oznaczenia") : QStringLiteral("🧹 Clear All Marks"),
+            this, &OutlineTray::onClearAllMarks);
+
+        m_menuShortcuts->addAction(
+            m_isPolish ? QStringLiteral("📋 Ściąga skrótów klawiszowych...") : QStringLiteral("📋 Shortcuts Cheat Sheet..."),
+            this, &OutlineTray::onShowShortcutsCheatSheet);
 
         m_menu->addSeparator();
 
-        // 5. Quick Actions
-        m_menu->addAction(m_isPolish ? QStringLiteral("🔲 Skocz do okna... (Meta+Space)") : QStringLiteral("🔲 Jump to Window... (Meta+Space)"),
-                          this, &OutlineTray::onTriggerJumpMode);
-        m_menu->addAction(m_isPolish ? QStringLiteral("🏷️ Oznacz okno (Meta+Ctrl+M)") : QStringLiteral("🏷️ Mark Window (Meta+Ctrl+M)"),
-                          this, &OutlineTray::onToggleWindowMark);
-        m_menu->addAction(m_isPolish ? QStringLiteral("🎨 Ustawienia oznaczenia... (Meta+Ctrl+Shift+M)") : QStringLiteral("🎨 Custom Mark Window... (Meta+Ctrl+Shift+M)"),
-                          this, &OutlineTray::onMarkWindowWithColor);
-        m_menu->addAction(m_isPolish ? QStringLiteral("🧹 Wyczyść wszystkie oznaczenia") : QStringLiteral("🧹 Clear All Marks"),
-                          this, &OutlineTray::onClearAllMarks);
+        // 5. Updates & Settings
+        m_menu->addAction(m_isPolish ? QStringLiteral("🔄 Sprawdź czy jest dostępna nowa wersja") : QStringLiteral("🔄 Check for Updates…"),
+                          this, &OutlineTray::onCheckForUpdates);
 
-        m_menu->addSeparator();
-
-        // 6. Navigation
-        m_menu->addAction(m_isPolish ? QStringLiteral("⏮️ Poprzednie okno (Meta+Alt+[)") : QStringLiteral("⏮️ Previous Window (Meta+Alt+[)"),
-                          this, &OutlineTray::onPrevRecentWindow);
-        m_menu->addAction(m_isPolish ? QStringLiteral("⏭️ Następne okno (Meta+Alt+])") : QStringLiteral("⏭️ Next Window (Meta+Alt+])"),
-                          this, &OutlineTray::onNextRecentWindow);
-
-        m_menu->addSeparator();
-
-        // 7. Settings & Exit
         m_menu->addAction(m_isPolish ? QStringLiteral("⚙️ Ustawienia...") : QStringLiteral("⚙️ Settings..."),
                           this, &OutlineTray::onOpenSettings);
+
         m_menu->addSeparator();
+
+        // 6. Exit
         m_menu->addAction(m_isPolish ? QStringLiteral("❌ Zamknij tackę") : QStringLiteral("❌ Quit Tray"),
                           qApp, &QCoreApplication::quit);
 
@@ -412,19 +721,14 @@ private:
         actionGroup->setExclusive(true);
 
         KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
-        const QString activeBorderWidth = group.readEntry(QStringLiteral("BorderWidth"), QStringLiteral("3"));
-        const QString activeCustomColor = group.readEntry(QStringLiteral("CustomColor"), QStringLiteral("#3daee9"));
+        const QString activePresetName = group.readEntry(QStringLiteral("ActivePreset"), QString());
 
         for (const auto &p : presets) {
             QAction *act = m_menuPresets->addAction(p.name);
             act->setCheckable(true);
             actionGroup->addAction(act);
 
-            // Heuristic check if current settings match preset
-            if (p.settings.contains(QStringLiteral("BorderWidth"))
-                && p.settings[QStringLiteral("BorderWidth")].toString() == activeBorderWidth
-                && p.settings.contains(QStringLiteral("CustomColor"))
-                && p.settings[QStringLiteral("CustomColor")].toString() == activeCustomColor) {
+            if (!activePresetName.isEmpty() && p.name == activePresetName) {
                 act->setChecked(true);
             }
 
@@ -433,6 +737,23 @@ private:
                 onApplyPreset(name);
             });
         }
+
+        m_menuPresets->addSeparator();
+
+        m_menuPresets->addAction(
+            m_isPolish ? QStringLiteral("💾 Zapisz obecny jako nowy preset (timestamp)")
+                       : QStringLiteral("💾 Save Current as New Preset (Timestamp)"),
+            this, &OutlineTray::onSaveCurrentPreset);
+
+        m_menuPresets->addAction(
+            m_isPolish ? QStringLiteral("📤 Eksportuj obecny preset...")
+                       : QStringLiteral("📤 Export Current Preset..."),
+            this, &OutlineTray::onExportPreset);
+
+        m_menuPresets->addAction(
+            m_isPolish ? QStringLiteral("📥 Importuj preset...")
+                       : QStringLiteral("📥 Import Preset..."),
+            this, &OutlineTray::onImportPreset);
     }
 
     void initWatcher()
@@ -461,12 +782,11 @@ private:
     QSystemTrayIcon *m_trayIcon = nullptr;
     QMenu *m_menu = nullptr;
     QMenu *m_menuPresets = nullptr;
+    QMenu *m_menuShortcuts = nullptr;
     QAction *m_actEnable = nullptr;
-    QAction *m_actAmbilight = nullptr;
-    QAction *m_actEnsureContrast = nullptr;
-    QAction *m_actGlow = nullptr;
-    QAction *m_actFadeCorners = nullptr;
     QFileSystemWatcher *m_watcher = nullptr;
+    QNetworkAccessManager *m_networkManager = nullptr;
+    SettingsDialog *m_settingsDialog = nullptr;
 };
 
 int main(int argc, char *argv[])
@@ -475,6 +795,15 @@ int main(int argc, char *argv[])
     app.setApplicationName(QStringLiteral("active-window-outline-tray"));
     app.setApplicationDisplayName(QStringLiteral("Active Window Outline Tray"));
     app.setQuitOnLastWindowClosed(false);
+
+    if (app.arguments().contains(QStringLiteral("--settings"))
+        || app.arguments().contains(QStringLiteral("-s"))
+        || app.arguments().contains(QStringLiteral("settings"))
+        || app.applicationFilePath().endsWith(QStringLiteral("active-window-outline-settings"))) {
+        SettingsDialog dialog;
+        dialog.show();
+        return app.exec();
+    }
 
     // Single-instance lock
     QLockFile lock(QDir::tempPath() + QStringLiteral("/active-window-outline-tray.lock"));

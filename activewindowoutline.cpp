@@ -653,6 +653,10 @@ bool ActiveWindowOutlineEffect::supported()
 void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
 {
     KConfigGroup config = effects->config()->group(QStringLiteral("Effect-active-window-outline"));
+    const bool configOutlineEnabled = config.readEntry("OutlineEnabled", true);
+    if (m_outlineEnabled != configOutlineEnabled) {
+        slotToggleAction();
+    }
     m_useAccentColor = config.readEntry("UseAccentColor", true);
     m_accentOpacity = qBound(0, config.readEntry("AccentOpacity", 66), 100);
     m_customColor = config.readEntry("CustomColor", QColor(61, 174, 233));

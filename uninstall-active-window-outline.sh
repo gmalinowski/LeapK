@@ -67,6 +67,12 @@ plugin_files=(
   "/usr/bin/active-window-outline-colorpicker"
   "/usr/local/bin/active-window-outline-tray"
   "/usr/bin/active-window-outline-tray"
+  "/usr/local/bin/active-window-outline-settings"
+  "/usr/bin/active-window-outline-settings"
+  "/usr/share/applications/active-window-outline-tray.desktop"
+  "/usr/share/applications/active-window-outline-settings.desktop"
+  "/usr/local/share/applications/active-window-outline-tray.desktop"
+  "/usr/local/share/applications/active-window-outline-settings.desktop"
 )
 
 installed_files=()
