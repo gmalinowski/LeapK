@@ -31,6 +31,7 @@ void testBuiltInPresets()
     assert(list[1].name == QStringLiteral("Vim HUD Navigator"));
     assert(list[1].settings[QStringLiteral("BadgeDisplayMode")].toInt() == 2);
     assert(list[1].settings[QStringLiteral("BadgeHudPosition")].toInt() == 0);
+    assert(list[1].settings[QStringLiteral("JumpTargets")].toInt() == 2);
     assert(list[1].settings[QStringLiteral("HighlightRecentWindow")].toBool() == true);
 
     // 3. Verify Subtle Minimalist

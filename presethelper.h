@@ -139,8 +139,9 @@ inline QList<PresetInfo> getBuiltInPresets()
         p.isBuiltIn = true;
         p.settings = getDefaultSettings();
         p.settings[QStringLiteral("BadgeDisplayMode")] = 2; // Screen HUD Overlay
-        p.settings[QStringLiteral("BadgeHudPosition")] = 0; // Top
+        p.settings[QStringLiteral("BadgeHudPosition")] = 0; // Bottom
         p.settings[QStringLiteral("BadgeSize")] = 28;
+        p.settings[QStringLiteral("JumpTargets")] = 2; // All windows across all virtual desktops (visible & minimized)
         p.settings[QStringLiteral("BorderWidth")] = 2;
         p.settings[QStringLiteral("BorderRadius")] = 6;
         p.settings[QStringLiteral("AccentOpacity")] = 80;
@@ -307,6 +308,7 @@ inline QList<PresetInfo> getBuiltInPresets()
         p.settings[QStringLiteral("BadgeDisplayMode")] = 1;
         p.settings[QStringLiteral("BadgePosition")] = 1;
         p.settings[QStringLiteral("BadgeSize")] = 34;
+        p.settings[QStringLiteral("JumpTargets")] = 1; // Current desktop (visible & minimized) + marked
         p.settings[QStringLiteral("MarkInactiveWidthReduction")] = 0;
         p.settings[QStringLiteral("MarkInactiveDashed")] = true;
         p.settings[QStringLiteral("MarkInactiveDashGap")] = 4;
@@ -385,6 +387,14 @@ inline bool parsePresetJson(const QByteArray &data, PresetInfo &outPreset, QStri
         return false;
     }
 
+    // Ensure all modern settings have defined defaults if missing from older preset files
+    const QJsonObject defaults = getDefaultSettings();
+    for (auto it = defaults.constBegin(); it != defaults.constEnd(); ++it) {
+        if (!outPreset.settings.contains(it.key())) {
+            outPreset.settings.insert(it.key(), it.value());
+        }
+    }
+
     return true;
 }
 
@@ -430,14 +440,25 @@ inline void ensureBuiltInPresets(const QString &dirPath)
         dir.mkpath(dirPath);
     }
 
+    // Clean up stale built-in preset filenames from older development versions
+    const QStringList legacyBuiltInFiles = {
+        QStringLiteral("Default (v1.5).json"),
+        QStringLiteral("KLeap Default (v1.5).json"),
+        QStringLiteral("Vim Focus Navigator.json"),
+        QStringLiteral("Subtle Minimal.json"),
+        QStringLiteral("Cyberpunk Neon.json"),
+        QStringLiteral("Ambilight Flow.json")
+    };
+    for (const QString &oldFile : legacyBuiltInFiles) {
+        const QString p = dir.filePath(oldFile);
+        if (QFile::exists(p)) {
+            QFile::remove(p);
+        }
+    }
+
     const QList<PresetInfo> builtIns = getBuiltInPresets();
     for (const auto &preset : builtIns) {
-        QString safeName = preset.name;
-        safeName.replace(QLatin1Char('/'), QLatin1Char('_'));
-        const QString filePath = dir.filePath(safeName + QStringLiteral(".json"));
-        if (!QFile::exists(filePath)) {
-            savePreset(dirPath, preset);
-        }
+        savePreset(dirPath, preset);
     }
 }
 
