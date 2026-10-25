@@ -35,8 +35,6 @@
 #include <core/rect.h>
 #include "cursoroverlay.h"
 #include <scene/workspacescene.h>
-#include <scene/windowitem.h>
-#include <scene/surfaceitem.h>
 #endif
 #include <KConfigGroup>
 #include <QGuiApplication>
@@ -3015,36 +3013,27 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
         }
     }
 
-    // 2. Try extracting from WindowItem / SurfaceItem texture (useful for covered windows)
-    if (target->windowItem() && target->windowItem()->surfaceItem()) {
-        SurfaceItem *surface = target->windowItem()->surfaceItem();
-        OpenGLSurfaceTexture *glSurfTex = dynamic_cast<OpenGLSurfaceTexture *>(surface->texture());
-        if (glSurfTex) {
-            OpenGLSurfaceContents contents = glSurfTex->texture();
-            if (contents.isValid() && !contents.planes.isEmpty() && contents.planes[0]) {
-                GLTexture *plane = contents.planes[0].get();
-                if (plane && !plane->isNull()) {
-                    const QImage surfImg = plane->toImage();
-                    if (!surfImg.isNull()) {
-                        const QImage thumb = surfImg.scaled(targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-                        m_thumbnailCache[target] = thumb;
-                        return thumb;
-                    }
-                }
-            }
-        }
-    }
-
-    // 3. Graceful fallback for minimized / unmapped windows: stylish preview card with app icon
+    // 2. Fallback for offscreen / covered / minimized windows: stylish preview card with app icon and title
     QImage fallback(targetSize, QImage::Format_RGBA8888_Premultiplied);
     fallback.fill(QColor(26, 29, 33, 230));
     QPainter p(&fallback);
     p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
     const QIcon icon = target->icon();
     if (!icon.isNull()) {
-        const int iconDim = qMin(targetSize.width(), targetSize.height()) * 6 / 10;
-        const QRect iconRect((targetSize.width() - iconDim) / 2, (targetSize.height() - iconDim) / 2, iconDim, iconDim);
+        const int iconDim = qMin(targetSize.width(), targetSize.height()) * 5 / 10;
+        const QRect iconRect((targetSize.width() - iconDim) / 2, (targetSize.height() - iconDim) / 2 - 4, iconDim, iconDim);
         icon.paint(&p, iconRect);
+    }
+    const QString cap = target->caption().trimmed();
+    if (!cap.isEmpty()) {
+        QFont f(QStringLiteral("sans-serif"));
+        f.setPixelSize(qMax(8, targetSize.height() / 7));
+        QFontMetrics fm(f);
+        const QString elided = fm.elidedText(cap, Qt::ElideRight, targetSize.width() - 8);
+        p.setFont(f);
+        p.setPen(QColor(200, 205, 215));
+        p.drawText(QRect(4, targetSize.height() - fm.height() - 4, targetSize.width() - 8, fm.height()), Qt::AlignCenter, elided);
     }
     p.end();
     m_thumbnailCache[target] = fallback;
