@@ -14,6 +14,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **KWin < 6.6 Build Compatibility**:
   - Resolved build failure on KWin versions prior to 6.6 (`error: 'Rect' does not name a type; did you mean 'QRect'`).
   - Introduced version-aware `OutlineRect` type alias (`QRect` on KWin < 6.6, `KWin::Rect` on KWin >= 6.6) for OpenGL ambilight color sampling and blit operations.
+- **Companion Tray Update Dialog & "Open Release Page" Link Fix**:
+  - Unified the update dialog across the companion tray app and settings GUI (`updatehelper.h`).
+  - Fixed an issue where clicking "Open Release Page" failed to open the browser or prematurely dismissed the dialog without launching the page.
+  - Implemented robust browser launching with fallbacks (`QDesktopServices::openUrl`, `xdg-open`, and `gio open`).
+  - The tray update check now displays the complete update dialog identical to Settings, including release notes, one-click terminal install/update command, "Copy Command" button, and release page launcher.
+  - Added an interactive up-to-date confirmation dialog with a direct button to view the latest release notes on GitHub.
 
 ### Changed
 - **Documentation & Cleanup**:

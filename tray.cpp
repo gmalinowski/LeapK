@@ -46,6 +46,7 @@
 #include <KGlobalAccel>
 #include "presethelper.h"
 #include "settingsdialog.h"
+#include "updatehelper.h"
 #include <iostream>
 
 #ifndef ACTIVE_WINDOW_OUTLINE_VERSION
@@ -623,6 +624,7 @@ private slots:
             const QString tagName = latestRelease.value(QStringLiteral("tag_name")).toString();
             const bool isPrerelease = latestRelease.value(QStringLiteral("prerelease")).toBool(false);
             const QString htmlUrl = latestRelease.value(QStringLiteral("html_url")).toString();
+            const QString body = latestRelease.value(QStringLiteral("body")).toString();
 
             QString cleanTag = tagName;
             if (cleanTag.startsWith(QLatin1Char('v'), Qt::CaseInsensitive)) {
@@ -637,54 +639,11 @@ private slots:
             const bool hasUpdate = isDev || (remoteVer > currentVer);
 
             if (!hasUpdate) {
-                m_trayIcon->showMessage(
-                    QStringLiteral("Active Window Outline"),
-                    m_isPolish ? QStringLiteral("Wtyczka jest aktualna! Zainstalowana wersja: v%1").arg(currentVerStr)
-                               : QStringLiteral("Plugin is up to date! Installed version: v%1").arg(currentVerStr),
-                    QSystemTrayIcon::Information,
-                    3000
-                );
+                LeapK::showUpToDateDialog(nullptr, currentVerStr, htmlUrl, m_isPolish);
                 return;
             }
 
-            // New version available dialog
-            QDialog dlg(nullptr);
-            dlg.setWindowTitle(m_isPolish ? QStringLiteral("Dostępna jest nowa wersja!") : QStringLiteral("New Version Available!"));
-            dlg.resize(480, 260);
-
-            auto *vbox = new QVBoxLayout(&dlg);
-            vbox->setContentsMargins(16, 16, 16, 16);
-            vbox->setSpacing(12);
-
-            auto *lbl = new QLabel(&dlg);
-            lbl->setTextFormat(Qt::RichText);
-            lbl->setWordWrap(true);
-            lbl->setText(m_isPolish
-                ? QStringLiteral("<h3>🎉 Dostępna jest nowa wersja: <b>%1</b></h3>"
-                                 "<p>Obecnie zainstalowana wersja: <b>v%2</b><br>"
-                                 "Najnowsze wydanie na GitHubie: <b>%1</b> %3</p>")
-                    .arg(tagName, currentVerStr, isPrerelease ? QStringLiteral("(pre-release)") : QStringLiteral("(stabilne)"))
-                : QStringLiteral("<h3>🎉 A new version is available: <b>%1</b></h3>"
-                                 "<p>Currently installed: <b>v%2</b><br>"
-                                 "Latest release on GitHub: <b>%1</b> %3</p>")
-                    .arg(tagName, currentVerStr, isPrerelease ? QStringLiteral("(pre-release)") : QStringLiteral("(stable)")));
-            vbox->addWidget(lbl);
-
-            auto *btnBox = new QHBoxLayout();
-            auto *btnOpen = new QPushButton(m_isPolish ? QStringLiteral("🌐 Otwórz stronę wydania") : QStringLiteral("🌐 Open Release Page"), &dlg);
-            auto *btnClose = new QPushButton(m_isPolish ? QStringLiteral("Zamknij") : QStringLiteral("Close"), &dlg);
-            btnBox->addWidget(btnOpen);
-            btnBox->addStretch();
-            btnBox->addWidget(btnClose);
-            vbox->addLayout(btnBox);
-
-            connect(btnOpen, &QPushButton::clicked, [&dlg, htmlUrl]() {
-                QDesktopServices::openUrl(QUrl(htmlUrl));
-                dlg.accept();
-            });
-            connect(btnClose, &QPushButton::clicked, &dlg, &QDialog::reject);
-
-            dlg.exec();
+            LeapK::showNewVersionDialog(nullptr, tagName, currentVerStr, isPrerelease, htmlUrl, body, m_isPolish);
         });
     }
 

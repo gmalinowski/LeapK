@@ -8,6 +8,7 @@
 #include "ui_activewindowoutline_config.h"
 #include "precedencehelper.h"
 #include "presethelper.h"
+#include "updatehelper.h"
 
 #include <KColorScheme>
 #include <KConfigGroup>
@@ -1101,88 +1102,25 @@ void ActiveWindowOutlineConfig::checkForUpdates()
 
         const bool isDev = currentVer.isNull();
         const bool hasUpdate = isDev || (remoteVer > currentVer);
+        const bool isPolish = QLocale().language() == QLocale::Polish;
 
         if (!hasUpdate) {
-            m_ui->label_updateStatus->setText(QStringLiteral("✓ Up to date (v%1)").arg(currentVerStr));
+            m_ui->label_updateStatus->setText(isPolish
+                ? QStringLiteral("✓ Wtyczka jest aktualna (v%1)").arg(currentVerStr)
+                : QStringLiteral("✓ Up to date (v%1)").arg(currentVerStr));
             m_ui->label_updateStatus->setStyleSheet(QStringLiteral("color: #2ecc71; font-weight: bold;"));
 
-            QMessageBox::information(widget(),
-                QStringLiteral("Plugin Updates"),
-                QStringLiteral("You have the latest version of LeapK installed (v%1).").arg(currentVerStr));
+            LeapK::showUpToDateDialog(widget(), currentVerStr, htmlUrl, isPolish);
             return;
         }
 
         // New version available!
-        m_ui->label_updateStatus->setText(QStringLiteral("⬆ New version: %1!").arg(tagName));
+        m_ui->label_updateStatus->setText(isPolish
+            ? QStringLiteral("⬆ Dostępna nowa wersja: %1!").arg(tagName)
+            : QStringLiteral("⬆ New version: %1!").arg(tagName));
         m_ui->label_updateStatus->setStyleSheet(QStringLiteral("color: #3daee9; font-weight: bold;"));
 
-        const QString installCmd = isPrerelease
-            ? QStringLiteral("curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash -s -- --pre")
-            : QStringLiteral("curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash");
-
-        QDialog dlg(widget());
-        dlg.setWindowTitle(QStringLiteral("New Version Available!"));
-        dlg.resize(540, 440);
-
-        auto *vbox = new QVBoxLayout(&dlg);
-        vbox->setContentsMargins(14, 14, 14, 14);
-        vbox->setSpacing(10);
-
-        auto *info = new QLabel(&dlg);
-        info->setTextFormat(Qt::RichText);
-        info->setWordWrap(true);
-        info->setText(QStringLiteral("<h3>🎉 A new version is available: <b>%1</b></h3>"
-                                     "<p>Currently installed: <b>v%2</b><br>"
-                                     "Latest release: <b>%1</b> %3</p>")
-                        .arg(tagName)
-                        .arg(currentVerStr)
-                        .arg(isPrerelease ? QStringLiteral("(pre-release)") : QStringLiteral("(stable)")));
-        vbox->addWidget(info);
-
-        if (!body.trimmed().isEmpty()) {
-            auto *notesLabel = new QLabel(QStringLiteral("<b>Release Notes:</b>"), &dlg);
-            vbox->addWidget(notesLabel);
-
-            auto *browser = new QTextBrowser(&dlg);
-            browser->setOpenExternalLinks(true);
-            browser->setPlainText(body);
-            browser->setMaximumHeight(160);
-            vbox->addWidget(browser);
-        }
-
-        auto *cmdLabel = new QLabel(QStringLiteral("Terminal installation / update command:"), &dlg);
-        vbox->addWidget(cmdLabel);
-
-        auto *cmdBox = new QLineEdit(installCmd, &dlg);
-        cmdBox->setReadOnly(true);
-        vbox->addWidget(cmdBox);
-
-        auto *btnLayout = new QHBoxLayout();
-        auto *btnOpenUrl = new QPushButton(QStringLiteral("Open on GitHub"), &dlg);
-        btnOpenUrl->setIcon(QIcon::fromTheme(QStringLiteral("internet-web-browser")));
-        connect(btnOpenUrl, &QPushButton::clicked, [htmlUrl]() {
-            if (!htmlUrl.isEmpty()) {
-                QDesktopServices::openUrl(QUrl(htmlUrl));
-            }
-        });
-        btnLayout->addWidget(btnOpenUrl);
-
-        auto *btnCopy = new QPushButton(QStringLiteral("Copy Command"), &dlg);
-        btnCopy->setIcon(QIcon::fromTheme(QStringLiteral("edit-copy")));
-        connect(btnCopy, &QPushButton::clicked, [installCmd, btnCopy]() {
-            QGuiApplication::clipboard()->setText(installCmd);
-            btnCopy->setText(QStringLiteral("Copied!"));
-        });
-        btnLayout->addWidget(btnCopy);
-
-        btnLayout->addStretch();
-
-        auto *btnClose = new QPushButton(QStringLiteral("Close"), &dlg);
-        connect(btnClose, &QPushButton::clicked, &dlg, &QDialog::accept);
-        btnLayout->addWidget(btnClose);
-
-        vbox->addLayout(btnLayout);
-        dlg.exec();
+        LeapK::showNewVersionDialog(widget(), tagName, currentVerStr, isPrerelease, htmlUrl, body, isPolish);
     });
 }
 
