@@ -1658,12 +1658,25 @@
              </widget>
             </item>
             <item>
+             <widget class="QCheckBox" name="kcfg_MarkSmartAdaptive">
+              <property name="text">
+               <string>Smart adaptive hybrid accent</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+              <property name="toolTip">
+               <string>Automatically extract each window's mark outline color using the Smart Adaptive (Hybrid) algorithm based on its live content and icon.</string>
+              </property>
+             </widget>
+            </item>
+            <item>
              <widget class="QCheckBox" name="kcfg_MarkRandomColor">
               <property name="text">
                <string>Randomize color</string>
               </property>
               <property name="checked">
-               <bool>true</bool>
+               <bool>false</bool>
               </property>
               <property name="toolTip">
                <string>Randomize the outline color each time a window is marked instead of using a fixed default color.</string>

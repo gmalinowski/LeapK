@@ -721,7 +721,8 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_recentWindowGapGrowth = qBound(0, config.readEntry("RecentWindowGapGrowth", 6), 30);
     m_recentWindowDashSmooth = config.readEntry("RecentWindowDashSmooth", false);
     m_markDefaultColor = config.readEntry("MarkDefaultColor", QColor(QStringLiteral("#e74c3c")));
-    m_markRandomColor = config.readEntry("MarkRandomColor", true);
+    m_markSmartAdaptive = config.readEntry("MarkSmartAdaptive", true);
+    m_markRandomColor = config.readEntry("MarkRandomColor", false);
     m_markInactiveWidthReduction = qBound(0, config.readEntry("MarkInactiveWidthReduction", 1), 10);
     m_markInactiveDashed = config.readEntry("MarkInactiveDashed", true);
     m_markInactiveDashGap = qBound(1, config.readEntry("MarkInactiveDashGap", 6), 40);
@@ -1100,6 +1101,7 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
     m_windowHistory.removeAll(w);
     m_recentAmbilightColors.remove(w);
     m_recentCycleColors.remove(w);
+    m_smartAccentCache.remove(w);
     m_markedWindows.remove(w);
     m_markedWindowLetters.remove(w);
     for (auto it = m_jumpLetterToWindow.begin(); it != m_jumpLetterToWindow.end(); ) {
@@ -1954,6 +1956,49 @@ QColor ActiveWindowOutlineEffect::generateRandomMarkColor() const
     return OutlineBadge::generateRandomMarkColor(m_markedWindows.values());
 }
 
+QColor ActiveWindowOutlineEffect::detectSmartAccentForWindow(EffectWindow *w) const
+{
+    if (!w) {
+        return generateRandomMarkColor();
+    }
+
+    // 1. Cached live Smart Adaptive color sampled from window pixels
+    if (m_smartAccentCache.contains(w) && m_smartAccentCache.value(w).isValid()) {
+        return m_smartAccentCache.value(w);
+    }
+
+    // 2. Active window live ambilight color
+    if (w == m_activeWindow && m_ambilightCurrentColor.isValid()) {
+        return m_ambilightCurrentColor;
+    }
+
+    // 3. Recent window live ambilight color
+    if (m_recentAmbilightColors.contains(w) && m_recentAmbilightColors.value(w).isValid()) {
+        return m_recentAmbilightColors.value(w);
+    }
+
+    // 4. Extract smart adaptive accent from window icon using OutlineBadge helper
+    const QIcon icon = w->icon();
+    if (!icon.isNull()) {
+        const QPixmap pix = icon.pixmap(QSize(32, 32));
+        if (!pix.isNull()) {
+            const QColor iconColor = OutlineBadge::extractSmartAccentFromImage(
+                pix.toImage(),
+                m_ambilightSaturationLeveling / 100.0,
+                m_ambilightFallbackStrength / 100.0,
+                m_ambilightMinBrightness / 100.0,
+                m_ambilightMaxBrightness / 100.0);
+            if (iconColor.isValid() && iconColor.saturationF() > 0.10) {
+                m_smartAccentCache[w] = iconColor;
+                return iconColor;
+            }
+        }
+    }
+
+    // 5. Fallback: random mark color
+    return generateRandomMarkColor();
+}
+
 void ActiveWindowOutlineEffect::toggleWindowMark(EffectWindow *w)
 {
     if (!w) {
@@ -1964,9 +2009,11 @@ void ActiveWindowOutlineEffect::toggleWindowMark(EffectWindow *w)
         m_markedWindowLetters.remove(w);
         effects->addRepaint(expandedGeometryFor(w));
     } else {
-        const QColor markCol = m_markRandomColor
-            ? generateRandomMarkColor()
-            : (m_lastMarkColor.isValid() ? m_lastMarkColor : m_markDefaultColor);
+        const QColor markCol = m_markSmartAdaptive
+            ? detectSmartAccentForWindow(w)
+            : (m_markRandomColor
+                ? generateRandomMarkColor()
+                : (m_lastMarkColor.isValid() ? m_lastMarkColor : m_markDefaultColor));
         const QChar letter = nextAvailableLetter();
         setWindowMark(w, markCol, letter);
     }
@@ -1994,9 +2041,12 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
     }
 
     QPointer<EffectWindow> targetWindow(target);
-    const QColor initialColor = m_markedWindows.contains(target)
-        ? m_markedWindows.value(target)
-        : (m_markRandomColor ? generateRandomMarkColor() : (m_lastMarkColor.isValid() ? m_lastMarkColor : m_markDefaultColor));
+    const QColor smartCol = detectSmartAccentForWindow(target);
+    const QColor initialColor = (m_markSmartAdaptive && smartCol.isValid())
+        ? smartCol
+        : (m_markedWindows.contains(target)
+            ? m_markedWindows.value(target)
+            : (m_markRandomColor ? generateRandomMarkColor() : (m_lastMarkColor.isValid() ? m_lastMarkColor : m_markDefaultColor)));
     const QChar initialLetter = m_markedWindowLetters.contains(target)
         ? m_markedWindowLetters.value(target)
         : nextAvailableLetter();
@@ -2010,7 +2060,9 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
             ? pickedCol
             : (m_markedWindows.contains(w)
                 ? m_markedWindows.value(w)
-                : (m_markRandomColor ? generateRandomMarkColor() : (m_lastMarkColor.isValid() ? m_lastMarkColor : m_markDefaultColor)));
+                : (m_markSmartAdaptive
+                    ? detectSmartAccentForWindow(w)
+                    : (m_markRandomColor ? generateRandomMarkColor() : (m_lastMarkColor.isValid() ? m_lastMarkColor : m_markDefaultColor))));
 
         const QChar letter = (useLetter && pickedLetter.isLetterOrNumber())
             ? pickedLetter.toUpper()
@@ -3102,7 +3154,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     const qreal sampleInterval = 1.0 / qMax<qreal>(0.1, m_ambilightFrequency);
     const bool timeToSample = m_ambilightSampleNeeded || ((elapsedSec - m_lastAmbilightSampleTime) >= sampleInterval);
 
-    if (!inhibited && (m_ambilightEnabled || m_ensurePerimeterContrast) && m_activeWindow && timeToSample) {
+    if (!inhibited && (m_ambilightEnabled || m_ensurePerimeterContrast || m_markSmartAdaptive) && m_activeWindow && timeToSample) {
         const QPoint windowCenter = m_activeWindow->frameGeometry().center().toPoint();
         const bool isScreenForWindow = !screen || QRect(screen->geometry()).contains(windowCenter);
         if (isScreenForWindow) {
@@ -3379,14 +3431,23 @@ bool ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
             }
         }
 
-        QColor newTargetColor;
-        if (m_ambilightEnabled) {
-            newTargetColor = OutlineAmbilight::processRgbaSamples(scaled.constBits(), contentSize.width() * contentSize.height(), settings);
-        } else {
-            const QColor baseColor = m_useAccentColor ? qApp->palette().color(QPalette::Highlight) : m_customColor;
-            newTargetColor = OutlineAmbilight::enforcePerimeterContrast(baseColor, scaled.constBits(), contentSize.width(), contentSize.height(), settings);
+        OutlineAmbilight::Settings smartSettings = settings;
+        smartSettings.mode = OutlineAmbilight::Mode::Smart;
+        const QColor smartColor = OutlineAmbilight::processRgbaSamples(scaled.constBits(), contentSize.width() * contentSize.height(), smartSettings);
+        if (w && smartColor.isValid()) {
+            m_smartAccentCache[w] = smartColor;
         }
-        applyNewAmbilightColor(newTargetColor);
+
+        if (m_ambilightEnabled || m_ensurePerimeterContrast) {
+            QColor newTargetColor;
+            if (m_ambilightEnabled) {
+                newTargetColor = OutlineAmbilight::processRgbaSamples(scaled.constBits(), contentSize.width() * contentSize.height(), settings);
+            } else {
+                const QColor baseColor = m_useAccentColor ? qApp->palette().color(QPalette::Highlight) : m_customColor;
+                newTargetColor = OutlineAmbilight::enforcePerimeterContrast(baseColor, scaled.constBits(), contentSize.width(), contentSize.height(), settings);
+            }
+            applyNewAmbilightColor(newTargetColor);
+        }
         return true;
     }
 
@@ -3490,14 +3551,23 @@ bool ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
         }
     }
 
-    QColor newTargetColor;
-    if (m_ambilightEnabled) {
-        newTargetColor = OutlineAmbilight::processRgbaSamples(windowPixels, kSampleDim * kSampleDim, settings);
-    } else {
-        const QColor baseColor = m_useAccentColor ? qApp->palette().color(QPalette::Highlight) : m_customColor;
-        newTargetColor = OutlineAmbilight::enforcePerimeterContrast(baseColor, windowPixels, kSampleDim, kSampleDim, settings);
+    OutlineAmbilight::Settings smartSettings = settings;
+    smartSettings.mode = OutlineAmbilight::Mode::Smart;
+    const QColor smartColor = OutlineAmbilight::processRgbaSamples(windowPixels, kSampleDim * kSampleDim, smartSettings);
+    if (w && smartColor.isValid()) {
+        m_smartAccentCache[w] = smartColor;
     }
-    applyNewAmbilightColor(newTargetColor);
+
+    if (m_ambilightEnabled || m_ensurePerimeterContrast) {
+        QColor newTargetColor;
+        if (m_ambilightEnabled) {
+            newTargetColor = OutlineAmbilight::processRgbaSamples(windowPixels, kSampleDim * kSampleDim, settings);
+        } else {
+            const QColor baseColor = m_useAccentColor ? qApp->palette().color(QPalette::Highlight) : m_customColor;
+            newTargetColor = OutlineAmbilight::enforcePerimeterContrast(baseColor, windowPixels, kSampleDim, kSampleDim, settings);
+        }
+        applyNewAmbilightColor(newTargetColor);
+    }
     return true;
 }
 

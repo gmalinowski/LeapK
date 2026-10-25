@@ -203,7 +203,8 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("RecentWindowGapGrowth"), *new int, 6);
     m_configSkeleton->addItemBool(QStringLiteral("RecentWindowDashSmooth"), *new bool, false);
     m_configSkeleton->addItemColor(QStringLiteral("MarkDefaultColor"), *new QColor, QColor(QStringLiteral("#e74c3c")));
-    m_configSkeleton->addItemBool(QStringLiteral("MarkRandomColor"), *new bool, true);
+    m_configSkeleton->addItemBool(QStringLiteral("MarkSmartAdaptive"), *new bool, true);
+    m_configSkeleton->addItemBool(QStringLiteral("MarkRandomColor"), *new bool, false);
     m_configSkeleton->addItemString(QStringLiteral("StylePrecedence"), *new QString, QStringLiteral("Marked,Active,Recent"));
     m_configSkeleton->addItemInt(QStringLiteral("MarkInactiveWidthReduction"), *new int, 1);
     m_configSkeleton->addItemBool(QStringLiteral("MarkInactiveDashed"), *new bool, true);
@@ -511,7 +512,18 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
 
     connect(m_ui->kcfg_MarkInactiveDashed, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
     connect(m_ui->kcfg_BadgeDisplayMode, qOverload<int>(&QComboBox::currentIndexChanged), this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
-    connect(m_ui->kcfg_MarkRandomColor, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
+    connect(m_ui->kcfg_MarkSmartAdaptive, &QCheckBox::toggled, this, [this](bool checked) {
+        if (checked && m_ui->kcfg_MarkRandomColor->isChecked()) {
+            m_ui->kcfg_MarkRandomColor->setChecked(false);
+        }
+        updateMarkWindowUI();
+    });
+    connect(m_ui->kcfg_MarkRandomColor, &QCheckBox::toggled, this, [this](bool checked) {
+        if (checked && m_ui->kcfg_MarkSmartAdaptive->isChecked()) {
+            m_ui->kcfg_MarkSmartAdaptive->setChecked(false);
+        }
+        updateMarkWindowUI();
+    });
     updateMarkWindowUI();
 
     QString shortcutStr = QStringLiteral("Meta+Space");
@@ -583,8 +595,9 @@ void ActiveWindowOutlineConfig::updateRecentWindowUI()
 
 void ActiveWindowOutlineConfig::updateMarkWindowUI()
 {
+    const bool smartAdaptive = m_ui->kcfg_MarkSmartAdaptive->isChecked();
     const bool randomColor = m_ui->kcfg_MarkRandomColor->isChecked();
-    m_ui->kcfg_MarkDefaultColor->setEnabled(!randomColor);
+    m_ui->kcfg_MarkDefaultColor->setEnabled(!smartAdaptive && !randomColor);
 
     const bool dashed = m_ui->kcfg_MarkInactiveDashed->isChecked();
     m_ui->label_markInactiveDashGap->setEnabled(dashed);
@@ -971,7 +984,8 @@ void ActiveWindowOutlineConfig::defaults()
     m_ui->kcfg_BadgePosition->setCurrentIndex(1);
     m_ui->kcfg_BadgeSize->setValue(28);
     m_ui->kcfg_BadgeMargin->setValue(0);
-    m_ui->kcfg_MarkRandomColor->setChecked(true);
+    m_ui->kcfg_MarkSmartAdaptive->setChecked(true);
+    m_ui->kcfg_MarkRandomColor->setChecked(false);
     m_ui->kcfg_MarkInactiveWidthReduction->setValue(1);
     m_ui->kcfg_MarkInactiveDashed->setChecked(true);
     m_ui->kcfg_MarkInactiveDashSmooth->setChecked(true);
@@ -1261,6 +1275,7 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
 
     // Marked Windows
     s[QStringLiteral("MarkDefaultColor")] = m_ui->kcfg_MarkDefaultColor->color().name(QColor::HexRgb);
+    s[QStringLiteral("MarkSmartAdaptive")] = m_ui->kcfg_MarkSmartAdaptive->isChecked();
     s[QStringLiteral("MarkRandomColor")] = m_ui->kcfg_MarkRandomColor->isChecked();
     s[QStringLiteral("StylePrecedence")] = serializePrecedenceList();
     s[QStringLiteral("MarkInactiveWidthReduction")] = m_ui->kcfg_MarkInactiveWidthReduction->value();
@@ -1358,6 +1373,7 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
 
     // Marked Windows
     if (s.contains(QStringLiteral("MarkDefaultColor"))) m_ui->kcfg_MarkDefaultColor->setColor(QColor(s[QStringLiteral("MarkDefaultColor")].toString()));
+    if (s.contains(QStringLiteral("MarkSmartAdaptive"))) m_ui->kcfg_MarkSmartAdaptive->setChecked(s[QStringLiteral("MarkSmartAdaptive")].toBool());
     if (s.contains(QStringLiteral("MarkRandomColor"))) m_ui->kcfg_MarkRandomColor->setChecked(s[QStringLiteral("MarkRandomColor")].toBool());
     if (s.contains(QStringLiteral("StylePrecedence"))) populatePrecedenceList(s[QStringLiteral("StylePrecedence")].toString());
     if (s.contains(QStringLiteral("MarkInactiveWidthReduction"))) m_ui->kcfg_MarkInactiveWidthReduction->setValue(s[QStringLiteral("MarkInactiveWidthReduction")].toInt());

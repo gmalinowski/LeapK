@@ -32,6 +32,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     - `0`: Current desktop visible windows + marked windows from all desktops (default).
     - `1`: Marked windows only (all desktops).
     - `2`: All windows across all virtual desktops.
+- **Smart Adaptive (Hybrid) Accent Detection for Marked Windows (`MarkSmartAdaptive`)**:
+  - Added a "Smart adaptive hybrid accent" checkbox in KCM settings under Marked Windows, enabled (`true`) by default over random color.
+  - Automatically extracts the mark outline color using the intelligent Smart Adaptive (Hybrid) ambilight algorithm from live window content and application icon (`OutlineBadge::extractSmartAccentFromImage`).
+  - When marking a window via shortcut (`Meta+Ctrl+M`), the mark outline color is dynamically set to the detected window accent.
+  - In the custom mark dialog (`Meta+Ctrl+Shift+M`), the color picker button and initial color are pre-selected to the detected Smart Adaptive accent automatically.
 - **Randomized Mark Outline Color (`MarkRandomColor`)**:
   - Added a "Randomize color" checkbox next to Default Mark Color in the KCM settings.
   - When enabled, toggling a window mark automatically selects a unique, vibrant color from a curated high-contrast palette (with diverse HSV fallback) ensuring multiple marked windows each receive distinct, eye-catching outlines.
@@ -49,7 +54,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 - **Updated Default Outline & Marked Settings (v1.5)**:
-  - `MarkRandomColor` is now enabled (`true`) by default to automatically give marked windows distinct colors.
+  - `MarkSmartAdaptive` is now enabled (`true`) by default to automatically extract window accents via Smart Adaptive (Hybrid) mode (`MarkRandomColor` defaults to `false`).
   - `BadgePosition` default moved to Top (`1`, centered on top edge) and `BadgeMargin` reduced to `0 px`.
   - Inactive marked windows now default to `MarkInactiveDashed = true`, `MarkInactiveDashSmooth = true`, and a `1 px` border reduction (`MarkInactiveWidthReduction = 1`).
   - Appearance default: `GlowEnabled` (Soft glow) disabled (`false`) by default for crisp modern lines.

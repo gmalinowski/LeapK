@@ -18,6 +18,7 @@
 #include <QStringList>
 #include <QSet>
 #include <algorithm>
+#include "ambilightalgorithm.h"
 
 namespace OutlineBadge
 {
@@ -108,6 +109,33 @@ inline QColor generateRandomMarkColor(const QList<QColor> &usedColors = {})
     const int sat = 210 + QRandomGenerator::global()->bounded(45);
     const int val = 220 + QRandomGenerator::global()->bounded(35);
     return QColor::fromHsv(hue, sat, val);
+}
+
+inline QColor extractSmartAccentFromImage(const QImage &image,
+                                         qreal saturationLeveling = 0.65,
+                                         qreal fallbackStrength = 0.50,
+                                         qreal minBrightness = 0.25,
+                                         qreal maxBrightness = 0.85)
+{
+    if (image.isNull()) {
+        return QColor();
+    }
+
+    const QImage scaled = (image.width() == 32 && image.height() == 32 && image.format() == QImage::Format_RGBA8888)
+        ? image
+        : image.scaled(32, 32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation).convertToFormat(QImage::Format_RGBA8888);
+
+    OutlineAmbilight::Settings settings;
+    settings.mode = OutlineAmbilight::Mode::Smart;
+    settings.saturationLeveling = saturationLeveling;
+    settings.fallbackStrength = fallbackStrength;
+    settings.minBrightness = minBrightness;
+    settings.maxBrightness = maxBrightness;
+    settings.ensureContrast = false;
+    settings.sampleWidth = scaled.width();
+    settings.sampleHeight = scaled.height();
+
+    return OutlineAmbilight::processRgbaSamples(scaled.constBits(), scaled.width() * scaled.height(), settings);
 }
 
 inline QRectF computeBadgeRect(const QRectF &geo, int position, qreal badgeWidth, qreal badgeHeight, qreal margin)

@@ -19,7 +19,8 @@ void testBuiltInPresets()
     assert(list[0].settings[QStringLiteral("GlowEnabled")].toBool() == false);
     assert(list[0].settings[QStringLiteral("MenuHideDelay")].toInt() == 500);
     assert(list[0].settings[QStringLiteral("MenuShowDelay")].toInt() == 500);
-    assert(list[0].settings[QStringLiteral("MarkRandomColor")].toBool() == true);
+    assert(list[0].settings[QStringLiteral("MarkSmartAdaptive")].toBool() == true);
+    assert(list[0].settings[QStringLiteral("MarkRandomColor")].toBool() == false);
     assert(list[0].settings[QStringLiteral("BadgePosition")].toInt() == 1);
     assert(list[0].settings[QStringLiteral("BadgeMargin")].toInt() == 0);
     assert(list[0].settings[QStringLiteral("MarkInactiveWidthReduction")].toInt() == 1);

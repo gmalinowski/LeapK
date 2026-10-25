@@ -73,7 +73,8 @@ inline QJsonObject getDefaultSettings()
 
     // Mark Window
     s[QStringLiteral("MarkDefaultColor")] = QStringLiteral("#e74c3c");
-    s[QStringLiteral("MarkRandomColor")] = true;
+    s[QStringLiteral("MarkSmartAdaptive")] = true;
+    s[QStringLiteral("MarkRandomColor")] = false;
     s[QStringLiteral("StylePrecedence")] = QStringLiteral("Marked,Active,Recent");
     s[QStringLiteral("MarkInactiveWidthReduction")] = 1;
     s[QStringLiteral("MarkInactiveDashed")] = true;

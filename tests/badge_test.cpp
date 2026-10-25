@@ -170,6 +170,32 @@ void testContrastCalculation()
     assert(!autoDark.isNull());
 }
 
+void testSmartAccentExtraction()
+{
+    using OutlineBadge::extractSmartAccentFromImage;
+
+    // 1. Pure blue icon image (like Dolphin)
+    QImage blueImg(32, 32, QImage::Format_RGBA8888);
+    blueImg.fill(QColor(29, 153, 243));
+    QColor blueAccent = extractSmartAccentFromImage(blueImg);
+    assert(blueAccent.isValid());
+    assert(blueAccent.hue() >= 190 && blueAccent.hue() <= 220);
+    assert(blueAccent.saturationF() > 0.60);
+
+    // 2. Pure green icon image (like Spotify)
+    QImage greenImg(32, 32, QImage::Format_RGBA8888);
+    greenImg.fill(QColor(46, 204, 113));
+    QColor greenAccent = extractSmartAccentFromImage(greenImg);
+    assert(greenAccent.isValid());
+    assert(greenAccent.hue() >= 130 && greenAccent.hue() <= 160);
+    assert(greenAccent.saturationF() > 0.50);
+
+    // 3. Null image returns invalid QColor
+    QImage nullImg;
+    QColor nullAccent = extractSmartAccentFromImage(nullImg);
+    assert(!nullAccent.isValid());
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -180,6 +206,7 @@ int main(int argc, char *argv[])
     testRandomMarkColor();
     testOffscreenTargetPill();
     testContrastCalculation();
+    testSmartAccentExtraction();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;
