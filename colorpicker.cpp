@@ -14,6 +14,7 @@
 #include <QColorDialog>
 #include <QDialogButtonBox>
 #include <QRegularExpressionValidator>
+#include "badgehelper.h"
 #include <iostream>
 
 int main(int argc, char *argv[])
@@ -65,8 +66,9 @@ int main(int argc, char *argv[])
     const auto updateColorBtn = [colorBtn, &currentColor]() {
         const QString hex = (currentColor.alpha() < 255) ? currentColor.name(QColor::HexArgb) : currentColor.name(QColor::HexRgb);
         colorBtn->setText(hex);
-        const QString textCol = (currentColor.lightness() > 128) ? QStringLiteral("#000000") : QStringLiteral("#ffffff");
-        colorBtn->setStyleSheet(QStringLiteral("QPushButton { background-color: %1; color: %2; font-weight: bold; padding: 6px 12px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.3); }").arg(hex, textCol));
+        const QColor textCol = OutlineBadge::contrastingTextColor(currentColor);
+        const QString textColStr = (textCol == Qt::black) ? QStringLiteral("#000000") : QStringLiteral("#ffffff");
+        colorBtn->setStyleSheet(QStringLiteral("QPushButton { background-color: %1; color: %2; font-weight: bold; padding: 6px 12px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.3); }").arg(hex, textColStr));
     };
     updateColorBtn();
 

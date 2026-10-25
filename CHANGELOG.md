@@ -36,6 +36,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Marked windows now maintain their custom mark color and styling by default even when focused, rather than being overridden by the standard active window outline.
 
 ### Fixed
+- **High-Contrast Badge Letter Text & Framing Border (`contrastingTextColor`)**:
+  - Replaced naive HSL lightness check with ITU-R BT.601 perceptual luminance formula (`0.299 R + 0.587 G + 0.114 B`).
+  - Dark badge backgrounds (e.g. dark jump badge, red, deep violet, sky blue) strictly render crisp white letters, while light backgrounds (e.g. sunflower yellow, warm yellow, cyan, bright teal, emerald green, light gray) render crisp black letters.
+  - Dynamically adjusts the badge framing border between dark (for light backgrounds) and white (for dark backgrounds) to prevent light badges from washing out on bright window content.
 - **Plugin Toggle Shortcut (`Meta+Ctrl+O`) Now Disables All Visual Elements & Badges**:
   - Fixed an issue where toggling off the effect via `ToggleActiveWindowOutline` (`Meta+Ctrl+O`) only removed the active window outline while continuous badges/hints, recent outlines, and marked window outlines stayed painted on screen.
   - Guarded `isActive()`, `prepareScreenPaint()`, `paintScreen()` (recent, marked, and continuous badge passes), and `slotTriggerJumpMode()` with strict `m_outlineEnabled` checks.

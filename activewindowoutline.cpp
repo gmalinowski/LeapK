@@ -1907,6 +1907,7 @@ void ActiveWindowOutlineEffect::slotToggleAction()
         }
         m_delayedHideState.reset();
         m_outlineCache.clear();
+        m_badgeTextureCache.clear();
         repaintAllOutlines();
         effects->addRepaintFull();
     }
@@ -2541,7 +2542,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         const QColor bgCol = m_markedWindows.contains(target)
             ? m_markedWindows.value(target)
             : QColor(35, 38, 41, 235);
-        const QColor textCol = (bgCol.lightness() > 140) ? Qt::black : Qt::white;
+        const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
 
         QString loc;
         if (!target->isOnCurrentDesktop()) {
@@ -3165,7 +3166,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             const QColor bgCol = m_markedWindows.contains(target)
                 ? m_markedWindows.value(target)
                 : QColor(35, 38, 41, 235);
-            const QColor textCol = (bgCol.lightness() > 140) ? Qt::black : Qt::white;
+            const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
             const QRectF geo = target->frameGeometry();
             const QRectF badgeRect = OutlineBadge::computeBadgeRect(geo, m_badgePosition, badgeW, badgeH, m_badgeMargin);
             if (isBadgeOccluded(target, badgeRect)) {
@@ -3201,7 +3202,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             const QColor bgCol = m_markedWindows.contains(target)
                 ? m_markedWindows.value(target)
                 : QColor(35, 38, 41, 235);
-            const QColor textCol = (bgCol.lightness() > 140) ? Qt::black : Qt::white;
+            const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
             const QRectF geo = target->frameGeometry();
             QRectF badgeRect = OutlineBadge::computeBadgeRect(geo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
             if (isBadgeOccluded(target, badgeRect)) {

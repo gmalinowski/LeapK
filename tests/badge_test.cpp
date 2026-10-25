@@ -13,6 +13,7 @@ using OutlineBadge::renderBadgeImage;
 using OutlineBadge::computeBadgeRect;
 using OutlineBadge::generateRandomMarkColor;
 using OutlineBadge::renderOffscreenTargetPill;
+using OutlineBadge::contrastingTextColor;
 
 void testOffscreenTargetPill()
 {
@@ -132,6 +133,32 @@ void testBadgePositioning()
     assert(smallR.right() <= smallGeo.right());
 }
 
+void testContrastCalculation()
+{
+    // Dark backgrounds must produce white text (Qt::white)
+    assert(contrastingTextColor(QColor(0, 0, 0)) == Qt::white);
+    assert(contrastingTextColor(QColor(35, 38, 41, 235)) == Qt::white); // default jump badge background
+    assert(contrastingTextColor(QColor(QStringLiteral("#e74c3c"))) == Qt::white); // Crimson Red
+    assert(contrastingTextColor(QColor(QStringLiteral("#5f27cd"))) == Qt::white); // Deep Violet
+    assert(contrastingTextColor(QColor(QStringLiteral("#3498db"))) == Qt::white); // Sky Blue
+    assert(contrastingTextColor(QColor(QStringLiteral("#9b59b6"))) == Qt::white); // Amethyst Purple
+
+    // Light backgrounds must produce black text (Qt::black)
+    assert(contrastingTextColor(QColor(255, 255, 255)) == Qt::black);
+    assert(contrastingTextColor(QColor(QStringLiteral("#f1c40f"))) == Qt::black); // Sunflower Yellow
+    assert(contrastingTextColor(QColor(QStringLiteral("#feca57"))) == Qt::black); // Warm Yellow
+    assert(contrastingTextColor(QColor(QStringLiteral("#00d2d3"))) == Qt::black); // Cyan
+    assert(contrastingTextColor(QColor(QStringLiteral("#1dd1a1"))) == Qt::black); // Bright Teal
+    assert(contrastingTextColor(QColor(QStringLiteral("#2ecc71"))) == Qt::black); // Emerald Green
+    assert(contrastingTextColor(QColor(220, 220, 220)) == Qt::black); // Light Gray
+
+    // Automatic contrast fallback in renderBadgeImage when textColor is omitted
+    QImage autoLight = renderBadgeImage(QLatin1Char('Y'), QColor(QStringLiteral("#f1c40f")));
+    assert(!autoLight.isNull());
+    QImage autoDark = renderBadgeImage(QLatin1Char('Z'), QColor(QStringLiteral("#232629")));
+    assert(!autoDark.isNull());
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -141,6 +168,7 @@ int main(int argc, char *argv[])
     testBadgePositioning();
     testRandomMarkColor();
     testOffscreenTargetPill();
+    testContrastCalculation();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

@@ -40,6 +40,20 @@ inline const QString &preferredLetterPool()
     return pool;
 }
 
+inline qreal perceivedLuminance(const QColor &c)
+{
+    // Perceived luminance using ITU-R BT.601 coefficients
+    return 0.299 * c.redF() + 0.587 * c.greenF() + 0.114 * c.blueF();
+}
+
+inline QColor contrastingTextColor(const QColor &bgColor)
+{
+    // Threshold ~0.53 corresponds to ~135 on a 0-255 scale.
+    // If background is light (luminance > 0.53), black text ensures sharp contrast.
+    // If background is dark (luminance <= 0.53), white text ensures sharp contrast.
+    return (perceivedLuminance(bgColor) > 0.53) ? QColor(0, 0, 0) : QColor(255, 255, 255);
+}
+
 inline QChar findNextAvailableLetter(const QList<QChar> &usedLetters)
 {
     QSet<QChar> usedSet;
@@ -154,8 +168,8 @@ inline QRectF computeBadgeRect(const QRectF &geo, int position, qreal badgeWidth
     return QRectF(x, y, badgeWidth, badgeHeight);
 }
 
-inline QImage renderBadgeImage(const QChar &letter, const QColor &bgColor, const QColor &textColor,
-                               bool isJumpMode, int baseSize = 28, qreal scale = 1.0)
+inline QImage renderBadgeImage(const QChar &letter, const QColor &bgColor, const QColor &textColor = QColor(),
+                               bool isJumpMode = false, int baseSize = 28, qreal scale = 1.0)
 {
     const int effectiveBaseHeight = isJumpMode ? qRound(baseSize * 1.25) : baseSize;
     const int effectiveBaseWidth = qRound(effectiveBaseHeight * 1.35);
@@ -178,9 +192,15 @@ inline QImage renderBadgeImage(const QChar &letter, const QColor &bgColor, const
     p.setBrush(QColor(0, 0, 0, isJumpMode ? 150 : 100));
     p.drawRoundedRect(rect.translated(0, 2.0 * scale), radius, radius);
 
+    // Contrasting text color & border
+    const QColor effectiveTextColor = textColor.isValid() ? textColor : contrastingTextColor(bgColor);
+    const bool isLightBg = (effectiveTextColor == Qt::black) || (perceivedLuminance(bgColor) > 0.53);
+
     // Background pill
     p.setBrush(bgColor);
-    const QColor borderColor = isJumpMode ? QColor(255, 255, 255, 230) : QColor(255, 255, 255, 170);
+    const QColor borderColor = isLightBg
+        ? (isJumpMode ? QColor(0, 0, 0, 180) : QColor(0, 0, 0, 120))
+        : (isJumpMode ? QColor(255, 255, 255, 230) : QColor(255, 255, 255, 170));
     p.setPen(QPen(borderColor, isJumpMode ? (2.0 * scale) : (1.2 * scale)));
     p.drawRoundedRect(rect, radius, radius);
 
@@ -190,7 +210,7 @@ inline QImage renderBadgeImage(const QChar &letter, const QColor &bgColor, const
     const int pixelSize = qMax(8, qRound(effectiveBaseHeight * 0.52 * scale));
     font.setPixelSize(pixelSize);
     p.setFont(font);
-    p.setPen(textColor);
+    p.setPen(effectiveTextColor);
     p.drawText(rect, Qt::AlignCenter, QString(letter.toUpper()));
 
     p.end();
@@ -255,18 +275,24 @@ inline QImage renderOffscreenTargetPill(const QChar &letter,
     p.setPen(QPen(borderColor, 1.5 * scale));
     p.drawPath(bgPath);
 
+    const QColor effectiveTextColor = textColor.isValid() ? textColor : contrastingTextColor(bgColor);
+    const bool isLightBg = (effectiveTextColor == Qt::black) || (perceivedLuminance(bgColor) > 0.53);
+
     const QRectF badgeRect(padX, (pillH - badgeDim) / 2.0, badgeDim, badgeDim);
     QPainterPath bPath;
     bPath.addRoundedRect(badgeRect, 6.0 * scale, 6.0 * scale);
     p.fillPath(bPath, bgColor);
-    p.setPen(QPen(QColor(255, 255, 255, 200), 1.0 * scale));
+    const QColor innerBorder = isLightBg
+        ? QColor(0, 0, 0, 160)
+        : QColor(255, 255, 255, 200);
+    p.setPen(QPen(innerBorder, 1.0 * scale));
     p.drawPath(bPath);
 
     QFont letterFont(QStringLiteral("sans-serif"));
     letterFont.setPixelSize(qRound(badgeDim * 0.62));
     letterFont.setBold(true);
     p.setFont(letterFont);
-    p.setPen(textColor);
+    p.setPen(effectiveTextColor);
     p.drawText(badgeRect, Qt::AlignCenter, QString(letter.toUpper()));
 
     const int textLeft = padX + badgeDim + gapX;
