@@ -152,6 +152,7 @@ private:
     void prepareScreenPaint(ScreenPrePaintData &data);
     void initShortcuts();
     bool shouldOutlineWindow(EffectWindow *w) const;
+    bool isEligibleOutlineWindow(EffectWindow *w) const;
     bool isBlockingPopup(EffectWindow *w) const;
     bool popupAcceptsInput(EffectWindow *w) const;
     bool hasVisibleBlockingPopup() const;

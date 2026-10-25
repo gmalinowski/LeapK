@@ -1072,9 +1072,24 @@ void ActiveWindowOutlineEffect::slotWindowAdded(EffectWindow *w)
     }
 }
 
+bool ActiveWindowOutlineEffect::isEligibleOutlineWindow(EffectWindow *w) const
+{
+    if (!w || w->isDeleted()) {
+        return false;
+    }
+    if (w->isDesktop() || w->isDock() || w->isSpecialWindow()) {
+        return false;
+    }
+    if (w->isPopupWindow() || w->isTooltip() || w->isNotification()
+        || w->isCriticalNotification() || w->isOnScreenDisplay()) {
+        return false;
+    }
+    return true;
+}
+
 bool ActiveWindowOutlineEffect::shouldOutlineWindow(EffectWindow *w) const
 {
-    return m_outlineEnabled && w && w == m_activeWindow && !w->isDesktop() && !w->isDock()
+    return m_outlineEnabled && w && w == m_activeWindow && isEligibleOutlineWindow(w)
         && !(m_hideOnFullScreen && w->isFullScreen())
         && !isBlockingPopup(w);
 }
@@ -1742,7 +1757,7 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
         m_windowShowTimer->stop();
     }
 
-    if (previous && !previous->isDeleted() && !previous->isDesktop() && !previous->isDock()
+    if (previous && isEligibleOutlineWindow(previous)
         && !(m_hideOnFullScreen && previous->isFullScreen()) && !isBlockingPopup(previous)) {
         m_windowHistory.removeAll(previous);
         m_windowHistory.prepend(previous);
@@ -1757,14 +1772,15 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
         }
     }
 
-    if (w && !w->isDeleted() && !w->isDesktop() && !w->isDock()) {
+    if (w && isEligibleOutlineWindow(w)) {
         m_windowHistory.removeAll(w);
         m_windowHistory.prepend(w);
         m_recentAmbilightColors.remove(w);
         m_recentCycleColors.remove(w);
+        m_activeWindow = w;
+    } else {
+        m_activeWindow = nullptr;
     }
-
-    m_activeWindow = w;
 
     m_historyNavIndex = 0;
     while (m_windowHistory.size() > 50) {
@@ -1773,7 +1789,7 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
     updateRecentWindowsFromHistory();
 
     if (m_highlightRecentWindow) {
-        if (previous) {
+        if (previous && isEligibleOutlineWindow(previous)) {
             effects->addRepaint(expandedGeometryFor(previous));
             m_outlineCache.remove(previous);
             m_lastGeometry.remove(previous);
@@ -1797,7 +1813,7 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
             }
         }
     } else {
-        if (previous) {
+        if (previous && isEligibleOutlineWindow(previous)) {
             if (m_markedWindows.contains(previous)) {
                 m_outlineCache.remove(previous);
                 m_lastGeometry.remove(previous);
@@ -1852,7 +1868,7 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
         }
     }
 
-    if (!w) {
+    if (!m_activeWindow) {
         m_visibilityState.setTargetOpacity(0.0, m_visibilityConfig.fadeDuration);
         updateAnimationTimer();
         return;
@@ -2078,7 +2094,7 @@ void ActiveWindowOutlineEffect::applyPreset(const QString &presetName)
 
 void ActiveWindowOutlineEffect::setWindowMark(EffectWindow *w, const QColor &color, const QChar &letter, const QString &label)
 {
-    if (!w || !color.isValid()) {
+    if (!isEligibleOutlineWindow(w) || !color.isValid()) {
         return;
     }
     m_markedWindows[w] = color;
@@ -2168,7 +2184,7 @@ QColor ActiveWindowOutlineEffect::detectSmartAccentForWindow(EffectWindow *w) co
 
 void ActiveWindowOutlineEffect::toggleWindowMark(EffectWindow *w)
 {
-    if (!w) {
+    if (!isEligibleOutlineWindow(w)) {
         return;
     }
     if (m_markedWindows.contains(w)) {
@@ -2190,10 +2206,10 @@ void ActiveWindowOutlineEffect::toggleWindowMark(EffectWindow *w)
 void ActiveWindowOutlineEffect::slotMarkWindowToggle()
 {
     EffectWindow *w = effects->activeWindow();
-    if (!w) {
+    if (!isEligibleOutlineWindow(w)) {
         w = m_activeWindow;
     }
-    if (w) {
+    if (isEligibleOutlineWindow(w)) {
         toggleWindowMark(w);
     }
 }
@@ -2201,10 +2217,10 @@ void ActiveWindowOutlineEffect::slotMarkWindowToggle()
 void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
 {
     EffectWindow *target = effects->activeWindow();
-    if (!target) {
+    if (!isEligibleOutlineWindow(target)) {
         target = m_activeWindow;
     }
-    if (!target) {
+    if (!isEligibleOutlineWindow(target)) {
         return;
     }
 
@@ -2384,10 +2400,7 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
 
 bool ActiveWindowOutlineEffect::isEligibleTargetWindow(EffectWindow *w) const
 {
-    if (!w || w == m_activeWindow || w->isDeleted()) {
-        return false;
-    }
-    if (w->isDesktop() || w->isDock() || w->isSpecialWindow()) {
+    if (!w || w == m_activeWindow || !isEligibleOutlineWindow(w)) {
         return false;
     }
     if (w->isSkipSwitcher()) {
@@ -2578,8 +2591,8 @@ void ActiveWindowOutlineEffect::updateRecentWindowsFromHistory()
         m_activeWindow,
         m_recentWindowsCount,
         m_highlightRecentWindow,
-        [](EffectWindow *win) {
-            return !win->isDeleted() && !win->isDesktop() && !win->isDock();
+        [this](EffectWindow *win) {
+            return isEligibleOutlineWindow(win);
         });
 
     for (EffectWindow *oldWin : oldRecents) {
@@ -2639,8 +2652,7 @@ void ActiveWindowOutlineEffect::slotPrevRecentWindow()
         }
     }
 
-    if (!m_isHistoryNavigating && m_activeWindow && !m_activeWindow->isDeleted()
-        && !m_activeWindow->isDesktop() && !m_activeWindow->isDock()) {
+    if (!m_isHistoryNavigating && m_activeWindow && isEligibleOutlineWindow(m_activeWindow)) {
         m_windowHistory.removeAll(m_activeWindow);
         m_windowHistory.prepend(m_activeWindow);
         m_historyNavIndex = 0;
@@ -2653,7 +2665,7 @@ void ActiveWindowOutlineEffect::slotPrevRecentWindow()
     int nextIdx = m_historyNavIndex + 1;
     while (nextIdx < m_windowHistory.size()) {
         EffectWindow *candidate = m_windowHistory.at(nextIdx);
-        if (candidate && !candidate->isDeleted() && !candidate->isDesktop() && !candidate->isDock()) {
+        if (candidate && isEligibleOutlineWindow(candidate)) {
             m_historyNavIndex = nextIdx;
             m_isHistoryNavigating = true;
             m_expectedJumpTarget = candidate;
@@ -2699,7 +2711,7 @@ void ActiveWindowOutlineEffect::slotNextRecentWindow()
     int prevIdx = m_historyNavIndex - 1;
     while (prevIdx >= 0) {
         EffectWindow *candidate = m_windowHistory.at(prevIdx);
-        if (candidate && !candidate->isDeleted() && !candidate->isDesktop() && !candidate->isDock()) {
+        if (candidate && isEligibleOutlineWindow(candidate)) {
             m_historyNavIndex = prevIdx;
             m_isHistoryNavigating = true;
             m_expectedJumpTarget = candidate;
@@ -3324,6 +3336,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     const bool drawOutline = !inhibited && !showPending && shouldOutlineWindow(w) && m_visibilityState.isEffectivelyVisible()
         && !w->isMinimized() && !w->isHiddenByShowDesktop() && w->isOnCurrentDesktop();
     const bool drawDelayed = !inhibited && (m_delayedHideWindow && m_delayedHideWindow != w
+        && isEligibleOutlineWindow(m_delayedHideWindow)
         && !m_delayedHideWindow->isDeleted() && !m_delayedHideWindow->isMinimized()
         && !m_delayedHideWindow->isHiddenByShowDesktop() && m_delayedHideWindow->isOnCurrentDesktop()
         && m_delayedHideState.isEffectivelyVisible());
@@ -3339,7 +3352,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         for (int i = 0; i < count; ++i) {
             EffectWindow *recent = m_recentWindows.at(i);
             const bool markedRecentSkipped = m_markedWindows.contains(recent) && !recentOverridesMark;
-            if (recent && recent != w && !markedRecentSkipped && !recent->isDeleted() && !recent->isMinimized()
+            if (recent && recent != w && !markedRecentSkipped && isEligibleOutlineWindow(recent) && !recent->isDeleted() && !recent->isMinimized()
                 && !recent->isHiddenByShowDesktop() && recent->isOnCurrentDesktop()
                 && !(m_hideOnFullScreen && recent->isFullScreen())
                 && !isBlockingPopup(recent)) {
@@ -3354,6 +3367,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             EffectWindow *marked = it.key();
             const bool recentMarkedSkipped = m_highlightRecentWindow && m_recentWindows.contains(marked) && recentOverridesMark;
             if (marked && marked != w && !recentMarkedSkipped
+                && isEligibleOutlineWindow(marked)
                 && !marked->isDeleted() && !marked->isMinimized()
                 && !marked->isHiddenByShowDesktop() && marked->isOnCurrentDesktop()
                 && !(m_hideOnFullScreen && marked->isFullScreen())
@@ -3426,6 +3440,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             EffectWindow *marked = it.key();
             const bool recentMarkedSkipped = m_highlightRecentWindow && m_recentWindows.contains(marked) && recentOverridesMark;
             if (!marked || marked == w || recentMarkedSkipped
+                || !isEligibleOutlineWindow(marked)
                 || marked->isDeleted() || marked->isMinimized()
                 || marked->isHiddenByShowDesktop() || !marked->isOnCurrentDesktop()
                 || (m_hideOnFullScreen && marked->isFullScreen())
@@ -3450,7 +3465,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         for (int i = count - 1; i >= 0; --i) {
             EffectWindow *recent = m_recentWindows.at(i);
             const bool markedRecentSkipped = m_markedWindows.contains(recent) && !recentOverridesMark;
-            if (!recent || recent == w || markedRecentSkipped || recent->isDeleted() || recent->isMinimized()
+            if (!recent || recent == w || markedRecentSkipped || !isEligibleOutlineWindow(recent) || recent->isDeleted() || recent->isMinimized()
                 || recent->isHiddenByShowDesktop() || !recent->isOnCurrentDesktop()
                 || (m_hideOnFullScreen && recent->isFullScreen())
                 || isBlockingPopup(recent)) {

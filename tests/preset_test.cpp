@@ -123,7 +123,7 @@ void testDirectoryLoadingAndSaving()
 
     // 1. Initial load should populate built-ins
     auto loaded = OutlinePreset::loadPresets(tempDir.path());
-    assert(loaded.size() == 5);
+    assert(loaded.size() == 9);
 
     // 2. Add custom preset
     OutlinePreset::PresetInfo custom;
@@ -139,7 +139,7 @@ void testDirectoryLoadingAndSaving()
 
     // 3. Reload
     auto reloaded = OutlinePreset::loadPresets(tempDir.path());
-    assert(reloaded.size() == 6);
+    assert(reloaded.size() == 10);
 
     // Built-ins come first, then custom
     assert(reloaded.last().name == QStringLiteral("My Awesome Setup"));
