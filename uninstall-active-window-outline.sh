@@ -65,6 +65,8 @@ plugin_files=(
   "/usr/local/libexec/active-window-outline-colorpicker"
   "/usr/local/bin/active-window-outline-colorpicker"
   "/usr/bin/active-window-outline-colorpicker"
+  "/usr/local/bin/active-window-outline-tray"
+  "/usr/bin/active-window-outline-tray"
 )
 
 installed_files=()
@@ -83,7 +85,7 @@ fi
 echo "[3/4] Removing the effect settings…"
 for key in UseAccentColor AccentOpacity CustomColor EnsurePerimeterContrast BorderWidth OutlineGap \
            AmbilightEnabled AmbilightMode AmbilightOpacity AmbilightFrequency AmbilightDuration AmbilightSaturationBoost AmbilightSaturationLeveling AmbilightFallbackStrength AmbilightMinBrightness AmbilightMaxBrightness AmbilightEnsureContrast \
-           BorderRadius FadeCorners DrawInside SmoothEdges GlowEnabled GlowRadius HideOnFullScreen \
+           BorderRadius FadeCorners DrawInside SmoothEdges GlowEnabled GlowRadius HideOnFullScreen TrayIconEnabled \
            ColorCycleEnabled ColorList ColorTransitionDuration ColorCycleOrder ColorCycleEasing \
            BreatheEnabled BreatheSpeed BreatheIntensity \
            GlitchEnabled GlitchSpeed GlitchIntensity GlitchAnomalyEnabled GlitchFrequency \
@@ -108,6 +110,9 @@ kwriteconfig6 --file kglobalshortcutsrc --group kwin \
   --key "PrevRecentWindow" --delete ''
 kwriteconfig6 --file kglobalshortcutsrc --group kwin \
   --key "NextRecentWindow" --delete ''
+
+rm -f "$HOME/.config/autostart/active-window-outline-tray.desktop"
+killall active-window-outline-tray 2>/dev/null || true
 
 echo "[4/4] Refreshing KDE…"
 if command -v kbuildsycoca6 >/dev/null 2>&1; then

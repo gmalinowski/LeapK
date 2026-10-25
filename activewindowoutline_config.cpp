@@ -39,6 +39,7 @@
 #include <QNetworkRequest>
 #include <QPainter>
 #include <QPixmap>
+#include <QProcess>
 #include <QPushButton>
 #include <QTextBrowser>
 #include <QToolButton>
@@ -184,6 +185,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemBool(QStringLiteral("GlowEnabled"), *new bool, false);
     m_configSkeleton->addItemInt(QStringLiteral("GlowRadius"), *new int, 6);
     m_configSkeleton->addItemBool(QStringLiteral("HideOnFullScreen"), *new bool, true);
+    m_configSkeleton->addItemBool(QStringLiteral("TrayIconEnabled"), *new bool, true);
 
     // Tab 4: Behavior & Buffer Delays
     m_configSkeleton->addItemInt(QStringLiteral("FadeDuration"), *new int, 200);
@@ -993,6 +995,7 @@ void ActiveWindowOutlineConfig::defaults()
     m_ui->kcfg_FadeDuration->setValue(200);
     m_ui->kcfg_MenuHideDelay->setValue(500);
     m_ui->kcfg_MenuShowDelay->setValue(500);
+    m_ui->kcfg_TrayIconEnabled->setChecked(true);
     updateRecentWindowUI();
     updateMarkWindowUI();
     markAsChanged();
@@ -1692,6 +1695,23 @@ void ActiveWindowOutlineConfig::save()
         QStringLiteral("reconfigureEffect"));
     message << QStringLiteral("active-window-outline");
     QDBusConnection::sessionBus().call(message, QDBus::Block, 2000);
+
+    const bool trayEnabled = m_ui->kcfg_TrayIconEnabled->isChecked();
+    const QString autostartDir = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/autostart");
+    const QString desktopPath = autostartDir + QStringLiteral("/active-window-outline-tray.desktop");
+    if (trayEnabled) {
+        if (!QFile::exists(desktopPath)) {
+            const QString systemDesktop = QStandardPaths::locate(QStandardPaths::ApplicationsLocation, QStringLiteral("active-window-outline-tray.desktop"));
+            if (!systemDesktop.isEmpty()) {
+                QDir().mkpath(autostartDir);
+                QFile::copy(systemDesktop, desktopPath);
+            }
+        }
+        QProcess::startDetached(QStringLiteral("active-window-outline-tray"), {});
+    } else {
+        QFile::remove(desktopPath);
+        QProcess::execute(QStringLiteral("killall"), {QStringLiteral("active-window-outline-tray")});
+    }
 }
 
 #include "activewindowoutline_config.moc"

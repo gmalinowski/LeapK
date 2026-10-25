@@ -49,6 +49,8 @@
 #include <KGlobalAccel>
 #include <QAction>
 #include <QRandomGenerator>
+#include <QDBusConnection>
+#include "presethelper.h"
 #include <cmath>
 #include <utility>
 
@@ -552,10 +554,18 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
             });
 
     initShortcuts();
+
+    QDBusConnection::sessionBus().registerObject(
+        QStringLiteral("/ActiveWindowOutline"),
+        QStringLiteral("org.kde.ActiveWindowOutline"),
+        this,
+        QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals
+    );
 }
 
 ActiveWindowOutlineEffect::~ActiveWindowOutlineEffect()
 {
+    QDBusConnection::sessionBus().unregisterObject(QStringLiteral("/ActiveWindowOutline"));
     if (m_jumpMode) {
         cancelJumpMode();
     }
@@ -774,6 +784,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_outlineCache.clear();
     updateAnimationTimer();
     effects->addRepaintFull();
+    Q_EMIT stateChanged();
 }
 
 bool ActiveWindowOutlineEffect::isAnimationActive() const
@@ -1897,6 +1908,10 @@ void ActiveWindowOutlineEffect::slotWindowFrameGeometryChanged(EffectWindow *w,
 void ActiveWindowOutlineEffect::slotToggleAction()
 {
     m_outlineEnabled = !m_outlineEnabled;
+    KConfigGroup config = effects->config()->group(QStringLiteral("Effect-active-window-outline"));
+    config.writeEntry("OutlineEnabled", m_outlineEnabled);
+    config.sync();
+
     if (m_outlineEnabled) {
         if (m_visibilityConfig.fadeDuration > 0) {
             m_visibilityState.visibilityOpacity = 0.0;
@@ -1936,6 +1951,106 @@ void ActiveWindowOutlineEffect::slotToggleAction()
         m_badgeTextureCache.clear();
         repaintAllOutlines();
         effects->addRepaintFull();
+    }
+    Q_EMIT stateChanged();
+}
+
+void ActiveWindowOutlineEffect::toggleOutline()
+{
+    slotToggleAction();
+}
+
+void ActiveWindowOutlineEffect::setOutlineEnabled(bool enabled)
+{
+    if (m_outlineEnabled != enabled) {
+        slotToggleAction();
+    }
+}
+
+bool ActiveWindowOutlineEffect::isOutlineEnabled() const
+{
+    return m_outlineEnabled;
+}
+
+void ActiveWindowOutlineEffect::toggleAmbilight()
+{
+    KConfigGroup config = effects->config()->group(QStringLiteral("Effect-active-window-outline"));
+    const bool current = config.readEntry("AmbilightEnabled", false);
+    config.writeEntry("AmbilightEnabled", !current);
+    config.sync();
+    reconfigure(ReconfigureAll);
+    Q_EMIT stateChanged();
+}
+
+bool ActiveWindowOutlineEffect::isAmbilightEnabled() const
+{
+    return m_ambilightEnabled;
+}
+
+void ActiveWindowOutlineEffect::toggleGlow()
+{
+    KConfigGroup config = effects->config()->group(QStringLiteral("Effect-active-window-outline"));
+    const bool current = config.readEntry("GlowEnabled", false);
+    config.writeEntry("GlowEnabled", !current);
+    config.sync();
+    reconfigure(ReconfigureAll);
+    Q_EMIT stateChanged();
+}
+
+bool ActiveWindowOutlineEffect::isGlowEnabled() const
+{
+    return m_glowEnabled;
+}
+
+void ActiveWindowOutlineEffect::triggerJumpMode()
+{
+    slotTriggerJumpMode();
+}
+
+void ActiveWindowOutlineEffect::toggleWindowMark()
+{
+    slotMarkWindowToggle();
+}
+
+void ActiveWindowOutlineEffect::markWindowWithColor()
+{
+    slotMarkWindowWithColor();
+}
+
+void ActiveWindowOutlineEffect::clearAllMarks()
+{
+    m_markedWindows.clear();
+    m_markedWindowLetters.clear();
+    m_badgeTextureCache.clear();
+    repaintAllOutlines();
+    effects->addRepaintFull();
+    Q_EMIT stateChanged();
+}
+
+void ActiveWindowOutlineEffect::prevRecentWindow()
+{
+    slotPrevRecentWindow();
+}
+
+void ActiveWindowOutlineEffect::nextRecentWindow()
+{
+    slotNextRecentWindow();
+}
+
+void ActiveWindowOutlineEffect::applyPreset(const QString &presetName)
+{
+    const auto presets = OutlinePreset::loadPresets(OutlinePreset::defaultPresetsDirectory());
+    for (const auto &p : presets) {
+        if (p.name == presetName) {
+            KConfigGroup group = effects->config()->group(QStringLiteral("Effect-active-window-outline"));
+            for (auto it = p.settings.constBegin(); it != p.settings.constEnd(); ++it) {
+                group.writeEntry(it.key(), it.value().toVariant());
+            }
+            group.sync();
+            reconfigure(ReconfigureAll);
+            Q_EMIT stateChanged();
+            break;
+        }
     }
 }
 

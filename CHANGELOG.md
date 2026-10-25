@@ -7,6 +7,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.5.0] - 2026-10-25
 
 ### Added
+- **Companion System Tray Icon (`active-window-outline-tray`)**:
+  - Adds a dedicated lightweight Qt6 companion tray application with custom-drawn dynamic icon (reflecting current outline color, active state, and glowing outline).
+  - Tray context menu provides quick one-click toggles for:
+    - Primary outline toggle on/off (`Meta+Ctrl+O`)
+    - Presets switching submenu (instantly activates built-in or user-created presets)
+    - Visual modifiers: Ambilight mode, Ensure Perimeter Contrast, Soft Glow, Fade Out Corners
+    - Quick actions: Jump to Window (`Meta+Space`), Mark Window (`Meta+Ctrl+M`), Custom Mark Dialog (`Meta+Ctrl+Shift+M`), Clear All Marks
+    - Window history navigation: Previous Window (`Meta+Alt+[`), Next Window (`Meta+Alt+]`)
+    - Quick shortcut to open KCM Settings dialog (`kcmshell6 kwin_active-window-outline`)
+  - Bi-directional synchronization: exports `org.kde.ActiveWindowOutline` D-Bus interface from the KWin plugin with `stateChanged` signal, with automatic fallback to `kwinrc` file watching and `reconfigureEffect`.
+  - Configurable in the About tab with the "Show system tray icon" checkbox (`TrayIconEnabled`), automatically managed by autostart desktop file (`~/.config/autostart/active-window-outline-tray.desktop`).
 - **Full Configuration Preset Management System & Presets Tab**:
   - Added a dedicated **Presets** tab (`tabPresets`) in the configuration module for managing complete outline presets.
   - Ships with 5 curated built-in presets: `Default (v1.5)`, `Subtle Minimal`, `Cyberpunk Neon`, `Vim Focus Navigator`, and `Ambilight Flow`.

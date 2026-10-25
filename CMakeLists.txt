@@ -49,7 +49,7 @@ list(APPEND CMAKE_AUTOMOC_MACRO_NAMES
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Widgets Quick Network)
-find_package(KF6 REQUIRED COMPONENTS CoreAddons ConfigWidgets KCMUtils GlobalAccel)
+find_package(KF6 REQUIRED COMPONENTS CoreAddons Config ConfigWidgets KCMUtils GlobalAccel)
 find_package(${KWIN_PACKAGE} REQUIRED)
 
 if(KWIN_BACKEND STREQUAL "WAYLAND")
@@ -67,6 +67,7 @@ target_link_libraries(active-window-outline PRIVATE
     ${KWIN_TARGET}
     KF6::GlobalAccel
     Qt6::Widgets
+    Qt6::DBus
 )
 # Identify the loaded library, including uncommitted test builds.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
@@ -149,6 +150,20 @@ target_link_libraries(active-window-outline-colorpicker PRIVATE
 )
 install(TARGETS active-window-outline-colorpicker
     DESTINATION ${KDE_INSTALL_LIBEXECDIR}
+)
+
+# --- Standalone Tray Companion ---
+add_executable(active-window-outline-tray tray.cpp)
+target_link_libraries(active-window-outline-tray PRIVATE
+    Qt6::Widgets
+    Qt6::DBus
+    KF6::ConfigCore
+)
+install(TARGETS active-window-outline-tray
+    DESTINATION ${KDE_INSTALL_BINDIR}
+)
+install(PROGRAMS active-window-outline-tray.desktop
+    DESTINATION ${KDE_INSTALL_APPDIR}
 )
 
 option(OUTLINE_BUILD_TESTS "Build popup and cursor regression tests" OFF)

@@ -68,6 +68,7 @@ struct OutlineCache {
 class ActiveWindowOutlineEffect : public Effect
 {
     Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.kde.ActiveWindowOutline")
 
 public:
     ActiveWindowOutlineEffect();
@@ -75,6 +76,26 @@ public:
 
     void reconfigure(ReconfigureFlags flags) override;
 
+public Q_SLOTS:
+    void toggleOutline();
+    void setOutlineEnabled(bool enabled);
+    bool isOutlineEnabled() const;
+    void toggleAmbilight();
+    bool isAmbilightEnabled() const;
+    void toggleGlow();
+    bool isGlowEnabled() const;
+    void triggerJumpMode();
+    void toggleWindowMark();
+    void markWindowWithColor();
+    void clearAllMarks();
+    void prevRecentWindow();
+    void nextRecentWindow();
+    void applyPreset(const QString &presetName);
+
+Q_SIGNALS:
+    void stateChanged();
+
+public:
     // The outline is drawn in a screen-level pass (after all windows) rather
     // than per-window. Drawing per window required marking the window
     // transformed so the border could spill outside its bounds, but the

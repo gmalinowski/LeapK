@@ -106,6 +106,9 @@
         <entry name="HideOnFullScreen" type="Bool">
             <default>true</default>
         </entry>
+        <entry name="TrayIconEnabled" type="Bool">
+            <default>true</default>
+        </entry>
 
         <!-- Behavior & Buffer Delays -->
         <entry name="FadeDuration" type="Int">

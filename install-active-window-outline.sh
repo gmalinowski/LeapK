@@ -269,6 +269,7 @@ set_default SmoothEdges true
 set_default GlowEnabled false
 set_default GlowRadius 6
 set_default HideOnFullScreen true
+set_default TrayIconEnabled true
 set_default ColorCycleEnabled false
 set_default ColorList "#3daee9:3.0;#2ecc71:3.0;#9b59b6:3.0"
 set_default ColorTransitionDuration 2.0
@@ -334,6 +335,20 @@ if command -v qdbus6 >/dev/null 2>&1; then
     active-window-outline >/dev/null 2>&1 || true
   qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect \
     active-window-outline >/dev/null 2>&1 || true
+fi
+
+if [[ -f "$project_dir/active-window-outline-tray.desktop" ]]; then
+  mkdir -p "$HOME/.config/autostart"
+  cp "$project_dir/active-window-outline-tray.desktop" "$HOME/.config/autostart/"
+fi
+
+tray_enabled="$(kreadconfig6 --file kwinrc --group Effect-active-window-outline --key TrayIconEnabled --default true 2>/dev/null || echo true)"
+if [[ "$tray_enabled" == "true" ]]; then
+  if command -v active-window-outline-tray >/dev/null 2>&1; then
+    active-window-outline-tray >/dev/null 2>&1 &
+  elif [[ -x "$build_dir/bin/active-window-outline-tray" ]]; then
+    "$build_dir/bin/active-window-outline-tray" >/dev/null 2>&1 &
+  fi
 fi
 
 echo

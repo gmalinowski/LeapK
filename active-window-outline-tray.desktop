@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Active Window Outline Tray
+Comment=Companion tray icon for quick Active Window Outline controls
+Exec=active-window-outline-tray
+Icon=preferences-system-windows
+Categories=Utility;KDE;Qt;
+StartupNotify=false
+X-KDE-autostart-phase=2

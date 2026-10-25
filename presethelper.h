@@ -52,6 +52,7 @@ inline QJsonObject getDefaultSettings()
     s[QStringLiteral("GlowEnabled")] = false;
     s[QStringLiteral("GlowRadius")] = 6;
     s[QStringLiteral("HideOnFullScreen")] = true;
+    s[QStringLiteral("TrayIconEnabled")] = true;
 
     // Behavior & Buffer Delays
     s[QStringLiteral("FadeDuration")] = 200;
