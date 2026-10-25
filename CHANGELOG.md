@@ -30,6 +30,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - In modal Jump Mode (`Meta+Alt+Space`), dynamically selects alternate visible corners/center if the primary position is covered; completely occluded windows do not display confusing floating badges.
   - Real-time full repaint when stacking order or virtual desktop changes (`stackingOrderChanged`, `desktopChanged`).
 
+### Changed
+- **Default Style Precedence Prioritizes Marked Windows (`StylePrecedence`)**:
+  - Changed default outline style precedence order from `Active,Marked,Recent` to `Marked,Active,Recent`.
+  - Marked windows now maintain their custom mark color and styling by default even when focused, rather than being overridden by the standard active window outline.
+
 ### Fixed
 - **Plugin Toggle Shortcut (`Meta+Ctrl+O`) Now Disables All Visual Elements & Badges**:
   - Fixed an issue where toggling off the effect via `ToggleActiveWindowOutline` (`Meta+Ctrl+O`) only removed the active window outline while continuous badges/hints, recent outlines, and marked window outlines stayed painted on screen.

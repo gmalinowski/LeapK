@@ -192,7 +192,7 @@
         </entry>
         <!-- Precedence / Priority Settings -->
         <entry name="StylePrecedence" type="String">
-            <default>Active,Marked,Recent</default>
+            <default>Marked,Active,Recent</default>
         </entry>
         <entry name="MarkInactiveWidthReduction" type="Int">
             <default>0</default>

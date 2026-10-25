@@ -725,7 +725,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_markInactiveDashed = config.readEntry("MarkInactiveDashed", false);
     m_markInactiveDashGap = qBound(1, config.readEntry("MarkInactiveDashGap", 6), 40);
     m_markInactiveDashSmooth = config.readEntry("MarkInactiveDashSmooth", false);
-    m_stylePrecedence = OutlinePrecedence::parsePrecedence(config.readEntry("StylePrecedence", QStringLiteral("Active,Marked,Recent")));
+    m_stylePrecedence = OutlinePrecedence::parsePrecedence(config.readEntry("StylePrecedence", QStringLiteral("Marked,Active,Recent")));
      m_badgeDisplayMode = qBound(0, config.readEntry("BadgeDisplayMode", 0), 2);
     if (config.hasKey("BadgesAlwaysVisible") && !config.hasKey("BadgeDisplayMode")) {
         if (!config.readEntry("MarkShowLetterBadges", true)) {

@@ -287,8 +287,8 @@ private:
 
     // Config - Style Precedence
     QStringList m_stylePrecedence = {
-        QStringLiteral("Active"),
         QStringLiteral("Marked"),
+        QStringLiteral("Active"),
         QStringLiteral("Recent")
     };
 

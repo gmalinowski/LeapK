@@ -15,10 +15,10 @@ void testParsing()
 {
     // Default standard order
     {
-        QStringList order = parsePrecedence(QStringLiteral("Active,Marked,Recent"));
+        QStringList order = parsePrecedence(QStringLiteral("Marked,Active,Recent"));
         assert(order.size() == 3);
-        assert(order.at(0) == QStringLiteral("Active"));
-        assert(order.at(1) == QStringLiteral("Marked"));
+        assert(order.at(0) == QStringLiteral("Marked"));
+        assert(order.at(1) == QStringLiteral("Active"));
         assert(order.at(2) == QStringLiteral("Recent"));
     }
 
@@ -36,16 +36,16 @@ void testParsing()
         QStringList order = parsePrecedence(QStringLiteral("Recent"));
         assert(order.size() == 3);
         assert(order.at(0) == QStringLiteral("Recent"));
-        assert(order.at(1) == QStringLiteral("Active"));
-        assert(order.at(2) == QStringLiteral("Marked"));
+        assert(order.at(1) == QStringLiteral("Marked"));
+        assert(order.at(2) == QStringLiteral("Active"));
     }
 
     // Empty or garbage fallback
     {
         QStringList order = parsePrecedence(QStringLiteral("invalid, garbage"));
         assert(order.size() == 3);
-        assert(order.at(0) == QStringLiteral("Active"));
-        assert(order.at(1) == QStringLiteral("Marked"));
+        assert(order.at(0) == QStringLiteral("Marked"));
+        assert(order.at(1) == QStringLiteral("Active"));
         assert(order.at(2) == QStringLiteral("Recent"));
     }
 }

@@ -32,7 +32,7 @@ inline QStringList parsePrecedence(const QString &serialized)
             result.append(QStringLiteral("Recent"));
         }
     }
-    const QStringList allCategories = {QStringLiteral("Active"), QStringLiteral("Marked"), QStringLiteral("Recent")};
+    const QStringList allCategories = {QStringLiteral("Marked"), QStringLiteral("Active"), QStringLiteral("Recent")};
     for (const QString &cat : allCategories) {
         if (!result.contains(cat)) {
             result.append(cat);
@@ -43,11 +43,11 @@ inline QStringList parsePrecedence(const QString &serialized)
 
 inline ResolvedStyle resolveStyle(bool isFocus, bool isMarked, bool isRecentInHistory, const QStringList &precedence)
 {
-    int rankActive = precedence.indexOf(QStringLiteral("Active"));
     int rankMarked = precedence.indexOf(QStringLiteral("Marked"));
+    int rankActive = precedence.indexOf(QStringLiteral("Active"));
     int rankRecent = precedence.indexOf(QStringLiteral("Recent"));
-    if (rankActive < 0) rankActive = 0;
-    if (rankMarked < 0) rankMarked = 1;
+    if (rankMarked < 0) rankMarked = 0;
+    if (rankActive < 0) rankActive = 1;
     if (rankRecent < 0) rankRecent = 2;
 
     const bool activeOverridesMark = isFocus && (rankActive < rankMarked);

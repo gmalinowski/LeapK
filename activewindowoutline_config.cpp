@@ -187,7 +187,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemBool(QStringLiteral("RecentWindowDashSmooth"), *new bool, false);
     m_configSkeleton->addItemColor(QStringLiteral("MarkDefaultColor"), *new QColor, QColor(QStringLiteral("#e74c3c")));
     m_configSkeleton->addItemBool(QStringLiteral("MarkRandomColor"), *new bool, false);
-    m_configSkeleton->addItemString(QStringLiteral("StylePrecedence"), *new QString, QStringLiteral("Active,Marked,Recent"));
+    m_configSkeleton->addItemString(QStringLiteral("StylePrecedence"), *new QString, QStringLiteral("Marked,Active,Recent"));
     m_configSkeleton->addItemInt(QStringLiteral("MarkInactiveWidthReduction"), *new int, 0);
     m_configSkeleton->addItemBool(QStringLiteral("MarkInactiveDashed"), *new bool, false);
     m_configSkeleton->addItemInt(QStringLiteral("MarkInactiveDashGap"), *new int, 6);
@@ -509,7 +509,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->btnPrecedenceUp, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::movePrecedenceUp);
     connect(m_ui->btnPrecedenceDown, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::movePrecedenceDown);
     connect(m_ui->btnPrecedenceReset, &QPushButton::clicked, this, [this] {
-        populatePrecedenceList(QStringLiteral("Active,Marked,Recent"));
+        populatePrecedenceList(QStringLiteral("Marked,Active,Recent"));
         markAsChanged();
     });
     connect(m_ui->listPrecedence, &QListWidget::currentRowChanged, this, [this] {
@@ -907,7 +907,7 @@ void ActiveWindowOutlineConfig::load()
     const bool ensureContrast = group.readEntry("EnsurePerimeterContrast", group.readEntry("AmbilightEnsureContrast", true));
     m_ui->kcfg_EnsurePerimeterContrast->setChecked(ensureContrast);
     populateColorTable(group.readEntry(QStringLiteral("ColorList"), QStringLiteral("#3daee9:3.0;#2ecc71:3.0;#9b59b6:3.0")));
-    populatePrecedenceList(group.readEntry(QStringLiteral("StylePrecedence"), QStringLiteral("Active,Marked,Recent")));
+    populatePrecedenceList(group.readEntry(QStringLiteral("StylePrecedence"), QStringLiteral("Marked,Active,Recent")));
     updatePresetSelector();
     const bool fadeCorners = m_ui->kcfg_FadeCorners->isChecked();
     m_ui->label_borderRadius->setEnabled(!fadeCorners);
@@ -930,7 +930,7 @@ void ActiveWindowOutlineConfig::defaults()
 {
     KCModule::defaults();
     populateColorTable(QStringLiteral("#3daee9:3.0;#2ecc71:3.0;#9b59b6:3.0"));
-    populatePrecedenceList(QStringLiteral("Active,Marked,Recent"));
+    populatePrecedenceList(QStringLiteral("Marked,Active,Recent"));
     updatePresetSelector();
     const bool fadeCorners = m_ui->kcfg_FadeCorners->isChecked();
     m_ui->label_borderRadius->setEnabled(!fadeCorners);
