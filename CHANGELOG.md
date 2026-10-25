@@ -34,12 +34,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Bi-directional synchronization: exports `org.kde.ActiveWindowOutline` D-Bus interface with `stateChanged` signal and automatic fallback to `kwinrc` file watching and `reconfigureEffect`.
 - **Full Configuration Preset Management System & Presets Tab**:
   - Added a dedicated **Presets** tab (`tabPresets`) in the configuration module for managing complete outline presets.
-  - Ships with 5 curated built-in presets: `Default (v1.5)`, `Subtle Minimal`, `Cyberpunk Neon`, `Vim Focus Navigator`, and `Ambilight Flow`.
+  - Ships with 9 curated built-in presets: `LeapK Default (v1.5)`, `Vim HUD Navigator`, `Subtle Minimalist`, `Nordic Frost & Glow`, `Cyberpunk Neon 2077`, `Ambilight Dynamic Flow`, `Tiling Matrix Focus Trail`, `RGB Chroma Spectrum`, and `High-Contrast Accessibility`.
   - Presets list displays name, description, type (Built-in vs User), and includes an inline **Export** button on each row.
   - Quick action toolbar: **Activate Preset**, **New Preset…**, **Duplicate…**, **Delete**, **Import Preset…**, and **Export Preset…**.
   - Double-clicking any preset in the table instantly applies and activates it.
   - Persistent global **Save Preset…** button (`btnSavePresetGlobal`) placed at the bottom of the configuration dialog, allowing saving current settings as a preset from any tab.
   - Native JSON serialization (`presethelper.h`) for portable importing and exporting of preset files.
+- **Left-Aligned Hint Cards for Side HUD Positions (`BadgeHudPosition` 2 & 3)**:
+  - Cards positioned at the Left or Right edges of the screen now align strictly to the left edge of each column instead of centering, ensuring jump letter badges (`[A]`, `[B]`, `[C]`) form a straight vertical line.
+- **Dynamic RAM Throttling & OOM Protection in Installers**:
+  - `install-leapk.sh` dynamically checks total physical memory and caps parallel compiler jobs (`min(cpus, mem_gb / 2, 4)`), preventing compiler crashes and desktop service kills on low-memory or high-core machines.
+- **Screen Edge Window Filtering in Jump Mode**:
+  - Excluded 1-pixel screen edge trigger and helper windows (`< 30x30` px, popups, and skip-switcher windows) from receiving leap targets, preventing letter badges from showing cut in half on screen boundaries.
+- **Complete Legacy Launcher & Desktop Cache Purge**:
+  - Automatically uninstalls and cleans up stale `.desktop` launchers and autostart files from previous versions and reindexes KDE services via `kbuildsycoca6 --noincremental`.
 - **Dedicated "About" Tab in System Settings KCM with Update & Reset Controls**:
   - Moved the "Check for updates" button and status display from the General Appearance tab into a dedicated, clean **About** tab.
   - Added a "Reset to Defaults" button (`btnResetDefaults`) with confirmation dialog to easily restore all effect options, colors, shaders, and shortcuts to their default values.
