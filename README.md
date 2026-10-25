@@ -6,6 +6,8 @@
 [![Latest Release](https://img.shields.io/github/v/release/gmalinowski/LeapK?logo=github)](https://github.com/gmalinowski/LeapK/releases/latest)
 
 > **LeapK** is a native KWin compositor effect and companion tool for **KDE Plasma 6** that combines keyboard-driven Vim-style window navigation with a hardware-accelerated, customizable active window border and focus history indicator.
+>
+> 💡 *Pairs seamlessly with dynamic tiling window managers like [**Krohnkite**](https://github.com/esjeon/krohnkite) (which is featured in the preview screencasts below).*
 
 ---
 
@@ -27,6 +29,8 @@ curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | 
 ---
 
 ## 🎥 Preview
+*(Captured with the **Krohnkite** tiling script enabled).*
+
 [jumping.webm](https://github.com/user-attachments/assets/fd9e127e-caf3-4dff-b378-5053942b7874)
 
 
