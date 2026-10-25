@@ -1923,11 +1923,15 @@ void ActiveWindowOutlineEffect::setWindowMark(EffectWindow *w, const QColor &col
 
     QChar finalLetter = letter.toUpper();
     if (finalLetter.isNull() || !finalLetter.isLetterOrNumber()) {
-        finalLetter = m_markedWindowLetters.contains(w) ? m_markedWindowLetters.value(w) : nextAvailableLetter();
+        m_markedWindowLetters.remove(w);
+    } else {
+        m_markedWindowLetters[w] = finalLetter;
     }
-    m_markedWindowLetters[w] = finalLetter;
 
     effects->addRepaint(expandedGeometryFor(w));
+    if (m_badgeDisplayMode == 1 || m_jumpMode) {
+        effects->addRepaintFull();
+    }
 }
 
 void ActiveWindowOutlineEffect::setWindowMarkColor(EffectWindow *w, const QColor &color)
@@ -1996,10 +2000,22 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
         ? m_markedWindowLetters.value(target)
         : nextAvailableLetter();
 
-    const auto applyMark = [this, targetWindow](const QColor &pickedCol, const QChar &pickedLetter) {
-        if (pickedCol.isValid() && targetWindow) {
-            setWindowMark(targetWindow.data(), pickedCol, pickedLetter);
+    const auto applyMark = [this, targetWindow](const QColor &pickedCol, const QChar &pickedLetter, bool useColor = true, bool useLetter = true) {
+        if (!targetWindow) {
+            return;
         }
+        EffectWindow *w = targetWindow.data();
+        const QColor markCol = (useColor && pickedCol.isValid())
+            ? pickedCol
+            : (m_markedWindows.contains(w)
+                ? m_markedWindows.value(w)
+                : (m_markRandomColor ? generateRandomMarkColor() : (m_lastMarkColor.isValid() ? m_lastMarkColor : m_markDefaultColor)));
+
+        const QChar letter = (useLetter && pickedLetter.isLetterOrNumber())
+            ? pickedLetter.toUpper()
+            : QChar();
+
+        setWindowMark(w, markCol, letter);
     };
 
     // 1. Dedicated Qt6 color picker helper (natively supports alpha channel and letter badge)
@@ -2017,18 +2033,28 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
     if (!customPicker.isEmpty()) {
         QProcess *process = new QProcess(this);
         connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
-                this, [process, applyMark, initialLetter](int exitCode, QProcess::ExitStatus exitStatus) {
+                this, [process, applyMark](int exitCode, QProcess::ExitStatus exitStatus) {
             process->deleteLater();
             if (exitStatus == QProcess::NormalExit && exitCode == 0) {
                 const QString out = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
                 if (!out.isEmpty()) {
                     const QStringList parts = out.split(QLatin1Char(' '), Qt::SkipEmptyParts);
                     if (!parts.isEmpty()) {
-                        const QColor picked(parts.at(0));
-                        const QChar pickedLetter = (parts.size() > 1 && !parts.at(1).isEmpty())
-                            ? parts.at(1).at(0).toUpper()
-                            : initialLetter;
-                        applyMark(picked, pickedLetter);
+                        const QString colorStr = parts.at(0);
+                        const QString letterStr = (parts.size() > 1) ? parts.at(1) : QString();
+
+                        const bool useColor = (colorStr.compare(QStringLiteral("none"), Qt::CaseInsensitive) != 0
+                                            && colorStr.compare(QStringLiteral("auto"), Qt::CaseInsensitive) != 0
+                                            && colorStr != QStringLiteral("-"));
+                        const bool useLetter = (!letterStr.isEmpty()
+                                             && letterStr.compare(QStringLiteral("none"), Qt::CaseInsensitive) != 0
+                                             && letterStr.compare(QStringLiteral("auto"), Qt::CaseInsensitive) != 0
+                                             && letterStr != QStringLiteral("-"));
+
+                        const QColor picked = useColor ? QColor(colorStr) : QColor();
+                        const QChar pickedLetter = useLetter ? letterStr.at(0).toUpper() : QChar();
+
+                        applyMark(picked, pickedLetter, useColor, useLetter);
                     }
                 }
             }
@@ -2036,7 +2062,14 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
         connect(process, &QProcess::errorOccurred, this, [process]() {
             process->deleteLater();
         });
-        process->start(customPicker, {initialColor.name(QColor::HexArgb), QString(initialLetter)});
+
+        QStringList args;
+        args << initialColor.name(QColor::HexArgb) << QString(initialLetter);
+        if (m_markedWindows.contains(target)) {
+            args << (m_markedWindowLetters.contains(target) ? QStringLiteral("1") : QStringLiteral("0"));
+            args << QStringLiteral("1");
+        }
+        process->start(customPicker, args);
         return;
     }
 
@@ -2056,7 +2089,7 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
             if (exitStatus == QProcess::NormalExit && exitCode == 0) {
                 const QString out = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
                 if (!out.isEmpty()) {
-                    applyMark(QColor(out), initialLetter);
+                    applyMark(QColor(out), initialLetter, true, true);
                 }
             }
         });
@@ -2082,7 +2115,7 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
             if (exitStatus == QProcess::NormalExit && exitCode == 0) {
                 const QString out = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
                 if (!out.isEmpty()) {
-                    applyMark(QColor(out), initialLetter);
+                    applyMark(QColor(out), initialLetter, true, true);
                 }
             }
         });
@@ -2099,7 +2132,7 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->setWindowTitle(tr("Select Window Mark Color"));
     connect(dialog, &QColorDialog::colorSelected, this, [applyMark, initialLetter](const QColor &color) {
-        applyMark(color, initialLetter);
+        applyMark(color, initialLetter, true, true);
     });
     dialog->show();
 }

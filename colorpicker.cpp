@@ -11,9 +11,11 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QCheckBox>
 #include <QColorDialog>
 #include <QDialogButtonBox>
 #include <QRegularExpressionValidator>
+#include <QSettings>
 #include "badgehelper.h"
 #include <iostream>
 
@@ -39,16 +41,40 @@ int main(int argc, char *argv[])
         }
     }
 
+    QSettings settings(QStringLiteral("kwin-active-window-outline"), QStringLiteral("colorpicker"));
+    bool useLetter = settings.value(QStringLiteral("MarkWithLetter"), true).toBool();
+    bool useColor = settings.value(QStringLiteral("MarkWithColor"), true).toBool();
+
+    if (argc > 3 && argv[3]) {
+        const QString arg3 = QString::fromUtf8(argv[3]).trimmed();
+        if (arg3 == QStringLiteral("1") || arg3 == QStringLiteral("true")) {
+            useLetter = true;
+        } else if (arg3 == QStringLiteral("0") || arg3 == QStringLiteral("false")) {
+            useLetter = false;
+        }
+    }
+    if (argc > 4 && argv[4]) {
+        const QString arg4 = QString::fromUtf8(argv[4]).trimmed();
+        if (arg4 == QStringLiteral("1") || arg4 == QStringLiteral("true")) {
+            useColor = true;
+        } else if (arg4 == QStringLiteral("0") || arg4 == QStringLiteral("false")) {
+            useColor = false;
+        }
+    }
+
     QDialog dlg;
     dlg.setWindowTitle(QObject::tr("Mark Window Settings"));
-    dlg.setMinimumWidth(320);
+    dlg.setMinimumWidth(350);
 
     auto *layout = new QVBoxLayout(&dlg);
     layout->setSpacing(14);
     layout->setContentsMargins(18, 18, 18, 18);
 
     auto *formLayout = new QFormLayout();
-    formLayout->setSpacing(10);
+    formLayout->setSpacing(12);
+
+    auto *chkLetter = new QCheckBox(QObject::tr("Mark with fixed letter:"), &dlg);
+    chkLetter->setChecked(useLetter);
 
     auto *letterEdit = new QLineEdit(&dlg);
     letterEdit->setMaxLength(1);
@@ -59,18 +85,32 @@ int main(int argc, char *argv[])
     letterFont.setBold(true);
     letterEdit->setFont(letterFont);
     letterEdit->setValidator(new QRegularExpressionValidator(QRegularExpression(QStringLiteral("[A-Za-z0-9]")), letterEdit));
-    letterEdit->selectAll();
-    formLayout->addRow(QObject::tr("Mark Letter (A-Z / 0-9):"), letterEdit);
+    letterEdit->setEnabled(useLetter);
+    if (useLetter) {
+        letterEdit->selectAll();
+    }
+    formLayout->addRow(chkLetter, letterEdit);
+
+    auto *chkColor = new QCheckBox(QObject::tr("Custom mark color:"), &dlg);
+    chkColor->setChecked(useColor);
 
     auto *colorBtn = new QPushButton(&dlg);
-    const auto updateColorBtn = [colorBtn, &currentColor]() {
+    const auto updateColorBtn = [colorBtn, chkColor, &currentColor]() {
         const QString hex = (currentColor.alpha() < 255) ? currentColor.name(QColor::HexArgb) : currentColor.name(QColor::HexRgb);
-        colorBtn->setText(hex);
+        if (chkColor && !chkColor->isChecked()) {
+            colorBtn->setText(QObject::tr("Default / Random Color"));
+        } else {
+            colorBtn->setText(hex);
+        }
         const QColor textCol = OutlineBadge::contrastingTextColor(currentColor);
         const QString textColStr = (textCol == Qt::black) ? QStringLiteral("#000000") : QStringLiteral("#ffffff");
-        colorBtn->setStyleSheet(QStringLiteral("QPushButton { background-color: %1; color: %2; font-weight: bold; padding: 6px 12px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.3); }").arg(hex, textColStr));
+        colorBtn->setStyleSheet(QStringLiteral(
+            "QPushButton:enabled { background-color: %1; color: %2; font-weight: bold; padding: 6px 12px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.3); }"
+            "QPushButton:disabled { background-color: rgba(128,128,128,0.15); color: palette(disabled-text); font-style: italic; padding: 6px 12px; border-radius: 4px; border: 1px dashed rgba(128,128,128,0.4); }"
+        ).arg(hex, textColStr));
     };
     updateColorBtn();
+    colorBtn->setEnabled(useColor);
 
     QObject::connect(colorBtn, &QPushButton::clicked, [&dlg, &currentColor, updateColorBtn]() {
         QColorDialog colDlg(currentColor, &dlg);
@@ -81,22 +121,58 @@ int main(int argc, char *argv[])
             updateColorBtn();
         }
     });
-    formLayout->addRow(QObject::tr("Mark Color:"), colorBtn);
+    formLayout->addRow(chkColor, colorBtn);
 
     layout->addLayout(formLayout);
 
     auto *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
-    QObject::connect(buttonBox, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
-    QObject::connect(buttonBox, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
     layout->addWidget(buttonBox);
 
-    if (dlg.exec() == QDialog::Accepted) {
-        QString finalLetter = letterEdit->text().trimmed().toUpper();
-        if (finalLetter.isEmpty()) {
-            finalLetter = currentLetter;
+    const auto updateUI = [chkLetter, letterEdit, chkColor, colorBtn, buttonBox, updateColorBtn]() {
+        const bool letOn = chkLetter->isChecked();
+        const bool colOn = chkColor->isChecked();
+        letterEdit->setEnabled(letOn);
+        if (letOn) {
+            letterEdit->setPlaceholderText(QString());
+        } else {
+            letterEdit->setPlaceholderText(QObject::tr("Auto"));
         }
-        const QString outColor = (currentColor.alpha() < 255) ? currentColor.name(QColor::HexArgb) : currentColor.name(QColor::HexRgb);
-        std::cout << outColor.toStdString() << " " << finalLetter.toStdString() << std::endl;
+        colorBtn->setEnabled(colOn);
+        updateColorBtn();
+        auto *okBtn = buttonBox->button(QDialogButtonBox::Ok);
+        if (okBtn) {
+            okBtn->setEnabled(letOn || colOn);
+        }
+    };
+
+    QObject::connect(chkLetter, &QCheckBox::toggled, &dlg, updateUI);
+    QObject::connect(chkColor, &QCheckBox::toggled, &dlg, updateUI);
+    updateUI();
+
+    QObject::connect(buttonBox, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    QObject::connect(buttonBox, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+
+    if (dlg.exec() == QDialog::Accepted) {
+        const bool finalUseLetter = chkLetter->isChecked();
+        const bool finalUseColor = chkColor->isChecked();
+
+        settings.setValue(QStringLiteral("MarkWithLetter"), finalUseLetter);
+        settings.setValue(QStringLiteral("MarkWithColor"), finalUseColor);
+
+        QString finalLetter = QStringLiteral("none");
+        if (finalUseLetter) {
+            finalLetter = letterEdit->text().trimmed().toUpper();
+            if (finalLetter.isEmpty()) {
+                finalLetter = currentLetter;
+            }
+        }
+
+        QString finalColor = QStringLiteral("none");
+        if (finalUseColor) {
+            finalColor = (currentColor.alpha() < 255) ? currentColor.name(QColor::HexArgb) : currentColor.name(QColor::HexRgb);
+        }
+
+        std::cout << finalColor.toStdString() << " " << finalLetter.toStdString() << std::endl;
         return 0;
     }
     return 1;

@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.5.0] - 2026-10-25
 
 ### Added
+- **Configurable Mark Options in Shortcut Dialog (`Meta+Ctrl+Shift+M`)**:
+  - Added checkboxes for both "Mark with fixed letter" and "Custom mark color" in the mark settings dialog.
+  - Allows marking windows with a custom outline color without binding a fixed letter (candidates dynamically receive available letters from the keyboard pool during Jump Mode), or assigning a fixed letter while using default/random mark colors.
+  - Automatically disables/enables input controls and dynamically updates the color button preview.
+  - Both options default to checked, and user selections are persisted across sessions via settings.
 - **Multi-Desktop Window Jumping & Offscreen HUD Cards (`Meta+Space`)**:
   - Modal Jump Mode now functions across all virtual desktops. Marked windows on other desktops and minimized windows retain their fixed letters and can be jumped to instantly from any virtual desktop.
   - Jumping to a window residing on a different desktop automatically switches virtual desktops (`effects->setCurrentDesktop`) and activates/unminimizes the window in one smooth step.
