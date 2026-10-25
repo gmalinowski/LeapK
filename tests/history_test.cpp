@@ -117,9 +117,61 @@ void testRecentWindowsOrderAndLimit()
     }
 }
 
+void testCrossDesktopJumpSuppressesIntermediateActivation()
+{
+    // Scenario reported by user:
+    // Desktop 1: Window D1_left (marked "S"), Window D1_right
+    // Desktop 2: Window D2_active
+    MockWindow d1Left{1};
+    MockWindow d1Right{2};
+    MockWindow d2Active{3};
+
+    auto isValid = [](MockWindow *w) {
+        return w && !w->deleted && !w->desktop && !w->dock;
+    };
+
+    QList<MockWindow *> history;
+    MockWindow *activeWindow = nullptr;
+
+    // 1. Initial desktop 1 activity: d1Left was focused, then d1Right was focused, then switch to desktop 2 d2Active
+    OutlineHistory::recordWindowActivation(history, activeWindow, &d1Left);
+    activeWindow = &d1Left;
+    OutlineHistory::recordWindowActivation(history, activeWindow, &d1Right);
+    activeWindow = &d1Right;
+    OutlineHistory::recordWindowActivation(history, activeWindow, &d2Active);
+    activeWindow = &d2Active;
+
+    assert(activeWindow == &d2Active);
+    assert(history.first() == &d2Active);
+
+    // 2. User on Desktop 2 triggers Jump to "S" (d1Left on Desktop 1)
+    MockWindow *expectedTarget = &d1Left;
+
+    // Simulate KWin switching to desktop 1: KWin temporarily emits windowActivated for d1Right (intermediate activation)
+    MockWindow *spuriousIntermediate = &d1Right;
+    if (expectedTarget != nullptr && spuriousIntermediate != expectedTarget) {
+        // Intermediate activation suppressed! Do NOT touch activeWindow or history!
+    } else {
+        OutlineHistory::recordWindowActivation(history, activeWindow, spuriousIntermediate);
+        activeWindow = spuriousIntermediate;
+    }
+
+    // Now KWin activates the actual expected target d1Left
+    assert(expectedTarget == &d1Left);
+    OutlineHistory::recordWindowActivation(history, activeWindow, &d1Left);
+    activeWindow = &d1Left;
+    expectedTarget = nullptr;
+
+    // 3. User is now on d1Left. Immediate previous window in history MUST BE d2Active (Desktop 2), NOT d1Right!
+    auto recents = OutlineHistory::computeRecentWindows(history, activeWindow, 1, true, isValid);
+    assert(recents.size() == 1);
+    assert(recents.at(0) == &d2Active); // Must return directly to Desktop 2 window!
+}
+
 int main()
 {
     testRecentWindowsOrderAndLimit();
+    testCrossDesktopJumpSuppressesIntermediateActivation();
     std::cout << "All history tests passed successfully." << std::endl;
     return 0;
 }

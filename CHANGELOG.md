@@ -67,6 +67,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Marked windows now maintain their custom mark color and styling by default even when focused, rather than being overridden by the standard active window outline.
 
 ### Fixed
+- **Spurious Intermediate Window Activation on Cross-Desktop Jump (`m_expectedJumpTarget`)**:
+  - Fixed an issue where jumping across virtual desktops via modal Jump Mode (`Meta+Space`) caused KWin to briefly activate the last active window on the destination desktop, inserting it into focus history and intercepting `Meta+Alt+[` navigation.
+  - Added `m_expectedJumpTarget` guard in `slotWindowActivated` ensuring intermediate workspace desktop activations are ignored until the selected target window activates.
+  - Navigating back via `Meta+Alt+[` now returns directly to the window that was active before the jump across desktops as expected.
 - **Covered Marked Windows Displayed as Bottom HUD Cards (`renderOffscreenJumpTargets`)**:
   - Fixed an issue where marked windows completely hidden or covered under other windows on the current desktop had their letter badges dropped and became inaccessible during modal Jump Mode (`Meta+Space`).
   - Now, if all 8 alternative badge positions are occluded by overlapping windows, covered windows are routed to the bottom HUD pill bar alongside offscreen desktop and minimized targets, displaying their letter badge, title, and a localized `Schowane` / `Covered` status card.

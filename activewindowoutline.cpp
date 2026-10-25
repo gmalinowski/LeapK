@@ -461,6 +461,12 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
     m_jumpTimeoutTimer->setSingleShot(true);
     connect(m_jumpTimeoutTimer, &QTimer::timeout, this, &ActiveWindowOutlineEffect::cancelJumpMode);
 
+    m_expectedJumpTargetTimer = new QTimer(this);
+    m_expectedJumpTargetTimer->setSingleShot(true);
+    connect(m_expectedJumpTargetTimer, &QTimer::timeout, this, [this]() {
+        m_expectedJumpTarget = nullptr;
+    });
+
     m_historyCommitTimer = new QTimer(this);
     m_historyCommitTimer->setSingleShot(true);
     connect(m_historyCommitTimer, &QTimer::timeout, this, &ActiveWindowOutlineEffect::slotCommitHistoryNavigation);
@@ -555,6 +561,9 @@ ActiveWindowOutlineEffect::~ActiveWindowOutlineEffect()
     }
     if (m_jumpTimeoutTimer) {
         m_jumpTimeoutTimer->stop();
+    }
+    if (m_expectedJumpTargetTimer) {
+        m_expectedJumpTargetTimer->stop();
     }
     if (m_historyCommitTimer) {
         m_historyCommitTimer->stop();
@@ -1657,6 +1666,20 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
         return;
     }
 
+    if (m_expectedJumpTarget) {
+        if (!w || w->isDeleted()) {
+            return;
+        }
+        if (w != m_expectedJumpTarget) {
+            // Intermediate window activation caused by virtual desktop switch before target window is activated. Ignore!
+            return;
+        }
+        m_expectedJumpTarget = nullptr;
+        if (m_expectedJumpTargetTimer && m_expectedJumpTargetTimer->isActive()) {
+            m_expectedJumpTargetTimer->stop();
+        }
+    }
+
     if (m_isHistoryNavigating) {
         if (!w || w->isDeleted()) {
             return;
@@ -2329,6 +2352,10 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             EffectWindow *target = m_jumpLetterToWindow.value(keyChar);
             cancelJumpMode();
             if (target && !target->isDeleted()) {
+                m_expectedJumpTarget = target;
+                if (m_expectedJumpTargetTimer) {
+                    m_expectedJumpTargetTimer->start(1000);
+                }
                 if (!target->isOnCurrentDesktop()) {
                     const auto desktops = target->desktops();
                     if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
@@ -2430,6 +2457,10 @@ void ActiveWindowOutlineEffect::slotPrevRecentWindow()
         if (candidate && !candidate->isDeleted() && !candidate->isDesktop() && !candidate->isDock()) {
             m_historyNavIndex = nextIdx;
             m_isHistoryNavigating = true;
+            m_expectedJumpTarget = candidate;
+            if (m_expectedJumpTargetTimer) {
+                m_expectedJumpTargetTimer->start(1000);
+            }
 
             if (!candidate->isOnCurrentDesktop()) {
                 const auto desktops = candidate->desktops();
@@ -2472,6 +2503,10 @@ void ActiveWindowOutlineEffect::slotNextRecentWindow()
         if (candidate && !candidate->isDeleted() && !candidate->isDesktop() && !candidate->isDock()) {
             m_historyNavIndex = prevIdx;
             m_isHistoryNavigating = true;
+            m_expectedJumpTarget = candidate;
+            if (m_expectedJumpTargetTimer) {
+                m_expectedJumpTargetTimer->start(1000);
+            }
 
             if (!candidate->isOnCurrentDesktop()) {
                 const auto desktops = candidate->desktops();

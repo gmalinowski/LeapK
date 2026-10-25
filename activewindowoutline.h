@@ -311,6 +311,8 @@ private:
     int m_jumpTargets = 0; // 0 = All visible windows, 1 = Marked windows only
     QMap<QChar, EffectWindow *> m_jumpLetterToWindow;
     QTimer *m_jumpTimeoutTimer = nullptr;
+    QPointer<EffectWindow> m_expectedJumpTarget;
+    QTimer *m_expectedJumpTargetTimer = nullptr;
 
     // History Navigation
     bool m_isHistoryNavigating = false;
