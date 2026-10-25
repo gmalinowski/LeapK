@@ -1316,6 +1316,10 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("CustomShaderEnabled")] = shaderOn;
     s[QStringLiteral("ActiveCustomShaderId")] = m_activeShaderId;
 
+    if (!m_activeShaderId.isEmpty()) {
+        s[QStringLiteral("ShaderEffect")] = LeapKShader::createShaderBundle(m_activeShaderId, shaderOn, m_shaders);
+    }
+
     s[QStringLiteral("BreatheEnabled")] = (shaderOn && m_activeShaderId == QStringLiteral("breathe_pulse"));
     s[QStringLiteral("GlitchEnabled")] = (shaderOn && m_activeShaderId == QStringLiteral("futuristic_glitch"));
     s[QStringLiteral("NeonFlickerEnabled")] = (shaderOn && m_activeShaderId == QStringLiteral("neon_flicker"));
@@ -1440,6 +1444,20 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
 
     // Shader Effects
     bool hasShaderSetting = false;
+    if (s.contains(QStringLiteral("ShaderEffect")) && s.value(QStringLiteral("ShaderEffect")).isObject()) {
+        const QJsonObject bundle = s.value(QStringLiteral("ShaderEffect")).toObject();
+        if (LeapKShader::applyShaderBundle(bundle, &m_shaders)) {
+            if (bundle.contains(QStringLiteral("id"))) {
+                m_activeShaderId = bundle.value(QStringLiteral("id")).toString();
+                m_ui->kcfg_ActiveCustomShaderId->setText(m_activeShaderId);
+            }
+            if (bundle.contains(QStringLiteral("enabled"))) {
+                m_ui->kcfg_CustomShaderEnabled->setChecked(bundle.value(QStringLiteral("enabled")).toBool());
+            }
+            hasShaderSetting = true;
+        }
+    }
+
     if (s.contains(QStringLiteral("CustomShaderEnabled"))) {
         m_ui->kcfg_CustomShaderEnabled->setChecked(s[QStringLiteral("CustomShaderEnabled")].toBool());
         hasShaderSetting = true;
@@ -1614,6 +1632,9 @@ void ActiveWindowOutlineConfig::createNewPreset()
         : trimmedDesc;
     p.isBuiltIn = false;
     p.settings = collectCurrentSettings();
+    if (p.settings.contains(QStringLiteral("ShaderEffect"))) {
+        p.shader = p.settings.value(QStringLiteral("ShaderEffect")).toObject();
+    }
 
     QString err;
     if (!OutlinePreset::savePreset(presetsDir, p, &err)) {

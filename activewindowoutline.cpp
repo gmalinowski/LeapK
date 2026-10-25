@@ -2194,8 +2194,16 @@ void ActiveWindowOutlineEffect::applyPreset(const QString &presetName)
     const auto presets = OutlinePreset::loadPresets(OutlinePreset::defaultPresetsDirectory());
     for (const auto &p : presets) {
         if (p.name == presetName) {
+            // Apply embedded shader bundle if available
+            if (!p.shader.isEmpty()) {
+                LeapKShader::applyShaderBundle(p.shader);
+            } else if (p.settings.contains(QStringLiteral("ShaderEffect"))) {
+                LeapKShader::applyShaderBundle(p.settings.value(QStringLiteral("ShaderEffect")).toObject());
+            }
+
             KConfigGroup group = effects->config()->group(QStringLiteral("Effect-active-window-outline"));
             for (auto it = p.settings.constBegin(); it != p.settings.constEnd(); ++it) {
+                if (it.key() == QStringLiteral("ShaderEffect")) continue;
                 group.writeEntry(it.key(), it.value().toVariant());
             }
             group.sync();

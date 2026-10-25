@@ -298,7 +298,13 @@ private slots:
         const auto presets = OutlinePreset::loadPresets(OutlinePreset::defaultPresetsDirectory());
         for (const auto &p : presets) {
             if (p.name == presetName) {
+                if (!p.shader.isEmpty()) {
+                    LeapKShader::applyShaderBundle(p.shader);
+                } else if (p.settings.contains(QStringLiteral("ShaderEffect"))) {
+                    LeapKShader::applyShaderBundle(p.settings.value(QStringLiteral("ShaderEffect")).toObject());
+                }
                 for (auto it = p.settings.constBegin(); it != p.settings.constEnd(); ++it) {
+                    if (it.key() == QStringLiteral("ShaderEffect")) continue;
                     group.writeEntry(it.key(), it.value().toVariant());
                 }
                 group.sync();
@@ -324,7 +330,13 @@ private slots:
                 }
                 QJsonObject outSettings;
                 if (LeapK::PresetActivationDialog::selectSettings(nullptr, p, currentSettings, outSettings, m_isPolish)) {
+                    if (outSettings.contains(QStringLiteral("ShaderEffect"))) {
+                        LeapKShader::applyShaderBundle(outSettings.value(QStringLiteral("ShaderEffect")).toObject());
+                    } else if (!p.shader.isEmpty() && outSettings.contains(QStringLiteral("CustomShaderEnabled"))) {
+                        LeapKShader::applyShaderBundle(p.shader);
+                    }
                     for (auto it = outSettings.constBegin(); it != outSettings.constEnd(); ++it) {
+                        if (it.key() == QStringLiteral("ShaderEffect")) continue;
                         group.writeEntry(it.key(), it.value().toVariant());
                     }
                     group.writeEntry(QStringLiteral("ActivePreset"), presetName);

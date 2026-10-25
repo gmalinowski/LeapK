@@ -23,6 +23,7 @@ struct PresetInfo {
     bool isBuiltIn = false;
     QString filePath;
     QJsonObject settings;
+    QJsonObject shader;
 };
 
 inline QJsonObject getDefaultSettings()
@@ -337,6 +338,12 @@ inline QByteArray serializePreset(const PresetInfo &preset)
     root[QStringLiteral("version")] = QStringLiteral("1.6.0");
     root[QStringLiteral("settings")] = preset.settings;
 
+    if (!preset.shader.isEmpty()) {
+        root[QStringLiteral("shader")] = preset.shader;
+    } else if (preset.settings.contains(QStringLiteral("ShaderEffect"))) {
+        root[QStringLiteral("shader")] = preset.settings.value(QStringLiteral("ShaderEffect")).toObject();
+    }
+
     QJsonDocument doc(root);
     return doc.toJson(QJsonDocument::Indented);
 }
@@ -375,11 +382,20 @@ inline bool parsePresetJson(const QByteArray &data, PresetInfo &outPreset, QStri
             if (k != QLatin1String("name") &&
                 k != QLatin1String("description") &&
                 k != QLatin1String("isBuiltIn") &&
-                k != QLatin1String("version")) {
+                k != QLatin1String("version") &&
+                k != QLatin1String("shader")) {
                 s[k] = it.value();
             }
         }
         outPreset.settings = s;
+    }
+
+    // Shader bundle support (root level "shader" or nested in settings)
+    if (root.contains(QStringLiteral("shader")) && root.value(QStringLiteral("shader")).isObject()) {
+        outPreset.shader = root.value(QStringLiteral("shader")).toObject();
+        outPreset.settings[QStringLiteral("ShaderEffect")] = outPreset.shader;
+    } else if (outPreset.settings.contains(QStringLiteral("ShaderEffect")) && outPreset.settings.value(QStringLiteral("ShaderEffect")).isObject()) {
+        outPreset.shader = outPreset.settings.value(QStringLiteral("ShaderEffect")).toObject();
     }
 
     if (outPreset.settings.isEmpty()) {

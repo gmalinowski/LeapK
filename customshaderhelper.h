@@ -793,6 +793,81 @@ inline bool loadShaderById(const QString &id, CustomShaderEffect &outEffect)
     return false;
 }
 
+inline CustomShaderEffect findShaderById(const QString &id, const QList<CustomShaderEffect> &shaders = {})
+{
+    for (const auto &s : shaders) {
+        if (s.id == id) {
+            return s;
+        }
+    }
+    CustomShaderEffect effect;
+    if (loadShaderById(id, effect)) {
+        return effect;
+    }
+    return effect;
+}
+
+inline QJsonObject createShaderBundle(const QString &shaderId, bool enabled, const QList<CustomShaderEffect> &shaders = {})
+{
+    QJsonObject obj;
+    obj[QStringLiteral("enabled")] = enabled;
+    obj[QStringLiteral("id")] = shaderId;
+    if (!shaderId.isEmpty()) {
+        const auto effect = findShaderById(shaderId, shaders);
+        if (!effect.id.isEmpty()) {
+            obj[QStringLiteral("effect")] = effect.toJson();
+        }
+    }
+    return obj;
+}
+
+inline bool applyShaderBundle(const QJsonObject &bundle, QList<CustomShaderEffect> *inOutShaders = nullptr)
+{
+    if (bundle.isEmpty()) {
+        return false;
+    }
+    QJsonObject effectObj;
+    if (bundle.contains(QStringLiteral("effect")) && bundle.value(QStringLiteral("effect")).isObject()) {
+        effectObj = bundle.value(QStringLiteral("effect")).toObject();
+    } else if (bundle.contains(QStringLiteral("format")) && bundle.value(QStringLiteral("format")).toString() == QStringLiteral("leapk-shader")) {
+        effectObj = bundle;
+    }
+    if (effectObj.isEmpty()) {
+        return false;
+    }
+
+    const CustomShaderEffect incoming = CustomShaderEffect::fromJson(effectObj);
+    if (incoming.id.isEmpty()) {
+        return false;
+    }
+
+    if (inOutShaders) {
+        int idx = -1;
+        for (int i = 0; i < inOutShaders->size(); ++i) {
+            if ((*inOutShaders)[i].id == incoming.id) {
+                idx = i;
+                break;
+            }
+        }
+        if (idx >= 0) {
+            for (const auto &p : incoming.parameters) {
+                for (auto &existingP : (*inOutShaders)[idx].parameters) {
+                    if (existingP.id == p.id) {
+                        existingP.currentValue = p.currentValue;
+                        existingP.colorCurrent = p.colorCurrent;
+                        break;
+                    }
+                }
+            }
+        } else {
+            inOutShaders->append(incoming);
+        }
+    }
+
+    const QString destPath = defaultShadersDirectory() + QStringLiteral("/%1.json").arg(incoming.id);
+    return saveShaderEffectToFile(incoming, destPath);
+}
+
 inline bool validateShaderCode(const QString &glsl, const QList<ShaderParameter> &parameters, QString *errorMessage = nullptr)
 {
     if (glsl.trimmed().isEmpty()) {

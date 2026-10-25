@@ -120,7 +120,8 @@ public:
                     {QStringLiteral("ColorCycleEasing"), QStringLiteral("Krzywa animacji sekwencji"), QStringLiteral("Cycle Easing")},
                     {QStringLiteral("ColorList"), QStringLiteral("Paleta kolorów sekwencji"), QStringLiteral("Color Palette")},
                     {QStringLiteral("CustomShaderEnabled"), QStringLiteral("Niestandardowy efekt shadera GLSL"), QStringLiteral("Custom GLSL Shader")},
-                    {QStringLiteral("ActiveCustomShaderId"), QStringLiteral("Aktywny shader GLSL"), QStringLiteral("Active Shader ID")}
+                    {QStringLiteral("ActiveCustomShaderId"), QStringLiteral("Aktywny shader GLSL"), QStringLiteral("Active Shader ID")},
+                    {QStringLiteral("ShaderEffect"), QStringLiteral("Dołączona definicja i parametry shadera"), QStringLiteral("Bundled Shader & Parameters")}
                 }
             },
             // 5. Leap Mode & Badges
@@ -259,6 +260,20 @@ public:
             }
             return QString::number(val.toDouble(), 'g', 3);
         }
+        if (key == QStringLiteral("ShaderEffect")) {
+            if (val.isObject()) {
+                const QJsonObject o = val.toObject();
+                QString name;
+                if (o.contains(QStringLiteral("effect")) && o.value(QStringLiteral("effect")).isObject()) {
+                    name = o.value(QStringLiteral("effect")).toObject().value(QStringLiteral("name")).toString();
+                } else if (o.contains(QStringLiteral("name"))) {
+                    name = o.value(QStringLiteral("name")).toString();
+                }
+                if (name.isEmpty()) name = o.value(QStringLiteral("id")).toString();
+                return isPolish ? QStringLiteral("Zestaw: %1").arg(name) : QStringLiteral("Bundle: %1").arg(name);
+            }
+            return isPolish ? QStringLiteral("Brak") : QStringLiteral("None");
+        }
         if (val.isString()) {
             const QString s = val.toString();
             if (s.length() > 26) {
@@ -280,6 +295,9 @@ public:
         if (v1.isBool()) return v1.toBool() == v2.toBool();
         if (v1.isDouble()) return qFuzzyCompare(v1.toDouble() + 1.0, v2.toDouble() + 1.0);
         if (v1.isString()) return v1.toString().compare(v2.toString(), Qt::CaseInsensitive) == 0;
+        if (v1.isObject() && v2.isObject()) {
+            return QJsonDocument(v1.toObject()).toJson(QJsonDocument::Compact) == QJsonDocument(v2.toObject()).toJson(QJsonDocument::Compact);
+        }
         return v1.toInt() == v2.toInt();
     }
 
@@ -571,6 +589,13 @@ public:
                             outSettingsToApply[key] = preset.settings[key];
                         }
                     }
+                }
+            }
+            if (outSettingsToApply.contains(QStringLiteral("ActiveCustomShaderId")) ||
+                outSettingsToApply.contains(QStringLiteral("CustomShaderEnabled")) ||
+                outSettingsToApply.contains(QStringLiteral("ShaderEffect"))) {
+                if (preset.settings.contains(QStringLiteral("ShaderEffect"))) {
+                    outSettingsToApply[QStringLiteral("ShaderEffect")] = preset.settings[QStringLiteral("ShaderEffect")];
                 }
             }
             confirmed = true;

@@ -5,6 +5,7 @@
 
 #include "presethelper.h"
 #include "presetactivationdialog.h"
+#include "customshaderhelper.h"
 #include <cassert>
 #include <iostream>
 #include <QSet>
@@ -168,7 +169,7 @@ void testPresetActivationCategories()
             assert(false);
         }
     }
-    assert(dialogKeys.size() == 78);
+    assert(dialogKeys.size() == 79);
 
     // Test formatting helper
     assert(!LeapK::PresetActivationDialog::formatValue(QStringLiteral("BorderWidth"), 4, true).isEmpty());
@@ -382,6 +383,93 @@ void testAllBuiltInPresetsConsistency()
     }
 }
 
+void testPresetWithEmbeddedShader()
+{
+    // 1. Create a shader effect (tested identically for built-ins and custom shaders)
+    LeapKShader::CustomShaderEffect effect;
+    effect.id = QStringLiteral("synthwave_sun");
+    effect.name = QStringLiteral("Synthwave 80s Sun");
+    effect.description = QStringLiteral("Retro 80s horizontal scanlines and glowing sunset.");
+    effect.author = QStringLiteral("CyberArtist");
+    effect.target = QStringLiteral("glow");
+    effect.glslCode = QStringLiteral("void main() { gl_FragColor = vec4(1.0, 0.2, 0.5, 1.0); }");
+
+    LeapKShader::ShaderParameter p1;
+    p1.id = QStringLiteral("speed");
+    p1.name = QStringLiteral("Sun Speed");
+    p1.type = QStringLiteral("float");
+    p1.currentValue = 0.85;
+    effect.parameters.append(p1);
+
+    LeapKShader::ShaderParameter p2;
+    p2.id = QStringLiteral("sunColor");
+    p2.name = QStringLiteral("Sun Color");
+    p2.type = QStringLiteral("color");
+    p2.colorCurrent = QStringLiteral("#ff007f");
+    effect.parameters.append(p2);
+
+    // 2. Package into a preset
+    OutlinePreset::PresetInfo p;
+    p.name = QStringLiteral("Outrun Synthwave");
+    p.description = QStringLiteral("Complete 80s aesthetic with glowing grid and custom shader.");
+    p.isBuiltIn = false;
+    p.settings[QStringLiteral("BorderWidth")] = 3;
+    p.settings[QStringLiteral("CustomColor")] = QStringLiteral("#ff007f");
+    p.settings[QStringLiteral("CustomShaderEnabled")] = true;
+    p.settings[QStringLiteral("ActiveCustomShaderId")] = effect.id;
+
+    QJsonObject bundle = LeapKShader::createShaderBundle(effect.id, true, {effect});
+    assert(!bundle.isEmpty());
+    assert(bundle[QStringLiteral("id")].toString() == effect.id);
+    assert(bundle[QStringLiteral("enabled")].toBool() == true);
+    p.shader = bundle;
+    p.settings[QStringLiteral("ShaderEffect")] = bundle;
+
+    // 3. Serialize preset
+    const QByteArray json = OutlinePreset::serializePreset(p);
+    assert(!json.isEmpty());
+    assert(json.contains("synthwave_sun"));
+    assert(json.contains("Synthwave 80s Sun"));
+    assert(json.contains("#ff007f"));
+
+    // 4. Parse preset back
+    OutlinePreset::PresetInfo parsed;
+    QString err;
+    assert(OutlinePreset::parsePresetJson(json, parsed, &err));
+    assert(parsed.name == p.name);
+    assert(!parsed.shader.isEmpty());
+    assert(parsed.shader[QStringLiteral("id")].toString() == effect.id);
+
+    // 5. Apply shader bundle to local list
+    QList<LeapKShader::CustomShaderEffect> localShaders;
+    const bool applied = LeapKShader::applyShaderBundle(parsed.shader, &localShaders);
+    assert(applied);
+    assert(localShaders.size() == 1);
+    assert(localShaders[0].id == effect.id);
+    assert(localShaders[0].parameters.size() == 2);
+    assert(qFuzzyCompare(localShaders[0].parameters[0].currentValue, 0.85));
+    assert(localShaders[0].parameters[1].colorCurrent == QStringLiteral("#ff007f"));
+
+    // 6. Test updating an existing shader's parameters
+    QJsonObject updatedBundle = parsed.shader;
+    QJsonObject effectObj = updatedBundle[QStringLiteral("effect")].toObject();
+    QJsonArray paramsArr = effectObj[QStringLiteral("parameters")].toArray();
+    QJsonObject param0 = paramsArr[0].toObject();
+    param0[QStringLiteral("value")] = 1.45;
+    paramsArr[0] = param0;
+    effectObj[QStringLiteral("parameters")] = paramsArr;
+    updatedBundle[QStringLiteral("effect")] = effectObj;
+
+    const bool reApplied = LeapKShader::applyShaderBundle(updatedBundle, &localShaders);
+    assert(reApplied);
+    assert(localShaders.size() == 1);
+    assert(qFuzzyCompare(localShaders[0].parameters[0].currentValue, 1.45));
+
+    // 7. Verify PresetActivationDialog formatting and equality
+    assert(!LeapK::PresetActivationDialog::formatValue(QStringLiteral("ShaderEffect"), parsed.shader, true).isEmpty());
+    assert(LeapK::PresetActivationDialog::areValuesEqual(parsed.shader, parsed.shader));
+}
+
 int main(int argc, char *argv[])
 {
     Q_UNUSED(argc);
@@ -397,6 +485,7 @@ int main(int argc, char *argv[])
     testPresetSelectiveFiltering();
     testPresetFormatValueAndAreValuesEqual();
     testAllBuiltInPresetsConsistency();
+    testPresetWithEmbeddedShader();
 
     std::cout << "All preset tests passed successfully." << std::endl;
     return 0;
