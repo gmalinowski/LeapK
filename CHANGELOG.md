@@ -4,6 +4,34 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta1] - 2026-10-25
+
+### Added
+- **Selective Preset Activation Dialog (`PresetActivationDialog`)**:
+  - Added an interactive customization dialog when activating any preset from the Settings GUI or Companion Tray app.
+  - Allows selecting exactly which categories or individual configuration settings to apply from the preset, while preserving existing configuration for unselected options.
+  - Full hierarchical grouping covering all 76 settings:
+    1. Geometry & Border (`BorderWidth`, `OutlineGap`, `BorderRadius`, `FadeCorners`, `DrawInside`, `SmoothEdges`, `GlowEnabled`, `GlowRadius`)
+    2. Colors & Opacity (`UseAccentColor`, `CustomColor`, `AccentOpacity`, `EnsurePerimeterContrast`)
+    3. Dynamic Ambilight (`AmbilightEnabled`, `AmbilightMode`, `AmbilightOpacity`, `AmbilightFrequency`, `AmbilightDuration`, etc.)
+    4. Shader Effects & Animations (`Breathe`, `Glitch`, `NeonFlicker`, `Flash`, `ColorCycle`)
+    5. Leap Mode & Badges (`BadgeDisplayMode`, `JumpTargets`, `BadgePosition`, `BadgeHudPosition`, `BadgeSize`, `BadgeMargin`)
+    6. Window Marks (`MarkDefaultColor`, `MarkSmartAdaptive`, `MarkRandomColor`, `StylePrecedence`, `MarkInactive...`)
+    7. Focus History & Behavior (`HighlightRecentWindow`, `RecentWindowsCount`, `FadeDuration`, buffer delays, etc.)
+  - Real-time side-by-side comparison: displays preset values alongside your current values, highlighting changes in green.
+  - Quick selection toolbar:
+    - *Select All* (☑ Zaznacz wszystko)
+    - *Deselect All* (☐ Odznacz wszystko)
+    - *Differences Only* (⚡ Tylko różnice) – automatically selects only the settings that differ from your active setup.
+  - Real-time search filter box for instant lookup across all categories.
+  - Dual activation actions: one-click *Apply All* (⚡ Zastosuj całość) or *Apply Selected* (✓ Zastosuj zaznaczone).
+  - Added *Customize & Apply Preset…* (⚙️ Dostosuj i aktywuj preset…) submenu in the companion tray menu.
+
+### Fixed
+- **Preset System & Vim HUD Navigator**:
+  - Fixed `Vim HUD Navigator` preset `BadgeDisplayMode` from `2` (Disabled) to `1` (Always visible on background windows), resolving an issue where Jump Mode was disarmed and the HUD could not display.
+  - Ensured preset import never auto-activates unexpectedly.
+
 ## [1.5.2] - 2026-10-25
 
 ### Fixed

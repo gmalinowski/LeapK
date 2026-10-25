@@ -7,6 +7,7 @@
 #include "activewindowoutline_config.h"
 #include "ui_activewindowoutline_config.h"
 #include "precedencehelper.h"
+#include "presetactivationdialog.h"
 #include "presethelper.h"
 #include "updatehelper.h"
 
@@ -1453,12 +1454,25 @@ void ActiveWindowOutlineConfig::activateSelectedPreset()
 
     OutlinePreset::PresetInfo p;
     if (OutlinePreset::parsePresetJson(f.readAll(), p)) {
-        applySettings(p.settings);
         const bool isPolish = (QLocale().language() == QLocale::Polish);
-        m_ui->labelPresetStatus->setText(isPolish
-            ? QStringLiteral("✅ Aktywowano preset: %1").arg(presetName)
-            : QStringLiteral("✅ Activated preset: %1").arg(presetName));
-        m_ui->labelPresetStatus->setStyleSheet(QStringLiteral("color: #2ecc71; font-weight: bold;"));
+        const QJsonObject currentSettings = collectCurrentSettings();
+        QJsonObject settingsToApply;
+
+        if (LeapK::PresetActivationDialog::selectSettings(widget(), p, currentSettings, settingsToApply, isPolish)) {
+            applySettings(settingsToApply);
+            const int count = settingsToApply.size();
+            if (count == p.settings.size()) {
+                m_ui->labelPresetStatus->setText(isPolish
+                    ? QStringLiteral("✅ Aktywowano cały preset: %1").arg(presetName)
+                    : QStringLiteral("✅ Activated full preset: %1").arg(presetName));
+            } else {
+                m_ui->labelPresetStatus->setText(isPolish
+                    ? QStringLiteral("✅ Zastosowano %1 wybranych opcji z presetu: %2").arg(count).arg(presetName)
+                    : QStringLiteral("✅ Applied %1 selected settings from preset: %2").arg(count).arg(presetName));
+            }
+            m_ui->labelPresetStatus->setStyleSheet(QStringLiteral("color: #2ecc71; font-weight: bold;"));
+            markAsChanged();
+        }
     }
 }
 

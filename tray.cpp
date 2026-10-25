@@ -45,12 +45,13 @@
 #include <KSharedConfig>
 #include <KGlobalAccel>
 #include "presethelper.h"
+#include "presetactivationdialog.h"
 #include "settingsdialog.h"
 #include "updatehelper.h"
 #include <iostream>
 
 #ifndef ACTIVE_WINDOW_OUTLINE_VERSION
-#define ACTIVE_WINDOW_OUTLINE_VERSION "1.5.2"
+#define ACTIVE_WINDOW_OUTLINE_VERSION "1.6.0"
 #endif
 
 namespace
@@ -302,6 +303,49 @@ private slots:
                 group.sync();
                 notifyKWinReconfigure();
                 refreshStateFromConfig();
+                break;
+            }
+        }
+    }
+
+    void onCustomizeApplyPreset(const QString &presetName)
+    {
+        const auto presets = OutlinePreset::loadPresets(OutlinePreset::defaultPresetsDirectory());
+        for (const auto &p : presets) {
+            if (p.name == presetName) {
+                KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
+                QJsonObject currentSettings = OutlinePreset::getDefaultSettings();
+                for (auto it = currentSettings.begin(); it != currentSettings.end(); ++it) {
+                    const QString key = it.key();
+                    if (group.hasKey(key)) {
+                        it.value() = QJsonValue::fromVariant(group.readEntry(key, it.value().toVariant()));
+                    }
+                }
+                QJsonObject outSettings;
+                if (LeapK::PresetActivationDialog::selectSettings(nullptr, p, currentSettings, outSettings, m_isPolish)) {
+                    for (auto it = outSettings.constBegin(); it != outSettings.constEnd(); ++it) {
+                        group.writeEntry(it.key(), it.value().toVariant());
+                    }
+                    group.writeEntry(QStringLiteral("ActivePreset"), presetName);
+                    group.sync();
+                    notifyKWinReconfigure();
+                    refreshStateFromConfig();
+                    rebuildPresetsMenu();
+
+                    const int count = outSettings.size();
+                    const QString msg = (count == p.settings.size())
+                        ? (m_isPolish ? QStringLiteral("Aktywowano cały preset:\n%1").arg(presetName)
+                                      : QStringLiteral("Activated full preset:\n%1").arg(presetName))
+                        : (m_isPolish ? QStringLiteral("Zastosowano %1 wybranych opcji z presetu:\n%2").arg(count).arg(presetName)
+                                      : QStringLiteral("Applied %1 selected options from preset:\n%2").arg(count).arg(presetName));
+
+                    m_trayIcon->showMessage(
+                        QStringLiteral("LeapK"),
+                        msg,
+                        QSystemTrayIcon::Information,
+                        3500
+                    );
+                }
                 break;
             }
         }
@@ -934,6 +978,20 @@ private:
             const QString name = p.name;
             connect(act, &QAction::triggered, this, [this, name]() {
                 onApplyPreset(name);
+            });
+        }
+
+        m_menuPresets->addSeparator();
+
+        QMenu *customizeMenu = m_menuPresets->addMenu(
+            m_isPolish ? QStringLiteral("⚙️ Dostosuj i aktywuj preset…")
+                       : QStringLiteral("⚙️ Customize & Apply Preset…")
+        );
+        for (const auto &p : presets) {
+            const QString name = p.name;
+            QAction *custAct = customizeMenu->addAction(name);
+            connect(custAct, &QAction::triggered, this, [this, name]() {
+                onCustomizeApplyPreset(name);
             });
         }
 

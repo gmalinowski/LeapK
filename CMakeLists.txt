@@ -292,7 +292,7 @@ if(OUTLINE_BUILD_TESTS)
 
     add_executable(outline-preset-test tests/preset_test.cpp)
     target_include_directories(outline-preset-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-    target_link_libraries(outline-preset-test PRIVATE Qt6::Core)
+    target_link_libraries(outline-preset-test PRIVATE Qt6::Core Qt6::Widgets)
     add_test(NAME outline-preset COMMAND outline-preset-test)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)

@@ -4,8 +4,10 @@
 */
 
 #include "presethelper.h"
+#include "presetactivationdialog.h"
 #include <cassert>
 #include <iostream>
+#include <QSet>
 #include <QTemporaryDir>
 
 void testBuiltInPresets()
@@ -148,6 +150,34 @@ void testDirectoryLoadingAndSaving()
     assert(reloaded.last().isBuiltIn == false);
 }
 
+void testPresetActivationCategories()
+{
+    const auto categories = LeapK::PresetActivationDialog::getCategories();
+    QSet<QString> dialogKeys;
+    for (const auto &cat : categories) {
+        for (const auto &item : cat.items) {
+            assert(!dialogKeys.contains(item.key));
+            dialogKeys.insert(item.key);
+        }
+    }
+
+    const auto defaults = OutlinePreset::getDefaultSettings();
+    for (auto it = defaults.constBegin(); it != defaults.constEnd(); ++it) {
+        if (!dialogKeys.contains(it.key())) {
+            std::cerr << "Missing key in PresetActivationDialog: " << it.key().toStdString() << std::endl;
+            assert(false);
+        }
+    }
+    assert(dialogKeys.size() == 76);
+
+    // Test formatting helper
+    assert(!LeapK::PresetActivationDialog::formatValue(QStringLiteral("BorderWidth"), 4, true).isEmpty());
+    assert(LeapK::PresetActivationDialog::areValuesEqual(4, 4));
+    assert(!LeapK::PresetActivationDialog::areValuesEqual(4, 5));
+    assert(LeapK::PresetActivationDialog::areValuesEqual(true, true));
+    assert(!LeapK::PresetActivationDialog::areValuesEqual(true, false));
+}
+
 int main(int argc, char *argv[])
 {
     Q_UNUSED(argc);
@@ -157,6 +187,7 @@ int main(int argc, char *argv[])
     testSerializationAndParsing();
     testFlatJsonParsing();
     testDirectoryLoadingAndSaving();
+    testPresetActivationCategories();
 
     std::cout << "All preset tests passed successfully." << std::endl;
     return 0;
