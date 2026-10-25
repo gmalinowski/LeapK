@@ -13,6 +13,7 @@
 #include <effect/effectwindow.h>
 #include <window.h>
 #include <virtualdesktops.h>
+#include <QLocale>
 #include <opengl/glshader.h>
 #include <opengl/glshadermanager.h>
 #include <opengl/glvertexbuffer.h>
@@ -2322,7 +2323,11 @@ bool ActiveWindowOutlineEffect::isBadgeOccluded(EffectWindow *target, const QRec
     if (!target) {
         return true;
     }
-    const QRectF badgeAligned = badgeRect.toAlignedRect();
+    const QRect badgeAligned = badgeRect.toAlignedRect();
+    const QRect virtualScreen = effects->virtualScreenGeometry();
+    if (!virtualScreen.intersects(badgeAligned)) {
+        return true;
+    }
     bool aboveTarget = false;
     const auto windows = effects->stackingOrder();
     for (EffectWindow *candidate : windows) {
@@ -2578,6 +2583,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
 
         QString loc;
+        const bool isPolish = (QLocale().language() == QLocale::Polish);
         if (!target->isOnCurrentDesktop()) {
             const auto desktops = target->desktops();
             if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
@@ -2585,13 +2591,15 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             }
             if (loc.isEmpty()) {
                 const uint num = desktops.isEmpty() ? 0 : desktops.first()->x11DesktopNumber();
-                loc = tr("Desktop %1").arg(num);
+                loc = isPolish ? QStringLiteral("Pulpit %1").arg(num) : tr("Desktop %1").arg(num);
             }
             if (target->isMinimized()) {
-                loc += QStringLiteral(" (min)");
+                loc += isPolish ? QStringLiteral(" (zmin)") : QStringLiteral(" (min)");
             }
         } else if (target->isMinimized()) {
-            loc = tr("Minimized");
+            loc = isPolish ? QStringLiteral("Zminimalizowane") : tr("Minimized");
+        } else {
+            loc = isPolish ? QStringLiteral("Schowane") : tr("Covered");
         }
 
         const QString caption = target->caption();
@@ -3201,9 +3209,22 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 : QColor(35, 38, 41, 235);
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
             const QRectF geo = target->frameGeometry();
-            const QRectF badgeRect = OutlineBadge::computeBadgeRect(geo, m_badgePosition, badgeW, badgeH, m_badgeMargin);
+            QRectF badgeRect = OutlineBadge::computeBadgeRect(geo, m_badgePosition, badgeW, badgeH, m_badgeMargin);
             if (isBadgeOccluded(target, badgeRect)) {
-                continue;
+                const int altPositions[] = { 4 /* Center */, 1 /* Top */, 0 /* TopLeft */, 2 /* TopRight */, 7 /* Bottom */, 6 /* BottomLeft */, 8 /* BottomRight */, 3 /* Left */, 5 /* Right */ };
+                bool foundVisiblePosition = false;
+                for (int altPos : altPositions) {
+                    if (altPos == m_badgePosition) continue;
+                    const QRectF altRect = OutlineBadge::computeBadgeRect(geo, altPos, badgeW, badgeH, m_badgeMargin);
+                    if (!isBadgeOccluded(target, altRect)) {
+                        badgeRect = altRect;
+                        foundVisiblePosition = true;
+                        break;
+                    }
+                }
+                if (!foundVisiblePosition) {
+                    continue;
+                }
             }
             renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, false, m_badgeSize);
         }
@@ -3239,7 +3260,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             const QRectF geo = target->frameGeometry();
             QRectF badgeRect = OutlineBadge::computeBadgeRect(geo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
             if (isBadgeOccluded(target, badgeRect)) {
-                const int altPositions[] = { 4 /* Center */, 0 /* TopLeft */, 2 /* TopRight */, 8 /* BottomRight */, 6 /* BottomLeft */ };
+                const int altPositions[] = { 4 /* Center */, 1 /* Top */, 0 /* TopLeft */, 2 /* TopRight */, 7 /* Bottom */, 6 /* BottomLeft */, 8 /* BottomRight */, 3 /* Left */, 5 /* Right */ };
                 bool foundVisiblePosition = false;
                 for (int altPos : altPositions) {
                     if (altPos == m_badgePosition) continue;
@@ -3251,6 +3272,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                     }
                 }
                 if (!foundVisiblePosition) {
+                    offscreenTargets.append(qMakePair(letter, target));
                     continue;
                 }
             }

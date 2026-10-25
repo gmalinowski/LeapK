@@ -62,6 +62,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Marked windows now maintain their custom mark color and styling by default even when focused, rather than being overridden by the standard active window outline.
 
 ### Fixed
+- **Covered Marked Windows Displayed as Bottom HUD Cards (`renderOffscreenJumpTargets`)**:
+  - Fixed an issue where marked windows completely hidden or covered under other windows on the current desktop had their letter badges dropped and became inaccessible during modal Jump Mode (`Meta+Space`).
+  - Now, if all 8 alternative badge positions are occluded by overlapping windows, covered windows are routed to the bottom HUD pill bar alongside offscreen desktop and minimized targets, displaying their letter badge, title, and a localized `Schowane` / `Covered` status card.
+  - Pressing the letter key immediately raises and activates the covered window to the foreground.
+  - Also expanded alternate badge placement check across all 8 cardinal positions in continuous badges mode.
 - **High-Contrast Badge Letter Text & Framing Border (`contrastingTextColor`)**:
   - Replaced naive HSL lightness check with ITU-R BT.601 perceptual luminance formula (`0.299 R + 0.587 G + 0.114 B`).
   - Dark badge backgrounds (e.g. dark jump badge, red, deep violet, sky blue) strictly render crisp white letters, while light backgrounds (e.g. sunflower yellow, warm yellow, cyan, bright teal, emerald green, light gray) render crisp black letters.

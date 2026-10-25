@@ -25,6 +25,17 @@ void testOffscreenTargetPill()
     // Empty caption
     QImage pillNoCap = renderOffscreenTargetPill(QLatin1Char('M'), QColor(52, 152, 219), Qt::white, QStringLiteral("Minimized"), QString(), 28, 1.0);
     assert(!pillNoCap.isNull());
+
+    // Covered window pill ("Schowane" / "Covered")
+    QImage pillCoveredPl = renderOffscreenTargetPill(QLatin1Char('C'), QColor(46, 204, 113), Qt::black, QStringLiteral("Schowane"), QStringLiteral("Dolphin"), 28, 1.0);
+    assert(!pillCoveredPl.isNull());
+    assert(pillCoveredPl.width() > 50);
+    assert(pillCoveredPl.height() > 30);
+
+    QImage pillCoveredEn = renderOffscreenTargetPill(QLatin1Char('D'), QColor(155, 89, 182), Qt::white, QStringLiteral("Covered"), QStringLiteral("Kate Editor"), 28, 1.0);
+    assert(!pillCoveredEn.isNull());
+    assert(pillCoveredEn.width() > 50);
+    assert(pillCoveredEn.height() > 30);
 }
 
 void testRandomMarkColor()
