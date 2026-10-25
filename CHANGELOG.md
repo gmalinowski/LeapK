@@ -70,6 +70,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Real-time full repaint when stacking order or virtual desktop changes (`stackingOrderChanged`, `desktopChanged`).
 
 ### Changed
+- **Default Focus History Navigation Shortcuts Updated to `Meta+Ctrl+[` and `Meta+Ctrl+]`**:
+  - Changed default previous recent window shortcut from `Meta+Alt+[` to `Meta+Ctrl+[`.
+  - Changed default next recent window shortcut from `Meta+Alt+]` to `Meta+Ctrl+]`.
+  - Avoids common window manager and application Alt key conflicts while providing ergonomic focus navigation.
 - **Ergonomic Space-based Default Shortcuts for Window Marking**:
   - Changed default toggle mark window shortcut from `Meta+Ctrl+M` to `Meta+Ctrl+Space`.
   - Changed default custom mark window shortcut from `Meta+Ctrl+Shift+M` to `Meta+Ctrl+Shift+Space`.

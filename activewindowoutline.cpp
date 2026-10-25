@@ -634,15 +634,15 @@ void ActiveWindowOutlineEffect::initShortcuts()
     QAction *prevRecentAction = new QAction(this);
     prevRecentAction->setObjectName(QStringLiteral("PrevRecentWindow"));
     prevRecentAction->setText(QStringLiteral("KAWO: Previous Recent Window"));
-    KGlobalAccel::self()->setDefaultShortcut(prevRecentAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::ALT | Qt::Key_BracketLeft));
-    KGlobalAccel::self()->setGlobalShortcut(prevRecentAction, QKeySequence(Qt::META | Qt::ALT | Qt::Key_BracketLeft));
+    KGlobalAccel::self()->setDefaultShortcut(prevRecentAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_BracketLeft));
+    KGlobalAccel::self()->setGlobalShortcut(prevRecentAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_BracketLeft));
     connect(prevRecentAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotPrevRecentWindow);
 
     QAction *nextRecentAction = new QAction(this);
     nextRecentAction->setObjectName(QStringLiteral("NextRecentWindow"));
     nextRecentAction->setText(QStringLiteral("KAWO: Next Recent Window"));
-    KGlobalAccel::self()->setDefaultShortcut(nextRecentAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::ALT | Qt::Key_BracketRight));
-    KGlobalAccel::self()->setGlobalShortcut(nextRecentAction, QKeySequence(Qt::META | Qt::ALT | Qt::Key_BracketRight));
+    KGlobalAccel::self()->setDefaultShortcut(nextRecentAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_BracketRight));
+    KGlobalAccel::self()->setGlobalShortcut(nextRecentAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_BracketRight));
     connect(nextRecentAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotNextRecentWindow);
 }
 

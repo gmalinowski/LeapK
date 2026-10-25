@@ -30,15 +30,15 @@ Whether you are using tiling window management (such as Bismuth, Polonium, or Kr
     - **`Meta+Ctrl+Space`**: Instantly marks the active window with default color and auto-assigns next available letter from the pool.
     - **`Meta+Ctrl+Shift+Space`**: Opens a dedicated native Qt dialog (`active-window-outline-colorpicker`) to select custom label, letter (`A-Z`, `0-9`), and custom mark color with alpha transparency.
 - **Recent Windows History Navigation (Jump List)**:
-  - **`Meta+Alt+[` / `Meta+Alt+]`**: Seamlessly cycle backward and forward through recent window focus history without scrambling the history stack.
+  - **`Meta+Ctrl+[` / `Meta+Ctrl+]`**: Seamlessly cycle backward and forward through recent window focus history without scrambling the history stack.
   - History changes commit automatically after 1.5 seconds of idle time.
 - **Global Shortcuts**:
   - **Meta+Ctrl+O**: Toggle active window outline on or off.
   - **Meta+Ctrl+Space**: Toggle permanent mark frame on the active window.
   - **Meta+Ctrl+Shift+Space**: Mark active window with color, letter, and label picker dialog.
   - **Meta+Space**: Enter modal Jump to Window mode.
-  - **Meta+Alt+[**: Previous recent window in focus history.
-  - **Meta+Alt+]**: Next recent window in focus history.
+  - **Meta+Ctrl+[**: Previous recent window in focus history.
+  - **Meta+Ctrl+]**: Next recent window in focus history.
 - **Multiple Color Modes**:
   - **System Accent Color**: Seamlessly matches your KDE Plasma accent color.
   - **Custom Static Color**: Set any custom color and opacity (e.g. vibrant green, cyan, or neon purple).

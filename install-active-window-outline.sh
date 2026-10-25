@@ -327,6 +327,14 @@ if command -v kreadconfig6 >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/nul
   if [[ "$current_jump_shortcut" == *"Meta+Alt+Space"* ]]; then
     kwriteconfig6 --file kglobalshortcutsrc --group kwin --key "JumpToWindow" "Meta+Space,Meta+Space,KAWO: Jump to Window"
   fi
+  current_prev_shortcut=$(kreadconfig6 --file kglobalshortcutsrc --group kwin --key "PrevRecentWindow" 2>/dev/null || true)
+  if [[ "$current_prev_shortcut" == *"Meta+Alt+["* ]]; then
+    kwriteconfig6 --file kglobalshortcutsrc --group kwin --key "PrevRecentWindow" "Meta+Ctrl+[,Meta+Ctrl+[,KAWO: Previous Recent Window"
+  fi
+  current_next_shortcut=$(kreadconfig6 --file kglobalshortcutsrc --group kwin --key "NextRecentWindow" 2>/dev/null || true)
+  if [[ "$current_next_shortcut" == *"Meta+Alt+]"* ]]; then
+    kwriteconfig6 --file kglobalshortcutsrc --group kwin --key "NextRecentWindow" "Meta+Ctrl+],Meta+Ctrl+],KAWO: Next Recent Window"
+  fi
 fi
 
 if command -v qdbus6 >/dev/null 2>&1; then

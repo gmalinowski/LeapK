@@ -500,8 +500,8 @@ private slots:
         const QString scMark = getGlobalShortcutText(QStringLiteral("MarkActiveWindow"), QStringLiteral("Meta+Ctrl+Space"));
         const QString scMarkColor = getGlobalShortcutText(QStringLiteral("MarkActiveWindowWithColor"), QStringLiteral("Meta+Ctrl+Shift+Space"));
         const QString scToggle = getGlobalShortcutText(QStringLiteral("ToggleActiveWindowOutline"), QStringLiteral("Meta+Ctrl+O"));
-        const QString scPrev = getGlobalShortcutText(QStringLiteral("PrevRecentWindow"), QStringLiteral("Meta+Alt+["));
-        const QString scNext = getGlobalShortcutText(QStringLiteral("NextRecentWindow"), QStringLiteral("Meta+Alt+]"));
+        const QString scPrev = getGlobalShortcutText(QStringLiteral("PrevRecentWindow"), QStringLiteral("Meta+Ctrl+["));
+        const QString scNext = getGlobalShortcutText(QStringLiteral("NextRecentWindow"), QStringLiteral("Meta+Ctrl+]"));
 
         auto formatRow = [this](const QString &sc, const QString &desc) -> QString {
             const QString dispSc = (sc.isEmpty() || sc.compare(QStringLiteral("none"), Qt::CaseInsensitive) == 0)
@@ -718,8 +718,8 @@ private slots:
         const QString scMark = getGlobalShortcutText(QStringLiteral("MarkActiveWindow"), QStringLiteral("Meta+Ctrl+Space"));
         const QString scMarkColor = getGlobalShortcutText(QStringLiteral("MarkActiveWindowWithColor"), QStringLiteral("Meta+Ctrl+Shift+Space"));
         const QString scToggle = getGlobalShortcutText(QStringLiteral("ToggleActiveWindowOutline"), QStringLiteral("Meta+Ctrl+O"));
-        const QString scPrev = getGlobalShortcutText(QStringLiteral("PrevRecentWindow"), QStringLiteral("Meta+Alt+["));
-        const QString scNext = getGlobalShortcutText(QStringLiteral("NextRecentWindow"), QStringLiteral("Meta+Alt+]"));
+        const QString scPrev = getGlobalShortcutText(QStringLiteral("PrevRecentWindow"), QStringLiteral("Meta+Ctrl+["));
+        const QString scNext = getGlobalShortcutText(QStringLiteral("NextRecentWindow"), QStringLiteral("Meta+Ctrl+]"));
 
         auto formatMenuText = [](const QString &label, const QString &sc) -> QString {
             if (sc.isEmpty() || sc.compare(QStringLiteral("none"), Qt::CaseInsensitive) == 0) {
