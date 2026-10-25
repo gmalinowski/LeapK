@@ -265,8 +265,36 @@ fi
 
 echo "[4/5] Installing the KWin effect…"
 run_privileged cmake --install "$build_dir"
+
+# Clean up legacy system launchers from earlier versions
+run_privileged rm -f /usr/share/applications/kleap-settings.desktop \
+                     /usr/share/applications/kleap-tray.desktop \
+                     /usr/share/applications/active-window-outline-settings.desktop \
+                     /usr/share/applications/active-window-outline-tray.desktop \
+                     /usr/local/share/applications/kleap-settings.desktop \
+                     /usr/local/share/applications/kleap-tray.desktop \
+                     /usr/local/share/applications/active-window-outline-settings.desktop \
+                     /usr/local/share/applications/active-window-outline-tray.desktop || true
+
+# Clean up legacy user-level launchers and autostarts
+rm -f "$HOME/.local/share/applications/kleap-settings.desktop" \
+      "$HOME/.local/share/applications/kleap-tray.desktop" \
+      "$HOME/.local/share/applications/active-window-outline-settings.desktop" \
+      "$HOME/.local/share/applications/active-window-outline-tray.desktop" \
+      "$HOME/.config/autostart/kleap-tray.desktop" \
+      "$HOME/.config/autostart/active-window-outline-tray.desktop"
+
+# Install user-level desktop launchers and icons
+mkdir -p "$HOME/.local/share/applications" "$HOME/.local/share/icons/hicolor/scalable/apps"
+cp "$project_dir/leapk-settings.desktop" "$HOME/.local/share/applications/"
+cp "$project_dir/leapk-tray.desktop" "$HOME/.local/share/applications/"
+cp "$project_dir/leapk.svg" "$HOME/.local/share/icons/hicolor/scalable/apps/leapk.svg"
+
+if command -v update-desktop-database >/dev/null 2>&1; then
+  update-desktop-database "$HOME/.local/share/applications" >/dev/null 2>&1 || true
+fi
 if command -v kbuildsycoca6 >/dev/null 2>&1; then
-  kbuildsycoca6
+  kbuildsycoca6 --noincremental >/dev/null 2>&1 || true
 fi
 
 echo "[5/5] Enabling the effect…"
