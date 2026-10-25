@@ -11,6 +11,8 @@
 #include <QPushButton>
 #include <QIcon>
 #include <QLocale>
+#include <QScreen>
+#include <QGuiApplication>
 #include <KPluginMetaData>
 #include "activewindowoutline_config.h"
 
@@ -27,7 +29,11 @@ public:
                                   : QStringLiteral("Active Window Outline — Settings"));
         setWindowIcon(QIcon::fromTheme(QStringLiteral("active-window-outline"),
                                        QIcon(QStringLiteral(":/icons/active-window-outline.svg"))));
-        resize(880, 720);
+        QScreen *screen = QGuiApplication::primaryScreen();
+        const QRect avail = screen ? screen->availableGeometry() : QRect(0, 0, 1920, 1080);
+        const int targetWidth = qBound(640, 880, avail.width() - 40);
+        const int targetHeight = qBound(450, 620, avail.height() - 80);
+        resize(targetWidth, targetHeight);
 
         auto *mainLayout = new QVBoxLayout(this);
         mainLayout->setContentsMargins(10, 10, 10, 10);

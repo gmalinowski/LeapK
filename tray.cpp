@@ -40,8 +40,10 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QVersionNumber>
+#include <QKeySequence>
 #include <KConfigGroup>
 #include <KSharedConfig>
+#include <KGlobalAccel>
 #include "presethelper.h"
 #include "settingsdialog.h"
 #include <iostream>
@@ -182,6 +184,33 @@ QIcon createTrayIconPixmap(bool enabled, const QColor &outlineColor = QColor(61,
     return QIcon(pix);
 }
 
+QString getGlobalShortcutText(const QString &actionId, const QString &defaultShortcut = QString())
+{
+    // 1. Try live KGlobalAccel API
+    const QList<QKeySequence> seqs = KGlobalAccel::self()->globalShortcut(QStringLiteral("kwin"), actionId);
+    if (!seqs.isEmpty() && !seqs.first().isEmpty()) {
+        return seqs.first().toString(QKeySequence::NativeText);
+    }
+
+    // 2. Direct read from kglobalshortcutsrc on disk
+    auto config = KSharedConfig::openConfig(QStringLiteral("kglobalshortcutsrc"));
+    config->reparseConfiguration();
+    KConfigGroup kwinGroup(config, QStringLiteral("kwin"));
+    if (kwinGroup.hasKey(actionId)) {
+        const QString entry = kwinGroup.readEntry(actionId, QString());
+        const QString currentPart = entry.section(QLatin1Char(','), 0, 0).trimmed();
+        if (currentPart.compare(QStringLiteral("none"), Qt::CaseInsensitive) == 0) {
+            return QString();
+        }
+        const QString firstSeq = currentPart.section(QLatin1Char('\t'), 0, 0).trimmed();
+        if (!firstSeq.isEmpty()) {
+            return QKeySequence(firstSeq).toString(QKeySequence::NativeText);
+        }
+    }
+
+    return defaultShortcut;
+}
+
 } // namespace
 
 class OutlineTray : public QObject
@@ -215,13 +244,14 @@ private slots:
     void onToggleOutline()
     {
         if (callDBusMethod(QStringLiteral("toggleOutline"))) {
-            QTimer::singleShot(50, this, &OutlineTray::refreshStateFromConfig);
+            refreshStateFromConfig();
+            QTimer::singleShot(40, this, &OutlineTray::refreshStateFromConfig);
             return;
         }
         // Fallback: invoke shortcut ToggleActiveWindowOutline
         invokeShortcut(QStringLiteral("ToggleActiveWindowOutline"));
         notifyKWinReconfigure();
-        QTimer::singleShot(50, this, &OutlineTray::refreshStateFromConfig);
+        QTimer::singleShot(60, this, &OutlineTray::refreshStateFromConfig);
     }
 
     void onApplyPreset(const QString &presetName)
@@ -466,33 +496,53 @@ private slots:
 
     void onShowShortcutsCheatSheet()
     {
+        const QString scJump = getGlobalShortcutText(QStringLiteral("JumpToWindow"), QStringLiteral("Meta+Space"));
+        const QString scMark = getGlobalShortcutText(QStringLiteral("MarkActiveWindow"), QStringLiteral("Meta+Ctrl+M"));
+        const QString scMarkColor = getGlobalShortcutText(QStringLiteral("MarkActiveWindowWithColor"), QStringLiteral("Meta+Ctrl+Shift+M"));
+        const QString scToggle = getGlobalShortcutText(QStringLiteral("ToggleActiveWindowOutline"), QStringLiteral("Meta+Ctrl+O"));
+        const QString scPrev = getGlobalShortcutText(QStringLiteral("PrevRecentWindow"), QStringLiteral("Meta+Alt+["));
+        const QString scNext = getGlobalShortcutText(QStringLiteral("NextRecentWindow"), QStringLiteral("Meta+Alt+]"));
+
+        auto formatRow = [this](const QString &sc, const QString &desc) -> QString {
+            const QString dispSc = (sc.isEmpty() || sc.compare(QStringLiteral("none"), Qt::CaseInsensitive) == 0)
+                ? (m_isPolish ? QStringLiteral("<i>(brak skrótu)</i>") : QStringLiteral("<i>(none)</i>"))
+                : QStringLiteral("<b><kbd>%1</kbd></b>").arg(sc.toHtmlEscaped());
+            return QStringLiteral("<tr><td style='padding: 4px 12px 4px 0;'>%1</td><td>&nbsp;—&nbsp;</td><td style='padding: 4px 0;'>%2</td></tr>")
+                .arg(dispSc, desc);
+        };
+
+        QString rows;
+        if (m_isPolish) {
+            rows += formatRow(scJump, QStringLiteral("Skocz do okna (Jump Mode z literami)"));
+            rows += formatRow(scMark, QStringLiteral("Oznacz / Odznacz aktywne okno"));
+            rows += formatRow(scMarkColor, QStringLiteral("Oznacz okno z wyborem koloru / litery"));
+            rows += formatRow(scToggle, QStringLiteral("Włącz / Wyłącz aktywny obrys"));
+            rows += formatRow(scPrev, QStringLiteral("Przejdź do poprzedniego okna w historii"));
+            rows += formatRow(scNext, QStringLiteral("Przejdź do następnego okna w historii"));
+        } else {
+            rows += formatRow(scJump, QStringLiteral("Jump to Window (interactive letter jump)"));
+            rows += formatRow(scMark, QStringLiteral("Mark / Unmark Active Window"));
+            rows += formatRow(scMarkColor, QStringLiteral("Mark Window with Color Picker / Letter"));
+            rows += formatRow(scToggle, QStringLiteral("Toggle Active Window Outline on/off"));
+            rows += formatRow(scPrev, QStringLiteral("Navigate to Previous Window in focus history"));
+            rows += formatRow(scNext, QStringLiteral("Navigate to Next Window in focus history"));
+        }
+
         QMessageBox msgBox(nullptr);
         msgBox.setWindowTitle(m_isPolish ? QStringLiteral("Skróty klawiszowe — Active Window Outline")
                                          : QStringLiteral("Keyboard Shortcuts — Active Window Outline"));
         msgBox.setIcon(QMessageBox::Information);
         const QString text = m_isPolish
             ? QStringLiteral(
-                "<h3>⌨️ Dostępne skróty klawiszowe:</h3>"
-                "<table cellpadding='4'>"
-                "<tr><td><b>Meta + Space</b></td><td>&nbsp;—&nbsp;</td><td>Skocz do okna (Jump Mode z literami)</td></tr>"
-                "<tr><td><b>Meta + Ctrl + M</b></td><td>&nbsp;—&nbsp;</td><td>Oznacz / Odznacz aktywne okno</td></tr>"
-                "<tr><td><b>Meta + Ctrl + Shift + M</b></td><td>&nbsp;—&nbsp;</td><td>Oznacz okno z wyborem koloru / litery</td></tr>"
-                "<tr><td><b>Meta + Ctrl + O</b></td><td>&nbsp;—&nbsp;</td><td>Włącz / Wyłącz aktywny obrys</td></tr>"
-                "<tr><td><b>Meta + Alt + [</b></td><td>&nbsp;—&nbsp;</td><td>Przejdź do poprzedniego okna w historii</td></tr>"
-                "<tr><td><b>Meta + Alt + ]</b></td><td>&nbsp;—&nbsp;</td><td>Przejdź do następnego okna w historii</td></tr>"
-                "</table>"
-                "<p><small>Skróty można w pełni dostosować w Ustawieniach systemowych → Skróty → KWin.</small></p>")
+                "<h3>⌨️ Dostępne skróty klawiszowe (zgodne z systemem):</h3>"
+                "<table cellpadding='2' style='border-collapse: collapse;'>%1</table>"
+                "<p><small>Skróty można w pełni dostosować w <i>Ustawienia systemowe → Skróty → KWin</i>.</small></p>")
+                .arg(rows)
             : QStringLiteral(
-                "<h3>⌨️ Available Keyboard Shortcuts:</h3>"
-                "<table cellpadding='4'>"
-                "<tr><td><b>Meta + Space</b></td><td>&nbsp;—&nbsp;</td><td>Jump to Window (interactive letter jump)</td></tr>"
-                "<tr><td><b>Meta + Ctrl + M</b></td><td>&nbsp;—&nbsp;</td><td>Mark / Unmark Active Window</td></tr>"
-                "<tr><td><b>Meta + Ctrl + Shift + M</b></td><td>&nbsp;—&nbsp;</td><td>Mark Window with Color Picker / Letter</td></tr>"
-                "<tr><td><b>Meta + Ctrl + O</b></td><td>&nbsp;—&nbsp;</td><td>Toggle Active Window Outline on/off</td></tr>"
-                "<tr><td><b>Meta + Alt + [</b></td><td>&nbsp;—&nbsp;</td><td>Navigate to Previous Window in focus history</td></tr>"
-                "<tr><td><b>Meta + Alt + ]</b></td><td>&nbsp;—&nbsp;</td><td>Navigate to Next Window in focus history</td></tr>"
-                "</table>"
-                "<p><small>Shortcuts can be customized in System Settings → Shortcuts → KWin.</small></p>");
+                "<h3>⌨️ Available Keyboard Shortcuts (System-synchronized):</h3>"
+                "<table cellpadding='2' style='border-collapse: collapse;'>%1</table>"
+                "<p><small>Shortcuts can be customized in <i>System Settings → Shortcuts → KWin</i>.</small></p>")
+                .arg(rows);
         msgBox.setText(text);
         msgBox.exec();
     }
@@ -640,27 +690,99 @@ private slots:
         }
     }
 
+    bool isOutlineActive() const
+    {
+        QDBusMessage msg = QDBusMessage::createMethodCall(
+            QStringLiteral("org.kde.KWin"),
+            QStringLiteral("/ActiveWindowOutline"),
+            QStringLiteral("org.kde.ActiveWindowOutline"),
+            QStringLiteral("isOutlineEnabled"));
+        QDBusReply<bool> reply = QDBusConnection::sessionBus().call(msg, QDBus::Block, 250);
+        if (reply.isValid()) {
+            return reply.value();
+        }
+
+        auto cfg = KSharedConfig::openConfig(QStringLiteral("kwinrc"));
+        cfg->reparseConfiguration();
+        KConfigGroup group(cfg, QStringLiteral("Effect-active-window-outline"));
+        return group.readEntry(QStringLiteral("OutlineEnabled"), true);
+    }
+
+    void updateShortcutsMenu()
+    {
+        if (!m_menuShortcuts) {
+            return;
+        }
+
+        const QString scJump = getGlobalShortcutText(QStringLiteral("JumpToWindow"), QStringLiteral("Meta+Space"));
+        const QString scMark = getGlobalShortcutText(QStringLiteral("MarkActiveWindow"), QStringLiteral("Meta+Ctrl+M"));
+        const QString scMarkColor = getGlobalShortcutText(QStringLiteral("MarkActiveWindowWithColor"), QStringLiteral("Meta+Ctrl+Shift+M"));
+        const QString scToggle = getGlobalShortcutText(QStringLiteral("ToggleActiveWindowOutline"), QStringLiteral("Meta+Ctrl+O"));
+        const QString scPrev = getGlobalShortcutText(QStringLiteral("PrevRecentWindow"), QStringLiteral("Meta+Alt+["));
+        const QString scNext = getGlobalShortcutText(QStringLiteral("NextRecentWindow"), QStringLiteral("Meta+Alt+]"));
+
+        auto formatMenuText = [](const QString &label, const QString &sc) -> QString {
+            if (sc.isEmpty() || sc.compare(QStringLiteral("none"), Qt::CaseInsensitive) == 0) {
+                return label;
+            }
+            return QStringLiteral("%1\t%2").arg(label, sc);
+        };
+
+        if (m_actJump) {
+            m_actJump->setText(formatMenuText(m_isPolish ? QStringLiteral("🔲 Skocz do okna...") : QStringLiteral("🔲 Jump to Window..."), scJump));
+        }
+        if (m_actMark) {
+            m_actMark->setText(formatMenuText(m_isPolish ? QStringLiteral("🏷️ Oznacz / Odznacz okno") : QStringLiteral("🏷️ Mark / Unmark Window"), scMark));
+        }
+        if (m_actMarkColor) {
+            m_actMarkColor->setText(formatMenuText(m_isPolish ? QStringLiteral("🎨 Oznacz z paletą barw...") : QStringLiteral("🎨 Custom Mark Window..."), scMarkColor));
+        }
+        if (m_actToggle) {
+            m_actToggle->setText(formatMenuText(m_isPolish ? QStringLiteral("🖼️ Włącz / Wyłącz obrys") : QStringLiteral("🖼️ Toggle Outline"), scToggle));
+        }
+        if (m_actPrev) {
+            m_actPrev->setText(formatMenuText(m_isPolish ? QStringLiteral("⏮️ Poprzednie okno w historii") : QStringLiteral("⏮️ Previous Window"), scPrev));
+        }
+        if (m_actNext) {
+            m_actNext->setText(formatMenuText(m_isPolish ? QStringLiteral("⏭️ Następne okno w historii") : QStringLiteral("⏭️ Next Window"), scNext));
+        }
+    }
+
     void refreshStateFromConfig()
     {
-        KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
+        const bool enabled = isOutlineActive();
 
-        const bool enabled = group.readEntry(QStringLiteral("OutlineEnabled"), true);
+        auto cfg = KSharedConfig::openConfig(QStringLiteral("kwinrc"));
+        cfg->reparseConfiguration();
+        KConfigGroup group(cfg, QStringLiteral("Effect-active-window-outline"));
+
         const bool useAccent = group.readEntry(QStringLiteral("UseAccentColor"), true);
         QColor outlineColor = group.readEntry(QStringLiteral("CustomColor"), QColor(QStringLiteral("#3daee9")));
 
         if (useAccent) {
-            KConfigGroup generalGroup(KSharedConfig::openConfig(QStringLiteral("kdeglobals")), QStringLiteral("General"));
+            auto generalCfg = KSharedConfig::openConfig(QStringLiteral("kdeglobals"));
+            generalCfg->reparseConfiguration();
+            KConfigGroup generalGroup(generalCfg, QStringLiteral("General"));
             outlineColor = generalGroup.readEntry(QStringLiteral("AccentColor"), qApp->palette().color(QPalette::Highlight));
         }
         if (!outlineColor.isValid()) {
             outlineColor = QColor(61, 174, 233);
         }
 
+        const QString scToggle = getGlobalShortcutText(QStringLiteral("ToggleActiveWindowOutline"), QStringLiteral("Meta+Ctrl+O"));
+        const QString scSuffix = (scToggle.isEmpty() || scToggle.compare(QStringLiteral("none"), Qt::CaseInsensitive) == 0)
+            ? QString()
+            : QStringLiteral(" (%1)").arg(scToggle);
+
         if (m_actEnable) {
+            const bool wasBlocked = m_actEnable->blockSignals(true);
             m_actEnable->setChecked(enabled);
+            m_actEnable->blockSignals(wasBlocked);
             m_actEnable->setText(enabled
-                ? (m_isPolish ? QStringLiteral("✔ Obrys okna jest włączony (Meta+Ctrl+O)") : QStringLiteral("✔ Outline is Enabled (Meta+Ctrl+O)"))
-                : (m_isPolish ? QStringLiteral("✖ Włącz obrys okna (Meta+Ctrl+O)") : QStringLiteral("✖ Enable Outline (Meta+Ctrl+O)")));
+                ? (m_isPolish ? QStringLiteral("✔ Obrys okna jest włączony%1").arg(scSuffix)
+                              : QStringLiteral("✔ Outline is Enabled%1").arg(scSuffix))
+                : (m_isPolish ? QStringLiteral("✖ Włącz obrys okna%1").arg(scSuffix)
+                              : QStringLiteral("✖ Enable Outline%1").arg(scSuffix)));
         }
 
         m_trayIcon->setIcon(createTrayIconPixmap(enabled, outlineColor));
@@ -672,6 +794,7 @@ private slots:
         m_trayIcon->setToolTip(statusText);
 
         rebuildPresetsMenu();
+        updateShortcutsMenu();
     }
 
 private:
@@ -712,6 +835,7 @@ private:
     {
         m_trayIcon = new QSystemTrayIcon(this);
         m_menu = new QMenu();
+        connect(m_menu, &QMenu::aboutToShow, this, &OutlineTray::refreshStateFromConfig);
 
         // 1. Title / Header
         QAction *actHeader = m_menu->addAction(QStringLiteral("🖼️ Active Window Outline v1.5"));
@@ -736,30 +860,14 @@ private:
 
         // 4. Keyboard Shortcuts Submenu
         m_menuShortcuts = m_menu->addMenu(m_isPolish ? QStringLiteral("⌨️ Skróty klawiszowe") : QStringLiteral("⌨️ Keyboard Shortcuts"));
+        connect(m_menuShortcuts, &QMenu::aboutToShow, this, &OutlineTray::updateShortcutsMenu);
 
-        m_menuShortcuts->addAction(
-            m_isPolish ? QStringLiteral("🔲 Skocz do okna...\tMeta+Space") : QStringLiteral("🔲 Jump to Window...\tMeta+Space"),
-            this, &OutlineTray::onTriggerJumpMode);
-
-        m_menuShortcuts->addAction(
-            m_isPolish ? QStringLiteral("🏷️ Oznacz / Odznacz okno\tMeta+Ctrl+M") : QStringLiteral("🏷️ Mark / Unmark Window\tMeta+Ctrl+M"),
-            this, &OutlineTray::onToggleWindowMark);
-
-        m_menuShortcuts->addAction(
-            m_isPolish ? QStringLiteral("🎨 Oznacz z paletą barw...\tMeta+Ctrl+Shift+M") : QStringLiteral("🎨 Custom Mark Window...\tMeta+Ctrl+Shift+M"),
-            this, &OutlineTray::onMarkWindowWithColor);
-
-        m_menuShortcuts->addAction(
-            m_isPolish ? QStringLiteral("🖼️ Włącz / Wyłącz obrys\tMeta+Ctrl+O") : QStringLiteral("🖼️ Toggle Outline\tMeta+Ctrl+O"),
-            this, &OutlineTray::onToggleOutline);
-
-        m_menuShortcuts->addAction(
-            m_isPolish ? QStringLiteral("⏮️ Poprzednie okno w historii\tMeta+Alt+[") : QStringLiteral("⏮️ Previous Window\tMeta+Alt+["),
-            this, &OutlineTray::onPrevRecentWindow);
-
-        m_menuShortcuts->addAction(
-            m_isPolish ? QStringLiteral("⏭️ Następne okno w historii\tMeta+Alt+]") : QStringLiteral("⏭️ Next Window\tMeta+Alt+]"),
-            this, &OutlineTray::onNextRecentWindow);
+        m_actJump = m_menuShortcuts->addAction(QString(), this, &OutlineTray::onTriggerJumpMode);
+        m_actMark = m_menuShortcuts->addAction(QString(), this, &OutlineTray::onToggleWindowMark);
+        m_actMarkColor = m_menuShortcuts->addAction(QString(), this, &OutlineTray::onMarkWindowWithColor);
+        m_actToggle = m_menuShortcuts->addAction(QString(), this, &OutlineTray::onToggleOutline);
+        m_actPrev = m_menuShortcuts->addAction(QString(), this, &OutlineTray::onPrevRecentWindow);
+        m_actNext = m_menuShortcuts->addAction(QString(), this, &OutlineTray::onNextRecentWindow);
 
         m_menuShortcuts->addSeparator();
 
@@ -782,6 +890,8 @@ private:
 
         m_trayIcon->setContextMenu(m_menu);
         connect(m_trayIcon, &QSystemTrayIcon::activated, this, &OutlineTray::onTrayActivated);
+
+        updateShortcutsMenu();
     }
 
     void rebuildPresetsMenu()
@@ -833,13 +943,25 @@ private:
 
     void initWatcher()
     {
-        const QString configPath = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
-            + QStringLiteral("/kwinrc");
-        if (QFile::exists(configPath)) {
-            m_watcher = new QFileSystemWatcher(this);
-            m_watcher->addPath(configPath);
-            connect(m_watcher, &QFileSystemWatcher::fileChanged, this, &OutlineTray::refreshStateFromConfig);
+        const QString configDir = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
+        m_watcher = new QFileSystemWatcher(this);
+
+        const QString kwinrcPath = configDir + QStringLiteral("/kwinrc");
+        if (QFile::exists(kwinrcPath)) {
+            m_watcher->addPath(kwinrcPath);
         }
+
+        const QString shortcutsPath = configDir + QStringLiteral("/kglobalshortcutsrc");
+        if (QFile::exists(shortcutsPath)) {
+            m_watcher->addPath(shortcutsPath);
+        }
+
+        connect(m_watcher, &QFileSystemWatcher::fileChanged, this, [this](const QString &path) {
+            if (path.endsWith(QStringLiteral("kglobalshortcutsrc"))) {
+                updateShortcutsMenu();
+            }
+            refreshStateFromConfig();
+        });
     }
 
     void connectToDBus()
@@ -859,6 +981,12 @@ private:
     QMenu *m_menuPresets = nullptr;
     QMenu *m_menuShortcuts = nullptr;
     QAction *m_actEnable = nullptr;
+    QAction *m_actJump = nullptr;
+    QAction *m_actMark = nullptr;
+    QAction *m_actMarkColor = nullptr;
+    QAction *m_actToggle = nullptr;
+    QAction *m_actPrev = nullptr;
+    QAction *m_actNext = nullptr;
     QFileSystemWatcher *m_watcher = nullptr;
     QNetworkAccessManager *m_networkManager = nullptr;
     SettingsDialog *m_settingsDialog = nullptr;

@@ -64,6 +64,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Real-time full repaint when stacking order or virtual desktop changes (`stackingOrderChanged`, `desktopChanged`).
 
 ### Changed
+- **Scrollable Settings Dialog & Dynamic Screen Sizing**:
+  - Embedded each configuration tab page inside an independent `QScrollArea` with automatic vertical scrollbars as needed, eliminating dialog height overflow.
+  - Dynamically sized `SettingsDialog` based on primary screen available geometry (`avail.height() - 80`), ensuring dialogs fit comfortably on 1080p, 768p, and high-DPI scaled screens while keeping bottom action buttons (`Ok`, `Apply`, `Cancel`, `Save Preset…`) visible and accessible at all times.
+- **Dynamic Shortcut Synchronization Across Tray & Cheatsheet**:
+  - Live query of active system shortcuts using `KGlobalAccel::globalShortcut` with `kglobalshortcutsrc` disk reparse fallback for all KAWO actions (`JumpToWindow`, `MarkActiveWindow`, `MarkActiveWindowWithColor`, `ToggleActiveWindowOutline`, `PrevRecentWindow`, `NextRecentWindow`).
+  - Dynamically updates tray menu item texts and the interactive Shortcuts Cheat Sheet dialog to reflect whatever key combinations are currently bound in KDE System Settings.
+  - Added filesystem watcher on `kglobalshortcutsrc` for instantaneous updates when shortcuts are changed by the user.
+- **Robust Real-Time Outline State & Tray Icon Synchronization**:
+  - Query live KWin effect outline state directly via D-Bus `isOutlineEnabled()` with `reparseConfiguration()` fallback, fixing an issue where cached `KSharedConfig` state caused the tray icon and menu checkbox to stay static.
+  - Accurately toggles the "Outline is Enabled" checkmark in the tray menu and immediately transitions the tray icon between the glowing neon active state and the dimmed dashed disabled state.
 - **Tray Icon & Launcher Search Refinements**:
   - Removed "Quit Tray" / "Zamknij tackę" from the tray context menu; enabling and disabling the tray is now managed exclusively from Settings.
   - Enhanced tray icon rendering with multi-layer glowing neon halo and vibrant accent outline when enabled, switching to a dimmed dashed outline when disabled.

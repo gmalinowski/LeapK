@@ -41,6 +41,7 @@
 #include <QPixmap>
 #include <QProcess>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QTextBrowser>
 #include <QToolButton>
 #include <QUrl>
@@ -131,6 +132,39 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     , m_ui(new Ui::ActiveWindowOutlineConfigForm)
 {
     m_ui->setupUi(widget());
+
+    // Wrap each tab in a scroll area so large tabs never force the dialog off screen
+    struct TabInfo {
+        QWidget *page;
+        QString text;
+        QIcon icon;
+        QString toolTip;
+    };
+    QList<TabInfo> tabs;
+    for (int i = 0; i < m_ui->tabWidget->count(); ++i) {
+        tabs.append({
+            m_ui->tabWidget->widget(i),
+            m_ui->tabWidget->tabText(i),
+            m_ui->tabWidget->tabIcon(i),
+            m_ui->tabWidget->tabToolTip(i)
+        });
+    }
+    m_ui->tabWidget->clear();
+    for (const auto &t : tabs) {
+        auto *scrollArea = new QScrollArea(m_ui->tabWidget);
+        scrollArea->setWidgetResizable(true);
+        scrollArea->setFrameShape(QFrame::NoFrame);
+        scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        scrollArea->viewport()->setAutoFillBackground(false);
+        scrollArea->setWidget(t.page);
+        const int idx = m_ui->tabWidget->addTab(scrollArea, t.icon, t.text);
+        if (!t.toolTip.isEmpty()) {
+            m_ui->tabWidget->setTabToolTip(idx, t.toolTip);
+        }
+    }
+    m_ui->tabWidget->setCurrentIndex(0);
+
     m_ui->label_versionValue->setText(QStringLiteral(ACTIVE_WINDOW_OUTLINE_VERSION));
 
     m_ui->btnCheckUpdate->setIcon(QIcon::fromTheme(QStringLiteral("system-software-update"),
