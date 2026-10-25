@@ -236,10 +236,21 @@ public:
             key == QStringLiteral("RecentWindowGapGrowth")) {
             return QStringLiteral("%1 px").arg(val.toInt());
         }
-        if (key.endsWith(QStringLiteral("Delay")) || (key.endsWith(QStringLiteral("Duration")) && !val.isDouble())) {
+        if (key.endsWith(QStringLiteral("Delay")) || key == QStringLiteral("FadeDuration")) {
             return QStringLiteral("%1 ms").arg(val.toInt());
         }
+        if (key.endsWith(QStringLiteral("Opacity")) || key.endsWith(QStringLiteral("Intensity")) ||
+            key == QStringLiteral("AmbilightSaturationLeveling") || key == QStringLiteral("AmbilightFallbackStrength") ||
+            key == QStringLiteral("AmbilightMinBrightness") || key == QStringLiteral("AmbilightMaxBrightness")) {
+            return QStringLiteral("%1%").arg(val.toInt());
+        }
         if (val.isDouble()) {
+            if (key == QStringLiteral("BreatheSpeed")) {
+                return QStringLiteral("%1 Hz").arg(val.toDouble(), 0, 'f', 2);
+            }
+            if (key == QStringLiteral("GlitchSpeed")) {
+                return QStringLiteral("%1x").arg(val.toDouble(), 0, 'f', 2);
+            }
             if (key.endsWith(QStringLiteral("Duration")) || key.endsWith(QStringLiteral("Interval")) || key == QStringLiteral("ColorTransitionDuration")) {
                 return QStringLiteral("%1 s").arg(val.toDouble(), 0, 'f', 2);
             }
@@ -247,11 +258,6 @@ public:
                 return QStringLiteral("%1 Hz").arg(val.toDouble(), 0, 'f', 1);
             }
             return QString::number(val.toDouble(), 'g', 3);
-        }
-        if (key.endsWith(QStringLiteral("Opacity")) || key.endsWith(QStringLiteral("Intensity")) ||
-            key == QStringLiteral("AmbilightSaturationLeveling") || key == QStringLiteral("AmbilightFallbackStrength") ||
-            key == QStringLiteral("AmbilightMinBrightness") || key == QStringLiteral("AmbilightMaxBrightness")) {
-            return QStringLiteral("%1%").arg(val.toInt());
         }
         if (val.isString()) {
             const QString s = val.toString();

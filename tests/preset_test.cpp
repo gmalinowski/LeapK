@@ -178,6 +178,210 @@ void testPresetActivationCategories()
     assert(!LeapK::PresetActivationDialog::areValuesEqual(true, false));
 }
 
+void testPresetEditingRenamingAndPersistence()
+{
+    QTemporaryDir tempDir;
+    assert(tempDir.isValid());
+
+    // 1. Create a custom preset
+    OutlinePreset::PresetInfo p;
+    p.name = QStringLiteral("Initial Gaming");
+    p.description = QStringLiteral("First version");
+    p.isBuiltIn = false;
+    p.settings = OutlinePreset::getDefaultSettings();
+    p.settings[QStringLiteral("BorderWidth")] = 6;
+    p.settings[QStringLiteral("CustomColor")] = QStringLiteral("#e74c3c");
+
+    QString err;
+    assert(OutlinePreset::savePreset(tempDir.path(), p, &err));
+
+    auto list = OutlinePreset::loadPresets(tempDir.path());
+    assert(list.size() == 10);
+    assert(list.last().name == QStringLiteral("Initial Gaming"));
+    assert(list.last().description == QStringLiteral("First version"));
+    assert(list.last().settings[QStringLiteral("BorderWidth")].toInt() == 6);
+    const QString filePath = list.last().filePath;
+    assert(!filePath.isEmpty());
+    assert(QFile::exists(filePath));
+
+    // 2. Edit name and description (renaming)
+    const QString oldFilePath = filePath;
+    OutlinePreset::PresetInfo edited = list.last();
+    edited.name = QStringLiteral("Pro Gaming Elite");
+    edited.description = QStringLiteral("Updated description with HDR glow");
+    edited.settings[QStringLiteral("BorderWidth")] = 8;
+    assert(OutlinePreset::savePreset(tempDir.path(), edited, &err));
+
+    // Remove old file upon rename if filename changed
+    if (QFile::exists(oldFilePath)) {
+        QFile::remove(oldFilePath);
+    }
+
+    auto reloaded = OutlinePreset::loadPresets(tempDir.path());
+    assert(reloaded.size() == 10);
+    assert(reloaded.last().name == QStringLiteral("Pro Gaming Elite"));
+    assert(reloaded.last().description == QStringLiteral("Updated description with HDR glow"));
+    assert(reloaded.last().settings[QStringLiteral("BorderWidth")].toInt() == 8);
+
+    // 3. Delete preset file
+    assert(QFile::remove(reloaded.last().filePath));
+    auto afterDelete = OutlinePreset::loadPresets(tempDir.path());
+    assert(afterDelete.size() == 9); // only built-ins remain
+}
+
+void testPresetCorruptedFileHandling()
+{
+    QTemporaryDir tempDir;
+    assert(tempDir.isValid());
+
+    // Corrupted 1: Invalid syntax
+    {
+        QFile f(tempDir.path() + QStringLiteral("/broken1.json"));
+        assert(f.open(QIODevice::WriteOnly));
+        f.write("{ \"name\": \"Broken\", \"settings\": { ");
+    }
+
+    // Corrupted 2: Array root
+    {
+        QFile f(tempDir.path() + QStringLiteral("/broken2.json"));
+        assert(f.open(QIODevice::WriteOnly));
+        f.write("[1, 2, 3]");
+    }
+
+    // Corrupted 3: Empty file
+    {
+        QFile f(tempDir.path() + QStringLiteral("/broken3.json"));
+        assert(f.open(QIODevice::WriteOnly));
+    }
+
+    // loadPresets must safely ignore all 3 corrupted files without crashing
+    auto loaded = OutlinePreset::loadPresets(tempDir.path());
+    assert(loaded.size() == 9);
+
+    // Directly calling parsePresetJson must return false and write error message
+    OutlinePreset::PresetInfo parsed;
+    QString err;
+    assert(!OutlinePreset::parsePresetJson(QByteArray("{ broken }"), parsed, &err));
+    assert(!err.isEmpty());
+    assert(!OutlinePreset::parsePresetJson(QByteArray(), parsed, &err));
+    assert(!OutlinePreset::parsePresetJson(QByteArray("[\"array\"]"), parsed, &err));
+}
+
+void testPresetSelectiveFiltering()
+{
+    const QJsonObject defaults = OutlinePreset::getDefaultSettings();
+    QJsonObject current = defaults;
+    current[QStringLiteral("BorderWidth")] = 2;
+    current[QStringLiteral("CustomColor")] = QStringLiteral("#111111");
+    current[QStringLiteral("GlowEnabled")] = false;
+    current[QStringLiteral("ColorCycleEnabled")] = false;
+
+    OutlinePreset::PresetInfo preset;
+    preset.name = QStringLiteral("Vibrant Preset");
+    preset.settings = defaults;
+    preset.settings[QStringLiteral("BorderWidth")] = 8;
+    preset.settings[QStringLiteral("CustomColor")] = QStringLiteral("#00f0ff");
+    preset.settings[QStringLiteral("GlowEnabled")] = true;
+    preset.settings[QStringLiteral("ColorCycleEnabled")] = true;
+
+    // Simulate selecting only "Borders & Geometry" category keys
+    const auto categories = LeapK::PresetActivationDialog::getCategories();
+    QSet<QString> geometryKeys;
+    for (const auto &item : categories[0].items) {
+        geometryKeys.insert(item.key);
+    }
+    assert(!geometryKeys.isEmpty());
+
+    QJsonObject applied = current;
+    for (const auto &key : geometryKeys) {
+        if (preset.settings.contains(key)) {
+            applied[key] = preset.settings[key];
+        }
+    }
+
+    // Geometry and glow keys must be updated (category 0)
+    assert(applied[QStringLiteral("BorderWidth")].toInt() == 8);
+    assert(applied[QStringLiteral("GlowEnabled")].toBool() == true);
+
+    // Other categories must remain untouched
+    assert(applied[QStringLiteral("CustomColor")].toString() == QStringLiteral("#111111"));
+    assert(applied[QStringLiteral("ColorCycleEnabled")].toBool() == false);
+    assert(applied[QStringLiteral("AmbilightEnabled")].toBool() == false);
+}
+
+void testPresetFormatValueAndAreValuesEqual()
+{
+    using LeapK::PresetActivationDialog;
+
+    // Test areValuesEqual
+    assert(PresetActivationDialog::areValuesEqual(10, 10));
+    assert(!PresetActivationDialog::areValuesEqual(10, 12));
+    assert(PresetActivationDialog::areValuesEqual(2.5, 2.5));
+    assert(!PresetActivationDialog::areValuesEqual(2.5, 2.8));
+    assert(PresetActivationDialog::areValuesEqual(true, true));
+    assert(!PresetActivationDialog::areValuesEqual(true, false));
+
+    // Colors: case-insensitive equality
+    assert(PresetActivationDialog::areValuesEqual(QStringLiteral("#3daee9"), QStringLiteral("#3DAEE9")));
+    assert(!PresetActivationDialog::areValuesEqual(QStringLiteral("#3daee9"), QStringLiteral("#ff0000")));
+
+    // Strings
+    assert(PresetActivationDialog::areValuesEqual(QStringLiteral("Alpha"), QStringLiteral("Alpha")));
+    assert(!PresetActivationDialog::areValuesEqual(QStringLiteral("Alpha"), QStringLiteral("Beta")));
+
+    // Test formatValue (Polish & English)
+    assert(PresetActivationDialog::formatValue(QStringLiteral("BorderWidth"), 3, true) == QStringLiteral("3 px"));
+    assert(PresetActivationDialog::formatValue(QStringLiteral("BorderWidth"), 3, false) == QStringLiteral("3 px"));
+
+    assert(PresetActivationDialog::formatValue(QStringLiteral("FadeDuration"), 250, true) == QStringLiteral("250 ms"));
+    assert(PresetActivationDialog::formatValue(QStringLiteral("FadeDuration"), 250, false) == QStringLiteral("250 ms"));
+
+    assert(PresetActivationDialog::formatValue(QStringLiteral("BreatheSpeed"), 0.5, true) == QStringLiteral("0.50 Hz"));
+    assert(PresetActivationDialog::formatValue(QStringLiteral("GlitchSpeed"), 1.5, true) == QStringLiteral("1.50x"));
+    assert(PresetActivationDialog::formatValue(QStringLiteral("NeonFlickerInterval"), 4.0, true) == QStringLiteral("4.00 s"));
+    assert(PresetActivationDialog::formatValue(QStringLiteral("NeonFlickerIntensity"), 30, true) == QStringLiteral("30%"));
+
+    // Enums
+    assert(!PresetActivationDialog::formatValue(QStringLiteral("BadgeDisplayMode"), 0, true).isEmpty());
+    assert(!PresetActivationDialog::formatValue(QStringLiteral("BadgeDisplayMode"), 1, true).isEmpty());
+    assert(!PresetActivationDialog::formatValue(QStringLiteral("BadgeDisplayMode"), 2, true).isEmpty());
+    assert(!PresetActivationDialog::formatValue(QStringLiteral("BadgePosition"), 1, true).isEmpty());
+    assert(!PresetActivationDialog::formatValue(QStringLiteral("JumpTargets"), 0, true).isEmpty());
+    assert(!PresetActivationDialog::formatValue(QStringLiteral("JumpTargets"), 1, false).isEmpty());
+
+    // Booleans
+    assert(PresetActivationDialog::formatValue(QStringLiteral("GlowEnabled"), true, true) == QStringLiteral("Włączone"));
+    assert(PresetActivationDialog::formatValue(QStringLiteral("GlowEnabled"), false, true) == QStringLiteral("Wyłączone"));
+    assert(PresetActivationDialog::formatValue(QStringLiteral("GlowEnabled"), true, false) == QStringLiteral("Enabled"));
+    assert(PresetActivationDialog::formatValue(QStringLiteral("GlowEnabled"), false, false) == QStringLiteral("Disabled"));
+}
+
+void testAllBuiltInPresetsConsistency()
+{
+    const auto list = OutlinePreset::getBuiltInPresets();
+    const auto categories = LeapK::PresetActivationDialog::getCategories();
+    QSet<QString> validKeys;
+    for (const auto &cat : categories) {
+        for (const auto &item : cat.items) {
+            validKeys.insert(item.key);
+        }
+    }
+
+    for (const auto &p : list) {
+        assert(!p.name.isEmpty());
+        assert(!p.description.isEmpty());
+        assert(p.isBuiltIn == true);
+        assert(!p.settings.isEmpty());
+
+        for (auto it = p.settings.constBegin(); it != p.settings.constEnd(); ++it) {
+            if (!validKeys.contains(it.key())) {
+                std::cerr << "Preset '" << p.name.toStdString() << "' has unregistered key: " << it.key().toStdString() << std::endl;
+                assert(false);
+            }
+        }
+    }
+}
+
 int main(int argc, char *argv[])
 {
     Q_UNUSED(argc);
@@ -188,6 +392,11 @@ int main(int argc, char *argv[])
     testFlatJsonParsing();
     testDirectoryLoadingAndSaving();
     testPresetActivationCategories();
+    testPresetEditingRenamingAndPersistence();
+    testPresetCorruptedFileHandling();
+    testPresetSelectiveFiltering();
+    testPresetFormatValueAndAreValuesEqual();
+    testAllBuiltInPresetsConsistency();
 
     std::cout << "All preset tests passed successfully." << std::endl;
     return 0;

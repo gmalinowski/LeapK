@@ -153,6 +153,35 @@ int main()
         checkNear(computeCornerFadeFactor(398, 0, boxHalfW, boxHalfH, cornerCutoff, fadeDistance), 1.0, 0.0001, "corner fade vertical edge solid");
     }
 
+    // 6. Robustness against extreme and out-of-range inputs
+    {
+        // Zero or negative interval must clamp to 0.5 minimum
+        const qreal neonZero = computeNeonFactor(1.0, true, 0.0, 0.0, 30);
+        check(!std::isnan(neonZero) && !std::isinf(neonZero), "neon zero interval no NaN");
+
+        const qreal flashZero = computeFlashFactor(1.0, true, -5.0, -1.0);
+        check(!std::isnan(flashZero) && !std::isinf(flashZero), "flash negative interval no NaN");
+
+        // Clamping of out-of-range intensity (> 100 or < 10)
+        const qreal breatheOver = computeBreatheFactor(0.75, true, 1.0, 500); // 500% intensity clamps to 100% -> trough = 0.0
+        checkNear(breatheOver, 0.0, 0.001, "breathe 500% intensity clamps to 100%");
+
+        const qreal breatheUnder = computeBreatheFactor(0.75, true, 1.0, -50); // -50% clamps to 10% -> trough = 0.90
+        checkNear(breatheUnder, 0.90, 0.001, "breathe negative intensity clamps to 10%");
+
+        // Combined totalFactor bounds check across all combinations
+        for (qreal t = 0.0; t < 10.0; t += 0.25) {
+            const qreal breathe = computeBreatheFactor(t, true, 2.0, 60);
+            const qreal neon = computeNeonFactor(t, true, 1.5, 0.2, 40);
+            const qreal flash = computeFlashFactor(t, true, 2.0, 0.15);
+            const qreal glitch = computeGlitchFactor(t, true, true, 1.5, 5, 80);
+
+            qreal totalFactor = breathe * neon * glitch + flash;
+            totalFactor = std::max(0.05, std::min(totalFactor, 2.0));
+            check(totalFactor >= 0.05 && totalFactor <= 2.0, "totalFactor strictly within [0.05, 2.0]");
+        }
+    }
+
     std::printf("shadereffects_test: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

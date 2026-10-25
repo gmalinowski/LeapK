@@ -87,6 +87,36 @@ int main()
         check(cmd.contains(QStringLiteral("--pre")), "prerelease command contains --pre flag");
     }
 
+    // 4. Beta and Prerelease Version Parsing
+    {
+        QString betaTag = QStringLiteral("v1.6.0-beta1");
+        if (betaTag.startsWith(QLatin1Char('v'), Qt::CaseInsensitive)) {
+            betaTag.remove(0, 1);
+        }
+        check(betaTag == QStringLiteral("1.6.0-beta1"), "cleaned beta tag");
+        const QVersionNumber vBeta = QVersionNumber::fromString(betaTag);
+        const QVersionNumber vPrev = QVersionNumber(1, 5, 2);
+        check(vBeta > vPrev, "v1.6.0-beta1 > v1.5.2");
+
+        const QVersionNumber vRelease = QVersionNumber(1, 6, 0);
+        check(vRelease >= vBeta, "v1.6.0 >= v1.6.0-beta1");
+    }
+
+    // 5. Malformed GitHub JSON payloads
+    {
+        // Malformed syntax
+        const QJsonDocument docBroken = QJsonDocument::fromJson(QByteArray("{ broken }"));
+        check(docBroken.isNull(), "detect broken json syntax");
+
+        // Object instead of array
+        const QJsonDocument docObj = QJsonDocument::fromJson(QByteArray("{\"message\": \"Not Found\"}"));
+        check(docObj.isObject() && !docObj.isArray(), "detect API error object");
+
+        // Empty array
+        const QJsonDocument docEmpty = QJsonDocument::fromJson(QByteArray("[]"));
+        check(docEmpty.isArray() && docEmpty.array().isEmpty(), "detect empty releases list");
+    }
+
     std::printf("versioncheck_test: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }
