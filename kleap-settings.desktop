@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=KLeap Settings
+Name[pl]=Ustawienia KLeap
+GenericName=Window Navigator & Highlighter
+GenericName[pl]=Nawigator i podświetlanie okien
+Comment=KLeap – Vim-style Window Navigator & Window Highlighter for KDE
+Comment[pl]=KLeap – nawigator okien w stylu Vima i podświetlanie okien dla KDE
+Exec=kleap-settings
+Icon=kleap
+Categories=Settings;DesktopSettings;Qt;KDE;
+StartupNotify=true

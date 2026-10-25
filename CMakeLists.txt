@@ -7,7 +7,7 @@ string(STRIP "${PROJECT_VERSION_STRING}" PROJECT_VERSION_STRING)
 if(NOT PROJECT_VERSION_STRING MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
     message(FATAL_ERROR "VERSION must contain a semantic version such as 1.2.3")
 endif()
-project(active-window-outline VERSION "${PROJECT_VERSION_STRING}")
+project(kleap VERSION "${PROJECT_VERSION_STRING}")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -144,24 +144,24 @@ target_compile_definitions(kwin_active-window-outline_config PRIVATE
 )
 
 # --- Standalone Color Picker helper ---
-add_executable(active-window-outline-colorpicker colorpicker.cpp)
-target_link_libraries(active-window-outline-colorpicker PRIVATE
+add_executable(kleap-colorpicker colorpicker.cpp)
+target_link_libraries(kleap-colorpicker PRIVATE
     Qt6::Widgets
 )
-install(TARGETS active-window-outline-colorpicker
+install(TARGETS kleap-colorpicker
     DESTINATION ${KDE_INSTALL_LIBEXECDIR}
 )
 
 # --- Standalone Tray Companion & Settings GUI ---
-add_executable(active-window-outline-tray
+add_executable(kleap-tray
     tray.cpp
     settingsdialog.cpp
     activewindowoutline_config.cpp
     resources.qrc
     ${CONFIG_UI_SRCS}
 )
-target_include_directories(active-window-outline-tray PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(active-window-outline-tray PRIVATE
+target_include_directories(kleap-tray PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(kleap-tray PRIVATE
     Qt6::Widgets
     Qt6::DBus
     Qt6::Network
@@ -171,19 +171,19 @@ target_link_libraries(active-window-outline-tray PRIVATE
     KF6::KCMUtils
     KF6::GlobalAccel
 )
-target_compile_definitions(active-window-outline-tray PRIVATE
+target_compile_definitions(kleap-tray PRIVATE
     ACTIVE_WINDOW_OUTLINE_VERSION="${PROJECT_VERSION}"
 )
 
-add_executable(active-window-outline-settings
+add_executable(kleap-settings
     settingsmain.cpp
     settingsdialog.cpp
     activewindowoutline_config.cpp
     resources.qrc
     ${CONFIG_UI_SRCS}
 )
-target_include_directories(active-window-outline-settings PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(active-window-outline-settings PRIVATE
+target_include_directories(kleap-settings PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(kleap-settings PRIVATE
     Qt6::Widgets
     Qt6::DBus
     Qt6::Network
@@ -193,18 +193,36 @@ target_link_libraries(active-window-outline-settings PRIVATE
     KF6::KCMUtils
     KF6::GlobalAccel
 )
-target_compile_definitions(active-window-outline-settings PRIVATE
+target_compile_definitions(kleap-settings PRIVATE
     ACTIVE_WINDOW_OUTLINE_VERSION="${PROJECT_VERSION}"
 )
 
-install(TARGETS active-window-outline-tray active-window-outline-settings
+install(TARGETS kleap-tray kleap-settings
     DESTINATION ${KDE_INSTALL_BINDIR}
 )
-install(PROGRAMS active-window-outline-tray.desktop active-window-outline-settings.desktop
+install(PROGRAMS kleap-tray.desktop kleap-settings.desktop
     DESTINATION ${KDE_INSTALL_APPDIR}
 )
-install(FILES active-window-outline.svg
+install(FILES kleap.svg active-window-outline.svg
     DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps
+)
+
+# Backwards compatibility targets / symlinks
+add_custom_target(active-window-outline-tray ALL
+    COMMAND ${CMAKE_COMMAND} -E create_symlink kleap-tray active-window-outline-tray
+    DEPENDS kleap-tray
+)
+add_custom_target(active-window-outline-settings ALL
+    COMMAND ${CMAKE_COMMAND} -E create_symlink kleap-settings active-window-outline-settings
+    DEPENDS kleap-settings
+)
+add_custom_target(active-window-outline-colorpicker ALL
+    COMMAND ${CMAKE_COMMAND} -E create_symlink kleap-colorpicker active-window-outline-colorpicker
+    DEPENDS kleap-colorpicker
+)
+add_custom_target(kleap-cli ALL
+    COMMAND ${CMAKE_COMMAND} -E create_symlink kleap-settings kleap
+    DEPENDS kleap-settings
 )
 
 option(OUTLINE_BUILD_TESTS "Build popup and cursor regression tests" OFF)

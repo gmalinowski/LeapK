@@ -1,8 +1,8 @@
-# KDE / KWin Active Window Outline & Focus Highlight
+# KLeap – Vim-style Window Navigator & Window Highlighter for KDE
 
 A native KWin effect for KDE Plasma 6 that draws a configurable, theme-independent outline and colored border around the active, focused window.
 
-Whether you are using tiling window management (such as Bismuth, Polonium, or Krohnkite), borderless themes, or multi-monitor setups, it can be challenging to see which window currently has keyboard focus. **Active Window Outline** provides a crisp, customizable **focus indicator** and **window highlight** directly at the compositor level—independent of application toolkits (Qt, GTK, Electron), client-side decorations (CSD), or Aurorae themes.
+**KLeap** is a native KWin effect and companion tool for KDE Plasma 6 that combines a Vim-style keyboard window navigator and target jumper with a configurable, theme-independent window highlighter and focus border. Whether you are using tiling window management (such as Bismuth, Polonium, or Krohnkite), borderless themes, or multi-monitor setups, **KLeap** provides lightning-fast window teleportation alongside a crisp, customizable focus indicator directly at the compositor level.
 
 ## Features
 
@@ -146,7 +146,7 @@ curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outli
 curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outline/main/install.sh | bash -s -- --main
 ```
 
-*(You can inspect the scripts before running: [`install.sh`](install.sh) or [`install-active-window-outline.sh`](install-active-window-outline.sh).)*
+*(You can inspect the scripts before running: [`install.sh`](install.sh) or [`install-kleap.sh`](install-kleap.sh).)*
 
 ### Guided installation from local source
 
@@ -154,7 +154,7 @@ Clone the repository or download and extract a [source release](https://github.c
 run this command from the project directory:
 
 ```bash
-bash install-active-window-outline.sh
+bash install-kleap.sh
 ```
 
 The installer detects Debian/Ubuntu (`apt`), Fedora (`dnf`), Arch/CachyOS (`pacman`),
@@ -166,11 +166,11 @@ binary shared across distributions: KWin plugins must match the local KWin ABI.
 For an overview without changing the system, run:
 
 ```bash
-bash install-active-window-outline.sh --dry-run
+bash install-kleap.sh --dry-run
 ```
 
 On another distribution, or when the development dependencies are already
-installed, run `bash install-active-window-outline.sh --skip-deps`. CMake will
+installed, run `bash install-kleap.sh --skip-deps`. CMake will
 report anything still missing. The guided installer currently targets Wayland;
 X11 remains an experimental manual build.
 
@@ -295,15 +295,15 @@ Configure buffering delays and window state handling.
 
 The effect registers global shortcuts with KWin:
 
-- **KAWO: Toggle Active Window Outline** (`Meta+Ctrl+O`): Turn the active window outline on or off at any time.
-- **KAWO: Toggle Mark Window** (`Meta+Ctrl+Space`): Pin or unpin a permanent outline frame on the active window using the default mark color.
-- **KAWO: Mark Window with Color Picker** (`Meta+Ctrl+Shift+Space`): Open the native KDE color palette picker to choose an exact custom color and label for the active window.
+- **KLeap: Toggle Window Highlight** (`Meta+Ctrl+O`): Turn the active window outline on or off at any time.
+- **KLeap: Toggle Mark Window** (`Meta+Ctrl+Space`): Pin or unpin a permanent outline frame on the active window using the default mark color.
+- **KLeap: Mark Window with Color Picker** (`Meta+Ctrl+Shift+Space`): Open the native KDE color palette picker to choose an exact custom color and label for the active window.
 
 ![KWin global shortcut configuration](shortcuts.png)
 
 The shortcuts can be customized or disabled in:
 
-**System Settings → Shortcuts → KWin** (search for `KAWO`)
+**System Settings → Shortcuts → KWin** (search for `KLeap`)
 
 ### Inside and outside drawing
 
@@ -338,7 +338,7 @@ Or when updating from a local clone:
 
 ```bash
 git pull
-bash install-active-window-outline.sh
+bash install-kleap.sh
 ```
 
 After updating a native KWin plugin, log out and back in once so KWin loads the new library from disk.
@@ -354,7 +354,7 @@ curl -sSL https://raw.githubusercontent.com/gmalinowski/kwin-active-window-outli
 ### From local source
 
 ```bash
-bash uninstall-active-window-outline.sh
+bash uninstall-kleap.sh
 ```
 
 The uninstaller disables the effect, removes its two plugin files, clears its KWin settings and shortcut, and refreshes KDE. It does not remove build dependencies, themes, window rules, or the downloaded source directory.

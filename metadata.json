@@ -9,11 +9,11 @@
             }
         ],
         "Category": "Appearance",
-        "Description": "Draws a theme-independent colored outline and focus highlight border around the active window",
+        "Description": "Vim-style Window Navigator & Window Highlighter for KDE",
         "EnabledByDefault": false,
         "Id": "active-window-outline",
         "License": "GPL-3.0-or-later",
-        "Name": "Active Window Outline",
+        "Name": "KLeap",
         "Version": "1.5.0"
     },
     "X-KDE-ConfigModule": "kwin_active-window-outline_config"

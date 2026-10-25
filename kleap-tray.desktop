@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=KLeap Tray
+Comment=Companion tray icon for quick KLeap window navigation and focus controls
+Exec=kleap-tray
+Icon=kleap
+Categories=Utility;KDE;Qt;
+StartupNotify=false
+X-KDE-autostart-phase=2
+NoDisplay=true

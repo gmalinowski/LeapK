@@ -1051,7 +1051,7 @@ void ActiveWindowOutlineConfig::checkForUpdates()
     m_ui->label_updateStatus->setStyleSheet(QString());
 
     QNetworkRequest request(QUrl(QStringLiteral("https://api.github.com/repos/gmalinowski/kwin-active-window-outline/releases")));
-    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("ActiveWindowOutline-KCM"));
+    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("KLeap-KCM"));
     request.setRawHeader("Accept", "application/vnd.github.v3+json");
 
     QNetworkReply *reply = m_networkManager->get(request);
@@ -1107,7 +1107,7 @@ void ActiveWindowOutlineConfig::checkForUpdates()
 
             QMessageBox::information(widget(),
                 QStringLiteral("Plugin Updates"),
-                QStringLiteral("You have the latest version of Active Window Outline installed (v%1).").arg(currentVerStr));
+                QStringLiteral("You have the latest version of KLeap installed (v%1).").arg(currentVerStr));
             return;
         }
 

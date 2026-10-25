@@ -557,6 +557,12 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
     initShortcuts();
 
     QDBusConnection::sessionBus().registerObject(
+        QStringLiteral("/KLeap"),
+        QStringLiteral("org.kde.KLeap"),
+        this,
+        QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals
+    );
+    QDBusConnection::sessionBus().registerObject(
         QStringLiteral("/ActiveWindowOutline"),
         QStringLiteral("org.kde.ActiveWindowOutline"),
         this,
@@ -566,6 +572,7 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
 
 ActiveWindowOutlineEffect::~ActiveWindowOutlineEffect()
 {
+    QDBusConnection::sessionBus().unregisterObject(QStringLiteral("/KLeap"));
     QDBusConnection::sessionBus().unregisterObject(QStringLiteral("/ActiveWindowOutline"));
     if (m_jumpMode) {
         cancelJumpMode();
@@ -605,42 +612,42 @@ void ActiveWindowOutlineEffect::initShortcuts()
 {
     QAction *toggleAction = new QAction(this);
     toggleAction->setObjectName(QStringLiteral("ToggleActiveWindowOutline"));
-    toggleAction->setText(QStringLiteral("KAWO: Toggle Active Window Outline"));
+    toggleAction->setText(QStringLiteral("KLeap: Toggle Window Highlight"));
     KGlobalAccel::self()->setDefaultShortcut(toggleAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_O));
     KGlobalAccel::self()->setGlobalShortcut(toggleAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_O));
     connect(toggleAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotToggleAction);
 
     QAction *markAction = new QAction(this);
     markAction->setObjectName(QStringLiteral("MarkActiveWindow"));
-    markAction->setText(QStringLiteral("KAWO: Toggle Mark Window"));
+    markAction->setText(QStringLiteral("KLeap: Toggle Mark Window"));
     KGlobalAccel::self()->setDefaultShortcut(markAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_Space));
     KGlobalAccel::self()->setGlobalShortcut(markAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_Space));
     connect(markAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotMarkWindowToggle);
 
     QAction *markWithColorAction = new QAction(this);
     markWithColorAction->setObjectName(QStringLiteral("MarkActiveWindowWithColor"));
-    markWithColorAction->setText(QStringLiteral("KAWO: Mark Window with Color Picker"));
+    markWithColorAction->setText(QStringLiteral("KLeap: Mark Window with Color Picker"));
     KGlobalAccel::self()->setDefaultShortcut(markWithColorAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::SHIFT | Qt::Key_Space));
     KGlobalAccel::self()->setGlobalShortcut(markWithColorAction, QKeySequence(Qt::META | Qt::CTRL | Qt::SHIFT | Qt::Key_Space));
     connect(markWithColorAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotMarkWindowWithColor);
 
     QAction *jumpAction = new QAction(this);
     jumpAction->setObjectName(QStringLiteral("JumpToWindow"));
-    jumpAction->setText(QStringLiteral("KAWO: Jump to Window"));
+    jumpAction->setText(QStringLiteral("KLeap: Jump to Window"));
     KGlobalAccel::self()->setDefaultShortcut(jumpAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::Key_Space));
     KGlobalAccel::self()->setGlobalShortcut(jumpAction, QKeySequence(Qt::META | Qt::Key_Space));
     connect(jumpAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotTriggerJumpMode);
 
     QAction *prevRecentAction = new QAction(this);
     prevRecentAction->setObjectName(QStringLiteral("PrevRecentWindow"));
-    prevRecentAction->setText(QStringLiteral("KAWO: Previous Recent Window"));
+    prevRecentAction->setText(QStringLiteral("KLeap: Previous Recent Window"));
     KGlobalAccel::self()->setDefaultShortcut(prevRecentAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_BracketLeft));
     KGlobalAccel::self()->setGlobalShortcut(prevRecentAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_BracketLeft));
     connect(prevRecentAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotPrevRecentWindow);
 
     QAction *nextRecentAction = new QAction(this);
     nextRecentAction->setObjectName(QStringLiteral("NextRecentWindow"));
-    nextRecentAction->setText(QStringLiteral("KAWO: Next Recent Window"));
+    nextRecentAction->setText(QStringLiteral("KLeap: Next Recent Window"));
     KGlobalAccel::self()->setDefaultShortcut(nextRecentAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_BracketRight));
     KGlobalAccel::self()->setGlobalShortcut(nextRecentAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_BracketRight));
     connect(nextRecentAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotNextRecentWindow);
@@ -2238,7 +2245,10 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
                   << QStringLiteral("/usr/local/bin")
                   << QStringLiteral("/usr/bin");
 
-    const QString customPicker = QStandardPaths::findExecutable(QStringLiteral("active-window-outline-colorpicker"), candidateDirs);
+    QString customPicker = QStandardPaths::findExecutable(QStringLiteral("kleap-colorpicker"), candidateDirs);
+    if (customPicker.isEmpty()) {
+        customPicker = QStandardPaths::findExecutable(QStringLiteral("active-window-outline-colorpicker"), candidateDirs);
+    }
     if (!customPicker.isEmpty()) {
         QProcess *process = new QProcess(this);
         connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
