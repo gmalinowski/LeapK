@@ -11,9 +11,9 @@
 void testBuiltInPresets()
 {
     const auto list = OutlinePreset::getBuiltInPresets();
-    assert(list.size() == 5);
+    assert(list.size() == 9);
 
-    // Verify LeapK Default (v1.5)
+    // 1. Verify LeapK Default (v1.5)
     assert(list[0].name == QStringLiteral("LeapK Default (v1.5)"));
     assert(list[0].isBuiltIn == true);
     assert(list[0].settings[QStringLiteral("GlowEnabled")].toBool() == false);
@@ -27,23 +27,50 @@ void testBuiltInPresets()
     assert(list[0].settings[QStringLiteral("MarkInactiveDashed")].toBool() == true);
     assert(list[0].settings[QStringLiteral("MarkInactiveDashSmooth")].toBool() == true);
 
-    // Verify Subtle Minimal
-    assert(list[1].name == QStringLiteral("Subtle Minimal"));
-    assert(list[1].settings[QStringLiteral("BorderWidth")].toInt() == 1);
+    // 2. Verify Vim HUD Navigator
+    assert(list[1].name == QStringLiteral("Vim HUD Navigator"));
+    assert(list[1].settings[QStringLiteral("BadgeDisplayMode")].toInt() == 2);
+    assert(list[1].settings[QStringLiteral("BadgeHudPosition")].toInt() == 0);
+    assert(list[1].settings[QStringLiteral("HighlightRecentWindow")].toBool() == true);
 
-    // Verify Cyberpunk Neon
-    assert(list[2].name == QStringLiteral("Cyberpunk Neon"));
-    assert(list[2].settings[QStringLiteral("GlowEnabled")].toBool() == true);
-    assert(list[2].settings[QStringLiteral("GlitchEnabled")].toBool() == true);
+    // 3. Verify Subtle Minimalist
+    assert(list[2].name == QStringLiteral("Subtle Minimalist"));
+    assert(list[2].settings[QStringLiteral("BorderWidth")].toInt() == 1);
+    assert(list[2].settings[QStringLiteral("FadeDuration")].toInt() == 100);
 
-    // Verify Vim Focus Navigator
-    assert(list[3].name == QStringLiteral("Vim Focus Navigator"));
-    assert(list[3].settings[QStringLiteral("BadgePosition")].toInt() == 1);
-    assert(list[3].settings[QStringLiteral("BadgeDisplayMode")].toInt() == 1);
+    // 4. Verify Nordic Frost & Glow
+    assert(list[3].name == QStringLiteral("Nordic Frost & Glow"));
+    assert(list[3].settings[QStringLiteral("CustomColor")].toString() == QStringLiteral("#88c0d0"));
+    assert(list[3].settings[QStringLiteral("GlowEnabled")].toBool() == true);
+    assert(list[3].settings[QStringLiteral("BreatheEnabled")].toBool() == true);
 
-    // Verify Ambilight Flow
-    assert(list[4].name == QStringLiteral("Ambilight Flow"));
-    assert(list[4].settings[QStringLiteral("AmbilightEnabled")].toBool() == true);
+    // 5. Verify Cyberpunk Neon 2077
+    assert(list[4].name == QStringLiteral("Cyberpunk Neon 2077"));
+    assert(list[4].settings[QStringLiteral("CustomColor")].toString() == QStringLiteral("#00f0ff"));
+    assert(list[4].settings[QStringLiteral("GlowEnabled")].toBool() == true);
+    assert(list[4].settings[QStringLiteral("GlitchEnabled")].toBool() == true);
+    assert(list[4].settings[QStringLiteral("NeonFlickerEnabled")].toBool() == true);
+
+    // 6. Verify Ambilight Dynamic Flow
+    assert(list[5].name == QStringLiteral("Ambilight Dynamic Flow"));
+    assert(list[5].settings[QStringLiteral("AmbilightEnabled")].toBool() == true);
+    assert(list[5].settings[QStringLiteral("GlowEnabled")].toBool() == true);
+
+    // 7. Verify Tiling Matrix Focus Trail
+    assert(list[6].name == QStringLiteral("Tiling Matrix Focus Trail"));
+    assert(list[6].settings[QStringLiteral("CustomColor")].toString() == QStringLiteral("#2ecc71"));
+    assert(list[6].settings[QStringLiteral("HighlightRecentWindow")].toBool() == true);
+    assert(list[6].settings[QStringLiteral("RecentWindowsCount")].toInt() == 3);
+
+    // 8. Verify RGB Chroma Spectrum
+    assert(list[7].name == QStringLiteral("RGB Chroma Spectrum"));
+    assert(list[7].settings[QStringLiteral("ColorCycleEnabled")].toBool() == true);
+
+    // 9. Verify High-Contrast Accessibility
+    assert(list[8].name == QStringLiteral("High-Contrast Accessibility"));
+    assert(list[8].settings[QStringLiteral("BorderWidth")].toInt() == 4);
+    assert(list[8].settings[QStringLiteral("BadgesAlwaysVisible")].toBool() == true);
+    assert(list[8].settings[QStringLiteral("BadgeSize")].toInt() == 34);
 }
 
 void testSerializationAndParsing()

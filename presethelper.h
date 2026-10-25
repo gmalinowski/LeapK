@@ -131,11 +131,34 @@ inline QList<PresetInfo> getBuiltInPresets()
         list.append(p);
     }
 
-    // 2. Subtle Minimal
+    // 2. Vim HUD Navigator
     {
         PresetInfo p;
-        p.name = QStringLiteral("Subtle Minimal");
-        p.description = QStringLiteral("Ultra-thin 1px border, compact 4px rounded corners, fast 100ms fade, no glow or animations.");
+        p.name = QStringLiteral("Vim HUD Navigator");
+        p.description = QStringLiteral("Floating screen HUD hints with window titles and icons, instant letter jumping, and recent focus history trail.");
+        p.isBuiltIn = true;
+        p.settings = getDefaultSettings();
+        p.settings[QStringLiteral("BadgeDisplayMode")] = 2; // Screen HUD Overlay
+        p.settings[QStringLiteral("BadgeHudPosition")] = 0; // Top
+        p.settings[QStringLiteral("BadgeSize")] = 28;
+        p.settings[QStringLiteral("BorderWidth")] = 2;
+        p.settings[QStringLiteral("BorderRadius")] = 6;
+        p.settings[QStringLiteral("AccentOpacity")] = 80;
+        p.settings[QStringLiteral("HighlightRecentWindow")] = true;
+        p.settings[QStringLiteral("RecentWindowsCount")] = 2;
+        p.settings[QStringLiteral("RecentWindowColorMode")] = 0;
+        p.settings[QStringLiteral("RecentWindowOpacity")] = 30;
+        p.settings[QStringLiteral("RecentWindowDashed")] = true;
+        p.settings[QStringLiteral("RecentWindowGapGrowth")] = 6;
+        p.settings[QStringLiteral("RecentWindowDashSmooth")] = true;
+        list.append(p);
+    }
+
+    // 3. Subtle Minimalist
+    {
+        PresetInfo p;
+        p.name = QStringLiteral("Subtle Minimalist");
+        p.description = QStringLiteral("Ultra-thin 1px hairline border, 4px rounded corners, fast 100ms fade, no glow or animations.");
         p.isBuiltIn = true;
         p.settings = getDefaultSettings();
         p.settings[QStringLiteral("BorderWidth")] = 1;
@@ -152,11 +175,32 @@ inline QList<PresetInfo> getBuiltInPresets()
         list.append(p);
     }
 
-    // 3. Cyberpunk Neon
+    // 4. Nordic Frost & Glow
     {
         PresetInfo p;
-        p.name = QStringLiteral("Cyberpunk Neon");
-        p.description = QStringLiteral("Electric cyan outline with glowing edge, glitch anomaly, and neon flickering effects.");
+        p.name = QStringLiteral("Nordic Frost & Glow");
+        p.description = QStringLiteral("Arctic cyan ice border (#88c0d0) with soft outer glow, gentle breathing pulse, and smooth 8px corners.");
+        p.isBuiltIn = true;
+        p.settings = getDefaultSettings();
+        p.settings[QStringLiteral("UseAccentColor")] = false;
+        p.settings[QStringLiteral("CustomColor")] = QStringLiteral("#88c0d0");
+        p.settings[QStringLiteral("BorderWidth")] = 2;
+        p.settings[QStringLiteral("BorderRadius")] = 8;
+        p.settings[QStringLiteral("FadeCorners")] = true;
+        p.settings[QStringLiteral("GlowEnabled")] = true;
+        p.settings[QStringLiteral("GlowRadius")] = 8;
+        p.settings[QStringLiteral("BreatheEnabled")] = true;
+        p.settings[QStringLiteral("BreatheSpeed")] = 0.35;
+        p.settings[QStringLiteral("BreatheIntensity")] = 25;
+        p.settings[QStringLiteral("FadeDuration")] = 250;
+        list.append(p);
+    }
+
+    // 5. Cyberpunk Neon 2077
+    {
+        PresetInfo p;
+        p.name = QStringLiteral("Cyberpunk Neon 2077");
+        p.description = QStringLiteral("Electric cyan outline (#00f0ff) with glowing edge, glitch anomaly, and neon flickering effects.");
         p.isBuiltIn = true;
         p.settings = getDefaultSettings();
         p.settings[QStringLiteral("UseAccentColor")] = false;
@@ -165,7 +209,7 @@ inline QList<PresetInfo> getBuiltInPresets()
         p.settings[QStringLiteral("BorderRadius")] = 2;
         p.settings[QStringLiteral("FadeCorners")] = false;
         p.settings[QStringLiteral("GlowEnabled")] = true;
-        p.settings[QStringLiteral("GlowRadius")] = 12;
+        p.settings[QStringLiteral("GlowRadius")] = 14;
         p.settings[QStringLiteral("GlitchEnabled")] = true;
         p.settings[QStringLiteral("GlitchSpeed")] = 1.5;
         p.settings[QStringLiteral("GlitchIntensity")] = 45;
@@ -178,38 +222,18 @@ inline QList<PresetInfo> getBuiltInPresets()
         list.append(p);
     }
 
-    // 4. Vim Focus Navigator
+    // 6. Ambilight Dynamic Flow
     {
         PresetInfo p;
-        p.name = QStringLiteral("Vim Focus Navigator");
-        p.description = QStringLiteral("High-visibility letter badges always shown at window tops for instant keyboard jumping.");
-        p.isBuiltIn = true;
-        p.settings = getDefaultSettings();
-        p.settings[QStringLiteral("BorderWidth")] = 2;
-        p.settings[QStringLiteral("BorderRadius")] = 4;
-        p.settings[QStringLiteral("AccentOpacity")] = 75;
-        p.settings[QStringLiteral("MarkShowLetterBadges")] = true;
-        p.settings[QStringLiteral("BadgesAlwaysVisible")] = true;
-        p.settings[QStringLiteral("BadgeDisplayMode")] = 1;
-        p.settings[QStringLiteral("BadgePosition")] = 1;
-        p.settings[QStringLiteral("BadgeMargin")] = 0;
-        p.settings[QStringLiteral("BadgeSize")] = 28;
-        p.settings[QStringLiteral("JumpTargets")] = 0;
-        list.append(p);
-    }
-
-    // 5. Ambilight Flow
-    {
-        PresetInfo p;
-        p.name = QStringLiteral("Ambilight Flow");
-        p.description = QStringLiteral("Adaptive edge lighting dynamically sampling window content colors in real time.");
+        p.name = QStringLiteral("Ambilight Dynamic Flow");
+        p.description = QStringLiteral("Adaptive edge lighting dynamically sampling window content colors in real time with soft matching glow.");
         p.isBuiltIn = true;
         p.settings = getDefaultSettings();
         p.settings[QStringLiteral("AmbilightEnabled")] = true;
         p.settings[QStringLiteral("AmbilightMode")] = 0;
         p.settings[QStringLiteral("AmbilightOpacity")] = 100;
-        p.settings[QStringLiteral("AmbilightFrequency")] = 2.5;
-        p.settings[QStringLiteral("AmbilightDuration")] = 0.3;
+        p.settings[QStringLiteral("AmbilightFrequency")] = 3.0;
+        p.settings[QStringLiteral("AmbilightDuration")] = 0.25;
         p.settings[QStringLiteral("AmbilightSaturationLeveling")] = 70;
         p.settings[QStringLiteral("AmbilightFallbackStrength")] = 60;
         p.settings[QStringLiteral("AmbilightMinBrightness")] = 25;
@@ -220,6 +244,72 @@ inline QList<PresetInfo> getBuiltInPresets()
         p.settings[QStringLiteral("FadeCorners")] = true;
         p.settings[QStringLiteral("GlowEnabled")] = true;
         p.settings[QStringLiteral("GlowRadius")] = 8;
+        list.append(p);
+    }
+
+    // 7. Tiling Matrix Focus Trail
+    {
+        PresetInfo p;
+        p.name = QStringLiteral("Tiling Matrix Focus Trail");
+        p.description = QStringLiteral("Designed for tiling window managers with deep focus breadcrumbs: solid active emerald border and dashed previous window trails.");
+        p.isBuiltIn = true;
+        p.settings = getDefaultSettings();
+        p.settings[QStringLiteral("UseAccentColor")] = false;
+        p.settings[QStringLiteral("CustomColor")] = QStringLiteral("#2ecc71");
+        p.settings[QStringLiteral("BorderWidth")] = 2;
+        p.settings[QStringLiteral("BorderRadius")] = 4;
+        p.settings[QStringLiteral("DrawInside")] = true;
+        p.settings[QStringLiteral("HighlightRecentWindow")] = true;
+        p.settings[QStringLiteral("RecentWindowsCount")] = 3;
+        p.settings[QStringLiteral("RecentWindowColorMode")] = 1;
+        p.settings[QStringLiteral("RecentWindowCustomColor")] = QStringLiteral("#27ae60");
+        p.settings[QStringLiteral("RecentWindowOpacity")] = 35;
+        p.settings[QStringLiteral("RecentWindowWidthReduction")] = 1;
+        p.settings[QStringLiteral("RecentWindowDashed")] = true;
+        p.settings[QStringLiteral("RecentWindowGapGrowth")] = 8;
+        p.settings[QStringLiteral("RecentWindowDashSmooth")] = true;
+        p.settings[QStringLiteral("MarkDefaultColor")] = QStringLiteral("#e74c3c");
+        list.append(p);
+    }
+
+    // 8. RGB Chroma Spectrum
+    {
+        PresetInfo p;
+        p.name = QStringLiteral("RGB Chroma Spectrum");
+        p.description = QStringLiteral("Smooth animated chromatic color cycling across vibrant spectrum hues with subtle edge illumination.");
+        p.isBuiltIn = true;
+        p.settings = getDefaultSettings();
+        p.settings[QStringLiteral("ColorCycleEnabled")] = true;
+        p.settings[QStringLiteral("ColorList")] = QStringLiteral("#3daee9:2.5;#9b59b6:2.5;#e74c3c:2.5;#f1c40f:2.5;#2ecc71:2.5");
+        p.settings[QStringLiteral("ColorTransitionDuration")] = 1.5;
+        p.settings[QStringLiteral("BorderWidth")] = 3;
+        p.settings[QStringLiteral("BorderRadius")] = 6;
+        p.settings[QStringLiteral("GlowEnabled")] = true;
+        p.settings[QStringLiteral("GlowRadius")] = 6;
+        list.append(p);
+    }
+
+    // 9. High-Contrast Accessibility
+    {
+        PresetInfo p;
+        p.name = QStringLiteral("High-Contrast Accessibility");
+        p.description = QStringLiteral("Maximum visibility bold 4px amber border (#f39c12) with full opacity, contrast safeguards, and persistent large badges.");
+        p.isBuiltIn = true;
+        p.settings = getDefaultSettings();
+        p.settings[QStringLiteral("UseAccentColor")] = false;
+        p.settings[QStringLiteral("CustomColor")] = QStringLiteral("#f39c12");
+        p.settings[QStringLiteral("AccentOpacity")] = 100;
+        p.settings[QStringLiteral("EnsurePerimeterContrast")] = true;
+        p.settings[QStringLiteral("BorderWidth")] = 4;
+        p.settings[QStringLiteral("BorderRadius")] = 4;
+        p.settings[QStringLiteral("FadeCorners")] = false;
+        p.settings[QStringLiteral("BadgesAlwaysVisible")] = true;
+        p.settings[QStringLiteral("BadgeDisplayMode")] = 1;
+        p.settings[QStringLiteral("BadgePosition")] = 1;
+        p.settings[QStringLiteral("BadgeSize")] = 34;
+        p.settings[QStringLiteral("MarkInactiveWidthReduction")] = 0;
+        p.settings[QStringLiteral("MarkInactiveDashed")] = true;
+        p.settings[QStringLiteral("MarkInactiveDashGap")] = 4;
         list.append(p);
     }
 
