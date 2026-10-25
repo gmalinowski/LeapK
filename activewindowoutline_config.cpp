@@ -7,6 +7,7 @@
 #include "activewindowoutline_config.h"
 #include "ui_activewindowoutline_config.h"
 #include "precedencehelper.h"
+#include "presethelper.h"
 
 #include <KColorScheme>
 #include <KConfigGroup>
@@ -22,9 +23,11 @@
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
+#include <QFileDialog>
 #include <QGuiApplication>
 #include <QHeaderView>
 #include <QIcon>
+#include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -178,14 +181,14 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemBool(QStringLiteral("FadeCorners"), *new bool, true);
     m_configSkeleton->addItemBool(QStringLiteral("DrawInside"), *new bool, true);
     m_configSkeleton->addItemBool(QStringLiteral("SmoothEdges"), *new bool, true);
-    m_configSkeleton->addItemBool(QStringLiteral("GlowEnabled"), *new bool, true);
+    m_configSkeleton->addItemBool(QStringLiteral("GlowEnabled"), *new bool, false);
     m_configSkeleton->addItemInt(QStringLiteral("GlowRadius"), *new int, 6);
     m_configSkeleton->addItemBool(QStringLiteral("HideOnFullScreen"), *new bool, true);
 
     // Tab 4: Behavior & Buffer Delays
     m_configSkeleton->addItemInt(QStringLiteral("FadeDuration"), *new int, 200);
-    m_configSkeleton->addItemInt(QStringLiteral("MenuHideDelay"), *new int, 300);
-    m_configSkeleton->addItemInt(QStringLiteral("MenuShowDelay"), *new int, 300);
+    m_configSkeleton->addItemInt(QStringLiteral("MenuHideDelay"), *new int, 500);
+    m_configSkeleton->addItemInt(QStringLiteral("MenuShowDelay"), *new int, 500);
     m_configSkeleton->addItemInt(QStringLiteral("WindowHideDelay"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("WindowShowDelay"), *new int, 0);
     m_configSkeleton->addItemBool(QStringLiteral("HighlightRecentWindow"), *new bool, false);
@@ -200,18 +203,18 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("RecentWindowGapGrowth"), *new int, 6);
     m_configSkeleton->addItemBool(QStringLiteral("RecentWindowDashSmooth"), *new bool, false);
     m_configSkeleton->addItemColor(QStringLiteral("MarkDefaultColor"), *new QColor, QColor(QStringLiteral("#e74c3c")));
-    m_configSkeleton->addItemBool(QStringLiteral("MarkRandomColor"), *new bool, false);
+    m_configSkeleton->addItemBool(QStringLiteral("MarkRandomColor"), *new bool, true);
     m_configSkeleton->addItemString(QStringLiteral("StylePrecedence"), *new QString, QStringLiteral("Marked,Active,Recent"));
-    m_configSkeleton->addItemInt(QStringLiteral("MarkInactiveWidthReduction"), *new int, 0);
-    m_configSkeleton->addItemBool(QStringLiteral("MarkInactiveDashed"), *new bool, false);
+    m_configSkeleton->addItemInt(QStringLiteral("MarkInactiveWidthReduction"), *new int, 1);
+    m_configSkeleton->addItemBool(QStringLiteral("MarkInactiveDashed"), *new bool, true);
     m_configSkeleton->addItemInt(QStringLiteral("MarkInactiveDashGap"), *new int, 6);
-    m_configSkeleton->addItemBool(QStringLiteral("MarkInactiveDashSmooth"), *new bool, false);
+    m_configSkeleton->addItemBool(QStringLiteral("MarkInactiveDashSmooth"), *new bool, true);
     m_configSkeleton->addItemBool(QStringLiteral("MarkShowLetterBadges"), *new bool, true);
     m_configSkeleton->addItemBool(QStringLiteral("BadgesAlwaysVisible"), *new bool, false);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeDisplayMode"), *new int, 0);
-    m_configSkeleton->addItemInt(QStringLiteral("BadgePosition"), *new int, 0);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgePosition"), *new int, 1);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeSize"), *new int, 28);
-    m_configSkeleton->addItemInt(QStringLiteral("BadgeMargin"), *new int, 12);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeMargin"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("JumpTargets"), *new int, 0);
 
     // Tab 2: Color Cycling
@@ -533,6 +536,21 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
         updatePrecedenceButtons();
         updatePrecedenceExplanation();
         markAsChanged();
+    });
+
+    // Global Save Preset button
+    connect(m_ui->btnSavePresetGlobal, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::createNewPreset);
+
+    // Presets tab controls
+    initPresetsTab();
+    connect(m_ui->btnActivatePreset, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::activateSelectedPreset);
+    connect(m_ui->btnNewPreset, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::createNewPreset);
+    connect(m_ui->btnDuplicatePreset, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::duplicateSelectedPreset);
+    connect(m_ui->btnDeletePreset, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::deleteSelectedPreset);
+    connect(m_ui->btnImportPreset, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::importPreset);
+    connect(m_ui->btnExportPreset, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::exportSelectedPreset);
+    connect(m_ui->tablePresets, &QTableWidget::cellDoubleClicked, this, [this](int, int) {
+        activateSelectedPreset();
     });
 
     load();
@@ -950,10 +968,17 @@ void ActiveWindowOutlineConfig::defaults()
     m_ui->label_borderRadius->setEnabled(!fadeCorners);
     m_ui->kcfg_BorderRadius->setEnabled(!fadeCorners);
     m_ui->kcfg_BadgeDisplayMode->setCurrentIndex(0);
-    m_ui->kcfg_BadgePosition->setCurrentIndex(0);
+    m_ui->kcfg_BadgePosition->setCurrentIndex(1);
     m_ui->kcfg_BadgeSize->setValue(28);
-    m_ui->kcfg_BadgeMargin->setValue(12);
-    m_ui->kcfg_MarkRandomColor->setChecked(false);
+    m_ui->kcfg_BadgeMargin->setValue(0);
+    m_ui->kcfg_MarkRandomColor->setChecked(true);
+    m_ui->kcfg_MarkInactiveWidthReduction->setValue(1);
+    m_ui->kcfg_MarkInactiveDashed->setChecked(true);
+    m_ui->kcfg_MarkInactiveDashSmooth->setChecked(true);
+    m_ui->kcfg_GlowEnabled->setChecked(false);
+    m_ui->kcfg_FadeDuration->setValue(200);
+    m_ui->kcfg_MenuHideDelay->setValue(500);
+    m_ui->kcfg_MenuShowDelay->setValue(500);
     updateRecentWindowUI();
     updateMarkWindowUI();
     markAsChanged();
@@ -1103,6 +1128,514 @@ void ActiveWindowOutlineConfig::checkForUpdates()
         vbox->addLayout(btnLayout);
         dlg.exec();
     });
+}
+
+void ActiveWindowOutlineConfig::initPresetsTab()
+{
+    m_ui->tablePresets->setColumnCount(4);
+    const bool isPolish = (QLocale().language() == QLocale::Polish);
+    m_ui->tablePresets->setHorizontalHeaderLabels({
+        isPolish ? QStringLiteral("Nazwa presetu") : QStringLiteral("Preset Name"),
+        isPolish ? QStringLiteral("Opis") : QStringLiteral("Description"),
+        isPolish ? QStringLiteral("Typ") : QStringLiteral("Type"),
+        isPolish ? QStringLiteral("Eksport") : QStringLiteral("Export")
+    });
+    m_ui->tablePresets->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    m_ui->tablePresets->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    m_ui->tablePresets->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    m_ui->tablePresets->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    m_ui->tablePresets->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_ui->tablePresets->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_ui->tablePresets->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_ui->tablePresets->verticalHeader()->setVisible(false);
+
+    refreshPresetsTable();
+}
+
+void ActiveWindowOutlineConfig::refreshPresetsTable()
+{
+    const QString presetsDir = OutlinePreset::defaultPresetsDirectory();
+    const QList<OutlinePreset::PresetInfo> presets = OutlinePreset::loadPresets(presetsDir);
+
+    m_ui->tablePresets->setRowCount(0);
+    const bool isPolish = (QLocale().language() == QLocale::Polish);
+
+    for (int row = 0; row < presets.size(); ++row) {
+        const auto &p = presets[row];
+        m_ui->tablePresets->insertRow(row);
+
+        auto *item0 = new QTableWidgetItem(p.name);
+        item0->setData(Qt::UserRole, p.name);
+        item0->setData(Qt::UserRole + 1, p.filePath);
+        item0->setData(Qt::UserRole + 2, p.isBuiltIn);
+        QFont f = item0->font();
+        if (p.isBuiltIn) {
+            f.setBold(true);
+        }
+        item0->setFont(f);
+        m_ui->tablePresets->setItem(row, 0, item0);
+
+        auto *item1 = new QTableWidgetItem(p.description);
+        item1->setToolTip(p.description);
+        m_ui->tablePresets->setItem(row, 1, item1);
+
+        QString typeStr;
+        if (p.isBuiltIn) {
+            typeStr = isPolish ? QStringLiteral("Wbudowany") : QStringLiteral("Built-in");
+        } else {
+            typeStr = isPolish ? QStringLiteral("Własny") : QStringLiteral("User");
+        }
+        auto *item2 = new QTableWidgetItem(typeStr);
+        item2->setTextAlignment(Qt::AlignCenter);
+        m_ui->tablePresets->setItem(row, 2, item2);
+
+        QPushButton *btnExport = new QPushButton(QIcon::fromTheme(QStringLiteral("document-export")), isPolish ? QStringLiteral("Eksportuj") : QStringLiteral("Export"));
+        btnExport->setToolTip(isPolish ? QStringLiteral("Eksportuj preset do pliku JSON") : QStringLiteral("Export preset to JSON file"));
+        connect(btnExport, &QPushButton::clicked, this, [this, name = p.name]() {
+            exportPresetByName(name);
+        });
+        m_ui->tablePresets->setCellWidget(row, 3, btnExport);
+    }
+
+    if (m_ui->tablePresets->rowCount() > 0) {
+        m_ui->tablePresets->selectRow(0);
+    }
+}
+
+QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
+{
+    QJsonObject s;
+
+    // General & Appearance
+    s[QStringLiteral("UseAccentColor")] = m_ui->kcfg_UseAccentColor->isChecked();
+    s[QStringLiteral("AccentOpacity")] = m_ui->kcfg_AccentOpacity->value();
+    s[QStringLiteral("CustomColor")] = m_ui->kcfg_CustomColor->color().name(QColor::HexRgb);
+    s[QStringLiteral("EnsurePerimeterContrast")] = m_ui->kcfg_EnsurePerimeterContrast->isChecked();
+    s[QStringLiteral("BorderWidth")] = m_ui->kcfg_BorderWidth->value();
+    s[QStringLiteral("OutlineGap")] = m_ui->kcfg_OutlineGap->value();
+    s[QStringLiteral("BorderRadius")] = m_ui->kcfg_BorderRadius->value();
+    s[QStringLiteral("FadeCorners")] = m_ui->kcfg_FadeCorners->isChecked();
+    s[QStringLiteral("DrawInside")] = m_ui->kcfg_DrawInside->isChecked();
+    s[QStringLiteral("SmoothEdges")] = m_ui->kcfg_SmoothEdges->isChecked();
+    s[QStringLiteral("GlowEnabled")] = m_ui->kcfg_GlowEnabled->isChecked();
+    s[QStringLiteral("GlowRadius")] = m_ui->kcfg_GlowRadius->value();
+    s[QStringLiteral("HideOnFullScreen")] = m_ui->kcfg_HideOnFullScreen->isChecked();
+
+    // Timing & Delays
+    s[QStringLiteral("FadeDuration")] = m_ui->kcfg_FadeDuration->value();
+    s[QStringLiteral("MenuHideDelay")] = m_ui->kcfg_MenuHideDelay->value();
+    s[QStringLiteral("MenuShowDelay")] = m_ui->kcfg_MenuShowDelay->value();
+    s[QStringLiteral("WindowHideDelay")] = m_ui->kcfg_WindowHideDelay->value();
+    s[QStringLiteral("WindowShowDelay")] = m_ui->kcfg_WindowShowDelay->value();
+
+    // Recent Windows
+    s[QStringLiteral("HighlightRecentWindow")] = m_ui->kcfg_HighlightRecentWindow->isChecked();
+    s[QStringLiteral("RecentWindowsCount")] = m_ui->kcfg_RecentWindowsCount->value();
+    s[QStringLiteral("RecentWindowColorMode")] = m_ui->kcfg_RecentWindowColorMode->currentIndex();
+    s[QStringLiteral("RecentWindowCustomColor")] = m_ui->kcfg_RecentWindowCustomColor->color().name(QColor::HexRgb);
+    s[QStringLiteral("RecentWindowOpacity")] = m_ui->kcfg_RecentWindowOpacity->value();
+    s[QStringLiteral("RecentWindowHueShift")] = m_ui->kcfg_RecentWindowHueShift->value();
+    s[QStringLiteral("RecentWindowSaturation")] = m_ui->kcfg_RecentWindowSaturation->value();
+    s[QStringLiteral("RecentWindowWidthReduction")] = m_ui->kcfg_RecentWindowWidthReduction->value();
+    s[QStringLiteral("RecentWindowDashed")] = m_ui->kcfg_RecentWindowDashed->isChecked();
+    s[QStringLiteral("RecentWindowGapGrowth")] = m_ui->kcfg_RecentWindowGapGrowth->value();
+    s[QStringLiteral("RecentWindowDashSmooth")] = m_ui->kcfg_RecentWindowDashSmooth->isChecked();
+
+    // Marked Windows
+    s[QStringLiteral("MarkDefaultColor")] = m_ui->kcfg_MarkDefaultColor->color().name(QColor::HexRgb);
+    s[QStringLiteral("MarkRandomColor")] = m_ui->kcfg_MarkRandomColor->isChecked();
+    s[QStringLiteral("StylePrecedence")] = serializePrecedenceList();
+    s[QStringLiteral("MarkInactiveWidthReduction")] = m_ui->kcfg_MarkInactiveWidthReduction->value();
+    s[QStringLiteral("MarkInactiveDashed")] = m_ui->kcfg_MarkInactiveDashed->isChecked();
+    s[QStringLiteral("MarkInactiveDashGap")] = m_ui->kcfg_MarkInactiveDashGap->value();
+    s[QStringLiteral("MarkInactiveDashSmooth")] = m_ui->kcfg_MarkInactiveDashSmooth->isChecked();
+    const int badgeMode = m_ui->kcfg_BadgeDisplayMode->currentIndex();
+    s[QStringLiteral("BadgeDisplayMode")] = badgeMode;
+    s[QStringLiteral("MarkShowLetterBadges")] = (badgeMode != 2);
+    s[QStringLiteral("BadgesAlwaysVisible")] = (badgeMode == 1);
+    s[QStringLiteral("BadgePosition")] = m_ui->kcfg_BadgePosition->currentIndex();
+    s[QStringLiteral("BadgeSize")] = m_ui->kcfg_BadgeSize->value();
+    s[QStringLiteral("BadgeMargin")] = m_ui->kcfg_BadgeMargin->value();
+    s[QStringLiteral("JumpTargets")] = m_ui->kcfg_JumpTargets->currentIndex();
+
+    // Color Cycling
+    s[QStringLiteral("ColorCycleEnabled")] = m_ui->kcfg_ColorCycleEnabled->isChecked();
+    s[QStringLiteral("ColorTransitionDuration")] = m_ui->kcfg_ColorTransitionDuration->value();
+    s[QStringLiteral("ColorCycleOrder")] = m_ui->kcfg_ColorCycleOrder->currentIndex();
+    s[QStringLiteral("ColorCycleEasing")] = m_ui->kcfg_ColorCycleEasing->currentIndex();
+    s[QStringLiteral("ColorList")] = serializeColorTable();
+
+    // Shader Effects
+    s[QStringLiteral("BreatheEnabled")] = m_ui->kcfg_BreatheEnabled->isChecked();
+    s[QStringLiteral("BreatheSpeed")] = m_ui->kcfg_BreatheSpeed->value();
+    s[QStringLiteral("BreatheIntensity")] = m_ui->kcfg_BreatheIntensity->value();
+    s[QStringLiteral("GlitchEnabled")] = m_ui->kcfg_GlitchEnabled->isChecked();
+    s[QStringLiteral("GlitchSpeed")] = m_ui->kcfg_GlitchSpeed->value();
+    s[QStringLiteral("GlitchIntensity")] = m_ui->kcfg_GlitchIntensity->value();
+    s[QStringLiteral("GlitchAnomalyEnabled")] = m_ui->kcfg_GlitchAnomalyEnabled->isChecked();
+    s[QStringLiteral("GlitchFrequency")] = m_ui->kcfg_GlitchFrequency->value();
+    s[QStringLiteral("NeonFlickerEnabled")] = m_ui->kcfg_NeonFlickerEnabled->isChecked();
+    s[QStringLiteral("NeonFlickerInterval")] = m_ui->kcfg_NeonFlickerInterval->value();
+    s[QStringLiteral("NeonFlickerDuration")] = m_ui->kcfg_NeonFlickerDuration->value();
+    s[QStringLiteral("NeonFlickerIntensity")] = m_ui->kcfg_NeonFlickerIntensity->value();
+    s[QStringLiteral("FlashEnabled")] = m_ui->kcfg_FlashEnabled->isChecked();
+    s[QStringLiteral("FlashInterval")] = m_ui->kcfg_FlashInterval->value();
+    s[QStringLiteral("FlashDuration")] = m_ui->kcfg_FlashDuration->value();
+
+    // Ambilight
+    s[QStringLiteral("AmbilightEnabled")] = m_ui->kcfg_AmbilightEnabled->isChecked();
+    s[QStringLiteral("AmbilightMode")] = m_ui->kcfg_AmbilightMode->currentIndex();
+    s[QStringLiteral("AmbilightOpacity")] = m_ui->kcfg_AmbilightOpacity->value();
+    s[QStringLiteral("AmbilightFrequency")] = m_ui->kcfg_AmbilightFrequency->value();
+    s[QStringLiteral("AmbilightDuration")] = m_ui->kcfg_AmbilightDuration->value();
+    s[QStringLiteral("AmbilightSaturationLeveling")] = m_ui->kcfg_AmbilightSaturationLeveling->value();
+    s[QStringLiteral("AmbilightFallbackStrength")] = m_ui->kcfg_AmbilightFallbackStrength->value();
+    s[QStringLiteral("AmbilightMinBrightness")] = m_ui->kcfg_AmbilightMinBrightness->value();
+    s[QStringLiteral("AmbilightMaxBrightness")] = m_ui->kcfg_AmbilightMaxBrightness->value();
+    s[QStringLiteral("AmbilightEnsureContrast")] = m_ui->kcfg_EnsurePerimeterContrast->isChecked();
+
+    return s;
+}
+
+void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
+{
+    if (s.isEmpty()) {
+        return;
+    }
+
+    // General
+    if (s.contains(QStringLiteral("UseAccentColor"))) m_ui->kcfg_UseAccentColor->setChecked(s[QStringLiteral("UseAccentColor")].toBool());
+    if (s.contains(QStringLiteral("AccentOpacity"))) m_ui->kcfg_AccentOpacity->setValue(s[QStringLiteral("AccentOpacity")].toInt());
+    if (s.contains(QStringLiteral("CustomColor"))) m_ui->kcfg_CustomColor->setColor(QColor(s[QStringLiteral("CustomColor")].toString()));
+    if (s.contains(QStringLiteral("EnsurePerimeterContrast"))) m_ui->kcfg_EnsurePerimeterContrast->setChecked(s[QStringLiteral("EnsurePerimeterContrast")].toBool());
+    if (s.contains(QStringLiteral("BorderWidth"))) m_ui->kcfg_BorderWidth->setValue(s[QStringLiteral("BorderWidth")].toInt());
+    if (s.contains(QStringLiteral("OutlineGap"))) m_ui->kcfg_OutlineGap->setValue(s[QStringLiteral("OutlineGap")].toInt());
+    if (s.contains(QStringLiteral("BorderRadius"))) m_ui->kcfg_BorderRadius->setValue(s[QStringLiteral("BorderRadius")].toInt());
+    if (s.contains(QStringLiteral("FadeCorners"))) m_ui->kcfg_FadeCorners->setChecked(s[QStringLiteral("FadeCorners")].toBool());
+    if (s.contains(QStringLiteral("DrawInside"))) m_ui->kcfg_DrawInside->setChecked(s[QStringLiteral("DrawInside")].toBool());
+    if (s.contains(QStringLiteral("SmoothEdges"))) m_ui->kcfg_SmoothEdges->setChecked(s[QStringLiteral("SmoothEdges")].toBool());
+    if (s.contains(QStringLiteral("GlowEnabled"))) m_ui->kcfg_GlowEnabled->setChecked(s[QStringLiteral("GlowEnabled")].toBool());
+    if (s.contains(QStringLiteral("GlowRadius"))) m_ui->kcfg_GlowRadius->setValue(s[QStringLiteral("GlowRadius")].toInt());
+    if (s.contains(QStringLiteral("HideOnFullScreen"))) m_ui->kcfg_HideOnFullScreen->setChecked(s[QStringLiteral("HideOnFullScreen")].toBool());
+
+    // Delays
+    if (s.contains(QStringLiteral("FadeDuration"))) m_ui->kcfg_FadeDuration->setValue(s[QStringLiteral("FadeDuration")].toInt());
+    if (s.contains(QStringLiteral("MenuHideDelay"))) m_ui->kcfg_MenuHideDelay->setValue(s[QStringLiteral("MenuHideDelay")].toInt());
+    if (s.contains(QStringLiteral("MenuShowDelay"))) m_ui->kcfg_MenuShowDelay->setValue(s[QStringLiteral("MenuShowDelay")].toInt());
+    if (s.contains(QStringLiteral("WindowHideDelay"))) m_ui->kcfg_WindowHideDelay->setValue(s[QStringLiteral("WindowHideDelay")].toInt());
+    if (s.contains(QStringLiteral("WindowShowDelay"))) m_ui->kcfg_WindowShowDelay->setValue(s[QStringLiteral("WindowShowDelay")].toInt());
+
+    // Recent Windows
+    if (s.contains(QStringLiteral("HighlightRecentWindow"))) m_ui->kcfg_HighlightRecentWindow->setChecked(s[QStringLiteral("HighlightRecentWindow")].toBool());
+    if (s.contains(QStringLiteral("RecentWindowsCount"))) m_ui->kcfg_RecentWindowsCount->setValue(s[QStringLiteral("RecentWindowsCount")].toInt());
+    if (s.contains(QStringLiteral("RecentWindowColorMode"))) m_ui->kcfg_RecentWindowColorMode->setCurrentIndex(s[QStringLiteral("RecentWindowColorMode")].toInt());
+    if (s.contains(QStringLiteral("RecentWindowCustomColor"))) m_ui->kcfg_RecentWindowCustomColor->setColor(QColor(s[QStringLiteral("RecentWindowCustomColor")].toString()));
+    if (s.contains(QStringLiteral("RecentWindowOpacity"))) m_ui->kcfg_RecentWindowOpacity->setValue(s[QStringLiteral("RecentWindowOpacity")].toInt());
+    if (s.contains(QStringLiteral("RecentWindowHueShift"))) m_ui->kcfg_RecentWindowHueShift->setValue(s[QStringLiteral("RecentWindowHueShift")].toInt());
+    if (s.contains(QStringLiteral("RecentWindowSaturation"))) m_ui->kcfg_RecentWindowSaturation->setValue(s[QStringLiteral("RecentWindowSaturation")].toInt());
+    if (s.contains(QStringLiteral("RecentWindowWidthReduction"))) m_ui->kcfg_RecentWindowWidthReduction->setValue(s[QStringLiteral("RecentWindowWidthReduction")].toInt());
+    if (s.contains(QStringLiteral("RecentWindowDashed"))) m_ui->kcfg_RecentWindowDashed->setChecked(s[QStringLiteral("RecentWindowDashed")].toBool());
+    if (s.contains(QStringLiteral("RecentWindowGapGrowth"))) m_ui->kcfg_RecentWindowGapGrowth->setValue(s[QStringLiteral("RecentWindowGapGrowth")].toInt());
+    if (s.contains(QStringLiteral("RecentWindowDashSmooth"))) m_ui->kcfg_RecentWindowDashSmooth->setChecked(s[QStringLiteral("RecentWindowDashSmooth")].toBool());
+
+    // Marked Windows
+    if (s.contains(QStringLiteral("MarkDefaultColor"))) m_ui->kcfg_MarkDefaultColor->setColor(QColor(s[QStringLiteral("MarkDefaultColor")].toString()));
+    if (s.contains(QStringLiteral("MarkRandomColor"))) m_ui->kcfg_MarkRandomColor->setChecked(s[QStringLiteral("MarkRandomColor")].toBool());
+    if (s.contains(QStringLiteral("StylePrecedence"))) populatePrecedenceList(s[QStringLiteral("StylePrecedence")].toString());
+    if (s.contains(QStringLiteral("MarkInactiveWidthReduction"))) m_ui->kcfg_MarkInactiveWidthReduction->setValue(s[QStringLiteral("MarkInactiveWidthReduction")].toInt());
+    if (s.contains(QStringLiteral("MarkInactiveDashed"))) m_ui->kcfg_MarkInactiveDashed->setChecked(s[QStringLiteral("MarkInactiveDashed")].toBool());
+    if (s.contains(QStringLiteral("MarkInactiveDashGap"))) m_ui->kcfg_MarkInactiveDashGap->setValue(s[QStringLiteral("MarkInactiveDashGap")].toInt());
+    if (s.contains(QStringLiteral("MarkInactiveDashSmooth"))) m_ui->kcfg_MarkInactiveDashSmooth->setChecked(s[QStringLiteral("MarkInactiveDashSmooth")].toBool());
+    if (s.contains(QStringLiteral("BadgeDisplayMode"))) {
+        m_ui->kcfg_BadgeDisplayMode->setCurrentIndex(s[QStringLiteral("BadgeDisplayMode")].toInt());
+    } else if (s.contains(QStringLiteral("MarkShowLetterBadges")) || s.contains(QStringLiteral("BadgesAlwaysVisible"))) {
+        const bool show = s.value(QStringLiteral("MarkShowLetterBadges")).toBool(true);
+        const bool always = s.value(QStringLiteral("BadgesAlwaysVisible")).toBool(false);
+        m_ui->kcfg_BadgeDisplayMode->setCurrentIndex(!show ? 2 : (always ? 1 : 0));
+    }
+    if (s.contains(QStringLiteral("BadgePosition"))) m_ui->kcfg_BadgePosition->setCurrentIndex(s[QStringLiteral("BadgePosition")].toInt());
+    if (s.contains(QStringLiteral("BadgeSize"))) m_ui->kcfg_BadgeSize->setValue(s[QStringLiteral("BadgeSize")].toInt());
+    if (s.contains(QStringLiteral("BadgeMargin"))) m_ui->kcfg_BadgeMargin->setValue(s[QStringLiteral("BadgeMargin")].toInt());
+    if (s.contains(QStringLiteral("JumpTargets"))) m_ui->kcfg_JumpTargets->setCurrentIndex(s[QStringLiteral("JumpTargets")].toInt());
+
+    // Color Cycling
+    if (s.contains(QStringLiteral("ColorCycleEnabled"))) m_ui->kcfg_ColorCycleEnabled->setChecked(s[QStringLiteral("ColorCycleEnabled")].toBool());
+    if (s.contains(QStringLiteral("ColorTransitionDuration"))) m_ui->kcfg_ColorTransitionDuration->setValue(s[QStringLiteral("ColorTransitionDuration")].toDouble());
+    if (s.contains(QStringLiteral("ColorCycleOrder"))) m_ui->kcfg_ColorCycleOrder->setCurrentIndex(s[QStringLiteral("ColorCycleOrder")].toInt());
+    if (s.contains(QStringLiteral("ColorCycleEasing"))) m_ui->kcfg_ColorCycleEasing->setCurrentIndex(s[QStringLiteral("ColorCycleEasing")].toInt());
+    if (s.contains(QStringLiteral("ColorList"))) populateColorTable(s[QStringLiteral("ColorList")].toString());
+
+    // Shader Effects
+    if (s.contains(QStringLiteral("BreatheEnabled"))) m_ui->kcfg_BreatheEnabled->setChecked(s[QStringLiteral("BreatheEnabled")].toBool());
+    if (s.contains(QStringLiteral("BreatheSpeed"))) m_ui->kcfg_BreatheSpeed->setValue(s[QStringLiteral("BreatheSpeed")].toDouble());
+    if (s.contains(QStringLiteral("BreatheIntensity"))) m_ui->kcfg_BreatheIntensity->setValue(s[QStringLiteral("BreatheIntensity")].toInt());
+    if (s.contains(QStringLiteral("GlitchEnabled"))) m_ui->kcfg_GlitchEnabled->setChecked(s[QStringLiteral("GlitchEnabled")].toBool());
+    if (s.contains(QStringLiteral("GlitchSpeed"))) m_ui->kcfg_GlitchSpeed->setValue(s[QStringLiteral("GlitchSpeed")].toDouble());
+    if (s.contains(QStringLiteral("GlitchIntensity"))) m_ui->kcfg_GlitchIntensity->setValue(s[QStringLiteral("GlitchIntensity")].toInt());
+    if (s.contains(QStringLiteral("GlitchAnomalyEnabled"))) m_ui->kcfg_GlitchAnomalyEnabled->setChecked(s[QStringLiteral("GlitchAnomalyEnabled")].toBool());
+    if (s.contains(QStringLiteral("GlitchFrequency"))) m_ui->kcfg_GlitchFrequency->setValue(s[QStringLiteral("GlitchFrequency")].toInt());
+    if (s.contains(QStringLiteral("NeonFlickerEnabled"))) m_ui->kcfg_NeonFlickerEnabled->setChecked(s[QStringLiteral("NeonFlickerEnabled")].toBool());
+    if (s.contains(QStringLiteral("NeonFlickerInterval"))) m_ui->kcfg_NeonFlickerInterval->setValue(s[QStringLiteral("NeonFlickerInterval")].toDouble());
+    if (s.contains(QStringLiteral("NeonFlickerDuration"))) m_ui->kcfg_NeonFlickerDuration->setValue(s[QStringLiteral("NeonFlickerDuration")].toDouble());
+    if (s.contains(QStringLiteral("NeonFlickerIntensity"))) m_ui->kcfg_NeonFlickerIntensity->setValue(s[QStringLiteral("NeonFlickerIntensity")].toInt());
+    if (s.contains(QStringLiteral("FlashEnabled"))) m_ui->kcfg_FlashEnabled->setChecked(s[QStringLiteral("FlashEnabled")].toBool());
+    if (s.contains(QStringLiteral("FlashInterval"))) m_ui->kcfg_FlashInterval->setValue(s[QStringLiteral("FlashInterval")].toDouble());
+    if (s.contains(QStringLiteral("FlashDuration"))) m_ui->kcfg_FlashDuration->setValue(s[QStringLiteral("FlashDuration")].toDouble());
+
+    // Ambilight
+    if (s.contains(QStringLiteral("AmbilightEnabled"))) m_ui->kcfg_AmbilightEnabled->setChecked(s[QStringLiteral("AmbilightEnabled")].toBool());
+    if (s.contains(QStringLiteral("AmbilightMode"))) m_ui->kcfg_AmbilightMode->setCurrentIndex(s[QStringLiteral("AmbilightMode")].toInt());
+    if (s.contains(QStringLiteral("AmbilightOpacity"))) m_ui->kcfg_AmbilightOpacity->setValue(s[QStringLiteral("AmbilightOpacity")].toInt());
+    if (s.contains(QStringLiteral("AmbilightFrequency"))) m_ui->kcfg_AmbilightFrequency->setValue(s[QStringLiteral("AmbilightFrequency")].toDouble());
+    if (s.contains(QStringLiteral("AmbilightDuration"))) m_ui->kcfg_AmbilightDuration->setValue(s[QStringLiteral("AmbilightDuration")].toDouble());
+    if (s.contains(QStringLiteral("AmbilightSaturationLeveling"))) m_ui->kcfg_AmbilightSaturationLeveling->setValue(s[QStringLiteral("AmbilightSaturationLeveling")].toInt());
+    if (s.contains(QStringLiteral("AmbilightFallbackStrength"))) m_ui->kcfg_AmbilightFallbackStrength->setValue(s[QStringLiteral("AmbilightFallbackStrength")].toInt());
+    if (s.contains(QStringLiteral("AmbilightMinBrightness"))) m_ui->kcfg_AmbilightMinBrightness->setValue(s[QStringLiteral("AmbilightMinBrightness")].toInt());
+    if (s.contains(QStringLiteral("AmbilightMaxBrightness"))) m_ui->kcfg_AmbilightMaxBrightness->setValue(s[QStringLiteral("AmbilightMaxBrightness")].toInt());
+
+    // Refresh UI dependencies
+    const bool fadeCorners = m_ui->kcfg_FadeCorners->isChecked();
+    m_ui->label_borderRadius->setEnabled(!fadeCorners);
+    m_ui->kcfg_BorderRadius->setEnabled(!fadeCorners);
+    updateRecentWindowUI();
+    updateMarkWindowUI();
+    updatePresetSelector();
+    markAsChanged();
+}
+
+void ActiveWindowOutlineConfig::activateSelectedPreset()
+{
+    const int row = m_ui->tablePresets->currentRow();
+    if (row < 0) return;
+
+    const QString presetName = m_ui->tablePresets->item(row, 0)->data(Qt::UserRole).toString();
+    const QString filePath = m_ui->tablePresets->item(row, 0)->data(Qt::UserRole + 1).toString();
+
+    QFile f(filePath);
+    if (!f.open(QIODevice::ReadOnly)) {
+        return;
+    }
+
+    OutlinePreset::PresetInfo p;
+    if (OutlinePreset::parsePresetJson(f.readAll(), p)) {
+        applySettings(p.settings);
+        const bool isPolish = (QLocale().language() == QLocale::Polish);
+        m_ui->labelPresetStatus->setText(isPolish
+            ? QStringLiteral("✅ Aktywowano preset: %1").arg(presetName)
+            : QStringLiteral("✅ Activated preset: %1").arg(presetName));
+        m_ui->labelPresetStatus->setStyleSheet(QStringLiteral("color: #2ecc71; font-weight: bold;"));
+    }
+}
+
+void ActiveWindowOutlineConfig::createNewPreset()
+{
+    const bool isPolish = (QLocale().language() == QLocale::Polish);
+    const QString title = isPolish ? QStringLiteral("Zapisz preset") : QStringLiteral("Save Preset");
+    const QString label = isPolish ? QStringLiteral("Podaj nazwę nowego presetu:") : QStringLiteral("Enter new preset name:");
+
+    bool ok = false;
+    const QString name = QInputDialog::getText(widget(), title, label, QLineEdit::Normal, QStringLiteral("My Preset"), &ok);
+    if (!ok || name.trimmed().isEmpty()) {
+        return;
+    }
+
+    const QString trimmedName = name.trimmed();
+    const QString presetsDir = OutlinePreset::defaultPresetsDirectory();
+
+    OutlinePreset::PresetInfo p;
+    p.name = trimmedName;
+    p.description = isPolish ? QStringLiteral("Własny preset użytkownika") : QStringLiteral("User custom preset");
+    p.isBuiltIn = false;
+    p.settings = collectCurrentSettings();
+
+    QString err;
+    if (!OutlinePreset::savePreset(presetsDir, p, &err)) {
+        QMessageBox::warning(widget(), title, err);
+        return;
+    }
+
+    refreshPresetsTable();
+
+    // Select the newly created preset
+    for (int r = 0; r < m_ui->tablePresets->rowCount(); ++r) {
+        if (m_ui->tablePresets->item(r, 0)->text() == trimmedName) {
+            m_ui->tablePresets->selectRow(r);
+            break;
+        }
+    }
+
+    m_ui->labelPresetStatus->setText(isPolish
+        ? QStringLiteral("✅ Pomyślnie zapisano preset: %1").arg(trimmedName)
+        : QStringLiteral("✅ Preset successfully saved: %1").arg(trimmedName));
+    m_ui->labelPresetStatus->setStyleSheet(QStringLiteral("color: #2ecc71; font-weight: bold;"));
+}
+
+void ActiveWindowOutlineConfig::duplicateSelectedPreset()
+{
+    const int row = m_ui->tablePresets->currentRow();
+    if (row < 0) return;
+
+    const QString originalName = m_ui->tablePresets->item(row, 0)->data(Qt::UserRole).toString();
+    const QString filePath = m_ui->tablePresets->item(row, 0)->data(Qt::UserRole + 1).toString();
+
+    const bool isPolish = (QLocale().language() == QLocale::Polish);
+    const QString title = isPolish ? QStringLiteral("Duplikuj preset") : QStringLiteral("Duplicate Preset");
+    const QString label = isPolish ? QStringLiteral("Podaj nazwę dla duplikatu:") : QStringLiteral("Enter name for duplicate:");
+
+    bool ok = false;
+    const QString newName = QInputDialog::getText(widget(), title, label, QLineEdit::Normal, originalName + QStringLiteral(" Copy"), &ok);
+    if (!ok || newName.trimmed().isEmpty()) {
+        return;
+    }
+
+    QFile f(filePath);
+    if (!f.open(QIODevice::ReadOnly)) {
+        return;
+    }
+
+    OutlinePreset::PresetInfo p;
+    if (OutlinePreset::parsePresetJson(f.readAll(), p)) {
+        p.name = newName.trimmed();
+        p.isBuiltIn = false;
+        OutlinePreset::savePreset(OutlinePreset::defaultPresetsDirectory(), p);
+        refreshPresetsTable();
+
+        for (int r = 0; r < m_ui->tablePresets->rowCount(); ++r) {
+            if (m_ui->tablePresets->item(r, 0)->text() == p.name) {
+                m_ui->tablePresets->selectRow(r);
+                break;
+            }
+        }
+    }
+}
+
+void ActiveWindowOutlineConfig::deleteSelectedPreset()
+{
+    const int row = m_ui->tablePresets->currentRow();
+    if (row < 0) return;
+
+    const QString name = m_ui->tablePresets->item(row, 0)->data(Qt::UserRole).toString();
+    const QString filePath = m_ui->tablePresets->item(row, 0)->data(Qt::UserRole + 1).toString();
+    const bool isBuiltIn = m_ui->tablePresets->item(row, 0)->data(Qt::UserRole + 2).toBool();
+
+    const bool isPolish = (QLocale().language() == QLocale::Polish);
+    const QString title = isPolish ? QStringLiteral("Usuń preset") : QStringLiteral("Delete Preset");
+
+    if (isBuiltIn) {
+        const auto reply = QMessageBox::question(widget(), title,
+            isPolish ? QStringLiteral("Preset '%1' jest presetem wbudowanym. Usunięcie go spowoduje przywrócenie wartości domyślnych przy kolejnym uruchomieniu. Czy na pewno chcesz go usunąć?").arg(name)
+                     : QStringLiteral("Preset '%1' is a built-in preset. Deleting it will restore its defaults on restart. Are you sure?").arg(name),
+            QMessageBox::Yes | QMessageBox::No);
+        if (reply != QMessageBox::Yes) {
+            return;
+        }
+    } else {
+        const auto reply = QMessageBox::question(widget(), title,
+            isPolish ? QStringLiteral("Czy na pewno chcesz usunąć preset '%1'?").arg(name)
+                     : QStringLiteral("Are you sure you want to delete preset '%1'?").arg(name),
+            QMessageBox::Yes | QMessageBox::No);
+        if (reply != QMessageBox::Yes) {
+            return;
+        }
+    }
+
+    QFile::remove(filePath);
+    refreshPresetsTable();
+}
+
+void ActiveWindowOutlineConfig::exportPresetByName(const QString &presetName)
+{
+    const QString presetsDir = OutlinePreset::defaultPresetsDirectory();
+    QString safeName = presetName;
+    safeName.replace(QLatin1Char('/'), QLatin1Char('_'));
+    const QString sourcePath = presetsDir + QStringLiteral("/") + safeName + QStringLiteral(".json");
+
+    QFile f(sourcePath);
+    if (!f.open(QIODevice::ReadOnly)) {
+        return;
+    }
+
+    const QByteArray data = f.readAll();
+    const bool isPolish = (QLocale().language() == QLocale::Polish);
+    const QString title = isPolish ? QStringLiteral("Eksportuj preset") : QStringLiteral("Export Preset");
+    const QString defaultPath = QDir::homePath() + QStringLiteral("/") + safeName + QStringLiteral(".json");
+    const QString filter = isPolish ? QStringLiteral("Pliki presetów JSON (*.json);;Wszystkie pliki (*)") : QStringLiteral("JSON Preset Files (*.json);;All Files (*)");
+
+    const QString targetPath = QFileDialog::getSaveFileName(widget(), title, defaultPath, filter);
+    if (targetPath.isEmpty()) {
+        return;
+    }
+
+    QFile out(targetPath);
+    if (out.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        out.write(data);
+        out.close();
+        QMessageBox::information(widget(), title,
+            isPolish ? QStringLiteral("Preset '%1' został pomyślnie wyeksportowany do:\n%2").arg(presetName, targetPath)
+                     : QStringLiteral("Preset '%1' successfully exported to:\n%2").arg(presetName, targetPath));
+    }
+}
+
+void ActiveWindowOutlineConfig::exportSelectedPreset()
+{
+    const int row = m_ui->tablePresets->currentRow();
+    if (row < 0) return;
+    const QString presetName = m_ui->tablePresets->item(row, 0)->data(Qt::UserRole).toString();
+    exportPresetByName(presetName);
+}
+
+void ActiveWindowOutlineConfig::importPreset()
+{
+    const bool isPolish = (QLocale().language() == QLocale::Polish);
+    const QString title = isPolish ? QStringLiteral("Importuj preset") : QStringLiteral("Import Preset");
+    const QString filter = isPolish ? QStringLiteral("Pliki presetów JSON (*.json);;Wszystkie pliki (*)") : QStringLiteral("JSON Preset Files (*.json);;All Files (*)");
+
+    const QString filePath = QFileDialog::getOpenFileName(widget(), title, QDir::homePath(), filter);
+    if (filePath.isEmpty()) {
+        return;
+    }
+
+    QFile f(filePath);
+    if (!f.open(QIODevice::ReadOnly)) {
+        QMessageBox::warning(widget(), title,
+            isPolish ? QStringLiteral("Nie udało się otworzyć pliku: %1").arg(f.errorString())
+                     : QStringLiteral("Could not open file: %1").arg(f.errorString()));
+        return;
+    }
+
+    OutlinePreset::PresetInfo p;
+    QString err;
+    if (!OutlinePreset::parsePresetJson(f.readAll(), p, &err)) {
+        QMessageBox::warning(widget(), title,
+            isPolish ? QStringLiteral("Nieprawidłowy plik presetu:\n%1").arg(err)
+                     : QStringLiteral("Invalid preset file:\n%1").arg(err));
+        return;
+    }
+
+    if (p.name.isEmpty()) {
+        p.name = QFileInfo(filePath).baseName();
+    }
+    p.isBuiltIn = false;
+
+    const QString presetsDir = OutlinePreset::defaultPresetsDirectory();
+    OutlinePreset::savePreset(presetsDir, p);
+    refreshPresetsTable();
+
+    // Select imported preset
+    for (int r = 0; r < m_ui->tablePresets->rowCount(); ++r) {
+        if (m_ui->tablePresets->item(r, 0)->text() == p.name) {
+            m_ui->tablePresets->selectRow(r);
+            break;
+        }
+    }
+
+    const auto reply = QMessageBox::question(widget(), title,
+        isPolish ? QStringLiteral("Preset '%1' został zaimportowany pomyślnie. Czy chcesz go teraz aktywować?").arg(p.name)
+                 : QStringLiteral("Preset '%1' imported successfully. Do you want to activate it now?").arg(p.name),
+        QMessageBox::Yes | QMessageBox::No);
+    if (reply == QMessageBox::Yes) {
+        applySettings(p.settings);
+    }
 }
 
 void ActiveWindowOutlineConfig::save()

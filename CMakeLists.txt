@@ -203,6 +203,11 @@ if(OUTLINE_BUILD_TESTS)
     target_link_libraries(outline-history-test PRIVATE Qt6::Core)
     add_test(NAME outline-history COMMAND outline-history-test)
 
+    add_executable(outline-preset-test tests/preset_test.cpp)
+    target_include_directories(outline-preset-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-preset-test PRIVATE Qt6::Core)
+    add_test(NAME outline-preset COMMAND outline-preset-test)
+
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
         add_test(NAME outline-config-sync COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/configsync_test.py)

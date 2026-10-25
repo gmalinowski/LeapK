@@ -96,7 +96,7 @@
             <default>true</default>
         </entry>
         <entry name="GlowEnabled" type="Bool">
-            <default>true</default>
+            <default>false</default>
         </entry>
         <entry name="GlowRadius" type="Int">
             <default>6</default>
@@ -114,12 +114,12 @@
             <max>1000</max>
         </entry>
         <entry name="MenuHideDelay" type="Int">
-            <default>300</default>
+            <default>500</default>
             <min>0</min>
             <max>2000</max>
         </entry>
         <entry name="MenuShowDelay" type="Int">
-            <default>300</default>
+            <default>500</default>
             <min>0</min>
             <max>2000</max>
         </entry>
@@ -188,19 +188,19 @@
             <default>#e74c3c</default>
         </entry>
         <entry name="MarkRandomColor" type="Bool">
-            <default>false</default>
+            <default>true</default>
         </entry>
         <!-- Precedence / Priority Settings -->
         <entry name="StylePrecedence" type="String">
             <default>Marked,Active,Recent</default>
         </entry>
         <entry name="MarkInactiveWidthReduction" type="Int">
-            <default>0</default>
+            <default>1</default>
             <min>0</min>
             <max>10</max>
         </entry>
         <entry name="MarkInactiveDashed" type="Bool">
-            <default>false</default>
+            <default>true</default>
         </entry>
         <entry name="MarkInactiveDashGap" type="Int">
             <default>6</default>
@@ -208,7 +208,7 @@
             <max>40</max>
         </entry>
         <entry name="MarkInactiveDashSmooth" type="Bool">
-            <default>false</default>
+            <default>true</default>
         </entry>
         <entry name="MarkShowLetterBadges" type="Bool">
             <default>true</default>
@@ -222,7 +222,7 @@
             <max>2</max>
         </entry>
         <entry name="BadgePosition" type="Int">
-            <default>0</default>
+            <default>1</default>
             <min>0</min>
             <max>8</max>
         </entry>
@@ -232,7 +232,7 @@
             <max>64</max>
         </entry>
         <entry name="BadgeMargin" type="Int">
-            <default>12</default>
+            <default>0</default>
             <min>0</min>
             <max>100</max>
         </entry>

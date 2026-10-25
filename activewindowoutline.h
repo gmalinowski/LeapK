@@ -215,7 +215,7 @@ private:
     bool m_fadeCorners = true;
     bool m_drawInside = true;
     bool m_smoothEdges = true;
-    bool m_glowEnabled = true;
+    bool m_glowEnabled = false;
     int m_glowRadius = 6;
     bool m_outlineEnabled = true;
     bool m_hideOnFullScreen = true;
@@ -261,8 +261,8 @@ private:
 
     // Config - Behavior & Delays
     int m_fadeDuration = 200;
-    int m_menuHideDelay = 300;
-    int m_menuShowDelay = 300;
+    int m_menuHideDelay = 500;
+    int m_menuShowDelay = 500;
     int m_windowHideDelay = 0;
     int m_windowShowDelay = 0;
     bool m_highlightRecentWindow = false;
@@ -279,11 +279,11 @@ private:
 
     // Config - Mark Window
     QColor m_markDefaultColor = QColor(QStringLiteral("#e74c3c"));
-    bool m_markRandomColor = false;
-    int m_markInactiveWidthReduction = 0;
-    bool m_markInactiveDashed = false;
+    bool m_markRandomColor = true;
+    int m_markInactiveWidthReduction = 1;
+    bool m_markInactiveDashed = true;
     int m_markInactiveDashGap = 6;
-    bool m_markInactiveDashSmooth = false;
+    bool m_markInactiveDashSmooth = true;
 
     // Config - Style Precedence
     QStringList m_stylePrecedence = {
@@ -299,9 +299,9 @@ private:
     bool m_markShowLetterBadges = true;
     bool m_badgesAlwaysVisible = false;
     int m_badgeDisplayMode = 0; // 0 = Only during jump, 1 = Always visible, 2 = Disabled
-    int m_badgePosition = 0;    // 0 = TopLeft, 1 = Top, 2 = TopRight, 3 = Left, 4 = Center, 5 = Right, 6 = BottomLeft, 7 = Bottom, 8 = BottomRight
+    int m_badgePosition = 1;    // 0 = TopLeft, 1 = Top, 2 = TopRight, 3 = Left, 4 = Center, 5 = Right, 6 = BottomLeft, 7 = Bottom, 8 = BottomRight
     int m_badgeSize = 28;       // Height in pixels (16 to 64)
-    int m_badgeMargin = 12;     // Margin from window edge in pixels (0 to 100)
+    int m_badgeMargin = 0;      // Margin from window edge in pixels (0 to 100)
 
     // Jump to Window
     bool m_jumpMode = false;

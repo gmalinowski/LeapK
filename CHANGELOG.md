@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.5.0] - 2026-10-25
 
 ### Added
+- **Full Configuration Preset Management System & Presets Tab**:
+  - Added a dedicated **Presets** tab (`tabPresets`) in the configuration module for managing complete outline presets.
+  - Ships with 5 curated built-in presets: `Default (v1.5)`, `Subtle Minimal`, `Cyberpunk Neon`, `Vim Focus Navigator`, and `Ambilight Flow`.
+  - Presets list displays name, description, type (Built-in vs User), and includes an inline **Export** button on each row.
+  - Quick action toolbar: **Activate Preset**, **New Preset…**, **Duplicate…**, **Delete**, **Import Preset…**, and **Export Preset…**.
+  - Double-clicking any preset in the table instantly applies and activates it.
+  - Persistent global **Save Preset…** button (`btnSavePresetGlobal`) placed at the bottom of the configuration dialog, allowing saving current settings as a preset from any tab.
+  - Native JSON serialization (`presethelper.h`) for portable importing and exporting of preset files.
 - **Dedicated "About" Tab in System Settings KCM with Update & Reset Controls**:
   - Moved the "Check for updates" button and status display from the General Appearance tab into a dedicated, clean **About** tab.
   - Added a "Reset to Defaults" button (`btnResetDefaults`) with confirmation dialog to easily restore all effect options, colors, shaders, and shortcuts to their default values.
@@ -40,6 +48,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Real-time full repaint when stacking order or virtual desktop changes (`stackingOrderChanged`, `desktopChanged`).
 
 ### Changed
+- **Updated Default Outline & Marked Settings (v1.5)**:
+  - `MarkRandomColor` is now enabled (`true`) by default to automatically give marked windows distinct colors.
+  - `BadgePosition` default moved to Top (`1`, centered on top edge) and `BadgeMargin` reduced to `0 px`.
+  - Inactive marked windows now default to `MarkInactiveDashed = true`, `MarkInactiveDashSmooth = true`, and a `1 px` border reduction (`MarkInactiveWidthReduction = 1`).
+  - Appearance default: `GlowEnabled` (Soft glow) disabled (`false`) by default for crisp modern lines.
+  - Delay buffers: `MenuHideDelay` and `MenuShowDelay` defaults increased to `500 ms` (from 300 ms).
 - **Default Jump Mode Shortcut Changed to `Meta+Space`**:
   - Replaced `Meta+Alt+Space` with the simpler and standard `Meta+Space` shortcut for triggering modal Jump to Window mode (`JumpToWindow`).
   - The installer automatically migrates existing configurations to `Meta+Space`.

@@ -266,7 +266,7 @@ set_default BorderRadius 6
 set_default FadeCorners true
 set_default DrawInside true
 set_default SmoothEdges true
-set_default GlowEnabled true
+set_default GlowEnabled false
 set_default GlowRadius 6
 set_default HideOnFullScreen true
 set_default ColorCycleEnabled false
@@ -290,8 +290,8 @@ set_default FlashEnabled false
 set_default FlashInterval 4.0
 set_default FlashDuration 0.15
 set_default FadeDuration 200
-set_default MenuHideDelay 300
-set_default MenuShowDelay 300
+set_default MenuHideDelay 500
+set_default MenuShowDelay 500
 set_default WindowHideDelay 0
 set_default WindowShowDelay 0
 set_default HighlightRecentWindow false
@@ -306,18 +306,18 @@ set_default RecentWindowDashed false
 set_default RecentWindowGapGrowth 6
 set_default RecentWindowDashSmooth false
 set_default MarkDefaultColor "231, 76, 60"
-set_default MarkRandomColor false
+set_default MarkRandomColor true
 set_default StylePrecedence "Marked,Active,Recent"
-set_default MarkInactiveWidthReduction 0
-set_default MarkInactiveDashed false
+set_default MarkInactiveWidthReduction 1
+set_default MarkInactiveDashed true
 set_default MarkInactiveDashGap 6
-set_default MarkInactiveDashSmooth false
+set_default MarkInactiveDashSmooth true
 set_default MarkShowLetterBadges true
 set_default BadgesAlwaysVisible false
 set_default BadgeDisplayMode 0
-set_default BadgePosition 0
+set_default BadgePosition 1
 set_default BadgeSize 28
-set_default BadgeMargin 12
+set_default BadgeMargin 0
 set_default JumpTargets 0
 
 if command -v kreadconfig6 >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/null 2>&1; then

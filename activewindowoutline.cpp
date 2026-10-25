@@ -674,7 +674,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_fadeCorners = config.readEntry("FadeCorners", true);
     m_drawInside = config.readEntry("DrawInside", true);
     m_smoothEdges = config.readEntry("SmoothEdges", true);
-    m_glowEnabled = config.readEntry("GlowEnabled", true);
+    m_glowEnabled = config.readEntry("GlowEnabled", false);
     m_glowRadius = qBound(1, config.readEntry("GlowRadius", 6), 30);
     m_hideOnFullScreen = config.readEntry("HideOnFullScreen", true);
 
@@ -704,8 +704,8 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_flashDuration = qBound<qreal>(0.05, config.readEntry("FlashDuration", 0.15), 1.0);
 
     m_fadeDuration = qBound(0, config.readEntry("FadeDuration", 200), 2000);
-    m_menuHideDelay = qBound(0, config.readEntry("MenuHideDelay", 300), 2000);
-    m_menuShowDelay = qBound(0, config.readEntry("MenuShowDelay", 300), 2000);
+    m_menuHideDelay = qBound(0, config.readEntry("MenuHideDelay", 500), 2000);
+    m_menuShowDelay = qBound(0, config.readEntry("MenuShowDelay", 500), 2000);
     m_windowHideDelay = qBound(0, config.readEntry("WindowHideDelay", 0), 2000);
     m_windowShowDelay = qBound(0, config.readEntry("WindowShowDelay", 0), 2000);
     m_highlightRecentWindow = config.readEntry("HighlightRecentWindow", false);
@@ -720,11 +720,11 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_recentWindowGapGrowth = qBound(0, config.readEntry("RecentWindowGapGrowth", 6), 30);
     m_recentWindowDashSmooth = config.readEntry("RecentWindowDashSmooth", false);
     m_markDefaultColor = config.readEntry("MarkDefaultColor", QColor(QStringLiteral("#e74c3c")));
-    m_markRandomColor = config.readEntry("MarkRandomColor", false);
-    m_markInactiveWidthReduction = qBound(0, config.readEntry("MarkInactiveWidthReduction", 0), 10);
-    m_markInactiveDashed = config.readEntry("MarkInactiveDashed", false);
+    m_markRandomColor = config.readEntry("MarkRandomColor", true);
+    m_markInactiveWidthReduction = qBound(0, config.readEntry("MarkInactiveWidthReduction", 1), 10);
+    m_markInactiveDashed = config.readEntry("MarkInactiveDashed", true);
     m_markInactiveDashGap = qBound(1, config.readEntry("MarkInactiveDashGap", 6), 40);
-    m_markInactiveDashSmooth = config.readEntry("MarkInactiveDashSmooth", false);
+    m_markInactiveDashSmooth = config.readEntry("MarkInactiveDashSmooth", true);
     m_stylePrecedence = OutlinePrecedence::parsePrecedence(config.readEntry("StylePrecedence", QStringLiteral("Marked,Active,Recent")));
      m_badgeDisplayMode = qBound(0, config.readEntry("BadgeDisplayMode", 0), 2);
     if (config.hasKey("BadgesAlwaysVisible") && !config.hasKey("BadgeDisplayMode")) {
@@ -736,9 +736,9 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
             m_badgeDisplayMode = 0;
         }
     }
-    m_badgePosition = qBound(0, config.readEntry("BadgePosition", 0), 8);
+    m_badgePosition = qBound(0, config.readEntry("BadgePosition", 1), 8);
     m_badgeSize = qBound(16, config.readEntry("BadgeSize", 28), 64);
-    m_badgeMargin = qBound(0, config.readEntry("BadgeMargin", 12), 100);
+    m_badgeMargin = qBound(0, config.readEntry("BadgeMargin", 0), 100);
     m_markShowLetterBadges = (m_badgeDisplayMode != 2);
     m_badgesAlwaysVisible = (m_badgeDisplayMode == 1);
     m_jumpTargets = qBound(0, config.readEntry("JumpTargets", 0), 2);

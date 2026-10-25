@@ -8,6 +8,7 @@
 
 #include <KCModule>
 #include <QColor>
+#include <QJsonObject>
 
 namespace Ui
 {
@@ -45,6 +46,18 @@ private:
     void updatePrecedenceButtons();
     void movePrecedenceUp();
     void movePrecedenceDown();
+
+    void initPresetsTab();
+    void refreshPresetsTable();
+    void activateSelectedPreset();
+    void createNewPreset();
+    void duplicateSelectedPreset();
+    void deleteSelectedPreset();
+    void exportSelectedPreset();
+    void exportPresetByName(const QString &name);
+    void importPreset();
+    QJsonObject collectCurrentSettings() const;
+    void applySettings(const QJsonObject &settings);
 
     Ui::ActiveWindowOutlineConfigForm *m_ui;
     KConfigSkeleton *m_configSkeleton = nullptr;
