@@ -1245,6 +1245,7 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("GlowEnabled")] = m_ui->kcfg_GlowEnabled->isChecked();
     s[QStringLiteral("GlowRadius")] = m_ui->kcfg_GlowRadius->value();
     s[QStringLiteral("HideOnFullScreen")] = m_ui->kcfg_HideOnFullScreen->isChecked();
+    s[QStringLiteral("TrayIconEnabled")] = m_ui->kcfg_TrayIconEnabled->isChecked();
 
     // Timing & Delays
     s[QStringLiteral("FadeDuration")] = m_ui->kcfg_FadeDuration->value();
@@ -1334,7 +1335,11 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
     if (s.contains(QStringLiteral("UseAccentColor"))) m_ui->kcfg_UseAccentColor->setChecked(s[QStringLiteral("UseAccentColor")].toBool());
     if (s.contains(QStringLiteral("AccentOpacity"))) m_ui->kcfg_AccentOpacity->setValue(s[QStringLiteral("AccentOpacity")].toInt());
     if (s.contains(QStringLiteral("CustomColor"))) m_ui->kcfg_CustomColor->setColor(QColor(s[QStringLiteral("CustomColor")].toString()));
-    if (s.contains(QStringLiteral("EnsurePerimeterContrast"))) m_ui->kcfg_EnsurePerimeterContrast->setChecked(s[QStringLiteral("EnsurePerimeterContrast")].toBool());
+    if (s.contains(QStringLiteral("EnsurePerimeterContrast"))) {
+        m_ui->kcfg_EnsurePerimeterContrast->setChecked(s[QStringLiteral("EnsurePerimeterContrast")].toBool());
+    } else if (s.contains(QStringLiteral("AmbilightEnsureContrast"))) {
+        m_ui->kcfg_EnsurePerimeterContrast->setChecked(s[QStringLiteral("AmbilightEnsureContrast")].toBool());
+    }
     if (s.contains(QStringLiteral("BorderWidth"))) m_ui->kcfg_BorderWidth->setValue(s[QStringLiteral("BorderWidth")].toInt());
     if (s.contains(QStringLiteral("OutlineGap"))) m_ui->kcfg_OutlineGap->setValue(s[QStringLiteral("OutlineGap")].toInt());
     if (s.contains(QStringLiteral("BorderRadius"))) m_ui->kcfg_BorderRadius->setValue(s[QStringLiteral("BorderRadius")].toInt());
@@ -1344,6 +1349,7 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
     if (s.contains(QStringLiteral("GlowEnabled"))) m_ui->kcfg_GlowEnabled->setChecked(s[QStringLiteral("GlowEnabled")].toBool());
     if (s.contains(QStringLiteral("GlowRadius"))) m_ui->kcfg_GlowRadius->setValue(s[QStringLiteral("GlowRadius")].toInt());
     if (s.contains(QStringLiteral("HideOnFullScreen"))) m_ui->kcfg_HideOnFullScreen->setChecked(s[QStringLiteral("HideOnFullScreen")].toBool());
+    if (s.contains(QStringLiteral("TrayIconEnabled"))) m_ui->kcfg_TrayIconEnabled->setChecked(s[QStringLiteral("TrayIconEnabled")].toBool());
 
     // Delays
     if (s.contains(QStringLiteral("FadeDuration"))) m_ui->kcfg_FadeDuration->setValue(s[QStringLiteral("FadeDuration")].toInt());
