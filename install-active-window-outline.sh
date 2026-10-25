@@ -6,7 +6,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: bash install-active-window-outline.sh [--skip-deps] [--dry-run]
+Usage: bash install-kleap.sh [--skip-deps] [--dry-run] [-j|--jobs N]
 
 Build and install the KWin Wayland effect for the KWin version on this system.
 Dependencies are installed automatically on Debian/Ubuntu, Fedora, Arch,
@@ -21,14 +21,53 @@ EOF
 
 skip_deps=false
 dry_run=false
-for arg in "$@"; do
-  case "$arg" in
-    --skip-deps) skip_deps=true ;;
-    --dry-run) dry_run=true ;;
+parallel_jobs="${JOBS:-}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --skip-deps) skip_deps=true; shift ;;
+    --dry-run) dry_run=true; shift ;;
+    -j|--jobs)
+      if [[ $# -lt 2 ]]; then
+        echo "Option $1 requires a numeric argument." >&2; exit 2
+      fi
+      parallel_jobs="$2"
+      shift 2
+      ;;
+    -j*|--jobs=*)
+      parallel_jobs="${1#*=}"
+      if [[ "$1" == -j* && "$1" != --jobs=* ]]; then
+        parallel_jobs="${1#-j}"
+      fi
+      shift
+      ;;
     --help|-h) usage; exit 0 ;;
-    *) echo "Unknown option: $arg" >&2; usage >&2; exit 2 ;;
+    *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
 done
+
+if [[ -z "$parallel_jobs" || ! "$parallel_jobs" =~ ^[0-9]+$ || "$parallel_jobs" -lt 1 ]]; then
+  cpus="$(nproc 2>/dev/null || echo 2)"
+  mem_kb="$(awk '/MemAvailable/ {print $2}' /proc/meminfo 2>/dev/null || true)"
+  if [[ -z "$mem_kb" ]]; then
+    mem_kb="$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null || true)"
+  fi
+
+  # Heavy C++20 / Qt6 / KWin headers require ~1.5 - 2.0 GB RAM per parallel compiler job.
+  mem_jobs=2
+  if [[ -n "$mem_kb" && "$mem_kb" -gt 0 ]]; then
+    mem_gb=$(( mem_kb / 1024 / 1024 ))
+    mem_jobs=$(( mem_gb / 2 ))
+  fi
+  (( mem_jobs < 1 )) && mem_jobs=1
+
+  safe_jobs=$cpus
+  (( safe_jobs > mem_jobs )) && safe_jobs=$mem_jobs
+  # Cap at reasonable max (4) to prevent memory spikes on zero-swap or multi-core laptops
+  (( safe_jobs > 4 )) && safe_jobs=4
+  (( safe_jobs < 1 )) && safe_jobs=1
+  parallel_jobs="$safe_jobs"
+fi
 
 if (( EUID == 0 )); then
   echo "Run this installer as your normal desktop user, not as root." >&2
@@ -202,11 +241,11 @@ fi
 build_dir="$(mktemp -d /tmp/active-window-outline-build.XXXXXX)"
 trap 'cmake -E remove_directory "$build_dir"' EXIT
 
-echo "[2/5] Building Active Window Outline…"
+echo "[2/5] Building KLeap (using $parallel_jobs parallel jobs)…"
 cmake -S "$project_dir" -B "$build_dir" \
   -DKWIN_BACKEND=WAYLAND \
   -DCMAKE_BUILD_TYPE=Release
-cmake --build "$build_dir" --parallel "$(nproc)"
+cmake --build "$build_dir" --parallel "$parallel_jobs"
 
 effect_binary="$build_dir/lib/kwin/effects/plugins/active-window-outline.so"
 plugin_info="$("$plugin_info_tool" "$effect_binary" 2>&1 || true)"

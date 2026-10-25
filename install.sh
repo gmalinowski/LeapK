@@ -30,6 +30,14 @@ while [[ $# -gt 0 ]]; do
       target_ref="${1#*=}"
       shift
       ;;
+    -j|--jobs)
+      if [[ $# -lt 2 ]]; then
+        echo "Option $1 requires an argument." >&2
+        exit 2
+      fi
+      forward_args+=("$1" "$2")
+      shift 2
+      ;;
     *)
       forward_args+=("$1")
       shift
