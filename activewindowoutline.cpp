@@ -613,15 +613,15 @@ void ActiveWindowOutlineEffect::initShortcuts()
     QAction *markAction = new QAction(this);
     markAction->setObjectName(QStringLiteral("MarkActiveWindow"));
     markAction->setText(QStringLiteral("KAWO: Toggle Mark Window"));
-    KGlobalAccel::self()->setDefaultShortcut(markAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_M));
-    KGlobalAccel::self()->setGlobalShortcut(markAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_M));
+    KGlobalAccel::self()->setDefaultShortcut(markAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_Space));
+    KGlobalAccel::self()->setGlobalShortcut(markAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_Space));
     connect(markAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotMarkWindowToggle);
 
     QAction *markWithColorAction = new QAction(this);
     markWithColorAction->setObjectName(QStringLiteral("MarkActiveWindowWithColor"));
     markWithColorAction->setText(QStringLiteral("KAWO: Mark Window with Color Picker"));
-    KGlobalAccel::self()->setDefaultShortcut(markWithColorAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::SHIFT | Qt::Key_M));
-    KGlobalAccel::self()->setGlobalShortcut(markWithColorAction, QKeySequence(Qt::META | Qt::CTRL | Qt::SHIFT | Qt::Key_M));
+    KGlobalAccel::self()->setDefaultShortcut(markWithColorAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::SHIFT | Qt::Key_Space));
+    KGlobalAccel::self()->setGlobalShortcut(markWithColorAction, QKeySequence(Qt::META | Qt::CTRL | Qt::SHIFT | Qt::Key_Space));
     connect(markWithColorAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotMarkWindowWithColor);
 
     QAction *jumpAction = new QAction(this);

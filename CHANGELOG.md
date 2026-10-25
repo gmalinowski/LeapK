@@ -70,6 +70,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Real-time full repaint when stacking order or virtual desktop changes (`stackingOrderChanged`, `desktopChanged`).
 
 ### Changed
+- **Ergonomic Space-based Default Shortcuts for Window Marking**:
+  - Changed default toggle mark window shortcut from `Meta+Ctrl+M` to `Meta+Ctrl+Space`.
+  - Changed default custom mark window shortcut from `Meta+Ctrl+Shift+M` to `Meta+Ctrl+Shift+Space`.
+  - Conveniently unifies all window navigation and marking operations around the `Space` key: Jump to Window (`Meta+Space`), Toggle Mark Window (`Meta+Ctrl+Space`), and Custom Mark Window (`Meta+Ctrl+Shift+Space`).
 - **Scrollable Settings Dialog & Dynamic Screen Sizing**:
   - Embedded each configuration tab page inside an independent `QScrollArea` with automatic vertical scrollbars as needed, eliminating dialog height overflow.
   - Dynamically sized `SettingsDialog` based on primary screen available geometry (`avail.height() - 80`), ensuring dialogs fit comfortably on 1080p, 768p, and high-DPI scaled screens while keeping bottom action buttons (`Ok`, `Apply`, `Cancel`, `Save Preset…`) visible and accessible at all times.

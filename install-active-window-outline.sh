@@ -356,7 +356,7 @@ echo "Done. Active Window Outline v$version has been installed."
 echo "Configure it in System Settings → Desktop Effects → Active Window Outline."
 echo "Toggle outline shortcut: Meta+Ctrl+O (configurable in System Settings → Shortcuts → KWin)."
 echo "Jump to window shortcut: Meta+Space (configurable in System Settings → Shortcuts → KWin)."
-echo "Mark window shortcuts: Meta+Ctrl+M (toggle mark), Meta+Ctrl+Shift+M (mark with palette)."
+echo "Mark window shortcuts: Meta+Ctrl+Space (toggle mark), Meta+Ctrl+Shift+Space (mark with palette)."
 if [[ "$updating_existing" == true ]]; then
   echo
   echo "IMPORTANT: This was an update of a native KWin plugin."

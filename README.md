@@ -27,15 +27,15 @@ Whether you are using tiling window management (such as Bismuth, Polonium, or Kr
   - **Modal Jump Mode (`Meta+Space`)**: Instantly enters modal jump mode where high-contrast letter badges pop on background windows (the currently active window is always excluded). Marked windows keep their letter; other candidate windows receive dynamically allocated letters from a prioritized keyboard pool (`ASDFJKLQWERTY...`). Pressing a letter jumps directly to and activates that window. Pressing `Esc` or idling for 5 seconds exits jump mode.
   - **Configurable Badge Position, Size & Margin**: Fully customizable badge placement (Top-Left, Top, Top-Right, Left, Center, Right, Bottom-Left, Bottom, Bottom-Right), adjustable badge size (16–64 px), and margin distance from window borders (0–100 px). Display mode can be set to only during Jump Mode (default), always visible on background windows, or disabled.
   - **Quick & Detailed Window Marking**:
-    - **`Meta+Ctrl+M`**: Instantly marks the active window with default color and auto-assigns next available letter from the pool.
-    - **`Meta+Ctrl+Shift+M`**: Opens a dedicated native Qt dialog (`active-window-outline-colorpicker`) to select both custom letter (`A-Z`, `0-9`) and custom mark color with alpha transparency.
+    - **`Meta+Ctrl+Space`**: Instantly marks the active window with default color and auto-assigns next available letter from the pool.
+    - **`Meta+Ctrl+Shift+Space`**: Opens a dedicated native Qt dialog (`active-window-outline-colorpicker`) to select custom label, letter (`A-Z`, `0-9`), and custom mark color with alpha transparency.
 - **Recent Windows History Navigation (Jump List)**:
   - **`Meta+Alt+[` / `Meta+Alt+]`**: Seamlessly cycle backward and forward through recent window focus history without scrambling the history stack.
   - History changes commit automatically after 1.5 seconds of idle time.
 - **Global Shortcuts**:
   - **Meta+Ctrl+O**: Toggle active window outline on or off.
-  - **Meta+Ctrl+M**: Toggle permanent mark frame on the active window.
-  - **Meta+Ctrl+Shift+M**: Mark active window with color and letter picker dialog.
+  - **Meta+Ctrl+Space**: Toggle permanent mark frame on the active window.
+  - **Meta+Ctrl+Shift+Space**: Mark active window with color, letter, and label picker dialog.
   - **Meta+Space**: Enter modal Jump to Window mode.
   - **Meta+Alt+[**: Previous recent window in focus history.
   - **Meta+Alt+]**: Next recent window in focus history.
@@ -295,8 +295,8 @@ Configure buffering delays and window state handling.
 The effect registers global shortcuts with KWin:
 
 - **KAWO: Toggle Active Window Outline** (`Meta+Ctrl+O`): Turn the active window outline on or off at any time.
-- **KAWO: Toggle Mark Window** (`Meta+Ctrl+M`): Pin or unpin a permanent outline frame on the active window using the default mark color.
-- **KAWO: Mark Window with Color Picker** (`Meta+Ctrl+Shift+M`): Open the native KDE color palette picker to choose an exact custom color for the active window.
+- **KAWO: Toggle Mark Window** (`Meta+Ctrl+Space`): Pin or unpin a permanent outline frame on the active window using the default mark color.
+- **KAWO: Mark Window with Color Picker** (`Meta+Ctrl+Shift+Space`): Open the native KDE color palette picker to choose an exact custom color and label for the active window.
 
 ![KWin global shortcut configuration](shortcuts.png)
 
