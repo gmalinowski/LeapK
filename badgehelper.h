@@ -600,7 +600,7 @@ inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
             qreal currentY = colStartY;
             for (int idx : c.indices) {
                 const QSizeF &sz = pillSizes.at(idx);
-                const qreal itemX = colX + (c.maxWidth - sz.width()) / 2.0;
+                const qreal itemX = colX; // Left-aligned so letter badges align in a straight vertical column
                 result[idx] = QRectF(itemX, currentY, sz.width(), sz.height());
                 currentY += sz.height() + gap;
             }

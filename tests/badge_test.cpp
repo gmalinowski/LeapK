@@ -270,20 +270,25 @@ void testComputeHudPillPositions()
     assert(qFuzzyCompare(rWrapBottom[2].left(), 150.0));
     assert(qFuzzyCompare(rWrapBottom[2].top(), 450.0));
 
-    // 7. Multi-column wrapping at left
+    // 7. Multi-column wrapping at left with varying widths (left-aligned)
     // screen 500x500, margin 20 -> availHeight 460
-    // 3 pills of height 200, width 30, gap 10 -> col 1 has 2 pills (height 410), col 2 has 1 pill (height 200)
-    QList<QSizeF> threeTallPills = { QSizeF(30, 200), QSizeF(30, 200), QSizeF(30, 200) };
+    // 3 pills of height 200, varying widths (100, 50, 80), gap 10
+    // col 1 has 2 pills (height 410, maxWidth 100), col 2 has 1 pill (height 200, maxWidth 80)
+    QList<QSizeF> threeTallPills = { QSizeF(100, 200), QSizeF(50, 200), QSizeF(80, 200) };
     QList<QRectF> rWrapLeft = computeHudPillPositions(threeTallPills, smallScreen, 2, 20.0, 10.0);
     assert(rWrapLeft.size() == 3);
     // Col 1 centered vertically: startY = (500 - 410) / 2 = 45. colX = 20.
+    // Both pills 0 and 1 must be strictly left-aligned at colX = 20.0!
     assert(qFuzzyCompare(rWrapLeft[0].left(), 20.0));
     assert(qFuzzyCompare(rWrapLeft[0].top(), 45.0));
-    assert(qFuzzyCompare(rWrapLeft[1].left(), 20.0));
+    assert(qFuzzyCompare(rWrapLeft[0].width(), 100.0));
+    assert(qFuzzyCompare(rWrapLeft[1].left(), 20.0)); // Left-aligned, NOT centered at 20 + (100-50)/2 = 45
     assert(qFuzzyCompare(rWrapLeft[1].top(), 255.0));
-    // Col 2 centered vertically: startY = (500 - 200) / 2 = 150. colX = 20 + 30 + 10 = 60.
-    assert(qFuzzyCompare(rWrapLeft[2].left(), 60.0));
+    assert(qFuzzyCompare(rWrapLeft[1].width(), 50.0));
+    // Col 2 centered vertically: startY = (500 - 200) / 2 = 150. colX = 20 + 100 + 10 = 130.
+    assert(qFuzzyCompare(rWrapLeft[2].left(), 130.0));
     assert(qFuzzyCompare(rWrapLeft[2].top(), 150.0));
+    assert(qFuzzyCompare(rWrapLeft[2].width(), 80.0));
 }
 
 int main(int argc, char *argv[])

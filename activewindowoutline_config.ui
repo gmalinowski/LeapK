@@ -2028,12 +2028,12 @@
             </item>
             <item>
              <property name="text">
-              <string>Left (vertical, centered)</string>
+              <string>Left (vertical, left-aligned)</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>Right (vertical, centered)</string>
+              <string>Right (vertical, left-aligned)</string>
              </property>
             </item>
            </widget>
