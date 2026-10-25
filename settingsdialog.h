@@ -25,7 +25,8 @@ public:
     {
         setWindowTitle(m_isPolish ? QStringLiteral("Active Window Outline — Ustawienia")
                                   : QStringLiteral("Active Window Outline — Settings"));
-        setWindowIcon(QIcon::fromTheme(QStringLiteral("preferences-system-windows")));
+        setWindowIcon(QIcon::fromTheme(QStringLiteral("active-window-outline"),
+                                       QIcon(QStringLiteral(":/icons/active-window-outline.svg"))));
         resize(880, 720);
 
         auto *mainLayout = new QVBoxLayout(this);

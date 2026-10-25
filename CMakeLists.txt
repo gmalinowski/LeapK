@@ -157,6 +157,7 @@ add_executable(active-window-outline-tray
     tray.cpp
     settingsdialog.cpp
     activewindowoutline_config.cpp
+    resources.qrc
     ${CONFIG_UI_SRCS}
 )
 target_include_directories(active-window-outline-tray PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
@@ -178,6 +179,7 @@ add_executable(active-window-outline-settings
     settingsmain.cpp
     settingsdialog.cpp
     activewindowoutline_config.cpp
+    resources.qrc
     ${CONFIG_UI_SRCS}
 )
 target_include_directories(active-window-outline-settings PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
@@ -200,6 +202,9 @@ install(TARGETS active-window-outline-tray active-window-outline-settings
 )
 install(PROGRAMS active-window-outline-tray.desktop active-window-outline-settings.desktop
     DESTINATION ${KDE_INSTALL_APPDIR}
+)
+install(FILES active-window-outline.svg
+    DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps
 )
 
 option(OUTLINE_BUILD_TESTS "Build popup and cursor regression tests" OFF)

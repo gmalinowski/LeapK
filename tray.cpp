@@ -19,6 +19,7 @@
 #include <QProcess>
 #include <QLocale>
 #include <QDateTime>
+#include <QTimer>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QDesktopServices>
@@ -59,49 +60,119 @@ QIcon createTrayIconPixmap(bool enabled, const QColor &outlineColor = QColor(61,
     QPainter p(&pix);
     p.setRenderHint(QPainter::Antialiasing);
 
-    // Outer dark window card
-    const QRectF outer(6, 8, 52, 48);
+    const QRectF outer(8, 8, 48, 48);
     QPainterPath path;
-    path.addRoundedRect(outer, 10, 10);
+    path.addRoundedRect(outer, 9, 9);
 
-    // Inner window fill
-    p.fillPath(path, QColor(24, 28, 34, 240));
-
-    // Titlebar divider line
-    p.setPen(QPen(QColor(60, 66, 76), 1.5));
-    p.drawLine(QPointF(6, 22), QPointF(58, 22));
-
-    // Three window action dots
-    p.setBrush(enabled ? QColor(231, 76, 60) : QColor(100, 105, 115));
-    p.setPen(Qt::NoPen);
-    p.drawEllipse(QRectF(12, 13, 5, 5));
-    p.setBrush(enabled ? QColor(241, 196, 15) : QColor(100, 105, 115));
-    p.drawEllipse(QRectF(20, 13, 5, 5));
-    p.setBrush(enabled ? QColor(46, 204, 113) : QColor(100, 105, 115));
-    p.drawEllipse(QRectF(28, 13, 5, 5));
-
-    // Active outline perimeter
     if (enabled) {
-        // Vibrant glowing outline
-        QPen outlinePen(outlineColor, 3.5);
+        // 1. Prominent multi-layer glowing halo around window card
+        for (int r = 5; r >= 1; --r) {
+            QColor glow = outlineColor;
+            glow.setAlpha(18 + (6 - r) * 12);
+            p.setPen(QPen(glow, 2.0 + r * 1.6, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+            p.setBrush(Qt::NoBrush);
+            p.drawPath(path);
+        }
+
+        // 2. Window card background fill with subtle gradient
+        QLinearGradient cardGrad(outer.topLeft(), outer.bottomLeft());
+        cardGrad.setColorAt(0.0, QColor(32, 38, 48, 245));
+        cardGrad.setColorAt(1.0, QColor(20, 24, 30, 252));
+        p.fillPath(path, cardGrad);
+
+        // 3. Titlebar separator
+        p.setPen(QPen(QColor(56, 64, 76), 1.2));
+        p.drawLine(QPointF(outer.left(), 22), QPointF(outer.right(), 22));
+
+        // 4. KDE titlebar buttons on the RIGHT side (Minimize, Maximize, Close)
+        p.setPen(Qt::NoPen);
+        // Minimize (blue)
+        p.setBrush(QColor(52, 152, 219));
+        p.drawEllipse(QRectF(34, 13, 4.5, 4.5));
+        // Maximize (green)
+        p.setBrush(QColor(46, 204, 113));
+        p.drawEllipse(QRectF(40.5, 13, 4.5, 4.5));
+        // Close (red)
+        p.setBrush(QColor(235, 75, 75));
+        p.drawEllipse(QRectF(47, 13, 4.5, 4.5));
+
+        // 5. Left titlebar dash
+        p.setBrush(QColor(115, 125, 140));
+        p.drawRoundedRect(QRectF(13, 14, 12, 2.5), 1.25, 1.25);
+
+        // 6. Window content preview lines
+        p.setBrush(QColor(48, 55, 68));
+        p.drawRoundedRect(QRectF(13, 27, 16, 2.5), 1.25, 1.25);
+        p.drawRoundedRect(QRectF(13, 33, 12, 2.5), 1.25, 1.25);
+        p.drawRoundedRect(QRectF(13, 39, 14, 2.5), 1.25, 1.25);
+
+        // 7. Glowing letter badge
+        const QRectF badge(33, 27, 18, 18);
+        QPainterPath bPath;
+        bPath.addRoundedRect(badge, 4.5, 4.5);
+
+        // Badge outer glow
+        QColor bGlow = outlineColor;
+        bGlow.setAlpha(80);
+        p.setPen(QPen(bGlow, 2.5));
+        p.setBrush(Qt::NoBrush);
+        p.drawPath(bPath);
+
+        // Badge fill
+        p.fillPath(bPath, outlineColor);
+        const QColor textColor = outlineColor.lightness() > 140 ? QColor(18, 20, 24) : QColor(255, 255, 255);
+        p.setPen(textColor);
+        QFont f = p.font();
+        f.setBold(true);
+        f.setPixelSize(11);
+        p.setFont(f);
+        p.drawText(badge, Qt::AlignCenter, QStringLiteral("A"));
+
+        // 8. Solid glowing perimeter outline
+        QPen outlinePen(outlineColor, 3.2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
         p.setPen(outlinePen);
         p.setBrush(Qt::NoBrush);
         p.drawPath(path);
+    } else {
+        // Disabled / Inactive State
+        // 1. Dim card fill
+        p.fillPath(path, QColor(22, 24, 28, 200));
 
-        // Accent badge in top right corner
-        const QRectF badge(40, 28, 14, 14);
-        QPainterPath bPath;
-        bPath.addRoundedRect(badge, 4, 4);
-        p.fillPath(bPath, outlineColor);
-        p.setPen(QColor(0, 0, 0, 200));
+        // 2. Titlebar separator
+        p.setPen(QPen(QColor(42, 45, 52, 140), 1.2));
+        p.drawLine(QPointF(outer.left(), 22), QPointF(outer.right(), 22));
+
+        // 3. Muted gray KDE titlebar buttons on the RIGHT side
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(80, 85, 95));
+        p.drawEllipse(QRectF(34, 13, 4.5, 4.5));
+        p.drawEllipse(QRectF(40.5, 13, 4.5, 4.5));
+        p.drawEllipse(QRectF(47, 13, 4.5, 4.5));
+
+        // 4. Muted left titlebar dash
+        p.setBrush(QColor(60, 65, 75));
+        p.drawRoundedRect(QRectF(13, 14, 12, 2.5), 1.25, 1.25);
+
+        // 5. Muted window content lines
+        p.setBrush(QColor(36, 40, 48));
+        p.drawRoundedRect(QRectF(13, 27, 16, 2.5), 1.25, 1.25);
+        p.drawRoundedRect(QRectF(13, 33, 12, 2.5), 1.25, 1.25);
+        p.drawRoundedRect(QRectF(13, 39, 14, 2.5), 1.25, 1.25);
+
+        // 6. Muted letter badge
+        const QRectF badge(33, 27, 18, 18);
+        p.setPen(QPen(QColor(70, 75, 85), 1.2, Qt::DashLine));
+        p.setBrush(QColor(28, 30, 36, 180));
+        p.drawRoundedRect(badge, 4.5, 4.5);
+        p.setPen(QColor(95, 100, 110));
         QFont f = p.font();
         f.setBold(true);
-        f.setPixelSize(9);
+        f.setPixelSize(11);
         p.setFont(f);
         p.drawText(badge, Qt::AlignCenter, QStringLiteral("A"));
-    } else {
-        // Dimmed disabled dashed outline
-        QPen outlinePen(QColor(120, 125, 135, 140), 2.0, Qt::DashLine);
+
+        // 7. Dashed muted perimeter outline
+        QPen outlinePen(QColor(105, 110, 120, 140), 1.8, Qt::DashLine);
         p.setPen(outlinePen);
         p.setBrush(Qt::NoBrush);
         p.drawPath(path);
@@ -144,12 +215,13 @@ private slots:
     void onToggleOutline()
     {
         if (callDBusMethod(QStringLiteral("toggleOutline"))) {
+            QTimer::singleShot(50, this, &OutlineTray::refreshStateFromConfig);
             return;
         }
         // Fallback: invoke shortcut ToggleActiveWindowOutline
         invokeShortcut(QStringLiteral("ToggleActiveWindowOutline"));
         notifyKWinReconfigure();
-        refreshStateFromConfig();
+        QTimer::singleShot(50, this, &OutlineTray::refreshStateFromConfig);
     }
 
     void onApplyPreset(const QString &presetName)
@@ -573,7 +645,16 @@ private slots:
         KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
 
         const bool enabled = group.readEntry(QStringLiteral("OutlineEnabled"), true);
-        const QColor customColor = group.readEntry(QStringLiteral("CustomColor"), QColor(QStringLiteral("#3daee9")));
+        const bool useAccent = group.readEntry(QStringLiteral("UseAccentColor"), true);
+        QColor outlineColor = group.readEntry(QStringLiteral("CustomColor"), QColor(QStringLiteral("#3daee9")));
+
+        if (useAccent) {
+            KConfigGroup generalGroup(KSharedConfig::openConfig(QStringLiteral("kdeglobals")), QStringLiteral("General"));
+            outlineColor = generalGroup.readEntry(QStringLiteral("AccentColor"), qApp->palette().color(QPalette::Highlight));
+        }
+        if (!outlineColor.isValid()) {
+            outlineColor = QColor(61, 174, 233);
+        }
 
         if (m_actEnable) {
             m_actEnable->setChecked(enabled);
@@ -582,7 +663,7 @@ private slots:
                 : (m_isPolish ? QStringLiteral("✖ Włącz obrys okna (Meta+Ctrl+O)") : QStringLiteral("✖ Enable Outline (Meta+Ctrl+O)")));
         }
 
-        m_trayIcon->setIcon(createTrayIconPixmap(enabled, customColor.isValid() ? customColor : QColor(61, 174, 233)));
+        m_trayIcon->setIcon(createTrayIconPixmap(enabled, outlineColor));
         const QString statusText = enabled
             ? (m_isPolish ? QStringLiteral("Active Window Outline: Włączony\n(Kliknij lewym przyciskiem myszy, aby wyłączyć)")
                           : QStringLiteral("Active Window Outline: Enabled\n(Click left mouse button to disable)"))
@@ -699,12 +780,6 @@ private:
         m_menu->addAction(m_isPolish ? QStringLiteral("⚙️ Ustawienia...") : QStringLiteral("⚙️ Settings..."),
                           this, &OutlineTray::onOpenSettings);
 
-        m_menu->addSeparator();
-
-        // 6. Exit
-        m_menu->addAction(m_isPolish ? QStringLiteral("❌ Zamknij tackę") : QStringLiteral("❌ Quit Tray"),
-                          qApp, &QCoreApplication::quit);
-
         m_trayIcon->setContextMenu(m_menu);
         connect(m_trayIcon, &QSystemTrayIcon::activated, this, &OutlineTray::onTrayActivated);
     }
@@ -794,6 +869,8 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("active-window-outline-tray"));
     app.setApplicationDisplayName(QStringLiteral("Active Window Outline Tray"));
+    app.setWindowIcon(QIcon::fromTheme(QStringLiteral("active-window-outline"),
+                                       QIcon(QStringLiteral(":/icons/active-window-outline.svg"))));
     app.setQuitOnLastWindowClosed(false);
 
     if (app.arguments().contains(QStringLiteral("--settings"))
@@ -807,6 +884,7 @@ int main(int argc, char *argv[])
 
     // Single-instance lock
     QLockFile lock(QDir::tempPath() + QStringLiteral("/active-window-outline-tray.lock"));
+    lock.setStaleLockTime(0);
     if (!lock.tryLock(100)) {
         std::cerr << "active-window-outline-tray is already running." << std::endl;
         return 0;

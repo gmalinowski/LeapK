@@ -64,6 +64,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Real-time full repaint when stacking order or virtual desktop changes (`stackingOrderChanged`, `desktopChanged`).
 
 ### Changed
+- **Tray Icon & Launcher Search Refinements**:
+  - Removed "Quit Tray" / "Zamknij tackę" from the tray context menu; enabling and disabling the tray is now managed exclusively from Settings.
+  - Enhanced tray icon rendering with multi-layer glowing neon halo and vibrant accent outline when enabled, switching to a dimmed dashed outline when disabled.
+  - Reordered window titlebar control dots to the right side (`Minimize`, `Maximize`, `Close`), matching KDE Plasma's native window decoration layout.
+  - Hidden tray daemon from launcher search results (`NoDisplay=true` in `active-window-outline-tray.desktop`), keeping only `Active Window Outline Settings` visible in KRunner and application menus.
+  - Added custom vector icon `active-window-outline.svg` installed to hicolor scalable icon theme and embedded via Qt resources for standalone settings and tray.
+  - Added `setStaleLockTime(0)` to `QLockFile` for instant single-instance daemon recovery upon restarts.
 - **Updated Default Outline & Marked Settings (v1.5)**:
   - `MarkSmartAdaptive` is now enabled (`true`) by default to automatically extract window accents via Smart Adaptive (Hybrid) mode (`MarkRandomColor` defaults to `false`).
   - `BadgePosition` default moved to Top (`1`, centered on top edge) and `BadgeMargin` reduced to `0 px`.

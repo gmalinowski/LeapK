@@ -73,6 +73,8 @@ plugin_files=(
   "/usr/share/applications/active-window-outline-settings.desktop"
   "/usr/local/share/applications/active-window-outline-tray.desktop"
   "/usr/local/share/applications/active-window-outline-settings.desktop"
+  "/usr/share/icons/hicolor/scalable/apps/active-window-outline.svg"
+  "/usr/local/share/icons/hicolor/scalable/apps/active-window-outline.svg"
 )
 
 installed_files=()
