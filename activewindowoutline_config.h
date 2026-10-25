@@ -49,6 +49,7 @@ private:
 
     void initPresetsTab();
     void refreshPresetsTable();
+    void updatePresetsTableHeight();
     void activateSelectedPreset();
     void createNewPreset();
     void duplicateSelectedPreset();

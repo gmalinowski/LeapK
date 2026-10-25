@@ -1200,6 +1200,24 @@ void ActiveWindowOutlineConfig::refreshPresetsTable()
     if (m_ui->tablePresets->rowCount() > 0) {
         m_ui->tablePresets->selectRow(0);
     }
+
+    updatePresetsTableHeight();
+}
+
+void ActiveWindowOutlineConfig::updatePresetsTableHeight()
+{
+    m_ui->tablePresets->doItemsLayout();
+    int headerHeight = m_ui->tablePresets->horizontalHeader()->sizeHint().height();
+    if (headerHeight <= 0) {
+        headerHeight = 28;
+    }
+    const int count = m_ui->tablePresets->rowCount();
+    int rowHeight = 32;
+    if (count > 0 && m_ui->tablePresets->rowHeight(0) > 0) {
+        rowHeight = m_ui->tablePresets->rowHeight(0);
+    }
+    const int totalH = headerHeight + (count * rowHeight) + m_ui->tablePresets->frameWidth() * 2 + 4;
+    m_ui->tablePresets->setFixedHeight(qBound(140, totalH, 360));
 }
 
 QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
