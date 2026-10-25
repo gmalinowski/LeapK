@@ -26,6 +26,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Real-time search filter box for instant lookup across all categories.
   - Dual activation actions: one-click *Apply All* (⚡ Zastosuj całość) or *Apply Selected* (✓ Zastosuj zaznaczone).
   - Added *Customize & Apply Preset…* (⚙️ Dostosuj i aktywuj preset…) submenu in the companion tray menu.
+- **Preset Editing & Management Cleanup**:
+  - Added dedicated *Edit…* (Edytuj…) dialog allowing editing preset name and description directly.
+  - Added right-click context menu on the presets table with shortcuts to activate, edit, duplicate, delete, and export.
+  - Removed redundant global bottom "Save Preset" button and streamlined the Presets tab action bar to "Save Current as Preset…" (Zapisz obecne jako preset…).
+  - Creating a new preset from current settings now prompts for both Name and Description.
 
 ### Fixed
 - **Preset System & Vim HUD Navigator**:

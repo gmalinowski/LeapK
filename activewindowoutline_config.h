@@ -53,6 +53,7 @@ private:
     void activateSelectedPreset();
     void createNewPreset();
     void duplicateSelectedPreset();
+    void editSelectedPreset();
     void deleteSelectedPreset();
     void exportSelectedPreset();
     void exportPresetByName(const QString &name);

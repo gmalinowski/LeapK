@@ -26,6 +26,7 @@
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QFileDialog>
+#include <QFormLayout>
 #include <QGuiApplication>
 #include <QHeaderView>
 #include <QIcon>
@@ -35,6 +36,7 @@
 #include <QJsonObject>
 #include <QLineEdit>
 #include <QLocale>
+#include <QMenu>
 #include <QMessageBox>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -45,6 +47,7 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QTextBrowser>
+#include <QTextEdit>
 #include <QToolButton>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -602,13 +605,11 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
         markAsChanged();
     });
 
-    // Global Save Preset button
-    connect(m_ui->btnSavePresetGlobal, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::createNewPreset);
-
     // Presets tab controls
     initPresetsTab();
     connect(m_ui->btnActivatePreset, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::activateSelectedPreset);
     connect(m_ui->btnNewPreset, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::createNewPreset);
+    connect(m_ui->btnEditPreset, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::editSelectedPreset);
     connect(m_ui->btnDuplicatePreset, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::duplicateSelectedPreset);
     connect(m_ui->btnDeletePreset, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::deleteSelectedPreset);
     connect(m_ui->btnImportPreset, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::importPreset);
@@ -1157,6 +1158,42 @@ void ActiveWindowOutlineConfig::initPresetsTab()
     m_ui->tablePresets->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_ui->tablePresets->verticalHeader()->setVisible(false);
 
+    if (isPolish) {
+        m_ui->btnActivatePreset->setText(QStringLiteral("Aktywuj preset…"));
+        m_ui->btnNewPreset->setText(QStringLiteral("Zapisz obecne jako preset…"));
+        m_ui->btnNewPreset->setToolTip(QStringLiteral("Zapisz bieżące ustawienia kompozytora jako nowy preset"));
+        m_ui->btnEditPreset->setText(QStringLiteral("Edytuj…"));
+        m_ui->btnEditPreset->setToolTip(QStringLiteral("Edytuj nazwę i opis wybranego presetu"));
+        m_ui->btnDuplicatePreset->setText(QStringLiteral("Duplikuj…"));
+        m_ui->btnDeletePreset->setText(QStringLiteral("Usuń"));
+        m_ui->btnImportPreset->setText(QStringLiteral("Importuj preset…"));
+        m_ui->btnExportPreset->setText(QStringLiteral("Eksportuj preset…"));
+    }
+
+    m_ui->tablePresets->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_ui->tablePresets, &QTableWidget::customContextMenuRequested, this, [this, isPolish](const QPoint &pos) {
+        const int row = m_ui->tablePresets->rowAt(pos.y());
+        if (row < 0) return;
+        m_ui->tablePresets->selectRow(row);
+
+        QMenu menu(widget());
+        QAction *actActivate = menu.addAction(QIcon::fromTheme(QStringLiteral("dialog-ok")), isPolish ? QStringLiteral("Aktywuj preset…") : QStringLiteral("Activate Preset…"));
+        menu.addSeparator();
+        QAction *actEdit = menu.addAction(QIcon::fromTheme(QStringLiteral("document-edit")), isPolish ? QStringLiteral("Edytuj nazwę i opis…") : QStringLiteral("Edit Name & Description…"));
+        QAction *actDuplicate = menu.addAction(QIcon::fromTheme(QStringLiteral("edit-copy")), isPolish ? QStringLiteral("Duplikuj…") : QStringLiteral("Duplicate…"));
+        QAction *actDelete = menu.addAction(QIcon::fromTheme(QStringLiteral("edit-delete")), isPolish ? QStringLiteral("Usuń") : QStringLiteral("Delete"));
+        menu.addSeparator();
+        QAction *actExport = menu.addAction(QIcon::fromTheme(QStringLiteral("document-export")), isPolish ? QStringLiteral("Eksportuj…") : QStringLiteral("Export…"));
+
+        connect(actActivate, &QAction::triggered, this, &ActiveWindowOutlineConfig::activateSelectedPreset);
+        connect(actEdit, &QAction::triggered, this, &ActiveWindowOutlineConfig::editSelectedPreset);
+        connect(actDuplicate, &QAction::triggered, this, &ActiveWindowOutlineConfig::duplicateSelectedPreset);
+        connect(actDelete, &QAction::triggered, this, &ActiveWindowOutlineConfig::deleteSelectedPreset);
+        connect(actExport, &QAction::triggered, this, &ActiveWindowOutlineConfig::exportSelectedPreset);
+
+        menu.exec(m_ui->tablePresets->viewport()->mapToGlobal(pos));
+    });
+
     refreshPresetsTable();
 }
 
@@ -1479,21 +1516,53 @@ void ActiveWindowOutlineConfig::activateSelectedPreset()
 void ActiveWindowOutlineConfig::createNewPreset()
 {
     const bool isPolish = (QLocale().language() == QLocale::Polish);
-    const QString title = isPolish ? QStringLiteral("Zapisz preset") : QStringLiteral("Save Preset");
-    const QString label = isPolish ? QStringLiteral("Podaj nazwę nowego presetu:") : QStringLiteral("Enter new preset name:");
+    const QString title = isPolish ? QStringLiteral("Zapisz obecne jako preset") : QStringLiteral("Save Current as Preset");
 
-    bool ok = false;
-    const QString name = QInputDialog::getText(widget(), title, label, QLineEdit::Normal, QStringLiteral("My Preset"), &ok);
-    if (!ok || name.trimmed().isEmpty()) {
+    QDialog dlg(widget());
+    dlg.setWindowTitle(title);
+    dlg.setWindowIcon(QIcon::fromTheme(QStringLiteral("document-save")));
+    dlg.resize(480, 240);
+
+    auto *vbox = new QVBoxLayout(&dlg);
+    vbox->setSpacing(12);
+
+    auto *formLayout = new QFormLayout();
+    auto *nameEdit = new QLineEdit(QStringLiteral("My Preset"), &dlg);
+    nameEdit->selectAll();
+    auto *descEdit = new QTextEdit(&dlg);
+    descEdit->setPlaceholderText(isPolish ? QStringLiteral("Opcjonalny opis presetu…") : QStringLiteral("Optional preset description…"));
+    descEdit->setMaximumHeight(80);
+
+    formLayout->addRow(isPolish ? QStringLiteral("Nazwa presetu:") : QStringLiteral("Preset Name:"), nameEdit);
+    formLayout->addRow(isPolish ? QStringLiteral("Opis:") : QStringLiteral("Description:"), descEdit);
+    vbox->addLayout(formLayout);
+
+    auto *btnBox = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, &dlg);
+    if (isPolish) {
+        btnBox->button(QDialogButtonBox::Save)->setText(QStringLiteral("Zapisz"));
+        btnBox->button(QDialogButtonBox::Cancel)->setText(QStringLiteral("Anuluj"));
+    }
+    QObject::connect(btnBox, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    QObject::connect(btnBox, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+    vbox->addWidget(btnBox);
+
+    if (dlg.exec() != QDialog::Accepted) {
         return;
     }
 
-    const QString trimmedName = name.trimmed();
+    const QString trimmedName = nameEdit->text().trimmed();
+    if (trimmedName.isEmpty()) {
+        return;
+    }
+
+    const QString trimmedDesc = descEdit->toPlainText().trimmed();
     const QString presetsDir = OutlinePreset::defaultPresetsDirectory();
 
     OutlinePreset::PresetInfo p;
     p.name = trimmedName;
-    p.description = isPolish ? QStringLiteral("Własny preset użytkownika") : QStringLiteral("User custom preset");
+    p.description = trimmedDesc.isEmpty()
+        ? (isPolish ? QStringLiteral("Własny preset użytkownika") : QStringLiteral("User custom preset"))
+        : trimmedDesc;
     p.isBuiltIn = false;
     p.settings = collectCurrentSettings();
 
@@ -1516,6 +1585,111 @@ void ActiveWindowOutlineConfig::createNewPreset()
     m_ui->labelPresetStatus->setText(isPolish
         ? QStringLiteral("✅ Pomyślnie zapisano preset: %1").arg(trimmedName)
         : QStringLiteral("✅ Preset successfully saved: %1").arg(trimmedName));
+    m_ui->labelPresetStatus->setStyleSheet(QStringLiteral("color: #2ecc71; font-weight: bold;"));
+}
+
+void ActiveWindowOutlineConfig::editSelectedPreset()
+{
+    const int row = m_ui->tablePresets->currentRow();
+    if (row < 0) return;
+
+    const QString originalName = m_ui->tablePresets->item(row, 0)->data(Qt::UserRole).toString();
+    const QString filePath = m_ui->tablePresets->item(row, 0)->data(Qt::UserRole + 1).toString();
+    const bool isBuiltIn = m_ui->tablePresets->item(row, 0)->data(Qt::UserRole + 2).toBool();
+
+    QFile f(filePath);
+    if (!f.open(QIODevice::ReadOnly)) {
+        return;
+    }
+
+    OutlinePreset::PresetInfo p;
+    if (!OutlinePreset::parsePresetJson(f.readAll(), p)) {
+        return;
+    }
+    f.close();
+
+    const bool isPolish = (QLocale().language() == QLocale::Polish);
+    const QString title = isPolish ? QStringLiteral("Edytuj preset") : QStringLiteral("Edit Preset");
+
+    QDialog dlg(widget());
+    dlg.setWindowTitle(title);
+    dlg.setWindowIcon(QIcon::fromTheme(QStringLiteral("document-edit")));
+    dlg.resize(480, 260);
+
+    auto *vbox = new QVBoxLayout(&dlg);
+    vbox->setSpacing(12);
+
+    auto *formLayout = new QFormLayout();
+    auto *nameEdit = new QLineEdit(p.name, &dlg);
+    auto *descEdit = new QTextEdit(&dlg);
+    descEdit->setPlainText(p.description);
+    descEdit->setMaximumHeight(80);
+
+    formLayout->addRow(isPolish ? QStringLiteral("Nazwa presetu:") : QStringLiteral("Preset Name:"), nameEdit);
+    formLayout->addRow(isPolish ? QStringLiteral("Opis:") : QStringLiteral("Description:"), descEdit);
+    vbox->addLayout(formLayout);
+
+    if (isBuiltIn) {
+        auto *noteLabel = new QLabel(isPolish
+            ? QStringLiteral("<i>ℹ️ Ten preset jest wbudowany. Zapisanie zmian utworzy Twój własny preset.</i>")
+            : QStringLiteral("<i>ℹ️ This is a built-in preset. Saving changes will create a custom user preset.</i>"), &dlg);
+        noteLabel->setWordWrap(true);
+        noteLabel->setStyleSheet(QStringLiteral("color: #3daee9;"));
+        vbox->addWidget(noteLabel);
+    }
+
+    auto *btnBox = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, &dlg);
+    if (isPolish) {
+        btnBox->button(QDialogButtonBox::Save)->setText(QStringLiteral("Zapisz zmiany"));
+        btnBox->button(QDialogButtonBox::Cancel)->setText(QStringLiteral("Anuluj"));
+    }
+    QObject::connect(btnBox, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    QObject::connect(btnBox, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+    vbox->addWidget(btnBox);
+
+    if (dlg.exec() != QDialog::Accepted) {
+        return;
+    }
+
+    const QString newName = nameEdit->text().trimmed();
+    if (newName.isEmpty()) {
+        QMessageBox::warning(widget(), title,
+            isPolish ? QStringLiteral("Nazwa presetu nie może być pusta.")
+                     : QStringLiteral("Preset name cannot be empty."));
+        return;
+    }
+
+    const QString newDesc = descEdit->toPlainText().trimmed();
+    const QString presetsDir = OutlinePreset::defaultPresetsDirectory();
+
+    // If name changed and this is a custom user preset, remove the old file
+    if (!isBuiltIn && newName != originalName) {
+        QFile::remove(filePath);
+    }
+
+    p.name = newName;
+    p.description = newDesc;
+    p.isBuiltIn = false; // User modifications become user presets
+
+    QString err;
+    if (!OutlinePreset::savePreset(presetsDir, p, &err)) {
+        QMessageBox::warning(widget(), title, err);
+        return;
+    }
+
+    refreshPresetsTable();
+
+    // Select the edited preset
+    for (int r = 0; r < m_ui->tablePresets->rowCount(); ++r) {
+        if (m_ui->tablePresets->item(r, 0)->text() == newName) {
+            m_ui->tablePresets->selectRow(r);
+            break;
+        }
+    }
+
+    m_ui->labelPresetStatus->setText(isPolish
+        ? QStringLiteral("✅ Zaktualizowano preset: %1").arg(newName)
+        : QStringLiteral("✅ Updated preset: %1").arg(newName));
     m_ui->labelPresetStatus->setStyleSheet(QStringLiteral("color: #2ecc71; font-weight: bold;"));
 }
 
