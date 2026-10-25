@@ -167,6 +167,10 @@ private:
                      const QColor &textColor,
                      bool isJumpMode,
                      int badgeSize = 28);
+    void renderOffscreenJumpTargets(const RenderTarget &renderTarget,
+                                   const RenderViewport &viewport,
+                                   const QList<QPair<QChar, EffectWindow *>> &targets,
+                                   int badgeSize);
 
     QColor resolveColor(qreal windowOpacity = 1.0, EffectWindow *w = nullptr) const;
     QColor currentCycleColor(qreal elapsedSec);

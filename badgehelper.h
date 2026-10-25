@@ -7,9 +7,11 @@
 
 #include <QColor>
 #include <QFont>
+#include <QFontMetrics>
 #include <QImage>
 #include <QPainter>
 #include <QPainterPath>
+#include <QPen>
 #include <QRandomGenerator>
 #include <QRectF>
 #include <QString>
@@ -190,6 +192,102 @@ inline QImage renderBadgeImage(const QChar &letter, const QColor &bgColor, const
     p.setFont(font);
     p.setPen(textColor);
     p.drawText(rect, Qt::AlignCenter, QString(letter.toUpper()));
+
+    p.end();
+    return img;
+}
+
+inline QImage renderOffscreenTargetPill(const QChar &letter,
+                                        const QColor &bgColor,
+                                        const QColor &textColor,
+                                        const QString &locationText,
+                                        const QString &caption,
+                                        int badgeSize,
+                                        qreal scale)
+{
+    const int pillH = qMax(32, qRound(badgeSize * 1.35 * scale));
+    const int badgeDim = pillH - qRound(8 * scale);
+    const int padX = qRound(8 * scale);
+    const int gapX = qRound(8 * scale);
+
+    QFont locFont(QStringLiteral("sans-serif"));
+    locFont.setPixelSize(qMax(10, qRound(11 * scale)));
+    locFont.setBold(true);
+
+    QFont capFont(QStringLiteral("sans-serif"));
+    capFont.setPixelSize(qMax(9, qRound(10 * scale)));
+    capFont.setBold(false);
+
+    QFontMetrics fmLoc(locFont);
+    QFontMetrics fmCap(capFont);
+
+    QString displayCap = caption;
+    if (fmCap.horizontalAdvance(displayCap) > qRound(180 * scale)) {
+        displayCap = fmCap.elidedText(displayCap, Qt::ElideRight, qRound(180 * scale));
+    }
+
+    const int locWidth = fmLoc.horizontalAdvance(locationText);
+    const int capWidth = displayCap.isEmpty() ? 0 : fmCap.horizontalAdvance(displayCap);
+    const int textWidth = qMax(locWidth, capWidth);
+
+    const int pillW = padX + badgeDim + gapX + textWidth + padX;
+
+    QImage img(pillW, pillH, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+
+    QPainter p(&img);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+
+    const qreal cornerRadius = 8.0 * scale;
+    const QRectF shadowRect(1.0, 2.0 * scale, pillW - 2.0, pillH - 2.0);
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(0, 0, 0, 140));
+    p.drawRoundedRect(shadowRect, cornerRadius, cornerRadius);
+
+    const QRectF pillRect(0.5, 0.5, pillW - 1.0, pillH - 1.0);
+    QPainterPath bgPath;
+    bgPath.addRoundedRect(pillRect, cornerRadius, cornerRadius);
+    p.fillPath(bgPath, QColor(22, 25, 29, 235));
+
+    QColor borderColor = bgColor;
+    borderColor.setAlpha(160);
+    p.setPen(QPen(borderColor, 1.5 * scale));
+    p.drawPath(bgPath);
+
+    const QRectF badgeRect(padX, (pillH - badgeDim) / 2.0, badgeDim, badgeDim);
+    QPainterPath bPath;
+    bPath.addRoundedRect(badgeRect, 6.0 * scale, 6.0 * scale);
+    p.fillPath(bPath, bgColor);
+    p.setPen(QPen(QColor(255, 255, 255, 200), 1.0 * scale));
+    p.drawPath(bPath);
+
+    QFont letterFont(QStringLiteral("sans-serif"));
+    letterFont.setPixelSize(qRound(badgeDim * 0.62));
+    letterFont.setBold(true);
+    p.setFont(letterFont);
+    p.setPen(textColor);
+    p.drawText(badgeRect, Qt::AlignCenter, QString(letter.toUpper()));
+
+    const int textLeft = padX + badgeDim + gapX;
+    if (displayCap.isEmpty()) {
+        const QRectF locRect(textLeft, 0, textWidth, pillH);
+        p.setFont(locFont);
+        p.setPen(Qt::white);
+        p.drawText(locRect, Qt::AlignVCenter | Qt::AlignLeft, locationText);
+    } else {
+        const qreal midY = pillH / 2.0;
+        const QRectF locRect(textLeft, qRound(midY - fmLoc.height() * 0.95), textWidth, fmLoc.height());
+        const QRectF capRect(textLeft, qRound(midY + fmCap.height() * 0.05), textWidth, fmCap.height());
+
+        p.setFont(locFont);
+        p.setPen(QColor(241, 196, 15));
+        p.drawText(locRect, Qt::AlignLeft | Qt::AlignVCenter, locationText);
+
+        p.setFont(capFont);
+        p.setPen(QColor(220, 225, 230));
+        p.drawText(capRect, Qt::AlignLeft | Qt::AlignVCenter, displayCap);
+    }
 
     p.end();
     return img;

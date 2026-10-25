@@ -12,6 +12,7 @@
 #include <effect/effecthandler.h>
 #include <effect/effectwindow.h>
 #include <window.h>
+#include <virtualdesktops.h>
 #include <opengl/glshader.h>
 #include <opengl/glshadermanager.h>
 #include <opengl/glvertexbuffer.h>
@@ -740,7 +741,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_badgeMargin = qBound(0, config.readEntry("BadgeMargin", 12), 100);
     m_markShowLetterBadges = (m_badgeDisplayMode != 2);
     m_badgesAlwaysVisible = (m_badgeDisplayMode == 1);
-    m_jumpTargets = qBound(0, config.readEntry("JumpTargets", 0), 1);
+    m_jumpTargets = qBound(0, config.readEntry("JumpTargets", 0), 2);
     m_badgeTextureCache.clear();
     if (!m_lastMarkColor.isValid()) {
         m_lastMarkColor = m_markDefaultColor;
@@ -2129,12 +2130,28 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
         if (!w || w == m_activeWindow || w->isDeleted() || w->isDesktop() || w->isDock() || isBlockingPopup(w)) {
             continue;
         }
-        if (w->isMinimized() || w->isHiddenByShowDesktop() || !w->isOnCurrentDesktop()) {
+        if (w->isHiddenByShowDesktop()) {
             continue;
         }
-        if (m_jumpTargets == 1 && !m_markedWindows.contains(w)) {
-            continue;
+
+        const bool isMarked = m_markedWindows.contains(w);
+        const bool onCurrent = w->isOnCurrentDesktop();
+
+        if (m_jumpTargets == 1) { // Marked windows only (all desktops)
+            if (!isMarked) {
+                continue;
+            }
+        } else if (m_jumpTargets == 0) { // Current desktop visible + marked all desktops
+            if (!onCurrent && !isMarked) {
+                continue;
+            }
+            if (w->isMinimized() && !isMarked) {
+                continue;
+            }
+        } else { // 2: All windows across all virtual desktops
+            // include all
         }
+
         candidates.append(w);
     }
 
@@ -2243,6 +2260,12 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             EffectWindow *target = m_jumpLetterToWindow.value(keyChar);
             cancelJumpMode();
             if (target && !target->isDeleted()) {
+                if (!target->isOnCurrentDesktop()) {
+                    const auto desktops = target->desktops();
+                    if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
+                        effects->setCurrentDesktop(desktops.first());
+                    }
+                }
                 if (target->isMinimized()) {
                     target->setMinimized(false);
                 }
@@ -2492,6 +2515,140 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
     texture->bind();
     vbo->render(GL_TRIANGLES);
     texture->unbind();
+
+    if (scissorWasEnabled) {
+        glEnable(GL_SCISSOR_TEST);
+    }
+
+    glBlendFuncSeparate(previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha);
+    if (blendWasEnabled) {
+        glEnable(GL_BLEND);
+    } else {
+        glDisable(GL_BLEND);
+    }
+}
+
+void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &renderTarget,
+                                                           const RenderViewport &viewport,
+                                                           const QList<QPair<QChar, EffectWindow *>> &targets,
+                                                           int badgeSize)
+{
+    if (targets.isEmpty()) {
+        return;
+    }
+
+    const qreal scale = viewport.scale();
+    const QRectF screenRect = viewport.renderRect();
+
+    struct PillItem {
+        std::shared_ptr<GLTexture> texture;
+        qreal width;
+        qreal height;
+    };
+    QList<PillItem> pills;
+    qreal totalWidth = 0.0;
+    const qreal gap = 12.0;
+
+    for (const auto &pair : targets) {
+        const QChar letter = pair.first;
+        EffectWindow *target = pair.second;
+        if (!target || target->isDeleted()) {
+            continue;
+        }
+
+        const QColor bgCol = m_markedWindows.contains(target)
+            ? m_markedWindows.value(target)
+            : QColor(35, 38, 41, 235);
+        const QColor textCol = (bgCol.lightness() > 140) ? Qt::black : Qt::white;
+
+        QString loc;
+        if (!target->isOnCurrentDesktop()) {
+            const auto desktops = target->desktops();
+            if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
+                loc = desktops.first()->name();
+            }
+            if (loc.isEmpty()) {
+                const uint num = desktops.isEmpty() ? 0 : desktops.first()->x11DesktopNumber();
+                loc = tr("Desktop %1").arg(num);
+            }
+            if (target->isMinimized()) {
+                loc += QStringLiteral(" (min)");
+            }
+        } else if (target->isMinimized()) {
+            loc = tr("Minimized");
+        }
+
+        const QString caption = target->caption();
+
+        const QImage img = OutlineBadge::renderOffscreenTargetPill(letter, bgCol, textCol, loc, caption, badgeSize, scale);
+        auto uploaded = GLTexture::upload(img);
+        if (!uploaded) {
+            continue;
+        }
+        uploaded->setFilter(GL_LINEAR);
+        uploaded->setWrapMode(GL_CLAMP_TO_EDGE);
+
+        const qreal w = img.width() / scale;
+        const qreal h = img.height() / scale;
+        pills.append({std::shared_ptr<GLTexture>(uploaded.release()), w, h});
+        totalWidth += w;
+    }
+
+    if (pills.isEmpty()) {
+        return;
+    }
+
+    totalWidth += gap * (pills.size() - 1);
+    qreal startX = screenRect.left() + (screenRect.width() - totalWidth) / 2.0;
+    if (startX < screenRect.left() + 20) {
+        startX = screenRect.left() + 20;
+    }
+    const qreal pillY = screenRect.bottom() - pills.first().height - 24.0;
+
+    GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
+    GLint previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha;
+    glGetIntegerv(GL_BLEND_SRC_RGB, &previousSrcRgb);
+    glGetIntegerv(GL_BLEND_DST_RGB, &previousDstRgb);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &previousSrcAlpha);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &previousDstAlpha);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+    GLboolean scissorWasEnabled = glIsEnabled(GL_SCISSOR_TEST);
+    glDisable(GL_SCISSOR_TEST);
+
+    ShaderBinder binder(ShaderTrait::MapTexture | ShaderTrait::TransformColorspace);
+    GLShader *shader = binder.shader();
+    shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix, viewport.projectionMatrix());
+    shader->setColorspaceUniforms(ColorDescription::sRGB, renderTarget.colorDescription(), RenderingIntent::Perceptual);
+
+    qreal currentX = startX;
+    for (const PillItem &item : pills) {
+        const float x0 = currentX * scale;
+        const float y0 = pillY * scale;
+        const float x1 = (currentX + item.width) * scale;
+        const float y1 = (pillY + item.height) * scale;
+
+        const std::array<GLVertex2D, 6> verts = {{
+            {QVector2D(x0, y0), QVector2D(0.0f, 0.0f)},
+            {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+            {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+            {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+            {QVector2D(x1, y1), QVector2D(1.0f, 1.0f)},
+            {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+        }};
+
+        auto vbo = GLVertexBuffer::streamingBuffer();
+        vbo->setVertices(verts);
+
+        shader->setUniform(GLShader::Mat4Uniform::TextureMatrix, item.texture->matrix(NormalizedCoordinates));
+        item.texture->bind();
+        vbo->render(GL_TRIANGLES);
+        item.texture->unbind();
+
+        currentX += item.width + gap;
+    }
 
     if (scissorWasEnabled) {
         glEnable(GL_SCISSOR_TEST);
@@ -2803,6 +2960,7 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
                 data.paint += jw->frameGeometry().toAlignedRect();
             }
         }
+        data.paint += effects->virtualScreenGeometry();
     } else if (m_badgeDisplayMode == 1) {
         const QMap<QChar, EffectWindow *> backgroundBadges = assignJumpLetters();
         for (auto it = backgroundBadges.constBegin(); it != backgroundBadges.constEnd(); ++it) {
@@ -3032,14 +3190,26 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     if (m_jumpMode && !inhibited) {
         const int jumpH = qRound(m_badgeSize * 1.25);
         const int jumpW = qRound(jumpH * 1.35);
+
+        QList<QPair<QChar, EffectWindow *>> offscreenTargets;
+
         for (auto it = m_jumpLetterToWindow.constBegin(); it != m_jumpLetterToWindow.constEnd(); ++it) {
             const QChar letter = it.key();
             EffectWindow *target = it.value();
-            if (!target || target == w || target->isDeleted() || target->isMinimized()
-                || target->isHiddenByShowDesktop() || !target->isOnCurrentDesktop()
+            if (!target || target == w || target->isDeleted()
+                || target->isHiddenByShowDesktop()
                 || target->isDesktop() || target->isDock()) {
                 continue;
             }
+
+            const bool onCurrent = target->isOnCurrentDesktop();
+            const bool minimized = target->isMinimized();
+
+            if (!onCurrent || minimized) {
+                offscreenTargets.append(qMakePair(letter, target));
+                continue;
+            }
+
             const QColor bgCol = m_markedWindows.contains(target)
                 ? m_markedWindows.value(target)
                 : QColor(35, 38, 41, 235);
@@ -3063,6 +3233,10 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 }
             }
             renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, true, m_badgeSize);
+        }
+
+        if (!offscreenTargets.isEmpty()) {
+            renderOffscreenJumpTargets(renderTarget, viewport, offscreenTargets, m_badgeSize);
         }
     }
 

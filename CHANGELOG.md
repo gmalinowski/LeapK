@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.5.0] - 2026-10-25
 
 ### Added
+- **Multi-Desktop Window Jumping & Offscreen HUD Cards (`Meta+Alt+Space`)**:
+  - Modal Jump Mode now functions across all virtual desktops. Marked windows on other desktops and minimized windows retain their fixed letters and can be jumped to instantly from any virtual desktop.
+  - Jumping to a window residing on a different desktop automatically switches virtual desktops (`effects->setCurrentDesktop`) and activates/unminimizes the window in one smooth step.
+  - Floating Offscreen Jump Targets HUD: When Jump Mode is active and marked windows (or offscreen targets) exist on other desktops or in minimized state, an elegant, non-intrusive HUD bar appears at the bottom-center of the screen displaying each target's letter badge, desktop name/number (e.g. `Desktop 2`), and window title.
+  - Expanded `JumpTargets` scope options in KCM settings:
+    - `0`: Current desktop visible windows + marked windows from all desktops (default).
+    - `1`: Marked windows only (all desktops).
+    - `2`: All windows across all virtual desktops.
 - **Randomized Mark Outline Color (`MarkRandomColor`)**:
   - Added a "Randomize color" checkbox next to Default Mark Color in the KCM settings.
   - When enabled, toggling a window mark automatically selects a unique, vibrant color from a curated high-contrast palette (with diverse HSV fallback) ensuring multiple marked windows each receive distinct, eye-catching outlines.

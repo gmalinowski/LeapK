@@ -12,6 +12,19 @@ using OutlineBadge::findNextAvailableLetter;
 using OutlineBadge::renderBadgeImage;
 using OutlineBadge::computeBadgeRect;
 using OutlineBadge::generateRandomMarkColor;
+using OutlineBadge::renderOffscreenTargetPill;
+
+void testOffscreenTargetPill()
+{
+    QImage pill = renderOffscreenTargetPill(QLatin1Char('A'), QColor(231, 76, 60), Qt::white, QStringLiteral("Desktop 2"), QStringLiteral("Firefox"), 28, 1.0);
+    assert(!pill.isNull());
+    assert(pill.width() > 50);
+    assert(pill.height() > 30);
+
+    // Empty caption
+    QImage pillNoCap = renderOffscreenTargetPill(QLatin1Char('M'), QColor(52, 152, 219), Qt::white, QStringLiteral("Minimized"), QString(), 28, 1.0);
+    assert(!pillNoCap.isNull());
+}
 
 void testRandomMarkColor()
 {
@@ -127,6 +140,7 @@ int main(int argc, char *argv[])
     testBadgeRendering();
     testBadgePositioning();
     testRandomMarkColor();
+    testOffscreenTargetPill();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

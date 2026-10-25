@@ -1999,12 +1999,17 @@
             </property>
             <item>
              <property name="text">
-              <string>All visible windows (marked windows keep fixed letters)</string>
+              <string>Current desktop visible windows + marked windows from all desktops</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>Marked windows only</string>
+              <string>Marked windows only (all desktops)</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>All windows across all virtual desktops</string>
              </property>
             </item>
            </widget>
