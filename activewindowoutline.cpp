@@ -782,7 +782,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_badgeMargin = qBound(0, config.readEntry("BadgeMargin", 0), 100);
     m_markShowLetterBadges = (m_badgeDisplayMode != 2);
     m_badgesAlwaysVisible = (m_badgeDisplayMode == 1);
-    m_jumpTargets = qBound(0, config.readEntry("JumpTargets", 0), 2);
+    m_jumpTargets = qBound(0, config.readEntry("JumpTargets", 0), 3);
     m_badgeTextureCache.clear();
     if (!m_lastMarkColor.isValid()) {
         m_lastMarkColor = m_markDefaultColor;
@@ -2438,7 +2438,7 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
         const bool isMarked = m_markedWindows.contains(w);
         const bool onCurrent = w->isOnCurrentDesktop();
 
-        if (m_jumpTargets == 1) { // Marked windows only (all desktops)
+        if (m_jumpTargets == 3) { // Marked windows only (all desktops)
             if (!isMarked) {
                 continue;
             }
@@ -2449,7 +2449,11 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
             if (w->isMinimized() && !isMarked) {
                 continue;
             }
-        } else { // 2: All windows across all virtual desktops
+        } else if (m_jumpTargets == 1) { // Current desktop all windows (visible & minimized) + marked all desktops
+            if (!onCurrent && !isMarked) {
+                continue;
+            }
+        } else { // 2: All windows across all virtual desktops (visible & minimized)
             // include all
         }
 

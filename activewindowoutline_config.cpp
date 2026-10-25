@@ -573,6 +573,19 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_ui->label_jumpTargets->setToolTip(tr("Scope of windows included when pressing the Jump to Window shortcut (%1).").arg(shortcutStr));
     m_ui->kcfg_JumpTargets->setToolTip(tr("Scope of windows included when pressing the Jump to Window shortcut (%1).").arg(shortcutStr));
 
+    const bool isPolish = (QLocale().language() == QLocale::Polish);
+    if (isPolish) {
+        m_ui->label_jumpTargets->setText(QStringLiteral("Cele skoku (%1):").arg(shortcutStr));
+        m_ui->label_jumpTargets->setToolTip(QStringLiteral("Zakres okien uwzględnianych po wciśnięciu skrótu Skok do okna (%1).").arg(shortcutStr));
+        m_ui->kcfg_JumpTargets->setToolTip(QStringLiteral("Zakres okien uwzględnianych po wciśnięciu skrótu Skok do okna (%1).").arg(shortcutStr));
+        if (m_ui->kcfg_JumpTargets->count() >= 4) {
+            m_ui->kcfg_JumpTargets->setItemText(0, QStringLiteral("Bieżący pulpit: widoczne okna + oznaczone okna ze wszystkich pulpitów"));
+            m_ui->kcfg_JumpTargets->setItemText(1, QStringLiteral("Bieżący pulpit: wszystkie okna (widoczne i zminimalizowane) + oznaczone"));
+            m_ui->kcfg_JumpTargets->setItemText(2, QStringLiteral("Wszystkie okna na wszystkich pulpitach wirtualnych (widoczne i zminimalizowane)"));
+            m_ui->kcfg_JumpTargets->setItemText(3, QStringLiteral("Tylko oznaczone okna (wszystkie pulpity)"));
+        }
+    }
+
     connect(m_ui->btnPrecedenceUp, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::movePrecedenceUp);
     connect(m_ui->btnPrecedenceDown, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::movePrecedenceDown);
     connect(m_ui->btnPrecedenceReset, &QPushButton::clicked, this, [this] {

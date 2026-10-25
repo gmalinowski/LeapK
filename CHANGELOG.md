@@ -22,6 +22,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Added an interactive up-to-date confirmation dialog with a direct button to view the latest release notes on GitHub.
 
 ### Changed
+- **Refined Jump Targets Scope Options (`JumpTargets`)**:
+  - Clarified that cross-desktop leaping covers both visible and minimized windows.
+  - Split jump targets into 4 clean, dedicated scopes:
+    1. Current desktop visible windows + marked windows from all desktops (default).
+    2. Current desktop all windows (visible & minimized) + marked windows from all desktops.
+    3. All windows across all virtual desktops (visible & minimized).
+    4. Marked windows only (all desktops).
+  - Added localized Polish descriptions in settings for all 4 scopes.
 - **Documentation & Cleanup**:
   - Streamlined `README.md` with an upfront `TL;DR` section highlighting features and 1-line installation.
   - Enhanced installer and uninstaller scripts to ensure complete cleanup of legacy desktop entries and stale launcher references.

@@ -1988,12 +1988,17 @@
             </item>
             <item>
              <property name="text">
-              <string>Marked windows only (all desktops)</string>
+              <string>Current desktop all windows (visible &amp; minimized) + marked windows from all desktops</string>
              </property>
             </item>
             <item>
              <property name="text">
-              <string>All windows across all virtual desktops</string>
+              <string>All windows across all virtual desktops (visible &amp; minimized)</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Marked windows only (all desktops)</string>
              </property>
             </item>
            </widget>
