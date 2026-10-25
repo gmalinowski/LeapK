@@ -187,6 +187,9 @@
         <entry name="MarkDefaultColor" type="Color">
             <default>#e74c3c</default>
         </entry>
+        <entry name="MarkRandomColor" type="Bool">
+            <default>false</default>
+        </entry>
         <!-- Precedence / Priority Settings -->
         <entry name="StylePrecedence" type="String">
             <default>Active,Marked,Recent</default>

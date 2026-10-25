@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.5.0] - 2026-10-25
 
 ### Added
+- **Randomized Mark Outline Color (`MarkRandomColor`)**:
+  - Added a "Randomize color" checkbox next to Default Mark Color in the KCM settings.
+  - When enabled, toggling a window mark automatically selects a unique, vibrant color from a curated high-contrast palette (with diverse HSV fallback) ensuring multiple marked windows each receive distinct, eye-catching outlines.
+  - Automatically disables the static default color picker when randomize color is checked.
 - **Multi-Desktop Virtual Desktop Focus History & Jump List (`Meta+Alt+[` / `Meta+Alt+]`)**:
   - Full-capacity 50-window focus history queue (`m_windowHistory`) independent of outline highlight limits.
   - Automatic virtual desktop switching (`effects->setCurrentDesktop(candidate->desktops().first())`) when jumping to windows residing on different virtual desktops.

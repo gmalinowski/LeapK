@@ -1698,14 +1698,44 @@
            </widget>
           </item>
           <item row="1" column="1">
-           <widget class="KColorButton" name="kcfg_MarkDefaultColor">
-            <property name="alphaChannelEnabled">
-             <bool>true</bool>
+           <layout class="QHBoxLayout" name="layoutMarkDefaultColor">
+            <property name="spacing">
+             <number>10</number>
             </property>
-            <property name="toolTip">
-             <string>Default outline color used when toggling window mark via shortcut.</string>
-            </property>
-           </widget>
+            <item>
+             <widget class="KColorButton" name="kcfg_MarkDefaultColor">
+              <property name="alphaChannelEnabled">
+               <bool>true</bool>
+              </property>
+              <property name="toolTip">
+               <string>Default outline color used when toggling window mark via shortcut.</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="kcfg_MarkRandomColor">
+              <property name="text">
+               <string>Randomize color</string>
+              </property>
+              <property name="toolTip">
+               <string>Randomize the outline color each time a window is marked instead of using a fixed default color.</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="spacerMarkDefaultColor">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
           </item>
           <item row="2" column="0">
            <widget class="QLabel" name="label_markInactiveWidthReduction">

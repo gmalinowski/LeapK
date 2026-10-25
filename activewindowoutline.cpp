@@ -719,6 +719,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_recentWindowGapGrowth = qBound(0, config.readEntry("RecentWindowGapGrowth", 6), 30);
     m_recentWindowDashSmooth = config.readEntry("RecentWindowDashSmooth", false);
     m_markDefaultColor = config.readEntry("MarkDefaultColor", QColor(QStringLiteral("#e74c3c")));
+    m_markRandomColor = config.readEntry("MarkRandomColor", false);
     m_markInactiveWidthReduction = qBound(0, config.readEntry("MarkInactiveWidthReduction", 0), 10);
     m_markInactiveDashed = config.readEntry("MarkInactiveDashed", false);
     m_markInactiveDashGap = qBound(1, config.readEntry("MarkInactiveDashGap", 6), 40);
@@ -1959,6 +1960,11 @@ QChar ActiveWindowOutlineEffect::nextAvailableLetter() const
     return OutlineBadge::findNextAvailableLetter(used);
 }
 
+QColor ActiveWindowOutlineEffect::generateRandomMarkColor() const
+{
+    return OutlineBadge::generateRandomMarkColor(m_markedWindows.values());
+}
+
 void ActiveWindowOutlineEffect::toggleWindowMark(EffectWindow *w)
 {
     if (!w) {
@@ -1969,7 +1975,9 @@ void ActiveWindowOutlineEffect::toggleWindowMark(EffectWindow *w)
         m_markedWindowLetters.remove(w);
         effects->addRepaint(expandedGeometryFor(w));
     } else {
-        const QColor markCol = m_lastMarkColor.isValid() ? m_lastMarkColor : m_markDefaultColor;
+        const QColor markCol = m_markRandomColor
+            ? generateRandomMarkColor()
+            : (m_lastMarkColor.isValid() ? m_lastMarkColor : m_markDefaultColor);
         const QChar letter = nextAvailableLetter();
         setWindowMark(w, markCol, letter);
     }
@@ -1999,7 +2007,7 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
     QPointer<EffectWindow> targetWindow(target);
     const QColor initialColor = m_markedWindows.contains(target)
         ? m_markedWindows.value(target)
-        : (m_lastMarkColor.isValid() ? m_lastMarkColor : m_markDefaultColor);
+        : (m_markRandomColor ? generateRandomMarkColor() : (m_lastMarkColor.isValid() ? m_lastMarkColor : m_markDefaultColor));
     const QChar initialLetter = m_markedWindowLetters.contains(target)
         ? m_markedWindowLetters.value(target)
         : nextAvailableLetter();

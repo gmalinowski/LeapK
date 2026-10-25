@@ -10,6 +10,7 @@
 #include <QImage>
 #include <QPainter>
 #include <QPainterPath>
+#include <QRandomGenerator>
 #include <QRectF>
 #include <QString>
 #include <QStringList>
@@ -52,6 +53,45 @@ inline QChar findNextAvailableLetter(const QList<QChar> &usedLetters)
         }
     }
     return QLatin1Char('?');
+}
+
+inline QColor generateRandomMarkColor(const QList<QColor> &usedColors = {})
+{
+    static const QList<QColor> palette = {
+        QColor(QStringLiteral("#e74c3c")), // Crimson Red
+        QColor(QStringLiteral("#3498db")), // Sky Blue
+        QColor(QStringLiteral("#2ecc71")), // Emerald Green
+        QColor(QStringLiteral("#f1c40f")), // Sunflower Yellow
+        QColor(QStringLiteral("#9b59b6")), // Amethyst Purple
+        QColor(QStringLiteral("#e67e22")), // Tangerine Orange
+        QColor(QStringLiteral("#1abc9c")), // Turquoise
+        QColor(QStringLiteral("#ff3366")), // Hot Pink
+        QColor(QStringLiteral("#00d2d3")), // Cyan
+        QColor(QStringLiteral("#5f27cd")), // Deep Violet
+        QColor(QStringLiteral("#ff9f43")), // Amber
+        QColor(QStringLiteral("#10ac84")), // Aqua Mint
+        QColor(QStringLiteral("#ee5253")), // Coral Red
+        QColor(QStringLiteral("#54a0ff")), // Neon Blue
+        QColor(QStringLiteral("#1dd1a1")), // Bright Teal
+        QColor(QStringLiteral("#feca57"))  // Warm Yellow
+    };
+
+    QList<QColor> available;
+    for (const QColor &col : palette) {
+        if (!usedColors.contains(col)) {
+            available.append(col);
+        }
+    }
+
+    if (!available.isEmpty()) {
+        const int idx = QRandomGenerator::global()->bounded(available.size());
+        return available.at(idx);
+    }
+
+    const int hue = QRandomGenerator::global()->bounded(360);
+    const int sat = 210 + QRandomGenerator::global()->bounded(45);
+    const int val = 220 + QRandomGenerator::global()->bounded(35);
+    return QColor::fromHsv(hue, sat, val);
 }
 
 inline QRectF computeBadgeRect(const QRectF &geo, int position, qreal badgeWidth, qreal badgeHeight, qreal margin)

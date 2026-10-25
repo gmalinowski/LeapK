@@ -153,6 +153,7 @@ private:
     void toggleWindowMark(EffectWindow *w);
     void setWindowMarkColor(EffectWindow *w, const QColor &color);
     void setWindowMark(EffectWindow *w, const QColor &color, const QChar &letter = QChar());
+    QColor generateRandomMarkColor() const;
     QChar nextAvailableLetter() const;
     QMap<QChar, EffectWindow *> assignJumpLetters() const;
     void cancelJumpMode();
@@ -274,6 +275,7 @@ private:
 
     // Config - Mark Window
     QColor m_markDefaultColor = QColor(QStringLiteral("#e74c3c"));
+    bool m_markRandomColor = false;
     int m_markInactiveWidthReduction = 0;
     bool m_markInactiveDashed = false;
     int m_markInactiveDashGap = 6;

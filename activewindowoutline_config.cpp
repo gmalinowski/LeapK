@@ -186,6 +186,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("RecentWindowGapGrowth"), *new int, 6);
     m_configSkeleton->addItemBool(QStringLiteral("RecentWindowDashSmooth"), *new bool, false);
     m_configSkeleton->addItemColor(QStringLiteral("MarkDefaultColor"), *new QColor, QColor(QStringLiteral("#e74c3c")));
+    m_configSkeleton->addItemBool(QStringLiteral("MarkRandomColor"), *new bool, false);
     m_configSkeleton->addItemString(QStringLiteral("StylePrecedence"), *new QString, QStringLiteral("Active,Marked,Recent"));
     m_configSkeleton->addItemInt(QStringLiteral("MarkInactiveWidthReduction"), *new int, 0);
     m_configSkeleton->addItemBool(QStringLiteral("MarkInactiveDashed"), *new bool, false);
@@ -493,6 +494,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
 
     connect(m_ui->kcfg_MarkInactiveDashed, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
     connect(m_ui->kcfg_BadgeDisplayMode, qOverload<int>(&QComboBox::currentIndexChanged), this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
+    connect(m_ui->kcfg_MarkRandomColor, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
     updateMarkWindowUI();
 
     QString shortcutStr = QStringLiteral("Meta+Alt+Space");
@@ -549,6 +551,9 @@ void ActiveWindowOutlineConfig::updateRecentWindowUI()
 
 void ActiveWindowOutlineConfig::updateMarkWindowUI()
 {
+    const bool randomColor = m_ui->kcfg_MarkRandomColor->isChecked();
+    m_ui->kcfg_MarkDefaultColor->setEnabled(!randomColor);
+
     const bool dashed = m_ui->kcfg_MarkInactiveDashed->isChecked();
     m_ui->label_markInactiveDashGap->setEnabled(dashed);
     m_ui->kcfg_MarkInactiveDashGap->setEnabled(dashed);
@@ -934,6 +939,7 @@ void ActiveWindowOutlineConfig::defaults()
     m_ui->kcfg_BadgePosition->setCurrentIndex(0);
     m_ui->kcfg_BadgeSize->setValue(28);
     m_ui->kcfg_BadgeMargin->setValue(12);
+    m_ui->kcfg_MarkRandomColor->setChecked(false);
     updateRecentWindowUI();
     updateMarkWindowUI();
     markAsChanged();

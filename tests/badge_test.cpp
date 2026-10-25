@@ -11,6 +11,30 @@
 using OutlineBadge::findNextAvailableLetter;
 using OutlineBadge::renderBadgeImage;
 using OutlineBadge::computeBadgeRect;
+using OutlineBadge::generateRandomMarkColor;
+
+void testRandomMarkColor()
+{
+    // Generates a valid color with empty used list
+    QColor c1 = generateRandomMarkColor({});
+    assert(c1.isValid());
+    assert(c1.alpha() == 255);
+
+    // If one color is used, picks another
+    QColor c2 = generateRandomMarkColor({c1});
+    assert(c2.isValid());
+    assert(c2 != c1);
+
+    // When palette is fully exhausted, fallback HSV generates valid bright color
+    QList<QColor> fullList;
+    for (int i = 0; i < 20; ++i) {
+        fullList.append(generateRandomMarkColor(fullList));
+    }
+    assert(fullList.size() == 20);
+    for (const QColor &c : fullList) {
+        assert(c.isValid());
+    }
+}
 
 void testLetterAllocation()
 {
@@ -102,6 +126,7 @@ int main(int argc, char *argv[])
     testLetterAllocation();
     testBadgeRendering();
     testBadgePositioning();
+    testRandomMarkColor();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;
