@@ -27,8 +27,12 @@ curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | 
 ---
 
 ## 🎥 Preview
+[jumping.webm](https://github.com/user-attachments/assets/fd9e127e-caf3-4dff-b378-5053942b7874)
 
-[kawo_screencast_20261021_8mb.webm](https://github.com/user-attachments/assets/e51be9f1-3e2d-4128-8c69-c4aa3ba57af5)
+
+[leapk-outline-181750_comp.webm](https://github.com/user-attachments/assets/0f3e7ddb-b5ff-4209-98eb-15f93def59a3)
+
+[settings.webm](https://github.com/user-attachments/assets/f0bbab7b-bdcf-4cac-920d-4083aad8ccbb)
 
 ---
 
