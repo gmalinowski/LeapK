@@ -295,6 +295,11 @@ if(OUTLINE_BUILD_TESTS)
     target_link_libraries(outline-preset-test PRIVATE Qt6::Core Qt6::Widgets)
     add_test(NAME outline-preset COMMAND outline-preset-test)
 
+    add_executable(outline-customshader-test tests/customshader_test.cpp)
+    target_include_directories(outline-customshader-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-customshader-test PRIVATE Qt6::Core Qt6::Gui)
+    add_test(NAME outline-customshader COMMAND outline-customshader-test)
+
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
         add_test(NAME outline-config-sync COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/configsync_test.py)

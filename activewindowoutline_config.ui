@@ -1122,6 +1122,111 @@
        </item>
 
        <item>
+        <widget class="QGroupBox" name="groupCustomShaders">
+         <property name="title">
+          <string>Custom GLSL Shader Effects</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayoutCustomShaders">
+          <item>
+           <widget class="QCheckBox" name="kcfg_CustomShaderEnabled">
+            <property name="text">
+             <string>Enable custom GLSL shader effect</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="layoutShaderToolbar">
+            <item>
+             <widget class="QPushButton" name="btnNewShader">
+              <property name="text">
+               <string>New Effect…</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnEditShader">
+              <property name="text">
+               <string>Edit…</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnImportShader">
+              <property name="text">
+               <string>Import…</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnExportShader">
+              <property name="text">
+               <string>Export…</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnDeleteShader">
+              <property name="text">
+               <string>Delete</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="spacerShaderToolbar">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QTableWidget" name="tableShaders">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>140</height>
+             </size>
+            </property>
+            <property name="selectionMode">
+             <enum>QAbstractItemView::SingleSelection</enum>
+            </property>
+            <property name="selectionBehavior">
+             <enum>QAbstractItemView::SelectRows</enum>
+            </property>
+            <property name="columnCount">
+             <number>5</number>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QGroupBox" name="groupActiveShaderParams">
+            <property name="title">
+             <string>Active Effect Parameters</string>
+            </property>
+            <layout class="QFormLayout" name="formLayoutShaderParams">
+            </layout>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+
+       <item>
+        <widget class="QLineEdit" name="kcfg_ActiveCustomShaderId">
+         <property name="visible">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+
+       <item>
         <spacer name="verticalSpacerEffects">
          <property name="orientation">
           <enum>Qt::Vertical</enum>

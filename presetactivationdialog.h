@@ -118,7 +118,9 @@ public:
                     {QStringLiteral("ColorTransitionDuration"), QStringLiteral("Czas przejścia barw sekwencji"), QStringLiteral("Cycle Duration")},
                     {QStringLiteral("ColorCycleOrder"), QStringLiteral("Kolejność sekwencji"), QStringLiteral("Cycle Order")},
                     {QStringLiteral("ColorCycleEasing"), QStringLiteral("Krzywa animacji sekwencji"), QStringLiteral("Cycle Easing")},
-                    {QStringLiteral("ColorList"), QStringLiteral("Paleta kolorów sekwencji"), QStringLiteral("Color Palette")}
+                    {QStringLiteral("ColorList"), QStringLiteral("Paleta kolorów sekwencji"), QStringLiteral("Color Palette")},
+                    {QStringLiteral("CustomShaderEnabled"), QStringLiteral("Niestandardowy efekt shadera GLSL"), QStringLiteral("Custom GLSL Shader")},
+                    {QStringLiteral("ActiveCustomShaderId"), QStringLiteral("Aktywny shader GLSL"), QStringLiteral("Active Shader ID")}
                 }
             },
             // 5. Leap Mode & Badges

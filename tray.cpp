@@ -46,6 +46,7 @@
 #include <KGlobalAccel>
 #include "presethelper.h"
 #include "presetactivationdialog.h"
+#include "customshaderhelper.h"
 #include "settingsdialog.h"
 #include "updatehelper.h"
 #include <iostream>
@@ -834,6 +835,7 @@ private slots:
         m_trayIcon->setToolTip(statusText);
 
         rebuildPresetsMenu();
+        rebuildShadersMenu();
         updateShortcutsMenu();
     }
 
@@ -913,6 +915,9 @@ private:
 
         // 3. Presets Submenu
         m_menuPresets = m_menu->addMenu(m_isPolish ? QStringLiteral("📁 Presety") : QStringLiteral("📁 Presets"));
+
+        // 3b. Shaders Submenu
+        m_menuShaders = m_menu->addMenu(m_isPolish ? QStringLiteral("✨ Efekty Shaderów (GLSL)") : QStringLiteral("✨ Shader Effects (GLSL)"));
 
         m_menu->addSeparator();
 
@@ -1013,6 +1018,57 @@ private:
             this, &OutlineTray::onImportPreset);
     }
 
+    void rebuildShadersMenu()
+    {
+        if (!m_menuShaders) {
+            return;
+        }
+        m_menuShaders->clear();
+
+        KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
+        const bool shaderEnabled = group.readEntry(QStringLiteral("CustomShaderEnabled"), false);
+        const QString activeShaderId = group.readEntry(QStringLiteral("ActiveCustomShaderId"), QString());
+
+        QAction *actToggle = m_menuShaders->addAction(
+            m_isPolish ? QStringLiteral("Włącz efekt shadera") : QStringLiteral("Enable Custom Shader"),
+            this, [this, shaderEnabled]() {
+                KConfigGroup g(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
+                g.writeEntry(QStringLiteral("CustomShaderEnabled"), !shaderEnabled);
+                g.sync();
+                notifyKWinReconfigure();
+                rebuildShadersMenu();
+            }
+        );
+        actToggle->setCheckable(true);
+        actToggle->setChecked(shaderEnabled);
+
+        m_menuShaders->addSeparator();
+
+        const auto shaders = LeapKShader::loadAllShaders();
+        auto *actionGroup = new QActionGroup(m_menuShaders);
+        actionGroup->setExclusive(true);
+
+        for (const auto &s : shaders) {
+            QAction *act = m_menuShaders->addAction(s.name);
+            act->setCheckable(true);
+            actionGroup->addAction(act);
+
+            if (!activeShaderId.isEmpty() && s.id == activeShaderId) {
+                act->setChecked(true);
+            }
+
+            const QString id = s.id;
+            connect(act, &QAction::triggered, this, [this, id]() {
+                KConfigGroup g(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
+                g.writeEntry(QStringLiteral("CustomShaderEnabled"), true);
+                g.writeEntry(QStringLiteral("ActiveCustomShaderId"), id);
+                g.sync();
+                notifyKWinReconfigure();
+                rebuildShadersMenu();
+            });
+        }
+    }
+
     void initWatcher()
     {
         const QString configDir = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
@@ -1051,6 +1107,7 @@ private:
     QSystemTrayIcon *m_trayIcon = nullptr;
     QMenu *m_menu = nullptr;
     QMenu *m_menuPresets = nullptr;
+    QMenu *m_menuShaders = nullptr;
     QMenu *m_menuShortcuts = nullptr;
     QAction *m_actEnable = nullptr;
     QAction *m_actJump = nullptr;

@@ -345,5 +345,11 @@
             <min>0.05</min>
             <max>1.0</max>
         </entry>
+        <entry name="CustomShaderEnabled" type="Bool">
+            <default>false</default>
+        </entry>
+        <entry name="ActiveCustomShaderId" type="String">
+            <default></default>
+        </entry>
     </group>
 </kcfg>

@@ -164,6 +164,7 @@ for key in UseAccentColor AccentOpacity CustomColor EnsurePerimeterContrast Bord
            GlitchEnabled GlitchSpeed GlitchIntensity GlitchAnomalyEnabled GlitchFrequency \
            NeonFlickerEnabled NeonFlickerInterval NeonFlickerDuration NeonFlickerIntensity \
            FlashEnabled FlashInterval FlashDuration \
+           CustomShaderEnabled ActiveCustomShaderId \
            FadeDuration MenuHideDelay MenuShowDelay WindowHideDelay WindowShowDelay \
            MarkDefaultColor MarkSmartAdaptive MarkRandomColor StylePrecedence MarkInactiveDashGap MarkInactiveWidthReduction MarkInactiveDashed MarkInactiveDashSmooth MarkShowLetterBadges BadgesAlwaysVisible BadgeDisplayMode BadgePosition BadgeHudPosition BadgeSize BadgeMargin JumpTargets \
            HighlightRecentWindow RecentWindowsCount RecentWindowColorMode RecentWindowCustomColor RecentWindowOpacity RecentWindowHueShift RecentWindowSaturation RecentWindowWidthReduction RecentWindowDashed RecentWindowGapGrowth RecentWindowDashSmooth; do

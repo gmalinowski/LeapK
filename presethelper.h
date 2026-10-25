@@ -113,6 +113,8 @@ inline QJsonObject getDefaultSettings()
     s[QStringLiteral("FlashEnabled")] = false;
     s[QStringLiteral("FlashInterval")] = 4.0;
     s[QStringLiteral("FlashDuration")] = 0.15;
+    s[QStringLiteral("CustomShaderEnabled")] = false;
+    s[QStringLiteral("ActiveCustomShaderId")] = QString();
 
     return s;
 }

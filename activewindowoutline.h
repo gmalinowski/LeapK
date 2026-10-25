@@ -30,6 +30,7 @@
 #include "colortransition.h"
 #include "geometryhelper.h"
 #include "shadereffects.h"
+#include "customshaderhelper.h"
 #include "visibilitystate.h"
 
 class QFileSystemWatcher;
@@ -286,6 +287,10 @@ private:
     bool m_flashEnabled = false;
     qreal m_flashInterval = 4.0;
     qreal m_flashDuration = 0.15;
+
+    bool m_customShaderEnabled = false;
+    QString m_activeCustomShaderId;
+    LeapKShader::CustomShaderEffect m_activeCustomShader;
 
     // Config - Behavior & Delays
     int m_fadeDuration = 200;

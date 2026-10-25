@@ -9,6 +9,7 @@
 #include <KCModule>
 #include <QColor>
 #include <QJsonObject>
+#include "customshaderhelper.h"
 
 namespace Ui
 {
@@ -61,8 +62,20 @@ private:
     QJsonObject collectCurrentSettings() const;
     void applySettings(const QJsonObject &settings);
 
+    void initShadersSection();
+    void refreshShadersTable();
+    void createNewShader();
+    void editSelectedShader();
+    void deleteSelectedShader();
+    void exportSelectedShader();
+    void importShader();
+    void updateShaderParametersUI();
+    void saveShaderParameterValues();
+
     Ui::ActiveWindowOutlineConfigForm *m_ui;
     KConfigSkeleton *m_configSkeleton = nullptr;
     QNetworkAccessManager *m_networkManager = nullptr;
     bool m_isApplyingPreset = false;
+    QList<LeapKShader::CustomShaderEffect> m_shaders;
+    QString m_activeShaderId;
 };

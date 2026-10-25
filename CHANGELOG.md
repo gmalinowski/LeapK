@@ -7,6 +7,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.6.0-beta1] - 2026-10-25
 
 ### Added
+- **Modular Custom Shader Effects Architecture (GLSL)**:
+  - Added full support for creating, editing, importing, and exporting custom GLSL fragment shader effects (`.leapk-shader` / `.json`).
+  - **Dynamic Uniform Parameters**: Shaders can define arbitrary custom uniform variables of type `float`, `int`, `bool`, and `color` with custom labels, ranges, steps, suffixes, and default values.
+  - **Zero Compilation Friction (JIT)**: GLSL fragment shaders are compiled on the fly at runtime by KWin's OpenGL pipeline — no C++ rebuilds, ahead-of-time SPIR-V compiling, or compiler toolchains required.
+  - **Interactive Shader Editor Dialog (`ShaderEditorDialog`)**:
+    - Manage effect metadata: Name, Description, Author, Version, and Target (Aura/Glow, Outline/Border, Both).
+    - Built-in parameter designer: add, edit, or remove uniform parameters with live validation.
+    - Full-featured monospace GLSL code editor with documentation hint banner for available inputs (`baseColor`, `pos`, `box`, `dist`, `time`).
+    - Built-in GLSL syntax validator and starter template generator.
+  - **Settings GUI Integration (Tab 3: Shader Effects)**:
+    - Dedicated management section with action bar: *New Effect…*, *Edit…*, *Import…*, *Export…*, *Delete*.
+    - Table of installed shader effects with right-click context menu.
+    - *Active Effect Parameters*: dynamically generates interactive controls (sliders, spinboxes, checkboxes, color buttons) for the active shader effect.
+  - **Companion Tray Menu Integration**:
+    - Added *✨ Efekty Shaderów (GLSL)* submenu in tray context menu allowing one-click custom shader toggling and switching between installed profiles.
+  - **4 Built-in Starter Shader Effects**:
+    - *Rainbow Wave*: Smooth dynamic prismatic rainbow hue cycle flowing around the window perimeter.
+    - *Matrix Digital Rain*: Cascading green code stream drops with tail decay and customizable matrix color.
+    - *Electric Plasma*: High-voltage electric arcs and energy crackle pulsating along the outline.
+    - *Fire Aura*: Warm blazing flames and rising embers radiating from the window perimeter.
+  - **Comprehensive Regression & Synchronization Tests**:
+    - Added `outline-customshader-test` verifying effect serialization, deserialization, GLSL uniform stitching, code validation, and file persistence (15/15 unit tests passing).
 - **Selective Preset Activation Dialog (`PresetActivationDialog`)**:
   - Added an interactive customization dialog when activating any preset from the Settings GUI or Companion Tray app.
   - Allows selecting exactly which categories or individual configuration settings to apply from the preset, while preserving existing configuration for unselected options.

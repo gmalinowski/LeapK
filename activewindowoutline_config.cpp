@@ -9,6 +9,7 @@
 #include "precedencehelper.h"
 #include "presetactivationdialog.h"
 #include "presethelper.h"
+#include "shadereditordialog.h"
 #include "updatehelper.h"
 
 #include <KColorScheme>
@@ -285,6 +286,9 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemBool(QStringLiteral("FlashEnabled"), *new bool, false);
     m_configSkeleton->addItemDouble(QStringLiteral("FlashInterval"), *new double, 4.0);
     m_configSkeleton->addItemDouble(QStringLiteral("FlashDuration"), *new double, 0.15);
+
+    m_configSkeleton->addItemBool(QStringLiteral("CustomShaderEnabled"), *new bool, false);
+    m_configSkeleton->addItemString(QStringLiteral("ActiveCustomShaderId"), *new QString, QString());
 
     addConfig(m_configSkeleton, widget());
 
@@ -616,6 +620,17 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->btnExportPreset, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::exportSelectedPreset);
     connect(m_ui->tablePresets, &QTableWidget::cellDoubleClicked, this, [this](int, int) {
         activateSelectedPreset();
+    });
+
+    // Custom Shaders controls
+    initShadersSection();
+    connect(m_ui->btnNewShader, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::createNewShader);
+    connect(m_ui->btnEditShader, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::editSelectedShader);
+    connect(m_ui->btnDeleteShader, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::deleteSelectedShader);
+    connect(m_ui->btnImportShader, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::importShader);
+    connect(m_ui->btnExportShader, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::exportSelectedShader);
+    connect(m_ui->tableShaders, &QTableWidget::cellDoubleClicked, this, [this](int, int) {
+        editSelectedShader();
     });
 
     load();
@@ -1023,6 +1038,9 @@ void ActiveWindowOutlineConfig::load()
     }
     updateRecentWindowUI();
     updateMarkWindowUI();
+    m_activeShaderId = group.readEntry(QStringLiteral("ActiveCustomShaderId"), QString());
+    m_ui->kcfg_ActiveCustomShaderId->setText(m_activeShaderId);
+    refreshShadersTable();
     setNeedsSave(false);
 }
 
@@ -1347,6 +1365,8 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("FlashEnabled")] = m_ui->kcfg_FlashEnabled->isChecked();
     s[QStringLiteral("FlashInterval")] = m_ui->kcfg_FlashInterval->value();
     s[QStringLiteral("FlashDuration")] = m_ui->kcfg_FlashDuration->value();
+    s[QStringLiteral("CustomShaderEnabled")] = m_ui->kcfg_CustomShaderEnabled->isChecked();
+    s[QStringLiteral("ActiveCustomShaderId")] = m_activeShaderId;
 
     // Ambilight
     s[QStringLiteral("AmbilightEnabled")] = m_ui->kcfg_AmbilightEnabled->isChecked();
@@ -1454,6 +1474,12 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
     if (s.contains(QStringLiteral("FlashEnabled"))) m_ui->kcfg_FlashEnabled->setChecked(s[QStringLiteral("FlashEnabled")].toBool());
     if (s.contains(QStringLiteral("FlashInterval"))) m_ui->kcfg_FlashInterval->setValue(s[QStringLiteral("FlashInterval")].toDouble());
     if (s.contains(QStringLiteral("FlashDuration"))) m_ui->kcfg_FlashDuration->setValue(s[QStringLiteral("FlashDuration")].toDouble());
+    if (s.contains(QStringLiteral("CustomShaderEnabled"))) m_ui->kcfg_CustomShaderEnabled->setChecked(s[QStringLiteral("CustomShaderEnabled")].toBool());
+    if (s.contains(QStringLiteral("ActiveCustomShaderId"))) {
+        m_activeShaderId = s[QStringLiteral("ActiveCustomShaderId")].toString();
+        m_ui->kcfg_ActiveCustomShaderId->setText(m_activeShaderId);
+        refreshShadersTable();
+    }
 
     // Ambilight
     if (s.contains(QStringLiteral("AmbilightEnabled"))) m_ui->kcfg_AmbilightEnabled->setChecked(s[QStringLiteral("AmbilightEnabled")].toBool());
@@ -1868,6 +1894,9 @@ void ActiveWindowOutlineConfig::save()
     const int badgeMode = m_ui->kcfg_BadgeDisplayMode->currentIndex();
     group.writeEntry(QStringLiteral("MarkShowLetterBadges"), badgeMode != 2);
     group.writeEntry(QStringLiteral("BadgesAlwaysVisible"), badgeMode == 1);
+    saveShaderParameterValues();
+    group.writeEntry(QStringLiteral("CustomShaderEnabled"), m_ui->kcfg_CustomShaderEnabled->isChecked());
+    group.writeEntry(QStringLiteral("ActiveCustomShaderId"), m_activeShaderId);
     group.sync();
 
     QDBusMessage message = QDBusMessage::createMethodCall(
@@ -1894,6 +1923,329 @@ void ActiveWindowOutlineConfig::save()
         QFile::remove(desktopPath);
         QProcess::execute(QStringLiteral("killall"), {QStringLiteral("active-window-outline-tray")});
     }
+}
+
+void ActiveWindowOutlineConfig::initShadersSection()
+{
+    m_ui->tableShaders->setColumnCount(5);
+    m_ui->tableShaders->setHorizontalHeaderLabels({
+        QStringLiteral("Nazwa / Name"),
+        QStringLiteral("Cel / Target"),
+        QStringLiteral("Autor"),
+        QStringLiteral("Wersja"),
+        QStringLiteral("Opis / Description")
+    });
+    m_ui->tableShaders->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    m_ui->tableShaders->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    m_ui->tableShaders->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    m_ui->tableShaders->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    m_ui->tableShaders->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Stretch);
+    m_ui->tableShaders->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_ui->tableShaders->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_ui->tableShaders->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    connect(m_ui->tableShaders, &QTableWidget::customContextMenuRequested, this, [this](const QPoint &pos) {
+        const int row = m_ui->tableShaders->rowAt(pos.y());
+        if (row < 0 || row >= m_shaders.size()) {
+            return;
+        }
+        QMenu menu(widget());
+        menu.addAction(QIcon::fromTheme(QStringLiteral("document-edit")), QStringLiteral("Edytuj efekt…"), this, &ActiveWindowOutlineConfig::editSelectedShader);
+        menu.addAction(QIcon::fromTheme(QStringLiteral("document-export")), QStringLiteral("Eksportuj efekt…"), this, &ActiveWindowOutlineConfig::exportSelectedShader);
+        menu.addSeparator();
+        menu.addAction(QIcon::fromTheme(QStringLiteral("edit-delete")), QStringLiteral("Usuń efekt"), this, &ActiveWindowOutlineConfig::deleteSelectedShader);
+        menu.exec(m_ui->tableShaders->viewport()->mapToGlobal(pos));
+    });
+
+    connect(m_ui->tableShaders, &QTableWidget::itemSelectionChanged, this, [this]() {
+        const int row = m_ui->tableShaders->currentRow();
+        if (row >= 0 && row < m_shaders.size()) {
+            m_activeShaderId = m_shaders[row].id;
+            m_ui->kcfg_ActiveCustomShaderId->setText(m_activeShaderId);
+            updateShaderParametersUI();
+            markAsChanged();
+        }
+    });
+
+    connect(m_ui->kcfg_CustomShaderEnabled, &QCheckBox::toggled, this, [this](bool enabled) {
+        m_ui->tableShaders->setEnabled(enabled);
+        m_ui->groupActiveShaderParams->setEnabled(enabled);
+        m_ui->btnNewShader->setEnabled(enabled);
+        m_ui->btnEditShader->setEnabled(enabled);
+        m_ui->btnImportShader->setEnabled(enabled);
+        m_ui->btnExportShader->setEnabled(enabled);
+        m_ui->btnDeleteShader->setEnabled(enabled);
+        markAsChanged();
+    });
+
+    refreshShadersTable();
+}
+
+void ActiveWindowOutlineConfig::refreshShadersTable()
+{
+    m_shaders = LeapKShader::loadAllShaders();
+    m_ui->tableShaders->setRowCount(m_shaders.size());
+
+    int selectedRow = -1;
+    for (int i = 0; i < m_shaders.size(); ++i) {
+        const auto &effect = m_shaders[i];
+        auto *nameItem = new QTableWidgetItem(effect.name);
+        if (effect.isBuiltIn) {
+            nameItem->setIcon(QIcon::fromTheme(QStringLiteral("favorite")));
+        }
+        m_ui->tableShaders->setItem(i, 0, nameItem);
+
+        QString targetStr = effect.target;
+        if (effect.target == QStringLiteral("glow")) {
+            targetStr = QStringLiteral("Aura (Glow)");
+        } else if (effect.target == QStringLiteral("outline")) {
+            targetStr = QStringLiteral("Ramka (Outline)");
+        } else if (effect.target == QStringLiteral("both")) {
+            targetStr = QStringLiteral("Aura + Ramka");
+        }
+        m_ui->tableShaders->setItem(i, 1, new QTableWidgetItem(targetStr));
+        m_ui->tableShaders->setItem(i, 2, new QTableWidgetItem(effect.author));
+        m_ui->tableShaders->setItem(i, 3, new QTableWidgetItem(effect.version));
+        m_ui->tableShaders->setItem(i, 4, new QTableWidgetItem(effect.description));
+
+        if (!m_activeShaderId.isEmpty() && effect.id == m_activeShaderId) {
+            selectedRow = i;
+        }
+    }
+
+    if (selectedRow >= 0) {
+        m_ui->tableShaders->selectRow(selectedRow);
+    } else if (!m_shaders.isEmpty()) {
+        m_ui->tableShaders->selectRow(0);
+        m_activeShaderId = m_shaders[0].id;
+        m_ui->kcfg_ActiveCustomShaderId->setText(m_activeShaderId);
+    }
+
+    const bool enabled = m_ui->kcfg_CustomShaderEnabled->isChecked();
+    m_ui->tableShaders->setEnabled(enabled);
+    m_ui->groupActiveShaderParams->setEnabled(enabled);
+    m_ui->btnNewShader->setEnabled(enabled);
+    m_ui->btnEditShader->setEnabled(enabled);
+    m_ui->btnImportShader->setEnabled(enabled);
+    m_ui->btnExportShader->setEnabled(enabled);
+    m_ui->btnDeleteShader->setEnabled(enabled);
+
+    updateShaderParametersUI();
+}
+
+void ActiveWindowOutlineConfig::updateShaderParametersUI()
+{
+    QLayoutItem *item;
+    while ((item = m_ui->formLayoutShaderParams->takeAt(0)) != nullptr) {
+        delete item->widget();
+        delete item;
+    }
+
+    int activeIdx = -1;
+    for (int i = 0; i < m_shaders.size(); ++i) {
+        if (m_shaders[i].id == m_activeShaderId) {
+            activeIdx = i;
+            break;
+        }
+    }
+    if (activeIdx < 0) {
+        auto *lbl = new QLabel(QStringLiteral("Wybierz efekt shadera z listy powyżej."), m_ui->groupActiveShaderParams);
+        m_ui->formLayoutShaderParams->addRow(lbl);
+        return;
+    }
+
+    auto &effect = m_shaders[activeIdx];
+    if (effect.parameters.isEmpty()) {
+        auto *lbl = new QLabel(QStringLiteral("Ten efekt shadera nie posiada konfigurowalnych parametrów."), m_ui->groupActiveShaderParams);
+        lbl->setStyleSheet(QStringLiteral("color: palette(placeholder-text); font-style: italic;"));
+        m_ui->formLayoutShaderParams->addRow(lbl);
+        return;
+    }
+
+    for (int pIdx = 0; pIdx < effect.parameters.size(); ++pIdx) {
+        auto &param = effect.parameters[pIdx];
+        if (param.type == QStringLiteral("float")) {
+            auto *spin = new QDoubleSpinBox(m_ui->groupActiveShaderParams);
+            spin->setRange(param.minValue, param.maxValue);
+            spin->setSingleStep(param.step);
+            spin->setDecimals(3);
+            spin->setValue(param.currentValue);
+            if (!param.suffix.isEmpty()) {
+                spin->setSuffix(param.suffix);
+            }
+            connect(spin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [&param, this](double val) {
+                param.currentValue = val;
+                markAsChanged();
+            });
+            m_ui->formLayoutShaderParams->addRow(param.name + QStringLiteral(":"), spin);
+        } else if (param.type == QStringLiteral("int")) {
+            auto *spin = new QSpinBox(m_ui->groupActiveShaderParams);
+            spin->setRange(qRound(param.minValue), qRound(param.maxValue));
+            spin->setSingleStep(qMax(1, qRound(param.step)));
+            spin->setValue(qRound(param.currentValue));
+            if (!param.suffix.isEmpty()) {
+                spin->setSuffix(param.suffix);
+            }
+            connect(spin, QOverload<int>::of(&QSpinBox::valueChanged), this, [&param, this](int val) {
+                param.currentValue = val;
+                markAsChanged();
+            });
+            m_ui->formLayoutShaderParams->addRow(param.name + QStringLiteral(":"), spin);
+        } else if (param.type == QStringLiteral("bool")) {
+            auto *cb = new QCheckBox(param.name, m_ui->groupActiveShaderParams);
+            cb->setChecked(param.currentValue > 0.5);
+            connect(cb, &QCheckBox::toggled, this, [&param, this](bool checked) {
+                param.currentValue = checked ? 1.0 : 0.0;
+                markAsChanged();
+            });
+            m_ui->formLayoutShaderParams->addRow(QString(), cb);
+        } else if (param.type == QStringLiteral("color")) {
+            auto *btn = new QPushButton(param.colorCurrent, m_ui->groupActiveShaderParams);
+            QColor initialColor(param.colorCurrent);
+            btn->setStyleSheet(QStringLiteral("background-color: %1; color: %2; font-weight: bold; border-radius: 4px; padding: 4px;")
+                .arg(initialColor.name(), (initialColor.lightness() > 128) ? QStringLiteral("#000000") : QStringLiteral("#ffffff")));
+            connect(btn, &QPushButton::clicked, this, [&param, btn, this]() {
+                const QColor c = QColorDialog::getColor(QColor(param.colorCurrent), btn, QStringLiteral("Wybierz kolor"));
+                if (c.isValid()) {
+                    param.colorCurrent = c.name();
+                    btn->setText(c.name());
+                    btn->setStyleSheet(QStringLiteral("background-color: %1; color: %2; font-weight: bold; border-radius: 4px; padding: 4px;")
+                        .arg(c.name(), (c.lightness() > 128) ? QStringLiteral("#000000") : QStringLiteral("#ffffff")));
+                    markAsChanged();
+                }
+            });
+            m_ui->formLayoutShaderParams->addRow(param.name + QStringLiteral(":"), btn);
+        }
+    }
+}
+
+void ActiveWindowOutlineConfig::saveShaderParameterValues()
+{
+    for (const auto &effect : std::as_const(m_shaders)) {
+        if (!effect.filePath.isEmpty()) {
+            LeapKShader::saveShaderEffectToFile(effect, effect.filePath);
+        } else {
+            const QString path = LeapKShader::defaultShadersDirectory() + QStringLiteral("/%1.json").arg(effect.id);
+            LeapKShader::saveShaderEffectToFile(effect, path);
+        }
+    }
+}
+
+void ActiveWindowOutlineConfig::createNewShader()
+{
+    LeapK::ShaderEditorDialog dlg(widget(), nullptr);
+    if (dlg.exec() == QDialog::Accepted) {
+        const auto effect = dlg.getEffect();
+        const QString dirPath = LeapKShader::defaultShadersDirectory();
+        const QString filePath = dirPath + QStringLiteral("/%1.json").arg(effect.id);
+        LeapKShader::saveShaderEffectToFile(effect, filePath);
+        m_activeShaderId = effect.id;
+        m_ui->kcfg_ActiveCustomShaderId->setText(m_activeShaderId);
+        refreshShadersTable();
+        markAsChanged();
+    }
+}
+
+void ActiveWindowOutlineConfig::editSelectedShader()
+{
+    const int row = m_ui->tableShaders->currentRow();
+    if (row < 0 || row >= m_shaders.size()) {
+        return;
+    }
+    const auto &effect = m_shaders[row];
+    LeapK::ShaderEditorDialog dlg(widget(), &effect);
+    if (dlg.exec() == QDialog::Accepted) {
+        const auto updated = dlg.getEffect();
+        const QString filePath = !effect.filePath.isEmpty()
+            ? effect.filePath
+            : LeapKShader::defaultShadersDirectory() + QStringLiteral("/%1.json").arg(updated.id);
+        LeapKShader::saveShaderEffectToFile(updated, filePath);
+        m_activeShaderId = updated.id;
+        m_ui->kcfg_ActiveCustomShaderId->setText(m_activeShaderId);
+        refreshShadersTable();
+        markAsChanged();
+    }
+}
+
+void ActiveWindowOutlineConfig::deleteSelectedShader()
+{
+    const int row = m_ui->tableShaders->currentRow();
+    if (row < 0 || row >= m_shaders.size()) {
+        return;
+    }
+    const auto &effect = m_shaders[row];
+    if (effect.isBuiltIn) {
+        QMessageBox::warning(widget(), QStringLiteral("Ochrona efektu wbudowanego"),
+                             QStringLiteral("Efekty wbudowane LeapK nie mogą być usunięte z dysku."));
+        return;
+    }
+    if (QMessageBox::question(widget(), QStringLiteral("Usuwanie efektu"),
+                              QStringLiteral("Czy na pewno chcesz usunąć efekt shadera '%1'?").arg(effect.name),
+                              QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
+        return;
+    }
+    if (!effect.filePath.isEmpty()) {
+        QFile::remove(effect.filePath);
+    }
+    m_activeShaderId.clear();
+    refreshShadersTable();
+    markAsChanged();
+}
+
+void ActiveWindowOutlineConfig::exportSelectedShader()
+{
+    const int row = m_ui->tableShaders->currentRow();
+    if (row < 0 || row >= m_shaders.size()) {
+        return;
+    }
+    const auto &effect = m_shaders[row];
+    const QString suggestedName = effect.id + QStringLiteral(".leapk-shader");
+    const QString destPath = QFileDialog::getSaveFileName(
+        widget(),
+        QStringLiteral("Eksportuj efekt shadera / Export Shader Effect"),
+        QDir::homePath() + QStringLiteral("/") + suggestedName,
+        QStringLiteral("Efekty shaderów (*.leapk-shader *.json);;Wszystkie pliki (*)")
+    );
+    if (destPath.isEmpty()) {
+        return;
+    }
+    if (LeapKShader::saveShaderEffectToFile(effect, destPath)) {
+        QMessageBox::information(widget(), QStringLiteral("Eksport zakończony"),
+                                 QStringLiteral("Efekt shadera '%1' został pomyślnie wyeksportowany do pliku:\n%2").arg(effect.name, destPath));
+    } else {
+        QMessageBox::critical(widget(), QStringLiteral("Błąd zapisu"),
+                              QStringLiteral("Nie udało się zapisać pliku shadera w podanej lokalizacji."));
+    }
+}
+
+void ActiveWindowOutlineConfig::importShader()
+{
+    const QString srcPath = QFileDialog::getOpenFileName(
+        widget(),
+        QStringLiteral("Importuj efekt shadera / Import Shader Effect"),
+        QDir::homePath(),
+        QStringLiteral("Efekty shaderów (*.leapk-shader *.json);;Wszystkie pliki (*)")
+    );
+    if (srcPath.isEmpty()) {
+        return;
+    }
+
+    LeapKShader::CustomShaderEffect effect;
+    QString err;
+    if (!LeapKShader::loadShaderEffectFromFile(srcPath, effect, &err)) {
+        QMessageBox::critical(widget(), QStringLiteral("Błąd importu"),
+                              QStringLiteral("Nie udało się zaimportować pliku shadera:\n%1").arg(err));
+        return;
+    }
+
+    // Save to user shaders directory
+    const QString destPath = LeapKShader::defaultShadersDirectory() + QStringLiteral("/%1.json").arg(effect.id);
+    effect.filePath = destPath;
+    LeapKShader::saveShaderEffectToFile(effect, destPath);
+
+    refreshShadersTable();
+    QMessageBox::information(widget(), QStringLiteral("Import zakończony"),
+                             QStringLiteral("Efekt shadera '%1' został pomyślnie zaimportowany i dodany do listy.").arg(effect.name));
 }
 
 #include "activewindowoutline_config.moc"

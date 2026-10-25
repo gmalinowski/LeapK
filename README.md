@@ -71,6 +71,7 @@ curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | 
 - **Smart Adaptive Ambilight**: Samples dominant colors from live window pixels and application icons in real time.
 - **Perimeter Contrast Enforcement**: Monitors window borders and wallpaper colors, dynamically boosting contrast so outlines never wash out.
 - **Procedural Shaders**: Optional *Soft Glow*, *Breathe / Pulse*, *Futuristic Hologram*, and *Neon Flicker*.
+- **Modular Custom GLSL Shader Effects**: Create, edit, import, and export custom shader effects (`.leapk-shader` / `.json`) with dynamic uniform parameters (sliders, spinboxes, colors). JIT-compiled in real time by KWin without ahead-of-time toolchains. Bundles starter shaders: *Rainbow Wave*, *Matrix Digital Rain*, *Electric Plasma*, and *Fire Aura*.
 
 ### 🎛️ 9 Curated Presets & Presets Manager
 Switch styles instantly from the tray menu or configuration dialog:
