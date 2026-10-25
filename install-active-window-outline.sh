@@ -363,18 +363,38 @@ set_default BadgeMargin 0
 set_default JumpTargets 0
 
 if command -v kreadconfig6 >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/null 2>&1; then
-  current_jump_shortcut=$(kreadconfig6 --file kglobalshortcutsrc --group kwin --key "JumpToWindow" 2>/dev/null || true)
-  if [[ "$current_jump_shortcut" == *"Meta+Alt+Space"* || "$current_jump_shortcut" == *"KAWO:"* || "$current_jump_shortcut" == *"KLeap:"* ]]; then
-    kwriteconfig6 --file kglobalshortcutsrc --group kwin --key "JumpToWindow" "Meta+Space,Meta+Space,LeapK: Jump to Window"
-  fi
-  current_prev_shortcut=$(kreadconfig6 --file kglobalshortcutsrc --group kwin --key "PrevRecentWindow" 2>/dev/null || true)
-  if [[ "$current_prev_shortcut" == *"Meta+Alt+["* || "$current_prev_shortcut" == *"KAWO:"* || "$current_prev_shortcut" == *"KLeap:"* ]]; then
-    kwriteconfig6 --file kglobalshortcutsrc --group kwin --key "PrevRecentWindow" "Meta+Ctrl+[,Meta+Ctrl+[,LeapK: Previous Recent Window"
-  fi
-  current_next_shortcut=$(kreadconfig6 --file kglobalshortcutsrc --group kwin --key "NextRecentWindow" 2>/dev/null || true)
-  if [[ "$current_next_shortcut" == *"Meta+Alt+]"* || "$current_next_shortcut" == *"KAWO:"* || "$current_next_shortcut" == *"KLeap:"* ]]; then
-    kwriteconfig6 --file kglobalshortcutsrc --group kwin --key "NextRecentWindow" "Meta+Ctrl+],Meta+Ctrl+],LeapK: Next Recent Window"
-  fi
+  migrate_shortcut() {
+    local key="$1"
+    local def_key="$2"
+    local label="$3"
+    local current
+    current="$(kreadconfig6 --file kglobalshortcutsrc --group kwin --key "$key" 2>/dev/null || true)"
+    if [[ -z "$current" ]]; then
+      kwriteconfig6 --file kglobalshortcutsrc --group kwin --key "$key" "$def_key,$def_key,$label"
+      return
+    fi
+    local active_keys="${current%%,*}"
+    [[ -z "$active_keys" ]] && active_keys="$def_key"
+    if [[ "$key" == "MarkActiveWindow" && "$active_keys" == "Meta+Ctrl+M" ]]; then
+      active_keys="$def_key"
+    elif [[ "$key" == "MarkActiveWindowWithColor" && "$active_keys" == *"Meta+Ctrl+Shift+M"* ]]; then
+      active_keys="${active_keys//Meta+Ctrl+Shift+M/Meta+Ctrl+Shift+Space}"
+    elif [[ "$key" == "JumpToWindow" && "$active_keys" == *"Meta+Alt+Space"* ]]; then
+      active_keys="$def_key"
+    elif [[ "$key" == "PrevRecentWindow" && "$active_keys" == *"Meta+Alt+["* ]]; then
+      active_keys="$def_key"
+    elif [[ "$key" == "NextRecentWindow" && "$active_keys" == *"Meta+Alt+]"* ]]; then
+      active_keys="$def_key"
+    fi
+    kwriteconfig6 --file kglobalshortcutsrc --group kwin --key "$key" "$active_keys,$def_key,$label"
+  }
+
+  migrate_shortcut "ToggleActiveWindowOutline" "Meta+Ctrl+O" "LeapK: Toggle Window Highlight"
+  migrate_shortcut "MarkActiveWindow" "Meta+Ctrl+Space" "LeapK: Toggle Mark Window"
+  migrate_shortcut "MarkActiveWindowWithColor" "Meta+Ctrl+Shift+Space" "LeapK: Mark Window with Color Picker"
+  migrate_shortcut "JumpToWindow" "Meta+Space" "LeapK: Jump to Window"
+  migrate_shortcut "PrevRecentWindow" "Meta+Ctrl+[" "LeapK: Previous Recent Window"
+  migrate_shortcut "NextRecentWindow" "Meta+Ctrl+]" "LeapK: Next Recent Window"
 fi
 
 if command -v qdbus6 >/dev/null 2>&1; then
