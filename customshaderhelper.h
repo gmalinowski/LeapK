@@ -204,7 +204,262 @@ inline QList<CustomShaderEffect> getBuiltInShaders()
 {
     QList<CustomShaderEffect> list;
 
-    // 1. Rainbow Wave
+    // 1. Breathe / Pulsing
+    {
+        CustomShaderEffect e;
+        e.id = QStringLiteral("breathe_pulse");
+        e.name = QStringLiteral("Breathe / Pulsing");
+        e.description = QStringLiteral("Smooth rhythmic breathing luminance pulse.");
+        e.author = QStringLiteral("LeapK Built-in");
+        e.version = QStringLiteral("1.0");
+        e.isBuiltIn = true;
+        e.target = QStringLiteral("both");
+
+        ShaderParameter p1;
+        p1.id = QStringLiteral("speed");
+        p1.name = QStringLiteral("Pulse Speed");
+        p1.type = QStringLiteral("float");
+        p1.minValue = 0.01;
+        p1.maxValue = 10.0;
+        p1.step = 0.05;
+        p1.defaultValue = 0.5;
+        p1.currentValue = 0.5;
+        p1.suffix = QStringLiteral(" Hz");
+        e.parameters.append(p1);
+
+        ShaderParameter p2;
+        p2.id = QStringLiteral("intensity");
+        p2.name = QStringLiteral("Pulse Intensity");
+        p2.type = QStringLiteral("float");
+        p2.minValue = 10.0;
+        p2.maxValue = 100.0;
+        p2.step = 5.0;
+        p2.defaultValue = 40.0;
+        p2.currentValue = 40.0;
+        p2.suffix = QStringLiteral(" %");
+        e.parameters.append(p2);
+
+        e.glslCode = QStringLiteral(
+            "vec4 evaluateCustomEffect(vec4 baseColor, vec2 pos, vec4 box, float dist, float time)\n"
+            "{\n"
+            "    float depth = clamp(intensity, 10.0, 100.0) / 100.0;\n"
+            "    float wave = 0.5 + 0.5 * sin(6.2831853 * speed * time);\n"
+            "    float factor = 1.0 - depth * (1.0 - wave);\n"
+            "    return vec4(baseColor.rgb * factor, baseColor.a * factor);\n"
+            "}\n"
+        );
+        list.append(e);
+    }
+
+    // 2. Futuristic Glitch & Hologram
+    {
+        CustomShaderEffect e;
+        e.id = QStringLiteral("futuristic_glitch");
+        e.name = QStringLiteral("Futuristic Glitch & Hologram");
+        e.description = QStringLiteral("Cyberpunk sci-fi holographic scanlines, rolling sweep beam, and micro-jitter disturbances.");
+        e.author = QStringLiteral("LeapK Built-in");
+        e.version = QStringLiteral("1.0");
+        e.isBuiltIn = true;
+        e.target = QStringLiteral("both");
+
+        ShaderParameter p1;
+        p1.id = QStringLiteral("speed");
+        p1.name = QStringLiteral("Animation Speed");
+        p1.type = QStringLiteral("float");
+        p1.minValue = 0.1;
+        p1.maxValue = 5.0;
+        p1.step = 0.2;
+        p1.defaultValue = 1.0;
+        p1.currentValue = 1.0;
+        p1.suffix = QStringLiteral("x");
+        e.parameters.append(p1);
+
+        ShaderParameter p2;
+        p2.id = QStringLiteral("intensity");
+        p2.name = QStringLiteral("Hologram Intensity");
+        p2.type = QStringLiteral("float");
+        p2.minValue = 10.0;
+        p2.maxValue = 100.0;
+        p2.step = 5.0;
+        p2.defaultValue = 50.0;
+        p2.currentValue = 50.0;
+        p2.suffix = QStringLiteral(" %");
+        e.parameters.append(p2);
+
+        ShaderParameter p3;
+        p3.id = QStringLiteral("anomalyEnabled");
+        p3.name = QStringLiteral("Periodic Anomaly");
+        p3.type = QStringLiteral("bool");
+        p3.defaultValue = 0.0;
+        p3.currentValue = 0.0;
+        e.parameters.append(p3);
+
+        ShaderParameter p4;
+        p4.id = QStringLiteral("frequency");
+        p4.name = QStringLiteral("Anomaly Frequency");
+        p4.type = QStringLiteral("float");
+        p4.minValue = 1.0;
+        p4.maxValue = 10.0;
+        p4.step = 1.0;
+        p4.defaultValue = 3.0;
+        p4.currentValue = 3.0;
+        e.parameters.append(p4);
+
+        e.glslCode = QStringLiteral(
+            "vec4 evaluateCustomEffect(vec4 baseColor, vec2 pos, vec4 box, float dist, float time)\n"
+            "{\n"
+            "    float intensityNorm = clamp(intensity, 10.0, 100.0) / 100.0;\n"
+            "    float scanline1 = sin(pos.y * 0.35 - time * (3.0 * speed));\n"
+            "    float scanline2 = sin(pos.y * 0.9 + time * (1.8 * speed));\n"
+            "    float scanlines = 0.5 + 0.5 * (scanline1 * 0.7 + scanline2 * 0.3);\n"
+            "    float beamCoord = fract(pos.y * 0.002 - time * (0.12 * speed));\n"
+            "    float beam = smoothstep(0.08, 0.0, abs(beamCoord - 0.5));\n"
+            "    float holoJitter = sin(pos.y * 0.5 + time * (3.5 * speed)) * cos(pos.y * 1.1 - time * (2.5 * speed));\n"
+            "    float totalShift = holoJitter * (intensityNorm * 0.5);\n"
+            "    float surge = 0.0;\n"
+            "    if (anomalyEnabled > 0.5) {\n"
+            "        float anomalyPhase = time * (0.35 + 0.2 * frequency);\n"
+            "        float beat = sin(anomalyPhase) * sin(anomalyPhase * 0.618 + 1.5);\n"
+            "        surge = smoothstep(0.5, 0.95, beat);\n"
+            "        if (surge > 0.0) {\n"
+            "            float slice = sin(pos.y * 1.2 + time * (16.0 * speed)) * cos(pos.y * 2.2 - time * (11.0 * speed));\n"
+            "            totalShift += slice * surge * (intensityNorm * 1.5);\n"
+            "        }\n"
+            "    }\n"
+            "    float energy = 1.0 + intensityNorm * (0.45 * (scanlines - 0.5) + 0.6 * beam + 0.8 * surge);\n"
+            "    vec3 holoEmission = vec3(0.12, 0.28, 0.42) * (intensityNorm * (0.35 + 0.65 * beam + 0.8 * surge));\n"
+            "    vec3 finalRgb = min(vec3(1.0), baseColor.rgb * energy + holoEmission);\n"
+            "    return vec4(finalRgb, baseColor.a * (0.7 + 0.3 * energy));\n"
+            "}\n"
+        );
+        list.append(e);
+    }
+
+    // 3. Neon Voltage Flicker
+    {
+        CustomShaderEffect e;
+        e.id = QStringLiteral("neon_flicker");
+        e.name = QStringLiteral("Neon Voltage Flicker");
+        e.description = QStringLiteral("Atmospheric neon tube voltage drops and erratic organic flickering.");
+        e.author = QStringLiteral("LeapK Built-in");
+        e.version = QStringLiteral("1.0");
+        e.isBuiltIn = true;
+        e.target = QStringLiteral("both");
+
+        ShaderParameter p1;
+        p1.id = QStringLiteral("interval");
+        p1.name = QStringLiteral("Flicker Interval");
+        p1.type = QStringLiteral("float");
+        p1.minValue = 0.5;
+        p1.maxValue = 30.0;
+        p1.step = 0.5;
+        p1.defaultValue = 3.0;
+        p1.currentValue = 3.0;
+        p1.suffix = QStringLiteral(" s");
+        e.parameters.append(p1);
+
+        ShaderParameter p2;
+        p2.id = QStringLiteral("duration");
+        p2.name = QStringLiteral("Flicker Duration");
+        p2.type = QStringLiteral("float");
+        p2.minValue = 0.05;
+        p2.maxValue = 2.0;
+        p2.step = 0.05;
+        p2.defaultValue = 0.25;
+        p2.currentValue = 0.25;
+        p2.suffix = QStringLiteral(" s");
+        e.parameters.append(p2);
+
+        ShaderParameter p3;
+        p3.id = QStringLiteral("intensity");
+        p3.name = QStringLiteral("Flicker Intensity");
+        p3.type = QStringLiteral("float");
+        p3.minValue = 10.0;
+        p3.maxValue = 100.0;
+        p3.step = 5.0;
+        p3.defaultValue = 30.0;
+        p3.currentValue = 30.0;
+        p3.suffix = QStringLiteral(" %");
+        e.parameters.append(p3);
+
+        e.glslCode = QStringLiteral(
+            "vec4 evaluateCustomEffect(vec4 baseColor, vec2 pos, vec4 box, float dist, float time)\n"
+            "{\n"
+            "    float validInterval = max(0.5, interval);\n"
+            "    float validDuration = clamp(duration, 0.02, validInterval * 0.95);\n"
+            "    float phase = mod(time, validInterval);\n"
+            "    float factor = 1.0;\n"
+            "    if (phase < validDuration) {\n"
+            "        float rawNoise = sin(time * 110.0) * 0.5 + cos(time * 67.0) * 0.3 + sin(time * 193.0) * 0.2;\n"
+            "        float depth = clamp(intensity, 10.0, 100.0) / 100.0;\n"
+            "        if (rawNoise < -0.2) {\n"
+            "            factor = max(0.05, 1.0 - depth);\n"
+            "        } else if (rawNoise < 0.25) {\n"
+            "            factor = max(0.1, 1.0 - depth * 0.6);\n"
+            "        } else {\n"
+            "            factor = 1.0 - depth * 0.15 * abs(rawNoise);\n"
+            "        }\n"
+            "    }\n"
+            "    return vec4(baseColor.rgb * factor, baseColor.a * factor);\n"
+            "}\n"
+        );
+        list.append(e);
+    }
+
+    // 4. Flash / Strobe
+    {
+        CustomShaderEffect e;
+        e.id = QStringLiteral("flash_strobe");
+        e.name = QStringLiteral("Flash / Strobe");
+        e.description = QStringLiteral("Periodic exponential light flashes illuminating the outline.");
+        e.author = QStringLiteral("LeapK Built-in");
+        e.version = QStringLiteral("1.0");
+        e.isBuiltIn = true;
+        e.target = QStringLiteral("both");
+
+        ShaderParameter p1;
+        p1.id = QStringLiteral("interval");
+        p1.name = QStringLiteral("Flash Interval");
+        p1.type = QStringLiteral("float");
+        p1.minValue = 0.5;
+        p1.maxValue = 20.0;
+        p1.step = 0.5;
+        p1.defaultValue = 4.0;
+        p1.currentValue = 4.0;
+        p1.suffix = QStringLiteral(" s");
+        e.parameters.append(p1);
+
+        ShaderParameter p2;
+        p2.id = QStringLiteral("duration");
+        p2.name = QStringLiteral("Flash Duration");
+        p2.type = QStringLiteral("float");
+        p2.minValue = 0.05;
+        p2.maxValue = 1.0;
+        p2.step = 0.05;
+        p2.defaultValue = 0.15;
+        p2.currentValue = 0.15;
+        p2.suffix = QStringLiteral(" s");
+        e.parameters.append(p2);
+
+        e.glslCode = QStringLiteral(
+            "vec4 evaluateCustomEffect(vec4 baseColor, vec2 pos, vec4 box, float dist, float time)\n"
+            "{\n"
+            "    float validInterval = max(0.5, interval);\n"
+            "    float validDuration = clamp(duration, 0.05, 1.0);\n"
+            "    float phase = mod(time, validInterval);\n"
+            "    float flash = 0.0;\n"
+            "    if (phase < validDuration) {\n"
+            "        float progress = phase / validDuration;\n"
+            "        flash = 0.8 * exp(-4.0 * progress);\n"
+            "    }\n"
+            "    vec3 brightColor = mix(baseColor.rgb, vec3(1.0, 1.0, 1.0), flash * 0.7);\n"
+            "    return vec4(brightColor * (1.0 + flash), baseColor.a * (1.0 + flash * 0.5));\n"
+            "}\n"
+        );
+        list.append(e);
+    }
+
+    // 5. Rainbow Wave
     {
         CustomShaderEffect e;
         e.id = QStringLiteral("rainbow_wave");
@@ -213,7 +468,7 @@ inline QList<CustomShaderEffect> getBuiltInShaders()
         e.author = QStringLiteral("LeapK Community");
         e.version = QStringLiteral("1.0");
         e.isBuiltIn = true;
-        e.target = QStringLiteral("glow");
+        e.target = QStringLiteral("both");
 
         ShaderParameter p1;
         p1.id = QStringLiteral("speed");

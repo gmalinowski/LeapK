@@ -11,37 +11,67 @@
 void testBuiltInShaders()
 {
     const auto list = LeapKShader::getBuiltInShaders();
-    assert(list.size() == 4);
+    assert(list.size() == 8);
 
-    // 1. Rainbow Wave
-    assert(list[0].id == QStringLiteral("rainbow_wave"));
-    assert(list[0].name == QStringLiteral("Rainbow Wave"));
-    assert(list[0].target == QStringLiteral("glow"));
+    // 1. Breathe / Pulsing
+    assert(list[0].id == QStringLiteral("breathe_pulse"));
+    assert(list[0].name == QStringLiteral("Breathe / Pulsing"));
+    assert(list[0].target == QStringLiteral("both"));
     assert(list[0].isBuiltIn == true);
-    assert(list[0].parameters.size() == 4);
+    assert(list[0].parameters.size() == 2);
     assert(list[0].parameters[0].id == QStringLiteral("speed"));
     assert(list[0].glslCode.contains(QStringLiteral("evaluateCustomEffect")));
 
-    // 2. Matrix Digital Rain
-    assert(list[1].id == QStringLiteral("matrix_rain"));
-    assert(list[1].name == QStringLiteral("Matrix Digital Rain"));
-    assert(list[1].target == QStringLiteral("glow"));
+    // 2. Futuristic Glitch & Hologram
+    assert(list[1].id == QStringLiteral("futuristic_glitch"));
+    assert(list[1].name == QStringLiteral("Futuristic Glitch & Hologram"));
+    assert(list[1].target == QStringLiteral("both"));
     assert(list[1].parameters.size() == 4);
-    assert(list[1].parameters[3].id == QStringLiteral("matrixColor"));
-    assert(list[1].parameters[3].type == QStringLiteral("color"));
+    assert(list[1].parameters[0].id == QStringLiteral("speed"));
 
-    // 3. Electric Plasma
-    assert(list[2].id == QStringLiteral("electric_plasma"));
-    assert(list[2].name == QStringLiteral("Electric Plasma"));
+    // 3. Neon Voltage Flicker
+    assert(list[2].id == QStringLiteral("neon_flicker"));
+    assert(list[2].name == QStringLiteral("Neon Voltage Flicker"));
     assert(list[2].target == QStringLiteral("both"));
-    assert(list[2].parameters.size() == 4);
-    assert(list[2].parameters[0].id == QStringLiteral("voltage"));
+    assert(list[2].parameters.size() == 3);
+    assert(list[2].parameters[0].id == QStringLiteral("interval"));
 
-    // 4. Fire Aura
-    assert(list[3].id == QStringLiteral("fire_aura"));
-    assert(list[3].name == QStringLiteral("Fire Aura"));
-    assert(list[3].target == QStringLiteral("glow"));
-    assert(list[3].parameters.size() == 4);
+    // 4. Flash / Strobe
+    assert(list[3].id == QStringLiteral("flash_strobe"));
+    assert(list[3].name == QStringLiteral("Flash / Strobe"));
+    assert(list[3].target == QStringLiteral("both"));
+    assert(list[3].parameters.size() == 2);
+    assert(list[3].parameters[0].id == QStringLiteral("interval"));
+
+    // 5. Rainbow Wave
+    assert(list[4].id == QStringLiteral("rainbow_wave"));
+    assert(list[4].name == QStringLiteral("Rainbow Wave"));
+    assert(list[4].target == QStringLiteral("both"));
+    assert(list[4].isBuiltIn == true);
+    assert(list[4].parameters.size() == 4);
+    assert(list[4].parameters[0].id == QStringLiteral("speed"));
+    assert(list[4].glslCode.contains(QStringLiteral("evaluateCustomEffect")));
+
+    // 6. Matrix Digital Rain
+    assert(list[5].id == QStringLiteral("matrix_rain"));
+    assert(list[5].name == QStringLiteral("Matrix Digital Rain"));
+    assert(list[5].target == QStringLiteral("glow"));
+    assert(list[5].parameters.size() == 4);
+    assert(list[5].parameters[3].id == QStringLiteral("matrixColor"));
+    assert(list[5].parameters[3].type == QStringLiteral("color"));
+
+    // 7. Electric Plasma
+    assert(list[6].id == QStringLiteral("electric_plasma"));
+    assert(list[6].name == QStringLiteral("Electric Plasma"));
+    assert(list[6].target == QStringLiteral("both"));
+    assert(list[6].parameters.size() == 4);
+    assert(list[6].parameters[0].id == QStringLiteral("voltage"));
+
+    // 8. Fire Aura
+    assert(list[7].id == QStringLiteral("fire_aura"));
+    assert(list[7].name == QStringLiteral("Fire Aura"));
+    assert(list[7].target == QStringLiteral("glow"));
+    assert(list[7].parameters.size() == 4);
 }
 
 void testSerializationAndDeserialization()
@@ -137,9 +167,17 @@ void testGlslValidation()
 void testShaderGeneration()
 {
     const auto list = LeapKShader::getBuiltInShaders();
-    const auto &rainbow = list[0];
+    const auto &breathe = list[0]; // breathe_pulse
+    const auto &rainbow = list[4]; // rainbow_wave
 
-    // Glow fragment shader (modern desktop GL)
+    // Breathe pulse glow fragment shader
+    const QByteArray breatheSource = LeapKShader::buildGlowFragmentSource(breathe, true, false);
+    assert(breatheSource.contains("#version 140"));
+    assert(breatheSource.contains("uniform float speed;"));
+    assert(breatheSource.contains("uniform float intensity;"));
+    assert(breatheSource.contains("evaluateCustomEffect(baseColor, position0, outerBox, distanceToOutline, time)"));
+
+    // Rainbow wave glow fragment shader (modern desktop GL)
     const QByteArray glowSource = LeapKShader::buildGlowFragmentSource(rainbow, true, false);
     assert(glowSource.contains("#version 140"));
     assert(glowSource.contains("in vec2 position0;"));

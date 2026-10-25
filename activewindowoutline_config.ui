@@ -799,343 +799,27 @@
       <layout class="QVBoxLayout" name="verticalLayoutEffects">
 
        <item>
-        <widget class="QGroupBox" name="groupBreathe">
-         <property name="title">
-          <string>Breathe / Pulsing</string>
-         </property>
-         <layout class="QFormLayout" name="formLayoutBreathe">
-          <item row="0" column="0" colspan="2">
-           <widget class="QCheckBox" name="kcfg_BreatheEnabled">
-            <property name="text">
-             <string>Enable breathing pulse</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="label_breatheSpeed">
-            <property name="text">
-             <string>Pulse speed:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QDoubleSpinBox" name="kcfg_BreatheSpeed">
-            <property name="decimals">
-             <number>2</number>
-            </property>
-            <property name="minimum">
-             <double>0.01</double>
-            </property>
-            <property name="maximum">
-             <double>20.0</double>
-            </property>
-            <property name="singleStep">
-             <double>0.05</double>
-            </property>
-            <property name="value">
-             <double>0.5</double>
-            </property>
-            <property name="suffix">
-             <string> Hz</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QLabel" name="label_breatheIntensity">
-            <property name="text">
-             <string>Pulse intensity:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QSpinBox" name="kcfg_BreatheIntensity">
-            <property name="minimum">
-             <number>10</number>
-            </property>
-            <property name="maximum">
-             <number>100</number>
-            </property>
-            <property name="value">
-             <number>40</number>
-            </property>
-            <property name="suffix">
-             <string> %</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
-
-       <item>
-        <widget class="QGroupBox" name="groupGlitch">
-         <property name="title">
-          <string>Futuristic Glitch</string>
-         </property>
-         <layout class="QFormLayout" name="formLayoutGlitch">
-          <item row="0" column="0" colspan="2">
-           <widget class="QCheckBox" name="kcfg_GlitchEnabled">
-            <property name="text">
-             <string>Enable sci-fi holographic effect</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="label_glitchSpeed">
-            <property name="text">
-             <string>Animation speed:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QDoubleSpinBox" name="kcfg_GlitchSpeed">
-            <property name="minimum">
-             <double>0.1</double>
-            </property>
-            <property name="maximum">
-             <double>5.0</double>
-            </property>
-            <property name="singleStep">
-             <double>0.2</double>
-            </property>
-            <property name="value">
-             <double>1.0</double>
-            </property>
-            <property name="suffix">
-             <string>x</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QLabel" name="label_glitchIntensity">
-            <property name="text">
-             <string>Hologram intensity:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QSpinBox" name="kcfg_GlitchIntensity">
-            <property name="minimum">
-             <number>10</number>
-            </property>
-            <property name="maximum">
-             <number>100</number>
-            </property>
-            <property name="value">
-             <number>50</number>
-            </property>
-            <property name="suffix">
-             <string> %</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0" colspan="2">
-           <widget class="QCheckBox" name="kcfg_GlitchAnomalyEnabled">
-            <property name="text">
-             <string>Enable periodic glitch disturbances</string>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="0">
-           <widget class="QLabel" name="label_glitchFrequency">
-            <property name="text">
-             <string>Glitch frequency:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="1">
-           <widget class="QSpinBox" name="kcfg_GlitchFrequency">
-            <property name="minimum">
-             <number>1</number>
-            </property>
-            <property name="maximum">
-             <number>10</number>
-            </property>
-            <property name="value">
-             <number>3</number>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
-
-       <item>
-        <widget class="QGroupBox" name="groupNeonFlicker">
-         <property name="title">
-          <string>Neon Flicker</string>
-         </property>
-         <layout class="QFormLayout" name="formLayoutNeon">
-          <item row="0" column="0" colspan="2">
-           <widget class="QCheckBox" name="kcfg_NeonFlickerEnabled">
-            <property name="text">
-             <string>Enable neon voltage flicker</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="label_neonInterval">
-            <property name="text">
-             <string>Flicker interval:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QDoubleSpinBox" name="kcfg_NeonFlickerInterval">
-            <property name="minimum">
-             <double>0.5</double>
-            </property>
-            <property name="maximum">
-             <double>30.0</double>
-            </property>
-            <property name="singleStep">
-             <double>0.5</double>
-            </property>
-            <property name="value">
-             <double>3.0</double>
-            </property>
-            <property name="suffix">
-             <string> s</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QLabel" name="label_neonDuration">
-            <property name="text">
-             <string>Flicker duration:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QDoubleSpinBox" name="kcfg_NeonFlickerDuration">
-            <property name="minimum">
-             <double>0.05</double>
-            </property>
-            <property name="maximum">
-             <double>2.0</double>
-            </property>
-            <property name="singleStep">
-             <double>0.05</double>
-            </property>
-            <property name="value">
-             <double>0.25</double>
-            </property>
-            <property name="suffix">
-             <string> s</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0">
-           <widget class="QLabel" name="label_neonIntensity">
-            <property name="text">
-             <string>Flicker intensity:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="1">
-           <widget class="QSpinBox" name="kcfg_NeonFlickerIntensity">
-            <property name="minimum">
-             <number>10</number>
-            </property>
-            <property name="maximum">
-             <number>100</number>
-            </property>
-            <property name="value">
-             <number>30</number>
-            </property>
-            <property name="suffix">
-             <string> %</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
-
-       <item>
-        <widget class="QGroupBox" name="groupFlash">
-         <property name="title">
-          <string>Flash / Strobe</string>
-         </property>
-         <layout class="QFormLayout" name="formLayoutFlash">
-          <item row="0" column="0" colspan="2">
-           <widget class="QCheckBox" name="kcfg_FlashEnabled">
-            <property name="text">
-             <string>Enable periodic light flash</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="label_flashInterval">
-            <property name="text">
-             <string>Flash interval:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QDoubleSpinBox" name="kcfg_FlashInterval">
-            <property name="minimum">
-             <double>0.5</double>
-            </property>
-            <property name="maximum">
-             <double>20.0</double>
-            </property>
-            <property name="singleStep">
-             <double>0.5</double>
-            </property>
-            <property name="value">
-             <double>4.0</double>
-            </property>
-            <property name="suffix">
-             <string> s</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QLabel" name="label_flashDuration">
-            <property name="text">
-             <string>Flash duration:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QDoubleSpinBox" name="kcfg_FlashDuration">
-            <property name="minimum">
-             <double>0.05</double>
-            </property>
-            <property name="maximum">
-             <double>1.0</double>
-            </property>
-            <property name="singleStep">
-             <double>0.05</double>
-            </property>
-            <property name="value">
-             <double>0.15</double>
-            </property>
-            <property name="suffix">
-             <string> s</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
-
-       <item>
         <widget class="QGroupBox" name="groupCustomShaders">
          <property name="title">
-          <string>Custom GLSL Shader Effects</string>
+          <string>Shader Effects (GLSL)</string>
          </property>
          <layout class="QVBoxLayout" name="verticalLayoutCustomShaders">
           <item>
            <widget class="QCheckBox" name="kcfg_CustomShaderEnabled">
             <property name="text">
-             <string>Enable custom GLSL shader effect</string>
+             <string>Enable shader effects</string>
             </property>
            </widget>
           </item>
           <item>
            <layout class="QHBoxLayout" name="layoutShaderToolbar">
+            <item>
+             <widget class="QPushButton" name="btnToggleShader">
+              <property name="text">
+               <string>Toggle Active</string>
+              </property>
+             </widget>
+            </item>
             <item>
              <widget class="QPushButton" name="btnNewShader">
               <property name="text">
@@ -1191,7 +875,7 @@
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>140</height>
+              <height>180</height>
              </size>
             </property>
             <property name="selectionMode">
@@ -1201,7 +885,7 @@
              <enum>QAbstractItemView::SelectRows</enum>
             </property>
             <property name="columnCount">
-             <number>5</number>
+             <number>6</number>
             </property>
            </widget>
           </item>

@@ -503,54 +503,6 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->kcfg_ColorCycleEnabled, &QCheckBox::toggled, this, updateColorCycleUI);
     updateColorCycleUI();
 
-    auto updateBreatheUI = [this] {
-        const bool enabled = m_ui->kcfg_BreatheEnabled->isChecked();
-        m_ui->label_breatheSpeed->setEnabled(enabled);
-        m_ui->kcfg_BreatheSpeed->setEnabled(enabled);
-        m_ui->label_breatheIntensity->setEnabled(enabled);
-        m_ui->kcfg_BreatheIntensity->setEnabled(enabled);
-    };
-    connect(m_ui->kcfg_BreatheEnabled, &QCheckBox::toggled, this, updateBreatheUI);
-    updateBreatheUI();
-
-    auto updateGlitchUI = [this] {
-        const bool glitchOn = m_ui->kcfg_GlitchEnabled->isChecked();
-        m_ui->label_glitchSpeed->setEnabled(glitchOn);
-        m_ui->kcfg_GlitchSpeed->setEnabled(glitchOn);
-        m_ui->label_glitchIntensity->setEnabled(glitchOn);
-        m_ui->kcfg_GlitchIntensity->setEnabled(glitchOn);
-        m_ui->kcfg_GlitchAnomalyEnabled->setEnabled(glitchOn);
-
-        const bool anomalyOn = glitchOn && m_ui->kcfg_GlitchAnomalyEnabled->isChecked();
-        m_ui->label_glitchFrequency->setEnabled(anomalyOn);
-        m_ui->kcfg_GlitchFrequency->setEnabled(anomalyOn);
-    };
-    connect(m_ui->kcfg_GlitchEnabled, &QCheckBox::toggled, this, updateGlitchUI);
-    connect(m_ui->kcfg_GlitchAnomalyEnabled, &QCheckBox::toggled, this, updateGlitchUI);
-    updateGlitchUI();
-
-    auto updateNeonUI = [this] {
-        const bool enabled = m_ui->kcfg_NeonFlickerEnabled->isChecked();
-        m_ui->label_neonInterval->setEnabled(enabled);
-        m_ui->kcfg_NeonFlickerInterval->setEnabled(enabled);
-        m_ui->label_neonDuration->setEnabled(enabled);
-        m_ui->kcfg_NeonFlickerDuration->setEnabled(enabled);
-        m_ui->label_neonIntensity->setEnabled(enabled);
-        m_ui->kcfg_NeonFlickerIntensity->setEnabled(enabled);
-    };
-    connect(m_ui->kcfg_NeonFlickerEnabled, &QCheckBox::toggled, this, updateNeonUI);
-    updateNeonUI();
-
-    auto updateFlashUI = [this] {
-        const bool enabled = m_ui->kcfg_FlashEnabled->isChecked();
-        m_ui->label_flashInterval->setEnabled(enabled);
-        m_ui->kcfg_FlashInterval->setEnabled(enabled);
-        m_ui->label_flashDuration->setEnabled(enabled);
-        m_ui->kcfg_FlashDuration->setEnabled(enabled);
-    };
-    connect(m_ui->kcfg_FlashEnabled, &QCheckBox::toggled, this, updateFlashUI);
-    updateFlashUI();
-
     connect(m_ui->kcfg_HighlightRecentWindow, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateRecentWindowUI);
     connect(m_ui->kcfg_RecentWindowColorMode, qOverload<int>(&QComboBox::currentIndexChanged), this, &ActiveWindowOutlineConfig::updateRecentWindowUI);
     connect(m_ui->kcfg_RecentWindowDashed, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateRecentWindowUI);
@@ -624,6 +576,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
 
     // Custom Shaders controls
     initShadersSection();
+    connect(m_ui->btnToggleShader, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::toggleSelectedShader);
     connect(m_ui->btnNewShader, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::createNewShader);
     connect(m_ui->btnEditShader, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::editSelectedShader);
     connect(m_ui->btnDeleteShader, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::deleteSelectedShader);
@@ -1350,23 +1303,41 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("ColorList")] = serializeColorTable();
 
     // Shader Effects
-    s[QStringLiteral("BreatheEnabled")] = m_ui->kcfg_BreatheEnabled->isChecked();
-    s[QStringLiteral("BreatheSpeed")] = m_ui->kcfg_BreatheSpeed->value();
-    s[QStringLiteral("BreatheIntensity")] = m_ui->kcfg_BreatheIntensity->value();
-    s[QStringLiteral("GlitchEnabled")] = m_ui->kcfg_GlitchEnabled->isChecked();
-    s[QStringLiteral("GlitchSpeed")] = m_ui->kcfg_GlitchSpeed->value();
-    s[QStringLiteral("GlitchIntensity")] = m_ui->kcfg_GlitchIntensity->value();
-    s[QStringLiteral("GlitchAnomalyEnabled")] = m_ui->kcfg_GlitchAnomalyEnabled->isChecked();
-    s[QStringLiteral("GlitchFrequency")] = m_ui->kcfg_GlitchFrequency->value();
-    s[QStringLiteral("NeonFlickerEnabled")] = m_ui->kcfg_NeonFlickerEnabled->isChecked();
-    s[QStringLiteral("NeonFlickerInterval")] = m_ui->kcfg_NeonFlickerInterval->value();
-    s[QStringLiteral("NeonFlickerDuration")] = m_ui->kcfg_NeonFlickerDuration->value();
-    s[QStringLiteral("NeonFlickerIntensity")] = m_ui->kcfg_NeonFlickerIntensity->value();
-    s[QStringLiteral("FlashEnabled")] = m_ui->kcfg_FlashEnabled->isChecked();
-    s[QStringLiteral("FlashInterval")] = m_ui->kcfg_FlashInterval->value();
-    s[QStringLiteral("FlashDuration")] = m_ui->kcfg_FlashDuration->value();
-    s[QStringLiteral("CustomShaderEnabled")] = m_ui->kcfg_CustomShaderEnabled->isChecked();
+    const bool shaderOn = m_ui->kcfg_CustomShaderEnabled->isChecked();
+    s[QStringLiteral("CustomShaderEnabled")] = shaderOn;
     s[QStringLiteral("ActiveCustomShaderId")] = m_activeShaderId;
+
+    s[QStringLiteral("BreatheEnabled")] = (shaderOn && m_activeShaderId == QStringLiteral("breathe_pulse"));
+    s[QStringLiteral("GlitchEnabled")] = (shaderOn && m_activeShaderId == QStringLiteral("futuristic_glitch"));
+    s[QStringLiteral("NeonFlickerEnabled")] = (shaderOn && m_activeShaderId == QStringLiteral("neon_flicker"));
+    s[QStringLiteral("FlashEnabled")] = (shaderOn && m_activeShaderId == QStringLiteral("flash_strobe"));
+
+    for (const auto &sh : std::as_const(m_shaders)) {
+        if (sh.id == QStringLiteral("breathe_pulse")) {
+            for (const auto &p : sh.parameters) {
+                if (p.id == QStringLiteral("speed")) s[QStringLiteral("BreatheSpeed")] = p.currentValue;
+                else if (p.id == QStringLiteral("intensity")) s[QStringLiteral("BreatheIntensity")] = static_cast<int>(p.currentValue);
+            }
+        } else if (sh.id == QStringLiteral("futuristic_glitch")) {
+            for (const auto &p : sh.parameters) {
+                if (p.id == QStringLiteral("speed")) s[QStringLiteral("GlitchSpeed")] = p.currentValue;
+                else if (p.id == QStringLiteral("intensity")) s[QStringLiteral("GlitchIntensity")] = static_cast<int>(p.currentValue);
+                else if (p.id == QStringLiteral("anomalyEnabled")) s[QStringLiteral("GlitchAnomalyEnabled")] = (p.currentValue > 0.5);
+                else if (p.id == QStringLiteral("frequency")) s[QStringLiteral("GlitchFrequency")] = static_cast<int>(p.currentValue);
+            }
+        } else if (sh.id == QStringLiteral("neon_flicker")) {
+            for (const auto &p : sh.parameters) {
+                if (p.id == QStringLiteral("interval")) s[QStringLiteral("NeonFlickerInterval")] = p.currentValue;
+                else if (p.id == QStringLiteral("duration")) s[QStringLiteral("NeonFlickerDuration")] = p.currentValue;
+                else if (p.id == QStringLiteral("intensity")) s[QStringLiteral("NeonFlickerIntensity")] = static_cast<int>(p.currentValue);
+            }
+        } else if (sh.id == QStringLiteral("flash_strobe")) {
+            for (const auto &p : sh.parameters) {
+                if (p.id == QStringLiteral("interval")) s[QStringLiteral("FlashInterval")] = p.currentValue;
+                else if (p.id == QStringLiteral("duration")) s[QStringLiteral("FlashDuration")] = p.currentValue;
+            }
+        }
+    }
 
     // Ambilight
     s[QStringLiteral("AmbilightEnabled")] = m_ui->kcfg_AmbilightEnabled->isChecked();
@@ -1459,25 +1430,68 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
     if (s.contains(QStringLiteral("ColorList"))) populateColorTable(s[QStringLiteral("ColorList")].toString());
 
     // Shader Effects
-    if (s.contains(QStringLiteral("BreatheEnabled"))) m_ui->kcfg_BreatheEnabled->setChecked(s[QStringLiteral("BreatheEnabled")].toBool());
-    if (s.contains(QStringLiteral("BreatheSpeed"))) m_ui->kcfg_BreatheSpeed->setValue(s[QStringLiteral("BreatheSpeed")].toDouble());
-    if (s.contains(QStringLiteral("BreatheIntensity"))) m_ui->kcfg_BreatheIntensity->setValue(s[QStringLiteral("BreatheIntensity")].toInt());
-    if (s.contains(QStringLiteral("GlitchEnabled"))) m_ui->kcfg_GlitchEnabled->setChecked(s[QStringLiteral("GlitchEnabled")].toBool());
-    if (s.contains(QStringLiteral("GlitchSpeed"))) m_ui->kcfg_GlitchSpeed->setValue(s[QStringLiteral("GlitchSpeed")].toDouble());
-    if (s.contains(QStringLiteral("GlitchIntensity"))) m_ui->kcfg_GlitchIntensity->setValue(s[QStringLiteral("GlitchIntensity")].toInt());
-    if (s.contains(QStringLiteral("GlitchAnomalyEnabled"))) m_ui->kcfg_GlitchAnomalyEnabled->setChecked(s[QStringLiteral("GlitchAnomalyEnabled")].toBool());
-    if (s.contains(QStringLiteral("GlitchFrequency"))) m_ui->kcfg_GlitchFrequency->setValue(s[QStringLiteral("GlitchFrequency")].toInt());
-    if (s.contains(QStringLiteral("NeonFlickerEnabled"))) m_ui->kcfg_NeonFlickerEnabled->setChecked(s[QStringLiteral("NeonFlickerEnabled")].toBool());
-    if (s.contains(QStringLiteral("NeonFlickerInterval"))) m_ui->kcfg_NeonFlickerInterval->setValue(s[QStringLiteral("NeonFlickerInterval")].toDouble());
-    if (s.contains(QStringLiteral("NeonFlickerDuration"))) m_ui->kcfg_NeonFlickerDuration->setValue(s[QStringLiteral("NeonFlickerDuration")].toDouble());
-    if (s.contains(QStringLiteral("NeonFlickerIntensity"))) m_ui->kcfg_NeonFlickerIntensity->setValue(s[QStringLiteral("NeonFlickerIntensity")].toInt());
-    if (s.contains(QStringLiteral("FlashEnabled"))) m_ui->kcfg_FlashEnabled->setChecked(s[QStringLiteral("FlashEnabled")].toBool());
-    if (s.contains(QStringLiteral("FlashInterval"))) m_ui->kcfg_FlashInterval->setValue(s[QStringLiteral("FlashInterval")].toDouble());
-    if (s.contains(QStringLiteral("FlashDuration"))) m_ui->kcfg_FlashDuration->setValue(s[QStringLiteral("FlashDuration")].toDouble());
-    if (s.contains(QStringLiteral("CustomShaderEnabled"))) m_ui->kcfg_CustomShaderEnabled->setChecked(s[QStringLiteral("CustomShaderEnabled")].toBool());
+    bool hasShaderSetting = false;
+    if (s.contains(QStringLiteral("CustomShaderEnabled"))) {
+        m_ui->kcfg_CustomShaderEnabled->setChecked(s[QStringLiteral("CustomShaderEnabled")].toBool());
+        hasShaderSetting = true;
+    }
     if (s.contains(QStringLiteral("ActiveCustomShaderId"))) {
         m_activeShaderId = s[QStringLiteral("ActiveCustomShaderId")].toString();
         m_ui->kcfg_ActiveCustomShaderId->setText(m_activeShaderId);
+        hasShaderSetting = true;
+    }
+
+    // Backwards compatibility with presets using legacy keys:
+    if (s.value(QStringLiteral("GlitchEnabled")).toBool(false)) {
+        m_ui->kcfg_CustomShaderEnabled->setChecked(true);
+        m_activeShaderId = QStringLiteral("futuristic_glitch");
+        m_ui->kcfg_ActiveCustomShaderId->setText(m_activeShaderId);
+        hasShaderSetting = true;
+    } else if (s.value(QStringLiteral("BreatheEnabled")).toBool(false)) {
+        m_ui->kcfg_CustomShaderEnabled->setChecked(true);
+        m_activeShaderId = QStringLiteral("breathe_pulse");
+        m_ui->kcfg_ActiveCustomShaderId->setText(m_activeShaderId);
+        hasShaderSetting = true;
+    } else if (s.value(QStringLiteral("NeonFlickerEnabled")).toBool(false)) {
+        m_ui->kcfg_CustomShaderEnabled->setChecked(true);
+        m_activeShaderId = QStringLiteral("neon_flicker");
+        m_ui->kcfg_ActiveCustomShaderId->setText(m_activeShaderId);
+        hasShaderSetting = true;
+    } else if (s.value(QStringLiteral("FlashEnabled")).toBool(false)) {
+        m_ui->kcfg_CustomShaderEnabled->setChecked(true);
+        m_activeShaderId = QStringLiteral("flash_strobe");
+        m_ui->kcfg_ActiveCustomShaderId->setText(m_activeShaderId);
+        hasShaderSetting = true;
+    }
+
+    // Update parameter values if present in preset
+    for (auto &sh : m_shaders) {
+        if (sh.id == QStringLiteral("breathe_pulse")) {
+            for (auto &p : sh.parameters) {
+                if (p.id == QStringLiteral("speed") && s.contains(QStringLiteral("BreatheSpeed"))) p.currentValue = s[QStringLiteral("BreatheSpeed")].toDouble();
+                else if (p.id == QStringLiteral("intensity") && s.contains(QStringLiteral("BreatheIntensity"))) p.currentValue = s[QStringLiteral("BreatheIntensity")].toDouble();
+            }
+        } else if (sh.id == QStringLiteral("futuristic_glitch")) {
+            for (auto &p : sh.parameters) {
+                if (p.id == QStringLiteral("speed") && s.contains(QStringLiteral("GlitchSpeed"))) p.currentValue = s[QStringLiteral("GlitchSpeed")].toDouble();
+                else if (p.id == QStringLiteral("intensity") && s.contains(QStringLiteral("GlitchIntensity"))) p.currentValue = s[QStringLiteral("GlitchIntensity")].toDouble();
+                else if (p.id == QStringLiteral("anomalyEnabled") && s.contains(QStringLiteral("GlitchAnomalyEnabled"))) p.currentValue = s[QStringLiteral("GlitchAnomalyEnabled")].toBool() ? 1.0 : 0.0;
+                else if (p.id == QStringLiteral("frequency") && s.contains(QStringLiteral("GlitchFrequency"))) p.currentValue = s[QStringLiteral("GlitchFrequency")].toDouble();
+            }
+        } else if (sh.id == QStringLiteral("neon_flicker")) {
+            for (auto &p : sh.parameters) {
+                if (p.id == QStringLiteral("interval") && s.contains(QStringLiteral("NeonFlickerInterval"))) p.currentValue = s[QStringLiteral("NeonFlickerInterval")].toDouble();
+                else if (p.id == QStringLiteral("duration") && s.contains(QStringLiteral("NeonFlickerDuration"))) p.currentValue = s[QStringLiteral("NeonFlickerDuration")].toDouble();
+                else if (p.id == QStringLiteral("intensity") && s.contains(QStringLiteral("NeonFlickerIntensity"))) p.currentValue = s[QStringLiteral("NeonFlickerIntensity")].toDouble();
+            }
+        } else if (sh.id == QStringLiteral("flash_strobe")) {
+            for (auto &p : sh.parameters) {
+                if (p.id == QStringLiteral("interval") && s.contains(QStringLiteral("FlashInterval"))) p.currentValue = s[QStringLiteral("FlashInterval")].toDouble();
+                else if (p.id == QStringLiteral("duration") && s.contains(QStringLiteral("FlashDuration"))) p.currentValue = s[QStringLiteral("FlashDuration")].toDouble();
+            }
+        }
+    }
+    if (hasShaderSetting) {
         refreshShadersTable();
     }
 
@@ -1895,8 +1909,13 @@ void ActiveWindowOutlineConfig::save()
     group.writeEntry(QStringLiteral("MarkShowLetterBadges"), badgeMode != 2);
     group.writeEntry(QStringLiteral("BadgesAlwaysVisible"), badgeMode == 1);
     saveShaderParameterValues();
-    group.writeEntry(QStringLiteral("CustomShaderEnabled"), m_ui->kcfg_CustomShaderEnabled->isChecked());
+    const bool customOn = m_ui->kcfg_CustomShaderEnabled->isChecked();
+    group.writeEntry(QStringLiteral("CustomShaderEnabled"), customOn);
     group.writeEntry(QStringLiteral("ActiveCustomShaderId"), m_activeShaderId);
+    group.writeEntry(QStringLiteral("BreatheEnabled"), false);
+    group.writeEntry(QStringLiteral("GlitchEnabled"), false);
+    group.writeEntry(QStringLiteral("NeonFlickerEnabled"), false);
+    group.writeEntry(QStringLiteral("FlashEnabled"), false);
     group.sync();
 
     QDBusMessage message = QDBusMessage::createMethodCall(
@@ -1927,8 +1946,9 @@ void ActiveWindowOutlineConfig::save()
 
 void ActiveWindowOutlineConfig::initShadersSection()
 {
-    m_ui->tableShaders->setColumnCount(5);
+    m_ui->tableShaders->setColumnCount(6);
     m_ui->tableShaders->setHorizontalHeaderLabels({
+        QStringLiteral("Status / Włącznik"),
         QStringLiteral("Nazwa / Name"),
         QStringLiteral("Cel / Target"),
         QStringLiteral("Autor"),
@@ -1939,17 +1959,32 @@ void ActiveWindowOutlineConfig::initShadersSection()
     m_ui->tableShaders->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     m_ui->tableShaders->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
     m_ui->tableShaders->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
-    m_ui->tableShaders->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Stretch);
+    m_ui->tableShaders->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
+    m_ui->tableShaders->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Stretch);
     m_ui->tableShaders->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_ui->tableShaders->setSelectionMode(QAbstractItemView::SingleSelection);
     m_ui->tableShaders->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    connect(m_ui->tableShaders, &QTableWidget::cellClicked, this, [this](int row, int col) {
+        if (col == 0 && row >= 0 && row < m_shaders.size()) {
+            toggleSelectedShader();
+        }
+    });
 
     connect(m_ui->tableShaders, &QTableWidget::customContextMenuRequested, this, [this](const QPoint &pos) {
         const int row = m_ui->tableShaders->rowAt(pos.y());
         if (row < 0 || row >= m_shaders.size()) {
             return;
         }
+        m_ui->tableShaders->selectRow(row);
+        const auto &effect = m_shaders[row];
+        const bool isActive = m_ui->kcfg_CustomShaderEnabled->isChecked() && (m_activeShaderId == effect.id);
+
         QMenu menu(widget());
+        menu.addAction(isActive ? QIcon::fromTheme(QStringLiteral("dialog-cancel")) : QIcon::fromTheme(QStringLiteral("dialog-ok")),
+                       isActive ? QStringLiteral("⚪ Wyłącz ten efekt") : QStringLiteral("🟢 Włącz ten efekt (Ustaw jako aktywny)"),
+                       this, &ActiveWindowOutlineConfig::toggleSelectedShader);
+        menu.addSeparator();
         menu.addAction(QIcon::fromTheme(QStringLiteral("document-edit")), QStringLiteral("Edytuj efekt…"), this, &ActiveWindowOutlineConfig::editSelectedShader);
         menu.addAction(QIcon::fromTheme(QStringLiteral("document-export")), QStringLiteral("Eksportuj efekt…"), this, &ActiveWindowOutlineConfig::exportSelectedShader);
         menu.addSeparator();
@@ -1960,25 +1995,41 @@ void ActiveWindowOutlineConfig::initShadersSection()
     connect(m_ui->tableShaders, &QTableWidget::itemSelectionChanged, this, [this]() {
         const int row = m_ui->tableShaders->currentRow();
         if (row >= 0 && row < m_shaders.size()) {
-            m_activeShaderId = m_shaders[row].id;
-            m_ui->kcfg_ActiveCustomShaderId->setText(m_activeShaderId);
-            updateShaderParametersUI();
-            markAsChanged();
+            const QString id = m_shaders[row].id;
+            const bool globalEnabled = m_ui->kcfg_CustomShaderEnabled->isChecked();
+            const bool isCurActive = globalEnabled && (id == m_activeShaderId);
+            m_ui->btnToggleShader->setText(isCurActive ? QStringLiteral("⚪ Wyłącz ten efekt") : QStringLiteral("🟢 Włącz ten efekt"));
+            updateShaderParametersUIFor(id);
         }
     });
 
-    connect(m_ui->kcfg_CustomShaderEnabled, &QCheckBox::toggled, this, [this](bool enabled) {
-        m_ui->tableShaders->setEnabled(enabled);
-        m_ui->groupActiveShaderParams->setEnabled(enabled);
-        m_ui->btnNewShader->setEnabled(enabled);
-        m_ui->btnEditShader->setEnabled(enabled);
-        m_ui->btnImportShader->setEnabled(enabled);
-        m_ui->btnExportShader->setEnabled(enabled);
-        m_ui->btnDeleteShader->setEnabled(enabled);
+    connect(m_ui->kcfg_CustomShaderEnabled, &QCheckBox::toggled, this, [this](bool) {
+        refreshShadersTable();
         markAsChanged();
     });
 
     refreshShadersTable();
+}
+
+void ActiveWindowOutlineConfig::toggleSelectedShader()
+{
+    const int row = m_ui->tableShaders->currentRow();
+    if (row < 0 || row >= m_shaders.size()) {
+        return;
+    }
+    const QString selectedId = m_shaders[row].id;
+    const bool currentlyActive = m_ui->kcfg_CustomShaderEnabled->isChecked() && (m_activeShaderId == selectedId);
+
+    if (currentlyActive) {
+        m_ui->kcfg_CustomShaderEnabled->setChecked(false);
+    } else {
+        m_activeShaderId = selectedId;
+        m_ui->kcfg_ActiveCustomShaderId->setText(m_activeShaderId);
+        m_ui->kcfg_CustomShaderEnabled->setChecked(true);
+    }
+
+    refreshShadersTable();
+    markAsChanged();
 }
 
 void ActiveWindowOutlineConfig::refreshShadersTable()
@@ -1986,15 +2037,38 @@ void ActiveWindowOutlineConfig::refreshShadersTable()
     m_shaders = LeapKShader::loadAllShaders();
     m_ui->tableShaders->setRowCount(m_shaders.size());
 
-    int selectedRow = -1;
+    const bool globalEnabled = m_ui->kcfg_CustomShaderEnabled->isChecked();
+    int activeRow = -1;
+    const int previousRow = m_ui->tableShaders->currentRow();
+
     for (int i = 0; i < m_shaders.size(); ++i) {
         const auto &effect = m_shaders[i];
+        const bool isActive = globalEnabled && (!m_activeShaderId.isEmpty() && effect.id == m_activeShaderId);
+        if (isActive) {
+            activeRow = i;
+        }
+
+        // Col 0: Status / Włącznik
+        auto *statusItem = new QTableWidgetItem(isActive ? QStringLiteral("🟢 Włączony") : QStringLiteral("⚪ Wyłączony"));
+        statusItem->setTextAlignment(Qt::AlignCenter);
+        statusItem->setToolTip(isActive ? QStringLiteral("Ten efekt jest aktywny. Kliknij, aby wyłączyć.")
+                                        : QStringLiteral("Ten efekt jest wyłączony. Kliknij, aby włączyć."));
+        QFont sf = statusItem->font();
+        sf.setBold(isActive);
+        statusItem->setFont(sf);
+        m_ui->tableShaders->setItem(i, 0, statusItem);
+
+        // Col 1: Nazwa / Name
         auto *nameItem = new QTableWidgetItem(effect.name);
         if (effect.isBuiltIn) {
             nameItem->setIcon(QIcon::fromTheme(QStringLiteral("favorite")));
         }
-        m_ui->tableShaders->setItem(i, 0, nameItem);
+        QFont nf = nameItem->font();
+        nf.setBold(isActive);
+        nameItem->setFont(nf);
+        m_ui->tableShaders->setItem(i, 1, nameItem);
 
+        // Col 2: Cel / Target
         QString targetStr = effect.target;
         if (effect.target == QStringLiteral("glow")) {
             targetStr = QStringLiteral("Aura (Glow)");
@@ -2003,37 +2077,47 @@ void ActiveWindowOutlineConfig::refreshShadersTable()
         } else if (effect.target == QStringLiteral("both")) {
             targetStr = QStringLiteral("Aura + Ramka");
         }
-        m_ui->tableShaders->setItem(i, 1, new QTableWidgetItem(targetStr));
-        m_ui->tableShaders->setItem(i, 2, new QTableWidgetItem(effect.author));
-        m_ui->tableShaders->setItem(i, 3, new QTableWidgetItem(effect.version));
-        m_ui->tableShaders->setItem(i, 4, new QTableWidgetItem(effect.description));
+        m_ui->tableShaders->setItem(i, 2, new QTableWidgetItem(targetStr));
 
-        if (!m_activeShaderId.isEmpty() && effect.id == m_activeShaderId) {
-            selectedRow = i;
-        }
+        // Col 3: Autor
+        m_ui->tableShaders->setItem(i, 3, new QTableWidgetItem(effect.author));
+
+        // Col 4: Wersja
+        m_ui->tableShaders->setItem(i, 4, new QTableWidgetItem(effect.version));
+
+        // Col 5: Opis / Description
+        m_ui->tableShaders->setItem(i, 5, new QTableWidgetItem(effect.description));
     }
 
-    if (selectedRow >= 0) {
-        m_ui->tableShaders->selectRow(selectedRow);
+    if (previousRow >= 0 && previousRow < m_shaders.size()) {
+        m_ui->tableShaders->selectRow(previousRow);
+    } else if (activeRow >= 0) {
+        m_ui->tableShaders->selectRow(activeRow);
     } else if (!m_shaders.isEmpty()) {
         m_ui->tableShaders->selectRow(0);
-        m_activeShaderId = m_shaders[0].id;
-        m_ui->kcfg_ActiveCustomShaderId->setText(m_activeShaderId);
     }
 
-    const bool enabled = m_ui->kcfg_CustomShaderEnabled->isChecked();
-    m_ui->tableShaders->setEnabled(enabled);
-    m_ui->groupActiveShaderParams->setEnabled(enabled);
-    m_ui->btnNewShader->setEnabled(enabled);
-    m_ui->btnEditShader->setEnabled(enabled);
-    m_ui->btnImportShader->setEnabled(enabled);
-    m_ui->btnExportShader->setEnabled(enabled);
-    m_ui->btnDeleteShader->setEnabled(enabled);
+    const int curRow = m_ui->tableShaders->currentRow();
+    QString currentId;
+    if (curRow >= 0 && curRow < m_shaders.size()) {
+        currentId = m_shaders[curRow].id;
+        const bool isCurActive = globalEnabled && (currentId == m_activeShaderId);
+        m_ui->btnToggleShader->setText(isCurActive ? QStringLiteral("⚪ Wyłącz ten efekt") : QStringLiteral("🟢 Włącz ten efekt"));
+    } else {
+        m_ui->btnToggleShader->setText(QStringLiteral("⚡ Włącz / Wyłącz efekt"));
+    }
 
-    updateShaderParametersUI();
+    updateShaderParametersUIFor(currentId.isEmpty() ? m_activeShaderId : currentId);
 }
 
 void ActiveWindowOutlineConfig::updateShaderParametersUI()
+{
+    const int row = m_ui->tableShaders->currentRow();
+    const QString id = (row >= 0 && row < m_shaders.size()) ? m_shaders[row].id : m_activeShaderId;
+    updateShaderParametersUIFor(id);
+}
+
+void ActiveWindowOutlineConfig::updateShaderParametersUIFor(const QString &id)
 {
     QLayoutItem *item;
     while ((item = m_ui->formLayoutShaderParams->takeAt(0)) != nullptr) {
@@ -2041,20 +2125,30 @@ void ActiveWindowOutlineConfig::updateShaderParametersUI()
         delete item;
     }
 
-    int activeIdx = -1;
+    int effectIdx = -1;
     for (int i = 0; i < m_shaders.size(); ++i) {
-        if (m_shaders[i].id == m_activeShaderId) {
-            activeIdx = i;
+        if (m_shaders[i].id == id) {
+            effectIdx = i;
             break;
         }
     }
-    if (activeIdx < 0) {
+    if (effectIdx < 0 && !m_shaders.isEmpty()) {
+        effectIdx = 0;
+    }
+    if (effectIdx < 0) {
+        m_ui->groupActiveShaderParams->setTitle(QStringLiteral("Parametry efektu"));
         auto *lbl = new QLabel(QStringLiteral("Wybierz efekt shadera z listy powyżej."), m_ui->groupActiveShaderParams);
         m_ui->formLayoutShaderParams->addRow(lbl);
         return;
     }
 
-    auto &effect = m_shaders[activeIdx];
+    auto &effect = m_shaders[effectIdx];
+    const bool isGlobalOn = m_ui->kcfg_CustomShaderEnabled->isChecked();
+    const bool isActive = isGlobalOn && (effect.id == m_activeShaderId);
+
+    m_ui->groupActiveShaderParams->setTitle(QStringLiteral("Parametry efektu: %1 (%2)")
+        .arg(effect.name, isActive ? QStringLiteral("🟢 Aktywny") : QStringLiteral("⚪ Wyłączony")));
+
     if (effect.parameters.isEmpty()) {
         auto *lbl = new QLabel(QStringLiteral("Ten efekt shadera nie posiada konfigurowalnych parametrów."), m_ui->groupActiveShaderParams);
         lbl->setStyleSheet(QStringLiteral("color: palette(placeholder-text); font-style: italic;"));
@@ -2068,7 +2162,7 @@ void ActiveWindowOutlineConfig::updateShaderParametersUI()
             auto *spin = new QDoubleSpinBox(m_ui->groupActiveShaderParams);
             spin->setRange(param.minValue, param.maxValue);
             spin->setSingleStep(param.step);
-            spin->setDecimals(3);
+            spin->setDecimals(2);
             spin->setValue(param.currentValue);
             if (!param.suffix.isEmpty()) {
                 spin->setSuffix(param.suffix);

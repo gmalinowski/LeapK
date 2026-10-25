@@ -64,12 +64,14 @@ private:
 
     void initShadersSection();
     void refreshShadersTable();
+    void toggleSelectedShader();
     void createNewShader();
     void editSelectedShader();
     void deleteSelectedShader();
     void exportSelectedShader();
     void importShader();
     void updateShaderParametersUI();
+    void updateShaderParametersUIFor(const QString &id);
     void saveShaderParameterValues();
 
     Ui::ActiveWindowOutlineConfigForm *m_ui;
