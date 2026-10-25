@@ -1,410 +1,159 @@
-# LeapK – Vim-style Window Navigator & Window Highlighter for KDE
+# LeapK – Vim-style Window Navigator & Smart Focus Border for KDE
 
-A native KWin effect for KDE Plasma 6 that draws a configurable, theme-independent outline and colored border around the active, focused window.
+[![KDE Plasma 6](https://img.shields.io/badge/KDE%20Plasma-6.x-blue.svg?logo=kde)](https://kde.org)
+[![Wayland Ready](https://img.shields.io/badge/Wayland-Native-success.svg)](https://wayland.freedesktop.org/)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/gmalinowski/LeapK?logo=github)](https://github.com/gmalinowski/LeapK/releases/latest)
 
-**LeapK** is a native KWin effect and companion tool for KDE Plasma 6 that combines a Vim-style keyboard window navigator and target jumper with a configurable, theme-independent window highlighter and focus border. Whether you are using tiling window management (such as Bismuth, Polonium, or Krohnkite), borderless themes, or multi-monitor setups, **LeapK** provides lightning-fast window teleportation alongside a crisp, customizable focus indicator directly at the compositor level.
+> **LeapK** is a native KWin compositor effect and companion tool for **KDE Plasma 6** that combines keyboard-driven Vim-style window navigation with a hardware-accelerated, customizable active window border and focus history indicator.
 
-## Features
+---
+
+## ⚡ TL;DR
+
+### What is it?
+- **Teleport between windows with zero mouse movement**: Press `Meta+Space`, spot the letter badge on your target window (even on another virtual desktop or minimized), and tap that key to jump instantly.
+- **Never lose keyboard focus again**: Draws a crisp, theme-independent outline around the active window, plus an optional fading focus trail (1–5 previous windows) for seamless multitasking and tiling layouts.
+- **Tag & personalize windows**: Pin custom letters and readable labels like `[ A | Backend ]` or `[ T | Terminal ]` with personalized colors.
+- **Built-in aesthetic presets**: 9 curated visual profiles from ultra-clean 1px hairlines to reactive Ambilight dynamic glows and Cyberpunk neon.
+
+### Quick Install (1-Liner)
+Run in your terminal to automatically install dependencies, compile, and enable LeapK:
+```bash
+curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash
+```
+*(After the first install or update, log out and back into Plasma so KWin loads the new native plugin).*
+
+---
+
+## 🎥 Preview
 
 [kawo_screencast_20261021_8mb.webm](https://github.com/user-attachments/assets/e51be9f1-3e2d-4128-8c69-c4aa3ba57af5)
 
-- **Active Window Focus Tracking**: Automatically follows and highlights the currently focused window with smooth, responsive transitions.
-- **Recent Window(s) Focus History Highlight**:
-  - Keep subdued outlines on recently focused windows (track between 1 and 5 recent windows) to easily navigate keyboard focus trails in multitasking, split-screen, and tiling setups.
-  - **Multi-Window Opacity Decay**: Configure the opacity of the oldest window (default: 20%); intermediate windows interpolate linearly between 100% and this floor.
-  - **Monochrome / Grayscale Desaturation**: Older windows proportionally lose color saturation towards a target value (default: 0% / full grayscale), providing an unmistakable visual focus hierarchy.
-  - **Stepwise Border Width Reduction**: Optional reduction of border thickness per previous window (down to 1 px) for a clean physical taper across background windows.
-  - **Dashed Outline with Configurable Gap Progression**: Toggle dashed borders for recent windows with adjustable gap growth per step (0–30 px) and optional smooth alpha transitions (soft fading instead of crisp cuts), making temporal focus depth instantly recognizable at a glance.
-  - **Chromatic Hue Progression**: Rotate hues by a configurable angle (-180° to +180°) across the recent window trail.
-  - **Color Mode Flexibility**: Match active window color (including per-window frozen Ambilight samples) or assign a dedicated static custom color.
-  - **Calm & Subdued**: Animated shader effects (breathe, hologram, flicker) are automatically suppressed on recent windows to prevent visual distraction.
-- **Vim-like Window Marks & Instant Jump Navigation**:
-  - **Vim-like Marks with Letters**: Each marked window receives an assigned letter badge (displayed as a crisp antialiased pill badge).
-  - **Modal Jump Mode (`Meta+Space`)**: Instantly enters modal jump mode where high-contrast letter badges pop on background windows (the currently active window is always excluded). Marked windows keep their letter; other candidate windows receive dynamically allocated letters from a prioritized keyboard pool (`ASDFJKLQWERTY...`). Pressing a letter jumps directly to and activates that window. Pressing `Esc` or idling for 5 seconds exits jump mode.
-  - **Configurable Badge Position, Size & Margin**: Fully customizable badge placement (Top-Left, Top, Top-Right, Left, Center, Right, Bottom-Left, Bottom, Bottom-Right), adjustable badge size (16–64 px), and margin distance from window borders (0–100 px). Display mode can be set to only during Jump Mode (default), always visible on background windows, or disabled.
-  - **Quick & Detailed Window Marking**:
-    - **`Meta+Ctrl+Space`**: Instantly marks the active window with default color and auto-assigns next available letter from the pool.
-    - **`Meta+Ctrl+Shift+Space`**: Opens a dedicated native Qt dialog (`active-window-outline-colorpicker`) to select custom label, letter (`A-Z`, `0-9`), and custom mark color with alpha transparency.
-- **Recent Windows History Navigation (Jump List)**:
-  - **`Meta+Ctrl+[` / `Meta+Ctrl+]`**: Seamlessly cycle backward and forward through recent window focus history without scrambling the history stack.
-  - History changes commit automatically after 1.5 seconds of idle time.
-- **Global Shortcuts**:
-  - **Meta+Ctrl+O**: Toggle active window outline on or off.
-  - **Meta+Ctrl+Space**: Toggle permanent mark frame on the active window.
-  - **Meta+Ctrl+Shift+Space**: Mark active window with color, letter, and label picker dialog.
-  - **Meta+Space**: Enter modal Jump to Window mode.
-  - **Meta+Ctrl+[**: Previous recent window in focus history.
-  - **Meta+Ctrl+]**: Next recent window in focus history.
-- **Multiple Color Modes**:
-  - **System Accent Color**: Seamlessly matches your KDE Plasma accent color.
-  - **Custom Static Color**: Set any custom color and opacity (e.g. vibrant green, cyan, or neon purple).
-  - **Ambilight (Adaptive Window Color)**: Dynamically extracts dominant accent colors from active window pixels in real time.
-  - **Color Cycling**: Create animated multi-color sequences with customizable hold times, transition durations, and CSS-style easing curves.
-- **Global Perimeter Contrast Enforcement**:
-  - Automatically analyzes the window border inside and the desktop wallpaper outside.
-  - If the outline color clashes with the wallpaper (e.g. blue outline on blue wallpaper) or blends with the window frame, it dynamically rotates hue and tunes brightness ($L \ge 0.65$ on dark backgrounds, $L \le 0.45$ on light backgrounds) so the focus border is always crisp and visible.
-- **Modular Visual & Shader Effects** (mix and match):
-  - **Breathe / Pulse**: Smooth sinusoidal alpha and glow pulsation with adjustable speed and depth.
-  - **Futuristic Hologram**: Sci-fi holographic scanlines, rolling sweep beam, ionization glow, and optional glitch disturbances.
-  - **Neon Flicker**: Realistic neon tube voltage-drop flickering.
-  - **Flash / Strobe**: Intermittent light bursts with customizable intervals and duration.
-- **Corner Fading & Geometry Controls**:
-  - **Fade Out Corners**: Softly fades out the outline towards each corner, illuminating only the straight window edges.
-  - **Corner Radius**: Matches rounded window corners smoothly.
-  - **Border Width & Offset**: Customize line thickness and distance from the window edge.
-  - **Draw Inside / Outside**: Draw inside the window frame (recommended for tiling and maximized windows) or outside with gap offsets.
-  - **Smooth Edges**: Optional antialiased feathering for clean rendering at fractional display scaling.
-  - **Soft Glow**: Adds a subtle colored halo around the outline.
-- **Smart Popup & Menu Suppression**:
-  - Automatically hides the outline while context menus, dropdowns, combo boxes, or Plasma popups are open (preventing visual clutter and flicker).
-  - Configurable show/hide buffer delays for buttery-smooth menu navigation.
-  - Option to automatically hide the outline when the active window is in fullscreen mode.
-- **Zero Idle Overhead**:
-  - Highly optimized: animation timers only tick when shader effects or color transitions are active.
-  - Repaints strictly the damaged boundary area; zero CPU/GPU overhead when static, minimized, or fullscreen.
-- **Display Server & Wayland Integration**:
-  - Built natively for KWin on Wayland (and X11).
-  - Clips around floating Plasma panels.
-  - Defers software cursor rendering on Wayland with KWin 6.6+ so the mouse pointer is never obscured.
-- **Graphical Configuration Module**:
-  - Integrated into **System Settings → Window Management → Desktop Effects**.
+---
 
-## Use Cases
+## ⌨️ Default Keyboard Shortcuts
 
-- **Tiling Window Management (Polonium, Bismuth, Krohnkite)**: Serves as an instant, clear active window border and focus highlight without requiring window titlebars.
-- **Minimalist & Borderless Desktops**: Highlights the active window with a thin, glowing outline when titlebars or window decorations are hidden.
-- **Multi-Monitor & Ultrawide Productivity**: Effortlessly locate which window has keyboard focus across large or multiple displays.
-- **Accessibility & Focus Visibility**: Enhances window separation for users who need a high-contrast focus indicator or glowing border.
+| Shortcut | Action | Description |
+| :--- | :--- | :--- |
+| **`Meta + Space`** | **Jump to Window** | Enters modal Leap mode: shows letter badges on windows; press a letter to jump immediately. |
+| **`Meta + Ctrl + Space`** | **Quick Mark Window** | Toggles a persistent mark outline and letter badge on the current window. |
+| **`Meta + Ctrl + Shift + Space`** | **Mark with Label & Color** | Opens the native mark dialog to set a custom label (e.g. `Server`), letter, and color. |
+| **`Meta + Ctrl + O`** | **Toggle LeapK** | Instantly toggles the outline effect and overlays on or off. |
+| **`Meta + Ctrl + [`** | **Previous Window** | Cycles backward through recent focus history across all virtual desktops. |
+| **`Meta + Ctrl + ]`** | **Next Window** | Cycles forward through recent focus history. |
 
-## Compatibility
+*All shortcuts can be customized in **System Settings → Shortcuts → KWin** (search for `LeapK`).*
 
-| Component | Status |
-| --- | --- |
-| KDE Plasma 6 / KWin 6 | Required |
-| Wayland | Supported and tested |
-| X11 | Build support included; currently not tested by the maintainers |
-| Plasma 5 | Not supported |
+---
 
-The code shipped in 1.2.11 was built and tested on Wayland with KWin 6.6.6
-(TUXEDO OS 24.04) and KWin 6.8 (CachyOS), verifying floating-panel clipping,
-menu suppression, and software cursor rendering above the outline. Its
-regression tests also pass; these logic tests do not replace visual testing
-in a running Plasma session.
+## ✨ Features at a Glance
 
-Earlier releases were tested on Wayland with the following systems. These are
-historical results, not a claim that every new release has been retested on
-every distribution:
+### 🚀 Vim-Style Window Jumping & Multi-Position HUD
+- **Instant Leaping**: Press `Meta+Space` to display high-contrast letter badges on background windows. Hitting the letter raises, unminimizes, and focuses the target window instantly.
+- **Cross-Desktop & Minimized Navigation**: Windows on other virtual desktops or hidden behind other windows appear in an elegant **HUD Pill Bar** at your chosen screen edge (**Bottom**, **Top**, **Left**, or **Right**) with auto-wrapping and centering.
+- **Window Labels**: Add semantic tags (e.g. `[ A | Work ]`, `[ B | Logs ]`) so you never confuse identical terminal or browser windows.
 
-| Distribution | Plasma | KWin | Base |
-| --- | --- | --- | --- |
-| TUXEDO OS 24.04 | — | 6.6.6 | — |
-| CachyOS | 6.8.0 | 6.8.0 | Arch Linux |
-| KDE neon User Edition | 6.8.0 | 6.8.0 | Ubuntu 24.04 (Noble) |
-| KDE neon Testing Edition | 6.8.0 | 6.8.1 | Ubuntu 24.04 (Noble) |
+### 🖼️ Active & Recent Window Focus Trail
+- **Active Window Outline**: Follows window focus at the compositor level with zero input latency and zero CPU/GPU overhead when idle.
+- **Focus Depth Trail**: Highlights 1 to 5 previously active windows with smooth **opacity decay**, **grayscale desaturation**, and **dashed borders with expanding gaps**, giving an unmistakable sense of temporal depth.
+- **Smart Popup Suppression**: Automatically hides the border during context menus, dropdowns, and Plasma panel popups.
 
-Version 1.2.11 was also verified on CachyOS with KWin 6.8.0 (Wayland). It
-includes a compatibility path for KWin 6.4.x, but that path has not yet been
-tested on a KWin 6.4 system.
+### 🎨 Ambilight, Shaders & Contrast Engine
+- **Smart Adaptive Ambilight**: Samples dominant colors from live window pixels and application icons in real time.
+- **Perimeter Contrast Enforcement**: Monitors window borders and wallpaper colors, dynamically boosting contrast so outlines never wash out.
+- **Procedural Shaders**: Optional *Soft Glow*, *Breathe / Pulse*, *Futuristic Hologram*, and *Neon Flicker*.
 
-KWin effects are native plugins and use KWin's private binary interface.
-Compatibility code for multiple KWin versions does not make one compiled
-binary portable between those versions. A KWin update can require rebuilding
-and reinstalling the effect even when the effect's source has not changed.
+### 🎛️ 9 Curated Presets & Presets Manager
+Switch styles instantly from the tray menu or configuration dialog:
+- **LeapK Default (v1.5)**: Clean modern accent outline with top badges and subtle glow.
+- **Vim HUD Navigator**: Top HUD badges and focus history trail designed for keyboard ninjas.
+- **Subtle Minimalist**: 1px hairline border, 4px corners, zero distractions.
+- **Nordic Frost & Glow**: Ice-blue `#88c0d0` palette with gentle breathing pulsation.
+- **Cyberpunk Neon 2077**: Electric cyan `#00f0ff` with 14px glow and glitch scanlines.
+- **Ambilight Dynamic Flow**: Real-time 3.0 Hz dynamic color matching.
+- **Tiling Matrix Focus Trail**: Emerald green with 3-window dashed focus history for tiling WMs.
+- **RGB Chroma Spectrum**: Chromatic cycling animation across the color wheel.
+- **High-Contrast Accessibility**: Bold 4px amber `#f39c12` border with extra-large 34px badges.
+- *Export and import presets via portable JSON files to share with the community.*
 
-## Installation
+### 🧰 Companion Tray App & Standalone Settings
+- Lightweight Qt6 system tray icon reflecting active state and current color.
+- Dedicated settings application (`leapk-settings`) for instant configuration without KCM plugin issues.
 
-This release is distributed as source code. Prebuilt `.deb`/`.rpm` packages
-and an OBS update repository are not provided yet.
+---
 
-### Quick install & update (recommended)
+## 📦 Installation
 
-Run this one-liner in your terminal to automatically download the latest release, compile against your running KWin version, and enable the effect (or update an existing installation):
-
+### Option 1: Quick Install / Update (Recommended)
 ```bash
 curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash
 ```
 
-The installer automatically detects the latest stable release from GitHub (`releases/latest`), installs any missing build dependencies for your distribution (Debian/Ubuntu, Fedora, Arch/CachyOS, openSUSE), and compiles the plugin for your local KWin ABI. Existing configuration settings are preserved on update.
-
-To install the latest **pre-release / beta** version instead:
-
+### Option 2: Build from Source
 ```bash
-curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash -s -- --pre
-```
-
-To install a specific version or test the development build from the `main` branch:
-
-```bash
-# Specific version tag:
-curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash -s -- --tag v1.3.2
-
-# Latest bleeding-edge development from main:
-curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash -s -- --main
-```
-
-*(You can inspect the scripts before running: [`install.sh`](install.sh) or [`install-leapk.sh`](install-leapk.sh).)*
-
-### Guided installation from local source
-
-Clone the repository or download and extract a [source release](https://github.com/gmalinowski/leapk/releases), then
-run this command from the project directory:
-
-```bash
+git clone https://github.com/gmalinowski/LeapK.git
+cd LeapK
 bash install-leapk.sh
 ```
+*The installer automatically detects your distribution package manager (`pacman`, `apt`, `dnf`, `zypper`), installs required Qt6/KF6 dependencies, limits compiler RAM usage to protect against OOM, compiles the native KWin plugin, and enables it.*
 
-The installer detects Debian/Ubuntu (`apt`), Fedora (`dnf`), Arch/CachyOS (`pacman`),
-and openSUSE (`zypper`) families and installs their build dependencies. It then
-compiles the effect against the KWin version installed on that computer,
-installs its two plugin files, and enables it. This is a source build, not one
-binary shared across distributions: KWin plugins must match the local KWin ABI.
+> [!NOTE]
+> **Requirements**: KDE Plasma 6.x / KWin 6.x on Wayland (recommended) or X11.
 
-For an overview without changing the system, run:
+---
 
-```bash
-bash install-leapk.sh --dry-run
-```
+## ⚙️ Configuration
 
-On another distribution, or when the development dependencies are already
-installed, run `bash install-leapk.sh --skip-deps`. CMake will
-report anything still missing. The guided installer currently targets Wayland;
-X11 remains an experimental manual build.
+You can access settings in three ways:
+1. Click the **LeapK** icon in your system tray → **Settings…**
+2. Run `leapk-settings` in your terminal or application launcher (Kickoff / KRunner).
+3. Open **System Settings → Window Management → Desktop Effects** and click the gear icon next to **LeapK**.
 
-The script uses `sudo` or `doas` only for package installation and copying the
-compiled plugins into the system Qt plugin directory. Review the script before
-running it if desired. Existing effect settings are preserved on update.
+---
 
-When updating an existing installation, log out and back in after the installer finishes. Qt may keep the previous native library loaded in KWin even after the file on disk has been replaced.
+## 🔄 Updating & Uninstallation
 
-### Manual Wayland build
-
-Install a C++ compiler, CMake, Extra CMake Modules, Qt 6 development files
-(Core, DBus, Gui, Widgets, Quick, and the `qtplugininfo` tool), KF6
-CoreAddons/ConfigWidgets/KCMUtils/GlobalAccel development files, Vulkan headers, libdrm
-development files, and the development package matching your installed KWin
-version. Then run:
-
-```bash
-cmake -S . -B build-wayland \
-  -DKWIN_BACKEND=WAYLAND \
-  -DCMAKE_BUILD_TYPE=Release
-cmake --build build-wayland --parallel
-sudo cmake --install build-wayland
-```
-
-Enable **Active Window Outline** in:
-
-**System Settings → Window Management → Desktop Effects**
-
-## Configuration
-
-Open the gear button next to **Active Window Outline** in Desktop Effects.
-
-![Active Window Outline configuration dialog](config_panel.png)
-
-### Tab 1: Appearance
-
-| Setting | Default | Description |
-| --- | ---: | --- |
-| Use accent color | On | Follows the current Plasma accent color. |
-| Accent opacity | 66% | Controls the outline and glow opacity when using the accent color. |
-| Custom color | `#3daee9` | Used when accent-color tracking is disabled. |
-| Ensure perimeter contrast | On | Global contrast protection: monitors window borders and desktop wallpaper to prevent the outline from blending in across all color modes (Static, Accent, Ambilight). |
-| Border width | 2 px | Thickness of the outline. |
-| Outline offset | 0 px | Distance between the window edge and the outline. |
-| Border radius | 6 px | Corner radius of the outline (when corner fading is disabled). |
-| Fade out corners | On | Disables corner curves and smoothly fades out the outline towards corners, illuminating only the straight edges of the window. |
-| Draw inside window | On | Draws the outline over the inside edge of the window. |
-| Smooth edges | On | Adds a subtle antialiased feather to both outline edges. |
-| Soft glow | On | Adds a subtle colored halo around the outline. |
-| Glow size | 6 px | Controls how far the halo extends. |
-
-#### Ambilight (Adaptive Window Color)
-
-Dynamically analyzes the active window's visual contents and synchronizes the outline and neon glow with matching ambient colors in real time.
-
-| Setting | Default | Description |
-| --- | ---: | --- |
-| Enable Ambilight | Off | Analyzes active window pixels to dynamically tint the outline. |
-| Presets | Balanced | Pre-configured tuning profiles (`Balanced`, `Vivid & Dynamic`, `Subtle & Calm`, `Eco`, `High Contrast`, `True Ambilight`, `Custom`). |
-| Detection mode | Smart Adaptive | Algorithm used to extract color (`Smart Adaptive`, `Dominant Accent`, `Balanced Average`). |
-| Opacity | 80% | Base opacity of the Ambilight outline. |
-| Update frequency | 1.5 Hz | How often window colors are sampled (up to 6.0 Hz for video/gaming). |
-| Transition duration | 0.5 s | Crossfade duration when animating between sampled colors. |
-| Saturation leveling | 50% | Normalizes saturation: softens oversaturated neons and boosts pale tones. |
-| Fallback distinction | 75% | Contrasts the outline when window content matches the accent color. |
-| Min / Max brightness | 25% / 85% | Prevents outlines from becoming invisible on dark windows or blindingly bright on pure white documents. |
-
-### Tab 2: Color Sequence
-
-Cycle through custom colors dynamically with animated transitions.
-
-| Setting | Default | Description |
-| --- | ---: | --- |
-| Enable color cycling | Off | Activates the color sequence cycle. |
-| Color table | 3 colors | Add, remove, or reorder any number of colors. Double-click to pick a color, and configure hold duration per color. |
-| Transition duration | 2.0 s | Time taken to smoothly blend from one color stop to the next. |
-| Transition easing | Ease in-out | CSS-style easing curve (`Ease in-out`, `Linear`, `Ease in`, `Ease out`). |
-| Cycle order | Sequential | Sequence progression (`Sequential` or `Random`). |
-
-### Tab 3: Shader Effects
-
-Mix and match procedural effects to enhance the outline and glow.
-
-| Effect | Settings | Default | Description |
-| --- | --- | ---: | --- |
-| **Breathe / Pulse** | Speed<br>Intensity | 0.5 Hz<br>40% | Smooth sinusoidal alpha and glow pulsation. |
-| **Futuristic Hologram** | Speed<br>Intensity<br>Glitch disturbances<br>Frequency | 1.0x<br>50%<br>Disabled<br>3 | Procedural multi-frequency scanlines, rolling sweep beam, cyan holographic emission, and optional periodic glitch surges. |
-| **Neon Flicker** | Interval<br>Duration<br>Intensity | 3.0 s<br>0.25 s<br>30% | Periodic voltage drops and realistic gas-discharge tube flickering episodes. |
-| **Flash / Strobe** | Interval<br>Duration | 4.0 s<br>0.15 s | Periodic light strobe bursts. |
-
-### Tab 4: Behavior
-
-Configure buffering delays and window state handling.
-
-| Setting | Default | Description |
-| --- | ---: | --- |
-| **Menu hide delay** | 300 ms | Delay before hiding the outline when context menus, dropdowns, or popups appear. Prevents outline disappearance during momentary menu interactions. |
-| **Menu show delay** | 300 ms | Delay before restoring the outline after menus close. Prevents outline flashing when navigating between submenus or menu items. |
-| **Switch hide delay** | 0 ms (Instant) | Delay before removing the outline from the previously active window. |
-| **Switch show delay** | 0 ms (Instant) | Delay before drawing the outline on a newly focused window (useful for focus-follows-mouse setups). |
-| **Highlight recent window(s)** | Off | Keeps a subdued outline on recent previously active window(s) to help track focus history when multitasking or tiling windows. |
-| **Recent windows count** | 1 | Number of previously focused windows to keep highlighted (1–5). Older windows automatically attenuate their opacity for clear visual hierarchy. |
-| **Recent outline color** | Match active | Color style for recent windows: either match the active window's color mode (including individual Ambilight colors) or use a custom static color. |
-| **Oldest window opacity (fades with age)** | 20% | Minimum outline opacity reached by the oldest tracked window in history. Previous windows fade progressively with age, linearly interpolating between 100% (the active window) down to this floor for the oldest window. |
-| **Hue shift per window** | 0° (None) | Rotates the color hue by this angle for each successive window in history (-180° to +180°). In Match Active mode, shifting begins on the 1st recent window; in Custom Color mode, the 1st recent window keeps the exact chosen color and shifting begins on the 2nd recent window. |
-| **Oldest window saturation (fades to gray)** | 0% (Grayscale) | Color saturation floor reached by the oldest tracked window in history (0% = grayscale, 100% = full color). Previous windows progressively lose saturation with age, smoothly fading from vibrant color into muted tones. |
-| **Width reduction per window** | 0 px (None) | Step in pixels by which each successive older window reduces its outline border thickness (0–10 px). Clamped to a minimum thickness of 1 px. |
-| **Dashed outline for previous windows** | Off | Renders recent window outlines with a dashed line pattern instead of a solid line. Older windows in the history have progressively wider gaps between dashes. |
-| **Gap growth per window** | 6 px | Step in pixels by which the gap between dashes widens for each successive older window (0–30 px), taking effect immediately from the 1st recent window. Set to 0 px for uniform constant gaps across all recent windows. |
-| **Smooth dash transitions** | Off | Applies a smooth alpha gradient fade between dashes and gaps instead of crisp cutoffs. |
-| **Default mark color** | `#e74c3c` (Red) | Default outline color applied when toggling permanent window marks via shortcut. Supports alpha channel transparency. |
-| **Outline style precedence** | Active > Marked > Recent | Dedicated Precedence tab with reorderable list (Move Up/Down/Reset or drag-and-drop) defining which state completely determines outline appearance (color, width, dash style, glow, and animations) when a window matches multiple states. |
-| **Inactive width reduction** | 0 px | Reduces the outline border thickness for inactive marked windows by this amount in pixels (0–10 px, clamped to min 1 px). |
-| **Dashed outline for inactive marked windows** | Off | Renders inactive marked window outlines with a dashed line pattern instead of a solid line. |
-| **Dash gap (Marked)** | 6 px | Spacing / gap between dashes in pixels for inactive marked window outlines (1–40 px). |
-| **Smooth dash transitions (Marked)** | Off | Applies a smooth alpha gradient fade between dashes and gaps on inactive marked window outlines. |
-| **Hint cards HUD position** | Bottom (horizontal, centered) | Screen edge placement for offscreen and covered window hint cards during Jump Mode (`Meta+Space`): Bottom, Top, Left, or Right. Automatically wraps and centers rows or columns to fit comfortably on screen. |
-| **Hide on fullscreen** | On | Automatically hides the outline and glow when the active window is fullscreen. |
-
-### Keyboard shortcuts
-
-The effect registers global shortcuts with KWin:
-
-- **LeapK: Toggle Window Highlight** (`Meta+Ctrl+O`): Turn the active window outline on or off at any time.
-- **LeapK: Toggle Mark Window** (`Meta+Ctrl+Space`): Pin or unpin a permanent outline frame on the active window using the default mark color.
-- **LeapK: Mark Window with Color Picker** (`Meta+Ctrl+Shift+Space`): Open the native KDE color palette picker to choose an exact custom color and label for the active window.
-
-![KWin global shortcut configuration](shortcuts.png)
-
-The shortcuts can be customized or disabled in:
-
-**System Settings → Shortcuts → KWin** (search for `LeapK`)
-
-### Inside and outside drawing
-
-With **Draw inside window** enabled, the offset moves the outline farther into the window. This is the recommended mode for maximized and tiled windows.
-
-With the option disabled, the offset moves the outline outside the window. The effect only draws pixels; it does not move windows or reserve layout space. An external outline can therefore be clipped at a screen edge or overlap a neighboring tiled window. Configure sufficient gaps in your tiling script if you use outside drawing.
-
-### Panels and popup menus
-
-On Wayland, the effect prefers the panel's background mask. If the theme does
-not provide one, the panel's input region is used as an approximation: its
-desktop-facing edge follows the floating animation, but it also includes the
-gap towards the screen edge for pointer access. On X11, or when no usable
-surface region is available, clipping falls back to the panel frame.
-
-The menu filter also covers interactive Wayland popups belonging to the active
-window even without a popup grab, as used by Firefox. This can include other
-interactive popup lists, not just context menus. Explicit tooltips and
-input-transparent surfaces are excluded from this fallback.
-
-## Updating
-
-To update an existing installation to the latest release, run the quick install command:
-
+### To Update:
+Simply re-run the quick install command:
 ```bash
 curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash
 ```
+*(Your custom settings and presets are automatically preserved).*
 
-The script automatically fetches the newest release, rebuilds the plugin, and preserves your existing settings.
-
-Or when updating from a local clone:
-
-```bash
-git pull
-bash install-leapk.sh
-```
-
-After updating a native KWin plugin, log out and back in once so KWin loads the new library from disk.
-
-## Uninstallation
-
-### Quick uninstall
-
+### To Uninstall:
+Run the uninstaller script to cleanly remove all binaries, desktop files, tray autostarts, and KWin shortcuts:
 ```bash
 curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/uninstall.sh | bash
 ```
+*(Or locally from repository: `bash uninstall-leapk.sh`).*
 
-### From local source
+---
 
-```bash
-bash uninstall-leapk.sh
-```
+## ❓ FAQ & Troubleshooting
 
-The uninstaller disables the effect, removes its two plugin files, clears its KWin settings and shortcut, and refreshes KDE. It does not remove build dependencies, themes, window rules, or the downloaded source directory.
+<details>
+<summary><b>The outline does not appear after installation or update</b></summary>
 
-## Troubleshooting
+Native KWin plugins are cached in memory. After updating or installing for the first time, log out of your desktop session and log back in. Also ensure the effect is checked in **System Settings → Desktop Effects**.
+</details>
 
-### The effect is installed but the outline does not appear
+<details>
+<summary><b>Outlines disappear on maximized windows</b></summary>
 
-- Confirm that the effect is enabled in Desktop Effects.
-- Log out and back in after an update.
-- Test with **Draw inside window** enabled and an offset of 20 px.
-- Make sure OpenGL compositing is active.
+By default, outlines are drawn inside the window border. If you configured outside borders, they fall outside screen bounds when maximized. In settings, make sure **Draw inside window** is enabled.
+</details>
 
-### Outside outlines disappear on maximized windows
+<details>
+<summary><b>A shortcut conflicts with an existing application</b></summary>
 
-This is expected: the outline is outside the screen bounds. Enable **Draw inside window**.
+Open **System Settings → Shortcuts → KWin**, search for `LeapK`, and assign any custom keybinding.
+</details>
 
-### Settings do not update immediately
+---
 
-Version 1.1.1 and later watch `kwinrc` and reload saved settings automatically. If an older native library is still loaded, log out and back in.
+## 📜 Origin & License
 
-### Report a panel or context-menu problem
+The rendering foundation was originally adapted from [Powermayer/keep-above-outline](https://github.com/Powermayer/keep-above-outline) by Matthias Bauer. LeapK expands this into a full keyboard navigation system with modal leap navigation, focus history trails, dynamic color sampling, and multi-desktop HUD management.
 
-Version 1.2.10 includes a read-only diagnostics script. After installing it and
-logging out and back in, run this from the extracted source directory:
-
-```bash
-bash collect-outline-diagnostics.sh
-```
-
-For the next 20 seconds, switch to another window, open and close its context
-menu, then move it towards and away from the floating panel. Attach the log
-file printed by the script. It records the loaded build ID, window flags,
-geometry, and the source of the panel clipping region; it does not record
-window titles or content and does not change your settings.
-Review the log before sharing it. Include a screenshot or recording if the
-problem is visual, as geometry and window flags alone cannot show the rendered
-result. Do not run the script with `sudo`.
-
-### Compilation fails on KDE neon
-
-Use version 1.2.8 or later. Version 1.2.7 does not compile against the newer
-KWin headers used by KDE neon User and Testing editions. Make sure the installed
-`kwin-dev` package matches the KWin version running on your system, then rerun
-the installer from the updated source directory.
-
-## Contributing
-
-Bug reports and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) before submitting changes.
-
-## Origin and license
-
-The rendering foundation was adapted from [Powermayer/keep-above-outline](https://github.com/Powermayer/keep-above-outline) by Matthias Bauer. This project changes the behavior from tracking “Keep Above” windows to tracking KWin focus and adds screen-level rendering, inside/outside placement, offset handling, configuration reloads, and dedicated installation tooling.
-
-See [NOTICE](NOTICE) for attribution details.
-
-This project is licensed under **GPL-3.0-or-later**. See [LICENSE](LICENSE).
+Licensed under the **[GNU General Public License v3.0 or later](LICENSE)**.

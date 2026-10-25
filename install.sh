@@ -66,9 +66,9 @@ trap cleanup EXIT
 get_latest_release_tag() {
   local location=""
   if command -v curl >/dev/null 2>&1; then
-    location="$(curl -sI "https://github.com/gmalinowski/kleap/releases/latest" 2>/dev/null | tr -d '\r' | awk '/^[Ll]ocation:/ {print $2}')"
+    location="$(curl -sI "https://github.com/gmalinowski/leapk/releases/latest" 2>/dev/null | tr -d '\r' | awk '/^[Ll]ocation:/ {print $2}')"
   elif command -v wget >/dev/null 2>&1; then
-    location="$(wget --spider -S "https://github.com/gmalinowski/kleap/releases/latest" 2>&1 | tr -d '\r' | awk '/^[[:space:]]*[Ll]ocation:/ {print $2}' | tail -n 1)"
+    location="$(wget --spider -S "https://github.com/gmalinowski/leapk/releases/latest" 2>&1 | tr -d '\r' | awk '/^[[:space:]]*[Ll]ocation:/ {print $2}' | tail -n 1)"
   fi
   if [[ "$location" =~ /releases/tag/([^/]+)$ ]]; then
     printf '%s\n' "${BASH_REMATCH[1]}"
@@ -80,9 +80,9 @@ get_latest_release_tag() {
 get_latest_prerelease_tag() {
   local tag=""
   if command -v curl >/dev/null 2>&1; then
-    tag="$(curl -s "https://api.github.com/repos/gmalinowski/kleap/releases" 2>/dev/null | tr -d ' \t",' | awk -F: '/^tag_name:/ {print $2; exit}')"
+    tag="$(curl -s "https://api.github.com/repos/gmalinowski/leapk/releases" 2>/dev/null | tr -d ' \t",' | awk -F: '/^tag_name:/ {print $2; exit}')"
   elif command -v wget >/dev/null 2>&1; then
-    tag="$(wget -qO- "https://api.github.com/repos/gmalinowski/kleap/releases" 2>/dev/null | tr -d ' \t",' | awk -F: '/^tag_name:/ {print $2; exit}')"
+    tag="$(wget -qO- "https://api.github.com/repos/gmalinowski/leapk/releases" 2>/dev/null | tr -d ' \t",' | awk -F: '/^tag_name:/ {print $2; exit}')"
   fi
   if [[ -n "$tag" ]]; then
     printf '%s\n' "$tag"
