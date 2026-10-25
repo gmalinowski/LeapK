@@ -1664,13 +1664,9 @@ void ActiveWindowOutlineConfig::importPreset()
         }
     }
 
-    const auto reply = QMessageBox::question(widget(), title,
-        isPolish ? QStringLiteral("Preset '%1' został zaimportowany pomyślnie. Czy chcesz go teraz aktywować?").arg(p.name)
-                 : QStringLiteral("Preset '%1' imported successfully. Do you want to activate it now?").arg(p.name),
-        QMessageBox::Yes | QMessageBox::No);
-    if (reply == QMessageBox::Yes) {
-        applySettings(p.settings);
-    }
+    QMessageBox::information(widget(), title,
+        isPolish ? QStringLiteral("Preset '%1' został zaimportowany i dodany do listy presetów.").arg(p.name)
+                 : QStringLiteral("Preset '%1' was successfully imported and added to the preset list.").arg(p.name));
 }
 
 void ActiveWindowOutlineConfig::save()

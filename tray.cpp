@@ -454,12 +454,12 @@ private slots:
             return;
         }
 
-        onApplyPreset(preset.name);
+        rebuildPresetsMenu();
 
         m_trayIcon->showMessage(
-            QStringLiteral("Active Window Outline"),
-            m_isPolish ? QStringLiteral("Zaimportowano i aktywowano preset:\n%1").arg(preset.name)
-                       : QStringLiteral("Imported and activated preset:\n%1").arg(preset.name),
+            QStringLiteral("LeapK"),
+            m_isPolish ? QStringLiteral("Zaimportowano preset:\n%1 (dodano do menu presetów)").arg(preset.name)
+                       : QStringLiteral("Imported preset:\n%1 (added to presets menu)").arg(preset.name),
             QSystemTrayIcon::Information,
             3500
         );
