@@ -177,6 +177,7 @@ private:
     QColor generateRandomMarkColor() const;
     QColor detectSmartAccentForWindow(EffectWindow *w) const;
     QChar nextAvailableLetter() const;
+    bool isEligibleTargetWindow(EffectWindow *w) const;
     QMap<QChar, EffectWindow *> assignJumpLetters() const;
     void cancelJumpMode();
     bool isBadgeOccluded(EffectWindow *target, const QRectF &badgeRect) const;

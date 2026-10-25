@@ -2372,16 +2372,43 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
     dialog->show();
 }
 
+bool ActiveWindowOutlineEffect::isEligibleTargetWindow(EffectWindow *w) const
+{
+    if (!w || w == m_activeWindow || w->isDeleted()) {
+        return false;
+    }
+    if (w->isDesktop() || w->isDock() || w->isSpecialWindow()) {
+        return false;
+    }
+    if (w->isSkipSwitcher()) {
+        return false;
+    }
+    if (!w->acceptsFocus()) {
+        return false;
+    }
+    if (w->isPopupWindow() || w->isTooltip() || w->isNotification()
+        || w->isCriticalNotification() || w->isOnScreenDisplay() || isBlockingPopup(w)) {
+        return false;
+    }
+    if (w->isHiddenByShowDesktop()) {
+        return false;
+    }
+    if (!w->isMinimized()) {
+        const QRectF geo = w->frameGeometry();
+        if (geo.width() < 30 || geo.height() < 30) {
+            return false;
+        }
+    }
+    return true;
+}
+
 QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
 {
     QMap<QChar, EffectWindow *> map;
     const auto windows = effects->stackingOrder();
     QList<EffectWindow *> candidates;
     for (EffectWindow *w : windows) {
-        if (!w || w == m_activeWindow || w->isDeleted() || w->isDesktop() || w->isDock() || isBlockingPopup(w)) {
-            continue;
-        }
-        if (w->isHiddenByShowDesktop()) {
+        if (!isEligibleTargetWindow(w)) {
             continue;
         }
 
@@ -2579,7 +2606,10 @@ bool ActiveWindowOutlineEffect::isBadgeOccluded(EffectWindow *target, const QRec
         if (!candidate || candidate->isDeleted() || !candidate->isVisible()
             || candidate->isMinimized() || !candidate->isOnCurrentDesktop()
             || candidate->isHiddenByShowDesktop() || candidate->isOutline()
-            || candidate->isDesktop()) {
+            || candidate->isDesktop() || candidate->isSpecialWindow()
+            || candidate->isSkipSwitcher()
+            || candidate->frameGeometry().width() < 10
+            || candidate->frameGeometry().height() < 10) {
             continue;
         }
         if (candidate->frameGeometry().intersects(badgeAligned)) {
@@ -3442,29 +3472,45 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     if (!m_jumpMode && showContinuousBadges) {
         const int badgeH = m_badgeSize;
         const QMap<QChar, EffectWindow *> backgroundBadges = assignJumpLetters();
+        const QRectF screenRect = viewport.renderRect();
         for (auto it = backgroundBadges.constBegin(); it != backgroundBadges.constEnd(); ++it) {
             const QChar letter = it.key();
             EffectWindow *target = it.value();
-            if (!target || target == w || target->isDeleted() || target->isMinimized()
-                || target->isHiddenByShowDesktop() || !target->isOnCurrentDesktop()
-                || (m_hideOnFullScreen && target->isFullScreen())
-                || isBlockingPopup(target)) {
+            if (!target || target == w || target->isDeleted() || !isEligibleTargetWindow(target)
+                || target->isMinimized() || !target->isOnCurrentDesktop()
+                || !target->isVisible()
+                || (m_hideOnFullScreen && target->isFullScreen())) {
                 continue;
             }
+            const QRectF geo = target->frameGeometry();
+            const QRectF visibleWindowGeo = geo.intersected(screenRect);
+            if (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50) {
+                continue;
+            }
+
             const QColor bgCol = m_markedWindows.contains(target)
                 ? m_markedWindows.value(target)
                 : QColor(35, 38, 41, 235);
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
             const QString customLabel = m_markedWindowLabels.value(target);
             const qreal badgeW = OutlineBadge::computeBadgeWidth(badgeH, customLabel);
-            const QRectF geo = target->frameGeometry();
-            QRectF badgeRect = OutlineBadge::computeBadgeRect(geo, m_badgePosition, badgeW, badgeH, m_badgeMargin);
+            QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, badgeW, badgeH, m_badgeMargin);
+            if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
+            if (badgeRect.right() > screenRect.right() - 4.0) badgeRect.moveRight(screenRect.right() - 4.0);
+            if (badgeRect.top() < screenRect.top() + 4.0) badgeRect.moveTop(screenRect.top() + 4.0);
+            if (badgeRect.bottom() > screenRect.bottom() - 4.0) badgeRect.moveBottom(screenRect.bottom() - 4.0);
+
             if (isBadgeOccluded(target, badgeRect)) {
                 const int altPositions[] = { 4 /* Center */, 1 /* Top */, 0 /* TopLeft */, 2 /* TopRight */, 7 /* Bottom */, 6 /* BottomLeft */, 8 /* BottomRight */, 3 /* Left */, 5 /* Right */ };
                 bool foundVisiblePosition = false;
                 for (int altPos : altPositions) {
                     if (altPos == m_badgePosition) continue;
-                    const QRectF altRect = OutlineBadge::computeBadgeRect(geo, altPos, badgeW, badgeH, m_badgeMargin);
+                    QRectF altRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, altPos, badgeW, badgeH, m_badgeMargin);
+                    if (altRect.left() < screenRect.left() + 4.0) altRect.moveLeft(screenRect.left() + 4.0);
+                    if (altRect.right() > screenRect.right() - 4.0) altRect.moveRight(screenRect.right() - 4.0);
+                    if (altRect.top() < screenRect.top() + 4.0) altRect.moveTop(screenRect.top() + 4.0);
+                    if (altRect.bottom() > screenRect.bottom() - 4.0) altRect.moveBottom(screenRect.bottom() - 4.0);
+
                     if (!isBadgeOccluded(target, altRect)) {
                         badgeRect = altRect;
                         foundVisiblePosition = true;
@@ -3481,15 +3527,13 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
 
     if (m_jumpMode && !inhibited) {
         const int jumpH = qRound(m_badgeSize * 1.25);
-
+        const QRectF screenRect = viewport.renderRect();
         QList<QPair<QChar, EffectWindow *>> offscreenTargets;
 
         for (auto it = m_jumpLetterToWindow.constBegin(); it != m_jumpLetterToWindow.constEnd(); ++it) {
             const QChar letter = it.key();
             EffectWindow *target = it.value();
-            if (!target || target == w || target->isDeleted()
-                || target->isHiddenByShowDesktop()
-                || target->isDesktop() || target->isDock()) {
+            if (!target || target == w || target->isDeleted() || !isEligibleTargetWindow(target)) {
                 continue;
             }
 
@@ -3501,20 +3545,36 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 continue;
             }
 
+            const QRectF geo = target->frameGeometry();
+            const QRectF visibleWindowGeo = geo.intersected(screenRect);
+            if (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50) {
+                offscreenTargets.append(qMakePair(letter, target));
+                continue;
+            }
+
             const QColor bgCol = m_markedWindows.contains(target)
                 ? m_markedWindows.value(target)
                 : QColor(35, 38, 41, 235);
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
             const QString customLabel = m_markedWindowLabels.value(target);
             const qreal jumpW = OutlineBadge::computeBadgeWidth(jumpH, customLabel);
-            const QRectF geo = target->frameGeometry();
-            QRectF badgeRect = OutlineBadge::computeBadgeRect(geo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
+            QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
+            if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
+            if (badgeRect.right() > screenRect.right() - 4.0) badgeRect.moveRight(screenRect.right() - 4.0);
+            if (badgeRect.top() < screenRect.top() + 4.0) badgeRect.moveTop(screenRect.top() + 4.0);
+            if (badgeRect.bottom() > screenRect.bottom() - 4.0) badgeRect.moveBottom(screenRect.bottom() - 4.0);
+
             if (isBadgeOccluded(target, badgeRect)) {
                 const int altPositions[] = { 4 /* Center */, 1 /* Top */, 0 /* TopLeft */, 2 /* TopRight */, 7 /* Bottom */, 6 /* BottomLeft */, 8 /* BottomRight */, 3 /* Left */, 5 /* Right */ };
                 bool foundVisiblePosition = false;
                 for (int altPos : altPositions) {
                     if (altPos == m_badgePosition) continue;
-                    const QRectF altRect = OutlineBadge::computeBadgeRect(geo, altPos, jumpW, jumpH, m_badgeMargin);
+                    QRectF altRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, altPos, jumpW, jumpH, m_badgeMargin);
+                    if (altRect.left() < screenRect.left() + 4.0) altRect.moveLeft(screenRect.left() + 4.0);
+                    if (altRect.right() > screenRect.right() - 4.0) altRect.moveRight(screenRect.right() - 4.0);
+                    if (altRect.top() < screenRect.top() + 4.0) altRect.moveTop(screenRect.top() + 4.0);
+                    if (altRect.bottom() > screenRect.bottom() - 4.0) altRect.moveBottom(screenRect.bottom() - 4.0);
+
                     if (!isBadgeOccluded(target, altRect)) {
                         badgeRect = altRect;
                         foundVisiblePosition = true;
