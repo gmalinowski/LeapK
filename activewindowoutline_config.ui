@@ -598,61 +598,6 @@
         </widget>
        </item>
 
-       <item row="14" column="0">
-        <widget class="QLabel" name="label_version">
-         <property name="text">
-          <string>Version:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="14" column="1">
-        <layout class="QHBoxLayout" name="layoutVersion">
-         <property name="spacing">
-          <number>10</number>
-         </property>
-         <item>
-          <widget class="QLabel" name="label_versionValue">
-           <property name="text">
-            <string>development</string>
-           </property>
-           <property name="textInteractionFlags">
-            <set>Qt::TextSelectableByMouse</set>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="btnCheckUpdate">
-           <property name="text">
-            <string>Check for updates</string>
-           </property>
-           <property name="toolTip">
-            <string>Check GitHub for newer versions of Active Window Outline</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QLabel" name="label_updateStatus">
-           <property name="text">
-            <string/>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <spacer name="spacerVersion">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-        </layout>
-       </item>
-
       </layout>
      </widget>
 
@@ -2167,6 +2112,207 @@
        </item>
        <item>
         <spacer name="verticalSpacerPrecedence">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+
+     <!-- TAB 6: About & Maintenance -->
+     <widget class="QWidget" name="tabAbout">
+      <attribute name="title">
+       <string>About</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayoutAbout">
+       <item>
+        <widget class="QGroupBox" name="groupAboutInfo">
+         <property name="title">
+          <string>Active Window Outline</string>
+         </property>
+         <layout class="QFormLayout" name="formLayoutAboutInfo">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_aboutDesc">
+            <property name="text">
+             <string>Description:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLabel" name="label_aboutDescVal">
+            <property name="text">
+             <string>Dynamic active window outline, multi-desktop window jumping, and animated shader effects for KWin.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_version">
+            <property name="text">
+             <string>Installed Version:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLabel" name="label_versionValue">
+            <property name="text">
+             <string>development</string>
+            </property>
+            <property name="textInteractionFlags">
+             <set>Qt::TextSelectableByMouse</set>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_author">
+            <property name="text">
+             <string>Author:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QLabel" name="label_authorVal">
+            <property name="text">
+             <string>Grzegorz Malinowski</string>
+            </property>
+            <property name="textInteractionFlags">
+             <set>Qt::TextSelectableByMouse</set>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="label_website">
+            <property name="text">
+             <string>Website:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QLabel" name="label_websiteVal">
+            <property name="text">
+             <string>&lt;a href=&quot;https://github.com/gmalinowski/kwin-active-window-outline&quot;&gt;https://github.com/gmalinowski/kwin-active-window-outline&lt;/a&gt;</string>
+            </property>
+            <property name="openExternalLinks">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="groupUpdates">
+         <property name="title">
+          <string>Software Updates</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayoutUpdates">
+          <item>
+           <widget class="QLabel" name="label_updatesDesc">
+            <property name="text">
+             <string>Check GitHub for the latest releases, bug fixes, and update instructions.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="layoutUpdateControls">
+            <item>
+             <widget class="QPushButton" name="btnCheckUpdate">
+              <property name="text">
+               <string>Check for updates</string>
+              </property>
+              <property name="toolTip">
+               <string>Check GitHub for newer versions of Active Window Outline</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="label_updateStatus">
+              <property name="text">
+               <string/>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="spacerUpdates">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="groupDefaults">
+         <property name="title">
+          <string>Reset Configuration</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayoutDefaults">
+          <item>
+           <widget class="QLabel" name="label_defaultsDesc">
+            <property name="text">
+             <string>Reset all settings, colors, shaders, and window behavior in this plugin to their original default values.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="layoutDefaultsControls">
+            <item>
+             <widget class="QPushButton" name="btnResetDefaults">
+              <property name="text">
+               <string>Reset to Defaults</string>
+              </property>
+              <property name="icon">
+               <iconset theme="edit-undo"/>
+              </property>
+              <property name="toolTip">
+               <string>Reset all options in this module to their default settings</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="spacerDefaults">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <spacer name="verticalSpacerAbout">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
          </property>

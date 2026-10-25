@@ -133,6 +133,20 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
                                                   QIcon::fromTheme(QStringLiteral("view-refresh"))));
     connect(m_ui->btnCheckUpdate, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::checkForUpdates);
 
+    m_ui->btnResetDefaults->setIcon(QIcon::fromTheme(QStringLiteral("edit-undo"),
+                                                    QIcon::fromTheme(QStringLiteral("document-revert"))));
+    connect(m_ui->btnResetDefaults, &QPushButton::clicked, this, [this] {
+        const auto answer = QMessageBox::question(
+            widget(),
+            tr("Reset to Defaults"),
+            tr("Are you sure you want to reset all settings to their default values?"),
+            QMessageBox::Yes | QMessageBox::No,
+            QMessageBox::No);
+        if (answer == QMessageBox::Yes) {
+            defaults();
+        }
+    });
+
     QPalette infoPalette = m_ui->label_info->palette();
     const QColor infoText = KColorScheme(QPalette::Active, KColorScheme::Window)
                                 .foreground(KColorScheme::ActiveText)

@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.5.0] - 2026-10-25
 
 ### Added
+- **Dedicated "About" Tab in System Settings KCM with Update & Reset Controls**:
+  - Moved the "Check for updates" button and status display from the General Appearance tab into a dedicated, clean **About** tab.
+  - Added a "Reset to Defaults" button (`btnResetDefaults`) with confirmation dialog to easily restore all effect options, colors, shaders, and shortcuts to their default values.
+  - Included detailed plugin metadata, author attribution, and clickable GitHub repository link.
 - **Configurable Mark Options in Shortcut Dialog (`Meta+Ctrl+Shift+M`)**:
   - Added checkboxes for both "Mark with fixed letter" and "Custom mark color" in the mark settings dialog.
   - Allows marking windows with a custom outline color without binding a fixed letter (candidates dynamically receive available letters from the keyboard pool during Jump Mode), or assigning a fixed letter while using default/random mark colors.
