@@ -390,6 +390,8 @@ set_default BadgePosition 1
 set_default BadgeHudPosition 0
 set_default BadgeSize 28
 set_default BadgeMargin 0
+set_default BadgeShowIcon false
+set_default BadgeShowThumbnail false
 set_default JumpTargets 0
 
 if command -v kreadconfig6 >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/null 2>&1; then

@@ -60,6 +60,7 @@ curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | 
 
 ### 🚀 Vim-Style Window Jumping & Multi-Position HUD
 - **Instant Leaping & Recent Switch**: Press `Meta+Space` to display high-contrast letter badges on background windows. Hitting the letter raises, unminimizes, and focuses the target window instantly. Tapping `Space` (giving `Meta+Space Space`) or double-pressing `Meta+Space` immediately switches to your last active window (`recent`).
+- **Application Icons & Live Thumbnails in Badges**: Optionally display the window's application icon and/or live miniature thumbnail preview directly inside letter badges and HUD hint cards.
 - **Cross-Desktop & Minimized Navigation**: Windows on other virtual desktops or hidden behind other windows appear in an elegant **HUD Pill Bar** at your chosen screen edge (**Bottom**, **Top**, **Left**, or **Right**) with auto-wrapping and centering.
 - **Window Labels**: Add semantic tags (e.g. `[ A | Work ]`, `[ B | Logs ]`) so you never confuse identical terminal or browser windows.
 

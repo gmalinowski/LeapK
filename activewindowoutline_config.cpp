@@ -268,6 +268,8 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("BadgeHudPosition"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeSize"), *new int, 28);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeMargin"), *new int, 0);
+    m_configSkeleton->addItemBool(QStringLiteral("BadgeShowIcon"), *new bool, false);
+    m_configSkeleton->addItemBool(QStringLiteral("BadgeShowThumbnail"), *new bool, false);
     m_configSkeleton->addItemInt(QStringLiteral("JumpTargets"), *new int, 0);
 
     // Tab 2: Color Cycling
@@ -643,6 +645,8 @@ void ActiveWindowOutlineConfig::updateMarkWindowUI()
     m_ui->kcfg_BadgeSize->setEnabled(badgesEnabled);
     m_ui->label_badgeMargin->setEnabled(badgesEnabled);
     m_ui->kcfg_BadgeMargin->setEnabled(badgesEnabled);
+    m_ui->kcfg_BadgeShowIcon->setEnabled(badgesEnabled);
+    m_ui->kcfg_BadgeShowThumbnail->setEnabled(badgesEnabled);
     m_ui->label_jumpTargets->setEnabled(badgesEnabled);
     m_ui->kcfg_JumpTargets->setEnabled(badgesEnabled);
 }
@@ -1020,6 +1024,8 @@ void ActiveWindowOutlineConfig::defaults()
     m_ui->kcfg_BadgeHudPosition->setCurrentIndex(0);
     m_ui->kcfg_BadgeSize->setValue(28);
     m_ui->kcfg_BadgeMargin->setValue(0);
+    m_ui->kcfg_BadgeShowIcon->setChecked(false);
+    m_ui->kcfg_BadgeShowThumbnail->setChecked(false);
     m_ui->kcfg_MarkSmartAdaptive->setChecked(true);
     m_ui->kcfg_MarkRandomColor->setChecked(false);
     m_ui->kcfg_MarkInactiveWidthReduction->setValue(1);
@@ -1302,6 +1308,8 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("BadgeHudPosition")] = m_ui->kcfg_BadgeHudPosition->currentIndex();
     s[QStringLiteral("BadgeSize")] = m_ui->kcfg_BadgeSize->value();
     s[QStringLiteral("BadgeMargin")] = m_ui->kcfg_BadgeMargin->value();
+    s[QStringLiteral("BadgeShowIcon")] = m_ui->kcfg_BadgeShowIcon->isChecked();
+    s[QStringLiteral("BadgeShowThumbnail")] = m_ui->kcfg_BadgeShowThumbnail->isChecked();
     s[QStringLiteral("JumpTargets")] = m_ui->kcfg_JumpTargets->currentIndex();
 
     // Color Cycling
@@ -1433,6 +1441,8 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
     if (s.contains(QStringLiteral("BadgeHudPosition"))) m_ui->kcfg_BadgeHudPosition->setCurrentIndex(s[QStringLiteral("BadgeHudPosition")].toInt());
     if (s.contains(QStringLiteral("BadgeSize"))) m_ui->kcfg_BadgeSize->setValue(s[QStringLiteral("BadgeSize")].toInt());
     if (s.contains(QStringLiteral("BadgeMargin"))) m_ui->kcfg_BadgeMargin->setValue(s[QStringLiteral("BadgeMargin")].toInt());
+    if (s.contains(QStringLiteral("BadgeShowIcon"))) m_ui->kcfg_BadgeShowIcon->setChecked(s[QStringLiteral("BadgeShowIcon")].toBool());
+    if (s.contains(QStringLiteral("BadgeShowThumbnail"))) m_ui->kcfg_BadgeShowThumbnail->setChecked(s[QStringLiteral("BadgeShowThumbnail")].toBool());
     if (s.contains(QStringLiteral("JumpTargets"))) m_ui->kcfg_JumpTargets->setCurrentIndex(s[QStringLiteral("JumpTargets")].toInt());
 
     // Color Cycling

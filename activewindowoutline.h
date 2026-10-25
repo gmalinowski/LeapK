@@ -197,11 +197,16 @@ private:
                      const QColor &textColor,
                      bool isJumpMode,
                      int badgeSize = 28,
-                     const QString &customLabel = QString());
+                     const QString &customLabel = QString(),
+                     EffectWindow *target = nullptr);
     void renderOffscreenJumpTargets(const RenderTarget &renderTarget,
                                    const RenderViewport &viewport,
                                    const QList<QPair<QChar, EffectWindow *>> &targets,
                                    int badgeSize);
+    QImage captureWindowThumbnail(EffectWindow *target,
+                                  const RenderTarget &renderTarget,
+                                  const RenderViewport &viewport,
+                                  const QSize &targetSize = QSize(120, 75));
 
     QColor resolveColor(qreal windowOpacity = 1.0, EffectWindow *w = nullptr) const;
     QColor currentCycleColor(qreal elapsedSec);
@@ -341,6 +346,8 @@ private:
     int m_badgeHudPosition = 0; // 0 = Bottom, 1 = Top, 2 = Left, 3 = Right
     int m_badgeSize = 28;       // Height in pixels (16 to 64)
     int m_badgeMargin = 0;      // Margin from window edge in pixels (0 to 100)
+    bool m_badgeShowIcon = false;
+    bool m_badgeShowThumbnail = false;
 
     // Jump to Window
     bool m_jumpMode = false;
@@ -358,6 +365,9 @@ private:
 
     // Badge OpenGL texture cache
     mutable QMap<quint64, std::shared_ptr<GLTexture>> m_badgeTextureCache;
+    mutable QMap<EffectWindow *, QImage> m_thumbnailCache;
+    std::unique_ptr<GLTexture> m_thumbTexture;
+    std::unique_ptr<GLFramebuffer> m_thumbFbo;
 
     // Runtime delay, buffer & visibility transition state
     OutlineVisibility::StateMachine m_visibilityState;

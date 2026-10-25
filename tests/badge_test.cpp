@@ -291,6 +291,77 @@ void testComputeHudPillPositions()
     assert(qFuzzyCompare(rWrapLeft[2].width(), 80.0));
 }
 
+void testIconAndThumbnailBadges()
+{
+    // 1. computeBadgeWidth checks
+    const qreal baseW = OutlineBadge::computeBadgeWidth(28);
+    const qreal withIconW = OutlineBadge::computeBadgeWidth(28, QString(), true, false);
+    const qreal withThumbW = OutlineBadge::computeBadgeWidth(28, QString(), false, true);
+    const qreal withBothW = OutlineBadge::computeBadgeWidth(28, QString(), true, true);
+    const qreal withAllW = OutlineBadge::computeBadgeWidth(28, QStringLiteral("Terminal"), true, true);
+
+    assert(baseW == 38);
+    assert(withIconW > baseW);
+    assert(withThumbW > baseW);
+    assert(withBothW > withIconW);
+    assert(withBothW > withThumbW);
+    assert(withAllW > withBothW);
+
+    // Create a dummy QIcon
+    QPixmap iconPix(32, 32);
+    iconPix.fill(QColor(52, 152, 219));
+    QIcon testIcon(iconPix);
+
+    // Create a dummy window thumbnail QImage
+    QImage testThumb(160, 100, QImage::Format_RGBA8888);
+    testThumb.fill(QColor(46, 204, 113));
+
+    // 2. renderBadgeImage checks
+    QImage normalBadge = renderBadgeImage(QLatin1Char('A'), QColor(35, 38, 41), Qt::white, false, 28, 1.0);
+    assert(!normalBadge.isNull());
+    assert(normalBadge.width() == 38);
+
+    QImage iconBadge = renderBadgeImage(QLatin1Char('A'), QColor(35, 38, 41), Qt::white, false, 28, 1.0,
+                                        QString(), true, testIcon, false, QImage());
+    assert(!iconBadge.isNull());
+    assert(iconBadge.width() > normalBadge.width());
+
+    QImage thumbBadge = renderBadgeImage(QLatin1Char('A'), QColor(35, 38, 41), Qt::white, false, 28, 1.0,
+                                         QString(), false, QIcon(), true, testThumb);
+    assert(!thumbBadge.isNull());
+    assert(thumbBadge.width() > normalBadge.width());
+
+    QImage combinedBadge = renderBadgeImage(QLatin1Char('A'), QColor(35, 38, 41), Qt::white, false, 28, 1.0,
+                                           QStringLiteral("Web"), true, testIcon, true, testThumb);
+    assert(!combinedBadge.isNull());
+    assert(combinedBadge.width() > iconBadge.width());
+    assert(combinedBadge.width() > thumbBadge.width());
+
+    // 3. renderOffscreenTargetPill checks
+    QImage normalPill = renderOffscreenTargetPill(QLatin1Char('F'), QColor(231, 76, 60), Qt::white,
+                                                 QStringLiteral("Desktop 1"), QStringLiteral("Firefox"), 28, 1.0);
+    assert(!normalPill.isNull());
+
+    QImage iconPill = renderOffscreenTargetPill(QLatin1Char('F'), QColor(231, 76, 60), Qt::white,
+                                               QStringLiteral("Desktop 1"), QStringLiteral("Firefox"), 28, 1.0,
+                                               QString(), true, testIcon, false, QImage());
+    assert(!iconPill.isNull());
+    assert(iconPill.width() > normalPill.width());
+
+    QImage thumbPill = renderOffscreenTargetPill(QLatin1Char('F'), QColor(231, 76, 60), Qt::white,
+                                                QStringLiteral("Desktop 1"), QStringLiteral("Firefox"), 28, 1.0,
+                                                QString(), false, QIcon(), true, testThumb);
+    assert(!thumbPill.isNull());
+    assert(thumbPill.width() > normalPill.width());
+
+    QImage bothPill = renderOffscreenTargetPill(QLatin1Char('F'), QColor(231, 76, 60), Qt::white,
+                                               QStringLiteral("Desktop 1"), QStringLiteral("Firefox"), 28, 1.0,
+                                               QStringLiteral("Browser"), true, testIcon, true, testThumb);
+    assert(!bothPill.isNull());
+    assert(bothPill.width() > iconPill.width());
+    assert(bothPill.width() > thumbPill.width());
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -303,6 +374,7 @@ int main(int argc, char *argv[])
     testContrastCalculation();
     testSmartAccentExtraction();
     testComputeHudPillPositions();
+    testIconAndThumbnailBadges();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

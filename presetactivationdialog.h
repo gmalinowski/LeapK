@@ -137,7 +137,9 @@ public:
                     {QStringLiteral("BadgeSize"), QStringLiteral("Rozmiar plakietek literowych"), QStringLiteral("Badge Size")},
                     {QStringLiteral("BadgeMargin"), QStringLiteral("Margines od krawędzi okna"), QStringLiteral("Badge Margin")},
                     {QStringLiteral("MarkShowLetterBadges"), QStringLiteral("Pokaż plakietki literowe"), QStringLiteral("Show Letter Badges")},
-                    {QStringLiteral("BadgesAlwaysVisible"), QStringLiteral("Plakietki stale widoczne w tle"), QStringLiteral("Badges Always Visible")}
+                    {QStringLiteral("BadgesAlwaysVisible"), QStringLiteral("Plakietki stale widoczne w tle"), QStringLiteral("Badges Always Visible")},
+                    {QStringLiteral("BadgeShowIcon"), QStringLiteral("Ikona aplikacji w plakietce"), QStringLiteral("Application Icon in Badge")},
+                    {QStringLiteral("BadgeShowThumbnail"), QStringLiteral("Miniaturka podglądu okna w plakietce"), QStringLiteral("Window Thumbnail Preview in Badge")}
                 }
             },
             // 6. Window Marks

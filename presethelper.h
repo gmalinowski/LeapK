@@ -89,6 +89,8 @@ inline QJsonObject getDefaultSettings()
     s[QStringLiteral("BadgeHudPosition")] = 0;
     s[QStringLiteral("BadgeSize")] = 28;
     s[QStringLiteral("BadgeMargin")] = 0;
+    s[QStringLiteral("BadgeShowIcon")] = false;
+    s[QStringLiteral("BadgeShowThumbnail")] = false;
     s[QStringLiteral("JumpTargets")] = 0;
 
     // Color Cycling

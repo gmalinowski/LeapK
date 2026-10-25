@@ -169,7 +169,7 @@ void testPresetActivationCategories()
             assert(false);
         }
     }
-    assert(dialogKeys.size() == 79);
+    assert(dialogKeys.size() == 81);
 
     // Test formatting helper
     assert(!LeapK::PresetActivationDialog::formatValue(QStringLiteral("BorderWidth"), 4, true).isEmpty());

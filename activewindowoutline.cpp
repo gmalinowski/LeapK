@@ -35,6 +35,8 @@
 #include <core/rect.h>
 #include "cursoroverlay.h"
 #include <scene/workspacescene.h>
+#include <scene/windowitem.h>
+#include <scene/surfaceitem.h>
 #endif
 #include <KConfigGroup>
 #include <QGuiApplication>
@@ -795,10 +797,13 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_badgeHudPosition = qBound(0, config.readEntry("BadgeHudPosition", 0), 3);
     m_badgeSize = qBound(16, config.readEntry("BadgeSize", 28), 64);
     m_badgeMargin = qBound(0, config.readEntry("BadgeMargin", 0), 100);
+    m_badgeShowIcon = config.readEntry("BadgeShowIcon", false);
+    m_badgeShowThumbnail = config.readEntry("BadgeShowThumbnail", false);
     m_markShowLetterBadges = (m_badgeDisplayMode != 2);
     m_badgesAlwaysVisible = (m_badgeDisplayMode == 1);
     m_jumpTargets = qBound(0, config.readEntry("JumpTargets", 0), 3);
     m_badgeTextureCache.clear();
+    m_thumbnailCache.clear();
     if (!m_lastMarkColor.isValid()) {
         m_lastMarkColor = m_markDefaultColor;
     }
@@ -1173,6 +1178,7 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
     m_recentAmbilightColors.remove(w);
     m_recentCycleColors.remove(w);
     m_smartAccentCache.remove(w);
+    m_thumbnailCache.remove(w);
     m_markedWindows.remove(w);
     m_markedWindowLetters.remove(w);
     m_markedWindowLabels.remove(w);
@@ -2651,6 +2657,7 @@ void ActiveWindowOutlineEffect::cancelJumpMode()
         return;
     }
     m_jumpMode = false;
+    m_thumbnailCache.clear();
     if (m_jumpTimeoutTimer && m_jumpTimeoutTimer->isActive()) {
         m_jumpTimeoutTimer->stop();
     }
@@ -2943,6 +2950,107 @@ void ActiveWindowOutlineEffect::slotCommitHistoryNavigation()
     repaintAllOutlines();
 }
 
+QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
+                                                         const RenderTarget &renderTarget,
+                                                         const RenderViewport &viewport,
+                                                         const QSize &targetSize)
+{
+    if (!target || target->isDeleted()) {
+        return QImage();
+    }
+
+    auto it = m_thumbnailCache.find(target);
+    if (it != m_thumbnailCache.end()) {
+        return it.value();
+    }
+
+    const QRectF frameGeo = target->frameGeometry();
+    const QRect viewRect = QRectF(viewport.renderRect()).toRect();
+    const QRect windowRect = frameGeo.toRect().intersected(viewRect);
+
+    // 1. Try blitting from renderTarget if window is currently visible on this desktop
+    if (target->isOnCurrentDesktop() && !target->isMinimized() && target->isVisible()
+        && windowRect.width() >= 16 && windowRect.height() >= 16) {
+        if (renderTarget.image()) {
+            const QImage *img = renderTarget.image();
+            const QRect src = windowRect.intersected(img->rect());
+            if (!src.isEmpty()) {
+                const QImage thumb = img->copy(src).scaled(targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                m_thumbnailCache[target] = thumb;
+                return thumb;
+            }
+        }
+
+        if (!m_thumbTexture || m_thumbTexture->size() != targetSize) {
+            m_thumbTexture = GLTexture::allocate(GL_RGBA8, targetSize);
+            if (m_thumbTexture) {
+                m_thumbFbo = std::make_unique<GLFramebuffer>(m_thumbTexture.get());
+            }
+        }
+
+        if (m_thumbFbo && m_thumbFbo->valid()) {
+            GLFramebuffer *savedFbo = GLFramebuffer::currentFramebuffer();
+            const OutlineRect srcRect(windowRect);
+            const OutlineRect dstRect(0, 0, targetSize.width(), targetSize.height());
+            const bool blitOk = m_thumbFbo->blitFromRenderTarget(renderTarget, viewport, srcRect, dstRect);
+            if (blitOk) {
+                QImage thumb(targetSize, QImage::Format_RGBA8888);
+                GLFramebuffer::pushFramebuffer(m_thumbFbo.get());
+                glReadPixels(0, 0, targetSize.width(), targetSize.height(), GL_RGBA, GL_UNSIGNED_BYTE, thumb.bits());
+                GLFramebuffer::popFramebuffer();
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+                const QImage mirrored = thumb.flipped(Qt::Vertical);
+#else
+                const QImage mirrored = thumb.mirrored(false, true);
+#endif
+                m_thumbnailCache[target] = mirrored;
+                if (savedFbo && GLFramebuffer::currentFramebuffer() != savedFbo) {
+                    GLFramebuffer::pushFramebuffer(savedFbo);
+                }
+                return mirrored;
+            }
+            if (savedFbo && GLFramebuffer::currentFramebuffer() != savedFbo) {
+                GLFramebuffer::pushFramebuffer(savedFbo);
+            }
+        }
+    }
+
+    // 2. Try extracting from WindowItem / SurfaceItem texture (useful for covered windows)
+    if (target->windowItem() && target->windowItem()->surfaceItem()) {
+        SurfaceItem *surface = target->windowItem()->surfaceItem();
+        OpenGLSurfaceTexture *glSurfTex = dynamic_cast<OpenGLSurfaceTexture *>(surface->texture());
+        if (glSurfTex) {
+            OpenGLSurfaceContents contents = glSurfTex->texture();
+            if (contents.isValid() && !contents.planes.isEmpty() && contents.planes[0]) {
+                GLTexture *plane = contents.planes[0].get();
+                if (plane && !plane->isNull()) {
+                    const QImage surfImg = plane->toImage();
+                    if (!surfImg.isNull()) {
+                        const QImage thumb = surfImg.scaled(targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                        m_thumbnailCache[target] = thumb;
+                        return thumb;
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Graceful fallback for minimized / unmapped windows: stylish preview card with app icon
+    QImage fallback(targetSize, QImage::Format_RGBA8888_Premultiplied);
+    fallback.fill(QColor(26, 29, 33, 230));
+    QPainter p(&fallback);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    const QIcon icon = target->icon();
+    if (!icon.isNull()) {
+        const int iconDim = qMin(targetSize.width(), targetSize.height()) * 6 / 10;
+        const QRect iconRect((targetSize.width() - iconDim) / 2, (targetSize.height() - iconDim) / 2, iconDim, iconDim);
+        icon.paint(&p, iconRect);
+    }
+    p.end();
+    m_thumbnailCache[target] = fallback;
+    return fallback;
+}
+
 void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
                                            const RenderViewport &viewport,
                                            const QRectF &badgeRect,
@@ -2951,19 +3059,23 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
                                            const QColor &textColor,
                                            bool isJumpMode,
                                            int badgeSize,
-                                           const QString &customLabel)
+                                           const QString &customLabel,
+                                           EffectWindow *target)
 {
     const qreal scale = viewport.scale();
     const quint64 scaleKey = static_cast<quint64>(qRound(scale * 100));
     const quint64 sizeKey = static_cast<quint64>(badgeSize);
     const quint64 labelKey = static_cast<quint64>(qHash(customLabel));
+    const quint64 windowKey = target ? static_cast<quint64>(qHash(target->internalId())) : 0;
+    const quint64 flagsKey = (m_badgeShowIcon ? 0x1000 : 0) | (m_badgeShowThumbnail ? 0x2000 : 0) | (isJumpMode ? 1 : 0);
     const quint64 key = (static_cast<quint64>(letter.unicode()) << 48)
         ^ (static_cast<quint64>(bgColor.rgba()) << 16)
         ^ (static_cast<quint64>(textColor.rgba()))
         ^ (scaleKey << 8)
         ^ (sizeKey << 32)
         ^ (labelKey << 24)
-        ^ (isJumpMode ? 1 : 0);
+        ^ (windowKey << 12)
+        ^ flagsKey;
 
     std::shared_ptr<GLTexture> texture;
     auto it = m_badgeTextureCache.find(key);
@@ -2971,7 +3083,13 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
         texture = it.value();
     }
     if (!texture || texture->isNull()) {
-        const QImage img = OutlineBadge::renderBadgeImage(letter, bgColor, textColor, isJumpMode, badgeSize, scale, customLabel);
+        const QIcon icon = (m_badgeShowIcon && target) ? target->icon() : QIcon();
+        const QImage thumbnail = (m_badgeShowThumbnail && target)
+            ? captureWindowThumbnail(target, renderTarget, viewport)
+            : QImage();
+
+        const QImage img = OutlineBadge::renderBadgeImage(letter, bgColor, textColor, isJumpMode, badgeSize, scale, customLabel,
+                                                          m_badgeShowIcon, icon, m_badgeShowThumbnail, thumbnail);
         auto uploaded = GLTexture::upload(img);
         if (!uploaded) {
             return;
@@ -3095,7 +3213,13 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             }
         }
 
-        const QImage img = OutlineBadge::renderOffscreenTargetPill(letter, bgCol, textCol, loc, caption, badgeSize, scale, customLabel);
+        const QIcon icon = m_badgeShowIcon ? target->icon() : QIcon();
+        const QImage thumbnail = m_badgeShowThumbnail
+            ? captureWindowThumbnail(target, renderTarget, viewport)
+            : QImage();
+
+        const QImage img = OutlineBadge::renderOffscreenTargetPill(letter, bgCol, textCol, loc, caption, badgeSize, scale, customLabel,
+                                                                   m_badgeShowIcon, icon, m_badgeShowThumbnail, thumbnail);
         auto uploaded = GLTexture::upload(img);
         if (!uploaded) {
             continue;
@@ -3709,7 +3833,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 : QColor(35, 38, 41, 235);
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
             const QString customLabel = m_markedWindowLabels.value(target);
-            const qreal badgeW = OutlineBadge::computeBadgeWidth(badgeH, customLabel);
+            const qreal badgeW = OutlineBadge::computeBadgeWidth(badgeH, customLabel, m_badgeShowIcon, m_badgeShowThumbnail);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, badgeW, badgeH, m_badgeMargin);
             if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
             if (badgeRect.right() > screenRect.right() - 4.0) badgeRect.moveRight(screenRect.right() - 4.0);
@@ -3737,7 +3861,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                     continue;
                 }
             }
-            renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, false, m_badgeSize, customLabel);
+            renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, false, m_badgeSize, customLabel, target);
         }
     }
 
@@ -3780,7 +3904,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                     customLabel += QStringLiteral(" • Space");
                 }
             }
-            const qreal jumpW = OutlineBadge::computeBadgeWidth(jumpH, customLabel);
+            const qreal jumpW = OutlineBadge::computeBadgeWidth(jumpH, customLabel, m_badgeShowIcon, m_badgeShowThumbnail);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
             if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
             if (badgeRect.right() > screenRect.right() - 4.0) badgeRect.moveRight(screenRect.right() - 4.0);
@@ -3809,7 +3933,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                     continue;
                 }
             }
-            renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, true, m_badgeSize, customLabel);
+            renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, true, m_badgeSize, customLabel, target);
         }
 
         if (!offscreenTargets.isEmpty()) {
