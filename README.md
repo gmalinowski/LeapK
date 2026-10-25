@@ -288,6 +288,7 @@ Configure buffering delays and window state handling.
 | **Dashed outline for inactive marked windows** | Off | Renders inactive marked window outlines with a dashed line pattern instead of a solid line. |
 | **Dash gap (Marked)** | 6 px | Spacing / gap between dashes in pixels for inactive marked window outlines (1–40 px). |
 | **Smooth dash transitions (Marked)** | Off | Applies a smooth alpha gradient fade between dashes and gaps on inactive marked window outlines. |
+| **Hint cards HUD position** | Bottom (horizontal, centered) | Screen edge placement for offscreen and covered window hint cards during Jump Mode (`Meta+Space`): Bottom, Top, Left, or Right. Automatically wraps and centers rows or columns to fit comfortably on screen. |
 | **Hide on fullscreen** | On | Automatically hides the outline and glow when the active window is fullscreen. |
 
 ### Keyboard shortcuts

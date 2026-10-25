@@ -1998,6 +1998,46 @@
             </item>
            </widget>
           </item>
+          <item row="11" column="0">
+           <widget class="QLabel" name="label_badgeHudPosition">
+            <property name="text">
+             <string>Hint cards HUD position:</string>
+            </property>
+            <property name="toolTip">
+             <string>Screen edge position for offscreen and covered window hint cards (Bottom/Top horizontal, Left/Right vertical).</string>
+            </property>
+           </widget>
+          </item>
+          <item row="11" column="1">
+           <widget class="QComboBox" name="kcfg_BadgeHudPosition">
+            <property name="currentIndex">
+             <number>0</number>
+            </property>
+            <property name="toolTip">
+             <string>Screen edge position for offscreen and covered window hint cards (Bottom/Top horizontal, Left/Right vertical).</string>
+            </property>
+            <item>
+             <property name="text">
+              <string>Bottom (horizontal, centered)</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Top (horizontal, centered)</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Left (vertical, centered)</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Right (vertical, centered)</string>
+             </property>
+            </item>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>

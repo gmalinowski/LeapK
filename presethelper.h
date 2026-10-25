@@ -85,6 +85,7 @@ inline QJsonObject getDefaultSettings()
     s[QStringLiteral("BadgesAlwaysVisible")] = false;
     s[QStringLiteral("BadgeDisplayMode")] = 0;
     s[QStringLiteral("BadgePosition")] = 1;
+    s[QStringLiteral("BadgeHudPosition")] = 0;
     s[QStringLiteral("BadgeSize")] = 28;
     s[QStringLiteral("BadgeMargin")] = 0;
     s[QStringLiteral("JumpTargets")] = 0;

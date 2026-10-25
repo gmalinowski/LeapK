@@ -326,6 +326,7 @@ private:
     bool m_badgesAlwaysVisible = false;
     int m_badgeDisplayMode = 0; // 0 = Only during jump, 1 = Always visible, 2 = Disabled
     int m_badgePosition = 1;    // 0 = TopLeft, 1 = Top, 2 = TopRight, 3 = Left, 4 = Center, 5 = Right, 6 = BottomLeft, 7 = Bottom, 8 = BottomRight
+    int m_badgeHudPosition = 0; // 0 = Bottom, 1 = Top, 2 = Left, 3 = Right
     int m_badgeSize = 28;       // Height in pixels (16 to 64)
     int m_badgeMargin = 0;      // Margin from window edge in pixels (0 to 100)
 

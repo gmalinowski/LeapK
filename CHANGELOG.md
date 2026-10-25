@@ -7,7 +7,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.5.0] - 2026-10-25
 
 ### Added
-- **Custom Window Labels for Marked Windows (`Meta+Ctrl+Shift+M`)**:
+- **Smart Hint Card Wrapping, Centering, and Multi-Position Screen HUD (`BadgeHudPosition`)**:
+  - Implemented multi-row and multi-column wrapping for offscreen and covered window hint cards (HUD pills) in modal Jump Mode (`Meta+Space`) via `OutlineBadge::computeHudPillPositions`.
+  - When many windows or targets are present, cards automatically wrap across multiple rows or columns and each line is centered horizontally (for Top/Bottom) or vertically (for Left/Right), eliminating overflow and clipping off screen edges.
+  - Added the **Hint cards HUD position** configuration option (`kcfg_BadgeHudPosition`) in the Marked Windows settings tab with 4 positions:
+    - `0`: Bottom (horizontal, centered rows) — default.
+    - `1`: Top (horizontal, centered rows).
+    - `2`: Left (vertical, centered columns).
+    - `3`: Right (vertical, centered columns).
+- **Custom Window Labels for Marked Windows (`Meta+Ctrl+Shift+Space`)**:
   - Added an optional "Custom label (optional) / Własna etykieta" text field to the Custom Mark dialog (`active-window-outline-colorpicker`).
   - Allows assigning custom names/tags (e.g. "Backend", "Terminal", "Projekt A") to marked windows.
   - Displayed prominently in **Hint Cards** ("karty podpowiedzi") during Jump Mode (`Meta+Space`): Line 1 shows the bold white label, and Line 2 displays the location and window title (e.g. `Pulpit 1 · bash` or `Schowane · Alacritty`), solving the ambiguity when multiple windows share identical process/window names.

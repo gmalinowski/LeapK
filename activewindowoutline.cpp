@@ -763,6 +763,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
         }
     }
     m_badgePosition = qBound(0, config.readEntry("BadgePosition", 1), 8);
+    m_badgeHudPosition = qBound(0, config.readEntry("BadgeHudPosition", 0), 3);
     m_badgeSize = qBound(16, config.readEntry("BadgeSize", 28), 64);
     m_badgeMargin = qBound(0, config.readEntry("BadgeMargin", 0), 100);
     m_markShowLetterBadges = (m_badgeDisplayMode != 2);
@@ -2805,8 +2806,6 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         qreal height;
     };
     QList<PillItem> pills;
-    qreal totalWidth = 0.0;
-    const qreal gap = 12.0;
 
     for (const auto &pair : targets) {
         const QChar letter = pair.first;
@@ -2854,19 +2853,19 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         const qreal w = img.width() / scale;
         const qreal h = img.height() / scale;
         pills.append({std::shared_ptr<GLTexture>(uploaded.release()), w, h});
-        totalWidth += w;
     }
 
     if (pills.isEmpty()) {
         return;
     }
 
-    totalWidth += gap * (pills.size() - 1);
-    qreal startX = screenRect.left() + (screenRect.width() - totalWidth) / 2.0;
-    if (startX < screenRect.left() + 20) {
-        startX = screenRect.left() + 20;
+    QList<QSizeF> pillSizes;
+    pillSizes.reserve(pills.size());
+    for (const PillItem &item : pills) {
+        pillSizes.append(QSizeF(item.width, item.height));
     }
-    const qreal pillY = screenRect.bottom() - pills.first().height - 24.0;
+
+    const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, m_badgeHudPosition);
 
     GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
     GLint previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha;
@@ -2886,12 +2885,14 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix, viewport.projectionMatrix());
     shader->setColorspaceUniforms(ColorDescription::sRGB, renderTarget.colorDescription(), RenderingIntent::Perceptual);
 
-    qreal currentX = startX;
-    for (const PillItem &item : pills) {
-        const float x0 = currentX * scale;
-        const float y0 = pillY * scale;
-        const float x1 = (currentX + item.width) * scale;
-        const float y1 = (pillY + item.height) * scale;
+    for (int i = 0; i < pills.size(); ++i) {
+        const PillItem &item = pills.at(i);
+        const QRectF &rect = rects.at(i);
+
+        const float x0 = rect.left() * scale;
+        const float y0 = rect.top() * scale;
+        const float x1 = rect.right() * scale;
+        const float y1 = rect.bottom() * scale;
 
         const std::array<GLVertex2D, 6> verts = {{
             {QVector2D(x0, y0), QVector2D(0.0f, 0.0f)},
@@ -2909,8 +2910,6 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         item.texture->bind();
         vbo->render(GL_TRIANGLES);
         item.texture->unbind();
-
-        currentX += item.width + gap;
     }
 
     if (scissorWasEnabled) {

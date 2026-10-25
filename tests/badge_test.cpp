@@ -217,6 +217,75 @@ void testSmartAccentExtraction()
     assert(!nullAccent.isValid());
 }
 
+void testComputeHudPillPositions()
+{
+    using OutlineBadge::computeHudPillPositions;
+
+    const QRectF screen(0, 0, 1920, 1080);
+
+    // 1. Empty list
+    assert(computeHudPillPositions({}, screen).isEmpty());
+
+    // 2. Single pill, bottom (default hudPosition = 0)
+    QList<QSizeF> singlePill = { QSizeF(200, 36) };
+    QList<QRectF> rBottom = computeHudPillPositions(singlePill, screen, 0, 24.0, 12.0);
+    assert(rBottom.size() == 1);
+    assert(qFuzzyCompare(rBottom[0].left(), (1920.0 - 200.0) / 2.0));
+    assert(qFuzzyCompare(rBottom[0].top(), 1080.0 - 24.0 - 36.0));
+    assert(qFuzzyCompare(rBottom[0].width(), 200.0));
+    assert(qFuzzyCompare(rBottom[0].height(), 36.0));
+
+    // 3. Single pill, top (hudPosition = 1)
+    QList<QRectF> rTop = computeHudPillPositions(singlePill, screen, 1, 24.0, 12.0);
+    assert(rTop.size() == 1);
+    assert(qFuzzyCompare(rTop[0].left(), (1920.0 - 200.0) / 2.0));
+    assert(qFuzzyCompare(rTop[0].top(), 24.0));
+
+    // 4. Single pill, left (hudPosition = 2)
+    QList<QRectF> rLeft = computeHudPillPositions(singlePill, screen, 2, 24.0, 12.0);
+    assert(rLeft.size() == 1);
+    assert(qFuzzyCompare(rLeft[0].left(), 24.0));
+    assert(qFuzzyCompare(rLeft[0].top(), (1080.0 - 36.0) / 2.0));
+
+    // 5. Single pill, right (hudPosition = 3)
+    QList<QRectF> rRight = computeHudPillPositions(singlePill, screen, 3, 24.0, 12.0);
+    assert(rRight.size() == 1);
+    assert(qFuzzyCompare(rRight[0].left(), 1920.0 - 24.0 - 200.0));
+    assert(qFuzzyCompare(rRight[0].top(), (1080.0 - 36.0) / 2.0));
+
+    // 6. Multi-row wrapping at bottom on smaller screen
+    // screen 500x500, margin 20 -> availWidth 460
+    // 3 pills of width 200, gap 10 -> row 1 has 2 pills (200 + 10 + 200 = 410), row 2 has 1 pill (200)
+    QRectF smallScreen(0, 0, 500, 500);
+    QList<QSizeF> threePills = { QSizeF(200, 30), QSizeF(200, 30), QSizeF(200, 30) };
+    QList<QRectF> rWrapBottom = computeHudPillPositions(threePills, smallScreen, 0, 20.0, 10.0);
+    assert(rWrapBottom.size() == 3);
+    // Cluster height = 30 + 10 + 30 = 70. rowY = 500 - 20 - 70 = 410.
+    // Row 1 centered: startX = (500 - 410) / 2 = 45.
+    assert(qFuzzyCompare(rWrapBottom[0].left(), 45.0));
+    assert(qFuzzyCompare(rWrapBottom[0].top(), 410.0));
+    assert(qFuzzyCompare(rWrapBottom[1].left(), 255.0));
+    assert(qFuzzyCompare(rWrapBottom[1].top(), 410.0));
+    // Row 2 centered: startX = (500 - 200) / 2 = 150.
+    assert(qFuzzyCompare(rWrapBottom[2].left(), 150.0));
+    assert(qFuzzyCompare(rWrapBottom[2].top(), 450.0));
+
+    // 7. Multi-column wrapping at left
+    // screen 500x500, margin 20 -> availHeight 460
+    // 3 pills of height 200, width 30, gap 10 -> col 1 has 2 pills (height 410), col 2 has 1 pill (height 200)
+    QList<QSizeF> threeTallPills = { QSizeF(30, 200), QSizeF(30, 200), QSizeF(30, 200) };
+    QList<QRectF> rWrapLeft = computeHudPillPositions(threeTallPills, smallScreen, 2, 20.0, 10.0);
+    assert(rWrapLeft.size() == 3);
+    // Col 1 centered vertically: startY = (500 - 410) / 2 = 45. colX = 20.
+    assert(qFuzzyCompare(rWrapLeft[0].left(), 20.0));
+    assert(qFuzzyCompare(rWrapLeft[0].top(), 45.0));
+    assert(qFuzzyCompare(rWrapLeft[1].left(), 20.0));
+    assert(qFuzzyCompare(rWrapLeft[1].top(), 255.0));
+    // Col 2 centered vertically: startY = (500 - 200) / 2 = 150. colX = 20 + 30 + 10 = 60.
+    assert(qFuzzyCompare(rWrapLeft[2].left(), 60.0));
+    assert(qFuzzyCompare(rWrapLeft[2].top(), 150.0));
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -228,6 +297,7 @@ int main(int argc, char *argv[])
     testOffscreenTargetPill();
     testContrastCalculation();
     testSmartAccentExtraction();
+    testComputeHudPillPositions();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

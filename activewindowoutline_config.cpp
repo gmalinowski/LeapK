@@ -250,6 +250,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemBool(QStringLiteral("BadgesAlwaysVisible"), *new bool, false);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeDisplayMode"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("BadgePosition"), *new int, 1);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeHudPosition"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeSize"), *new int, 28);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeMargin"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("JumpTargets"), *new int, 0);
@@ -643,6 +644,8 @@ void ActiveWindowOutlineConfig::updateMarkWindowUI()
     const bool badgesEnabled = (m_ui->kcfg_BadgeDisplayMode->currentIndex() != 2);
     m_ui->label_badgePosition->setEnabled(badgesEnabled);
     m_ui->kcfg_BadgePosition->setEnabled(badgesEnabled);
+    m_ui->label_badgeHudPosition->setEnabled(badgesEnabled);
+    m_ui->kcfg_BadgeHudPosition->setEnabled(badgesEnabled);
     m_ui->label_badgeSize->setEnabled(badgesEnabled);
     m_ui->kcfg_BadgeSize->setEnabled(badgesEnabled);
     m_ui->label_badgeMargin->setEnabled(badgesEnabled);
@@ -1018,6 +1021,7 @@ void ActiveWindowOutlineConfig::defaults()
     m_ui->kcfg_BorderRadius->setEnabled(!fadeCorners);
     m_ui->kcfg_BadgeDisplayMode->setCurrentIndex(0);
     m_ui->kcfg_BadgePosition->setCurrentIndex(1);
+    m_ui->kcfg_BadgeHudPosition->setCurrentIndex(0);
     m_ui->kcfg_BadgeSize->setValue(28);
     m_ui->kcfg_BadgeMargin->setValue(0);
     m_ui->kcfg_MarkSmartAdaptive->setChecked(true);
@@ -1324,6 +1328,7 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("MarkShowLetterBadges")] = (badgeMode != 2);
     s[QStringLiteral("BadgesAlwaysVisible")] = (badgeMode == 1);
     s[QStringLiteral("BadgePosition")] = m_ui->kcfg_BadgePosition->currentIndex();
+    s[QStringLiteral("BadgeHudPosition")] = m_ui->kcfg_BadgeHudPosition->currentIndex();
     s[QStringLiteral("BadgeSize")] = m_ui->kcfg_BadgeSize->value();
     s[QStringLiteral("BadgeMargin")] = m_ui->kcfg_BadgeMargin->value();
     s[QStringLiteral("JumpTargets")] = m_ui->kcfg_JumpTargets->currentIndex();
@@ -1425,6 +1430,7 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
         m_ui->kcfg_BadgeDisplayMode->setCurrentIndex(!show ? 2 : (always ? 1 : 0));
     }
     if (s.contains(QStringLiteral("BadgePosition"))) m_ui->kcfg_BadgePosition->setCurrentIndex(s[QStringLiteral("BadgePosition")].toInt());
+    if (s.contains(QStringLiteral("BadgeHudPosition"))) m_ui->kcfg_BadgeHudPosition->setCurrentIndex(s[QStringLiteral("BadgeHudPosition")].toInt());
     if (s.contains(QStringLiteral("BadgeSize"))) m_ui->kcfg_BadgeSize->setValue(s[QStringLiteral("BadgeSize")].toInt());
     if (s.contains(QStringLiteral("BadgeMargin"))) m_ui->kcfg_BadgeMargin->setValue(s[QStringLiteral("BadgeMargin")].toInt());
     if (s.contains(QStringLiteral("JumpTargets"))) m_ui->kcfg_JumpTargets->setCurrentIndex(s[QStringLiteral("JumpTargets")].toInt());

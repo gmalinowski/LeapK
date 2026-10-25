@@ -318,6 +318,7 @@ set_default MarkShowLetterBadges true
 set_default BadgesAlwaysVisible false
 set_default BadgeDisplayMode 0
 set_default BadgePosition 1
+set_default BadgeHudPosition 0
 set_default BadgeSize 28
 set_default BadgeMargin 0
 set_default JumpTargets 0

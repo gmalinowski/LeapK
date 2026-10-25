@@ -247,6 +247,11 @@
             <min>0</min>
             <max>2</max>
         </entry>
+        <entry name="BadgeHudPosition" type="Int">
+            <default>0</default>
+            <min>0</min>
+            <max>3</max>
+        </entry>
 
         <!-- Color Cycling Settings -->
         <entry name="ColorCycleEnabled" type="Bool">

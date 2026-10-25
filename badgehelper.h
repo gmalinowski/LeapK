@@ -14,6 +14,7 @@
 #include <QPen>
 #include <QRandomGenerator>
 #include <QRectF>
+#include <QSizeF>
 #include <QString>
 #include <QStringList>
 #include <QSet>
@@ -458,6 +459,156 @@ inline QImage renderOffscreenTargetPill(const QChar &letter,
 
     p.end();
     return img;
+}
+
+inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
+                                             const QRectF &screenRect,
+                                             int hudPosition = 0,
+                                             qreal margin = 24.0,
+                                             qreal gap = 12.0)
+{
+    if (pillSizes.isEmpty()) {
+        return {};
+    }
+
+    QList<QRectF> result;
+    result.resize(pillSizes.size());
+
+    const int clampedPos = qBound(0, hudPosition, 3);
+
+    if (clampedPos == 0 || clampedPos == 1) {
+        // Horizontal layout with row wrapping: 0 = Bottom (default), 1 = Top
+        const qreal availWidth = qMax(60.0, screenRect.width() - 2.0 * margin);
+
+        struct Row {
+            QList<int> indices;
+            qreal totalWidth = 0.0;
+            qreal maxHeight = 0.0;
+        };
+
+        QList<Row> rows;
+        Row currentRow;
+
+        for (int i = 0; i < pillSizes.size(); ++i) {
+            const QSizeF &sz = pillSizes.at(i);
+            const qreal neededWidth = currentRow.indices.isEmpty()
+                ? sz.width()
+                : (currentRow.totalWidth + gap + sz.width());
+
+            if (neededWidth <= availWidth || currentRow.indices.isEmpty()) {
+                currentRow.indices.append(i);
+                currentRow.totalWidth = neededWidth;
+                currentRow.maxHeight = qMax(currentRow.maxHeight, sz.height());
+            } else {
+                rows.append(currentRow);
+                currentRow = Row();
+                currentRow.indices.append(i);
+                currentRow.totalWidth = sz.width();
+                currentRow.maxHeight = sz.height();
+            }
+        }
+        if (!currentRow.indices.isEmpty()) {
+            rows.append(currentRow);
+        }
+
+        qreal clusterHeight = 0.0;
+        for (const Row &r : rows) {
+            clusterHeight += r.maxHeight;
+        }
+        clusterHeight += (rows.size() - 1) * gap;
+
+        qreal rowY = 0.0;
+        if (clampedPos == 1) { // Top
+            rowY = screenRect.top() + margin;
+        } else { // 0 = Bottom
+            rowY = screenRect.bottom() - margin - clusterHeight;
+            if (rowY < screenRect.top() + margin) {
+                rowY = screenRect.top() + margin;
+            }
+        }
+
+        for (const Row &r : rows) {
+            qreal rowStartX = screenRect.left() + (screenRect.width() - r.totalWidth) / 2.0;
+            if (rowStartX < screenRect.left() + margin) {
+                rowStartX = screenRect.left() + margin;
+            }
+            qreal currentX = rowStartX;
+            for (int idx : r.indices) {
+                const QSizeF &sz = pillSizes.at(idx);
+                const qreal itemY = rowY + (r.maxHeight - sz.height()) / 2.0;
+                result[idx] = QRectF(currentX, itemY, sz.width(), sz.height());
+                currentX += sz.width() + gap;
+            }
+            rowY += r.maxHeight + gap;
+        }
+    } else {
+        // Vertical layout with column wrapping: 2 = Left, 3 = Right
+        const qreal availHeight = qMax(60.0, screenRect.height() - 2.0 * margin);
+
+        struct Col {
+            QList<int> indices;
+            qreal totalHeight = 0.0;
+            qreal maxWidth = 0.0;
+        };
+
+        QList<Col> cols;
+        Col currentCol;
+
+        for (int i = 0; i < pillSizes.size(); ++i) {
+            const QSizeF &sz = pillSizes.at(i);
+            const qreal neededHeight = currentCol.indices.isEmpty()
+                ? sz.height()
+                : (currentCol.totalHeight + gap + sz.height());
+
+            if (neededHeight <= availHeight || currentCol.indices.isEmpty()) {
+                currentCol.indices.append(i);
+                currentCol.totalHeight = neededHeight;
+                currentCol.maxWidth = qMax(currentCol.maxWidth, sz.width());
+            } else {
+                cols.append(currentCol);
+                currentCol = Col();
+                currentCol.indices.append(i);
+                currentCol.totalHeight = sz.height();
+                currentCol.maxWidth = sz.width();
+            }
+        }
+        if (!currentCol.indices.isEmpty()) {
+            cols.append(currentCol);
+        }
+
+        qreal clusterWidth = 0.0;
+        for (const Col &c : cols) {
+            clusterWidth += c.maxWidth;
+        }
+        clusterWidth += (cols.size() - 1) * gap;
+
+        qreal colX = 0.0;
+        if (clampedPos == 2) { // Left
+            colX = screenRect.left() + margin;
+        } else { // 3 = Right
+            colX = screenRect.right() - margin - clusterWidth;
+            if (colX < screenRect.left() + margin) {
+                colX = screenRect.left() + margin;
+            }
+        }
+
+        for (const Col &c : cols) {
+            qreal colStartY = screenRect.top() + (screenRect.height() - c.totalHeight) / 2.0;
+            if (colStartY < screenRect.top() + margin) {
+                colStartY = screenRect.top() + margin;
+            }
+            qreal currentY = colStartY;
+            for (int idx : c.indices) {
+                const QSizeF &sz = pillSizes.at(idx);
+                const qreal itemX = colX + (c.maxWidth - sz.width()) / 2.0;
+                result[idx] = QRectF(itemX, currentY, sz.width(), sz.height());
+                currentY += sz.height() + gap;
+            }
+            colX += c.maxWidth + gap;
+        }
+    }
+
+    return result;
 }
 
 } // namespace OutlineBadge
