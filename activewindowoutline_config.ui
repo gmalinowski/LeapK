@@ -871,31 +871,37 @@
            </layout>
           </item>
           <item>
-           <widget class="QTableWidget" name="tableShaders">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>180</height>
-             </size>
+           <widget class="QSplitter" name="splitterShaders">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
             </property>
-            <property name="selectionMode">
-             <enum>QAbstractItemView::SingleSelection</enum>
+            <property name="childrenCollapsible">
+             <bool>false</bool>
             </property>
-            <property name="selectionBehavior">
-             <enum>QAbstractItemView::SelectRows</enum>
-            </property>
-            <property name="columnCount">
-             <number>6</number>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QGroupBox" name="groupActiveShaderParams">
-            <property name="title">
-             <string>Active Effect Parameters</string>
-            </property>
-            <layout class="QFormLayout" name="formLayoutShaderParams">
-            </layout>
+            <widget class="QTableWidget" name="tableShaders">
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>120</height>
+              </size>
+             </property>
+             <property name="selectionMode">
+              <enum>QAbstractItemView::SingleSelection</enum>
+             </property>
+             <property name="selectionBehavior">
+              <enum>QAbstractItemView::SelectRows</enum>
+             </property>
+             <property name="columnCount">
+              <number>6</number>
+             </property>
+            </widget>
+            <widget class="QGroupBox" name="groupActiveShaderParams">
+             <property name="title">
+              <string>Active Effect Parameters</string>
+             </property>
+             <layout class="QFormLayout" name="formLayoutShaderParams">
+             </layout>
+            </widget>
            </widget>
           </item>
          </layout>
@@ -908,20 +914,6 @@
           <bool>false</bool>
          </property>
         </widget>
-       </item>
-
-       <item>
-        <spacer name="verticalSpacerEffects">
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>40</height>
-          </size>
-         </property>
-        </spacer>
        </item>
 
       </layout>

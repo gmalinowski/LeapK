@@ -65,6 +65,8 @@ private:
     void initShadersSection();
     void refreshShadersTable();
     void toggleSelectedShader();
+    void toggleShaderAt(int row);
+    void setShaderActive(int row, bool active);
     void createNewShader();
     void editSelectedShader();
     void deleteSelectedShader();
@@ -78,6 +80,8 @@ private:
     KConfigSkeleton *m_configSkeleton = nullptr;
     QNetworkAccessManager *m_networkManager = nullptr;
     bool m_isApplyingPreset = false;
+    bool m_updatingTable = false;
+    QString m_currentDisplayedShaderId;
     QList<LeapKShader::CustomShaderEffect> m_shaders;
     QString m_activeShaderId;
 };

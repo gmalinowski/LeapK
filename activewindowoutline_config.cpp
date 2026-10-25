@@ -47,6 +47,8 @@
 #include <QProcess>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QScrollBar>
+#include <QSplitter>
 #include <QTextBrowser>
 #include <QTextEdit>
 #include <QToolButton>
@@ -157,6 +159,13 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     }
     m_ui->tabWidget->clear();
     for (const auto &t : tabs) {
+        if (t.page == m_ui->tabEffects) {
+            const int idx = m_ui->tabWidget->addTab(t.page, t.icon, t.text);
+            if (!t.toolTip.isEmpty()) {
+                m_ui->tabWidget->setTabToolTip(idx, t.toolTip);
+            }
+            continue;
+        }
         auto *scrollArea = new QScrollArea(m_ui->tabWidget);
         scrollArea->setWidgetResizable(true);
         scrollArea->setFrameShape(QFrame::NoFrame);
@@ -1948,7 +1957,7 @@ void ActiveWindowOutlineConfig::initShadersSection()
 {
     m_ui->tableShaders->setColumnCount(6);
     m_ui->tableShaders->setHorizontalHeaderLabels({
-        QStringLiteral("Status / Włącznik"),
+        QStringLiteral("Aktywny"),
         QStringLiteral("Nazwa / Name"),
         QStringLiteral("Cel / Target"),
         QStringLiteral("Autor"),
@@ -1961,13 +1970,31 @@ void ActiveWindowOutlineConfig::initShadersSection()
     m_ui->tableShaders->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
     m_ui->tableShaders->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
     m_ui->tableShaders->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Stretch);
+    m_ui->tableShaders->verticalHeader()->setVisible(false);
     m_ui->tableShaders->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_ui->tableShaders->setSelectionMode(QAbstractItemView::SingleSelection);
     m_ui->tableShaders->setContextMenuPolicy(Qt::CustomContextMenu);
 
-    connect(m_ui->tableShaders, &QTableWidget::cellClicked, this, [this](int row, int col) {
-        if (col == 0 && row >= 0 && row < m_shaders.size()) {
-            toggleSelectedShader();
+    // Resizable splitter between table and parameters panel
+    m_ui->splitterShaders->setSizes({260, 200});
+    m_ui->splitterShaders->setHandleWidth(6);
+
+    connect(m_ui->tableShaders, &QTableWidget::itemChanged, this, [this](QTableWidgetItem *item) {
+        if (m_updatingTable || !item || item->column() != 0) {
+            return;
+        }
+        const int row = item->row();
+        if (row < 0 || row >= m_shaders.size()) {
+            return;
+        }
+        const bool shouldBeActive = (item->checkState() == Qt::Checked);
+        setShaderActive(row, shouldBeActive);
+    });
+
+    connect(m_ui->tableShaders, &QTableWidget::cellDoubleClicked, this, [this](int row, int col) {
+        Q_UNUSED(col);
+        if (row >= 0 && row < m_shaders.size()) {
+            toggleShaderAt(row);
         }
     });
 
@@ -1982,7 +2009,7 @@ void ActiveWindowOutlineConfig::initShadersSection()
 
         QMenu menu(widget());
         menu.addAction(isActive ? QIcon::fromTheme(QStringLiteral("dialog-cancel")) : QIcon::fromTheme(QStringLiteral("dialog-ok")),
-                       isActive ? QStringLiteral("⚪ Wyłącz ten efekt") : QStringLiteral("🟢 Włącz ten efekt (Ustaw jako aktywny)"),
+                       isActive ? QStringLiteral("Wyłącz ten efekt") : QStringLiteral("Ustaw jako aktywny"),
                        this, &ActiveWindowOutlineConfig::toggleSelectedShader);
         menu.addSeparator();
         menu.addAction(QIcon::fromTheme(QStringLiteral("document-edit")), QStringLiteral("Edytuj efekt…"), this, &ActiveWindowOutlineConfig::editSelectedShader);
@@ -1993,12 +2020,17 @@ void ActiveWindowOutlineConfig::initShadersSection()
     });
 
     connect(m_ui->tableShaders, &QTableWidget::itemSelectionChanged, this, [this]() {
+        if (m_updatingTable) {
+            return;
+        }
         const int row = m_ui->tableShaders->currentRow();
         if (row >= 0 && row < m_shaders.size()) {
             const QString id = m_shaders[row].id;
             const bool globalEnabled = m_ui->kcfg_CustomShaderEnabled->isChecked();
             const bool isCurActive = globalEnabled && (id == m_activeShaderId);
-            m_ui->btnToggleShader->setText(isCurActive ? QStringLiteral("⚪ Wyłącz ten efekt") : QStringLiteral("🟢 Włącz ten efekt"));
+            m_ui->btnToggleShader->setText(isCurActive ? QStringLiteral("Wyłącz ten efekt") : QStringLiteral("Włącz ten efekt"));
+            m_ui->btnToggleShader->setIcon(isCurActive ? QIcon::fromTheme(QStringLiteral("dialog-cancel"))
+                                                       : QIcon::fromTheme(QStringLiteral("dialog-ok")));
             updateShaderParametersUIFor(id);
         }
     });
@@ -2014,18 +2046,32 @@ void ActiveWindowOutlineConfig::initShadersSection()
 void ActiveWindowOutlineConfig::toggleSelectedShader()
 {
     const int row = m_ui->tableShaders->currentRow();
-    if (row < 0 || row >= m_shaders.size()) {
-        return;
+    if (row >= 0 && row < m_shaders.size()) {
+        toggleShaderAt(row);
     }
-    const QString selectedId = m_shaders[row].id;
-    const bool currentlyActive = m_ui->kcfg_CustomShaderEnabled->isChecked() && (m_activeShaderId == selectedId);
+}
 
-    if (currentlyActive) {
-        m_ui->kcfg_CustomShaderEnabled->setChecked(false);
-    } else {
-        m_activeShaderId = selectedId;
+void ActiveWindowOutlineConfig::toggleShaderAt(int row)
+{
+    if (row < 0 || row >= m_shaders.size()) return;
+    const QString id = m_shaders[row].id;
+    const bool isCurActive = m_ui->kcfg_CustomShaderEnabled->isChecked() && (m_activeShaderId == id);
+    setShaderActive(row, !isCurActive);
+}
+
+void ActiveWindowOutlineConfig::setShaderActive(int row, bool active)
+{
+    if (row < 0 || row >= m_shaders.size()) return;
+    const QString id = m_shaders[row].id;
+
+    if (active) {
+        m_activeShaderId = id;
         m_ui->kcfg_ActiveCustomShaderId->setText(m_activeShaderId);
         m_ui->kcfg_CustomShaderEnabled->setChecked(true);
+    } else {
+        if (m_activeShaderId == id) {
+            m_ui->kcfg_CustomShaderEnabled->setChecked(false);
+        }
     }
 
     refreshShadersTable();
@@ -2034,8 +2080,15 @@ void ActiveWindowOutlineConfig::toggleSelectedShader()
 
 void ActiveWindowOutlineConfig::refreshShadersTable()
 {
+    m_updatingTable = true;
     m_shaders = LeapKShader::loadAllShaders();
-    m_ui->tableShaders->setRowCount(m_shaders.size());
+
+    // Preserve table scroll position
+    const int tableScrollVal = m_ui->tableShaders->verticalScrollBar()->value();
+
+    if (m_ui->tableShaders->rowCount() != m_shaders.size()) {
+        m_ui->tableShaders->setRowCount(m_shaders.size());
+    }
 
     const bool globalEnabled = m_ui->kcfg_CustomShaderEnabled->isChecked();
     int activeRow = -1;
@@ -2048,25 +2101,35 @@ void ActiveWindowOutlineConfig::refreshShadersTable()
             activeRow = i;
         }
 
-        // Col 0: Status / Włącznik
-        auto *statusItem = new QTableWidgetItem(isActive ? QStringLiteral("🟢 Włączony") : QStringLiteral("⚪ Wyłączony"));
-        statusItem->setTextAlignment(Qt::AlignCenter);
-        statusItem->setToolTip(isActive ? QStringLiteral("Ten efekt jest aktywny. Kliknij, aby wyłączyć.")
-                                        : QStringLiteral("Ten efekt jest wyłączony. Kliknij, aby włączyć."));
-        QFont sf = statusItem->font();
-        sf.setBold(isActive);
-        statusItem->setFont(sf);
-        m_ui->tableShaders->setItem(i, 0, statusItem);
+        // Col 0: Standard KDE Checkbox
+        auto *statusItem = m_ui->tableShaders->item(i, 0);
+        if (!statusItem) {
+            statusItem = new QTableWidgetItem();
+            statusItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsUserCheckable);
+            statusItem->setTextAlignment(Qt::AlignCenter);
+            m_ui->tableShaders->setItem(i, 0, statusItem);
+        }
+        statusItem->setCheckState(isActive ? Qt::Checked : Qt::Unchecked);
+        statusItem->setText(QString());
+        statusItem->setToolTip(isActive ? QStringLiteral("Efekt jest aktywny. Kliknij, aby wyłączyć.")
+                                        : QStringLiteral("Kliknij, aby włączyć ten efekt."));
 
         // Col 1: Nazwa / Name
-        auto *nameItem = new QTableWidgetItem(effect.name);
+        auto *nameItem = m_ui->tableShaders->item(i, 1);
+        if (!nameItem) {
+            nameItem = new QTableWidgetItem(effect.name);
+            m_ui->tableShaders->setItem(i, 1, nameItem);
+        } else {
+            nameItem->setText(effect.name);
+        }
         if (effect.isBuiltIn) {
             nameItem->setIcon(QIcon::fromTheme(QStringLiteral("favorite")));
+        } else {
+            nameItem->setIcon(QIcon());
         }
         QFont nf = nameItem->font();
         nf.setBold(isActive);
         nameItem->setFont(nf);
-        m_ui->tableShaders->setItem(i, 1, nameItem);
 
         // Col 2: Cel / Target
         QString targetStr = effect.target;
@@ -2077,16 +2140,40 @@ void ActiveWindowOutlineConfig::refreshShadersTable()
         } else if (effect.target == QStringLiteral("both")) {
             targetStr = QStringLiteral("Aura + Ramka");
         }
-        m_ui->tableShaders->setItem(i, 2, new QTableWidgetItem(targetStr));
+        auto *targetItem = m_ui->tableShaders->item(i, 2);
+        if (!targetItem) {
+            targetItem = new QTableWidgetItem(targetStr);
+            m_ui->tableShaders->setItem(i, 2, targetItem);
+        } else {
+            targetItem->setText(targetStr);
+        }
 
         // Col 3: Autor
-        m_ui->tableShaders->setItem(i, 3, new QTableWidgetItem(effect.author));
+        auto *authorItem = m_ui->tableShaders->item(i, 3);
+        if (!authorItem) {
+            authorItem = new QTableWidgetItem(effect.author);
+            m_ui->tableShaders->setItem(i, 3, authorItem);
+        } else {
+            authorItem->setText(effect.author);
+        }
 
         // Col 4: Wersja
-        m_ui->tableShaders->setItem(i, 4, new QTableWidgetItem(effect.version));
+        auto *versionItem = m_ui->tableShaders->item(i, 4);
+        if (!versionItem) {
+            versionItem = new QTableWidgetItem(effect.version);
+            m_ui->tableShaders->setItem(i, 4, versionItem);
+        } else {
+            versionItem->setText(effect.version);
+        }
 
         // Col 5: Opis / Description
-        m_ui->tableShaders->setItem(i, 5, new QTableWidgetItem(effect.description));
+        auto *descItem = m_ui->tableShaders->item(i, 5);
+        if (!descItem) {
+            descItem = new QTableWidgetItem(effect.description);
+            m_ui->tableShaders->setItem(i, 5, descItem);
+        } else {
+            descItem->setText(effect.description);
+        }
     }
 
     if (previousRow >= 0 && previousRow < m_shaders.size()) {
@@ -2097,14 +2184,21 @@ void ActiveWindowOutlineConfig::refreshShadersTable()
         m_ui->tableShaders->selectRow(0);
     }
 
+    // Restore table vertical scroll position so it never jumps
+    m_ui->tableShaders->verticalScrollBar()->setValue(tableScrollVal);
+
+    m_updatingTable = false;
+
     const int curRow = m_ui->tableShaders->currentRow();
     QString currentId;
     if (curRow >= 0 && curRow < m_shaders.size()) {
         currentId = m_shaders[curRow].id;
         const bool isCurActive = globalEnabled && (currentId == m_activeShaderId);
-        m_ui->btnToggleShader->setText(isCurActive ? QStringLiteral("⚪ Wyłącz ten efekt") : QStringLiteral("🟢 Włącz ten efekt"));
+        m_ui->btnToggleShader->setText(isCurActive ? QStringLiteral("Wyłącz ten efekt") : QStringLiteral("Włącz ten efekt"));
+        m_ui->btnToggleShader->setIcon(isCurActive ? QIcon::fromTheme(QStringLiteral("dialog-cancel"))
+                                                   : QIcon::fromTheme(QStringLiteral("dialog-ok")));
     } else {
-        m_ui->btnToggleShader->setText(QStringLiteral("⚡ Włącz / Wyłącz efekt"));
+        m_ui->btnToggleShader->setText(QStringLiteral("Włącz / Wyłącz efekt"));
     }
 
     updateShaderParametersUIFor(currentId.isEmpty() ? m_activeShaderId : currentId);
@@ -2119,11 +2213,8 @@ void ActiveWindowOutlineConfig::updateShaderParametersUI()
 
 void ActiveWindowOutlineConfig::updateShaderParametersUIFor(const QString &id)
 {
-    QLayoutItem *item;
-    while ((item = m_ui->formLayoutShaderParams->takeAt(0)) != nullptr) {
-        delete item->widget();
-        delete item;
-    }
+    const bool idChanged = (m_currentDisplayedShaderId != id);
+    m_currentDisplayedShaderId = id;
 
     int effectIdx = -1;
     for (int i = 0; i < m_shaders.size(); ++i) {
@@ -2147,12 +2238,31 @@ void ActiveWindowOutlineConfig::updateShaderParametersUIFor(const QString &id)
     const bool isActive = isGlobalOn && (effect.id == m_activeShaderId);
 
     m_ui->groupActiveShaderParams->setTitle(QStringLiteral("Parametry efektu: %1 (%2)")
-        .arg(effect.name, isActive ? QStringLiteral("🟢 Aktywny") : QStringLiteral("⚪ Wyłączony")));
+        .arg(effect.name, isActive ? QStringLiteral("Aktywny") : QStringLiteral("Nieaktywny")));
+
+    // If the displayed effect hasn't changed, do not rebuild widgets!
+    if (!idChanged) {
+        return;
+    }
+
+    // Preserve scroll position
+    const int tableScrollVal = m_ui->tableShaders->verticalScrollBar()->value();
+
+    // Prevent layout collapse during rebuild
+    m_ui->groupActiveShaderParams->setMinimumHeight(qMax(60, m_ui->groupActiveShaderParams->height()));
+
+    QLayoutItem *item;
+    while ((item = m_ui->formLayoutShaderParams->takeAt(0)) != nullptr) {
+        delete item->widget();
+        delete item;
+    }
 
     if (effect.parameters.isEmpty()) {
         auto *lbl = new QLabel(QStringLiteral("Ten efekt shadera nie posiada konfigurowalnych parametrów."), m_ui->groupActiveShaderParams);
         lbl->setStyleSheet(QStringLiteral("color: palette(placeholder-text); font-style: italic;"));
         m_ui->formLayoutShaderParams->addRow(lbl);
+        m_ui->groupActiveShaderParams->setMinimumHeight(0);
+        m_ui->tableShaders->verticalScrollBar()->setValue(tableScrollVal);
         return;
     }
 
@@ -2211,6 +2321,9 @@ void ActiveWindowOutlineConfig::updateShaderParametersUIFor(const QString &id)
             m_ui->formLayoutShaderParams->addRow(param.name + QStringLiteral(":"), btn);
         }
     }
+
+    m_ui->groupActiveShaderParams->setMinimumHeight(0);
+    m_ui->tableShaders->verticalScrollBar()->setValue(tableScrollVal);
 }
 
 void ActiveWindowOutlineConfig::saveShaderParameterValues()
