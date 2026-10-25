@@ -90,8 +90,25 @@ Switch styles instantly from the tray menu or configuration dialog:
 ## 📦 Installation
 
 ### Option 1: Quick Install / Update (Recommended)
+
+**Latest Stable Release (Default):**
 ```bash
 curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash
+```
+
+**Latest Beta / Pre-release:**
+```bash
+curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash -s -- --pre
+```
+
+**Specific Version (e.g. `v1.5.0`, `v1.4.25`):**
+```bash
+curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash -s -- --tag v1.5.0
+```
+
+**Latest Development (Bleeding edge `main` branch):**
+```bash
+curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash -s -- --main
 ```
 
 ### Option 2: Build from Source
