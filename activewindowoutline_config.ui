@@ -1841,7 +1841,7 @@
             </property>
             <item>
              <property name="text">
-              <string>Only during Jump Mode (Meta+Alt+Space)</string>
+              <string>Only during Jump Mode (Meta+Space)</string>
              </property>
             </item>
             <item>
@@ -1985,17 +1985,17 @@
           <item row="10" column="0">
            <widget class="QLabel" name="label_jumpTargets">
             <property name="text">
-             <string>Jump targets (default: Meta+Alt+Space):</string>
+             <string>Jump targets (default: Meta+Space):</string>
             </property>
             <property name="toolTip">
-             <string>Scope of windows included when pressing the Jump to Window shortcut (default: Meta+Alt+Space).</string>
+             <string>Scope of windows included when pressing the Jump to Window shortcut (default: Meta+Space).</string>
             </property>
            </widget>
           </item>
           <item row="10" column="1">
            <widget class="QComboBox" name="kcfg_JumpTargets">
             <property name="toolTip">
-             <string>Scope of windows included when pressing the Jump to Window shortcut (default: Meta+Alt+Space).</string>
+             <string>Scope of windows included when pressing the Jump to Window shortcut (default: Meta+Space).</string>
             </property>
             <item>
              <property name="text">

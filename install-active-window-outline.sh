@@ -320,6 +320,13 @@ set_default BadgeSize 28
 set_default BadgeMargin 12
 set_default JumpTargets 0
 
+if command -v kreadconfig6 >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/null 2>&1; then
+  current_jump_shortcut=$(kreadconfig6 --file kglobalshortcutsrc --group kwin --key "JumpToWindow" 2>/dev/null || true)
+  if [[ "$current_jump_shortcut" == *"Meta+Alt+Space"* ]]; then
+    kwriteconfig6 --file kglobalshortcutsrc --group kwin --key "JumpToWindow" "Meta+Space,Meta+Space,KAWO: Jump to Window"
+  fi
+fi
+
 if command -v qdbus6 >/dev/null 2>&1; then
   qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
   qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect \
@@ -332,6 +339,7 @@ echo
 echo "Done. Active Window Outline v$version has been installed."
 echo "Configure it in System Settings → Desktop Effects → Active Window Outline."
 echo "Toggle outline shortcut: Meta+Ctrl+O (configurable in System Settings → Shortcuts → KWin)."
+echo "Jump to window shortcut: Meta+Space (configurable in System Settings → Shortcuts → KWin)."
 echo "Mark window shortcuts: Meta+Ctrl+M (toggle mark), Meta+Ctrl+Shift+M (mark with palette)."
 if [[ "$updating_existing" == true ]]; then
   echo

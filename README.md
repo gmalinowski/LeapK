@@ -24,7 +24,7 @@ Whether you are using tiling window management (such as Bismuth, Polonium, or Kr
   - **Calm & Subdued**: Animated shader effects (breathe, hologram, flicker) are automatically suppressed on recent windows to prevent visual distraction.
 - **Vim-like Window Marks & Instant Jump Navigation**:
   - **Vim-like Marks with Letters**: Each marked window receives an assigned letter badge (displayed as a crisp antialiased pill badge).
-  - **Modal Jump Mode (`Meta+Alt+Space`)**: Instantly enters modal jump mode where high-contrast letter badges pop on background windows (the currently active window is always excluded). Marked windows keep their letter; other candidate windows receive dynamically allocated letters from a prioritized keyboard pool (`ASDFJKLQWERTY...`). Pressing a letter jumps directly to and activates that window. Pressing `Esc` or idling for 5 seconds exits jump mode.
+  - **Modal Jump Mode (`Meta+Space`)**: Instantly enters modal jump mode where high-contrast letter badges pop on background windows (the currently active window is always excluded). Marked windows keep their letter; other candidate windows receive dynamically allocated letters from a prioritized keyboard pool (`ASDFJKLQWERTY...`). Pressing a letter jumps directly to and activates that window. Pressing `Esc` or idling for 5 seconds exits jump mode.
   - **Configurable Badge Position, Size & Margin**: Fully customizable badge placement (Top-Left, Top, Top-Right, Left, Center, Right, Bottom-Left, Bottom, Bottom-Right), adjustable badge size (16–64 px), and margin distance from window borders (0–100 px). Display mode can be set to only during Jump Mode (default), always visible on background windows, or disabled.
   - **Quick & Detailed Window Marking**:
     - **`Meta+Ctrl+M`**: Instantly marks the active window with default color and auto-assigns next available letter from the pool.
@@ -36,7 +36,7 @@ Whether you are using tiling window management (such as Bismuth, Polonium, or Kr
   - **Meta+Ctrl+O**: Toggle active window outline on or off.
   - **Meta+Ctrl+M**: Toggle permanent mark frame on the active window.
   - **Meta+Ctrl+Shift+M**: Mark active window with color and letter picker dialog.
-  - **Meta+Alt+Space**: Enter modal Jump to Window mode.
+  - **Meta+Space**: Enter modal Jump to Window mode.
   - **Meta+Alt+[**: Previous recent window in focus history.
   - **Meta+Alt+]**: Next recent window in focus history.
 - **Multiple Color Modes**:

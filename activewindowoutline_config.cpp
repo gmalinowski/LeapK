@@ -497,7 +497,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->kcfg_MarkRandomColor, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
     updateMarkWindowUI();
 
-    QString shortcutStr = QStringLiteral("Meta+Alt+Space");
+    QString shortcutStr = QStringLiteral("Meta+Space");
     const auto shortcuts = KGlobalAccel::self()->globalShortcut(QStringLiteral("kwin"), QStringLiteral("JumpToWindow"));
     if (!shortcuts.isEmpty() && !shortcuts.first().isEmpty()) {
         shortcutStr = shortcuts.first().toString(QKeySequence::NativeText);

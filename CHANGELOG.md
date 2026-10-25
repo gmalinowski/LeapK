@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.5.0] - 2026-10-25
 
 ### Added
-- **Multi-Desktop Window Jumping & Offscreen HUD Cards (`Meta+Alt+Space`)**:
+- **Multi-Desktop Window Jumping & Offscreen HUD Cards (`Meta+Space`)**:
   - Modal Jump Mode now functions across all virtual desktops. Marked windows on other desktops and minimized windows retain their fixed letters and can be jumped to instantly from any virtual desktop.
   - Jumping to a window residing on a different desktop automatically switches virtual desktops (`effects->setCurrentDesktop`) and activates/unminimizes the window in one smooth step.
   - Floating Offscreen Jump Targets HUD: When Jump Mode is active and marked windows (or offscreen targets) exist on other desktops or in minimized state, an elegant, non-intrusive HUD bar appears at the bottom-center of the screen displaying each target's letter badge, desktop name/number (e.g. `Desktop 2`), and window title.
@@ -27,10 +27,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Window Occlusion Detection for Letter Badges (`isBadgeOccluded`)**:
   - Letter badges are now strictly hidden when occluded or covered by any overlapping window, dock/panel, or dialog higher in stacking order.
   - Badges never bleed through or draw over foreground windows.
-  - In modal Jump Mode (`Meta+Alt+Space`), dynamically selects alternate visible corners/center if the primary position is covered; completely occluded windows do not display confusing floating badges.
+  - In modal Jump Mode (`Meta+Space`), dynamically selects alternate visible corners/center if the primary position is covered; completely occluded windows do not display confusing floating badges.
   - Real-time full repaint when stacking order or virtual desktop changes (`stackingOrderChanged`, `desktopChanged`).
 
 ### Changed
+- **Default Jump Mode Shortcut Changed to `Meta+Space`**:
+  - Replaced `Meta+Alt+Space` with the simpler and standard `Meta+Space` shortcut for triggering modal Jump to Window mode (`JumpToWindow`).
+  - The installer automatically migrates existing configurations to `Meta+Space`.
 - **Default Style Precedence Prioritizes Marked Windows (`StylePrecedence`)**:
   - Changed default outline style precedence order from `Active,Marked,Recent` to `Marked,Active,Recent`.
   - Marked windows now maintain their custom mark color and styling by default even when focused, rather than being overridden by the standard active window outline.
