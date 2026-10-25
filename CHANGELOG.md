@@ -133,6 +133,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Marked windows now maintain their custom mark color and styling by default even when focused, rather than being overridden by the standard active window outline.
 
 ### Fixed
+- **Build Failure on KWin < 6.6 (`Rect` Undeclared in `sampleAmbilightColor`)**:
+  - Fixed a compilation error on older KWin releases (< 6.6) where `Rect` was not declared. Introduced `OutlineRect` compatibility alias (`QRect` on legacy KWin, `KWin::Rect` on modern KWin).
 - **Spurious Intermediate Window Activation on Cross-Desktop Jump (`m_expectedJumpTarget`)**:
   - Fixed an issue where jumping across virtual desktops via modal Jump Mode (`Meta+Space`) caused KWin to briefly activate the last active window on the destination desktop, inserting it into focus history and intercepting `Meta+Alt+[` navigation.
   - Added `m_expectedJumpTarget` guard in `slotWindowActivated` ensuring intermediate workspace desktop activations are ignored until the selected target window activates.

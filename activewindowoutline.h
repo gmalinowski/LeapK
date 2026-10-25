@@ -18,6 +18,7 @@
 #include <QList>
 #include <QMap>
 #include <QPointer>
+#include <QRect>
 #include <QRectF>
 #include <QSet>
 #include <QString>
@@ -44,9 +45,11 @@ class GLTexture;
 
 #ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
 using OutlineRegion = QRegion;
+using OutlineRect = QRect;
 using OutlineOutput = Output;
 #else
 using OutlineRegion = Region;
+using OutlineRect = Rect;
 using OutlineOutput = LogicalOutput;
 #endif
 

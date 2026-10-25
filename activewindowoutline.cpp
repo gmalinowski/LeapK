@@ -1346,7 +1346,7 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
     // inset used by an intermediate render target.
     const QSize bufferOffset = renderTarget.transform().map(
         QSize(viewport.renderOffset().x(), viewport.renderOffset().y()));
-    OutlineRegion scissorRegion = Rect(
+    OutlineRegion scissorRegion = OutlineRect(
         QPoint(bufferOffset.width(), bufferOffset.height()),
         renderTarget.size() - 2 * bufferOffset);
     scissorRegion &= viewport.transform().map(
@@ -3731,8 +3731,8 @@ bool ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
         return false;
     }
 
-    const Rect windowRect(sampleGeo.toRect());
-    const Rect destContentRect(0, 0, kSampleDim, kSampleDim);
+    const OutlineRect windowRect(sampleGeo.toRect());
+    const OutlineRect destContentRect(0, 0, kSampleDim, kSampleDim);
     GLFramebuffer *savedFbo = GLFramebuffer::currentFramebuffer();
     const bool blitOk = m_ambilightFbo->blitFromRenderTarget(renderTarget, viewport, windowRect, destContentRect);
     if (!blitOk) {
@@ -3775,16 +3775,16 @@ bool ActiveWindowOutlineEffect::sampleAmbilightColor(const RenderTarget &renderT
             const QRect rightSrc = QRect(right + 1, top, margin, height).intersected(viewRect);
 
             if (topSrc.width() >= 4 && topSrc.height() >= 1) {
-                m_outsideFbo->blitFromRenderTarget(renderTarget, viewport, Rect(topSrc), Rect(0, 0, 32, 2));
+                m_outsideFbo->blitFromRenderTarget(renderTarget, viewport, OutlineRect(topSrc), OutlineRect(0, 0, 32, 2));
             }
             if (botSrc.width() >= 4 && botSrc.height() >= 1) {
-                m_outsideFbo->blitFromRenderTarget(renderTarget, viewport, Rect(botSrc), Rect(0, 2, 32, 2));
+                m_outsideFbo->blitFromRenderTarget(renderTarget, viewport, OutlineRect(botSrc), OutlineRect(0, 2, 32, 2));
             }
             if (leftSrc.width() >= 1 && leftSrc.height() >= 4) {
-                m_outsideFbo->blitFromRenderTarget(renderTarget, viewport, Rect(leftSrc), Rect(0, 4, 32, 2));
+                m_outsideFbo->blitFromRenderTarget(renderTarget, viewport, OutlineRect(leftSrc), OutlineRect(0, 4, 32, 2));
             }
             if (rightSrc.width() >= 1 && rightSrc.height() >= 4) {
-                m_outsideFbo->blitFromRenderTarget(renderTarget, viewport, Rect(rightSrc), Rect(0, 6, 32, 2));
+                m_outsideFbo->blitFromRenderTarget(renderTarget, viewport, OutlineRect(rightSrc), OutlineRect(0, 6, 32, 2));
             }
 
             GLFramebuffer::pushFramebuffer(m_outsideFbo.get());
