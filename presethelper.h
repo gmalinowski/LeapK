@@ -330,7 +330,7 @@ inline QByteArray serializePreset(const PresetInfo &preset)
     root[QStringLiteral("name")] = preset.name;
     root[QStringLiteral("description")] = preset.description;
     root[QStringLiteral("isBuiltIn")] = preset.isBuiltIn;
-    root[QStringLiteral("version")] = QStringLiteral("1.5.0");
+    root[QStringLiteral("version")] = QStringLiteral("1.5.1");
     root[QStringLiteral("settings")] = preset.settings;
 
     QJsonDocument doc(root);

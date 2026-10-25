@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.5.1] - 2026-10-25
+
+### Fixed
+- **Multi-Monitor Desktop Surface Outline Bug**:
+  - Fixed an issue on multi-monitor configurations where clicking or focusing the desktop on one screen caused desktop surfaces (or wallpaper layers) on secondary screens to be outlined or marked.
+  - Implemented `isEligibleOutlineWindow()` to strictly filter out desktop surfaces (`isDesktop()`), docks/panels (`isDock()`), special/popup/tooltip windows, and notifications.
+  - Added guards across window activation, fade-out tracking, delayed hiding, and window mark toggling to prevent desktop surfaces from ever receiving outlines or polluting the window focus history.
+- **KWin < 6.6 Build Compatibility**:
+  - Resolved build failure on KWin versions prior to 6.6 (`error: 'Rect' does not name a type; did you mean 'QRect'`).
+  - Introduced version-aware `OutlineRect` type alias (`QRect` on KWin < 6.6, `KWin::Rect` on KWin >= 6.6) for OpenGL ambilight color sampling and blit operations.
+
+### Changed
+- **Documentation & Cleanup**:
+  - Streamlined `README.md` with an upfront `TL;DR` section highlighting features and 1-line installation.
+  - Enhanced installer and uninstaller scripts to ensure complete cleanup of legacy desktop entries and stale launcher references.
+
 ## [1.5.0] - 2026-10-25
 
 ### Added

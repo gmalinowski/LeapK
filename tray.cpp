@@ -49,7 +49,7 @@
 #include <iostream>
 
 #ifndef ACTIVE_WINDOW_OUTLINE_VERSION
-#define ACTIVE_WINDOW_OUTLINE_VERSION "1.5.0"
+#define ACTIVE_WINDOW_OUTLINE_VERSION "1.5.1"
 #endif
 
 namespace
