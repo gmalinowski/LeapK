@@ -270,6 +270,21 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("BadgeMargin"), *new int, 0);
     m_configSkeleton->addItemBool(QStringLiteral("BadgeShowIcon"), *new bool, false);
     m_configSkeleton->addItemBool(QStringLiteral("BadgeShowThumbnail"), *new bool, false);
+    m_configSkeleton->addItemBool(QStringLiteral("BadgeWindowShowIcon"), *new bool, false);
+    m_configSkeleton->addItemBool(QStringLiteral("BadgeWindowShowThumbnail"), *new bool, false);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeWindowIconSize"), *new int, 20);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeWindowThumbnailWidth"), *new int, 56);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeWindowThumbnailHeight"), *new int, 32);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeWindowLetterFontSize"), *new int, 0);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeWindowLabelFontSize"), *new int, 0);
+    m_configSkeleton->addItemBool(QStringLiteral("BadgeHudShowIcon"), *new bool, true);
+    m_configSkeleton->addItemBool(QStringLiteral("BadgeHudShowThumbnail"), *new bool, true);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeHudIconSize"), *new int, 24);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeHudThumbnailWidth"), *new int, 80);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeHudThumbnailHeight"), *new int, 48);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeHudLetterFontSize"), *new int, 0);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeHudCaptionFontSize"), *new int, 0);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeHudLocationFontSize"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeJumpSize"), *new int, 34);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeHudSize"), *new int, 36);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeIconSize"), *new int, 20);
@@ -562,8 +577,10 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->combo_BadgeLabelFont, &QFontComboBox::currentFontChanged, this, &ActiveWindowOutlineConfig::markAsChanged);
     connect(m_ui->combo_BadgeCaptionFont, &QFontComboBox::currentFontChanged, this, &ActiveWindowOutlineConfig::markAsChanged);
     connect(m_ui->combo_BadgeLocationFont, &QFontComboBox::currentFontChanged, this, &ActiveWindowOutlineConfig::markAsChanged);
-    connect(m_ui->kcfg_BadgeShowIcon, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
-    connect(m_ui->kcfg_BadgeShowThumbnail, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
+    connect(m_ui->kcfg_BadgeWindowShowIcon, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
+    connect(m_ui->kcfg_BadgeWindowShowThumbnail, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
+    connect(m_ui->kcfg_BadgeHudShowIcon, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
+    connect(m_ui->kcfg_BadgeHudShowThumbnail, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
     connect(m_ui->kcfg_BadgeLetterColorAuto, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
     connect(m_ui->kcfg_BadgeLabelColorAuto, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
     connect(m_ui->kcfg_BadgeCaptionColorAuto, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
@@ -680,24 +697,33 @@ void ActiveWindowOutlineConfig::updateMarkWindowUI()
     m_ui->kcfg_BadgeSize->setEnabled(badgesEnabled);
     m_ui->label_badgeMargin->setEnabled(badgesEnabled);
     m_ui->kcfg_BadgeMargin->setEnabled(badgesEnabled);
-    m_ui->kcfg_BadgeShowIcon->setEnabled(badgesEnabled);
-    m_ui->kcfg_BadgeShowThumbnail->setEnabled(badgesEnabled);
     m_ui->label_jumpTargets->setEnabled(badgesEnabled);
     m_ui->kcfg_JumpTargets->setEnabled(badgesEnabled);
 
-    m_ui->groupBadgeSizes->setEnabled(badgesEnabled);
+    m_ui->groupWindowBadges->setEnabled(badgesEnabled);
+    m_ui->groupHudBadges->setEnabled(badgesEnabled);
     m_ui->groupBadgeAppearance->setEnabled(badgesEnabled);
     m_ui->groupBadgeTypography->setEnabled(badgesEnabled);
 
-    const bool showIcon = badgesEnabled && m_ui->kcfg_BadgeShowIcon->isChecked();
-    m_ui->label_badgeIconSize->setEnabled(showIcon);
-    m_ui->kcfg_BadgeIconSize->setEnabled(showIcon);
+    const bool showWindowIcon = badgesEnabled && m_ui->kcfg_BadgeWindowShowIcon->isChecked();
+    m_ui->label_badgeWindowIconSize->setEnabled(showWindowIcon);
+    m_ui->kcfg_BadgeWindowIconSize->setEnabled(showWindowIcon);
 
-    const bool showThumb = badgesEnabled && m_ui->kcfg_BadgeShowThumbnail->isChecked();
-    m_ui->label_badgeThumbnailWidth->setEnabled(showThumb);
-    m_ui->kcfg_BadgeThumbnailWidth->setEnabled(showThumb);
-    m_ui->label_badgeThumbnailHeight->setEnabled(showThumb);
-    m_ui->kcfg_BadgeThumbnailHeight->setEnabled(showThumb);
+    const bool showWindowThumb = badgesEnabled && m_ui->kcfg_BadgeWindowShowThumbnail->isChecked();
+    m_ui->label_badgeWindowThumbnailWidth->setEnabled(showWindowThumb);
+    m_ui->kcfg_BadgeWindowThumbnailWidth->setEnabled(showWindowThumb);
+    m_ui->label_badgeWindowThumbnailHeight->setEnabled(showWindowThumb);
+    m_ui->kcfg_BadgeWindowThumbnailHeight->setEnabled(showWindowThumb);
+
+    const bool showHudIcon = badgesEnabled && m_ui->kcfg_BadgeHudShowIcon->isChecked();
+    m_ui->label_badgeHudIconSize->setEnabled(showHudIcon);
+    m_ui->kcfg_BadgeHudIconSize->setEnabled(showHudIcon);
+
+    const bool showHudThumb = badgesEnabled && m_ui->kcfg_BadgeHudShowThumbnail->isChecked();
+    m_ui->label_badgeHudThumbnailWidth->setEnabled(showHudThumb);
+    m_ui->kcfg_BadgeHudThumbnailWidth->setEnabled(showHudThumb);
+    m_ui->label_badgeHudThumbnailHeight->setEnabled(showHudThumb);
+    m_ui->kcfg_BadgeHudThumbnailHeight->setEnabled(showHudThumb);
 
     m_ui->kcfg_BadgeLetterColor->setEnabled(badgesEnabled && !m_ui->kcfg_BadgeLetterColorAuto->isChecked());
     m_ui->kcfg_BadgeLabelUnmarkedColor->setEnabled(badgesEnabled && !m_ui->kcfg_BadgeLabelColorAuto->isChecked());
@@ -1094,13 +1120,23 @@ void ActiveWindowOutlineConfig::defaults()
     m_ui->kcfg_BadgeHudPosition->setCurrentIndex(0);
     m_ui->kcfg_BadgeSize->setValue(28);
     m_ui->kcfg_BadgeMargin->setValue(0);
-    m_ui->kcfg_BadgeShowIcon->setChecked(false);
-    m_ui->kcfg_BadgeShowThumbnail->setChecked(false);
     m_ui->kcfg_BadgeJumpSize->setValue(34);
+    m_ui->kcfg_BadgeWindowShowIcon->setChecked(false);
+    m_ui->kcfg_BadgeWindowShowThumbnail->setChecked(false);
+    m_ui->kcfg_BadgeWindowIconSize->setValue(20);
+    m_ui->kcfg_BadgeWindowThumbnailWidth->setValue(56);
+    m_ui->kcfg_BadgeWindowThumbnailHeight->setValue(32);
+    m_ui->kcfg_BadgeWindowLetterFontSize->setValue(0);
+    m_ui->kcfg_BadgeWindowLabelFontSize->setValue(0);
+    m_ui->kcfg_BadgeHudShowIcon->setChecked(true);
+    m_ui->kcfg_BadgeHudShowThumbnail->setChecked(true);
     m_ui->kcfg_BadgeHudSize->setValue(36);
-    m_ui->kcfg_BadgeIconSize->setValue(20);
-    m_ui->kcfg_BadgeThumbnailWidth->setValue(56);
-    m_ui->kcfg_BadgeThumbnailHeight->setValue(32);
+    m_ui->kcfg_BadgeHudIconSize->setValue(24);
+    m_ui->kcfg_BadgeHudThumbnailWidth->setValue(80);
+    m_ui->kcfg_BadgeHudThumbnailHeight->setValue(48);
+    m_ui->kcfg_BadgeHudLetterFontSize->setValue(0);
+    m_ui->kcfg_BadgeHudCaptionFontSize->setValue(0);
+    m_ui->kcfg_BadgeHudLocationFontSize->setValue(0);
     m_ui->kcfg_BadgeCornerRadius->setValue(6);
     m_ui->kcfg_BadgeOpacity->setValue(92);
     m_ui->kcfg_BadgeHudMarkColorMode->setCurrentIndex(0);
@@ -1403,14 +1439,29 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("BadgeHudPosition")] = m_ui->kcfg_BadgeHudPosition->currentIndex();
     s[QStringLiteral("BadgeSize")] = m_ui->kcfg_BadgeSize->value();
     s[QStringLiteral("BadgeMargin")] = m_ui->kcfg_BadgeMargin->value();
-    s[QStringLiteral("BadgeShowIcon")] = m_ui->kcfg_BadgeShowIcon->isChecked();
-    s[QStringLiteral("BadgeShowThumbnail")] = m_ui->kcfg_BadgeShowThumbnail->isChecked();
+    s[QStringLiteral("BadgeShowIcon")] = m_ui->kcfg_BadgeWindowShowIcon->isChecked() || m_ui->kcfg_BadgeHudShowIcon->isChecked();
+    s[QStringLiteral("BadgeShowThumbnail")] = m_ui->kcfg_BadgeWindowShowThumbnail->isChecked() || m_ui->kcfg_BadgeHudShowThumbnail->isChecked();
+    s[QStringLiteral("BadgeWindowShowIcon")] = m_ui->kcfg_BadgeWindowShowIcon->isChecked();
+    s[QStringLiteral("BadgeWindowShowThumbnail")] = m_ui->kcfg_BadgeWindowShowThumbnail->isChecked();
+    s[QStringLiteral("BadgeWindowIconSize")] = m_ui->kcfg_BadgeWindowIconSize->value();
+    s[QStringLiteral("BadgeWindowThumbnailWidth")] = m_ui->kcfg_BadgeWindowThumbnailWidth->value();
+    s[QStringLiteral("BadgeWindowThumbnailHeight")] = m_ui->kcfg_BadgeWindowThumbnailHeight->value();
+    s[QStringLiteral("BadgeWindowLetterFontSize")] = m_ui->kcfg_BadgeWindowLetterFontSize->value();
+    s[QStringLiteral("BadgeWindowLabelFontSize")] = m_ui->kcfg_BadgeWindowLabelFontSize->value();
+    s[QStringLiteral("BadgeHudShowIcon")] = m_ui->kcfg_BadgeHudShowIcon->isChecked();
+    s[QStringLiteral("BadgeHudShowThumbnail")] = m_ui->kcfg_BadgeHudShowThumbnail->isChecked();
+    s[QStringLiteral("BadgeHudIconSize")] = m_ui->kcfg_BadgeHudIconSize->value();
+    s[QStringLiteral("BadgeHudThumbnailWidth")] = m_ui->kcfg_BadgeHudThumbnailWidth->value();
+    s[QStringLiteral("BadgeHudThumbnailHeight")] = m_ui->kcfg_BadgeHudThumbnailHeight->value();
+    s[QStringLiteral("BadgeHudLetterFontSize")] = m_ui->kcfg_BadgeHudLetterFontSize->value();
+    s[QStringLiteral("BadgeHudCaptionFontSize")] = m_ui->kcfg_BadgeHudCaptionFontSize->value();
+    s[QStringLiteral("BadgeHudLocationFontSize")] = m_ui->kcfg_BadgeHudLocationFontSize->value();
     s[QStringLiteral("JumpTargets")] = m_ui->kcfg_JumpTargets->currentIndex();
     s[QStringLiteral("BadgeJumpSize")] = m_ui->kcfg_BadgeJumpSize->value();
     s[QStringLiteral("BadgeHudSize")] = m_ui->kcfg_BadgeHudSize->value();
-    s[QStringLiteral("BadgeIconSize")] = m_ui->kcfg_BadgeIconSize->value();
-    s[QStringLiteral("BadgeThumbnailWidth")] = m_ui->kcfg_BadgeThumbnailWidth->value();
-    s[QStringLiteral("BadgeThumbnailHeight")] = m_ui->kcfg_BadgeThumbnailHeight->value();
+    s[QStringLiteral("BadgeIconSize")] = m_ui->kcfg_BadgeWindowIconSize->value();
+    s[QStringLiteral("BadgeThumbnailWidth")] = m_ui->kcfg_BadgeWindowThumbnailWidth->value();
+    s[QStringLiteral("BadgeThumbnailHeight")] = m_ui->kcfg_BadgeWindowThumbnailHeight->value();
     s[QStringLiteral("BadgeCornerRadius")] = m_ui->kcfg_BadgeCornerRadius->value();
     s[QStringLiteral("BadgeOpacity")] = m_ui->kcfg_BadgeOpacity->value();
     s[QStringLiteral("BadgeHudMarkColorMode")] = m_ui->kcfg_BadgeHudMarkColorMode->currentIndex();
@@ -1561,14 +1612,49 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
     if (s.contains(QStringLiteral("BadgeHudPosition"))) m_ui->kcfg_BadgeHudPosition->setCurrentIndex(s[QStringLiteral("BadgeHudPosition")].toInt());
     if (s.contains(QStringLiteral("BadgeSize"))) m_ui->kcfg_BadgeSize->setValue(s[QStringLiteral("BadgeSize")].toInt());
     if (s.contains(QStringLiteral("BadgeMargin"))) m_ui->kcfg_BadgeMargin->setValue(s[QStringLiteral("BadgeMargin")].toInt());
-    if (s.contains(QStringLiteral("BadgeShowIcon"))) m_ui->kcfg_BadgeShowIcon->setChecked(s[QStringLiteral("BadgeShowIcon")].toBool());
-    if (s.contains(QStringLiteral("BadgeShowThumbnail"))) m_ui->kcfg_BadgeShowThumbnail->setChecked(s[QStringLiteral("BadgeShowThumbnail")].toBool());
+    if (s.contains(QStringLiteral("BadgeShowIcon"))) {
+        const bool iconVal = s[QStringLiteral("BadgeShowIcon")].toBool();
+        m_ui->kcfg_BadgeWindowShowIcon->setChecked(s.contains(QStringLiteral("BadgeWindowShowIcon")) ? s[QStringLiteral("BadgeWindowShowIcon")].toBool() : iconVal);
+        m_ui->kcfg_BadgeHudShowIcon->setChecked(s.contains(QStringLiteral("BadgeHudShowIcon")) ? s[QStringLiteral("BadgeHudShowIcon")].toBool() : true);
+    }
+    if (s.contains(QStringLiteral("BadgeShowThumbnail"))) {
+        const bool thumbVal = s[QStringLiteral("BadgeShowThumbnail")].toBool();
+        m_ui->kcfg_BadgeWindowShowThumbnail->setChecked(s.contains(QStringLiteral("BadgeWindowShowThumbnail")) ? s[QStringLiteral("BadgeWindowShowThumbnail")].toBool() : thumbVal);
+        m_ui->kcfg_BadgeHudShowThumbnail->setChecked(s.contains(QStringLiteral("BadgeHudShowThumbnail")) ? s[QStringLiteral("BadgeHudShowThumbnail")].toBool() : true);
+    }
+    if (s.contains(QStringLiteral("BadgeWindowShowIcon"))) m_ui->kcfg_BadgeWindowShowIcon->setChecked(s[QStringLiteral("BadgeWindowShowIcon")].toBool());
+    if (s.contains(QStringLiteral("BadgeWindowShowThumbnail"))) m_ui->kcfg_BadgeWindowShowThumbnail->setChecked(s[QStringLiteral("BadgeWindowShowThumbnail")].toBool());
+    if (s.contains(QStringLiteral("BadgeWindowIconSize"))) m_ui->kcfg_BadgeWindowIconSize->setValue(s[QStringLiteral("BadgeWindowIconSize")].toInt());
+    if (s.contains(QStringLiteral("BadgeWindowThumbnailWidth"))) m_ui->kcfg_BadgeWindowThumbnailWidth->setValue(s[QStringLiteral("BadgeWindowThumbnailWidth")].toInt());
+    if (s.contains(QStringLiteral("BadgeWindowThumbnailHeight"))) m_ui->kcfg_BadgeWindowThumbnailHeight->setValue(s[QStringLiteral("BadgeWindowThumbnailHeight")].toInt());
+    if (s.contains(QStringLiteral("BadgeWindowLetterFontSize"))) m_ui->kcfg_BadgeWindowLetterFontSize->setValue(s[QStringLiteral("BadgeWindowLetterFontSize")].toInt());
+    if (s.contains(QStringLiteral("BadgeWindowLabelFontSize"))) m_ui->kcfg_BadgeWindowLabelFontSize->setValue(s[QStringLiteral("BadgeWindowLabelFontSize")].toInt());
+    if (s.contains(QStringLiteral("BadgeHudShowIcon"))) m_ui->kcfg_BadgeHudShowIcon->setChecked(s[QStringLiteral("BadgeHudShowIcon")].toBool());
+    if (s.contains(QStringLiteral("BadgeHudShowThumbnail"))) m_ui->kcfg_BadgeHudShowThumbnail->setChecked(s[QStringLiteral("BadgeHudShowThumbnail")].toBool());
+    if (s.contains(QStringLiteral("BadgeHudIconSize"))) m_ui->kcfg_BadgeHudIconSize->setValue(s[QStringLiteral("BadgeHudIconSize")].toInt());
+    if (s.contains(QStringLiteral("BadgeHudThumbnailWidth"))) m_ui->kcfg_BadgeHudThumbnailWidth->setValue(s[QStringLiteral("BadgeHudThumbnailWidth")].toInt());
+    if (s.contains(QStringLiteral("BadgeHudThumbnailHeight"))) m_ui->kcfg_BadgeHudThumbnailHeight->setValue(s[QStringLiteral("BadgeHudThumbnailHeight")].toInt());
+    if (s.contains(QStringLiteral("BadgeHudLetterFontSize"))) m_ui->kcfg_BadgeHudLetterFontSize->setValue(s[QStringLiteral("BadgeHudLetterFontSize")].toInt());
+    if (s.contains(QStringLiteral("BadgeHudCaptionFontSize"))) m_ui->kcfg_BadgeHudCaptionFontSize->setValue(s[QStringLiteral("BadgeHudCaptionFontSize")].toInt());
+    if (s.contains(QStringLiteral("BadgeHudLocationFontSize"))) m_ui->kcfg_BadgeHudLocationFontSize->setValue(s[QStringLiteral("BadgeHudLocationFontSize")].toInt());
     if (s.contains(QStringLiteral("JumpTargets"))) m_ui->kcfg_JumpTargets->setCurrentIndex(s[QStringLiteral("JumpTargets")].toInt());
     if (s.contains(QStringLiteral("BadgeJumpSize"))) m_ui->kcfg_BadgeJumpSize->setValue(s[QStringLiteral("BadgeJumpSize")].toInt());
     if (s.contains(QStringLiteral("BadgeHudSize"))) m_ui->kcfg_BadgeHudSize->setValue(s[QStringLiteral("BadgeHudSize")].toInt());
-    if (s.contains(QStringLiteral("BadgeIconSize"))) m_ui->kcfg_BadgeIconSize->setValue(s[QStringLiteral("BadgeIconSize")].toInt());
-    if (s.contains(QStringLiteral("BadgeThumbnailWidth"))) m_ui->kcfg_BadgeThumbnailWidth->setValue(s[QStringLiteral("BadgeThumbnailWidth")].toInt());
-    if (s.contains(QStringLiteral("BadgeThumbnailHeight"))) m_ui->kcfg_BadgeThumbnailHeight->setValue(s[QStringLiteral("BadgeThumbnailHeight")].toInt());
+    if (s.contains(QStringLiteral("BadgeIconSize"))) {
+        const int iconSz = s[QStringLiteral("BadgeIconSize")].toInt();
+        m_ui->kcfg_BadgeWindowIconSize->setValue(iconSz);
+        m_ui->kcfg_BadgeHudIconSize->setValue(iconSz);
+    }
+    if (s.contains(QStringLiteral("BadgeThumbnailWidth"))) {
+        const int tw = s[QStringLiteral("BadgeThumbnailWidth")].toInt();
+        m_ui->kcfg_BadgeWindowThumbnailWidth->setValue(tw);
+        m_ui->kcfg_BadgeHudThumbnailWidth->setValue(tw);
+    }
+    if (s.contains(QStringLiteral("BadgeThumbnailHeight"))) {
+        const int th = s[QStringLiteral("BadgeThumbnailHeight")].toInt();
+        m_ui->kcfg_BadgeWindowThumbnailHeight->setValue(th);
+        m_ui->kcfg_BadgeHudThumbnailHeight->setValue(th);
+    }
     if (s.contains(QStringLiteral("BadgeCornerRadius"))) m_ui->kcfg_BadgeCornerRadius->setValue(s[QStringLiteral("BadgeCornerRadius")].toInt());
     if (s.contains(QStringLiteral("BadgeOpacity"))) m_ui->kcfg_BadgeOpacity->setValue(s[QStringLiteral("BadgeOpacity")].toInt());
     if (s.contains(QStringLiteral("BadgeHudMarkColorMode"))) m_ui->kcfg_BadgeHudMarkColorMode->setCurrentIndex(s[QStringLiteral("BadgeHudMarkColorMode")].toInt());

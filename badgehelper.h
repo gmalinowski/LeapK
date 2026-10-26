@@ -44,14 +44,28 @@ enum class HudMarkColorMode {
 };
 
 struct BadgeConfig {
-    // Sizing
+    // Window Badges Sizing & Features
     int windowBadgeSize = 28;
     int jumpBadgeSize = 34;
-    int hudBadgeSize = 36;
-    int iconSize = 20;
-    int thumbnailWidth = 56;
-    int thumbnailHeight = 32;
+    int windowIconSize = 20;
+    int windowThumbnailWidth = 56;
+    int windowThumbnailHeight = 32;
     int margin = 0;
+    bool windowShowIcon = false;
+    bool windowShowThumbnail = false;
+    int windowLetterFontSize = 0; // 0 = auto
+    int windowLabelFontSize = 0; // 0 = auto
+
+    // HUD Badges Sizing & Features
+    int hudBadgeSize = 36;
+    int hudIconSize = 24;
+    int hudThumbnailWidth = 80;
+    int hudThumbnailHeight = 48;
+    bool hudShowIcon = true;
+    bool hudShowThumbnail = true;
+    int hudLetterFontSize = 0; // 0 = auto
+    int hudCaptionFontSize = 0; // 0 = auto
+    int hudLocationFontSize = 0; // 0 = auto
 
     // Appearance
     QColor defaultBgColor = QColor(35, 38, 41, 235);
@@ -60,11 +74,11 @@ struct BadgeConfig {
     int hudPosition = 0; // 0 = Bottom, 1 = Top, 2 = Left, 3 = Right
     int hudMarkColorMode = 0; // 0 = Full mark color, 1 = Tinted mark color, 2 = Dark with badge
 
-    // Features
+    // Features (Legacy / Fallback)
     bool showIcon = false;
     bool showThumbnail = false;
 
-    // Typography
+    // Typography (Global / Fallback)
     QString letterFontFamily;
     int letterFontSize = 0; // 0 = auto
     bool letterColorAuto = true;
@@ -84,6 +98,11 @@ struct BadgeConfig {
     int locationFontSize = 0; // 0 = auto
     bool locationColorAuto = true;
     QColor locationColor = QColor(241, 196, 15);
+
+    // Legacy Sizing Aliases
+    int iconSize = 20;
+    int thumbnailWidth = 56;
+    int thumbnailHeight = 32;
 };
 
 inline const QString &preferredLetterPool()
@@ -318,30 +337,34 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
     const QString cleanLabel = customLabel.trimmed();
     const bool hasLabel = !cleanLabel.isEmpty();
 
-    const bool hasIcon = cfg.showIcon && !icon.isNull();
+    const bool hasIcon = (cfg.windowShowIcon || cfg.showIcon) && !icon.isNull();
+    const int effectiveIconSize = (cfg.windowIconSize > 0) ? cfg.windowIconSize : cfg.iconSize;
     const int maxIconDim = qMax(12, effectiveBaseHeight - 6);
     const int iconDim = hasIcon
-        ? ((cfg.iconSize > 0) ? qMin(cfg.iconSize, maxIconDim) : qRound(effectiveBaseHeight * 0.70))
+        ? ((effectiveIconSize > 0) ? qMin(effectiveIconSize, maxIconDim) : qRound(effectiveBaseHeight * 0.70))
         : 0;
     const int iconSectionW = hasIcon ? (iconDim + 10) : 0;
 
-    const bool hasThumb = cfg.showThumbnail && !thumbnail.isNull();
+    const bool hasThumb = (cfg.windowShowThumbnail || cfg.showThumbnail) && !thumbnail.isNull();
+    const int effThumbW = (cfg.windowThumbnailWidth > 0) ? cfg.windowThumbnailWidth : cfg.thumbnailWidth;
+    const int effThumbH = (cfg.windowThumbnailHeight > 0) ? cfg.windowThumbnailHeight : cfg.thumbnailHeight;
     const int maxThumbH = qMax(12, effectiveBaseHeight - 6);
     const int thumbH = hasThumb
-        ? ((cfg.thumbnailHeight > 0) ? qMin(cfg.thumbnailHeight, maxThumbH) : maxThumbH)
+        ? ((effThumbH > 0) ? qMin(effThumbH, maxThumbH) : maxThumbH)
         : 0;
-    const qreal rawThumbAspect = (cfg.thumbnailHeight > 0 && cfg.thumbnailWidth > 0)
-        ? (qreal(cfg.thumbnailWidth) / qreal(cfg.thumbnailHeight))
+    const qreal rawThumbAspect = (effThumbH > 0 && effThumbW > 0)
+        ? (qreal(effThumbW) / qreal(effThumbH))
         : ((hasThumb && thumbnail.height() > 0) ? (qreal(thumbnail.width()) / qreal(thumbnail.height())) : 1.6);
     const qreal thumbAspect = qBound(1.0, rawThumbAspect, 2.0);
     const int thumbW = hasThumb
-        ? ((cfg.thumbnailWidth > 0) ? qMin(cfg.thumbnailWidth, qRound(thumbH * thumbAspect)) : qRound(thumbH * thumbAspect))
+        ? ((effThumbW > 0) ? qMin(effThumbW, qRound(thumbH * thumbAspect)) : qRound(thumbH * thumbAspect))
         : 0;
     const int thumbSectionW = hasThumb ? (thumbW + 10) : 0;
 
     const QString labelFam = cfg.labelFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.labelFontFamily.trimmed();
     QFont labelFont(labelFam);
-    const int labelPx = (cfg.labelFontSize > 0) ? qRound(cfg.labelFontSize * scale) : qMax(8, qRound(effectiveBaseHeight * 0.44 * scale));
+    const int effectiveLabelFontSize = (cfg.windowLabelFontSize > 0) ? cfg.windowLabelFontSize : cfg.labelFontSize;
+    const int labelPx = (effectiveLabelFontSize > 0) ? qRound(effectiveLabelFontSize * scale) : qMax(8, qRound(effectiveBaseHeight * 0.44 * scale));
     labelFont.setPixelSize(labelPx);
     labelFont.setBold(true);
     QFontMetrics fmLabel(labelFont);
@@ -404,7 +427,8 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
     const QString letterFam = cfg.letterFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.letterFontFamily.trimmed();
     QFont font(letterFam);
     font.setBold(true);
-    const int letterPx = (cfg.letterFontSize > 0) ? qRound(cfg.letterFontSize * scale) : qMax(8, qRound(effectiveBaseHeight * 0.52 * scale));
+    const int effectiveLetterFontSize = (cfg.windowLetterFontSize > 0) ? cfg.windowLetterFontSize : cfg.letterFontSize;
+    const int letterPx = (effectiveLetterFontSize > 0) ? qRound(effectiveLetterFontSize * scale) : qMax(8, qRound(effectiveBaseHeight * 0.52 * scale));
     font.setPixelSize(letterPx);
     p.setFont(font);
     const QColor effLetterColor = (cfg.letterColorAuto || !cfg.letterColor.isValid()) ? autoTextColor : cfg.letterColor;
@@ -513,10 +537,12 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     Q_UNUSED(textColor);
     const int effectivePillBaseH = (badgeSize > 0) ? badgeSize : cfg.hudBadgeSize;
 
-    const bool hasIcon = cfg.showIcon && !icon.isNull();
-    const bool hasThumb = cfg.showThumbnail && !thumbnail.isNull();
+    const bool hasIcon = (cfg.hudShowIcon || cfg.showIcon) && !icon.isNull();
+    const bool hasThumb = (cfg.hudShowThumbnail || cfg.showThumbnail) && !thumbnail.isNull();
+    const int effectiveIconSize = (cfg.hudIconSize > 0) ? cfg.hudIconSize : cfg.iconSize;
+    const int effectiveThumbW = (cfg.hudThumbnailWidth > 0) ? cfg.hudThumbnailWidth : cfg.thumbnailWidth;
+    const int effectiveThumbH = (cfg.hudThumbnailHeight > 0) ? cfg.hudThumbnailHeight : cfg.thumbnailHeight;
     const bool isTopOrBottom = (cfg.hudPosition == 0 || cfg.hudPosition == 1);
-    const bool isLeftOrRight = (cfg.hudPosition == 2 || cfg.hudPosition == 3);
 
     const qreal rawThumbAspect = (hasThumb && thumbnail.height() > 0)
         ? (qreal(thumbnail.width()) / qreal(thumbnail.height()))
@@ -538,13 +564,15 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
 
     const QString locFam = cfg.locationFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.locationFontFamily.trimmed();
     QFont locFont(locFam);
-    const int locPx = (cfg.locationFontSize > 0) ? qRound(cfg.locationFontSize * scale) : qMax(10, qRound(11 * scale));
+    const int effectiveLocFontSize = (cfg.hudLocationFontSize > 0) ? cfg.hudLocationFontSize : cfg.locationFontSize;
+    const int locPx = (effectiveLocFontSize > 0) ? qRound(effectiveLocFontSize * scale) : qMax(10, qRound(11 * scale));
     locFont.setPixelSize(locPx);
     locFont.setBold(true);
 
     const QString capFam = cfg.captionFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.captionFontFamily.trimmed();
     QFont capFont(capFam);
-    const int capPx = (cfg.captionFontSize > 0) ? qRound(cfg.captionFontSize * scale) : qMax(9, qRound(10 * scale));
+    const int effectiveCapFontSize = (cfg.hudCaptionFontSize > 0) ? cfg.hudCaptionFontSize : cfg.captionFontSize;
+    const int capPx = (effectiveCapFontSize > 0) ? qRound(effectiveCapFontSize * scale) : qMax(9, qRound(10 * scale));
     capFont.setPixelSize(capPx);
     capFont.setBold(false);
 
@@ -608,11 +636,11 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         headerH = qMax(22, qRound(effectivePillBaseH * 1.05 * scale));
         badgeDim = qMax(16, headerH - qRound(4 * scale));
         iconDim = hasIcon
-            ? ((cfg.iconSize > 0) ? qMin(qRound(cfg.iconSize * scale), badgeDim) : qRound(badgeDim * 0.85))
+            ? ((effectiveIconSize > 0) ? qMin(qRound(effectiveIconSize * scale), badgeDim) : qRound(badgeDim * 0.85))
             : 0;
 
-        thumbH = (cfg.thumbnailHeight > 0) ? qRound(cfg.thumbnailHeight * scale) : qMax(32, qRound(40 * scale));
-        thumbW = (cfg.thumbnailWidth > 0) ? qRound(cfg.thumbnailWidth * scale) : qRound(thumbH * thumbAspect);
+        thumbH = (effectiveThumbH > 0) ? qRound(effectiveThumbH * scale) : qMax(32, qRound(40 * scale));
+        thumbW = (effectiveThumbW > 0) ? qRound(effectiveThumbW * scale) : qRound(thumbH * thumbAspect);
 
         const int headerContentW = badgeDim + (hasIcon ? (gapX + iconDim) : 0) + gapX + textWidth;
         const int contentW = qMax(headerContentW, thumbW);
@@ -625,15 +653,15 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         badgeDim = qMax(16, pillH - qRound(8 * scale));
         const int maxIconDim = qMax(12, pillH - qRound(8 * scale));
         iconDim = hasIcon
-            ? ((cfg.iconSize > 0) ? qMin(qRound(cfg.iconSize * scale), maxIconDim) : qRound(badgeDim * 0.85))
+            ? ((effectiveIconSize > 0) ? qMin(qRound(effectiveIconSize * scale), maxIconDim) : qRound(badgeDim * 0.85))
             : 0;
 
         const int maxThumbH = qMax(14, pillH - qRound(8 * scale));
         thumbH = hasThumb
-            ? ((cfg.thumbnailHeight > 0) ? qMin(qRound(cfg.thumbnailHeight * scale), maxThumbH) : badgeDim)
+            ? ((effectiveThumbH > 0) ? qMin(qRound(effectiveThumbH * scale), maxThumbH) : badgeDim)
             : 0;
         thumbW = hasThumb
-            ? ((cfg.thumbnailWidth > 0) ? qMin(qRound(cfg.thumbnailWidth * scale), qRound(thumbH * thumbAspect)) : qRound(thumbH * thumbAspect))
+            ? ((effectiveThumbW > 0) ? qMin(qRound(effectiveThumbW * scale), qRound(thumbH * thumbAspect)) : qRound(thumbH * thumbAspect))
             : 0;
 
         int extraW = 0;
@@ -733,7 +761,8 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
 
     const QString letterFam = cfg.letterFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.letterFontFamily.trimmed();
     QFont letterFont(letterFam);
-    const int lPx = (cfg.letterFontSize > 0) ? qRound(cfg.letterFontSize * scale) : qRound(badgeDim * 0.62);
+    const int effectiveLetterFontSize = (cfg.hudLetterFontSize > 0) ? cfg.hudLetterFontSize : cfg.letterFontSize;
+    const int lPx = (effectiveLetterFontSize > 0) ? qRound(effectiveLetterFontSize * scale) : qRound(badgeDim * 0.62);
     letterFont.setPixelSize(lPx);
     letterFont.setBold(true);
     p.setFont(letterFont);
@@ -774,9 +803,16 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         p.setPen(QPen(isLightPill ? QColor(0, 0, 0, 80) : QColor(255, 255, 255, 80), 1.0 * scale));
         p.setBrush(Qt::NoBrush);
         p.drawRoundedRect(thumbRect, thumbRadius, thumbRadius);
-    } else if (isLeftOrRight) {
-        // Left/Right: [Badge] [Thumbnail] [Text] [Icon na samym końcu]
+    } else {
+        // Horizontal single-row pill (Left/Right, or Top/Bottom without thumbnail)
+        // Order: [Badge] -> [Icon] -> [Preview] -> [Text]
         int curX = padX + badgeDim;
+        if (hasIcon) {
+            curX += gapX;
+            const QRect iconRect(curX, qRound((pillH - iconDim) / 2.0), iconDim, iconDim);
+            icon.paint(&p, iconRect);
+            curX += iconDim;
+        }
         if (hasThumb) {
             curX += gapX;
             const QRectF thumbRect(curX, (pillH - thumbH) / 2.0, thumbW, thumbH);
@@ -791,24 +827,6 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
             p.setBrush(Qt::NoBrush);
             p.drawRoundedRect(thumbRect, thumbRadius, thumbRadius);
             curX += thumbW;
-        }
-        textLeft = curX + gapX;
-        textCenterY = pillH / 2.0;
-        textLineHeight = pillH;
-
-        if (hasIcon) {
-            // Icon is at the very end of the pill
-            const QRect iconRect(pillW - padX - iconDim, qRound((pillH - iconDim) / 2.0), iconDim, iconDim);
-            icon.paint(&p, iconRect);
-        }
-    } else {
-        // Top/Bottom without thumbnail: [Badge] [Icon] [Text]
-        int curX = padX + badgeDim;
-        if (hasIcon) {
-            curX += gapX;
-            const QRect iconRect(curX, qRound((pillH - iconDim) / 2.0), iconDim, iconDim);
-            icon.paint(&p, iconRect);
-            curX += iconDim;
         }
         textLeft = curX + gapX;
         textCenterY = pillH / 2.0;

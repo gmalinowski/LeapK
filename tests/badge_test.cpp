@@ -605,9 +605,11 @@ void testHudPositionsAndThumbnailLayout()
         assert(lowerColor.green() > 200 && lowerColor.blue() > 200);
     }
 
-    // 2. Left/Right HUD position (2 = Left, 3 = Right) -> icon must be AT THE VERY END
+    // 2. Left/Right HUD position (2 = Left, 3 = Right) -> icon between badge and preview: [Badge] [Icon] [Preview] [Text]
     for (int pos : {2, 3}) {
         cfg.hudPosition = pos;
+        cfg.hudShowThumbnail = true;
+        cfg.hudShowIcon = true;
         cfg.showThumbnail = true;
         cfg.showIcon = true;
 
@@ -619,13 +621,74 @@ void testHudPositionsAndThumbnailLayout()
         // In side mode, it's a single row, so height is standard pill height
         assert(pillSide.height() < 60);
 
-        // Icon (magenta) is at the VERY END (near right edge: pill.width() - 15)
-        const int rightSampleX = pillSide.width() - 15;
+        // Icon (magenta) is BETWEEN letter badge and preview (around x = 60..70)
+        const int iconSampleX = 66;
         const int sampleY = pillSide.height() / 2;
-        const QColor rightColor = pillSide.pixelColor(rightSampleX, sampleY);
-        // Magenta has high red and blue, low green
-        assert(rightColor.red() > 200 && rightColor.blue() > 200 && rightColor.green() < 60);
+        const QColor iconColor = pillSide.pixelColor(iconSampleX, sampleY);
+        assert(iconColor.red() > 200 && iconColor.blue() > 200 && iconColor.green() < 60);
+
+        // Preview (cyan) is to the right of icon (around x = 110..130)
+        const int thumbSampleX = 115;
+        const QColor thumbColor = pillSide.pixelColor(thumbSampleX, sampleY);
+        assert(thumbColor.green() > 200 && thumbColor.blue() > 200);
     }
+}
+
+void testIndependentWindowAndHudBadges()
+{
+    QImage magentaIconImg(20, 20, QImage::Format_RGBA8888);
+    magentaIconImg.fill(QColor(255, 0, 255));
+    QIcon testIcon(QPixmap::fromImage(magentaIconImg));
+
+    QImage cyanThumbImg(80, 45, QImage::Format_RGBA8888);
+    cyanThumbImg.fill(QColor(0, 255, 255));
+
+    OutlineBadge::BadgeConfig cfg;
+    // Window badges: only icon, NO preview
+    cfg.windowShowIcon = true;
+    cfg.windowShowThumbnail = false;
+    cfg.windowIconSize = 18;
+    cfg.windowBadgeSize = 28;
+
+    // HUD badges: only preview, NO icon
+    cfg.hudShowIcon = false;
+    cfg.hudShowThumbnail = true;
+    cfg.hudBadgeSize = 40;
+    cfg.hudThumbnailWidth = 90;
+    cfg.hudThumbnailHeight = 50;
+
+    // 1. Render window badge
+    QImage winBadge = renderBadgeImage(cfg, QLatin1Char('W'), QColor(35, 38, 41), Qt::white,
+                                       false, 0, 1.0, QString(), testIcon, cyanThumbImg);
+    assert(!winBadge.isNull());
+    bool hasMagenta = false;
+    bool hasCyan = false;
+    for (int y = 0; y < winBadge.height(); ++y) {
+        for (int x = 0; x < winBadge.width(); ++x) {
+            const QColor c = winBadge.pixelColor(x, y);
+            if (c.red() > 200 && c.blue() > 200 && c.green() < 60) hasMagenta = true;
+            if (c.green() > 200 && c.blue() > 200 && c.red() < 60) hasCyan = true;
+        }
+    }
+    assert(hasMagenta);
+    assert(!hasCyan);
+
+    // 2. Render HUD pill
+    QImage hudPill = renderOffscreenTargetPill(cfg, QLatin1Char('H'), QColor(35, 38, 41), Qt::white,
+                                              QStringLiteral("Desk 1"), QStringLiteral("Test"), 0, 1.0,
+                                              QString(), testIcon, cyanThumbImg);
+    assert(!hudPill.isNull());
+    bool hudHasMagenta = false;
+    bool hudHasCyan = false;
+    for (int y = 0; y < hudPill.height(); ++y) {
+        for (int x = 0; x < hudPill.width(); ++x) {
+            const QColor c = hudPill.pixelColor(x, y);
+            if (c.red() > 200 && c.blue() > 200 && c.green() < 60) hudHasMagenta = true;
+            if (c.green() > 200 && c.blue() > 200 && c.red() < 60) hudHasCyan = true;
+        }
+    }
+    assert(!hudHasMagenta);
+    assert(hudHasCyan);
 }
 
 int main(int argc, char *argv[])
@@ -646,6 +709,7 @@ int main(int argc, char *argv[])
     testWindowPreviewOnWindowBadges();
     testHudMarkColorModes();
     testHudPositionsAndThumbnailLayout();
+    testIndependentWindowAndHudBadges();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

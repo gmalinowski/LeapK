@@ -123,6 +123,13 @@ public:
                      const OutlineRegion &deviceRegion,
                      OutlineOutput *screen) override;
 
+    void drawWindow(const RenderTarget &renderTarget,
+                    const RenderViewport &viewport,
+                    EffectWindow *w,
+                    int mask,
+                    const OutlineRegion &deviceRegion,
+                    WindowPaintData &data) override;
+
     bool isActive() const override;
     QString debug(const QString &parameter) const override;
     void grabbedKeyboardEvent(QKeyEvent *e) override;
@@ -186,6 +193,7 @@ private:
     bool isEligibleTargetWindow(EffectWindow *w) const;
     QMap<QChar, EffectWindow *> assignJumpLetters() const;
     void cancelJumpMode();
+    bool isWindowObscured(EffectWindow *target) const;
     bool isBadgeOccluded(EffectWindow *target, const QRectF &badgeRect) const;
     EffectWindow *findRecentWindow() const;
     void updateRecentWindowsFromHistory();
@@ -206,7 +214,8 @@ private:
     QImage captureWindowThumbnail(EffectWindow *target,
                                   const RenderTarget &renderTarget,
                                   const RenderViewport &viewport,
-                                  const QSize &targetSize = QSize(120, 75));
+                                  const QSize &targetSize = QSize(120, 75),
+                                  bool forceBlit = false);
 
     QColor resolveColor(qreal windowOpacity = 1.0, EffectWindow *w = nullptr) const;
     QColor currentCycleColor(qreal elapsedSec);
@@ -367,6 +376,7 @@ private:
     // Badge OpenGL texture cache
     mutable QMap<quint64, std::shared_ptr<GLTexture>> m_badgeTextureCache;
     mutable QMap<EffectWindow *, QImage> m_thumbnailCache;
+    mutable QHash<EffectWindow *, qint64> m_lastCaptureTimestamp;
     std::unique_ptr<GLTexture> m_thumbTexture;
     std::unique_ptr<GLFramebuffer> m_thumbFbo;
 

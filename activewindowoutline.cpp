@@ -815,12 +815,34 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_badgeShowIcon = config.readEntry("BadgeShowIcon", false);
     m_badgeShowThumbnail = config.readEntry("BadgeShowThumbnail", false);
 
+    m_badgeConfig.windowShowIcon = config.readEntry("BadgeWindowShowIcon", m_badgeShowIcon);
+    m_badgeConfig.windowShowThumbnail = config.readEntry("BadgeWindowShowThumbnail", m_badgeShowThumbnail);
     m_badgeConfig.windowBadgeSize = m_badgeSize;
     m_badgeConfig.jumpBadgeSize = qBound(16, config.readEntry("BadgeJumpSize", 34), 96);
+    m_badgeConfig.windowIconSize = qBound(12, config.readEntry("BadgeWindowIconSize", config.readEntry("BadgeIconSize", 20)), 64);
+    m_badgeConfig.windowThumbnailWidth = qBound(24, config.readEntry("BadgeWindowThumbnailWidth", config.readEntry("BadgeThumbnailWidth", 56)), 200);
+    m_badgeConfig.windowThumbnailHeight = qBound(16, config.readEntry("BadgeWindowThumbnailHeight", config.readEntry("BadgeThumbnailHeight", 32)), 120);
+    m_badgeConfig.windowLetterFontSize = qBound(0, config.readEntry("BadgeWindowLetterFontSize", config.readEntry("BadgeLetterFontSize", 0)), 48);
+    m_badgeConfig.windowLabelFontSize = qBound(0, config.readEntry("BadgeWindowLabelFontSize", config.readEntry("BadgeLabelFontSize", 0)), 48);
+
+    m_badgeConfig.hudShowIcon = config.readEntry("BadgeHudShowIcon", true);
+    m_badgeConfig.hudShowThumbnail = config.readEntry("BadgeHudShowThumbnail", true);
     m_badgeConfig.hudBadgeSize = qBound(24, config.readEntry("BadgeHudSize", 36), 96);
-    m_badgeConfig.iconSize = qBound(12, config.readEntry("BadgeIconSize", 20), 64);
-    m_badgeConfig.thumbnailWidth = qBound(24, config.readEntry("BadgeThumbnailWidth", 56), 200);
-    m_badgeConfig.thumbnailHeight = qBound(16, config.readEntry("BadgeThumbnailHeight", 32), 120);
+    m_badgeConfig.hudIconSize = qBound(12, config.readEntry("BadgeHudIconSize", config.readEntry("BadgeIconSize", 24)), 64);
+    m_badgeConfig.hudThumbnailWidth = qBound(24, config.readEntry("BadgeHudThumbnailWidth", config.readEntry("BadgeThumbnailWidth", 80)), 300);
+    m_badgeConfig.hudThumbnailHeight = qBound(16, config.readEntry("BadgeHudThumbnailHeight", config.readEntry("BadgeThumbnailHeight", 48)), 200);
+    m_badgeConfig.hudLetterFontSize = qBound(0, config.readEntry("BadgeHudLetterFontSize", config.readEntry("BadgeLetterFontSize", 0)), 48);
+    m_badgeConfig.hudCaptionFontSize = qBound(0, config.readEntry("BadgeHudCaptionFontSize", config.readEntry("BadgeCaptionFontSize", 0)), 48);
+    m_badgeConfig.hudLocationFontSize = qBound(0, config.readEntry("BadgeHudLocationFontSize", config.readEntry("BadgeLocationFontSize", 0)), 48);
+
+    m_badgeConfig.iconSize = m_badgeConfig.windowIconSize;
+    m_badgeConfig.thumbnailWidth = m_badgeConfig.windowThumbnailWidth;
+    m_badgeConfig.thumbnailHeight = m_badgeConfig.windowThumbnailHeight;
+    m_badgeConfig.showIcon = (m_badgeConfig.windowShowIcon || m_badgeConfig.hudShowIcon);
+    m_badgeConfig.showThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail);
+    m_badgeShowIcon = m_badgeConfig.showIcon;
+    m_badgeShowThumbnail = m_badgeConfig.showThumbnail;
+
     m_badgeConfig.margin = m_badgeMargin;
     m_badgeConfig.cornerRadius = qBound(0, config.readEntry("BadgeCornerRadius", 6), 32);
     m_badgeConfig.opacityPercent = qBound(10, config.readEntry("BadgeOpacity", 92), 100);
@@ -843,13 +865,12 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_badgeConfig.labelFontSize = qBound(0, config.readEntry("BadgeLabelFontSize", 0), 48);
     m_badgeConfig.captionFontSize = qBound(0, config.readEntry("BadgeCaptionFontSize", 0), 48);
     m_badgeConfig.locationFontSize = qBound(0, config.readEntry("BadgeLocationFontSize", 0), 48);
-    m_badgeConfig.showIcon = m_badgeShowIcon;
-    m_badgeConfig.showThumbnail = m_badgeShowThumbnail;
     m_markShowLetterBadges = (m_badgeDisplayMode != 2);
     m_badgesAlwaysVisible = (m_badgeDisplayMode == 1);
     m_jumpTargets = qBound(0, config.readEntry("JumpTargets", 0), 3);
     m_badgeTextureCache.clear();
     m_thumbnailCache.clear();
+    m_lastCaptureTimestamp.clear();
     if (!m_lastMarkColor.isValid()) {
         m_lastMarkColor = m_markDefaultColor;
     }
@@ -1228,6 +1249,7 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
     m_recentCycleColors.remove(w);
     m_smartAccentCache.remove(w);
     m_thumbnailCache.remove(w);
+    m_lastCaptureTimestamp.remove(w);
     m_markedWindows.remove(w);
     m_markedWindowLetters.remove(w);
     m_markedWindowLabels.remove(w);
@@ -3011,72 +3033,98 @@ void ActiveWindowOutlineEffect::slotCommitHistoryNavigation()
     repaintAllOutlines();
 }
 
+bool ActiveWindowOutlineEffect::isWindowObscured(EffectWindow *target) const
+{
+    if (!target || !effects) {
+        return false;
+    }
+    const auto stacking = effects->stackingOrder();
+    const int idx = stacking.indexOf(target);
+    if (idx < 0 || idx == stacking.size() - 1) {
+        return false;
+    }
+    const QRectF targetGeo = target->frameGeometry();
+    for (int i = idx + 1; i < stacking.size(); ++i) {
+        EffectWindow *above = stacking.at(i);
+        if (above && !above->isDeleted() && above->isVisible() && !above->isMinimized()
+            && above->isOnCurrentDesktop() && isEligibleOutlineWindow(above)) {
+            if (above->frameGeometry().intersects(targetGeo)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void ActiveWindowOutlineEffect::drawWindow(const RenderTarget &renderTarget,
+                                          const RenderViewport &viewport,
+                                          EffectWindow *w,
+                                          int mask,
+                                          const OutlineRegion &deviceRegion,
+                                          WindowPaintData &data)
+{
+    effects->drawWindow(renderTarget, viewport, w, mask, deviceRegion, data);
+
+    const bool wantThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail || m_badgeShowThumbnail);
+    if (wantThumbnail && w && !w->isDeleted() && isEligibleOutlineWindow(w)
+        && !w->isMinimized() && w->isVisible()
+        && !(effects && effects->isScreenLocked()) && !w->isLockScreen()) {
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        const qint64 lastCapture = m_lastCaptureTimestamp.value(w, 0);
+        if (!m_thumbnailCache.contains(w) || m_jumpMode || (now - lastCapture > 2000)) {
+            const QSize targetSize(qMax(m_badgeConfig.windowThumbnailWidth, m_badgeConfig.hudThumbnailWidth) * 2,
+                                   qMax(m_badgeConfig.windowThumbnailHeight, m_badgeConfig.hudThumbnailHeight) * 2);
+            captureWindowThumbnail(w, renderTarget, viewport, targetSize, /*forceBlit=*/true);
+            m_lastCaptureTimestamp[w] = now;
+        }
+    }
+}
+
 QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
                                                          const RenderTarget &renderTarget,
                                                          const RenderViewport &viewport,
-                                                         const QSize &targetSize)
+                                                         const QSize &targetSize,
+                                                         bool forceBlit)
 {
     if (!target || target->isDeleted()) {
         return QImage();
     }
 
     auto it = m_thumbnailCache.find(target);
-    if (it != m_thumbnailCache.end() && !it.value().isNull()) {
-        // If window is not on current desktop or minimized, use the cached real capture
-        if (!target->isOnCurrentDesktop() || target->isMinimized() || !target->isVisible()) {
-            return it.value();
+    if (!forceBlit) {
+        if (it != m_thumbnailCache.end() && !it.value().isNull()) {
+            // If window is not on current desktop or minimized, use the cached real capture
+            if (!target->isOnCurrentDesktop() || target->isMinimized() || !target->isVisible()) {
+                return it.value();
+            }
+            // If window is covered/obscured by another window, return the clean capture from when it was rendered
+            if (target != m_activeWindow && isWindowObscured(target)) {
+                return it.value();
+            }
+        }
+
+        // If target is obscured by another window on screen, renderTarget contains that window,
+        // so we cannot blit from it.
+        if (target != m_activeWindow && isWindowObscured(target)) {
+            if (it != m_thumbnailCache.end() && !it.value().isNull()) {
+                return it.value();
+            }
         }
     }
 
-    const QRectF frameGeo = target->frameGeometry();
-    const QRect viewRect = QRectF(viewport.renderRect()).toRect();
-    const QRect windowRect = frameGeo.toRect().intersected(viewRect);
+    if (forceBlit || !(target != m_activeWindow && isWindowObscured(target))) {
+        const QRectF frameGeo = target->frameGeometry();
+        const QRect viewRect = QRectF(viewport.renderRect()).toRect();
+        const QRect windowRect = frameGeo.toRect().intersected(viewRect);
 
-    // 1. Try blitting from renderTarget if window is currently visible on this desktop
-    if (target->isOnCurrentDesktop() && !target->isMinimized() && target->isVisible()
-        && windowRect.width() >= 16 && windowRect.height() >= 16) {
-        if (renderTarget.image()) {
-            const QImage *img = renderTarget.image();
-            const QRect src = windowRect.intersected(img->rect());
-            if (!src.isEmpty()) {
-                QImage thumb = img->copy(src).scaled(targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-                if (thumb.format() != QImage::Format_RGBA8888 && thumb.format() != QImage::Format_ARGB32_Premultiplied) {
-                    thumb = thumb.convertToFormat(QImage::Format_RGBA8888);
-                }
-                for (qsizetype i = 3; i < thumb.sizeInBytes(); i += 4) {
-                    thumb.bits()[i] = 255;
-                }
-                m_thumbnailCache[target] = thumb;
-                return thumb;
-            }
-        }
-
-        if (!m_thumbTexture || m_thumbTexture->size() != targetSize) {
-            m_thumbTexture = GLTexture::allocate(GL_RGBA8, targetSize);
-            if (m_thumbTexture) {
-                m_thumbFbo = std::make_unique<GLFramebuffer>(m_thumbTexture.get());
-            }
-        }
-
-        if (m_thumbFbo && m_thumbFbo->valid()) {
-            GLFramebuffer *savedFbo = GLFramebuffer::currentFramebuffer();
-            const OutlineRect srcRect(windowRect);
-            const OutlineRect dstRect(0, 0, targetSize.width(), targetSize.height());
-            const bool blitOk = m_thumbFbo->blitFromRenderTarget(renderTarget, viewport, srcRect, dstRect);
-            if (blitOk) {
-                QImage thumb = m_thumbTexture->toImage();
-                if (thumb.isNull()) {
-                    thumb = QImage(targetSize, QImage::Format_RGBA8888);
-                    GLFramebuffer::pushFramebuffer(m_thumbFbo.get());
-                    glReadPixels(0, 0, targetSize.width(), targetSize.height(), GL_RGBA, GL_UNSIGNED_BYTE, thumb.bits());
-                    GLFramebuffer::popFramebuffer();
-#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
-                    thumb = thumb.flipped(Qt::Vertical);
-#else
-                    thumb = thumb.mirrored(false, true);
-#endif
-                }
-                if (!thumb.isNull()) {
+        // 1. Try blitting from renderTarget if window is currently visible and unobscured on this desktop
+        if (target->isOnCurrentDesktop() && !target->isMinimized() && target->isVisible()
+            && windowRect.width() >= 16 && windowRect.height() >= 16) {
+            if (renderTarget.image()) {
+                const QImage *img = renderTarget.image();
+                const QRect src = windowRect.intersected(img->rect());
+                if (!src.isEmpty()) {
+                    QImage thumb = img->copy(src).scaled(targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
                     if (thumb.format() != QImage::Format_RGBA8888 && thumb.format() != QImage::Format_ARGB32_Premultiplied) {
                         thumb = thumb.convertToFormat(QImage::Format_RGBA8888);
                     }
@@ -3084,14 +3132,52 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
                         thumb.bits()[i] = 255;
                     }
                     m_thumbnailCache[target] = thumb;
-                    if (savedFbo && GLFramebuffer::currentFramebuffer() != savedFbo) {
-                        GLFramebuffer::pushFramebuffer(savedFbo);
-                    }
                     return thumb;
                 }
             }
-            if (savedFbo && GLFramebuffer::currentFramebuffer() != savedFbo) {
-                GLFramebuffer::pushFramebuffer(savedFbo);
+
+            if (!m_thumbTexture || m_thumbTexture->size() != targetSize) {
+                m_thumbTexture = GLTexture::allocate(GL_RGBA8, targetSize);
+                if (m_thumbTexture) {
+                    m_thumbFbo = std::make_unique<GLFramebuffer>(m_thumbTexture.get());
+                }
+            }
+
+            if (m_thumbFbo && m_thumbFbo->valid()) {
+                GLFramebuffer *savedFbo = GLFramebuffer::currentFramebuffer();
+                const OutlineRect srcRect(windowRect);
+                const OutlineRect dstRect(0, 0, targetSize.width(), targetSize.height());
+                const bool blitOk = m_thumbFbo->blitFromRenderTarget(renderTarget, viewport, srcRect, dstRect);
+                if (blitOk) {
+                    QImage thumb = m_thumbTexture->toImage();
+                    if (thumb.isNull()) {
+                        thumb = QImage(targetSize, QImage::Format_RGBA8888);
+                        GLFramebuffer::pushFramebuffer(m_thumbFbo.get());
+                        glReadPixels(0, 0, targetSize.width(), targetSize.height(), GL_RGBA, GL_UNSIGNED_BYTE, thumb.bits());
+                        GLFramebuffer::popFramebuffer();
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+                        thumb = thumb.flipped(Qt::Vertical);
+#else
+                        thumb = thumb.mirrored(false, true);
+#endif
+                    }
+                    if (!thumb.isNull()) {
+                        if (thumb.format() != QImage::Format_RGBA8888 && thumb.format() != QImage::Format_ARGB32_Premultiplied) {
+                            thumb = thumb.convertToFormat(QImage::Format_RGBA8888);
+                        }
+                        for (qsizetype i = 3; i < thumb.sizeInBytes(); i += 4) {
+                            thumb.bits()[i] = 255;
+                        }
+                        m_thumbnailCache[target] = thumb;
+                        if (savedFbo && GLFramebuffer::currentFramebuffer() != savedFbo) {
+                            GLFramebuffer::pushFramebuffer(savedFbo);
+                        }
+                        return thumb;
+                    }
+                }
+                if (savedFbo && GLFramebuffer::currentFramebuffer() != savedFbo) {
+                    GLFramebuffer::pushFramebuffer(savedFbo);
+                }
             }
         }
     }
@@ -3160,9 +3246,11 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
         texture = it.value();
     }
     if (!texture || texture->isNull()) {
-        const QIcon icon = (m_badgeShowIcon && target) ? target->icon() : QIcon();
-        const QImage thumbnail = (m_badgeShowThumbnail && target)
-            ? captureWindowThumbnail(target, renderTarget, viewport, QSize(m_badgeConfig.thumbnailWidth * 2, m_badgeConfig.thumbnailHeight * 2))
+        const bool showIconOnWindow = (m_badgeConfig.windowShowIcon || m_badgeShowIcon);
+        const bool showThumbOnWindow = (m_badgeConfig.windowShowThumbnail || m_badgeShowThumbnail);
+        const QIcon icon = (showIconOnWindow && target) ? target->icon() : QIcon();
+        const QImage thumbnail = (showThumbOnWindow && target)
+            ? captureWindowThumbnail(target, renderTarget, viewport, QSize(m_badgeConfig.windowThumbnailWidth * 2, m_badgeConfig.windowThumbnailHeight * 2))
             : QImage();
 
         const QImage img = OutlineBadge::renderBadgeImage(m_badgeConfig, letter, bgColor, textColor, isJumpMode, badgeSize, scale, customLabel,
@@ -3290,9 +3378,11 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             }
         }
 
-        const QIcon icon = m_badgeShowIcon ? target->icon() : QIcon();
-        const QImage thumbnail = m_badgeShowThumbnail
-            ? captureWindowThumbnail(target, renderTarget, viewport, QSize(m_badgeConfig.thumbnailWidth * 2, m_badgeConfig.thumbnailHeight * 2))
+        const bool showIconOnHud = (m_badgeConfig.hudShowIcon || m_badgeShowIcon);
+        const bool showThumbOnHud = (m_badgeConfig.hudShowThumbnail || m_badgeShowThumbnail);
+        const QIcon icon = (showIconOnHud && target) ? target->icon() : QIcon();
+        const QImage thumbnail = (showThumbOnHud && target)
+            ? captureWindowThumbnail(target, renderTarget, viewport, QSize(m_badgeConfig.hudThumbnailWidth * 2, m_badgeConfig.hudThumbnailHeight * 2))
             : QImage();
 
         const bool isMarked = m_markedWindows.contains(target);
@@ -3469,6 +3559,9 @@ bool ActiveWindowOutlineEffect::isActive() const
         return false;
     }
     if (m_badgeDisplayMode == 1) {
+        return true;
+    }
+    if (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail || m_badgeShowThumbnail) {
         return true;
     }
     const bool showPending = (m_windowShowTimer && m_windowShowTimer->isActive());
@@ -3821,22 +3914,13 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         }
     }
 
-    if (m_badgeShowThumbnail && !inhibited) {
+    const bool wantThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail || m_badgeShowThumbnail);
+    if (wantThumbnail && !inhibited) {
         if (m_activeWindow && m_activeWindow->isOnCurrentDesktop()
             && !m_activeWindow->isMinimized() && m_activeWindow->isVisible() && !m_activeWindow->isDeleted()
             && timeToSample) {
             captureWindowThumbnail(m_activeWindow, renderTarget, viewport,
-                                   QSize(m_badgeConfig.thumbnailWidth * 2, m_badgeConfig.thumbnailHeight * 2));
-        }
-        const auto stacking = effects->stackingOrder();
-        for (EffectWindow *candidate : stacking) {
-            if (candidate && candidate->isOnCurrentDesktop() && !candidate->isMinimized()
-                && candidate->isVisible() && !candidate->isDeleted()
-                && isEligibleOutlineWindow(candidate) && !m_thumbnailCache.contains(candidate)) {
-                captureWindowThumbnail(candidate, renderTarget, viewport,
-                                       QSize(m_badgeConfig.thumbnailWidth * 2, m_badgeConfig.thumbnailHeight * 2));
-                break;
-            }
+                                   QSize(m_badgeConfig.hudThumbnailWidth * 2, m_badgeConfig.hudThumbnailHeight * 2));
         }
     }
 

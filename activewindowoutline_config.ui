@@ -1877,54 +1877,54 @@
                 </item>
                </widget>
               </item>
-              <item row="4" column="0" colspan="2">
-               <widget class="QCheckBox" name="kcfg_BadgeShowIcon">
-                <property name="text">
-                 <string>Show application icon in badge and HUD</string>
-                </property>
-                <property name="checked">
-                 <bool>false</bool>
-                </property>
-                <property name="toolTip">
-                 <string>Displays the application icon inside the jump letter badge and HUD cards.</string>
-                </property>
-               </widget>
-              </item>
-              <item row="5" column="0" colspan="2">
-               <widget class="QCheckBox" name="kcfg_BadgeShowThumbnail">
-                <property name="text">
-                 <string>Show live window thumbnail preview in badge and HUD</string>
-                </property>
-                <property name="checked">
-                 <bool>false</bool>
-                </property>
-                <property name="toolTip">
-                 <string>Displays a miniature preview of the window content inside the jump letter badge and HUD cards.</string>
-                </property>
-               </widget>
-              </item>
              </layout>
             </widget>
            </item>
 
-           <!-- Group 2: Dimensions & Sizing -->
+           <!-- Group 2: Window Badges -->
            <item>
-            <widget class="QGroupBox" name="groupBadgeSizes">
+            <widget class="QGroupBox" name="groupWindowBadges">
              <property name="title">
-              <string>Dimensions &amp; Sizing</string>
+              <string>Window Badges</string>
              </property>
-             <layout class="QFormLayout" name="formLayoutBadgeSizes">
-              <item row="0" column="0">
+             <layout class="QFormLayout" name="formLayoutWindowBadges">
+              <item row="0" column="0" colspan="2">
+               <widget class="QCheckBox" name="kcfg_BadgeWindowShowIcon">
+                <property name="text">
+                 <string>Show application icon on window badge</string>
+                </property>
+                <property name="checked">
+                 <bool>false</bool>
+                </property>
+                <property name="toolTip">
+                 <string>Displays the application icon next to the jump letter inside on-window badges.</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="0" colspan="2">
+               <widget class="QCheckBox" name="kcfg_BadgeWindowShowThumbnail">
+                <property name="text">
+                 <string>Show live window preview on window badge</string>
+                </property>
+                <property name="checked">
+                 <bool>false</bool>
+                </property>
+                <property name="toolTip">
+                 <string>Displays a live miniature preview thumbnail inside on-window badges.</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="0">
                <widget class="QLabel" name="label_badgeSize">
                 <property name="text">
-                 <string>Badges on window size:</string>
+                 <string>Window badge normal size:</string>
                 </property>
                 <property name="toolTip">
                  <string>Height and size of badges on background windows in pixels (default: 28 px).</string>
                 </property>
                </widget>
               </item>
-              <item row="0" column="1">
+              <item row="2" column="1">
                <widget class="QSpinBox" name="kcfg_BadgeSize">
                 <property name="minimum">
                  <number>16</number>
@@ -1943,17 +1943,17 @@
                 </property>
                </widget>
               </item>
-              <item row="1" column="0">
+              <item row="3" column="0">
                <widget class="QLabel" name="label_badgeJumpSize">
                 <property name="text">
-                 <string>Active badges on window (Leap mode):</string>
+                 <string>Active badge size (Leap mode):</string>
                 </property>
                 <property name="toolTip">
-                 <string>Height and size of active badges when in Leap jump mode (default: 34 px).</string>
+                 <string>Height and size of active badges on windows during Leap mode (default: 34 px).</string>
                 </property>
                </widget>
               </item>
-              <item row="1" column="1">
+              <item row="3" column="1">
                <widget class="QSpinBox" name="kcfg_BadgeJumpSize">
                 <property name="minimum">
                  <number>16</number>
@@ -1972,10 +1972,192 @@
                 </property>
                </widget>
               </item>
+              <item row="4" column="0">
+               <widget class="QLabel" name="label_badgeWindowIconSize">
+                <property name="text">
+                 <string>Icon size on window:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Size of the application icon on window badges in pixels (default: 20 px).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeWindowIconSize">
+                <property name="minimum">
+                 <number>12</number>
+                </property>
+                <property name="maximum">
+                 <number>64</number>
+                </property>
+                <property name="singleStep">
+                 <number>2</number>
+                </property>
+                <property name="value">
+                 <number>20</number>
+                </property>
+                <property name="suffix">
+                 <string> px</string>
+                </property>
+               </widget>
+              </item>
+              <item row="5" column="0">
+               <widget class="QLabel" name="label_badgeWindowThumbnailWidth">
+                <property name="text">
+                 <string>Window preview width:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Width of the window preview thumbnail on window badges in pixels (default: 56 px).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="5" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeWindowThumbnailWidth">
+                <property name="minimum">
+                 <number>24</number>
+                </property>
+                <property name="maximum">
+                 <number>200</number>
+                </property>
+                <property name="singleStep">
+                 <number>4</number>
+                </property>
+                <property name="value">
+                 <number>56</number>
+                </property>
+                <property name="suffix">
+                 <string> px</string>
+                </property>
+               </widget>
+              </item>
+              <item row="6" column="0">
+               <widget class="QLabel" name="label_badgeWindowThumbnailHeight">
+                <property name="text">
+                 <string>Window preview height:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Height of the window preview thumbnail on window badges in pixels (default: 32 px).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="6" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeWindowThumbnailHeight">
+                <property name="minimum">
+                 <number>16</number>
+                </property>
+                <property name="maximum">
+                 <number>120</number>
+                </property>
+                <property name="singleStep">
+                 <number>2</number>
+                </property>
+                <property name="value">
+                 <number>32</number>
+                </property>
+                <property name="suffix">
+                 <string> px</string>
+                </property>
+               </widget>
+              </item>
+              <item row="7" column="0">
+               <widget class="QLabel" name="label_badgeWindowLetterFontSize">
+                <property name="text">
+                 <string>Jump letter font size:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Font size for the jump letter on window badges (0 = Auto).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="7" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeWindowLetterFontSize">
+                <property name="minimum">
+                 <number>0</number>
+                </property>
+                <property name="maximum">
+                 <number>48</number>
+                </property>
+                <property name="specialValueText">
+                 <string>Auto</string>
+                </property>
+                <property name="value">
+                 <number>0</number>
+                </property>
+                <property name="suffix">
+                 <string> px</string>
+                </property>
+               </widget>
+              </item>
+              <item row="8" column="0">
+               <widget class="QLabel" name="label_badgeWindowLabelFontSize">
+                <property name="text">
+                 <string>Custom label font size:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Font size for custom text labels on window badges (0 = Auto).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="8" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeWindowLabelFontSize">
+                <property name="minimum">
+                 <number>0</number>
+                </property>
+                <property name="maximum">
+                 <number>48</number>
+                </property>
+                <property name="specialValueText">
+                 <string>Auto</string>
+                </property>
+                <property name="value">
+                 <number>0</number>
+                </property>
+                <property name="suffix">
+                 <string> px</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+
+           <!-- Group 3: HUD Badges -->
+           <item>
+            <widget class="QGroupBox" name="groupHudBadges">
+             <property name="title">
+              <string>HUD Badges</string>
+             </property>
+             <layout class="QFormLayout" name="formLayoutHudBadges">
+              <item row="0" column="0" colspan="2">
+               <widget class="QCheckBox" name="kcfg_BadgeHudShowIcon">
+                <property name="text">
+                 <string>Show application icon in HUD cards</string>
+                </property>
+                <property name="checked">
+                 <bool>true</bool>
+                </property>
+                <property name="toolTip">
+                 <string>Displays the application icon inside edge HUD target cards.</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="0" colspan="2">
+               <widget class="QCheckBox" name="kcfg_BadgeHudShowThumbnail">
+                <property name="text">
+                 <string>Show live window preview in HUD cards</string>
+                </property>
+                <property name="checked">
+                 <bool>true</bool>
+                </property>
+                <property name="toolTip">
+                 <string>Displays live miniature preview thumbnails inside edge HUD target cards.</string>
+                </property>
+               </widget>
+              </item>
               <item row="2" column="0">
                <widget class="QLabel" name="label_badgeHudSize">
                 <property name="text">
-                 <string>Badges at HUD card height:</string>
+                 <string>HUD card height / badge size:</string>
                 </property>
                 <property name="toolTip">
                  <string>Height and proportional size of hint cards at the screen edge HUD (default: 36 px).</string>
@@ -2002,17 +2184,17 @@
                </widget>
               </item>
               <item row="3" column="0">
-               <widget class="QLabel" name="label_badgeIconSize">
+               <widget class="QLabel" name="label_badgeHudIconSize">
                 <property name="text">
-                 <string>Icon size:</string>
+                 <string>Icon size in HUD:</string>
                 </property>
                 <property name="toolTip">
-                 <string>Size of the application icon inside badges and HUD cards in pixels (default: 20 px).</string>
+                 <string>Size of the application icon inside HUD cards in pixels (default: 24 px).</string>
                 </property>
                </widget>
               </item>
               <item row="3" column="1">
-               <widget class="QSpinBox" name="kcfg_BadgeIconSize">
+               <widget class="QSpinBox" name="kcfg_BadgeHudIconSize">
                 <property name="minimum">
                  <number>12</number>
                 </property>
@@ -2023,7 +2205,7 @@
                  <number>2</number>
                 </property>
                 <property name="value">
-                 <number>20</number>
+                 <number>24</number>
                 </property>
                 <property name="suffix">
                  <string> px</string>
@@ -2031,28 +2213,28 @@
                </widget>
               </item>
               <item row="4" column="0">
-               <widget class="QLabel" name="label_badgeThumbnailWidth">
+               <widget class="QLabel" name="label_badgeHudThumbnailWidth">
                 <property name="text">
                  <string>Window preview width:</string>
                 </property>
                 <property name="toolTip">
-                 <string>Width of the window preview thumbnail in pixels (default: 56 px).</string>
+                 <string>Width of the window preview thumbnail in HUD cards in pixels (default: 80 px).</string>
                 </property>
                </widget>
               </item>
               <item row="4" column="1">
-               <widget class="QSpinBox" name="kcfg_BadgeThumbnailWidth">
+               <widget class="QSpinBox" name="kcfg_BadgeHudThumbnailWidth">
                 <property name="minimum">
                  <number>24</number>
                 </property>
                 <property name="maximum">
-                 <number>200</number>
+                 <number>300</number>
                 </property>
                 <property name="singleStep">
                  <number>4</number>
                 </property>
                 <property name="value">
-                 <number>56</number>
+                 <number>80</number>
                 </property>
                 <property name="suffix">
                  <string> px</string>
@@ -2060,28 +2242,115 @@
                </widget>
               </item>
               <item row="5" column="0">
-               <widget class="QLabel" name="label_badgeThumbnailHeight">
+               <widget class="QLabel" name="label_badgeHudThumbnailHeight">
                 <property name="text">
                  <string>Window preview height:</string>
                 </property>
                 <property name="toolTip">
-                 <string>Height of the window preview thumbnail in pixels (default: 32 px).</string>
+                 <string>Height of the window preview thumbnail in HUD cards in pixels (default: 48 px).</string>
                 </property>
                </widget>
               </item>
               <item row="5" column="1">
-               <widget class="QSpinBox" name="kcfg_BadgeThumbnailHeight">
+               <widget class="QSpinBox" name="kcfg_BadgeHudThumbnailHeight">
                 <property name="minimum">
                  <number>16</number>
                 </property>
                 <property name="maximum">
-                 <number>120</number>
+                 <number>200</number>
                 </property>
                 <property name="singleStep">
                  <number>2</number>
                 </property>
                 <property name="value">
-                 <number>32</number>
+                 <number>48</number>
+                </property>
+                <property name="suffix">
+                 <string> px</string>
+                </property>
+               </widget>
+              </item>
+              <item row="6" column="0">
+               <widget class="QLabel" name="label_badgeHudLetterFontSize">
+                <property name="text">
+                 <string>Jump letter font size:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Font size for the jump letter in HUD cards (0 = Auto).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="6" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeHudLetterFontSize">
+                <property name="minimum">
+                 <number>0</number>
+                </property>
+                <property name="maximum">
+                 <number>48</number>
+                </property>
+                <property name="specialValueText">
+                 <string>Auto</string>
+                </property>
+                <property name="value">
+                 <number>0</number>
+                </property>
+                <property name="suffix">
+                 <string> px</string>
+                </property>
+               </widget>
+              </item>
+              <item row="7" column="0">
+               <widget class="QLabel" name="label_badgeHudCaptionFontSize">
+                <property name="text">
+                 <string>Window title font size:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Font size for window title captions in HUD cards (0 = Auto).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="7" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeHudCaptionFontSize">
+                <property name="minimum">
+                 <number>0</number>
+                </property>
+                <property name="maximum">
+                 <number>48</number>
+                </property>
+                <property name="specialValueText">
+                 <string>Auto</string>
+                </property>
+                <property name="value">
+                 <number>0</number>
+                </property>
+                <property name="suffix">
+                 <string> px</string>
+                </property>
+               </widget>
+              </item>
+              <item row="8" column="0">
+               <widget class="QLabel" name="label_badgeHudLocationFontSize">
+                <property name="text">
+                 <string>Location font size:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Font size for desktop/screen location text in HUD cards (0 = Auto).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="8" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeHudLocationFontSize">
+                <property name="minimum">
+                 <number>0</number>
+                </property>
+                <property name="maximum">
+                 <number>48</number>
+                </property>
+                <property name="specialValueText">
+                 <string>Auto</string>
+                </property>
+                <property name="value">
+                 <number>0</number>
                 </property>
                 <property name="suffix">
                  <string> px</string>
@@ -2208,7 +2477,7 @@
            <item>
             <widget class="QGroupBox" name="groupBadgeTypography">
              <property name="title">
-              <string>Typography &amp; Colors</string>
+              <string>Typography</string>
              </property>
              <layout class="QFormLayout" name="formLayoutBadgeTypography">
               <item row="0" column="0">
