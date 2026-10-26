@@ -812,36 +812,33 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_badgeHudPosition = qBound(0, config.readEntry("BadgeHudPosition", 0), 3);
     m_badgeSize = qBound(16, config.readEntry("BadgeSize", 28), 64);
     m_badgeMargin = qBound(0, config.readEntry("BadgeMargin", 0), 100);
-    m_badgeShowIcon = config.readEntry("BadgeShowIcon", false);
-    m_badgeShowThumbnail = config.readEntry("BadgeShowThumbnail", false);
-
-    m_badgeConfig.windowShowIcon = config.readEntry("BadgeWindowShowIcon", m_badgeShowIcon);
-    m_badgeConfig.windowShowThumbnail = config.readEntry("BadgeWindowShowThumbnail", m_badgeShowThumbnail);
+    m_badgeConfig.windowShowIcon = config.readEntry("BadgeWindowShowIcon", false);
+    m_badgeConfig.windowShowThumbnail = config.readEntry("BadgeWindowShowThumbnail", false);
     m_badgeConfig.windowBadgeSize = m_badgeSize;
     m_badgeConfig.jumpBadgeSize = qBound(16, config.readEntry("BadgeJumpSize", 34), 96);
-    m_badgeConfig.windowIconSize = qBound(12, config.readEntry("BadgeWindowIconSize", config.readEntry("BadgeIconSize", 20)), 64);
-    m_badgeConfig.windowThumbnailWidth = qBound(24, config.readEntry("BadgeWindowThumbnailWidth", config.readEntry("BadgeThumbnailWidth", 56)), 200);
-    m_badgeConfig.windowThumbnailHeight = qBound(16, config.readEntry("BadgeWindowThumbnailHeight", config.readEntry("BadgeThumbnailHeight", 32)), 120);
-    m_badgeConfig.windowLetterFontSize = qBound(0, config.readEntry("BadgeWindowLetterFontSize", config.readEntry("BadgeLetterFontSize", 0)), 48);
-    m_badgeConfig.windowLabelFontSize = qBound(0, config.readEntry("BadgeWindowLabelFontSize", config.readEntry("BadgeLabelFontSize", 0)), 48);
+    m_badgeConfig.windowIconSize = qBound(12, config.readEntry("BadgeWindowIconSize", 20), 64);
+    m_badgeConfig.windowThumbnailWidth = qBound(24, config.readEntry("BadgeWindowThumbnailWidth", 56), 200);
+    m_badgeConfig.windowThumbnailHeight = qBound(16, config.readEntry("BadgeWindowThumbnailHeight", 32), 120);
+    m_badgeConfig.windowLetterFontSize = qBound(0, config.readEntry("BadgeWindowLetterFontSize", 0), 48);
+    m_badgeConfig.windowLabelFontSize = qBound(0, config.readEntry("BadgeWindowLabelFontSize", 0), 48);
 
     m_badgeConfig.hudShowIcon = config.readEntry("BadgeHudShowIcon", true);
     m_badgeConfig.hudShowThumbnail = config.readEntry("BadgeHudShowThumbnail", true);
     m_badgeConfig.hudBadgeSize = qBound(24, config.readEntry("BadgeHudSize", 36), 96);
-    m_badgeConfig.hudIconSize = qBound(12, config.readEntry("BadgeHudIconSize", config.readEntry("BadgeIconSize", 24)), 64);
-    m_badgeConfig.hudThumbnailWidth = qBound(24, config.readEntry("BadgeHudThumbnailWidth", config.readEntry("BadgeThumbnailWidth", 80)), 300);
-    m_badgeConfig.hudThumbnailHeight = qBound(16, config.readEntry("BadgeHudThumbnailHeight", config.readEntry("BadgeThumbnailHeight", 48)), 200);
-    m_badgeConfig.hudLetterFontSize = qBound(0, config.readEntry("BadgeHudLetterFontSize", config.readEntry("BadgeLetterFontSize", 0)), 48);
-    m_badgeConfig.hudCaptionFontSize = qBound(0, config.readEntry("BadgeHudCaptionFontSize", config.readEntry("BadgeCaptionFontSize", 0)), 48);
-    m_badgeConfig.hudLocationFontSize = qBound(0, config.readEntry("BadgeHudLocationFontSize", config.readEntry("BadgeLocationFontSize", 0)), 48);
+    m_badgeConfig.hudIconSize = qBound(12, config.readEntry("BadgeHudIconSize", 24), 64);
+    m_badgeConfig.hudThumbnailWidth = qBound(24, config.readEntry("BadgeHudThumbnailWidth", 80), 300);
+    m_badgeConfig.hudThumbnailHeight = qBound(16, config.readEntry("BadgeHudThumbnailHeight", 48), 200);
+    m_badgeConfig.hudLetterFontSize = qBound(0, config.readEntry("BadgeHudLetterFontSize", 0), 48);
+    m_badgeConfig.hudCaptionFontSize = qBound(0, config.readEntry("BadgeHudCaptionFontSize", 0), 48);
+    m_badgeConfig.hudLocationFontSize = qBound(0, config.readEntry("BadgeHudLocationFontSize", 0), 48);
 
     m_badgeConfig.iconSize = m_badgeConfig.windowIconSize;
     m_badgeConfig.thumbnailWidth = m_badgeConfig.windowThumbnailWidth;
     m_badgeConfig.thumbnailHeight = m_badgeConfig.windowThumbnailHeight;
-    m_badgeConfig.showIcon = (m_badgeConfig.windowShowIcon || m_badgeConfig.hudShowIcon);
-    m_badgeConfig.showThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail);
-    m_badgeShowIcon = m_badgeConfig.showIcon;
-    m_badgeShowThumbnail = m_badgeConfig.showThumbnail;
+    m_badgeConfig.showIcon = m_badgeConfig.windowShowIcon;
+    m_badgeConfig.showThumbnail = m_badgeConfig.windowShowThumbnail;
+    m_badgeShowIcon = m_badgeConfig.windowShowIcon;
+    m_badgeShowThumbnail = m_badgeConfig.windowShowThumbnail;
 
     m_badgeConfig.margin = m_badgeMargin;
     m_badgeConfig.cornerRadius = qBound(0, config.readEntry("BadgeCornerRadius", 6), 32);
@@ -3056,6 +3053,30 @@ bool ActiveWindowOutlineEffect::isWindowObscured(EffectWindow *target) const
     return false;
 }
 
+void ActiveWindowOutlineEffect::paintWindow(const RenderTarget &renderTarget,
+                                            const RenderViewport &viewport,
+                                            EffectWindow *w,
+                                            int mask,
+                                            const OutlineRegion &deviceRegion,
+                                            WindowPaintData &data)
+{
+    effects->paintWindow(renderTarget, viewport, w, mask, deviceRegion, data);
+
+    const bool wantThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail);
+    if (wantThumbnail && w && !w->isDeleted() && isEligibleOutlineWindow(w)
+        && !w->isMinimized() && w->isVisible()
+        && !(effects && effects->isScreenLocked()) && !w->isLockScreen()) {
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        const qint64 lastCapture = m_lastCaptureTimestamp.value(w, 0);
+        if (!m_thumbnailCache.contains(w) || (now - lastCapture > 1000)) {
+            const QSize targetSize(qMax(m_badgeConfig.windowThumbnailWidth, m_badgeConfig.hudThumbnailWidth) * 2,
+                                   qMax(m_badgeConfig.windowThumbnailHeight, m_badgeConfig.hudThumbnailHeight) * 2);
+            captureWindowThumbnail(w, renderTarget, viewport, targetSize, /*forceBlit=*/true);
+            m_lastCaptureTimestamp[w] = now;
+        }
+    }
+}
+
 #if defined(ACTIVE_WINDOW_OUTLINE_BOOL_DRAW_WINDOW) || defined(ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN)
 bool ActiveWindowOutlineEffect::drawWindow(const RenderTarget &renderTarget,
 #else
@@ -3073,13 +3094,13 @@ void ActiveWindowOutlineEffect::drawWindow(const RenderTarget &renderTarget,
     effects->drawWindow(renderTarget, viewport, w, mask, deviceRegion, data);
 #endif
 
-    const bool wantThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail || m_badgeShowThumbnail);
+    const bool wantThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail);
     if (wantThumbnail && w && !w->isDeleted() && isEligibleOutlineWindow(w)
         && !w->isMinimized() && w->isVisible()
         && !(effects && effects->isScreenLocked()) && !w->isLockScreen()) {
         const qint64 now = QDateTime::currentMSecsSinceEpoch();
         const qint64 lastCapture = m_lastCaptureTimestamp.value(w, 0);
-        if (!m_thumbnailCache.contains(w) || m_jumpMode || (now - lastCapture > 2000)) {
+        if (!m_thumbnailCache.contains(w) || (now - lastCapture > 1000)) {
             const QSize targetSize(qMax(m_badgeConfig.windowThumbnailWidth, m_badgeConfig.hudThumbnailWidth) * 2,
                                    qMax(m_badgeConfig.windowThumbnailHeight, m_badgeConfig.hudThumbnailHeight) * 2);
             captureWindowThumbnail(w, renderTarget, viewport, targetSize, /*forceBlit=*/true);
@@ -3110,21 +3131,21 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
                 return it.value();
             }
             // If window is covered/obscured by another window, return the clean capture from when it was rendered
-            if (target != m_activeWindow && isWindowObscured(target)) {
+            if (isWindowObscured(target)) {
                 return it.value();
             }
         }
 
         // If target is obscured by another window on screen, renderTarget contains that window,
         // so we cannot blit from it.
-        if (target != m_activeWindow && isWindowObscured(target)) {
+        if (isWindowObscured(target)) {
             if (it != m_thumbnailCache.end() && !it.value().isNull()) {
                 return it.value();
             }
         }
     }
 
-    if (forceBlit || !(target != m_activeWindow && isWindowObscured(target))) {
+    if (forceBlit || !isWindowObscured(target)) {
         const QRectF frameGeo = target->frameGeometry();
         const QRect viewRect = QRectF(viewport.renderRect()).toRect();
         const QRect windowRect = frameGeo.toRect().intersected(viewRect);
@@ -3258,8 +3279,8 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
         texture = it.value();
     }
     if (!texture || texture->isNull()) {
-        const bool showIconOnWindow = (m_badgeConfig.windowShowIcon || m_badgeShowIcon);
-        const bool showThumbOnWindow = (m_badgeConfig.windowShowThumbnail || m_badgeShowThumbnail);
+        const bool showIconOnWindow = m_badgeConfig.windowShowIcon;
+        const bool showThumbOnWindow = m_badgeConfig.windowShowThumbnail;
         const QIcon icon = (showIconOnWindow && target) ? target->icon() : QIcon();
         const QImage thumbnail = (showThumbOnWindow && target)
             ? captureWindowThumbnail(target, renderTarget, viewport, QSize(m_badgeConfig.windowThumbnailWidth * 2, m_badgeConfig.windowThumbnailHeight * 2))
@@ -3390,8 +3411,8 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             }
         }
 
-        const bool showIconOnHud = (m_badgeConfig.hudShowIcon || m_badgeShowIcon);
-        const bool showThumbOnHud = (m_badgeConfig.hudShowThumbnail || m_badgeShowThumbnail);
+        const bool showIconOnHud = m_badgeConfig.hudShowIcon;
+        const bool showThumbOnHud = m_badgeConfig.hudShowThumbnail;
         const QIcon icon = (showIconOnHud && target) ? target->icon() : QIcon();
         const QImage thumbnail = (showThumbOnHud && target)
             ? captureWindowThumbnail(target, renderTarget, viewport, QSize(m_badgeConfig.hudThumbnailWidth * 2, m_badgeConfig.hudThumbnailHeight * 2))

@@ -314,9 +314,15 @@ inline qreal computeBadgeWidth(qreal baseHeight, const QString &customLabel = QS
 
 inline qreal computeBadgeWidth(const BadgeConfig &cfg, qreal baseHeight, const QString &customLabel = QString())
 {
-    return computeBadgeWidth(baseHeight, customLabel, cfg.showIcon, cfg.showThumbnail,
-                             1.6, cfg.iconSize, cfg.thumbnailWidth, cfg.labelFontSize, cfg.labelFontFamily,
-                             cfg.thumbnailHeight);
+    const bool showI = cfg.windowShowIcon || cfg.showIcon;
+    const bool showT = cfg.windowShowThumbnail || cfg.showThumbnail;
+    const int iconSz = (cfg.windowIconSize > 0) ? cfg.windowIconSize : cfg.iconSize;
+    const int thumbW = (cfg.windowThumbnailWidth > 0) ? cfg.windowThumbnailWidth : cfg.thumbnailWidth;
+    const int thumbH = (cfg.windowThumbnailHeight > 0) ? cfg.windowThumbnailHeight : cfg.thumbnailHeight;
+    const int labelSz = (cfg.windowLabelFontSize > 0) ? cfg.windowLabelFontSize : cfg.labelFontSize;
+    return computeBadgeWidth(baseHeight, customLabel, showI, showT,
+                             1.6, iconSz, thumbW, labelSz, cfg.labelFontFamily,
+                             thumbH);
 }
 
 inline QImage renderBadgeImage(const BadgeConfig &cfg,
@@ -537,11 +543,11 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     Q_UNUSED(textColor);
     const int effectivePillBaseH = (badgeSize > 0) ? badgeSize : cfg.hudBadgeSize;
 
-    const bool hasIcon = (cfg.hudShowIcon || cfg.showIcon) && !icon.isNull();
-    const bool hasThumb = (cfg.hudShowThumbnail || cfg.showThumbnail) && !thumbnail.isNull();
-    const int effectiveIconSize = (cfg.hudIconSize > 0) ? cfg.hudIconSize : cfg.iconSize;
-    const int effectiveThumbW = (cfg.hudThumbnailWidth > 0) ? cfg.hudThumbnailWidth : cfg.thumbnailWidth;
-    const int effectiveThumbH = (cfg.hudThumbnailHeight > 0) ? cfg.hudThumbnailHeight : cfg.thumbnailHeight;
+    const bool hasIcon = cfg.hudShowIcon && !icon.isNull();
+    const bool hasThumb = cfg.hudShowThumbnail && !thumbnail.isNull();
+    const int effectiveIconSize = (cfg.hudIconSize > 0) ? cfg.hudIconSize : 24;
+    const int effectiveThumbW = (cfg.hudThumbnailWidth > 0) ? cfg.hudThumbnailWidth : 80;
+    const int effectiveThumbH = (cfg.hudThumbnailHeight > 0) ? cfg.hudThumbnailHeight : 48;
     const bool isTopOrBottom = (cfg.hudPosition == 0 || cfg.hudPosition == 1);
 
     const qreal rawThumbAspect = (hasThumb && thumbnail.height() > 0)

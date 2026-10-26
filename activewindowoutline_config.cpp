@@ -2183,6 +2183,12 @@ void ActiveWindowOutlineConfig::save()
     group.writeEntry(QStringLiteral("BadgeLabelFont"), m_ui->combo_BadgeLabelFont->currentFont().family());
     group.writeEntry(QStringLiteral("BadgeCaptionFont"), m_ui->combo_BadgeCaptionFont->currentFont().family());
     group.writeEntry(QStringLiteral("BadgeLocationFont"), m_ui->combo_BadgeLocationFont->currentFont().family());
+    group.writeEntry(QStringLiteral("BadgeWindowShowIcon"), m_ui->kcfg_BadgeWindowShowIcon->isChecked());
+    group.writeEntry(QStringLiteral("BadgeWindowShowThumbnail"), m_ui->kcfg_BadgeWindowShowThumbnail->isChecked());
+    group.writeEntry(QStringLiteral("BadgeHudShowIcon"), m_ui->kcfg_BadgeHudShowIcon->isChecked());
+    group.writeEntry(QStringLiteral("BadgeHudShowThumbnail"), m_ui->kcfg_BadgeHudShowThumbnail->isChecked());
+    group.deleteEntry(QStringLiteral("BadgeShowIcon"));
+    group.deleteEntry(QStringLiteral("BadgeShowThumbnail"));
     saveShaderParameterValues();
     const bool customOn = m_ui->kcfg_CustomShaderEnabled->isChecked();
     group.writeEntry(QStringLiteral("CustomShaderEnabled"), customOn);

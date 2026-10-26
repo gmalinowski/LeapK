@@ -123,6 +123,13 @@ public:
                      const OutlineRegion &deviceRegion,
                      OutlineOutput *screen) override;
 
+    void paintWindow(const RenderTarget &renderTarget,
+                     const RenderViewport &viewport,
+                     EffectWindow *w,
+                     int mask,
+                     const OutlineRegion &deviceRegion,
+                     WindowPaintData &data) override;
+
 #if defined(ACTIVE_WINDOW_OUTLINE_BOOL_DRAW_WINDOW) || defined(ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN)
     bool drawWindow(const RenderTarget &renderTarget,
 #else
