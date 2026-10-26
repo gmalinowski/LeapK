@@ -3056,14 +3056,22 @@ bool ActiveWindowOutlineEffect::isWindowObscured(EffectWindow *target) const
     return false;
 }
 
+#if defined(ACTIVE_WINDOW_OUTLINE_BOOL_DRAW_WINDOW) || defined(ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN)
+bool ActiveWindowOutlineEffect::drawWindow(const RenderTarget &renderTarget,
+#else
 void ActiveWindowOutlineEffect::drawWindow(const RenderTarget &renderTarget,
+#endif
                                           const RenderViewport &viewport,
                                           EffectWindow *w,
                                           int mask,
                                           const OutlineRegion &deviceRegion,
                                           WindowPaintData &data)
 {
+#if defined(ACTIVE_WINDOW_OUTLINE_BOOL_DRAW_WINDOW) || defined(ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN)
+    const bool ret = effects->drawWindow(renderTarget, viewport, w, mask, deviceRegion, data);
+#else
     effects->drawWindow(renderTarget, viewport, w, mask, deviceRegion, data);
+#endif
 
     const bool wantThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail || m_badgeShowThumbnail);
     if (wantThumbnail && w && !w->isDeleted() && isEligibleOutlineWindow(w)
@@ -3078,6 +3086,10 @@ void ActiveWindowOutlineEffect::drawWindow(const RenderTarget &renderTarget,
             m_lastCaptureTimestamp[w] = now;
         }
     }
+
+#if defined(ACTIVE_WINDOW_OUTLINE_BOOL_DRAW_WINDOW) || defined(ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN)
+    return ret;
+#endif
 }
 
 QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,

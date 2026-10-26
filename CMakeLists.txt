@@ -97,6 +97,12 @@ if(KWIN_BACKEND STREQUAL "X11")
     if(DETECTED_KWIN_VERSION VERSION_GREATER_EQUAL "6.7")
         target_compile_features(active-window-outline PRIVATE cxx_std_23)
     endif()
+    if(DETECTED_KWIN_VERSION VERSION_GREATER_EQUAL "6.7.80")
+        target_compile_definitions(active-window-outline PRIVATE
+            ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
+            ACTIVE_WINDOW_OUTLINE_BOOL_DRAW_WINDOW
+        )
+    endif()
 else()
     if(DETECTED_KWIN_VERSION VERSION_LESS "6.6")
         target_compile_definitions(active-window-outline PRIVATE
@@ -114,9 +120,10 @@ else()
             ACTIVE_WINDOW_OUTLINE_SURFACE_BLUR_REGION
         )
     endif()
-    if(DETECTED_KWIN_VERSION VERSION_GREATER_EQUAL "6.8")
+    if(DETECTED_KWIN_VERSION VERSION_GREATER_EQUAL "6.7.80")
         target_compile_definitions(active-window-outline PRIVATE
             ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
+            ACTIVE_WINDOW_OUTLINE_BOOL_DRAW_WINDOW
         )
     endif()
 endif()
