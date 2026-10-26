@@ -553,6 +553,23 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
             this, [this]() {
                 repaintAllOutlines();
             });
+    connect(effects, &EffectsHandler::screenLockingChanged,
+            this, [this](bool locked) {
+                if (locked) {
+                    if (m_jumpMode) {
+                        cancelJumpMode();
+                    }
+                    m_badgeTextureCache.clear();
+                }
+                repaintAllOutlines();
+            });
+    connect(effects, &EffectsHandler::screenAboutToLock,
+            this, [this]() {
+                if (m_jumpMode) {
+                    cancelJumpMode();
+                }
+                repaintAllOutlines();
+            });
 
     initShortcuts();
 
@@ -1127,11 +1144,14 @@ bool ActiveWindowOutlineEffect::isEligibleOutlineWindow(EffectWindow *w) const
     if (!w || w->isDeleted()) {
         return false;
     }
-    if (w->isDesktop() || w->isDock() || w->isSpecialWindow()) {
+    if (w->isDesktop() || w->isDock() || w->isSpecialWindow() || w->isLockScreen()) {
         return false;
     }
     if (w->isPopupWindow() || w->isTooltip() || w->isNotification()
         || w->isCriticalNotification() || w->isOnScreenDisplay()) {
+        return false;
+    }
+    if (effects && effects->isScreenLocked()) {
         return false;
     }
     return true;
@@ -1284,6 +1304,9 @@ void ActiveWindowOutlineEffect::updatePopupBlockingState()
 
 void ActiveWindowOutlineEffect::repaintAllOutlines()
 {
+    if (effects && effects->isScreenLocked()) {
+        return;
+    }
     if (m_badgeDisplayMode == 1 || m_jumpMode) {
         effects->addRepaintFull();
     }
@@ -2557,10 +2580,13 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
 
 bool ActiveWindowOutlineEffect::isEligibleTargetWindow(EffectWindow *w) const
 {
+    if (effects && effects->isScreenLocked()) {
+        return false;
+    }
     if (!w || w == m_activeWindow || !isEligibleOutlineWindow(w)) {
         return false;
     }
-    if (w->isSkipSwitcher()) {
+    if (w->isSkipSwitcher() || w->isLockScreen()) {
         return false;
     }
     if (!w->acceptsFocus()) {
@@ -2584,6 +2610,9 @@ bool ActiveWindowOutlineEffect::isEligibleTargetWindow(EffectWindow *w) const
 
 QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
 {
+    if (effects && effects->isScreenLocked()) {
+        return {};
+    }
     QMap<QChar, EffectWindow *> map;
     const auto windows = effects->stackingOrder();
     QList<EffectWindow *> candidates;
@@ -2654,6 +2683,9 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
 
 void ActiveWindowOutlineEffect::slotTriggerJumpMode()
 {
+    if (effects && effects->isScreenLocked()) {
+        return;
+    }
     if (!m_outlineEnabled || m_badgeDisplayMode == 2) {
         return;
     }
@@ -3761,6 +3793,19 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                                          OutlineOutput *screen)
 {
     EffectWindow *w = m_activeWindow;
+    const bool isScreenLocked = (effects && effects->isScreenLocked()) || (w && w->isLockScreen());
+    if (isScreenLocked) {
+        if (m_jumpMode) {
+            cancelJumpMode();
+        }
+#ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
+        return effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen);
+#else
+        effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen);
+        return;
+#endif
+    }
+
     const bool isFullScreenActive = effects->hasActiveFullScreenEffect();
     const bool isScreenTransformed = (mask & (PAINT_SCREEN_TRANSFORMED | PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS));
     const bool inhibited = isFullScreenActive || isScreenTransformed;
