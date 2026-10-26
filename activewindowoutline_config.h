@@ -25,6 +25,7 @@ class ActiveWindowOutlineConfig : public KCModule
 
 public:
     explicit ActiveWindowOutlineConfig(QObject *parent, const KPluginMetaData &data);
+    ~ActiveWindowOutlineConfig() override;
 
     void save() override;
     void load() override;
@@ -40,6 +41,7 @@ private:
     void checkForUpdates();
     void updateRecentWindowUI();
     void updateMarkWindowUI();
+    void updateBadgePreview();
 
     void populatePrecedenceList(const QString &serialized);
     QString serializePrecedenceList() const;

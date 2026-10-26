@@ -55,6 +55,8 @@
 #include <QAction>
 #include <QRandomGenerator>
 #include <QDBusConnection>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include "presethelper.h"
 #include <cmath>
 #include <utility>
@@ -623,6 +625,9 @@ ActiveWindowOutlineEffect::~ActiveWindowOutlineEffect()
     }
     if (m_historyCommitTimer) {
         m_historyCommitTimer->stop();
+    }
+    if (m_previewSafetyTimer && m_previewSafetyTimer->isActive()) {
+        m_previewSafetyTimer->stop();
     }
     m_badgeTextureCache.clear();
 
@@ -2374,6 +2379,271 @@ void ActiveWindowOutlineEffect::applyPreset(const QString &presetName)
     }
 }
 
+static void parseBadgeConfigFromJson(OutlineBadge::BadgeConfig &cfg, int &badgePos, int &hudPos, const QJsonObject &obj)
+{
+    if (obj.contains(QStringLiteral("BadgePosition"))) {
+        badgePos = qBound(0, obj.value(QStringLiteral("BadgePosition")).toInt(1), 8);
+    }
+    if (obj.contains(QStringLiteral("BadgeHudPosition"))) {
+        hudPos = qBound(0, obj.value(QStringLiteral("BadgeHudPosition")).toInt(0), 3);
+        cfg.hudPosition = hudPos;
+    }
+    if (obj.contains(QStringLiteral("BadgeMargin"))) {
+        cfg.margin = qBound(0, obj.value(QStringLiteral("BadgeMargin")).toInt(0), 100);
+    }
+    if (obj.contains(QStringLiteral("BadgeCornerRadius"))) {
+        cfg.cornerRadius = qBound(0, obj.value(QStringLiteral("BadgeCornerRadius")).toInt(6), 32);
+    }
+    if (obj.contains(QStringLiteral("BadgeOpacity"))) {
+        cfg.opacityPercent = qBound(10, obj.value(QStringLiteral("BadgeOpacity")).toInt(92), 100);
+    }
+
+    if (obj.contains(QStringLiteral("BadgeWindowShowIcon"))) {
+        cfg.windowShowIcon = obj.value(QStringLiteral("BadgeWindowShowIcon")).toBool(false);
+    }
+    if (obj.contains(QStringLiteral("BadgeWindowShowThumbnail"))) {
+        cfg.windowShowThumbnail = obj.value(QStringLiteral("BadgeWindowShowThumbnail")).toBool(false);
+    }
+    if (obj.contains(QStringLiteral("BadgeSize"))) {
+        cfg.windowBadgeSize = qBound(16, obj.value(QStringLiteral("BadgeSize")).toInt(28), 64);
+    }
+    if (obj.contains(QStringLiteral("BadgeJumpSize"))) {
+        cfg.jumpBadgeSize = qBound(16, obj.value(QStringLiteral("BadgeJumpSize")).toInt(34), 96);
+    }
+    if (obj.contains(QStringLiteral("BadgeWindowIconSize"))) {
+        cfg.windowIconSize = qBound(12, obj.value(QStringLiteral("BadgeWindowIconSize")).toInt(20), 64);
+    }
+    if (obj.contains(QStringLiteral("BadgeWindowThumbnailSize"))) {
+        const int s = qBound(16, obj.value(QStringLiteral("BadgeWindowThumbnailSize")).toInt(56), 600);
+        cfg.windowThumbnailSize = s;
+        cfg.windowThumbnailWidth = s;
+        cfg.windowThumbnailHeight = s;
+    }
+    if (obj.contains(QStringLiteral("BadgeWindowLetterFontSize"))) {
+        cfg.windowLetterFontSize = qBound(0, obj.value(QStringLiteral("BadgeWindowLetterFontSize")).toInt(0), 48);
+    }
+    if (obj.contains(QStringLiteral("BadgeWindowLabelFontSize"))) {
+        cfg.windowLabelFontSize = qBound(0, obj.value(QStringLiteral("BadgeWindowLabelFontSize")).toInt(0), 48);
+    }
+
+    if (obj.contains(QStringLiteral("BadgeHudShowIcon"))) {
+        cfg.hudShowIcon = obj.value(QStringLiteral("BadgeHudShowIcon")).toBool(true);
+    }
+    if (obj.contains(QStringLiteral("BadgeHudShowThumbnail"))) {
+        cfg.hudShowThumbnail = obj.value(QStringLiteral("BadgeHudShowThumbnail")).toBool(true);
+    }
+    if (obj.contains(QStringLiteral("BadgeHudSize"))) {
+        cfg.hudBadgeSize = qBound(24, obj.value(QStringLiteral("BadgeHudSize")).toInt(36), 96);
+    }
+    if (obj.contains(QStringLiteral("BadgeHudIconSize"))) {
+        cfg.hudIconSize = qBound(12, obj.value(QStringLiteral("BadgeHudIconSize")).toInt(24), 64);
+    }
+    if (obj.contains(QStringLiteral("BadgeHudThumbnailSize"))) {
+        const int s = qBound(24, obj.value(QStringLiteral("BadgeHudThumbnailSize")).toInt(80), 1000);
+        cfg.hudThumbnailSize = s;
+        cfg.hudThumbnailWidth = s;
+        cfg.hudThumbnailHeight = s;
+    }
+    if (obj.contains(QStringLiteral("BadgeHudLetterFontSize"))) {
+        cfg.hudLetterFontSize = qBound(0, obj.value(QStringLiteral("BadgeHudLetterFontSize")).toInt(0), 48);
+    }
+    if (obj.contains(QStringLiteral("BadgeHudCaptionFontSize"))) {
+        cfg.hudCaptionFontSize = qBound(0, obj.value(QStringLiteral("BadgeHudCaptionFontSize")).toInt(0), 48);
+    }
+    if (obj.contains(QStringLiteral("BadgeHudLocationFontSize"))) {
+        cfg.hudLocationFontSize = qBound(0, obj.value(QStringLiteral("BadgeHudLocationFontSize")).toInt(0), 48);
+    }
+    if (obj.contains(QStringLiteral("BadgeHudMarkColorMode"))) {
+        cfg.hudMarkColorMode = qBound(0, obj.value(QStringLiteral("BadgeHudMarkColorMode")).toInt(0), 2);
+    }
+
+    if (obj.contains(QStringLiteral("BadgeDefaultColor"))) {
+        cfg.defaultBgColor = QColor(obj.value(QStringLiteral("BadgeDefaultColor")).toString(QStringLiteral("#232629")));
+    }
+    if (obj.contains(QStringLiteral("BadgeLetterColorAuto"))) {
+        cfg.letterColorAuto = obj.value(QStringLiteral("BadgeLetterColorAuto")).toBool(true);
+    }
+    if (obj.contains(QStringLiteral("BadgeLetterColor"))) {
+        cfg.letterColor = QColor(obj.value(QStringLiteral("BadgeLetterColor")).toString(QStringLiteral("#ffffff")));
+    }
+    if (obj.contains(QStringLiteral("BadgeLabelColorAuto"))) {
+        cfg.labelColorAuto = obj.value(QStringLiteral("BadgeLabelColorAuto")).toBool(true);
+    }
+    if (obj.contains(QStringLiteral("BadgeLabelUnmarkedColor"))) {
+        cfg.labelUnmarkedColor = QColor(obj.value(QStringLiteral("BadgeLabelUnmarkedColor")).toString(QStringLiteral("#f1c40f")));
+    }
+    if (obj.contains(QStringLiteral("BadgeCaptionColorAuto"))) {
+        cfg.captionColorAuto = obj.value(QStringLiteral("BadgeCaptionColorAuto")).toBool(true);
+    }
+    if (obj.contains(QStringLiteral("BadgeCaptionColor"))) {
+        cfg.captionColor = QColor(obj.value(QStringLiteral("BadgeCaptionColor")).toString(QStringLiteral("#dce1e6")));
+    }
+    if (obj.contains(QStringLiteral("BadgeLocationColorAuto"))) {
+        cfg.locationColorAuto = obj.value(QStringLiteral("BadgeLocationColorAuto")).toBool(true);
+    }
+    if (obj.contains(QStringLiteral("BadgeLocationColor"))) {
+        cfg.locationColor = QColor(obj.value(QStringLiteral("BadgeLocationColor")).toString(QStringLiteral("#f1c40f")));
+    }
+
+    if (obj.contains(QStringLiteral("BadgeLetterFont"))) {
+        cfg.letterFontFamily = obj.value(QStringLiteral("BadgeLetterFont")).toString();
+    }
+    if (obj.contains(QStringLiteral("BadgeLabelFont"))) {
+        cfg.labelFontFamily = obj.value(QStringLiteral("BadgeLabelFont")).toString();
+    }
+    if (obj.contains(QStringLiteral("BadgeCaptionFont"))) {
+        cfg.captionFontFamily = obj.value(QStringLiteral("BadgeCaptionFont")).toString();
+    }
+    if (obj.contains(QStringLiteral("BadgeLocationFont"))) {
+        cfg.locationFontFamily = obj.value(QStringLiteral("BadgeLocationFont")).toString();
+    }
+
+    if (obj.contains(QStringLiteral("BadgeLetterFontSize"))) {
+        cfg.letterFontSize = qBound(0, obj.value(QStringLiteral("BadgeLetterFontSize")).toInt(0), 48);
+    }
+    if (obj.contains(QStringLiteral("BadgeLabelFontSize"))) {
+        cfg.labelFontSize = qBound(0, obj.value(QStringLiteral("BadgeLabelFontSize")).toInt(0), 48);
+    }
+    if (obj.contains(QStringLiteral("BadgeCaptionFontSize"))) {
+        cfg.captionFontSize = qBound(0, obj.value(QStringLiteral("BadgeCaptionFontSize")).toInt(0), 48);
+    }
+    if (obj.contains(QStringLiteral("BadgeLocationFontSize"))) {
+        cfg.locationFontSize = qBound(0, obj.value(QStringLiteral("BadgeLocationFontSize")).toInt(0), 48);
+    }
+}
+
+void ActiveWindowOutlineEffect::setBadgePreview(bool active, bool showWindowBadges, bool showHud, const QString &jsonConfig)
+{
+    if (!active || (!showWindowBadges && !showHud)) {
+        clearBadgePreview();
+        return;
+    }
+
+    m_badgePreviewActive = true;
+    m_previewShowWindowBadges = showWindowBadges;
+    m_previewShowHud = showHud;
+
+    m_previewBadgeConfig = m_badgeConfig;
+    m_previewBadgePosition = m_badgePosition;
+    m_previewBadgeHudPosition = m_badgeHudPosition;
+
+    if (!jsonConfig.isEmpty()) {
+        QJsonParseError err;
+        const QJsonDocument doc = QJsonDocument::fromJson(jsonConfig.toUtf8(), &err);
+        if (err.error == QJsonParseError::NoError && doc.isObject()) {
+            parseBadgeConfigFromJson(m_previewBadgeConfig, m_previewBadgePosition, m_previewBadgeHudPosition, doc.object());
+        }
+    }
+
+    m_badgeTextureCache.clear();
+
+    if (!m_previewSafetyTimer) {
+        m_previewSafetyTimer = std::make_unique<QTimer>();
+        m_previewSafetyTimer->setSingleShot(true);
+        connect(m_previewSafetyTimer.get(), &QTimer::timeout, this, [this]() {
+            clearBadgePreview();
+        });
+    }
+    m_previewSafetyTimer->start(60000);
+
+    effects->addRepaintFull();
+}
+
+void ActiveWindowOutlineEffect::clearBadgePreview()
+{
+    if (!m_badgePreviewActive) {
+        return;
+    }
+    m_badgePreviewActive = false;
+    m_previewShowWindowBadges = false;
+    m_previewShowHud = false;
+    if (m_previewSafetyTimer && m_previewSafetyTimer->isActive()) {
+        m_previewSafetyTimer->stop();
+    }
+    m_badgeTextureCache.clear();
+    effects->addRepaintFull();
+}
+
+void ActiveWindowOutlineEffect::renderBadgePreview(const RenderTarget &renderTarget,
+                                                   const RenderViewport &viewport)
+{
+    if (!m_badgePreviewActive || (!m_previewShowWindowBadges && !m_previewShowHud)) {
+        return;
+    }
+    if (isSessionLockOrLogoutActive()) {
+        return;
+    }
+
+    const auto windows = effects->stackingOrder();
+    QList<EffectWindow *> targetWindows;
+    for (EffectWindow *w : windows) {
+        if (!isEligibleTargetWindow(w)) {
+            continue;
+        }
+        targetWindows.append(w);
+    }
+
+    if (targetWindows.isEmpty()) {
+        return;
+    }
+
+    static const QString kLetters = QStringLiteral("ASDFJKLGHQWERUIOPZXCVBNM1234567890");
+    QMap<EffectWindow *, QChar> winLetters;
+    for (int i = 0; i < targetWindows.size(); ++i) {
+        EffectWindow *w = targetWindows.at(i);
+        QChar ch = (i < kLetters.size()) ? kLetters.at(i) : QChar('?');
+        winLetters[w] = ch;
+    }
+
+    const QRectF screenRect = viewport.renderRect();
+
+    // 1. Render Window Badges if enabled
+    if (m_previewShowWindowBadges) {
+        const int badgeH = m_previewBadgeConfig.windowBadgeSize;
+        for (EffectWindow *target : targetWindows) {
+            if (!target || target->isDeleted() || !target->isOnCurrentDesktop()
+                || target->isMinimized() || !target->isVisible()
+                || (m_hideOnFullScreen && target->isFullScreen())) {
+                continue;
+            }
+
+            const QRectF geo = target->frameGeometry();
+            const QRectF visibleWindowGeo = geo.intersected(screenRect);
+            if (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50) {
+                continue;
+            }
+
+            const QColor bgCol = m_markedWindows.contains(target)
+                ? m_markedWindows.value(target)
+                : m_previewBadgeConfig.defaultBgColor;
+            const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
+            const QString customLabel = m_markedWindowLabels.value(target);
+            const qreal badgeW = OutlineBadge::computeBadgeWidth(m_previewBadgeConfig, badgeH, customLabel);
+            QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_previewBadgePosition, badgeW, badgeH, m_previewBadgeConfig.margin);
+            if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
+            if (badgeRect.right() > screenRect.right() - 4.0) badgeRect.moveRight(screenRect.right() - 4.0);
+            if (badgeRect.top() < screenRect.top() + 4.0) badgeRect.moveTop(screenRect.top() + 4.0);
+            if (badgeRect.bottom() > screenRect.bottom() - 4.0) badgeRect.moveBottom(screenRect.bottom() - 4.0);
+
+            renderBadge(renderTarget, viewport, badgeRect, winLetters.value(target, 'A'), bgCol, textCol, false, badgeH, customLabel, target);
+        }
+    }
+
+    // 2. Render HUD Badges if enabled
+    if (m_previewShowHud) {
+        QList<QPair<QChar, EffectWindow *>> hudTargets;
+        for (EffectWindow *target : targetWindows) {
+            if (!target || target->isDeleted()) {
+                continue;
+            }
+            hudTargets.append(qMakePair(winLetters.value(target, 'A'), target));
+        }
+        if (!hudTargets.isEmpty()) {
+            renderOffscreenJumpTargets(renderTarget, viewport, hudTargets, m_previewBadgeConfig.hudBadgeSize);
+        }
+    }
+}
+
 void ActiveWindowOutlineEffect::setWindowMark(EffectWindow *w, const QColor &color, const QChar &letter, const QString &label)
 {
     if (!isEligibleOutlineWindow(w) || !color.isValid()) {
@@ -3159,7 +3429,8 @@ void ActiveWindowOutlineEffect::paintWindow(const RenderTarget &renderTarget,
     effects->paintWindow(renderTarget, viewport, w, mask, deviceRegion, data);
 #endif
 
-    const bool wantThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail);
+    const bool wantThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail)
+        || (m_badgePreviewActive && (m_previewBadgeConfig.windowShowThumbnail || m_previewBadgeConfig.hudShowThumbnail));
     if (wantThumbnail && w && !w->isDeleted() && isEligibleOutlineWindow(w)
         && !w->isMinimized() && w->isVisible() && !isWindowObscured(w)
         && !(effects && effects->isScreenLocked()) && !w->isLockScreen()) {
@@ -3195,7 +3466,8 @@ void ActiveWindowOutlineEffect::drawWindow(const RenderTarget &renderTarget,
     effects->drawWindow(renderTarget, viewport, w, mask, deviceRegion, data);
 #endif
 
-    const bool wantThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail);
+    const bool wantThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail)
+        || (m_badgePreviewActive && (m_previewBadgeConfig.windowShowThumbnail || m_previewBadgeConfig.hudShowThumbnail));
     if (wantThumbnail && w && !w->isDeleted() && isEligibleOutlineWindow(w)
         && !w->isMinimized() && w->isVisible() && !isWindowObscured(w)
         && !(effects && effects->isScreenLocked()) && !w->isLockScreen()) {
@@ -3484,7 +3756,8 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
     const quint64 sizeKey = static_cast<quint64>(badgeSize);
     const quint64 labelKey = static_cast<quint64>(qHash(customLabel));
     const quint64 windowKey = target ? static_cast<quint64>(qHash(target->internalId())) : 0;
-    const quint64 flagsKey = (m_badgeShowIcon ? 0x1000 : 0) | (m_badgeShowThumbnail ? 0x2000 : 0) | (isJumpMode ? 1 : 0);
+    const quint64 previewKey = m_badgePreviewActive ? 0x8000 : 0;
+    const quint64 flagsKey = (m_badgeShowIcon ? 0x1000 : 0) | (m_badgeShowThumbnail ? 0x2000 : 0) | (isJumpMode ? 1 : 0) | previewKey;
     const quint64 key = (static_cast<quint64>(letter.unicode()) << 48)
         ^ (static_cast<quint64>(bgColor.rgba()) << 16)
         ^ (static_cast<quint64>(textColor.rgba()))
@@ -3500,14 +3773,15 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
         texture = it.value();
     }
     if (!texture || texture->isNull()) {
-        const bool showIconOnWindow = m_badgeConfig.windowShowIcon;
-        const bool showThumbOnWindow = m_badgeConfig.windowShowThumbnail;
+        const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
+        const bool showIconOnWindow = cfg.windowShowIcon;
+        const bool showThumbOnWindow = cfg.windowShowThumbnail;
         const QIcon icon = (showIconOnWindow && target) ? target->icon() : QIcon();
         const QImage thumbnail = (showThumbOnWindow && target)
-            ? captureWindowThumbnail(target, renderTarget, viewport, QSize(m_badgeConfig.windowThumbnailWidth * 2, m_badgeConfig.windowThumbnailHeight * 2))
+            ? captureWindowThumbnail(target, renderTarget, viewport, QSize(cfg.windowThumbnailWidth * 2, cfg.windowThumbnailHeight * 2))
             : QImage();
 
-        const QImage img = OutlineBadge::renderBadgeImage(m_badgeConfig, letter, bgColor, textColor, isJumpMode, badgeSize, scale, customLabel,
+        const QImage img = OutlineBadge::renderBadgeImage(cfg, letter, bgColor, textColor, isJumpMode, badgeSize, scale, customLabel,
                                                           icon, thumbnail);
         auto uploaded = GLTexture::upload(img);
         if (!uploaded) {
@@ -3618,6 +3892,8 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             }
         } else if (target->isMinimized()) {
             loc = isPolish ? QStringLiteral("Zminimalizowane") : tr("Minimized");
+        } else if (m_badgePreviewActive) {
+            loc = isPolish ? QStringLiteral("Bieżący pulpit") : QStringLiteral("Current Desktop");
         } else {
             loc = isPolish ? QStringLiteral("Schowane") : tr("Covered");
         }
@@ -3632,15 +3908,16 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             }
         }
 
-        const bool showIconOnHud = m_badgeConfig.hudShowIcon;
-        const bool showThumbOnHud = m_badgeConfig.hudShowThumbnail;
+        const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
+        const bool showIconOnHud = cfg.hudShowIcon;
+        const bool showThumbOnHud = cfg.hudShowThumbnail;
         const QIcon icon = (showIconOnHud && target) ? target->icon() : QIcon();
         const QImage thumbnail = (showThumbOnHud && target)
-            ? captureWindowThumbnail(target, renderTarget, viewport, QSize(m_badgeConfig.hudThumbnailWidth * 2, m_badgeConfig.hudThumbnailHeight * 2))
+            ? captureWindowThumbnail(target, renderTarget, viewport, QSize(cfg.hudThumbnailWidth * 2, cfg.hudThumbnailHeight * 2))
             : QImage();
 
         const bool isMarked = m_markedWindows.contains(target);
-        const QImage img = OutlineBadge::renderOffscreenTargetPill(m_badgeConfig, letter, bgCol, textCol, loc, caption, badgeSize, scale, customLabel,
+        const QImage img = OutlineBadge::renderOffscreenTargetPill(cfg, letter, bgCol, textCol, loc, caption, badgeSize, scale, customLabel,
                                                                    icon, thumbnail, isMarked);
         auto uploaded = GLTexture::upload(img);
         if (!uploaded) {
@@ -3664,7 +3941,8 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         pillSizes.append(QSizeF(item.width, item.height));
     }
 
-    const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, m_badgeHudPosition);
+    const int hudPos = m_badgePreviewActive ? m_previewBadgeHudPosition : m_badgeHudPosition;
+    const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos);
 
     GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
     GLint previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha;
@@ -4040,6 +4318,9 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
             }
         }
     }
+    if (m_badgePreviewActive) {
+        data.paint += effects->virtualScreenGeometry();
+    }
 }
 
 #ifdef ACTIVE_WINDOW_OUTLINE_PREPAINT_PRESENT_TIME
@@ -4179,7 +4460,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         }
     }
 
-    const bool wantThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail || m_badgeShowThumbnail);
+    const bool wantThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail || m_badgeShowThumbnail)
+        || (m_badgePreviewActive && (m_previewBadgeConfig.windowShowThumbnail || m_previewBadgeConfig.hudShowThumbnail));
     if (wantThumbnail && !inhibited) {
         if (m_activeWindow && m_activeWindow->isOnCurrentDesktop()
             && !m_activeWindow->isMinimized() && m_activeWindow->isVisible() && !m_activeWindow->isDeleted()
@@ -4190,9 +4472,9 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     }
 
     const bool showContinuousBadges = m_outlineEnabled && (m_badgeDisplayMode == 1) && !inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked;
-    const bool hasBadgesToDraw = (showContinuousBadges || (m_outlineEnabled && m_jumpMode));
+    const bool hasBadgesToDraw = (showContinuousBadges || (m_outlineEnabled && m_jumpMode) || m_badgePreviewActive);
 
-    if (!m_outlineEnabled || (!drawOutline && !drawDelayed && !hasRecentToDraw && !hasMarkedToDraw && !hasBadgesToDraw)) {
+    if ((!m_outlineEnabled && !m_badgePreviewActive) || (!drawOutline && !drawDelayed && !hasRecentToDraw && !hasMarkedToDraw && !hasBadgesToDraw)) {
 #ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
         return true;
 #else
@@ -4398,6 +4680,10 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         if (!offscreenTargets.isEmpty()) {
             renderOffscreenJumpTargets(renderTarget, viewport, offscreenTargets, m_badgeConfig.hudBadgeSize);
         }
+    }
+
+    if (m_badgePreviewActive && !inhibited) {
+        renderBadgePreview(renderTarget, viewport);
     }
 
 #ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES

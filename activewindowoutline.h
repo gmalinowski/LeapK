@@ -95,6 +95,8 @@ public Q_SLOTS:
     void prevRecentWindow();
     void nextRecentWindow();
     void applyPreset(const QString &presetName);
+    void setBadgePreview(bool active, bool showWindowBadges, bool showHud, const QString &jsonConfig = QString());
+    void clearBadgePreview();
 
 Q_SIGNALS:
     void stateChanged();
@@ -228,6 +230,8 @@ private:
                                    const RenderViewport &viewport,
                                    const QList<QPair<QChar, EffectWindow *>> &targets,
                                    int badgeSize);
+    void renderBadgePreview(const RenderTarget &renderTarget,
+                            const RenderViewport &viewport);
     QImage captureWindowThumbnail(EffectWindow *target,
                                   const RenderTarget &renderTarget,
                                   const RenderViewport &viewport,
@@ -375,6 +379,15 @@ private:
     bool m_badgeShowIcon = false;
     bool m_badgeShowThumbnail = false;
     OutlineBadge::BadgeConfig m_badgeConfig;
+
+    // Badge Live Preview
+    bool m_badgePreviewActive = false;
+    bool m_previewShowWindowBadges = false;
+    bool m_previewShowHud = false;
+    OutlineBadge::BadgeConfig m_previewBadgeConfig;
+    int m_previewBadgePosition = 0;
+    int m_previewBadgeHudPosition = 0;
+    std::unique_ptr<QTimer> m_previewSafetyTimer;
 
     // Jump to Window
     bool m_jumpMode = false;

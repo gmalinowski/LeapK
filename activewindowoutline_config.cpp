@@ -589,6 +589,50 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->kcfg_BadgeLocationColorAuto, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
     updateMarkWindowUI();
 
+    auto onBadgeSettingChanged = [this]() {
+        if (m_ui->check_previewWindowBadges->isChecked() || m_ui->check_previewHudBadges->isChecked()) {
+            updateBadgePreview();
+        }
+    };
+    connect(m_ui->check_previewWindowBadges, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateBadgePreview);
+    connect(m_ui->check_previewHudBadges, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateBadgePreview);
+
+    connect(m_ui->kcfg_BadgePosition, qOverload<int>(&QComboBox::currentIndexChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeHudPosition, qOverload<int>(&QComboBox::currentIndexChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeMargin, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeJumpSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeCornerRadius, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeOpacity, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeHudMarkColorMode, qOverload<int>(&QComboBox::currentIndexChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeWindowShowIcon, &QCheckBox::toggled, this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeWindowShowThumbnail, &QCheckBox::toggled, this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeWindowIconSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeWindowThumbnailSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeWindowLetterFontSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeWindowLabelFontSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeHudShowIcon, &QCheckBox::toggled, this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeHudShowThumbnail, &QCheckBox::toggled, this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeHudSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeHudIconSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeHudThumbnailSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeHudLetterFontSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeHudCaptionFontSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeHudLocationFontSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeDefaultColor, &KColorButton::changed, this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeLetterColorAuto, &QCheckBox::toggled, this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeLetterColor, &KColorButton::changed, this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeLabelColorAuto, &QCheckBox::toggled, this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeLabelUnmarkedColor, &KColorButton::changed, this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeCaptionColorAuto, &QCheckBox::toggled, this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeCaptionColor, &KColorButton::changed, this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeLocationColorAuto, &QCheckBox::toggled, this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeLocationColor, &KColorButton::changed, this, onBadgeSettingChanged);
+    connect(m_ui->combo_BadgeLetterFont, &QFontComboBox::currentFontChanged, this, onBadgeSettingChanged);
+    connect(m_ui->combo_BadgeLabelFont, &QFontComboBox::currentFontChanged, this, onBadgeSettingChanged);
+    connect(m_ui->combo_BadgeCaptionFont, &QFontComboBox::currentFontChanged, this, onBadgeSettingChanged);
+    connect(m_ui->combo_BadgeLocationFont, &QFontComboBox::currentFontChanged, this, onBadgeSettingChanged);
+
     QString shortcutStr = QStringLiteral("Meta+Space");
     const auto shortcuts = KGlobalAccel::self()->globalShortcut(QStringLiteral("kwin"), QStringLiteral("JumpToWindow"));
     if (!shortcuts.isEmpty() && !shortcuts.first().isEmpty()) {
@@ -609,6 +653,10 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
             m_ui->kcfg_JumpTargets->setItemText(2, QStringLiteral("Wszystkie okna na wszystkich pulpitach wirtualnych (widoczne i zminimalizowane)"));
             m_ui->kcfg_JumpTargets->setItemText(3, QStringLiteral("Tylko oznaczone okna (wszystkie pulpity)"));
         }
+        m_ui->check_previewWindowBadges->setText(QStringLiteral("Podgląd badges okien na ekranie"));
+        m_ui->check_previewWindowBadges->setToolTip(QStringLiteral("Tymczasowo wyświetla przykładowe badges na wszystkich widocznych oknach, aby podejrzeć zmiany na żywo."));
+        m_ui->check_previewHudBadges->setText(QStringLiteral("Podgląd kart HUD na ekranie"));
+        m_ui->check_previewHudBadges->setToolTip(QStringLiteral("Tymczasowo wyświetla wszystkie otwarte okna w HUD na krawędzi ekranu, aby podejrzeć zmiany na żywo."));
     }
 
     connect(m_ui->btnPrecedenceUp, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::movePrecedenceUp);
@@ -652,6 +700,43 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     });
 
     load();
+}
+
+ActiveWindowOutlineConfig::~ActiveWindowOutlineConfig()
+{
+    if (m_ui && (m_ui->check_previewWindowBadges->isChecked() || m_ui->check_previewHudBadges->isChecked())) {
+        QDBusMessage msg = QDBusMessage::createMethodCall(
+            QStringLiteral("org.kde.KWin"),
+            QStringLiteral("/LeapK"),
+            QStringLiteral("org.kde.LeapK"),
+            QStringLiteral("clearBadgePreview")
+        );
+        QDBusConnection::sessionBus().call(msg, QDBus::NoBlock);
+    }
+    delete m_ui;
+}
+
+void ActiveWindowOutlineConfig::updateBadgePreview()
+{
+    const bool showWin = m_ui->check_previewWindowBadges->isChecked();
+    const bool showHud = m_ui->check_previewHudBadges->isChecked();
+    const bool active = showWin || showHud;
+
+    QDBusMessage msg = QDBusMessage::createMethodCall(
+        QStringLiteral("org.kde.KWin"),
+        QStringLiteral("/LeapK"),
+        QStringLiteral("org.kde.LeapK"),
+        QStringLiteral("setBadgePreview")
+    );
+
+    QString jsonStr;
+    if (active) {
+        const QJsonObject s = collectCurrentSettings();
+        jsonStr = QString::fromUtf8(QJsonDocument(s).toJson(QJsonDocument::Compact));
+    }
+
+    msg << active << showWin << showHud << jsonStr;
+    QDBusConnection::sessionBus().call(msg, QDBus::NoBlock);
 }
 
 void ActiveWindowOutlineConfig::updateRecentWindowUI()
