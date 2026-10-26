@@ -35,6 +35,8 @@
 #include <core/rect.h>
 #include "cursoroverlay.h"
 #include <scene/workspacescene.h>
+#include <scene/windowitem.h>
+#include <scene/surfaceitem.h>
 #endif
 #include <KConfigGroup>
 #include <QGuiApplication>
@@ -3135,7 +3137,46 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
         return QImage();
     }
 
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
     auto it = m_thumbnailCache.find(target);
+    const qint64 lastCapture = m_lastCaptureTimestamp.value(target, 0);
+
+    // Fast-path: return cached thumbnail if captured recently (avoids GPU-to-CPU stalls during animations)
+    if (!forceBlit && it != m_thumbnailCache.end() && !it.value().isNull() && (now - lastCapture < 750)) {
+        return it.value();
+    }
+
+#ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
+    // Priority 1: Window's direct surface texture from KWin's scene graph.
+    // This is the window's actual GPU surface buffer. It completely ignores Z-order
+    // (windows on top do NOT obscure it), and works even when the window is covered
+    // or located on another virtual desktop!
+    if (auto wi = target->windowItem()) {
+        if (auto si = wi->surfaceItem()) {
+            if (auto st = dynamic_cast<OpenGLSurfaceTexture*>(si->texture())) {
+                if (st->isValid()) {
+                    auto contents = st->texture();
+                    if (contents.isValid() && !contents.planes.isEmpty() && contents.planes.first()) {
+                        QImage rawImg = contents.planes.first()->toImage();
+                        if (!rawImg.isNull() && rawImg.width() >= 8 && rawImg.height() >= 8) {
+                            QImage thumb = rawImg.scaled(targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                            if (thumb.format() != QImage::Format_RGBA8888 && thumb.format() != QImage::Format_ARGB32_Premultiplied) {
+                                thumb = thumb.convertToFormat(QImage::Format_RGBA8888);
+                            }
+                            for (qsizetype i = 3; i < thumb.sizeInBytes(); i += 4) {
+                                thumb.bits()[i] = 255;
+                            }
+                            m_thumbnailCache[target] = thumb;
+                            m_lastCaptureTimestamp[target] = now;
+                            return thumb;
+                        }
+                    }
+                }
+            }
+        }
+    }
+#endif
+
     if (!forceBlit) {
         if (it != m_thumbnailCache.end() && !it.value().isNull()) {
             // If window is not on current desktop or minimized, use the cached real capture
