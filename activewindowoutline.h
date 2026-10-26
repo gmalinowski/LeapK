@@ -381,6 +381,7 @@ private:
     bool m_badgeShowIcon = false;
     bool m_badgeShowThumbnail = false;
     bool m_badgeHudIncludeAll = false;
+    bool m_badgeLivePreviews = false;
     int m_badgeTimeout = 5;
     QString m_jumpRecentKey = QStringLiteral("Space");
     OutlineBadge::BadgeConfig m_badgeConfig;

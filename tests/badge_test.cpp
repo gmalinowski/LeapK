@@ -718,6 +718,7 @@ void testRecentBadgeAndIncludeAll()
 
     BadgeConfig cfg;
     assert(!cfg.hudIncludeAll);
+    assert(!cfg.livePreviews);
     assert(cfg.badgeTimeout == 5);
     assert(cfg.jumpRecentKey == QStringLiteral("Space"));
 

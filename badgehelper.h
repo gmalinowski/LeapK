@@ -72,6 +72,7 @@ struct BadgeConfig {
     bool hudIncludeAll = false;
     int badgeTimeout = 5;
     QString jumpRecentKey = QStringLiteral("Space");
+    bool livePreviews = false;
 
     // Appearance
     QColor defaultBgColor = QColor(35, 38, 41, 235);

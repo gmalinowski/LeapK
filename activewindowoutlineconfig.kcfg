@@ -263,6 +263,9 @@
         <entry name="BadgeHudIncludeAll" type="Bool">
             <default>false</default>
         </entry>
+        <entry name="BadgeLivePreviews" type="Bool">
+            <default>false</default>
+        </entry>
         <entry name="BadgeShowIcon" type="Bool">
             <default>false</default>
         </entry>

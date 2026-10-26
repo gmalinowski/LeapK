@@ -389,6 +389,7 @@ set_default BadgeDisplayMode 0
 set_default BadgePosition 1
 set_default BadgeHudPosition 0
 set_default BadgeHudIncludeAll false
+set_default BadgeLivePreviews false
 set_default BadgeTimeout 5
 set_default JumpRecentKey "Space"
 set_default BadgeSize 28

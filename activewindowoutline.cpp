@@ -38,6 +38,7 @@
 #include <scene/windowitem.h>
 #ifdef ACTIVE_WINDOW_OUTLINE_HAS_OPENGL_SURFACE_TEXTURE
 #include <scene/surfaceitem.h>
+#include <core/graphicsbuffer.h>
 #endif
 #endif
 #include <KConfigGroup>
@@ -852,6 +853,8 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
 
     m_badgeHudIncludeAll = config.readEntry("BadgeHudIncludeAll", false);
     m_badgeConfig.hudIncludeAll = m_badgeHudIncludeAll;
+    m_badgeLivePreviews = config.readEntry("BadgeLivePreviews", false);
+    m_badgeConfig.livePreviews = m_badgeLivePreviews;
     m_badgeTimeout = qBound(0, config.readEntry("BadgeTimeout", 5), 300);
     m_badgeConfig.badgeTimeout = m_badgeTimeout;
     m_jumpRecentKey = config.readEntry("JumpRecentKey", QStringLiteral("Space"));
@@ -2456,6 +2459,9 @@ static void parseBadgeConfigFromJson(OutlineBadge::BadgeConfig &cfg, int &badgeP
     if (obj.contains(QStringLiteral("BadgeHudIncludeAll"))) {
         cfg.hudIncludeAll = obj.value(QStringLiteral("BadgeHudIncludeAll")).toBool(false);
     }
+    if (obj.contains(QStringLiteral("BadgeLivePreviews"))) {
+        cfg.livePreviews = obj.value(QStringLiteral("BadgeLivePreviews")).toBool(false);
+    }
     if (obj.contains(QStringLiteral("BadgeTimeout"))) {
         cfg.badgeTimeout = qBound(0, obj.value(QStringLiteral("BadgeTimeout")).toInt(5), 300);
     }
@@ -2541,6 +2547,7 @@ void ActiveWindowOutlineEffect::setBadgePreview(bool active, bool showWindowBadg
         const QJsonDocument doc = QJsonDocument::fromJson(jsonConfig.toUtf8(), &err);
         if (err.error == QJsonParseError::NoError && doc.isObject()) {
             parseBadgeConfigFromJson(m_previewBadgeConfig, m_previewBadgePosition, m_previewBadgeHudPosition, doc.object());
+            m_badgeLivePreviews = m_previewBadgeConfig.livePreviews;
         }
     }
 
@@ -3477,7 +3484,8 @@ void ActiveWindowOutlineEffect::paintWindow(const RenderTarget &renderTarget,
         && !(effects && effects->isScreenLocked()) && !w->isLockScreen()) {
         const qint64 now = QDateTime::currentMSecsSinceEpoch();
         const qint64 lastCapture = m_lastCaptureTimestamp.value(w, 0);
-        if (!m_thumbnailCache.contains(w) || (now - lastCapture > 1000)) {
+        const qint64 throttleInterval = m_badgeLivePreviews ? 33 : 1000;
+        if (!m_thumbnailCache.contains(w) || (now - lastCapture >= throttleInterval)) {
             const QSize targetSize(qMax(m_badgeConfig.windowThumbnailWidth, m_badgeConfig.hudThumbnailWidth) * 2,
                                    qMax(m_badgeConfig.windowThumbnailHeight, m_badgeConfig.hudThumbnailHeight) * 2);
             captureWindowThumbnail(w, renderTarget, viewport, targetSize, /*forceBlit=*/false);
@@ -3514,7 +3522,8 @@ void ActiveWindowOutlineEffect::drawWindow(const RenderTarget &renderTarget,
         && !(effects && effects->isScreenLocked()) && !w->isLockScreen()) {
         const qint64 now = QDateTime::currentMSecsSinceEpoch();
         const qint64 lastCapture = m_lastCaptureTimestamp.value(w, 0);
-        if (!m_thumbnailCache.contains(w) || (now - lastCapture > 1000)) {
+        const qint64 throttleInterval = m_badgeLivePreviews ? 33 : 1000;
+        if (!m_thumbnailCache.contains(w) || (now - lastCapture >= throttleInterval)) {
             const QSize targetSize(qMax(m_badgeConfig.windowThumbnailWidth, m_badgeConfig.hudThumbnailWidth) * 2,
                                    qMax(m_badgeConfig.windowThumbnailHeight, m_badgeConfig.hudThumbnailHeight) * 2);
             captureWindowThumbnail(w, renderTarget, viewport, targetSize, /*forceBlit=*/false);
@@ -3540,9 +3549,10 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     auto it = m_thumbnailCache.find(target);
     const qint64 lastCapture = m_lastCaptureTimestamp.value(target, 0);
+    const qint64 cacheInterval = m_badgeLivePreviews ? 33 : 750;
 
     // Fast-path: return cached thumbnail if captured recently (avoids GPU-to-CPU stalls during animations)
-    if (!forceBlit && it != m_thumbnailCache.end() && !it.value().isNull() && (now - lastCapture < 750)) {
+    if (!forceBlit && it != m_thumbnailCache.end() && !it.value().isNull() && (now - lastCapture < cacheInterval)) {
         return it.value();
     }
 
@@ -3562,6 +3572,24 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
                             QImage thumb = rawImg.scaled(targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
                             if (thumb.format() != QImage::Format_RGBA8888 && thumb.format() != QImage::Format_ARGB32_Premultiplied) {
                                 thumb = thumb.convertToFormat(QImage::Format_RGBA8888);
+                            }
+                            // Wayland clients rendering via DMABUF / EGL (e.g. Firefox) store textures
+                            // with coordinate (0,0) at bottom-left in GL, making direct toImage() inverted.
+                            // SHM raster surfaces (Kate, Dolphin) upload top-to-bottom so they are not inverted.
+                            bool needsFlip = false;
+                            if (auto buf = si->buffer()) {
+                                if (buf->dmabufAttributes()) {
+                                    needsFlip = true;
+                                }
+                            } else if (target->isWaylandClient()) {
+                                needsFlip = true;
+                            }
+                            if (needsFlip) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+                                thumb = thumb.flipped(Qt::Vertical);
+#else
+                                thumb = thumb.mirrored(false, true);
+#endif
                             }
                             for (qsizetype i = 3; i < thumb.sizeInBytes(); i += 4) {
                                 thumb.bits()[i] = 255;
@@ -3649,13 +3677,13 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
                         GLFramebuffer::pushFramebuffer(m_thumbFbo.get());
                         glReadPixels(0, 0, actualThumbSize.width(), actualThumbSize.height(), GL_RGBA, GL_UNSIGNED_BYTE, thumb.bits());
                         GLFramebuffer::popFramebuffer();
+                    }
+                    if (!thumb.isNull()) {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
                         thumb = thumb.flipped(Qt::Vertical);
 #else
                         thumb = thumb.mirrored(false, true);
 #endif
-                    }
-                    if (!thumb.isNull()) {
                         if (thumb.format() != QImage::Format_RGBA8888 && thumb.format() != QImage::Format_ARGB32_Premultiplied) {
                             thumb = thumb.convertToFormat(QImage::Format_RGBA8888);
                         }
@@ -3663,6 +3691,7 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
                             thumb.bits()[i] = 255;
                         }
                         m_thumbnailCache[target] = thumb;
+                        m_lastCaptureTimestamp[target] = now;
                         if (savedFbo && GLFramebuffer::currentFramebuffer() != savedFbo) {
                             GLFramebuffer::pushFramebuffer(savedFbo);
                         }
@@ -3712,11 +3741,6 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
             if (thumb.isNull()) {
                 thumb = QImage(actualThumbSize, QImage::Format_RGBA8888);
                 glReadPixels(0, 0, actualThumbSize.width(), actualThumbSize.height(), GL_RGBA, GL_UNSIGNED_BYTE, thumb.bits());
-#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
-                thumb = thumb.flipped(Qt::Vertical);
-#else
-                thumb = thumb.mirrored(false, true);
-#endif
             }
             GLFramebuffer::popFramebuffer();
             if (savedFbo && GLFramebuffer::currentFramebuffer() != savedFbo) {
@@ -3724,6 +3748,11 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
             }
 
             if (!thumb.isNull()) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+                thumb = thumb.flipped(Qt::Vertical);
+#else
+                thumb = thumb.mirrored(false, true);
+#endif
                 if (thumb.format() != QImage::Format_RGBA8888 && thumb.format() != QImage::Format_ARGB32_Premultiplied) {
                     thumb = thumb.convertToFormat(QImage::Format_RGBA8888);
                 }
@@ -3814,13 +3843,15 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
 
     std::shared_ptr<GLTexture> texture;
     auto it = m_badgeTextureCache.find(key);
-    if (it != m_badgeTextureCache.end()) {
-        texture = it.value();
+    const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
+    const bool showThumbOnWindow = cfg.windowShowThumbnail;
+    if (!m_badgeLivePreviews || !showThumbOnWindow) {
+        if (it != m_badgeTextureCache.end()) {
+            texture = it.value();
+        }
     }
     if (!texture || texture->isNull()) {
-        const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
         const bool showIconOnWindow = cfg.windowShowIcon;
-        const bool showThumbOnWindow = cfg.windowShowThumbnail;
         const QIcon icon = (showIconOnWindow && target) ? target->icon() : QIcon();
         const QImage thumbnail = (showThumbOnWindow && target)
             ? captureWindowThumbnail(target, renderTarget, viewport, QSize(cfg.windowThumbnailWidth * 2, cfg.windowThumbnailHeight * 2))
@@ -4513,9 +4544,12 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     const bool wantThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail || m_badgeShowThumbnail)
         || (m_badgePreviewActive && (m_previewBadgeConfig.windowShowThumbnail || m_previewBadgeConfig.hudShowThumbnail));
     if (wantThumbnail && !inhibited) {
+        const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+        const qint64 lastCapture = m_lastCaptureTimestamp.value(m_activeWindow, 0);
+        const qint64 throttleInterval = m_badgeLivePreviews ? 33 : 1000;
         if (m_activeWindow && m_activeWindow->isOnCurrentDesktop()
             && !m_activeWindow->isMinimized() && m_activeWindow->isVisible() && !m_activeWindow->isDeleted()
-            && timeToSample) {
+            && (!m_thumbnailCache.contains(m_activeWindow) || (nowMs - lastCapture >= throttleInterval))) {
             captureWindowThumbnail(m_activeWindow, renderTarget, viewport,
                                    QSize(m_badgeConfig.hudThumbnailWidth * 2, m_badgeConfig.hudThumbnailHeight * 2));
         }
@@ -4760,6 +4794,10 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
 
     if (m_badgePreviewActive && !inhibited) {
         renderBadgePreview(renderTarget, viewport);
+    }
+
+    if (m_badgeLivePreviews && hasBadgesToDraw && wantThumbnail && !inhibited) {
+        effects->addRepaintFull();
     }
 
 #ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES

@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.6.0-beta2] - 2026-10-26
 
 ### Added
+- **Live Window Previews Option (`BadgeLivePreviews`)**:
+  - Added an option to continuously refresh window thumbnails in real time (up to 30–60 fps) while badges or edge HUD cards are visible.
+  - Enables smooth real-time monitoring of playing videos, browser animations, and terminal output inside badges without UI lag or GPU stalls.
+  - Full configuration synchronization across settings GUI, KConfig schema, shell installers, uninstallers, and D-Bus IPC.
 - **HUD Include All Windows Option (`BadgeHudIncludeAll`)**:
   - Added an option to display cards in the edge HUD for all open windows, regardless of whether they are visible on screen, covered, minimized, or on other virtual desktops.
 - **Badges Display Timeout (`BadgeTimeout`)**:
@@ -15,6 +19,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Migrated "Jump to recent window" from KDE global shortcuts (`KGlobalAccel`) into LeapK settings as an exclusive modal 2nd-level jump key (default: `Space`).
 - **Live On-Screen Badges Preview**:
   - Added live preview toggles for on-window badges and edge HUD cards with real-time updates directly from the settings module.
+
+### Fixed
+- **Inverted Window Previews (Firefox DMABUF & OpenGL FBO Readbacks)**:
+  - Fixed upside-down window thumbnail previews for hardware-accelerated Wayland clients using DMABUF (e.g. Firefox, Chromium, mpv) where OpenGL texture coordinate space inverted raw buffer memory.
+  - Ensured all offscreen framebuffer (FBO) thumbnail readback paths (`blitFromRenderTarget` and `drawWindow`) are vertically flipped to match `QImage` top-left raster coordinates.
 
 ### Changed & Improved
 - **Clean Jump-to-Recent Badge Layout (`[ Key | Space ]`)**:
