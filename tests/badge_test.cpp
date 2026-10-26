@@ -421,6 +421,135 @@ void testBadgeConfigAndStyling()
     assert(hudPill.height() >= 44);
 }
 
+void testAutoContrastTypography()
+{
+    // Luminance contrast rules:
+    // Bright yellow (#f1c40f) -> Black text
+    assert(contrastingTextColor(QColor(QStringLiteral("#f1c40f"))) == Qt::black);
+    // Pure white (#ffffff) -> Black text
+    assert(contrastingTextColor(QColor(QStringLiteral("#ffffff"))) == Qt::black);
+    // Bright cyan (#00d2d3) -> Black text
+    assert(contrastingTextColor(QColor(QStringLiteral("#00d2d3"))) == Qt::black);
+
+    // Dark charcoal (#232629) -> White text
+    assert(contrastingTextColor(QColor(QStringLiteral("#232629"))) == Qt::white);
+    // Deep midnight blue (#1b263b) -> White text
+    assert(contrastingTextColor(QColor(QStringLiteral("#1b263b"))) == Qt::white);
+
+    OutlineBadge::BadgeConfig cfg;
+    cfg.letterColorAuto = true;
+    cfg.labelColorAuto = true;
+    cfg.captionColorAuto = true;
+    cfg.locationColorAuto = true;
+
+    // Render badge with Auto contrast on bright yellow background
+    QImage yellowBadge = renderBadgeImage(cfg, QLatin1Char('A'), QColor(QStringLiteral("#f1c40f")), QColor(), false, 28, 1.0, QStringLiteral("Test"));
+    assert(!yellowBadge.isNull());
+    // Sample center of letter area: text drawn in black on yellow background
+    bool foundDarkPixel = false;
+    for (int y = 5; y < yellowBadge.height() - 5; ++y) {
+        for (int x = 5; x < 25; ++x) {
+            const QColor pCol = yellowBadge.pixelColor(x, y);
+            if (pCol.red() < 60 && pCol.green() < 60 && pCol.blue() < 60 && pCol.alpha() > 200) {
+                foundDarkPixel = true;
+                break;
+            }
+        }
+        if (foundDarkPixel) break;
+    }
+    assert(foundDarkPixel);
+
+    // Disable auto contrast and set explicit pink letter
+    cfg.letterColorAuto = false;
+    cfg.letterColor = QColor(QStringLiteral("#ff3366"));
+    QImage customColBadge = renderBadgeImage(cfg, QLatin1Char('B'), QColor(QStringLiteral("#232629")), QColor(), false, 28, 1.0);
+    assert(!customColBadge.isNull());
+}
+
+void testWindowPreviewOnWindowBadges()
+{
+    OutlineBadge::BadgeConfig cfg;
+    cfg.windowBadgeSize = 28;
+    cfg.thumbnailWidth = 56;
+    cfg.thumbnailHeight = 32;
+    cfg.showThumbnail = false;
+
+    QImage badgeNoThumb = renderBadgeImage(cfg, QLatin1Char('K'), QColor(41, 128, 185), Qt::white, false, 28, 1.0);
+    assert(!badgeNoThumb.isNull());
+    assert(badgeNoThumb.height() == 28);
+
+    // Create a 64x36 test thumbnail with distinct red/blue halves
+    QImage testThumb(64, 36, QImage::Format_RGBA8888);
+    testThumb.fill(QColor(0, 120, 215, 255));
+    {
+        QPainter p(&testThumb);
+        p.fillRect(0, 0, 32, 36, QColor(220, 40, 40, 255));
+    }
+
+    cfg.showThumbnail = true;
+    const qreal computedW = OutlineBadge::computeBadgeWidth(cfg, 28);
+    QImage badgeWithThumb = renderBadgeImage(cfg, QLatin1Char('K'), QColor(41, 128, 185), Qt::white, false, 28, 1.0,
+                                             QString(), QIcon(), testThumb);
+    assert(!badgeWithThumb.isNull());
+    assert(badgeWithThumb.height() == 28);
+    assert(badgeWithThumb.width() == qRound(computedW));
+    assert(badgeWithThumb.width() > badgeNoThumb.width());
+
+    // Verify thumbnail pixels were actually drawn onto the badge
+    bool foundThumbPixel = false;
+    for (int y = 4; y < badgeWithThumb.height() - 4; ++y) {
+        for (int x = 30; x < badgeWithThumb.width() - 4; ++x) {
+            const QColor col = badgeWithThumb.pixelColor(x, y);
+            // Should find red pixel from the left half of testThumb
+            if (col.red() > 180 && col.blue() < 80) {
+                foundThumbPixel = true;
+                break;
+            }
+        }
+        if (foundThumbPixel) break;
+    }
+    assert(foundThumbPixel);
+}
+
+void testHudMarkColorModes()
+{
+    OutlineBadge::BadgeConfig cfg;
+    cfg.hudBadgeSize = 36;
+    const QColor markColor(QStringLiteral("#f1c40f")); // Bright yellow mark
+
+    // Mode 0: Full mark color
+    cfg.hudMarkColorMode = 0;
+    QImage hudFull = renderOffscreenTargetPill(cfg, QLatin1Char('M'), markColor, Qt::black,
+                                             QStringLiteral("Desktop 1"), QStringLiteral("Terminal"), 36, 1.0,
+                                             QStringLiteral("Dev"), QIcon(), QImage(), true);
+    assert(!hudFull.isNull());
+    // Sample background of the card in the gap between badge and text
+    const int sampleX = 8 + (hudFull.height() - 8) + 4;
+    const int sampleY = hudFull.height() / 2;
+    const QColor bgFull = hudFull.pixelColor(sampleX, sampleY);
+    assert(bgFull.red() > 180 && bgFull.green() > 140 && bgFull.blue() < 60);
+
+    // Mode 1: Tinted mark color
+    cfg.hudMarkColorMode = 1;
+    QImage hudTinted = renderOffscreenTargetPill(cfg, QLatin1Char('M'), markColor, Qt::black,
+                                               QStringLiteral("Desktop 1"), QStringLiteral("Terminal"), 36, 1.0,
+                                               QStringLiteral("Dev"), QIcon(), QImage(), true);
+    assert(!hudTinted.isNull());
+    const QColor bgTinted = hudTinted.pixelColor(sampleX, sampleY);
+    // Tinted has intermediate red/green higher than charcoal
+    assert(bgTinted.red() > 60 && bgTinted.green() > 50);
+
+    // Mode 2: Dark card with mark badge & border
+    cfg.hudMarkColorMode = 2;
+    QImage hudDark = renderOffscreenTargetPill(cfg, QLatin1Char('M'), markColor, Qt::black,
+                                             QStringLiteral("Desktop 1"), QStringLiteral("Terminal"), 36, 1.0,
+                                             QStringLiteral("Dev"), QIcon(), QImage(), true);
+    assert(!hudDark.isNull());
+    const QColor bgDark = hudDark.pixelColor(sampleX, sampleY);
+    // Charcoal base has low RGB values
+    assert(bgDark.red() < 40 && bgDark.green() < 40 && bgDark.blue() < 45);
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -435,6 +564,9 @@ int main(int argc, char *argv[])
     testComputeHudPillPositions();
     testIconAndThumbnailBadges();
     testBadgeConfigAndStyling();
+    testAutoContrastTypography();
+    testWindowPreviewOnWindowBadges();
+    testHudMarkColorModes();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

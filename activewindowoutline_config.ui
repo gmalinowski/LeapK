@@ -2168,6 +2168,38 @@
                 </property>
                </widget>
               </item>
+              <item row="3" column="0">
+               <widget class="QLabel" name="label_badgeHudMarkColorMode">
+                <property name="text">
+                 <string>HUD card color for marked windows:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Controls how window mark colors are applied to HUD hint cards: full background, subtle tint, or dark card with colored badge.</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="1">
+               <widget class="QComboBox" name="kcfg_BadgeHudMarkColorMode">
+                <property name="toolTip">
+                 <string>Controls how window mark colors are applied to HUD hint cards.</string>
+                </property>
+                <item>
+                 <property name="text">
+                  <string>Full mark color (same as window mark)</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Tinted mark color</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Dark card with mark border &amp; badge</string>
+                 </property>
+                </item>
+               </widget>
+              </item>
              </layout>
             </widget>
            </item>
@@ -2214,6 +2246,19 @@
                   </property>
                   <property name="suffix">
                    <string> px</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="kcfg_BadgeLetterColorAuto">
+                  <property name="text">
+                   <string>Auto</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                  <property name="toolTip">
+                   <string>Automatically compute high-contrast black or white text color based on background luminance.</string>
                   </property>
                  </widget>
                 </item>
@@ -2269,6 +2314,19 @@
                  </widget>
                 </item>
                 <item>
+                 <widget class="QCheckBox" name="kcfg_BadgeLabelColorAuto">
+                  <property name="text">
+                   <string>Auto</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                  <property name="toolTip">
+                   <string>Automatically compute high-contrast black or white text color based on background luminance.</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
                  <widget class="KColorButton" name="kcfg_BadgeLabelUnmarkedColor">
                   <property name="alphaChannelEnabled">
                    <bool>true</bool>
@@ -2320,6 +2378,19 @@
                  </widget>
                 </item>
                 <item>
+                 <widget class="QCheckBox" name="kcfg_BadgeCaptionColorAuto">
+                  <property name="text">
+                   <string>Auto</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                  <property name="toolTip">
+                   <string>Automatically compute high-contrast text color based on HUD card background luminance.</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
                  <widget class="KColorButton" name="kcfg_BadgeCaptionColor">
                   <property name="alphaChannelEnabled">
                    <bool>true</bool>
@@ -2367,6 +2438,19 @@
                   </property>
                   <property name="suffix">
                    <string> px</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="kcfg_BadgeLocationColorAuto">
+                  <property name="text">
+                   <string>Auto</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                  <property name="toolTip">
+                   <string>Automatically compute high-contrast text color based on HUD card background luminance.</string>
                   </property>
                  </widget>
                 </item>

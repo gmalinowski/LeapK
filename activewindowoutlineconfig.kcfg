@@ -293,6 +293,23 @@
             <min>10</min>
             <max>100</max>
         </entry>
+        <entry name="BadgeHudMarkColorMode" type="Int">
+            <default>0</default>
+            <min>0</min>
+            <max>2</max>
+        </entry>
+        <entry name="BadgeLetterColorAuto" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="BadgeLabelColorAuto" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="BadgeCaptionColorAuto" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="BadgeLocationColorAuto" type="Bool">
+            <default>true</default>
+        </entry>
         <entry name="BadgeDefaultColor" type="Color">
             <default>#232629</default>
         </entry>

@@ -147,10 +147,15 @@ public:
                     {QStringLiteral("BadgeThumbnailHeight"), QStringLiteral("Wysokość miniatury okna"), QStringLiteral("Thumbnail Height")},
                     {QStringLiteral("BadgeCornerRadius"), QStringLiteral("Promień zaokrąglenia narożników"), QStringLiteral("Badge Corner Radius")},
                     {QStringLiteral("BadgeOpacity"), QStringLiteral("Przezroczystość tła plakietki"), QStringLiteral("Badge Opacity")},
+                    {QStringLiteral("BadgeHudMarkColorMode"), QStringLiteral("Kolor kart HUD dla okien oznaczonych"), QStringLiteral("HUD Card Mark Color Mode")},
                     {QStringLiteral("BadgeDefaultColor"), QStringLiteral("Domyślny kolor tła plakietki"), QStringLiteral("Badge Default Background Color")},
+                    {QStringLiteral("BadgeLetterColorAuto"), QStringLiteral("Automatyczny kontrast litery skoku"), QStringLiteral("Auto Contrast Jump Letter")},
                     {QStringLiteral("BadgeLetterColor"), QStringLiteral("Kolor litery skoku"), QStringLiteral("Jump Letter Color")},
+                    {QStringLiteral("BadgeLabelColorAuto"), QStringLiteral("Automatyczny kontrast etykiety okna"), QStringLiteral("Auto Contrast Window Label")},
                     {QStringLiteral("BadgeLabelUnmarkedColor"), QStringLiteral("Kolor etykiety (nieoznaczone)"), QStringLiteral("Custom Label Color (Unmarked)")},
+                    {QStringLiteral("BadgeCaptionColorAuto"), QStringLiteral("Automatyczny kontrast tytułu w HUD"), QStringLiteral("Auto Contrast HUD Window Caption")},
                     {QStringLiteral("BadgeCaptionColor"), QStringLiteral("Kolor tytułu okna w HUD"), QStringLiteral("HUD Window Caption Color")},
+                    {QStringLiteral("BadgeLocationColorAuto"), QStringLiteral("Automatyczny kontrast lokalizacji w HUD"), QStringLiteral("Auto Contrast HUD Location")},
                     {QStringLiteral("BadgeLocationColor"), QStringLiteral("Kolor lokalizacji/pulpitu w HUD"), QStringLiteral("HUD Location Color")},
                     {QStringLiteral("BadgeLetterFont"), QStringLiteral("Krój czcionki litery skoku"), QStringLiteral("Jump Letter Font")},
                     {QStringLiteral("BadgeLabelFont"), QStringLiteral("Krój czcionki etykiety okna"), QStringLiteral("Window Label Font")},
@@ -233,6 +238,24 @@ public:
             if (p == 1) return isPolish ? QStringLiteral("Góra ekranu (Top)") : QStringLiteral("Top");
             if (p == 2) return isPolish ? QStringLiteral("Lewa krawędź (Left)") : QStringLiteral("Left");
             return isPolish ? QStringLiteral("Prawa krawędź (Right)") : QStringLiteral("Right");
+        }
+        if (key == QStringLiteral("BadgeHudMarkColorMode")) {
+            const int mode = val.toInt();
+            if (isPolish) {
+                switch (mode) {
+                case 0: return QStringLiteral("Pełny kolor oznaczenia");
+                case 1: return QStringLiteral("Zabarwienie kolorem oznaczenia");
+                case 2: return QStringLiteral("Ciemna karta z plakietką");
+                default: return QString::number(mode);
+                }
+            } else {
+                switch (mode) {
+                case 0: return QStringLiteral("Full mark color");
+                case 1: return QStringLiteral("Tinted mark color");
+                case 2: return QStringLiteral("Dark card with badge");
+                default: return QString::number(mode);
+                }
+            }
         }
         if (key == QStringLiteral("BadgePosition")) {
             const int p = val.toInt();

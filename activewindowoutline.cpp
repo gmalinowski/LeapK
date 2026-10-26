@@ -807,10 +807,15 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_badgeConfig.margin = m_badgeMargin;
     m_badgeConfig.cornerRadius = qBound(0, config.readEntry("BadgeCornerRadius", 6), 32);
     m_badgeConfig.opacityPercent = qBound(10, config.readEntry("BadgeOpacity", 92), 100);
+    m_badgeConfig.hudMarkColorMode = qBound(0, config.readEntry("BadgeHudMarkColorMode", 0), 2);
     m_badgeConfig.defaultBgColor = config.readEntry("BadgeDefaultColor", QColor(QStringLiteral("#232629")));
+    m_badgeConfig.letterColorAuto = config.readEntry("BadgeLetterColorAuto", true);
     m_badgeConfig.letterColor = config.readEntry("BadgeLetterColor", QColor(QStringLiteral("#ffffff")));
+    m_badgeConfig.labelColorAuto = config.readEntry("BadgeLabelColorAuto", true);
     m_badgeConfig.labelUnmarkedColor = config.readEntry("BadgeLabelUnmarkedColor", QColor(QStringLiteral("#f1c40f")));
+    m_badgeConfig.captionColorAuto = config.readEntry("BadgeCaptionColorAuto", true);
     m_badgeConfig.captionColor = config.readEntry("BadgeCaptionColor", QColor(QStringLiteral("#dce1e6")));
+    m_badgeConfig.locationColorAuto = config.readEntry("BadgeLocationColorAuto", true);
     m_badgeConfig.locationColor = config.readEntry("BadgeLocationColor", QColor(QStringLiteral("#f1c40f")));
     m_badgeConfig.letterFontFamily = config.readEntry("BadgeLetterFont", QString());
     m_badgeConfig.labelFontFamily = config.readEntry("BadgeLabelFont", QString());
@@ -2668,6 +2673,8 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     }
 
     m_jumpMode = true;
+    m_badgeTextureCache.clear();
+    m_thumbnailCache.clear();
     if (m_jumpTimeoutTimer) {
         m_jumpTimeoutTimer->start(5000);
     }
@@ -2998,7 +3005,13 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
             const QImage *img = renderTarget.image();
             const QRect src = windowRect.intersected(img->rect());
             if (!src.isEmpty()) {
-                const QImage thumb = img->copy(src).scaled(targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                QImage thumb = img->copy(src).scaled(targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                if (thumb.format() != QImage::Format_RGBA8888 && thumb.format() != QImage::Format_ARGB32_Premultiplied) {
+                    thumb = thumb.convertToFormat(QImage::Format_RGBA8888);
+                }
+                for (qsizetype i = 3; i < thumb.sizeInBytes(); i += 4) {
+                    thumb.bits()[i] = 255;
+                }
                 m_thumbnailCache[target] = thumb;
                 return thumb;
             }
@@ -3017,20 +3030,31 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
             const OutlineRect dstRect(0, 0, targetSize.width(), targetSize.height());
             const bool blitOk = m_thumbFbo->blitFromRenderTarget(renderTarget, viewport, srcRect, dstRect);
             if (blitOk) {
-                QImage thumb(targetSize, QImage::Format_RGBA8888);
-                GLFramebuffer::pushFramebuffer(m_thumbFbo.get());
-                glReadPixels(0, 0, targetSize.width(), targetSize.height(), GL_RGBA, GL_UNSIGNED_BYTE, thumb.bits());
-                GLFramebuffer::popFramebuffer();
+                QImage thumb = m_thumbTexture->toImage();
+                if (thumb.isNull()) {
+                    thumb = QImage(targetSize, QImage::Format_RGBA8888);
+                    GLFramebuffer::pushFramebuffer(m_thumbFbo.get());
+                    glReadPixels(0, 0, targetSize.width(), targetSize.height(), GL_RGBA, GL_UNSIGNED_BYTE, thumb.bits());
+                    GLFramebuffer::popFramebuffer();
 #if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
-                const QImage mirrored = thumb.flipped(Qt::Vertical);
+                    thumb = thumb.flipped(Qt::Vertical);
 #else
-                const QImage mirrored = thumb.mirrored(false, true);
+                    thumb = thumb.mirrored(false, true);
 #endif
-                m_thumbnailCache[target] = mirrored;
-                if (savedFbo && GLFramebuffer::currentFramebuffer() != savedFbo) {
-                    GLFramebuffer::pushFramebuffer(savedFbo);
                 }
-                return mirrored;
+                if (!thumb.isNull()) {
+                    if (thumb.format() != QImage::Format_RGBA8888 && thumb.format() != QImage::Format_ARGB32_Premultiplied) {
+                        thumb = thumb.convertToFormat(QImage::Format_RGBA8888);
+                    }
+                    for (qsizetype i = 3; i < thumb.sizeInBytes(); i += 4) {
+                        thumb.bits()[i] = 255;
+                    }
+                    m_thumbnailCache[target] = thumb;
+                    if (savedFbo && GLFramebuffer::currentFramebuffer() != savedFbo) {
+                        GLFramebuffer::pushFramebuffer(savedFbo);
+                    }
+                    return thumb;
+                }
             }
             if (savedFbo && GLFramebuffer::currentFramebuffer() != savedFbo) {
                 GLFramebuffer::pushFramebuffer(savedFbo);
@@ -3040,7 +3064,7 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
 
     // 2. Fallback for offscreen / covered / minimized windows: stylish preview card with app icon and title
     QImage fallback(targetSize, QImage::Format_RGBA8888_Premultiplied);
-    fallback.fill(QColor(26, 29, 33, 230));
+    fallback.fill(QColor(26, 29, 33, 245));
     QPainter p(&fallback);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
@@ -3232,8 +3256,9 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             ? captureWindowThumbnail(target, renderTarget, viewport, QSize(m_badgeConfig.thumbnailWidth * 2, m_badgeConfig.thumbnailHeight * 2))
             : QImage();
 
+        const bool isMarked = m_markedWindows.contains(target);
         const QImage img = OutlineBadge::renderOffscreenTargetPill(m_badgeConfig, letter, bgCol, textCol, loc, caption, badgeSize, scale, customLabel,
-                                                                   icon, thumbnail);
+                                                                   icon, thumbnail, isMarked);
         auto uploaded = GLTexture::upload(img);
         if (!uploaded) {
             continue;

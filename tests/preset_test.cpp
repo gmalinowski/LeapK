@@ -169,7 +169,8 @@ void testPresetActivationCategories()
             assert(false);
         }
     }
-    assert(dialogKeys.size() == 101);
+    // dialogKeys contains all default settings keys plus virtual 'ShaderEffect'
+    assert(dialogKeys.size() == defaults.size() + 1);
 
     // Test formatting helper
     assert(!LeapK::PresetActivationDialog::formatValue(QStringLiteral("BorderWidth"), 4, true).isEmpty());

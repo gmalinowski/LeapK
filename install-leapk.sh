@@ -399,10 +399,15 @@ set_default BadgeThumbnailWidth 56
 set_default BadgeThumbnailHeight 32
 set_default BadgeCornerRadius 6
 set_default BadgeOpacity 92
+set_default BadgeHudMarkColorMode 0
 set_default BadgeDefaultColor "#232629"
+set_default BadgeLetterColorAuto true
 set_default BadgeLetterColor "#ffffff"
+set_default BadgeLabelColorAuto true
 set_default BadgeLabelUnmarkedColor "#f1c40f"
+set_default BadgeCaptionColorAuto true
 set_default BadgeCaptionColor "#dce1e6"
+set_default BadgeLocationColorAuto true
 set_default BadgeLocationColor "#f1c40f"
 set_default BadgeLetterFont ""
 set_default BadgeLabelFont ""

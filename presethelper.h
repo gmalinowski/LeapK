@@ -98,10 +98,15 @@ inline QJsonObject getDefaultSettings()
     s[QStringLiteral("BadgeThumbnailHeight")] = 32;
     s[QStringLiteral("BadgeCornerRadius")] = 6;
     s[QStringLiteral("BadgeOpacity")] = 92;
+    s[QStringLiteral("BadgeHudMarkColorMode")] = 0;
     s[QStringLiteral("BadgeDefaultColor")] = QStringLiteral("#232629");
+    s[QStringLiteral("BadgeLetterColorAuto")] = true;
     s[QStringLiteral("BadgeLetterColor")] = QStringLiteral("#ffffff");
+    s[QStringLiteral("BadgeLabelColorAuto")] = true;
     s[QStringLiteral("BadgeLabelUnmarkedColor")] = QStringLiteral("#f1c40f");
+    s[QStringLiteral("BadgeCaptionColorAuto")] = true;
     s[QStringLiteral("BadgeCaptionColor")] = QStringLiteral("#dce1e6");
+    s[QStringLiteral("BadgeLocationColorAuto")] = true;
     s[QStringLiteral("BadgeLocationColor")] = QStringLiteral("#f1c40f");
     s[QStringLiteral("BadgeLetterFont")] = QString();
     s[QStringLiteral("BadgeLabelFont")] = QString();
