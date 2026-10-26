@@ -352,19 +352,23 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
     const int iconSectionW = hasIcon ? (iconDim + 10) : 0;
 
     const bool hasThumb = (cfg.windowShowThumbnail || cfg.showThumbnail) && !thumbnail.isNull();
-    const int effThumbW = (cfg.windowThumbnailWidth > 0) ? cfg.windowThumbnailWidth : cfg.thumbnailWidth;
-    const int effThumbH = (cfg.windowThumbnailHeight > 0) ? cfg.windowThumbnailHeight : cfg.thumbnailHeight;
-    const int maxThumbH = qMax(12, effectiveBaseHeight - 6);
-    const int thumbH = hasThumb
-        ? ((effThumbH > 0) ? qMin(effThumbH, maxThumbH) : maxThumbH)
-        : 0;
-    const qreal rawThumbAspect = (effThumbH > 0 && effThumbW > 0)
-        ? (qreal(effThumbW) / qreal(effThumbH))
-        : ((hasThumb && thumbnail.height() > 0) ? (qreal(thumbnail.width()) / qreal(thumbnail.height())) : 1.6);
-    const qreal thumbAspect = qBound(1.0, rawThumbAspect, 2.0);
-    const int thumbW = hasThumb
-        ? ((effThumbW > 0) ? qMin(effThumbW, qRound(thumbH * thumbAspect)) : qRound(thumbH * thumbAspect))
-        : 0;
+    const int maxThumbW = (cfg.windowThumbnailWidth > 0) ? cfg.windowThumbnailWidth : cfg.thumbnailWidth;
+    const int maxThumbH = (cfg.windowThumbnailHeight > 0) ? cfg.windowThumbnailHeight : cfg.thumbnailHeight;
+    const int maxPillThumbH = qMax(12, effectiveBaseHeight - 6);
+    int thumbW = 0;
+    int thumbH = 0;
+    if (hasThumb) {
+        if (thumbnail.width() > 0 && thumbnail.height() > 0) {
+            const int targetMaxH = (maxThumbH > 0) ? qMin(maxThumbH, maxPillThumbH) : maxPillThumbH;
+            const QSize maxBox(maxThumbW, targetMaxH);
+            const QSize fitSize = thumbnail.size().scaled(maxBox, Qt::KeepAspectRatio);
+            thumbW = qMax(10, fitSize.width());
+            thumbH = qMax(10, fitSize.height());
+        } else {
+            thumbH = (maxThumbH > 0) ? qMin(maxThumbH, maxPillThumbH) : maxPillThumbH;
+            thumbW = (maxThumbW > 0) ? maxThumbW : qRound(thumbH * 1.6);
+        }
+    }
     const int thumbSectionW = hasThumb ? (thumbW + 10) : 0;
 
     const QString labelFam = cfg.labelFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.labelFontFamily.trimmed();
@@ -550,11 +554,6 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     const int effectiveThumbH = (cfg.hudThumbnailHeight > 0) ? cfg.hudThumbnailHeight : 48;
     const bool isTopOrBottom = (cfg.hudPosition == 0 || cfg.hudPosition == 1);
 
-    const qreal rawThumbAspect = (hasThumb && thumbnail.height() > 0)
-        ? (qreal(thumbnail.width()) / qreal(thumbnail.height()))
-        : 1.6;
-    const qreal thumbAspect = qBound(1.0, rawThumbAspect, 2.0);
-
     const int padX = qRound(8 * scale);
     const int padY = qRound(6 * scale);
     const int gapX = qRound(8 * scale);
@@ -645,8 +644,17 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
             ? ((effectiveIconSize > 0) ? qMin(qRound(effectiveIconSize * scale), badgeDim) : qRound(badgeDim * 0.85))
             : 0;
 
-        thumbH = (effectiveThumbH > 0) ? qRound(effectiveThumbH * scale) : qMax(32, qRound(40 * scale));
-        thumbW = (effectiveThumbW > 0) ? qRound(effectiveThumbW * scale) : qRound(thumbH * thumbAspect);
+        if (thumbnail.width() > 0 && thumbnail.height() > 0) {
+            const int targetMaxW = (effectiveThumbW > 0) ? qRound(effectiveThumbW * scale) : qRound(80 * scale);
+            const int targetMaxH = (effectiveThumbH > 0) ? qRound(effectiveThumbH * scale) : qMax(32, qRound(48 * scale));
+            const QSize maxBox(targetMaxW, targetMaxH);
+            const QSize fitSize = thumbnail.size().scaled(maxBox, Qt::KeepAspectRatio);
+            thumbW = qMax(qRound(16 * scale), fitSize.width());
+            thumbH = qMax(qRound(12 * scale), fitSize.height());
+        } else {
+            thumbH = (effectiveThumbH > 0) ? qRound(effectiveThumbH * scale) : qMax(32, qRound(48 * scale));
+            thumbW = (effectiveThumbW > 0) ? qRound(effectiveThumbW * scale) : qRound(thumbH * 1.6);
+        }
 
         const int headerContentW = badgeDim + (hasIcon ? (gapX + iconDim) : 0) + gapX + textWidth;
         const int contentW = qMax(headerContentW, thumbW);
@@ -663,12 +671,22 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
             : 0;
 
         const int maxThumbH = qMax(14, pillH - qRound(8 * scale));
-        thumbH = hasThumb
-            ? ((effectiveThumbH > 0) ? qMin(qRound(effectiveThumbH * scale), maxThumbH) : badgeDim)
-            : 0;
-        thumbW = hasThumb
-            ? ((effectiveThumbW > 0) ? qMin(qRound(effectiveThumbW * scale), qRound(thumbH * thumbAspect)) : qRound(thumbH * thumbAspect))
-            : 0;
+        if (hasThumb) {
+            const int targetMaxW = (effectiveThumbW > 0) ? qRound(effectiveThumbW * scale) : qRound(80 * scale);
+            const int targetMaxH = (effectiveThumbH > 0) ? qMin(qRound(effectiveThumbH * scale), maxThumbH) : maxThumbH;
+            if (thumbnail.width() > 0 && thumbnail.height() > 0) {
+                const QSize maxBox(targetMaxW, targetMaxH);
+                const QSize fitSize = thumbnail.size().scaled(maxBox, Qt::KeepAspectRatio);
+                thumbW = qMax(qRound(14 * scale), fitSize.width());
+                thumbH = qMax(qRound(14 * scale), fitSize.height());
+            } else {
+                thumbH = targetMaxH;
+                thumbW = (effectiveThumbW > 0) ? qMin(qRound(effectiveThumbW * scale), qRound(thumbH * 1.6)) : qRound(thumbH * 1.6);
+            }
+        } else {
+            thumbW = 0;
+            thumbH = 0;
+        }
 
         int extraW = 0;
         if (hasIcon) {

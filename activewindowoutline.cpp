@@ -3200,8 +3200,16 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
         }
     }
 
+    const QRectF frameGeo = target->frameGeometry();
+    const QSize winSize = frameGeo.size().toSize();
+    QSize actualThumbSize = targetSize;
+    if (winSize.width() > 0 && winSize.height() > 0) {
+        actualThumbSize = winSize.scaled(targetSize, Qt::KeepAspectRatio);
+        actualThumbSize.setWidth(qMax(8, actualThumbSize.width()));
+        actualThumbSize.setHeight(qMax(8, actualThumbSize.height()));
+    }
+
     if (forceBlit || !isWindowObscured(target)) {
-        const QRectF frameGeo = target->frameGeometry();
         const QRect viewRect = QRectF(viewport.renderRect()).toRect();
         const QRect windowRect = frameGeo.toRect().intersected(viewRect);
 
@@ -3212,7 +3220,7 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
                 const QImage *img = renderTarget.image();
                 const QRect src = windowRect.intersected(img->rect());
                 if (!src.isEmpty()) {
-                    QImage thumb = img->copy(src).scaled(targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                    QImage thumb = img->copy(src).scaled(actualThumbSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
                     if (thumb.format() != QImage::Format_RGBA8888 && thumb.format() != QImage::Format_ARGB32_Premultiplied) {
                         thumb = thumb.convertToFormat(QImage::Format_RGBA8888);
                     }
@@ -3224,8 +3232,8 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
                 }
             }
 
-            if (!m_thumbTexture || m_thumbTexture->size() != targetSize) {
-                m_thumbTexture = GLTexture::allocate(GL_RGBA8, targetSize);
+            if (!m_thumbTexture || m_thumbTexture->size() != actualThumbSize) {
+                m_thumbTexture = GLTexture::allocate(GL_RGBA8, actualThumbSize);
                 if (m_thumbTexture) {
                     m_thumbFbo = std::make_unique<GLFramebuffer>(m_thumbTexture.get());
                 }
@@ -3234,14 +3242,14 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
             if (m_thumbFbo && m_thumbFbo->valid()) {
                 GLFramebuffer *savedFbo = GLFramebuffer::currentFramebuffer();
                 const OutlineRect srcRect(windowRect);
-                const OutlineRect dstRect(0, 0, targetSize.width(), targetSize.height());
+                const OutlineRect dstRect(0, 0, actualThumbSize.width(), actualThumbSize.height());
                 const bool blitOk = m_thumbFbo->blitFromRenderTarget(renderTarget, viewport, srcRect, dstRect);
                 if (blitOk) {
                     QImage thumb = m_thumbTexture->toImage();
                     if (thumb.isNull()) {
-                        thumb = QImage(targetSize, QImage::Format_RGBA8888);
+                        thumb = QImage(actualThumbSize, QImage::Format_RGBA8888);
                         GLFramebuffer::pushFramebuffer(m_thumbFbo.get());
-                        glReadPixels(0, 0, targetSize.width(), targetSize.height(), GL_RGBA, GL_UNSIGNED_BYTE, thumb.bits());
+                        glReadPixels(0, 0, actualThumbSize.width(), actualThumbSize.height(), GL_RGBA, GL_UNSIGNED_BYTE, thumb.bits());
                         GLFramebuffer::popFramebuffer();
 #if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
                         thumb = thumb.flipped(Qt::Vertical);
@@ -3273,8 +3281,8 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
     // 2. Offscreen rendering for covered/obscured windows, or windows on other desktops/minimized
     const QRectF offscreenFrameGeo = target->frameGeometry();
     if (offscreenFrameGeo.width() >= 16 && offscreenFrameGeo.height() >= 16) {
-        if (!m_thumbTexture || m_thumbTexture->size() != targetSize) {
-            m_thumbTexture = GLTexture::allocate(GL_RGBA8, targetSize);
+        if (!m_thumbTexture || m_thumbTexture->size() != actualThumbSize) {
+            m_thumbTexture = GLTexture::allocate(GL_RGBA8, actualThumbSize);
             if (m_thumbTexture) {
                 m_thumbFbo = std::make_unique<GLFramebuffer>(m_thumbTexture.get());
             }
@@ -3288,7 +3296,7 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
             EffectWindowVisibleRef visAct(target, EffectWindow::PAINT_DISABLED_BY_ACTIVITY);
 
             RenderTarget thumbTarget(m_thumbFbo.get());
-            RenderViewport thumbViewport(RectF(0, 0, targetSize.width(), targetSize.height()), 1.0, thumbTarget, QPoint(0, 0));
+            RenderViewport thumbViewport(RectF(0, 0, actualThumbSize.width(), actualThumbSize.height()), 1.0, thumbTarget, QPoint(0, 0));
 
             GLFramebuffer::pushFramebuffer(m_thumbFbo.get());
             glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -3296,17 +3304,16 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
 
             WindowPaintData data;
             data += -offscreenFrameGeo.toRect().topLeft();
-            const qreal sx = qreal(targetSize.width()) / qMax(1.0, offscreenFrameGeo.width());
-            const qreal sy = qreal(targetSize.height()) / qMax(1.0, offscreenFrameGeo.height());
-            data *= QVector2D(sx, sy);
+            const qreal scale = qreal(actualThumbSize.width()) / qMax(1.0, offscreenFrameGeo.width());
+            data *= QVector2D(scale, scale);
 
-            OutlineRegion devReg(QRegion(0, 0, targetSize.width(), targetSize.height()));
+            OutlineRegion devReg(QRegion(0, 0, actualThumbSize.width(), actualThumbSize.height()));
             static_cast<void>(effects->drawWindow(thumbTarget, thumbViewport, target, PAINT_WINDOW_TRANSFORMED, devReg, data));
 
             QImage thumb = m_thumbTexture->toImage();
             if (thumb.isNull()) {
-                thumb = QImage(targetSize, QImage::Format_RGBA8888);
-                glReadPixels(0, 0, targetSize.width(), targetSize.height(), GL_RGBA, GL_UNSIGNED_BYTE, thumb.bits());
+                thumb = QImage(actualThumbSize, QImage::Format_RGBA8888);
+                glReadPixels(0, 0, actualThumbSize.width(), actualThumbSize.height(), GL_RGBA, GL_UNSIGNED_BYTE, thumb.bits());
 #if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
                 thumb = thumb.flipped(Qt::Vertical);
 #else
@@ -3350,28 +3357,29 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
     }
 
     // 2. Fallback for windows that cannot be captured: stylish preview card with app icon and title
-    QImage fallback(targetSize, QImage::Format_RGBA8888_Premultiplied);
+    QImage fallback(actualThumbSize, QImage::Format_RGBA8888_Premultiplied);
     fallback.fill(QColor(26, 29, 33, 245));
     QPainter p(&fallback);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
     const QIcon icon = target->icon();
     if (!icon.isNull()) {
-        const int iconDim = qMin(targetSize.width(), targetSize.height()) * 5 / 10;
-        const QRect iconRect((targetSize.width() - iconDim) / 2, (targetSize.height() - iconDim) / 2 - 4, iconDim, iconDim);
+        const int iconDim = qMin(actualThumbSize.width(), actualThumbSize.height()) * 5 / 10;
+        const QRect iconRect((actualThumbSize.width() - iconDim) / 2, (actualThumbSize.height() - iconDim) / 2 - 4, iconDim, iconDim);
         icon.paint(&p, iconRect);
     }
     const QString cap = target->caption().trimmed();
     if (!cap.isEmpty()) {
         QFont f(QStringLiteral("sans-serif"));
-        f.setPixelSize(qMax(8, targetSize.height() / 7));
+        f.setPixelSize(qMax(8, actualThumbSize.height() / 7));
         QFontMetrics fm(f);
-        const QString elided = fm.elidedText(cap, Qt::ElideRight, targetSize.width() - 8);
+        const QString elided = fm.elidedText(cap, Qt::ElideRight, actualThumbSize.width() - 8);
         p.setFont(f);
         p.setPen(QColor(200, 205, 215));
-        p.drawText(QRect(4, targetSize.height() - fm.height() - 4, targetSize.width() - 8, fm.height()), Qt::AlignCenter, elided);
+        p.drawText(QRect(4, actualThumbSize.height() - fm.height() - 4, actualThumbSize.width() - 8, fm.height()), Qt::AlignCenter, elided);
     }
     p.end();
+    m_thumbnailCache[target] = fallback;
     return fallback;
 }
 
