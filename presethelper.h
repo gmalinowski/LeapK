@@ -91,6 +91,26 @@ inline QJsonObject getDefaultSettings()
     s[QStringLiteral("BadgeMargin")] = 0;
     s[QStringLiteral("BadgeShowIcon")] = false;
     s[QStringLiteral("BadgeShowThumbnail")] = false;
+    s[QStringLiteral("BadgeJumpSize")] = 34;
+    s[QStringLiteral("BadgeHudSize")] = 36;
+    s[QStringLiteral("BadgeIconSize")] = 20;
+    s[QStringLiteral("BadgeThumbnailWidth")] = 56;
+    s[QStringLiteral("BadgeThumbnailHeight")] = 32;
+    s[QStringLiteral("BadgeCornerRadius")] = 6;
+    s[QStringLiteral("BadgeOpacity")] = 92;
+    s[QStringLiteral("BadgeDefaultColor")] = QStringLiteral("#232629");
+    s[QStringLiteral("BadgeLetterColor")] = QStringLiteral("#ffffff");
+    s[QStringLiteral("BadgeLabelUnmarkedColor")] = QStringLiteral("#f1c40f");
+    s[QStringLiteral("BadgeCaptionColor")] = QStringLiteral("#dce1e6");
+    s[QStringLiteral("BadgeLocationColor")] = QStringLiteral("#f1c40f");
+    s[QStringLiteral("BadgeLetterFont")] = QString();
+    s[QStringLiteral("BadgeLabelFont")] = QString();
+    s[QStringLiteral("BadgeCaptionFont")] = QString();
+    s[QStringLiteral("BadgeLocationFont")] = QString();
+    s[QStringLiteral("BadgeLetterFontSize")] = 0;
+    s[QStringLiteral("BadgeLabelFontSize")] = 0;
+    s[QStringLiteral("BadgeCaptionFontSize")] = 0;
+    s[QStringLiteral("BadgeLocationFontSize")] = 0;
     s[QStringLiteral("JumpTargets")] = 0;
 
     // Color Cycling

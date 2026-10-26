@@ -139,7 +139,27 @@ public:
                     {QStringLiteral("MarkShowLetterBadges"), QStringLiteral("Pokaż plakietki literowe"), QStringLiteral("Show Letter Badges")},
                     {QStringLiteral("BadgesAlwaysVisible"), QStringLiteral("Plakietki stale widoczne w tle"), QStringLiteral("Badges Always Visible")},
                     {QStringLiteral("BadgeShowIcon"), QStringLiteral("Ikona aplikacji w plakietce"), QStringLiteral("Application Icon in Badge")},
-                    {QStringLiteral("BadgeShowThumbnail"), QStringLiteral("Miniaturka podglądu okna w plakietce"), QStringLiteral("Window Thumbnail Preview in Badge")}
+                    {QStringLiteral("BadgeShowThumbnail"), QStringLiteral("Miniaturka podglądu okna w plakietce"), QStringLiteral("Window Thumbnail Preview in Badge")},
+                    {QStringLiteral("BadgeJumpSize"), QStringLiteral("Rozmiar plakietek w trybie skoku (Leap)"), QStringLiteral("Jump Mode Badge Size")},
+                    {QStringLiteral("BadgeHudSize"), QStringLiteral("Wysokość kart paska HUD"), QStringLiteral("HUD Cards Height")},
+                    {QStringLiteral("BadgeIconSize"), QStringLiteral("Wielkość ikony aplikacji w plakietce"), QStringLiteral("Badge Icon Size")},
+                    {QStringLiteral("BadgeThumbnailWidth"), QStringLiteral("Szerokość miniatury okna"), QStringLiteral("Thumbnail Width")},
+                    {QStringLiteral("BadgeThumbnailHeight"), QStringLiteral("Wysokość miniatury okna"), QStringLiteral("Thumbnail Height")},
+                    {QStringLiteral("BadgeCornerRadius"), QStringLiteral("Promień zaokrąglenia narożników"), QStringLiteral("Badge Corner Radius")},
+                    {QStringLiteral("BadgeOpacity"), QStringLiteral("Przezroczystość tła plakietki"), QStringLiteral("Badge Opacity")},
+                    {QStringLiteral("BadgeDefaultColor"), QStringLiteral("Domyślny kolor tła plakietki"), QStringLiteral("Badge Default Background Color")},
+                    {QStringLiteral("BadgeLetterColor"), QStringLiteral("Kolor litery skoku"), QStringLiteral("Jump Letter Color")},
+                    {QStringLiteral("BadgeLabelUnmarkedColor"), QStringLiteral("Kolor etykiety (nieoznaczone)"), QStringLiteral("Custom Label Color (Unmarked)")},
+                    {QStringLiteral("BadgeCaptionColor"), QStringLiteral("Kolor tytułu okna w HUD"), QStringLiteral("HUD Window Caption Color")},
+                    {QStringLiteral("BadgeLocationColor"), QStringLiteral("Kolor lokalizacji/pulpitu w HUD"), QStringLiteral("HUD Location Color")},
+                    {QStringLiteral("BadgeLetterFont"), QStringLiteral("Krój czcionki litery skoku"), QStringLiteral("Jump Letter Font")},
+                    {QStringLiteral("BadgeLabelFont"), QStringLiteral("Krój czcionki etykiety okna"), QStringLiteral("Window Label Font")},
+                    {QStringLiteral("BadgeCaptionFont"), QStringLiteral("Krój czcionki tytułu w HUD"), QStringLiteral("HUD Caption Font")},
+                    {QStringLiteral("BadgeLocationFont"), QStringLiteral("Krój czcionki lokalizacji w HUD"), QStringLiteral("HUD Location Font")},
+                    {QStringLiteral("BadgeLetterFontSize"), QStringLiteral("Rozmiar czcionki litery skoku"), QStringLiteral("Jump Letter Font Size")},
+                    {QStringLiteral("BadgeLabelFontSize"), QStringLiteral("Rozmiar czcionki etykiety"), QStringLiteral("Window Label Font Size")},
+                    {QStringLiteral("BadgeCaptionFontSize"), QStringLiteral("Rozmiar czcionki tytułu w HUD"), QStringLiteral("HUD Caption Font Size")},
+                    {QStringLiteral("BadgeLocationFontSize"), QStringLiteral("Rozmiar czcionki lokalizacji w HUD"), QStringLiteral("HUD Location Font Size")}
                 }
             },
             // 6. Window Marks
@@ -233,10 +253,20 @@ public:
             if (m == 0) return isPolish ? QStringLiteral("Średni kolor (Dominant)") : QStringLiteral("Dominant average");
             return isPolish ? QStringLiteral("Częściowy obwód (Perimeter)") : QStringLiteral("Perimeter segments");
         }
-        if (key.endsWith(QStringLiteral("Width")) || key.endsWith(QStringLiteral("Radius")) ||
-            key == QStringLiteral("BadgeSize") || key == QStringLiteral("BadgeMargin") ||
-            key == QStringLiteral("OutlineGap") || key == QStringLiteral("MarkInactiveDashGap") ||
-            key == QStringLiteral("RecentWindowGapGrowth")) {
+        if (key.endsWith(QStringLiteral("FontSize"))) {
+            const int sz = val.toInt();
+            if (sz == 0) return isPolish ? QStringLiteral("Domyślny (auto)") : QStringLiteral("Default (auto)");
+            return QStringLiteral("%1 px").arg(sz);
+        }
+        if (key.endsWith(QStringLiteral("Font"))) {
+            const QString f = val.toString().trimmed();
+            if (f.isEmpty()) return isPolish ? QStringLiteral("Systemowa (domyślna)") : QStringLiteral("System default");
+            return f;
+        }
+        if (key.endsWith(QStringLiteral("Width")) || key.endsWith(QStringLiteral("Height")) ||
+            key.endsWith(QStringLiteral("Radius")) || key.endsWith(QStringLiteral("Size")) ||
+            key == QStringLiteral("BadgeMargin") || key == QStringLiteral("OutlineGap") ||
+            key == QStringLiteral("MarkInactiveDashGap") || key == QStringLiteral("RecentWindowGapGrowth")) {
             return QStringLiteral("%1 px").arg(val.toInt());
         }
         if (key.endsWith(QStringLiteral("Delay")) || key == QStringLiteral("FadeDuration")) {

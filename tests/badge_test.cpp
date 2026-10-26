@@ -362,6 +362,65 @@ void testIconAndThumbnailBadges()
     assert(bothPill.width() > thumbPill.width());
 }
 
+void testBadgeConfigAndStyling()
+{
+    OutlineBadge::BadgeConfig cfg;
+    assert(cfg.windowBadgeSize == 28);
+    assert(cfg.jumpBadgeSize == 34);
+    assert(cfg.hudBadgeSize == 36);
+    assert(cfg.iconSize == 20);
+    assert(cfg.thumbnailWidth == 56);
+    assert(cfg.thumbnailHeight == 32);
+    assert(cfg.cornerRadius == 6);
+    assert(cfg.opacityPercent == 92);
+
+    // Custom sizing
+    cfg.windowBadgeSize = 32;
+    cfg.jumpBadgeSize = 48;
+    cfg.hudBadgeSize = 44;
+    cfg.iconSize = 24;
+    cfg.thumbnailWidth = 72;
+    cfg.thumbnailHeight = 40;
+
+    QImage winBadge = renderBadgeImage(cfg, QLatin1Char('W'), QColor(41, 128, 185), Qt::white, false);
+    assert(!winBadge.isNull());
+    assert(winBadge.height() == 32);
+
+    QImage jumpBadge = renderBadgeImage(cfg, QLatin1Char('J'), QColor(39, 174, 96), Qt::white, true);
+    assert(!jumpBadge.isNull());
+    assert(jumpBadge.height() == 48);
+
+    // Custom appearance & colors
+    cfg.defaultBgColor = QColor(45, 52, 54);
+    cfg.cornerRadius = 0; // Sharp rectangle
+    cfg.opacityPercent = 75;
+    cfg.letterColor = QColor(255, 235, 59);
+    cfg.labelUnmarkedColor = QColor(255, 87, 34);
+    cfg.letterFontFamily = QStringLiteral("monospace");
+    cfg.letterFontSize = 16;
+    cfg.labelFontFamily = QStringLiteral("sans-serif");
+    cfg.labelFontSize = 12;
+
+    QImage customBadge = renderBadgeImage(cfg, QLatin1Char('M'), QColor(), QColor(), false, 0, 1.0, QStringLiteral("Custom"));
+    assert(!customBadge.isNull());
+    assert(customBadge.height() == 32);
+    assert(customBadge.width() > winBadge.width());
+
+    // Offscreen HUD pill with BadgeConfig
+    cfg.captionColor = QColor(236, 240, 241);
+    cfg.locationColor = QColor(241, 196, 15);
+    cfg.captionFontFamily = QStringLiteral("sans-serif");
+    cfg.captionFontSize = 13;
+    cfg.locationFontFamily = QStringLiteral("sans-serif");
+    cfg.locationFontSize = 11;
+
+    QImage hudPill = renderOffscreenTargetPill(cfg, QLatin1Char('H'), QColor(), QColor(),
+                                             QStringLiteral("Desktop 3"), QStringLiteral("Dolphin File Manager"),
+                                             0, 1.0, QStringLiteral("Files"));
+    assert(!hudPill.isNull());
+    assert(hudPill.height() >= 44);
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -375,6 +434,7 @@ int main(int argc, char *argv[])
     testSmartAccentExtraction();
     testComputeHudPillPositions();
     testIconAndThumbnailBadges();
+    testBadgeConfigAndStyling();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

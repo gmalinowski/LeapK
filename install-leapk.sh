@@ -392,6 +392,26 @@ set_default BadgeSize 28
 set_default BadgeMargin 0
 set_default BadgeShowIcon false
 set_default BadgeShowThumbnail false
+set_default BadgeJumpSize 34
+set_default BadgeHudSize 36
+set_default BadgeIconSize 20
+set_default BadgeThumbnailWidth 56
+set_default BadgeThumbnailHeight 32
+set_default BadgeCornerRadius 6
+set_default BadgeOpacity 92
+set_default BadgeDefaultColor "#232629"
+set_default BadgeLetterColor "#ffffff"
+set_default BadgeLabelUnmarkedColor "#f1c40f"
+set_default BadgeCaptionColor "#dce1e6"
+set_default BadgeLocationColor "#f1c40f"
+set_default BadgeLetterFont ""
+set_default BadgeLabelFont ""
+set_default BadgeCaptionFont ""
+set_default BadgeLocationFont ""
+set_default BadgeLetterFontSize 0
+set_default BadgeLabelFontSize 0
+set_default BadgeCaptionFontSize 0
+set_default BadgeLocationFontSize 0
 set_default JumpTargets 0
 
 if command -v kreadconfig6 >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/null 2>&1; then

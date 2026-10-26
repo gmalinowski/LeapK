@@ -348,6 +348,7 @@ private:
     int m_badgeMargin = 0;      // Margin from window edge in pixels (0 to 100)
     bool m_badgeShowIcon = false;
     bool m_badgeShowThumbnail = false;
+    OutlineBadge::BadgeConfig m_badgeConfig;
 
     // Jump to Window
     bool m_jumpMode = false;

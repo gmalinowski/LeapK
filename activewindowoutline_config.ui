@@ -1587,167 +1587,6 @@
            </widget>
           </item>
           <item row="6" column="0">
-           <widget class="QLabel" name="label_badgeDisplayMode">
-            <property name="text">
-             <string>Letter badges visibility:</string>
-            </property>
-            <property name="toolTip">
-             <string>Controls when letter badges are shown on candidate windows. Active window is always excluded.</string>
-            </property>
-           </widget>
-          </item>
-          <item row="6" column="1">
-           <widget class="QComboBox" name="kcfg_BadgeDisplayMode">
-            <property name="toolTip">
-             <string>Controls when letter badges are shown on candidate windows. Active window is always excluded.</string>
-            </property>
-            <item>
-             <property name="text">
-              <string>Only during Jump Mode (Meta+Space)</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Always visible on background windows</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Disabled</string>
-             </property>
-            </item>
-           </widget>
-          </item>
-          <item row="7" column="0">
-           <widget class="QLabel" name="label_badgePosition">
-            <property name="text">
-             <string>Badge position:</string>
-            </property>
-            <property name="toolTip">
-             <string>Position of the letter badge relative to the window frame.</string>
-            </property>
-           </widget>
-          </item>
-          <item row="7" column="1">
-           <widget class="QComboBox" name="kcfg_BadgePosition">
-            <property name="currentIndex">
-             <number>1</number>
-            </property>
-            <property name="toolTip">
-             <string>Position of the letter badge relative to the window frame.</string>
-            </property>
-            <item>
-             <property name="text">
-              <string>Top-Left</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Top</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Top-Right</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Left</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Center</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Right</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Bottom-Left</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Bottom</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Bottom-Right</string>
-             </property>
-            </item>
-           </widget>
-          </item>
-          <item row="8" column="0">
-           <widget class="QLabel" name="label_badgeSize">
-            <property name="text">
-             <string>Badge size:</string>
-            </property>
-            <property name="toolTip">
-             <string>Height and proportional size of the letter badge in pixels (default: 28 px).</string>
-            </property>
-           </widget>
-          </item>
-          <item row="8" column="1">
-           <widget class="QSpinBox" name="kcfg_BadgeSize">
-            <property name="toolTip">
-             <string>Height and proportional size of the letter badge in pixels (default: 28 px).</string>
-            </property>
-            <property name="minimum">
-             <number>16</number>
-            </property>
-            <property name="maximum">
-             <number>64</number>
-            </property>
-            <property name="singleStep">
-             <number>2</number>
-            </property>
-            <property name="value">
-             <number>28</number>
-            </property>
-            <property name="suffix">
-             <string> px</string>
-            </property>
-           </widget>
-          </item>
-          <item row="9" column="0">
-           <widget class="QLabel" name="label_badgeMargin">
-            <property name="text">
-             <string>Badge margin:</string>
-            </property>
-            <property name="toolTip">
-             <string>Distance from window edges to the badge in pixels (default: 12 px).</string>
-            </property>
-           </widget>
-          </item>
-          <item row="9" column="1">
-           <widget class="QSpinBox" name="kcfg_BadgeMargin">
-            <property name="toolTip">
-             <string>Distance from window edges to the badge in pixels (default: 0 px).</string>
-            </property>
-            <property name="minimum">
-             <number>0</number>
-            </property>
-            <property name="maximum">
-             <number>100</number>
-            </property>
-            <property name="singleStep">
-             <number>2</number>
-            </property>
-            <property name="value">
-             <number>0</number>
-            </property>
-            <property name="suffix">
-             <string> px</string>
-            </property>
-           </widget>
-          </item>
-          <item row="10" column="0">
            <widget class="QLabel" name="label_jumpTargets">
             <property name="text">
              <string>Jump targets (default: Meta+Space):</string>
@@ -1757,7 +1596,7 @@
             </property>
            </widget>
           </item>
-          <item row="10" column="1">
+          <item row="6" column="1">
            <widget class="QComboBox" name="kcfg_JumpTargets">
             <property name="toolTip">
              <string>Scope of windows included when pressing the Jump to Window shortcut (default: Meta+Space).</string>
@@ -1782,72 +1621,6 @@
               <string>Marked windows only (all desktops)</string>
              </property>
             </item>
-           </widget>
-          </item>
-          <item row="11" column="0">
-           <widget class="QLabel" name="label_badgeHudPosition">
-            <property name="text">
-             <string>Hint cards HUD position:</string>
-            </property>
-            <property name="toolTip">
-             <string>Screen edge position for offscreen and covered window hint cards (Bottom/Top horizontal, Left/Right vertical).</string>
-            </property>
-           </widget>
-          </item>
-          <item row="11" column="1">
-           <widget class="QComboBox" name="kcfg_BadgeHudPosition">
-            <property name="currentIndex">
-             <number>0</number>
-            </property>
-            <property name="toolTip">
-             <string>Screen edge position for offscreen and covered window hint cards (Bottom/Top horizontal, Left/Right vertical).</string>
-            </property>
-            <item>
-             <property name="text">
-              <string>Bottom (horizontal, centered)</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Top (horizontal, centered)</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Left (vertical, left-aligned)</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Right (vertical, left-aligned)</string>
-             </property>
-            </item>
-           </widget>
-          </item>
-          <item row="12" column="0" colspan="2">
-           <widget class="QCheckBox" name="kcfg_BadgeShowIcon">
-            <property name="text">
-             <string>Show application icon in badge</string>
-            </property>
-            <property name="checked">
-             <bool>false</bool>
-            </property>
-            <property name="toolTip">
-             <string>Displays the application icon inside the jump letter badge and HUD cards.</string>
-            </property>
-           </widget>
-          </item>
-          <item row="13" column="0" colspan="2">
-           <widget class="QCheckBox" name="kcfg_BadgeShowThumbnail">
-            <property name="text">
-             <string>Show live window thumbnail preview in badge</string>
-            </property>
-            <property name="checked">
-             <bool>false</bool>
-            </property>
-            <property name="toolTip">
-             <string>Displays a miniature preview of the window content inside the jump letter badge and HUD cards.</string>
-            </property>
            </widget>
           </item>
          </layout>
@@ -1888,6 +1661,749 @@
         </spacer>
        </item>
 
+      </layout>
+     </widget>
+
+     <!-- TAB 5: Badges & HUD -->
+     <widget class="QWidget" name="tabBadges">
+      <attribute name="title">
+       <string>Badges &amp; HUD</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayoutTabBadges">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="QScrollArea" name="scrollAreaBadges">
+         <property name="frameShape">
+          <enum>QFrame::NoFrame</enum>
+         </property>
+         <property name="widgetResizable">
+          <bool>true</bool>
+         </property>
+         <widget class="QWidget" name="scrollAreaWidgetContentsBadges">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>500</width>
+            <height>900</height>
+           </rect>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayoutBadgesContent">
+           <property name="spacing">
+            <number>12</number>
+           </property>
+
+           <!-- Group 1: Placement & Behavior -->
+           <item>
+            <widget class="QGroupBox" name="groupBadgePlacement">
+             <property name="title">
+              <string>Placement &amp; Behavior</string>
+             </property>
+             <layout class="QFormLayout" name="formLayoutBadgePlacement">
+              <item row="0" column="0">
+               <widget class="QLabel" name="label_badgeDisplayMode">
+                <property name="text">
+                 <string>Letter badges visibility:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Controls when letter badges are shown on candidate windows. Active window is always excluded.</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QComboBox" name="kcfg_BadgeDisplayMode">
+                <property name="toolTip">
+                 <string>Controls when letter badges are shown on candidate windows. Active window is always excluded.</string>
+                </property>
+                <item>
+                 <property name="text">
+                  <string>Only during Jump Mode (Meta+Space)</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Always visible on background windows</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Disabled</string>
+                 </property>
+                </item>
+               </widget>
+              </item>
+              <item row="1" column="0">
+               <widget class="QLabel" name="label_badgePosition">
+                <property name="text">
+                 <string>Badge position on window:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Position of the letter badge relative to the window frame.</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QComboBox" name="kcfg_BadgePosition">
+                <property name="currentIndex">
+                 <number>1</number>
+                </property>
+                <property name="toolTip">
+                 <string>Position of the letter badge relative to the window frame.</string>
+                </property>
+                <item>
+                 <property name="text">
+                  <string>Top-Left</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Top</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Top-Right</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Left</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Center</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Right</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Bottom-Left</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Bottom</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Bottom-Right</string>
+                 </property>
+                </item>
+               </widget>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="label_badgeMargin">
+                <property name="text">
+                 <string>Badge margin:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Distance from window edges to the badge in pixels (default: 0 px).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeMargin">
+                <property name="minimum">
+                 <number>0</number>
+                </property>
+                <property name="maximum">
+                 <number>100</number>
+                </property>
+                <property name="singleStep">
+                 <number>2</number>
+                </property>
+                <property name="value">
+                 <number>0</number>
+                </property>
+                <property name="suffix">
+                 <string> px</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="0">
+               <widget class="QLabel" name="label_badgeHudPosition">
+                <property name="text">
+                 <string>Hint cards HUD position:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Screen edge position for offscreen and covered window hint cards (Bottom/Top horizontal, Left/Right vertical).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="1">
+               <widget class="QComboBox" name="kcfg_BadgeHudPosition">
+                <property name="currentIndex">
+                 <number>0</number>
+                </property>
+                <property name="toolTip">
+                 <string>Screen edge position for offscreen and covered window hint cards (Bottom/Top horizontal, Left/Right vertical).</string>
+                </property>
+                <item>
+                 <property name="text">
+                  <string>Bottom (horizontal, centered)</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Top (horizontal, centered)</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Left (vertical, left-aligned)</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Right (vertical, left-aligned)</string>
+                 </property>
+                </item>
+               </widget>
+              </item>
+              <item row="4" column="0" colspan="2">
+               <widget class="QCheckBox" name="kcfg_BadgeShowIcon">
+                <property name="text">
+                 <string>Show application icon in badge and HUD</string>
+                </property>
+                <property name="checked">
+                 <bool>false</bool>
+                </property>
+                <property name="toolTip">
+                 <string>Displays the application icon inside the jump letter badge and HUD cards.</string>
+                </property>
+               </widget>
+              </item>
+              <item row="5" column="0" colspan="2">
+               <widget class="QCheckBox" name="kcfg_BadgeShowThumbnail">
+                <property name="text">
+                 <string>Show live window thumbnail preview in badge and HUD</string>
+                </property>
+                <property name="checked">
+                 <bool>false</bool>
+                </property>
+                <property name="toolTip">
+                 <string>Displays a miniature preview of the window content inside the jump letter badge and HUD cards.</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+
+           <!-- Group 2: Dimensions & Sizing -->
+           <item>
+            <widget class="QGroupBox" name="groupBadgeSizes">
+             <property name="title">
+              <string>Dimensions &amp; Sizing</string>
+             </property>
+             <layout class="QFormLayout" name="formLayoutBadgeSizes">
+              <item row="0" column="0">
+               <widget class="QLabel" name="label_badgeSize">
+                <property name="text">
+                 <string>Badges on window size:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Height and size of badges on background windows in pixels (default: 28 px).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeSize">
+                <property name="minimum">
+                 <number>16</number>
+                </property>
+                <property name="maximum">
+                 <number>64</number>
+                </property>
+                <property name="singleStep">
+                 <number>2</number>
+                </property>
+                <property name="value">
+                 <number>28</number>
+                </property>
+                <property name="suffix">
+                 <string> px</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="0">
+               <widget class="QLabel" name="label_badgeJumpSize">
+                <property name="text">
+                 <string>Active badges on window (Leap mode):</string>
+                </property>
+                <property name="toolTip">
+                 <string>Height and size of active badges when in Leap jump mode (default: 34 px).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeJumpSize">
+                <property name="minimum">
+                 <number>16</number>
+                </property>
+                <property name="maximum">
+                 <number>96</number>
+                </property>
+                <property name="singleStep">
+                 <number>2</number>
+                </property>
+                <property name="value">
+                 <number>34</number>
+                </property>
+                <property name="suffix">
+                 <string> px</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="label_badgeHudSize">
+                <property name="text">
+                 <string>Badges at HUD card height:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Height and proportional size of hint cards at the screen edge HUD (default: 36 px).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeHudSize">
+                <property name="minimum">
+                 <number>24</number>
+                </property>
+                <property name="maximum">
+                 <number>96</number>
+                </property>
+                <property name="singleStep">
+                 <number>2</number>
+                </property>
+                <property name="value">
+                 <number>36</number>
+                </property>
+                <property name="suffix">
+                 <string> px</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="0">
+               <widget class="QLabel" name="label_badgeIconSize">
+                <property name="text">
+                 <string>Icon size:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Size of the application icon inside badges and HUD cards in pixels (default: 20 px).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeIconSize">
+                <property name="minimum">
+                 <number>12</number>
+                </property>
+                <property name="maximum">
+                 <number>64</number>
+                </property>
+                <property name="singleStep">
+                 <number>2</number>
+                </property>
+                <property name="value">
+                 <number>20</number>
+                </property>
+                <property name="suffix">
+                 <string> px</string>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="0">
+               <widget class="QLabel" name="label_badgeThumbnailWidth">
+                <property name="text">
+                 <string>Window preview width:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Width of the window preview thumbnail in pixels (default: 56 px).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeThumbnailWidth">
+                <property name="minimum">
+                 <number>24</number>
+                </property>
+                <property name="maximum">
+                 <number>200</number>
+                </property>
+                <property name="singleStep">
+                 <number>4</number>
+                </property>
+                <property name="value">
+                 <number>56</number>
+                </property>
+                <property name="suffix">
+                 <string> px</string>
+                </property>
+               </widget>
+              </item>
+              <item row="5" column="0">
+               <widget class="QLabel" name="label_badgeThumbnailHeight">
+                <property name="text">
+                 <string>Window preview height:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Height of the window preview thumbnail in pixels (default: 32 px).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="5" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeThumbnailHeight">
+                <property name="minimum">
+                 <number>16</number>
+                </property>
+                <property name="maximum">
+                 <number>120</number>
+                </property>
+                <property name="singleStep">
+                 <number>2</number>
+                </property>
+                <property name="value">
+                 <number>32</number>
+                </property>
+                <property name="suffix">
+                 <string> px</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+
+           <!-- Group 3: Appearance & Shape -->
+           <item>
+            <widget class="QGroupBox" name="groupBadgeAppearance">
+             <property name="title">
+              <string>Appearance &amp; Shape</string>
+             </property>
+             <layout class="QFormLayout" name="formLayoutBadgeAppearance">
+              <item row="0" column="0">
+               <widget class="QLabel" name="label_badgeDefaultColor">
+                <property name="text">
+                 <string>Default background color:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Background color for unmarked window badges and default HUD cards (default: #232629).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="KColorButton" name="kcfg_BadgeDefaultColor">
+                <property name="alphaChannelEnabled">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="0">
+               <widget class="QLabel" name="label_badgeCornerRadius">
+                <property name="text">
+                 <string>Shape &amp; corner radius:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Corner radius of badges and cards in pixels (0 px = sharp rectangle, default: 6 px).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeCornerRadius">
+                <property name="minimum">
+                 <number>0</number>
+                </property>
+                <property name="maximum">
+                 <number>32</number>
+                </property>
+                <property name="value">
+                 <number>6</number>
+                </property>
+                <property name="suffix">
+                 <string> px</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="label_badgeOpacity">
+                <property name="text">
+                 <string>Badge opacity:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Opacity percentage of badges and HUD cards (default: 92%).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeOpacity">
+                <property name="minimum">
+                 <number>10</number>
+                </property>
+                <property name="maximum">
+                 <number>100</number>
+                </property>
+                <property name="value">
+                 <number>92</number>
+                </property>
+                <property name="suffix">
+                 <string> %</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+
+           <!-- Group 4: Typography & Colors -->
+           <item>
+            <widget class="QGroupBox" name="groupBadgeTypography">
+             <property name="title">
+              <string>Typography &amp; Colors</string>
+             </property>
+             <layout class="QFormLayout" name="formLayoutBadgeTypography">
+              <item row="0" column="0">
+               <widget class="QLabel" name="label_badgeLetterTypography">
+                <property name="text">
+                 <string>Jump letter:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Font family, size (0 = Auto), and color for jump letters.</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <layout class="QHBoxLayout" name="layoutBadgeLetterTypography">
+                <item>
+                 <widget class="QFontComboBox" name="combo_BadgeLetterFont">
+                  <property name="toolTip">
+                   <string>Font family for jump letters.</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QSpinBox" name="kcfg_BadgeLetterFontSize">
+                  <property name="toolTip">
+                   <string>Font size in pixels (0 = Auto proportional to badge size).</string>
+                  </property>
+                  <property name="minimum">
+                   <number>0</number>
+                  </property>
+                  <property name="maximum">
+                   <number>48</number>
+                  </property>
+                  <property name="specialValueText">
+                   <string>Auto</string>
+                  </property>
+                  <property name="suffix">
+                   <string> px</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="KColorButton" name="kcfg_BadgeLetterColor">
+                  <property name="alphaChannelEnabled">
+                   <bool>true</bool>
+                  </property>
+                  <property name="toolTip">
+                   <string>Text color for jump letters.</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+
+              <item row="1" column="0">
+               <widget class="QLabel" name="label_badgeLabelTypography">
+                <property name="text">
+                 <string>Window label:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Font family, size (0 = Auto), and color for custom labels when window is unmarked.</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <layout class="QHBoxLayout" name="layoutBadgeLabelTypography">
+                <item>
+                 <widget class="QFontComboBox" name="combo_BadgeLabelFont">
+                  <property name="toolTip">
+                   <string>Font family for custom window labels.</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QSpinBox" name="kcfg_BadgeLabelFontSize">
+                  <property name="toolTip">
+                   <string>Font size in pixels (0 = Auto proportional to badge size).</string>
+                  </property>
+                  <property name="minimum">
+                   <number>0</number>
+                  </property>
+                  <property name="maximum">
+                   <number>48</number>
+                  </property>
+                  <property name="specialValueText">
+                   <string>Auto</string>
+                  </property>
+                  <property name="suffix">
+                   <string> px</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="KColorButton" name="kcfg_BadgeLabelUnmarkedColor">
+                  <property name="alphaChannelEnabled">
+                   <bool>true</bool>
+                  </property>
+                  <property name="toolTip">
+                   <string>Color for label when window is unmarked.</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+
+              <item row="2" column="0">
+               <widget class="QLabel" name="label_badgeCaptionTypography">
+                <property name="text">
+                 <string>HUD window title:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Font family, size (0 = Auto), and color for window caption titles in HUD cards.</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1">
+               <layout class="QHBoxLayout" name="layoutBadgeCaptionTypography">
+                <item>
+                 <widget class="QFontComboBox" name="combo_BadgeCaptionFont">
+                  <property name="toolTip">
+                   <string>Font family for HUD window title.</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QSpinBox" name="kcfg_BadgeCaptionFontSize">
+                  <property name="toolTip">
+                   <string>Font size in pixels (0 = Auto proportional to HUD size).</string>
+                  </property>
+                  <property name="minimum">
+                   <number>0</number>
+                  </property>
+                  <property name="maximum">
+                   <number>48</number>
+                  </property>
+                  <property name="specialValueText">
+                   <string>Auto</string>
+                  </property>
+                  <property name="suffix">
+                   <string> px</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="KColorButton" name="kcfg_BadgeCaptionColor">
+                  <property name="alphaChannelEnabled">
+                   <bool>true</bool>
+                  </property>
+                  <property name="toolTip">
+                   <string>Text color for window title in HUD cards.</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+
+              <item row="3" column="0">
+               <widget class="QLabel" name="label_badgeLocationTypography">
+                <property name="text">
+                 <string>HUD window location:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Font family, size (0 = Auto), and color for desktop/state location in HUD cards.</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="1">
+               <layout class="QHBoxLayout" name="layoutBadgeLocationTypography">
+                <item>
+                 <widget class="QFontComboBox" name="combo_BadgeLocationFont">
+                  <property name="toolTip">
+                   <string>Font family for HUD window location / status.</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QSpinBox" name="kcfg_BadgeLocationFontSize">
+                  <property name="toolTip">
+                   <string>Font size in pixels (0 = Auto proportional to HUD size).</string>
+                  </property>
+                  <property name="minimum">
+                   <number>0</number>
+                  </property>
+                  <property name="maximum">
+                   <number>48</number>
+                  </property>
+                  <property name="specialValueText">
+                   <string>Auto</string>
+                  </property>
+                  <property name="suffix">
+                   <string> px</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="KColorButton" name="kcfg_BadgeLocationColor">
+                  <property name="alphaChannelEnabled">
+                   <bool>true</bool>
+                  </property>
+                  <property name="toolTip">
+                   <string>Text color for desktop / state location in HUD cards.</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </widget>
+           </item>
+
+           <item>
+            <spacer name="verticalSpacerBadges">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+
+          </layout>
+         </widget>
+        </widget>
+       </item>
       </layout>
      </widget>
 
