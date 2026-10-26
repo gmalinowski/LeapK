@@ -681,13 +681,6 @@ void ActiveWindowOutlineEffect::initShortcuts()
     KGlobalAccel::self()->setGlobalShortcut(jumpAction, QKeySequence(Qt::META | Qt::Key_Space));
     connect(jumpAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotTriggerJumpMode);
 
-    QAction *recentAction = new QAction(this);
-    recentAction->setObjectName(QStringLiteral("RecentWindow"));
-    recentAction->setText(QStringLiteral("LeapK: Switch to Recent Window"));
-    KGlobalAccel::self()->setDefaultShortcut(recentAction, QList<QKeySequence>());
-    KGlobalAccel::self()->setGlobalShortcut(recentAction, QKeySequence());
-    connect(recentAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotJumpToRecentWindow);
-
     QAction *prevRecentAction = new QAction(this);
     prevRecentAction->setObjectName(QStringLiteral("PrevRecentWindow"));
     prevRecentAction->setText(QStringLiteral("LeapK: Previous Recent Window"));
@@ -750,14 +743,14 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
         m_ambilightCurrentColor = QColor();
     }
 
-    m_width = qBound(1, config.readEntry("BorderWidth", 2), 20);
-    m_gap = qBound(0, config.readEntry("OutlineGap", 0), 30);
-    m_radius = qBound(0, config.readEntry("BorderRadius", 6), 30);
+    m_width = qBound(1, config.readEntry("BorderWidth", 2), 100);
+    m_gap = qBound(0, config.readEntry("OutlineGap", 0), 200);
+    m_radius = qBound(0, config.readEntry("BorderRadius", 6), 200);
     m_fadeCorners = config.readEntry("FadeCorners", true);
     m_drawInside = config.readEntry("DrawInside", true);
     m_smoothEdges = config.readEntry("SmoothEdges", true);
     m_glowEnabled = config.readEntry("GlowEnabled", false);
-    m_glowRadius = qBound(1, config.readEntry("GlowRadius", 6), 30);
+    m_glowRadius = qBound(1, config.readEntry("GlowRadius", 6), 200);
     m_hideOnFullScreen = config.readEntry("HideOnFullScreen", true);
 
     m_colorCycleEnabled = config.readEntry("ColorCycleEnabled", false);
@@ -829,33 +822,40 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     }
     m_badgePosition = qBound(0, config.readEntry("BadgePosition", 1), 8);
     m_badgeHudPosition = qBound(0, config.readEntry("BadgeHudPosition", 0), 3);
-    m_badgeSize = qBound(16, config.readEntry("BadgeSize", 28), 64);
-    m_badgeMargin = qBound(0, config.readEntry("BadgeMargin", 0), 100);
+    m_badgeSize = qBound(16, config.readEntry("BadgeSize", 28), 500);
+    m_badgeMargin = qBound(0, config.readEntry("BadgeMargin", 0), 500);
     m_badgeConfig.windowShowIcon = config.readEntry("BadgeWindowShowIcon", false);
     m_badgeConfig.windowShowThumbnail = config.readEntry("BadgeWindowShowThumbnail", false);
     m_badgeConfig.windowBadgeSize = m_badgeSize;
-    m_badgeConfig.jumpBadgeSize = qBound(16, config.readEntry("BadgeJumpSize", 34), 96);
-    m_badgeConfig.windowIconSize = qBound(12, config.readEntry("BadgeWindowIconSize", 20), 64);
+    m_badgeConfig.jumpBadgeSize = qBound(16, config.readEntry("BadgeJumpSize", 34), 500);
+    m_badgeConfig.windowIconSize = qBound(12, config.readEntry("BadgeWindowIconSize", 20), 500);
     const int defWinThumb = qMax(config.readEntry("BadgeWindowThumbnailWidth", 56), config.readEntry("BadgeWindowThumbnailHeight", 32));
-    const int winThumbSize = qBound(16, config.readEntry("BadgeWindowThumbnailSize", defWinThumb), 600);
+    const int winThumbSize = qBound(16, config.readEntry("BadgeWindowThumbnailSize", defWinThumb), 2500);
     m_badgeConfig.windowThumbnailSize = winThumbSize;
     m_badgeConfig.windowThumbnailWidth = winThumbSize;
     m_badgeConfig.windowThumbnailHeight = winThumbSize;
-    m_badgeConfig.windowLetterFontSize = qBound(0, config.readEntry("BadgeWindowLetterFontSize", 0), 48);
-    m_badgeConfig.windowLabelFontSize = qBound(0, config.readEntry("BadgeWindowLabelFontSize", 0), 48);
+    m_badgeConfig.windowLetterFontSize = qBound(0, config.readEntry("BadgeWindowLetterFontSize", 0), 200);
+    m_badgeConfig.windowLabelFontSize = qBound(0, config.readEntry("BadgeWindowLabelFontSize", 0), 200);
 
     m_badgeConfig.hudShowIcon = config.readEntry("BadgeHudShowIcon", true);
     m_badgeConfig.hudShowThumbnail = config.readEntry("BadgeHudShowThumbnail", true);
-    m_badgeConfig.hudBadgeSize = qBound(24, config.readEntry("BadgeHudSize", 36), 96);
-    m_badgeConfig.hudIconSize = qBound(12, config.readEntry("BadgeHudIconSize", 24), 64);
+    m_badgeConfig.hudBadgeSize = qBound(24, config.readEntry("BadgeHudSize", 36), 500);
+    m_badgeConfig.hudIconSize = qBound(12, config.readEntry("BadgeHudIconSize", 24), 500);
     const int defHudThumb = qMax(config.readEntry("BadgeHudThumbnailWidth", 80), config.readEntry("BadgeHudThumbnailHeight", 48));
-    const int hudThumbSize = qBound(24, config.readEntry("BadgeHudThumbnailSize", defHudThumb), 1000);
+    const int hudThumbSize = qBound(24, config.readEntry("BadgeHudThumbnailSize", defHudThumb), 3500);
     m_badgeConfig.hudThumbnailSize = hudThumbSize;
     m_badgeConfig.hudThumbnailWidth = hudThumbSize;
     m_badgeConfig.hudThumbnailHeight = hudThumbSize;
-    m_badgeConfig.hudLetterFontSize = qBound(0, config.readEntry("BadgeHudLetterFontSize", 0), 48);
-    m_badgeConfig.hudCaptionFontSize = qBound(0, config.readEntry("BadgeHudCaptionFontSize", 0), 48);
-    m_badgeConfig.hudLocationFontSize = qBound(0, config.readEntry("BadgeHudLocationFontSize", 0), 48);
+    m_badgeConfig.hudLetterFontSize = qBound(0, config.readEntry("BadgeHudLetterFontSize", 0), 200);
+    m_badgeConfig.hudCaptionFontSize = qBound(0, config.readEntry("BadgeHudCaptionFontSize", 0), 200);
+    m_badgeConfig.hudLocationFontSize = qBound(0, config.readEntry("BadgeHudLocationFontSize", 0), 200);
+
+    m_badgeHudIncludeAll = config.readEntry("BadgeHudIncludeAll", false);
+    m_badgeConfig.hudIncludeAll = m_badgeHudIncludeAll;
+    m_badgeTimeout = qBound(0, config.readEntry("BadgeTimeout", 5), 300);
+    m_badgeConfig.badgeTimeout = m_badgeTimeout;
+    m_jumpRecentKey = config.readEntry("JumpRecentKey", QStringLiteral("Space"));
+    m_badgeConfig.jumpRecentKey = m_jumpRecentKey;
 
     m_badgeConfig.iconSize = m_badgeConfig.windowIconSize;
     m_badgeConfig.thumbnailSize = m_badgeConfig.windowThumbnailSize;
@@ -867,7 +867,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_badgeShowThumbnail = m_badgeConfig.windowShowThumbnail;
 
     m_badgeConfig.margin = m_badgeMargin;
-    m_badgeConfig.cornerRadius = qBound(0, config.readEntry("BadgeCornerRadius", 6), 32);
+    m_badgeConfig.cornerRadius = qBound(0, config.readEntry("BadgeCornerRadius", 6), 200);
     m_badgeConfig.opacityPercent = qBound(10, config.readEntry("BadgeOpacity", 92), 100);
     m_badgeConfig.hudPosition = m_badgeHudPosition;
     m_badgeConfig.hudMarkColorMode = qBound(0, config.readEntry("BadgeHudMarkColorMode", 0), 2);
@@ -884,10 +884,10 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_badgeConfig.labelFontFamily = config.readEntry("BadgeLabelFont", QString());
     m_badgeConfig.captionFontFamily = config.readEntry("BadgeCaptionFont", QString());
     m_badgeConfig.locationFontFamily = config.readEntry("BadgeLocationFont", QString());
-    m_badgeConfig.letterFontSize = qBound(0, config.readEntry("BadgeLetterFontSize", 0), 48);
-    m_badgeConfig.labelFontSize = qBound(0, config.readEntry("BadgeLabelFontSize", 0), 48);
-    m_badgeConfig.captionFontSize = qBound(0, config.readEntry("BadgeCaptionFontSize", 0), 48);
-    m_badgeConfig.locationFontSize = qBound(0, config.readEntry("BadgeLocationFontSize", 0), 48);
+    m_badgeConfig.letterFontSize = qBound(0, config.readEntry("BadgeLetterFontSize", 0), 200);
+    m_badgeConfig.labelFontSize = qBound(0, config.readEntry("BadgeLabelFontSize", 0), 200);
+    m_badgeConfig.captionFontSize = qBound(0, config.readEntry("BadgeCaptionFontSize", 0), 200);
+    m_badgeConfig.locationFontSize = qBound(0, config.readEntry("BadgeLocationFontSize", 0), 200);
     m_markShowLetterBadges = (m_badgeDisplayMode != 2);
     m_badgesAlwaysVisible = (m_badgeDisplayMode == 1);
     m_jumpTargets = qBound(0, config.readEntry("JumpTargets", 0), 3);
@@ -2389,10 +2389,10 @@ static void parseBadgeConfigFromJson(OutlineBadge::BadgeConfig &cfg, int &badgeP
         cfg.hudPosition = hudPos;
     }
     if (obj.contains(QStringLiteral("BadgeMargin"))) {
-        cfg.margin = qBound(0, obj.value(QStringLiteral("BadgeMargin")).toInt(0), 100);
+        cfg.margin = qBound(0, obj.value(QStringLiteral("BadgeMargin")).toInt(0), 500);
     }
     if (obj.contains(QStringLiteral("BadgeCornerRadius"))) {
-        cfg.cornerRadius = qBound(0, obj.value(QStringLiteral("BadgeCornerRadius")).toInt(6), 32);
+        cfg.cornerRadius = qBound(0, obj.value(QStringLiteral("BadgeCornerRadius")).toInt(6), 200);
     }
     if (obj.contains(QStringLiteral("BadgeOpacity"))) {
         cfg.opacityPercent = qBound(10, obj.value(QStringLiteral("BadgeOpacity")).toInt(92), 100);
@@ -2405,25 +2405,25 @@ static void parseBadgeConfigFromJson(OutlineBadge::BadgeConfig &cfg, int &badgeP
         cfg.windowShowThumbnail = obj.value(QStringLiteral("BadgeWindowShowThumbnail")).toBool(false);
     }
     if (obj.contains(QStringLiteral("BadgeSize"))) {
-        cfg.windowBadgeSize = qBound(16, obj.value(QStringLiteral("BadgeSize")).toInt(28), 64);
+        cfg.windowBadgeSize = qBound(16, obj.value(QStringLiteral("BadgeSize")).toInt(28), 500);
     }
     if (obj.contains(QStringLiteral("BadgeJumpSize"))) {
-        cfg.jumpBadgeSize = qBound(16, obj.value(QStringLiteral("BadgeJumpSize")).toInt(34), 96);
+        cfg.jumpBadgeSize = qBound(16, obj.value(QStringLiteral("BadgeJumpSize")).toInt(34), 500);
     }
     if (obj.contains(QStringLiteral("BadgeWindowIconSize"))) {
-        cfg.windowIconSize = qBound(12, obj.value(QStringLiteral("BadgeWindowIconSize")).toInt(20), 64);
+        cfg.windowIconSize = qBound(12, obj.value(QStringLiteral("BadgeWindowIconSize")).toInt(20), 500);
     }
     if (obj.contains(QStringLiteral("BadgeWindowThumbnailSize"))) {
-        const int s = qBound(16, obj.value(QStringLiteral("BadgeWindowThumbnailSize")).toInt(56), 600);
+        const int s = qBound(16, obj.value(QStringLiteral("BadgeWindowThumbnailSize")).toInt(56), 2500);
         cfg.windowThumbnailSize = s;
         cfg.windowThumbnailWidth = s;
         cfg.windowThumbnailHeight = s;
     }
     if (obj.contains(QStringLiteral("BadgeWindowLetterFontSize"))) {
-        cfg.windowLetterFontSize = qBound(0, obj.value(QStringLiteral("BadgeWindowLetterFontSize")).toInt(0), 48);
+        cfg.windowLetterFontSize = qBound(0, obj.value(QStringLiteral("BadgeWindowLetterFontSize")).toInt(0), 200);
     }
     if (obj.contains(QStringLiteral("BadgeWindowLabelFontSize"))) {
-        cfg.windowLabelFontSize = qBound(0, obj.value(QStringLiteral("BadgeWindowLabelFontSize")).toInt(0), 48);
+        cfg.windowLabelFontSize = qBound(0, obj.value(QStringLiteral("BadgeWindowLabelFontSize")).toInt(0), 200);
     }
 
     if (obj.contains(QStringLiteral("BadgeHudShowIcon"))) {
@@ -2433,25 +2433,34 @@ static void parseBadgeConfigFromJson(OutlineBadge::BadgeConfig &cfg, int &badgeP
         cfg.hudShowThumbnail = obj.value(QStringLiteral("BadgeHudShowThumbnail")).toBool(true);
     }
     if (obj.contains(QStringLiteral("BadgeHudSize"))) {
-        cfg.hudBadgeSize = qBound(24, obj.value(QStringLiteral("BadgeHudSize")).toInt(36), 96);
+        cfg.hudBadgeSize = qBound(24, obj.value(QStringLiteral("BadgeHudSize")).toInt(36), 500);
     }
     if (obj.contains(QStringLiteral("BadgeHudIconSize"))) {
-        cfg.hudIconSize = qBound(12, obj.value(QStringLiteral("BadgeHudIconSize")).toInt(24), 64);
+        cfg.hudIconSize = qBound(12, obj.value(QStringLiteral("BadgeHudIconSize")).toInt(24), 500);
     }
     if (obj.contains(QStringLiteral("BadgeHudThumbnailSize"))) {
-        const int s = qBound(24, obj.value(QStringLiteral("BadgeHudThumbnailSize")).toInt(80), 1000);
+        const int s = qBound(24, obj.value(QStringLiteral("BadgeHudThumbnailSize")).toInt(80), 3500);
         cfg.hudThumbnailSize = s;
         cfg.hudThumbnailWidth = s;
         cfg.hudThumbnailHeight = s;
     }
     if (obj.contains(QStringLiteral("BadgeHudLetterFontSize"))) {
-        cfg.hudLetterFontSize = qBound(0, obj.value(QStringLiteral("BadgeHudLetterFontSize")).toInt(0), 48);
+        cfg.hudLetterFontSize = qBound(0, obj.value(QStringLiteral("BadgeHudLetterFontSize")).toInt(0), 200);
     }
     if (obj.contains(QStringLiteral("BadgeHudCaptionFontSize"))) {
-        cfg.hudCaptionFontSize = qBound(0, obj.value(QStringLiteral("BadgeHudCaptionFontSize")).toInt(0), 48);
+        cfg.hudCaptionFontSize = qBound(0, obj.value(QStringLiteral("BadgeHudCaptionFontSize")).toInt(0), 200);
     }
     if (obj.contains(QStringLiteral("BadgeHudLocationFontSize"))) {
-        cfg.hudLocationFontSize = qBound(0, obj.value(QStringLiteral("BadgeHudLocationFontSize")).toInt(0), 48);
+        cfg.hudLocationFontSize = qBound(0, obj.value(QStringLiteral("BadgeHudLocationFontSize")).toInt(0), 200);
+    }
+    if (obj.contains(QStringLiteral("BadgeHudIncludeAll"))) {
+        cfg.hudIncludeAll = obj.value(QStringLiteral("BadgeHudIncludeAll")).toBool(false);
+    }
+    if (obj.contains(QStringLiteral("BadgeTimeout"))) {
+        cfg.badgeTimeout = qBound(0, obj.value(QStringLiteral("BadgeTimeout")).toInt(5), 300);
+    }
+    if (obj.contains(QStringLiteral("JumpRecentKey"))) {
+        cfg.jumpRecentKey = obj.value(QStringLiteral("JumpRecentKey")).toString(QStringLiteral("Space"));
     }
     if (obj.contains(QStringLiteral("BadgeHudMarkColorMode"))) {
         cfg.hudMarkColorMode = qBound(0, obj.value(QStringLiteral("BadgeHudMarkColorMode")).toInt(0), 2);
@@ -2499,16 +2508,16 @@ static void parseBadgeConfigFromJson(OutlineBadge::BadgeConfig &cfg, int &badgeP
     }
 
     if (obj.contains(QStringLiteral("BadgeLetterFontSize"))) {
-        cfg.letterFontSize = qBound(0, obj.value(QStringLiteral("BadgeLetterFontSize")).toInt(0), 48);
+        cfg.letterFontSize = qBound(0, obj.value(QStringLiteral("BadgeLetterFontSize")).toInt(0), 200);
     }
     if (obj.contains(QStringLiteral("BadgeLabelFontSize"))) {
-        cfg.labelFontSize = qBound(0, obj.value(QStringLiteral("BadgeLabelFontSize")).toInt(0), 48);
+        cfg.labelFontSize = qBound(0, obj.value(QStringLiteral("BadgeLabelFontSize")).toInt(0), 200);
     }
     if (obj.contains(QStringLiteral("BadgeCaptionFontSize"))) {
-        cfg.captionFontSize = qBound(0, obj.value(QStringLiteral("BadgeCaptionFontSize")).toInt(0), 48);
+        cfg.captionFontSize = qBound(0, obj.value(QStringLiteral("BadgeCaptionFontSize")).toInt(0), 200);
     }
     if (obj.contains(QStringLiteral("BadgeLocationFontSize"))) {
-        cfg.locationFontSize = qBound(0, obj.value(QStringLiteral("BadgeLocationFontSize")).toInt(0), 48);
+        cfg.locationFontSize = qBound(0, obj.value(QStringLiteral("BadgeLocationFontSize")).toInt(0), 200);
     }
 }
 
@@ -2599,6 +2608,10 @@ void ActiveWindowOutlineEffect::renderBadgePreview(const RenderTarget &renderTar
 
     // 1. Render Window Badges if enabled
     if (m_previewShowWindowBadges) {
+        EffectWindow *recentWin = findRecentWindow();
+        if (!recentWin && !targetWindows.isEmpty()) {
+            recentWin = targetWindows.first();
+        }
         const int badgeH = m_previewBadgeConfig.windowBadgeSize;
         for (EffectWindow *target : targetWindows) {
             if (!target || target->isDeleted() || !target->isOnCurrentDesktop()
@@ -2613,19 +2626,21 @@ void ActiveWindowOutlineEffect::renderBadgePreview(const RenderTarget &renderTar
                 continue;
             }
 
+            const bool isRecent = (target == recentWin);
+            const QString recentKey = isRecent ? m_previewBadgeConfig.jumpRecentKey : QString();
             const QColor bgCol = m_markedWindows.contains(target)
                 ? m_markedWindows.value(target)
-                : m_previewBadgeConfig.defaultBgColor;
+                : (isRecent ? (m_recentWindowCustomColor.isValid() ? m_recentWindowCustomColor : QColor(52, 152, 219)) : m_previewBadgeConfig.defaultBgColor);
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
             const QString customLabel = m_markedWindowLabels.value(target);
-            const qreal badgeW = OutlineBadge::computeBadgeWidth(m_previewBadgeConfig, badgeH, customLabel);
+            const qreal badgeW = OutlineBadge::computeBadgeWidth(m_previewBadgeConfig, badgeH, customLabel, recentKey);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_previewBadgePosition, badgeW, badgeH, m_previewBadgeConfig.margin);
             if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
             if (badgeRect.right() > screenRect.right() - 4.0) badgeRect.moveRight(screenRect.right() - 4.0);
             if (badgeRect.top() < screenRect.top() + 4.0) badgeRect.moveTop(screenRect.top() + 4.0);
             if (badgeRect.bottom() > screenRect.bottom() - 4.0) badgeRect.moveBottom(screenRect.bottom() - 4.0);
 
-            renderBadge(renderTarget, viewport, badgeRect, winLetters.value(target, 'A'), bgCol, textCol, false, badgeH, customLabel, target);
+            renderBadge(renderTarget, viewport, badgeRect, winLetters.value(target, 'A'), bgCol, textCol, false, badgeH, customLabel, target, recentKey, isRecent);
         }
     }
 
@@ -3086,7 +3101,11 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_jumpMode = true;
     m_badgeTextureCache.clear();
     if (m_jumpTimeoutTimer) {
-        m_jumpTimeoutTimer->start(5000);
+        if (m_badgeTimeout > 0) {
+            m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+        } else {
+            m_jumpTimeoutTimer->stop();
+        }
     }
     effects->addRepaintFull();
 }
@@ -3117,7 +3136,29 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         cancelJumpMode();
         return;
     }
-    if (e->key() == Qt::Key_Space) {
+
+    bool isRecentKeyMatch = false;
+    const QString rKey = m_jumpRecentKey.trimmed();
+    if (rKey.compare(QLatin1String("Space"), Qt::CaseInsensitive) == 0 && e->key() == Qt::Key_Space) {
+        isRecentKeyMatch = true;
+    } else if (!rKey.isEmpty()) {
+        QKeySequence seq(rKey);
+        if (!seq.isEmpty()) {
+            const QKeyCombination comb = seq[0];
+            const int keyOnly = comb.key();
+            const Qt::KeyboardModifiers mods = comb.keyboardModifiers();
+            if (e->key() == keyOnly && (mods == Qt::NoModifier || e->modifiers() == mods)) {
+                isRecentKeyMatch = true;
+            }
+        }
+        if (!isRecentKeyMatch && !e->text().isEmpty() && e->text().compare(rKey, Qt::CaseInsensitive) == 0) {
+            isRecentKeyMatch = true;
+        }
+    } else if (e->key() == Qt::Key_Space) {
+        isRecentKeyMatch = true;
+    }
+
+    if (isRecentKeyMatch) {
         slotJumpToRecentWindow();
         return;
     }
@@ -3749,21 +3790,25 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
                                            bool isJumpMode,
                                            int badgeSize,
                                            const QString &customLabel,
-                                           EffectWindow *target)
+                                           EffectWindow *target,
+                                           const QString &recentKey,
+                                           bool isRecent)
 {
     const qreal scale = viewport.scale();
     const quint64 scaleKey = static_cast<quint64>(qRound(scale * 100));
     const quint64 sizeKey = static_cast<quint64>(badgeSize);
     const quint64 labelKey = static_cast<quint64>(qHash(customLabel));
+    const quint64 rKeyHash = static_cast<quint64>(qHash(recentKey));
     const quint64 windowKey = target ? static_cast<quint64>(qHash(target->internalId())) : 0;
     const quint64 previewKey = m_badgePreviewActive ? 0x8000 : 0;
-    const quint64 flagsKey = (m_badgeShowIcon ? 0x1000 : 0) | (m_badgeShowThumbnail ? 0x2000 : 0) | (isJumpMode ? 1 : 0) | previewKey;
+    const quint64 flagsKey = (m_badgeShowIcon ? 0x1000 : 0) | (m_badgeShowThumbnail ? 0x2000 : 0) | (isRecent ? 0x4000 : 0) | (isJumpMode ? 1 : 0) | previewKey;
     const quint64 key = (static_cast<quint64>(letter.unicode()) << 48)
         ^ (static_cast<quint64>(bgColor.rgba()) << 16)
         ^ (static_cast<quint64>(textColor.rgba()))
         ^ (scaleKey << 8)
         ^ (sizeKey << 32)
         ^ (labelKey << 24)
+        ^ (rKeyHash << 20)
         ^ (windowKey << 12)
         ^ flagsKey;
 
@@ -3782,7 +3827,7 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
             : QImage();
 
         const QImage img = OutlineBadge::renderBadgeImage(cfg, letter, bgColor, textColor, isJumpMode, badgeSize, scale, customLabel,
-                                                          icon, thumbnail);
+                                                          icon, thumbnail, recentKey, isRecent);
         auto uploaded = GLTexture::upload(img);
         if (!uploaded) {
             return;
@@ -3871,9 +3916,23 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             continue;
         }
 
-        const QColor bgCol = m_markedWindows.contains(target)
-            ? m_markedWindows.value(target)
-            : QColor(35, 38, 41, 235);
+        const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
+        const bool isMarked = m_markedWindows.contains(target);
+        const bool isRecent = (target == findRecentWindow()) || m_recentWindows.contains(target);
+        const bool isMostRecent = (target == findRecentWindow());
+        const QString recentKey = isMostRecent ? (m_badgePreviewActive ? m_previewBadgeConfig.jumpRecentKey : m_jumpRecentKey) : QString();
+
+        QColor bgCol;
+        if (isMarked) {
+            bgCol = m_markedWindows.value(target);
+        } else if (isRecent) {
+            bgCol = resolveColor(1.0, target);
+            if (!bgCol.isValid() || bgCol.alpha() == 0) {
+                bgCol = m_recentWindowCustomColor.isValid() ? m_recentWindowCustomColor : QColor(52, 152, 219);
+            }
+        } else {
+            bgCol = cfg.defaultBgColor;
+        }
         const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
 
         QString loc;
@@ -3892,23 +3951,15 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             }
         } else if (target->isMinimized()) {
             loc = isPolish ? QStringLiteral("Zminimalizowane") : tr("Minimized");
-        } else if (m_badgePreviewActive) {
+        } else if (m_badgePreviewActive || target->isVisible()) {
             loc = isPolish ? QStringLiteral("Bieżący pulpit") : QStringLiteral("Current Desktop");
         } else {
             loc = isPolish ? QStringLiteral("Schowane") : tr("Covered");
         }
 
         const QString caption = target->caption();
-        QString customLabel = m_markedWindowLabels.value(target);
-        if (target == findRecentWindow()) {
-            if (customLabel.isEmpty()) {
-                customLabel = QStringLiteral("Space");
-            } else if (!customLabel.contains(QStringLiteral("Space"))) {
-                customLabel += QStringLiteral(" • Space");
-            }
-        }
+        const QString customLabel = m_markedWindowLabels.value(target);
 
-        const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
         const bool showIconOnHud = cfg.hudShowIcon;
         const bool showThumbOnHud = cfg.hudShowThumbnail;
         const QIcon icon = (showIconOnHud && target) ? target->icon() : QIcon();
@@ -3916,9 +3967,8 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             ? captureWindowThumbnail(target, renderTarget, viewport, QSize(cfg.hudThumbnailWidth * 2, cfg.hudThumbnailHeight * 2))
             : QImage();
 
-        const bool isMarked = m_markedWindows.contains(target);
         const QImage img = OutlineBadge::renderOffscreenTargetPill(cfg, letter, bgCol, textCol, loc, caption, badgeSize, scale, customLabel,
-                                                                   icon, thumbnail, isMarked);
+                                                                   icon, thumbnail, isMarked, recentKey, isRecent);
         auto uploaded = GLTexture::upload(img);
         if (!uploaded) {
             continue;
@@ -4569,9 +4619,19 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 continue;
             }
 
-            const QColor bgCol = m_markedWindows.contains(target)
-                ? m_markedWindows.value(target)
-                : m_badgeConfig.defaultBgColor;
+            const bool isMarked = m_markedWindows.contains(target);
+            const bool isRecent = (target == findRecentWindow()) || m_recentWindows.contains(target);
+            QColor bgCol;
+            if (isMarked) {
+                bgCol = m_markedWindows.value(target);
+            } else if (isRecent) {
+                bgCol = resolveColor(1.0, target);
+                if (!bgCol.isValid() || bgCol.alpha() == 0) {
+                    bgCol = m_recentWindowCustomColor.isValid() ? m_recentWindowCustomColor : QColor(52, 152, 219);
+                }
+            } else {
+                bgCol = m_badgeConfig.defaultBgColor;
+            }
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
             const QString customLabel = m_markedWindowLabels.value(target);
             const qreal badgeW = OutlineBadge::computeBadgeWidth(m_badgeConfig, badgeH, customLabel);
@@ -4602,7 +4662,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                     continue;
                 }
             }
-            renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, false, m_badgeConfig.windowBadgeSize, customLabel, target);
+            renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, false, m_badgeConfig.windowBadgeSize, customLabel, target, QString(), isRecent);
         }
     }
 
@@ -4618,34 +4678,48 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 continue;
             }
 
+            if (m_badgeConfig.hudIncludeAll) {
+                offscreenTargets.append(qMakePair(letter, target));
+            }
+
             const bool onCurrent = target->isOnCurrentDesktop();
             const bool minimized = target->isMinimized();
 
             if (!onCurrent || minimized) {
-                offscreenTargets.append(qMakePair(letter, target));
+                if (!m_badgeConfig.hudIncludeAll) {
+                    offscreenTargets.append(qMakePair(letter, target));
+                }
                 continue;
             }
 
             const QRectF geo = target->frameGeometry();
             const QRectF visibleWindowGeo = geo.intersected(screenRect);
             if (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50) {
-                offscreenTargets.append(qMakePair(letter, target));
+                if (!m_badgeConfig.hudIncludeAll) {
+                    offscreenTargets.append(qMakePair(letter, target));
+                }
                 continue;
             }
 
-            const QColor bgCol = m_markedWindows.contains(target)
-                ? m_markedWindows.value(target)
-                : m_badgeConfig.defaultBgColor;
-            const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
-            QString customLabel = m_markedWindowLabels.value(target);
-            if (target == findRecentWindow()) {
-                if (customLabel.isEmpty()) {
-                    customLabel = QStringLiteral("Space");
-                } else if (!customLabel.contains(QStringLiteral("Space"))) {
-                    customLabel += QStringLiteral(" • Space");
+            const bool isMarked = m_markedWindows.contains(target);
+            const bool isRecent = (target == findRecentWindow()) || m_recentWindows.contains(target);
+            const bool isMostRecent = (target == findRecentWindow());
+            const QString recentKey = isMostRecent ? m_jumpRecentKey : QString();
+
+            QColor bgCol;
+            if (isMarked) {
+                bgCol = m_markedWindows.value(target);
+            } else if (isRecent) {
+                bgCol = resolveColor(1.0, target);
+                if (!bgCol.isValid() || bgCol.alpha() == 0) {
+                    bgCol = m_recentWindowCustomColor.isValid() ? m_recentWindowCustomColor : QColor(52, 152, 219);
                 }
+            } else {
+                bgCol = m_badgeConfig.defaultBgColor;
             }
-            const qreal jumpW = OutlineBadge::computeBadgeWidth(m_badgeConfig, jumpH, customLabel);
+            const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
+            const QString customLabel = m_markedWindowLabels.value(target);
+            const qreal jumpW = OutlineBadge::computeBadgeWidth(m_badgeConfig, jumpH, customLabel, recentKey);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
             if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
             if (badgeRect.right() > screenRect.right() - 4.0) badgeRect.moveRight(screenRect.right() - 4.0);
@@ -4670,11 +4744,13 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                     }
                 }
                 if (!foundVisiblePosition) {
-                    offscreenTargets.append(qMakePair(letter, target));
+                    if (!m_badgeConfig.hudIncludeAll) {
+                        offscreenTargets.append(qMakePair(letter, target));
+                    }
                     continue;
                 }
             }
-            renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, true, m_badgeConfig.jumpBadgeSize, customLabel, target);
+            renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, true, m_badgeConfig.jumpBadgeSize, customLabel, target, recentKey, isRecent);
         }
 
         if (!offscreenTargets.isEmpty()) {

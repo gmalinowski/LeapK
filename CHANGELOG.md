@@ -4,6 +4,30 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta2] - 2026-10-26
+
+### Added
+- **HUD Include All Windows Option (`BadgeHudIncludeAll`)**:
+  - Added an option to display cards in the edge HUD for all open windows, regardless of whether they are visible on screen, covered, minimized, or on other virtual desktops.
+- **Badges Display Timeout (`BadgeTimeout`)**:
+  - Added configurable timeout in seconds (0–300 s, default 5 s) before badges auto-hide during Jump Mode (0 = unlimited / no timeout).
+- **Jump to Recent Window Shortcut in LeapK Settings (`JumpRecentKey`)**:
+  - Migrated "Jump to recent window" from KDE global shortcuts (`KGlobalAccel`) into LeapK settings as an exclusive modal 2nd-level jump key (default: `Space`).
+- **Live On-Screen Badges Preview**:
+  - Added live preview toggles for on-window badges and edge HUD cards with real-time updates directly from the settings module.
+
+### Changed & Improved
+- **Clean Jump-to-Recent Badge Layout (`[ Key | Space ]`)**:
+  - Relocated the recent key indicator into the badge key capsule (e.g. `[ D | Space ]`), eliminating pollution of window custom labels and preserving original desktop locations and window titles.
+- **Previously Active Windows Highlighting in HUD Cards**:
+  - Previously active windows now receive distinct recent styling in HUD hint cards (vibrant border, recent accent color, and `· Ostatnie` / `· Recent` tag).
+- **Expanded Limits for High-Resolution / 8K Displays**:
+  - Significantly increased configuration maximums across outline and badge parameters:
+    - Border width up to 100 px, outline gap up to 200 px, border radius up to 200 px, glow radius up to 200 px.
+    - Window & HUD badge sizes and icon sizes up to 500 px.
+    - Window thumbnails up to 2500 px, HUD thumbnails up to 3500 px.
+    - Typography font sizes up to 200 px and corner radii up to 200 px.
+
 ## [1.6.0-beta1] - 2026-10-25
 
 ### Added

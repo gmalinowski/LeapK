@@ -709,6 +709,39 @@ void testIndependentWindowAndHudBadges()
     assert(hudHasCyan);
 }
 
+void testRecentBadgeAndIncludeAll()
+{
+    using OutlineBadge::BadgeConfig;
+    using OutlineBadge::computeBadgeWidth;
+    using OutlineBadge::renderBadgeImage;
+    using OutlineBadge::renderOffscreenTargetPill;
+
+    BadgeConfig cfg;
+    assert(!cfg.hudIncludeAll);
+    assert(cfg.badgeTimeout == 5);
+    assert(cfg.jumpRecentKey == QStringLiteral("Space"));
+
+    // 1. computeBadgeWidth with recentKey
+    const qreal standardW = computeBadgeWidth(cfg, 34);
+    const qreal recentW = computeBadgeWidth(cfg, 34, QString(), QStringLiteral("Space"));
+    assert(recentW > standardW);
+
+    // 2. renderBadgeImage with recentKey
+    QImage recentBadge = renderBadgeImage(cfg, QLatin1Char('D'), QColor(52, 152, 219), Qt::white,
+                                          true, 34, 1.0, QString(), QIcon(), QImage(),
+                                          QStringLiteral("Space"), true);
+    assert(!recentBadge.isNull());
+    assert(recentBadge.width() > 40);
+
+    // 3. renderOffscreenTargetPill with recentKey and isRecent
+    QImage recentPill = renderOffscreenTargetPill(cfg, QLatin1Char('D'), QColor(52, 152, 219), Qt::white,
+                                                  QStringLiteral("Pulpit 1"), QStringLiteral("Dolphin"),
+                                                  36, 1.0, QString(), QIcon(), QImage(),
+                                                  false, QStringLiteral("Space"), true);
+    assert(!recentPill.isNull());
+    assert(recentPill.width() > 100);
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -728,6 +761,7 @@ int main(int argc, char *argv[])
     testHudMarkColorModes();
     testHudPositionsAndThumbnailLayout();
     testIndependentWindowAndHudBadges();
+    testRecentBadgeAndIncludeAll();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

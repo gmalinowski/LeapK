@@ -450,7 +450,7 @@
           <number>1</number>
          </property>
          <property name="maximum">
-          <number>20</number>
+          <number>100</number>
          </property>
          <property name="value">
           <number>2</number>
@@ -474,7 +474,7 @@
           <number>0</number>
          </property>
          <property name="maximum">
-          <number>30</number>
+          <number>200</number>
          </property>
          <property name="value">
           <number>0</number>
@@ -498,7 +498,7 @@
           <number>0</number>
          </property>
          <property name="maximum">
-          <number>30</number>
+          <number>200</number>
          </property>
          <property name="value">
           <number>6</number>
@@ -573,7 +573,7 @@
           <number>1</number>
          </property>
          <property name="maximum">
-          <number>30</number>
+          <number>200</number>
          </property>
          <property name="value">
           <number>6</number>
@@ -1824,7 +1824,7 @@
                  <number>0</number>
                 </property>
                 <property name="maximum">
-                 <number>100</number>
+                 <number>500</number>
                 </property>
                 <property name="singleStep">
                  <number>2</number>
@@ -1875,6 +1875,58 @@
                   <string>Right (vertical, left-aligned)</string>
                  </property>
                 </item>
+               </widget>
+              </item>
+              <item row="4" column="0">
+               <widget class="QLabel" name="label_badgeTimeout">
+                <property name="text">
+                 <string>Badges display timeout:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Duration in seconds before badges auto-hide in jump mode (0 = unlimited / no timeout, default: 5 s).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeTimeout">
+                <property name="minimum">
+                 <number>0</number>
+                </property>
+                <property name="maximum">
+                 <number>300</number>
+                </property>
+                <property name="value">
+                 <number>5</number>
+                </property>
+                <property name="suffix">
+                 <string> s</string>
+                </property>
+                <property name="specialValueText">
+                 <string>Unlimited (0 s)</string>
+                </property>
+                <property name="toolTip">
+                 <string>Duration in seconds before badges auto-hide in jump mode (0 = unlimited / no timeout, default: 5 s).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="5" column="0">
+               <widget class="QLabel" name="label_jumpRecentKey">
+                <property name="text">
+                 <string>Jump to recent key (Leap mode):</string>
+                </property>
+                <property name="toolTip">
+                 <string>Second-level key shortcut inside Leap mode to jump directly to the recently active window (default: Space).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="5" column="1">
+               <widget class="QKeySequenceEdit" name="kcfg_JumpRecentKey">
+                <property name="keySequence">
+                 <string>Space</string>
+                </property>
+                <property name="toolTip">
+                 <string>Second-level key shortcut inside Leap mode to jump directly to the recently active window (default: Space).</string>
+                </property>
                </widget>
               </item>
              </layout>
@@ -1943,7 +1995,7 @@
                  <number>16</number>
                 </property>
                 <property name="maximum">
-                 <number>64</number>
+                 <number>500</number>
                 </property>
                 <property name="singleStep">
                  <number>2</number>
@@ -1972,7 +2024,7 @@
                  <number>16</number>
                 </property>
                 <property name="maximum">
-                 <number>96</number>
+                 <number>500</number>
                 </property>
                 <property name="singleStep">
                  <number>2</number>
@@ -2001,7 +2053,7 @@
                  <number>12</number>
                 </property>
                 <property name="maximum">
-                 <number>64</number>
+                 <number>500</number>
                 </property>
                 <property name="singleStep">
                  <number>2</number>
@@ -2030,7 +2082,7 @@
                  <number>16</number>
                 </property>
                 <property name="maximum">
-                 <number>600</number>
+                 <number>2500</number>
                 </property>
                 <property name="singleStep">
                  <number>4</number>
@@ -2059,7 +2111,7 @@
                  <number>0</number>
                 </property>
                 <property name="maximum">
-                 <number>48</number>
+                 <number>200</number>
                 </property>
                 <property name="specialValueText">
                  <string>Auto</string>
@@ -2088,7 +2140,7 @@
                  <number>0</number>
                 </property>
                 <property name="maximum">
-                 <number>48</number>
+                 <number>200</number>
                 </property>
                 <property name="specialValueText">
                  <string>Auto</string>
@@ -2126,6 +2178,19 @@
                </widget>
               </item>
               <item row="1" column="0" colspan="2">
+               <widget class="QCheckBox" name="kcfg_BadgeHudIncludeAll">
+                <property name="text">
+                 <string>Include all windows in HUD (visible, covered, and offscreen)</string>
+                </property>
+                <property name="checked">
+                 <bool>false</bool>
+                </property>
+                <property name="toolTip">
+                 <string>Always show cards in the edge HUD for all open windows, regardless of whether they are visible on screen or covered.</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="0" colspan="2">
                <widget class="QCheckBox" name="kcfg_BadgeHudShowIcon">
                 <property name="text">
                  <string>Show application icon in HUD cards</string>
@@ -2138,7 +2203,7 @@
                 </property>
                </widget>
               </item>
-              <item row="2" column="0" colspan="2">
+              <item row="3" column="0" colspan="2">
                <widget class="QCheckBox" name="kcfg_BadgeHudShowThumbnail">
                 <property name="text">
                  <string>Show live window preview in HUD cards</string>
@@ -2151,7 +2216,7 @@
                 </property>
                </widget>
               </item>
-              <item row="3" column="0">
+              <item row="4" column="0">
                <widget class="QLabel" name="label_badgeHudSize">
                 <property name="text">
                  <string>HUD card height / badge size:</string>
@@ -2161,13 +2226,13 @@
                 </property>
                </widget>
               </item>
-              <item row="3" column="1">
+              <item row="4" column="1">
                <widget class="QSpinBox" name="kcfg_BadgeHudSize">
                 <property name="minimum">
                  <number>24</number>
                 </property>
                 <property name="maximum">
-                 <number>96</number>
+                 <number>500</number>
                 </property>
                 <property name="singleStep">
                  <number>2</number>
@@ -2180,7 +2245,7 @@
                 </property>
                </widget>
               </item>
-              <item row="4" column="0">
+              <item row="5" column="0">
                <widget class="QLabel" name="label_badgeHudIconSize">
                 <property name="text">
                  <string>Icon size in HUD:</string>
@@ -2190,13 +2255,13 @@
                 </property>
                </widget>
               </item>
-              <item row="4" column="1">
+              <item row="5" column="1">
                <widget class="QSpinBox" name="kcfg_BadgeHudIconSize">
                 <property name="minimum">
                  <number>12</number>
                 </property>
                 <property name="maximum">
-                 <number>64</number>
+                 <number>500</number>
                 </property>
                 <property name="singleStep">
                  <number>2</number>
@@ -2209,7 +2274,7 @@
                 </property>
                </widget>
               </item>
-              <item row="5" column="0">
+              <item row="6" column="0">
                <widget class="QLabel" name="label_badgeHudThumbnailSize">
                 <property name="text">
                  <string>Window preview size:</string>
@@ -2219,13 +2284,13 @@
                 </property>
                </widget>
               </item>
-              <item row="5" column="1">
+              <item row="6" column="1">
                <widget class="QSpinBox" name="kcfg_BadgeHudThumbnailSize">
                 <property name="minimum">
                  <number>24</number>
                 </property>
                 <property name="maximum">
-                 <number>1000</number>
+                 <number>3500</number>
                 </property>
                 <property name="singleStep">
                  <number>4</number>
@@ -2238,7 +2303,7 @@
                 </property>
                </widget>
               </item>
-              <item row="6" column="0">
+              <item row="7" column="0">
                <widget class="QLabel" name="label_badgeHudLetterFontSize">
                 <property name="text">
                  <string>Jump letter font size:</string>
@@ -2248,42 +2313,13 @@
                 </property>
                </widget>
               </item>
-              <item row="6" column="1">
+              <item row="7" column="1">
                <widget class="QSpinBox" name="kcfg_BadgeHudLetterFontSize">
                 <property name="minimum">
                  <number>0</number>
                 </property>
                 <property name="maximum">
-                 <number>48</number>
-                </property>
-                <property name="specialValueText">
-                 <string>Auto</string>
-                </property>
-                <property name="value">
-                 <number>0</number>
-                </property>
-                <property name="suffix">
-                 <string> px</string>
-                </property>
-               </widget>
-              </item>
-              <item row="7" column="0">
-               <widget class="QLabel" name="label_badgeHudCaptionFontSize">
-                <property name="text">
-                 <string>Window title font size:</string>
-                </property>
-                <property name="toolTip">
-                 <string>Font size for window title captions in HUD cards (0 = Auto).</string>
-                </property>
-               </widget>
-              </item>
-              <item row="7" column="1">
-               <widget class="QSpinBox" name="kcfg_BadgeHudCaptionFontSize">
-                <property name="minimum">
-                 <number>0</number>
-                </property>
-                <property name="maximum">
-                 <number>48</number>
+                 <number>200</number>
                 </property>
                 <property name="specialValueText">
                  <string>Auto</string>
@@ -2297,6 +2333,35 @@
                </widget>
               </item>
               <item row="8" column="0">
+               <widget class="QLabel" name="label_badgeHudCaptionFontSize">
+                <property name="text">
+                 <string>Window title font size:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Font size for window title captions in HUD cards (0 = Auto).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="8" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeHudCaptionFontSize">
+                <property name="minimum">
+                 <number>0</number>
+                </property>
+                <property name="maximum">
+                 <number>200</number>
+                </property>
+                <property name="specialValueText">
+                 <string>Auto</string>
+                </property>
+                <property name="value">
+                 <number>0</number>
+                </property>
+                <property name="suffix">
+                 <string> px</string>
+                </property>
+               </widget>
+              </item>
+              <item row="9" column="0">
                <widget class="QLabel" name="label_badgeHudLocationFontSize">
                 <property name="text">
                  <string>Location font size:</string>
@@ -2306,13 +2371,13 @@
                 </property>
                </widget>
               </item>
-              <item row="8" column="1">
+              <item row="9" column="1">
                <widget class="QSpinBox" name="kcfg_BadgeHudLocationFontSize">
                 <property name="minimum">
                  <number>0</number>
                 </property>
                 <property name="maximum">
-                 <number>48</number>
+                 <number>200</number>
                 </property>
                 <property name="specialValueText">
                  <string>Auto</string>
@@ -2369,7 +2434,7 @@
                  <number>0</number>
                 </property>
                 <property name="maximum">
-                 <number>32</number>
+                 <number>200</number>
                 </property>
                 <property name="value">
                  <number>6</number>
@@ -2476,7 +2541,7 @@
                    <number>0</number>
                   </property>
                   <property name="maximum">
-                   <number>48</number>
+                   <number>200</number>
                   </property>
                   <property name="specialValueText">
                    <string>Auto</string>
@@ -2540,7 +2605,7 @@
                    <number>0</number>
                   </property>
                   <property name="maximum">
-                   <number>48</number>
+                   <number>200</number>
                   </property>
                   <property name="specialValueText">
                    <string>Auto</string>
@@ -2604,7 +2669,7 @@
                    <number>0</number>
                   </property>
                   <property name="maximum">
-                   <number>48</number>
+                   <number>200</number>
                   </property>
                   <property name="specialValueText">
                    <string>Auto</string>
@@ -2668,7 +2733,7 @@
                    <number>0</number>
                   </property>
                   <property name="maximum">
-                   <number>48</number>
+                   <number>200</number>
                   </property>
                   <property name="specialValueText">
                    <string>Auto</string>

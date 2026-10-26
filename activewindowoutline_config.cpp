@@ -632,6 +632,9 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->combo_BadgeLabelFont, &QFontComboBox::currentFontChanged, this, onBadgeSettingChanged);
     connect(m_ui->combo_BadgeCaptionFont, &QFontComboBox::currentFontChanged, this, onBadgeSettingChanged);
     connect(m_ui->combo_BadgeLocationFont, &QFontComboBox::currentFontChanged, this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeHudIncludeAll, &QCheckBox::toggled, this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeTimeout, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_JumpRecentKey, &QKeySequenceEdit::keySequenceChanged, this, onBadgeSettingChanged);
 
     QString shortcutStr = QStringLiteral("Meta+Space");
     const auto shortcuts = KGlobalAccel::self()->globalShortcut(QStringLiteral("kwin"), QStringLiteral("JumpToWindow"));
@@ -657,6 +660,14 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
         m_ui->check_previewWindowBadges->setToolTip(QStringLiteral("Tymczasowo wyświetla przykładowe badges na wszystkich widocznych oknach, aby podejrzeć zmiany na żywo."));
         m_ui->check_previewHudBadges->setText(QStringLiteral("Podgląd kart HUD na ekranie"));
         m_ui->check_previewHudBadges->setToolTip(QStringLiteral("Tymczasowo wyświetla wszystkie otwarte okna w HUD na krawędzi ekranu, aby podejrzeć zmiany na żywo."));
+        m_ui->label_badgeTimeout->setText(QStringLiteral("Czas wyświetlania badges:"));
+        m_ui->label_badgeTimeout->setToolTip(QStringLiteral("Czas w sekundach, po którym badges znikają w trybie skoku (0 = bez limitu / stale widoczne, domyślnie: 5 s)."));
+        m_ui->kcfg_BadgeTimeout->setToolTip(QStringLiteral("Czas w sekundach, po którym badges znikają w trybie skoku (0 = bez limitu / stale widoczne, domyślnie: 5 s)."));
+        m_ui->label_jumpRecentKey->setText(QStringLiteral("Klawisz skoku do ostatniego okna (Leap):"));
+        m_ui->label_jumpRecentKey->setToolTip(QStringLiteral("Skrót klawiszowy drugiego poziomu w trybie skoku do natychmiastowego przejścia do ostatnio aktywnego okna (domyślnie: Space)."));
+        m_ui->kcfg_JumpRecentKey->setToolTip(QStringLiteral("Skrót klawiszowy drugiego poziomu w trybie skoku do natychmiastowego przejścia do ostatnio aktywnego okna (domyślnie: Space)."));
+        m_ui->kcfg_BadgeHudIncludeAll->setText(QStringLiteral("Wyświetlaj wszystkie okna w HUD (widoczne, zakryte i na innych pulpitach)"));
+        m_ui->kcfg_BadgeHudIncludeAll->setToolTip(QStringLiteral("Zawsze wyświetla karty w HUD dla wszystkich otwartych okien, niezależnie czy są widoczne na bieżącym ekranie, czy zakryte."));
     }
 
     connect(m_ui->btnPrecedenceUp, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::movePrecedenceUp);
@@ -1181,6 +1192,9 @@ void ActiveWindowOutlineConfig::load()
     if (!locFont.trimmed().isEmpty()) {
         m_ui->combo_BadgeLocationFont->setCurrentFont(QFont(locFont.trimmed()));
     }
+    m_ui->kcfg_BadgeHudIncludeAll->setChecked(group.readEntry("BadgeHudIncludeAll", false));
+    m_ui->kcfg_BadgeTimeout->setValue(group.readEntry("BadgeTimeout", 5));
+    m_ui->kcfg_JumpRecentKey->setKeySequence(QKeySequence(group.readEntry("JumpRecentKey", QStringLiteral("Space"))));
     updateRecentWindowUI();
     updateMarkWindowUI();
     m_activeShaderId = group.readEntry(QStringLiteral("ActiveCustomShaderId"), QString());
@@ -1234,6 +1248,9 @@ void ActiveWindowOutlineConfig::defaults()
     m_ui->kcfg_BadgeLabelFontSize->setValue(0);
     m_ui->kcfg_BadgeCaptionFontSize->setValue(0);
     m_ui->kcfg_BadgeLocationFontSize->setValue(0);
+    m_ui->kcfg_BadgeHudIncludeAll->setChecked(false);
+    m_ui->kcfg_BadgeTimeout->setValue(5);
+    m_ui->kcfg_JumpRecentKey->setKeySequence(QKeySequence(QStringLiteral("Space")));
     m_ui->combo_BadgeLetterFont->setCurrentFont(QFont(QStringLiteral("sans-serif")));
     m_ui->combo_BadgeLabelFont->setCurrentFont(QFont(QStringLiteral("sans-serif")));
     m_ui->combo_BadgeCaptionFont->setCurrentFont(QFont(QStringLiteral("sans-serif")));
@@ -1567,6 +1584,9 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("BadgeLabelFont")] = m_ui->combo_BadgeLabelFont->currentFont().family();
     s[QStringLiteral("BadgeCaptionFont")] = m_ui->combo_BadgeCaptionFont->currentFont().family();
     s[QStringLiteral("BadgeLocationFont")] = m_ui->combo_BadgeLocationFont->currentFont().family();
+    s[QStringLiteral("BadgeHudIncludeAll")] = m_ui->kcfg_BadgeHudIncludeAll->isChecked();
+    s[QStringLiteral("BadgeTimeout")] = m_ui->kcfg_BadgeTimeout->value();
+    s[QStringLiteral("JumpRecentKey")] = m_ui->kcfg_JumpRecentKey->keySequence().toString();
 
     // Color Cycling
     s[QStringLiteral("ColorCycleEnabled")] = m_ui->kcfg_ColorCycleEnabled->isChecked();
@@ -1761,6 +1781,9 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
     if (s.contains(QStringLiteral("BadgeLabelFont"))) m_ui->combo_BadgeLabelFont->setCurrentFont(QFont(s[QStringLiteral("BadgeLabelFont")].toString()));
     if (s.contains(QStringLiteral("BadgeCaptionFont"))) m_ui->combo_BadgeCaptionFont->setCurrentFont(QFont(s[QStringLiteral("BadgeCaptionFont")].toString()));
     if (s.contains(QStringLiteral("BadgeLocationFont"))) m_ui->combo_BadgeLocationFont->setCurrentFont(QFont(s[QStringLiteral("BadgeLocationFont")].toString()));
+    if (s.contains(QStringLiteral("BadgeHudIncludeAll"))) m_ui->kcfg_BadgeHudIncludeAll->setChecked(s[QStringLiteral("BadgeHudIncludeAll")].toBool());
+    if (s.contains(QStringLiteral("BadgeTimeout"))) m_ui->kcfg_BadgeTimeout->setValue(s[QStringLiteral("BadgeTimeout")].toInt());
+    if (s.contains(QStringLiteral("JumpRecentKey"))) m_ui->kcfg_JumpRecentKey->setKeySequence(QKeySequence(s[QStringLiteral("JumpRecentKey")].toString()));
 
     // Color Cycling
     if (s.contains(QStringLiteral("ColorCycleEnabled"))) m_ui->kcfg_ColorCycleEnabled->setChecked(s[QStringLiteral("ColorCycleEnabled")].toBool());
@@ -2283,6 +2306,9 @@ void ActiveWindowOutlineConfig::save()
     group.writeEntry(QStringLiteral("BadgeHudThumbnailSize"), hudThumbSize);
     group.writeEntry(QStringLiteral("BadgeHudThumbnailWidth"), hudThumbSize);
     group.writeEntry(QStringLiteral("BadgeHudThumbnailHeight"), hudThumbSize);
+    group.writeEntry(QStringLiteral("BadgeHudIncludeAll"), m_ui->kcfg_BadgeHudIncludeAll->isChecked());
+    group.writeEntry(QStringLiteral("BadgeTimeout"), m_ui->kcfg_BadgeTimeout->value());
+    group.writeEntry(QStringLiteral("JumpRecentKey"), m_ui->kcfg_JumpRecentKey->keySequence().toString());
     group.deleteEntry(QStringLiteral("BadgeShowIcon"));
     group.deleteEntry(QStringLiteral("BadgeShowThumbnail"));
     saveShaderParameterValues();

@@ -74,17 +74,17 @@
         <entry name="BorderWidth" type="Int">
             <default>2</default>
             <min>1</min>
-            <max>20</max>
+            <max>100</max>
         </entry>
         <entry name="OutlineGap" type="Int">
             <default>0</default>
             <min>0</min>
-            <max>30</max>
+            <max>200</max>
         </entry>
         <entry name="BorderRadius" type="Int">
             <default>6</default>
             <min>0</min>
-            <max>30</max>
+            <max>200</max>
         </entry>
         <entry name="FadeCorners" type="Bool">
             <default>true</default>
@@ -101,7 +101,7 @@
         <entry name="GlowRadius" type="Int">
             <default>6</default>
             <min>1</min>
-            <max>30</max>
+            <max>200</max>
         </entry>
         <entry name="HideOnFullScreen" type="Bool">
             <default>true</default>
@@ -235,12 +235,20 @@
         <entry name="BadgeSize" type="Int">
             <default>28</default>
             <min>16</min>
-            <max>64</max>
+            <max>500</max>
         </entry>
         <entry name="BadgeMargin" type="Int">
             <default>0</default>
             <min>0</min>
-            <max>100</max>
+            <max>500</max>
+        </entry>
+        <entry name="BadgeTimeout" type="Int">
+            <default>5</default>
+            <min>0</min>
+            <max>300</max>
+        </entry>
+        <entry name="JumpRecentKey" type="String">
+            <default>Space</default>
         </entry>
         <entry name="JumpTargets" type="Int">
             <default>0</default>
@@ -251,6 +259,9 @@
             <default>0</default>
             <min>0</min>
             <max>3</max>
+        </entry>
+        <entry name="BadgeHudIncludeAll" type="Bool">
+            <default>false</default>
         </entry>
         <entry name="BadgeShowIcon" type="Bool">
             <default>false</default>
@@ -267,32 +278,32 @@
         <entry name="BadgeWindowIconSize" type="Int">
             <default>20</default>
             <min>12</min>
-            <max>64</max>
+            <max>500</max>
         </entry>
         <entry name="BadgeWindowThumbnailSize" type="Int">
             <default>56</default>
             <min>16</min>
-            <max>600</max>
+            <max>2500</max>
         </entry>
         <entry name="BadgeWindowThumbnailWidth" type="Int">
             <default>56</default>
             <min>16</min>
-            <max>600</max>
+            <max>2500</max>
         </entry>
         <entry name="BadgeWindowThumbnailHeight" type="Int">
             <default>32</default>
             <min>16</min>
-            <max>600</max>
+            <max>2500</max>
         </entry>
         <entry name="BadgeWindowLetterFontSize" type="Int">
             <default>0</default>
             <min>0</min>
-            <max>48</max>
+            <max>200</max>
         </entry>
         <entry name="BadgeWindowLabelFontSize" type="Int">
             <default>0</default>
             <min>0</min>
-            <max>48</max>
+            <max>200</max>
         </entry>
         <entry name="BadgeHudShowIcon" type="Bool">
             <default>true</default>
@@ -303,67 +314,67 @@
         <entry name="BadgeHudIconSize" type="Int">
             <default>24</default>
             <min>12</min>
-            <max>64</max>
+            <max>500</max>
         </entry>
         <entry name="BadgeHudThumbnailSize" type="Int">
             <default>80</default>
             <min>24</min>
-            <max>1000</max>
+            <max>3500</max>
         </entry>
         <entry name="BadgeHudThumbnailWidth" type="Int">
             <default>80</default>
             <min>24</min>
-            <max>1000</max>
+            <max>3500</max>
         </entry>
         <entry name="BadgeHudThumbnailHeight" type="Int">
             <default>48</default>
             <min>16</min>
-            <max>1000</max>
+            <max>3500</max>
         </entry>
         <entry name="BadgeHudLetterFontSize" type="Int">
             <default>0</default>
             <min>0</min>
-            <max>48</max>
+            <max>200</max>
         </entry>
         <entry name="BadgeHudCaptionFontSize" type="Int">
             <default>0</default>
             <min>0</min>
-            <max>48</max>
+            <max>200</max>
         </entry>
         <entry name="BadgeHudLocationFontSize" type="Int">
             <default>0</default>
             <min>0</min>
-            <max>48</max>
+            <max>200</max>
         </entry>
         <entry name="BadgeJumpSize" type="Int">
             <default>34</default>
             <min>16</min>
-            <max>96</max>
+            <max>500</max>
         </entry>
         <entry name="BadgeHudSize" type="Int">
             <default>36</default>
             <min>24</min>
-            <max>96</max>
+            <max>500</max>
         </entry>
         <entry name="BadgeIconSize" type="Int">
             <default>20</default>
             <min>12</min>
-            <max>64</max>
+            <max>500</max>
         </entry>
         <entry name="BadgeThumbnailWidth" type="Int">
             <default>56</default>
             <min>24</min>
-            <max>200</max>
+            <max>2500</max>
         </entry>
         <entry name="BadgeThumbnailHeight" type="Int">
             <default>32</default>
             <min>16</min>
-            <max>120</max>
+            <max>2500</max>
         </entry>
         <entry name="BadgeCornerRadius" type="Int">
             <default>6</default>
             <min>0</min>
-            <max>32</max>
+            <max>200</max>
         </entry>
         <entry name="BadgeOpacity" type="Int">
             <default>92</default>
@@ -417,22 +428,22 @@
         <entry name="BadgeLetterFontSize" type="Int">
             <default>0</default>
             <min>0</min>
-            <max>48</max>
+            <max>200</max>
         </entry>
         <entry name="BadgeLabelFontSize" type="Int">
             <default>0</default>
             <min>0</min>
-            <max>48</max>
+            <max>200</max>
         </entry>
         <entry name="BadgeCaptionFontSize" type="Int">
             <default>0</default>
             <min>0</min>
-            <max>48</max>
+            <max>200</max>
         </entry>
         <entry name="BadgeLocationFontSize" type="Int">
             <default>0</default>
             <min>0</min>
-            <max>48</max>
+            <max>200</max>
         </entry>
 
         <!-- Color Cycling Settings -->

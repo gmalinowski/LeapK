@@ -10,6 +10,7 @@
 #include <QFontMetrics>
 #include <QIcon>
 #include <QImage>
+#include <QLocale>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPen>
@@ -68,6 +69,9 @@ struct BadgeConfig {
     int hudLetterFontSize = 0; // 0 = auto
     int hudCaptionFontSize = 0; // 0 = auto
     int hudLocationFontSize = 0; // 0 = auto
+    bool hudIncludeAll = false;
+    int badgeTimeout = 5;
+    QString jumpRecentKey = QStringLiteral("Space");
 
     // Appearance
     QColor defaultBgColor = QColor(35, 38, 41, 235);
@@ -315,7 +319,7 @@ inline qreal computeBadgeWidth(qreal baseHeight, const QString &customLabel = QS
     return totalW + labelW + 18.0;
 }
 
-inline qreal computeBadgeWidth(const BadgeConfig &cfg, qreal baseHeight, const QString &customLabel = QString())
+inline qreal computeBadgeWidth(const BadgeConfig &cfg, qreal baseHeight, const QString &customLabel = QString(), const QString &recentKey = QString())
 {
     const bool showI = cfg.windowShowIcon || cfg.showIcon;
     const bool showT = cfg.windowShowThumbnail || cfg.showThumbnail;
@@ -323,9 +327,19 @@ inline qreal computeBadgeWidth(const BadgeConfig &cfg, qreal baseHeight, const Q
     const int thumbW = (cfg.windowThumbnailWidth > 0) ? cfg.windowThumbnailWidth : cfg.thumbnailWidth;
     const int thumbH = (cfg.windowThumbnailHeight > 0) ? cfg.windowThumbnailHeight : cfg.thumbnailHeight;
     const int labelSz = (cfg.windowLabelFontSize > 0) ? cfg.windowLabelFontSize : cfg.labelFontSize;
-    return computeBadgeWidth(baseHeight, customLabel, showI, showT,
-                             1.6, iconSz, thumbW, labelSz, cfg.labelFontFamily,
-                             thumbH);
+    qreal w = computeBadgeWidth(baseHeight, customLabel, showI, showT,
+                                1.6, iconSz, thumbW, labelSz, cfg.labelFontFamily,
+                                thumbH);
+    if (!recentKey.trimmed().isEmpty()) {
+        const QString rKey = recentKey.trimmed();
+        const QString fam = cfg.letterFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.letterFontFamily.trimmed();
+        QFont rFont(fam);
+        rFont.setBold(true);
+        rFont.setPixelSize(qMax(8, qRound(baseHeight * 0.44)));
+        QFontMetrics fm(rFont);
+        w += fm.horizontalAdvance(rKey) + 12.0;
+    }
+    return w;
 }
 
 inline QImage renderBadgeImage(const BadgeConfig &cfg,
@@ -337,11 +351,17 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
                                qreal scale = 1.0,
                                const QString &customLabel = QString(),
                                const QIcon &icon = QIcon(),
-                               const QImage &thumbnail = QImage())
+                               const QImage &thumbnail = QImage(),
+                               const QString &recentKey = QString(),
+                               bool isRecent = false)
 {
+    Q_UNUSED(isRecent);
     const int effectiveBaseHeight = (baseSize > 0)
         ? baseSize
         : (isJumpMode ? cfg.jumpBadgeSize : cfg.windowBadgeSize);
+
+    const QString cleanRecentKey = recentKey.trimmed();
+    const bool hasRecentKey = !cleanRecentKey.isEmpty();
 
     const QString cleanLabel = customLabel.trimmed();
     const bool hasLabel = !cleanLabel.isEmpty();
@@ -448,17 +468,39 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
     const QColor effLetterColor = (cfg.letterColorAuto || !cfg.letterColor.isValid()) ? autoTextColor : cfg.letterColor;
     p.setPen(effLetterColor);
 
-    const bool hasExtra = hasIcon || hasThumb || hasLabel;
+    const bool hasExtra = hasIcon || hasThumb || hasLabel || hasRecentKey;
     if (!hasExtra) {
         p.drawText(rect, Qt::AlignCenter, QString(letter.toUpper()));
     } else {
         qreal currentX = margin;
 
-        // 1. Letter
+        // 1. Letter & optional recent key
         const qreal letterW = qRound(effectiveLetterWidth * scale);
-        const QRectF letterRect(currentX, margin, letterW - margin, h - 2 * margin);
-        p.drawText(letterRect, Qt::AlignCenter, QString(letter.toUpper()));
-        currentX += letterW;
+        if (!hasRecentKey) {
+            const QRectF letterRect(currentX, margin, letterW - margin, h - 2 * margin);
+            p.drawText(letterRect, Qt::AlignCenter, QString(letter.toUpper()));
+            currentX += letterW;
+        } else {
+            QFont rFont(letterFam);
+            rFont.setBold(true);
+            rFont.setPixelSize(qMax(8, qRound(letterPx * 0.82)));
+            QFontMetrics fmR(rFont);
+            const qreal rTextW = fmR.horizontalAdvance(cleanRecentKey);
+            const QRectF letterRect(currentX, margin, letterW - margin, h - 2 * margin);
+            p.drawText(letterRect, Qt::AlignCenter, QString(letter.toUpper()));
+
+            const qreal sepRecentX = currentX + letterW;
+            p.setPen(QPen(sepCol, 1.0 * scale));
+            p.drawLine(QPointF(sepRecentX, margin + 4.0 * scale), QPointF(sepRecentX, h - margin - 4.0 * scale));
+
+            const QRectF recentRect(sepRecentX + 4.0 * scale, margin, rTextW, h - 2 * margin);
+            p.setFont(rFont);
+            p.setPen(effLetterColor);
+            p.drawText(recentRect, Qt::AlignCenter, cleanRecentKey);
+
+            p.setFont(font);
+            currentX += letterW + rTextW + 8.0 * scale;
+        }
 
         // 2. Icon
         if (hasIcon) {
@@ -546,7 +588,9 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
                                         const QString &customLabel = QString(),
                                         const QIcon &icon = QIcon(),
                                         const QImage &thumbnail = QImage(),
-                                        bool isMarked = false)
+                                        bool isMarked = false,
+                                        const QString &recentKey = QString(),
+                                        bool isRecent = false)
 {
     Q_UNUSED(textColor);
     const int effectivePillBaseH = (badgeSize > 0) ? badgeSize : cfg.hudBadgeSize;
@@ -567,10 +611,14 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     int pillW = 0;
     int pillH = 0;
     int badgeDim = 0;
+    int badgeW = 0;
     int iconDim = 0;
     int thumbW = 0;
     int thumbH = 0;
     int headerH = 0;
+
+    const QString cleanRecentKey = recentKey.trimmed();
+    const bool hasRecentKey = !cleanRecentKey.isEmpty();
 
     const QString locFam = cfg.locationFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.locationFontFamily.trimmed();
     QFont locFont(locFam);
@@ -634,6 +682,10 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         }
 
         line1Text = locationText;
+        if (isRecent) {
+            const bool isPolish = (QLocale().language() == QLocale::Polish);
+            line1Text += QStringLiteral(" · ") + (isPolish ? QStringLiteral("Ostatnie") : QStringLiteral("Recent"));
+        }
         line2Text = displayCap;
 
         const int locWidth = fmLoc.horizontalAdvance(line1Text);
@@ -641,10 +693,24 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         textWidth = qMax(locWidth, capWidth);
     }
 
+    const QString letterFam = cfg.letterFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.letterFontFamily.trimmed();
+    QFont letterFont(letterFam);
+    const int effectiveLetterFontSize = (cfg.hudLetterFontSize > 0) ? cfg.hudLetterFontSize : cfg.letterFontSize;
+    const int lPx = (effectiveLetterFontSize > 0) ? qRound(effectiveLetterFontSize * scale) : qMax(8, qRound(effectivePillBaseH * 0.62 * scale));
+    letterFont.setPixelSize(lPx);
+    letterFont.setBold(true);
+
+    QFont rFont(letterFam);
+    rFont.setBold(true);
+    rFont.setPixelSize(qMax(8, qRound(lPx * 0.78)));
+    QFontMetrics fmR(rFont);
+    const int rKeyWidth = hasRecentKey ? (fmR.horizontalAdvance(cleanRecentKey) + qRound(10 * scale)) : 0;
+
     if (isTopOrBottom && hasThumb) {
         // Top/Bottom with thumbnail: 2-row card with [badge] [icon] [text] on row 1, and thumbnail UNDERNEATH
         headerH = qMax(22, qRound(effectivePillBaseH * 1.05 * scale));
         badgeDim = qMax(16, headerH - qRound(4 * scale));
+        badgeW = badgeDim + rKeyWidth;
         iconDim = hasIcon
             ? ((effectiveIconSize > 0) ? qMin(qRound(effectiveIconSize * scale), badgeDim) : qRound(badgeDim * 0.85))
             : 0;
@@ -661,7 +727,7 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
             thumbW = (effectiveThumbW > 0) ? qRound(effectiveThumbW * scale) : qRound(thumbH * 1.6);
         }
 
-        const int headerContentW = badgeDim + (hasIcon ? (gapX + iconDim) : 0) + gapX + textWidth;
+        const int headerContentW = badgeW + (hasIcon ? (gapX + iconDim) : 0) + gapX + textWidth;
         const int contentW = qMax(headerContentW, thumbW);
 
         pillW = padX + contentW + padX;
@@ -670,6 +736,7 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         // Horizontal single-row pill (Left/Right, or Top/Bottom without thumbnail)
         pillH = qMax(24, qRound(effectivePillBaseH * 1.35 * scale));
         badgeDim = qMax(16, pillH - qRound(8 * scale));
+        badgeW = badgeDim + rKeyWidth;
         const int maxIconDim = qMax(12, pillH - qRound(8 * scale));
         iconDim = hasIcon
             ? ((effectiveIconSize > 0) ? qMin(qRound(effectiveIconSize * scale), maxIconDim) : qRound(badgeDim * 0.85))
@@ -701,7 +768,7 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
             extraW += thumbW + gapX;
         }
 
-        pillW = padX + badgeDim + extraW + gapX + textWidth + padX;
+        pillW = padX + badgeW + extraW + gapX + textWidth + padX;
     }
 
     QImage img(pillW, pillH, QImage::Format_ARGB32_Premultiplied);
@@ -724,7 +791,7 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     p.setPen(Qt::NoPen);
     p.fillPath(shadowPath.subtracted(bgPath), QColor(0, 0, 0, 140));
 
-    const bool effectivelyMarked = isMarked || (bgColor.isValid() && bgColor != cfg.defaultBgColor && bgColor != QColor(35, 38, 41, 235));
+    const bool effectivelyMarked = isMarked || isRecent || (bgColor.isValid() && bgColor != cfg.defaultBgColor && bgColor != QColor(35, 38, 41, 235));
     const QColor rawMarkColor = bgColor.isValid() ? bgColor : cfg.defaultBgColor;
     QColor pureMarkColor = rawMarkColor;
     pureMarkColor.setAlpha(255); // Solid, vibrant, undimmed 100% mark color
@@ -779,8 +846,8 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     const bool isLightBadge = (badgeAutoText == Qt::black) || (perceivedLuminance(badgeBg) > 0.53);
 
     const QRectF badgeRect = (isTopOrBottom && hasThumb)
-        ? QRectF(padX, padY + (headerH - badgeDim) / 2.0, badgeDim, badgeDim)
-        : QRectF(padX, (pillH - badgeDim) / 2.0, badgeDim, badgeDim);
+        ? QRectF(padX, padY + (headerH - badgeDim) / 2.0, badgeW, badgeDim)
+        : QRectF(padX, (pillH - badgeDim) / 2.0, badgeW, badgeDim);
     const qreal innerRadius = (cfg.cornerRadius == 0) ? 0.0 : qMax(1.0, cfg.cornerRadius * scale);
     QPainterPath bPath;
     bPath.addRoundedRect(badgeRect, innerRadius, innerRadius);
@@ -798,16 +865,26 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         p.drawPath(bPath);
     }
 
-    const QString letterFam = cfg.letterFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.letterFontFamily.trimmed();
-    QFont letterFont(letterFam);
-    const int effectiveLetterFontSize = (cfg.hudLetterFontSize > 0) ? cfg.hudLetterFontSize : cfg.letterFontSize;
-    const int lPx = (effectiveLetterFontSize > 0) ? qRound(effectiveLetterFontSize * scale) : qRound(badgeDim * 0.62);
-    letterFont.setPixelSize(lPx);
-    letterFont.setBold(true);
-    p.setFont(letterFont);
     const QColor effLetterCol = (cfg.letterColorAuto || !cfg.letterColor.isValid()) ? badgeAutoText : cfg.letterColor;
-    p.setPen(effLetterCol);
-    p.drawText(badgeRect, Qt::AlignCenter, QString(letter.toUpper()));
+    if (!hasRecentKey) {
+        p.setFont(letterFont);
+        p.setPen(effLetterCol);
+        p.drawText(badgeRect, Qt::AlignCenter, QString(letter.toUpper()));
+    } else {
+        const QRectF lRect(badgeRect.left(), badgeRect.top(), badgeDim, badgeDim);
+        p.setFont(letterFont);
+        p.setPen(effLetterCol);
+        p.drawText(lRect, Qt::AlignCenter, QString(letter.toUpper()));
+
+        const qreal sepX = badgeRect.left() + badgeDim;
+        p.setPen(QPen(isLightBadge ? QColor(0, 0, 0, 75) : QColor(255, 255, 255, 90), 1.0 * scale));
+        p.drawLine(QPointF(sepX, badgeRect.top() + 4.0 * scale), QPointF(sepX, badgeRect.bottom() - 4.0 * scale));
+
+        const QRectF rRect(sepX, badgeRect.top(), badgeW - badgeDim, badgeDim);
+        p.setFont(rFont);
+        p.setPen(effLetterCol);
+        p.drawText(rRect, Qt::AlignCenter, cleanRecentKey);
+    }
 
     int textLeft = 0;
     qreal textCenterY = 0;
@@ -815,7 +892,7 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
 
     if (isTopOrBottom && hasThumb) {
         // Row 1: Header [Badge] [Icon] [Text]
-        int curX = padX + badgeDim;
+        int curX = padX + badgeW;
         if (hasIcon) {
             curX += gapX;
             const QRect iconRect(curX, qRound(padY + (headerH - iconDim) / 2.0), iconDim, iconDim);
@@ -827,7 +904,7 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         textLineHeight = headerH;
 
         // Row 2: Window preview underneath header ("pod badges")
-        const int headerContentW = badgeDim + (hasIcon ? (gapX + iconDim) : 0) + gapX + textWidth;
+        const int headerContentW = badgeW + (hasIcon ? (gapX + iconDim) : 0) + gapX + textWidth;
         const int contentW = qMax(headerContentW, thumbW);
         const qreal thumbX = padX + (contentW - thumbW) / 2.0;
         const qreal thumbY = padY + headerH + gapY;
@@ -845,7 +922,7 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     } else {
         // Horizontal single-row pill (Left/Right, or Top/Bottom without thumbnail)
         // Order: [Badge] -> [Icon] -> [Preview] -> [Text]
-        int curX = padX + badgeDim;
+        int curX = padX + badgeW;
         if (hasIcon) {
             curX += gapX;
             const QRect iconRect(curX, qRound((pillH - iconDim) / 2.0), iconDim, iconDim);
@@ -917,13 +994,15 @@ inline QImage renderOffscreenTargetPill(const QChar &letter,
                                         const QString &customLabel = QString(),
                                         bool showIcon = false, const QIcon &icon = QIcon(),
                                         bool showThumbnail = false, const QImage &thumbnail = QImage(),
-                                        bool isMarked = false)
+                                        bool isMarked = false,
+                                        const QString &recentKey = QString(),
+                                        bool isRecent = false)
 {
     BadgeConfig cfg;
     cfg.hudBadgeSize = badgeSize;
     cfg.showIcon = showIcon;
     cfg.showThumbnail = showThumbnail;
-    return renderOffscreenTargetPill(cfg, letter, bgColor, textColor, locationText, caption, badgeSize, scale, customLabel, icon, thumbnail, isMarked);
+    return renderOffscreenTargetPill(cfg, letter, bgColor, textColor, locationText, caption, badgeSize, scale, customLabel, icon, thumbnail, isMarked, recentKey, isRecent);
 }
 
 inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
