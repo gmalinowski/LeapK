@@ -180,6 +180,8 @@ private:
     bool isBlockingPopup(EffectWindow *w) const;
     bool popupAcceptsInput(EffectWindow *w) const;
     bool hasVisibleBlockingPopup() const;
+    bool isSystemOverlay(EffectWindow *w) const;
+    bool isSessionLockOrLogoutActive() const;
     void updatePopupBlockingState();
     OutlineRegion panelOcclusionRegion(EffectWindow *w, QString *source = nullptr) const;
     void repaintAllOutlines();

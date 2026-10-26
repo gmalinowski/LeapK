@@ -574,6 +574,16 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
                 }
                 repaintAllOutlines();
             });
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    connect(effects, &EffectsHandler::sessionStateChanged,
+            this, [this]() {
+                if (m_jumpMode) {
+                    cancelJumpMode();
+                }
+                m_badgeTextureCache.clear();
+                repaintAllOutlines();
+            });
+#endif
 
     initShortcuts();
 
@@ -1162,6 +1172,13 @@ void ActiveWindowOutlineEffect::slotWindowAdded(EffectWindow *w)
     connect(w, &EffectWindow::windowFullScreenChanged,
             this, &ActiveWindowOutlineEffect::slotWindowFullScreenChanged);
 
+    if (isSystemOverlay(w)) {
+        if (m_jumpMode) {
+            cancelJumpMode();
+        }
+        m_badgeTextureCache.clear();
+    }
+
     updatePopupBlockingState();
     if (m_badgeDisplayMode == 1) {
         effects->addRepaintFull();
@@ -1171,6 +1188,9 @@ void ActiveWindowOutlineEffect::slotWindowAdded(EffectWindow *w)
 bool ActiveWindowOutlineEffect::isEligibleOutlineWindow(EffectWindow *w) const
 {
     if (!w || w->isDeleted()) {
+        return false;
+    }
+    if (isSessionLockOrLogoutActive() || isSystemOverlay(w)) {
         return false;
     }
     if (w->isDesktop() || w->isDock() || w->isSpecialWindow() || w->isLockScreen()) {
@@ -1190,7 +1210,8 @@ bool ActiveWindowOutlineEffect::shouldOutlineWindow(EffectWindow *w) const
 {
     return m_outlineEnabled && w && w == m_activeWindow && isEligibleOutlineWindow(w)
         && !(m_hideOnFullScreen && w->isFullScreen())
-        && !isBlockingPopup(w);
+        && !isBlockingPopup(w)
+        && !isSessionLockOrLogoutActive();
 }
 
 bool ActiveWindowOutlineEffect::isBlockingPopup(EffectWindow *w) const
@@ -1220,8 +1241,56 @@ bool ActiveWindowOutlineEffect::popupAcceptsInput(EffectWindow *w) const
     return false;
 }
 
+bool ActiveWindowOutlineEffect::isSystemOverlay(EffectWindow *w) const
+{
+    if (!w || w->isDeleted()) {
+        return false;
+    }
+    if (w->isLockScreen()) {
+        return true;
+    }
+    const QString cls = w->windowClass();
+    if (cls.contains(QStringLiteral("ksmserver-logout-greeter"), Qt::CaseInsensitive)
+        || cls.contains(QStringLiteral("logout-greeter"), Qt::CaseInsensitive)
+        || cls.contains(QStringLiteral("logoutgreeter"), Qt::CaseInsensitive)
+        || cls.contains(QStringLiteral("kscreenlocker"), Qt::CaseInsensitive)) {
+        return true;
+    }
+    const QString role = w->windowRole();
+    if (role.contains(QStringLiteral("logout"), Qt::CaseInsensitive)
+        || role.contains(QStringLiteral("greeter"), Qt::CaseInsensitive)
+        || role.contains(QStringLiteral("lockscreen"), Qt::CaseInsensitive)) {
+        return true;
+    }
+    return false;
+}
+
+bool ActiveWindowOutlineEffect::isSessionLockOrLogoutActive() const
+{
+    if (!effects) {
+        return false;
+    }
+    if (effects->isScreenLocked()) {
+        return true;
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    if (effects->sessionState() != KWin::SessionState::Normal) {
+        return true;
+    }
+#endif
+    for (EffectWindow *w : effects->stackingOrder()) {
+        if (isSystemOverlay(w) && w->isVisible()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool ActiveWindowOutlineEffect::hasVisibleBlockingPopup() const
 {
+    if (isSessionLockOrLogoutActive()) {
+        return true;
+    }
     // Query the current stacking order on every paint instead of remembering
     // popup state from windowAdded. Toolkits often create a popup before it is
     // visible, so checking only at creation time misses context menus.
@@ -1911,7 +1980,10 @@ void ActiveWindowOutlineEffect::cacheWindowOutline(EffectWindow *w, const QRectF
 
 void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
 {
-    if (isBlockingPopup(w)) {
+    if (isBlockingPopup(w) || isSystemOverlay(w)) {
+        if (isSystemOverlay(w) && m_jumpMode) {
+            cancelJumpMode();
+        }
         return;
     }
 
@@ -2613,10 +2685,13 @@ bool ActiveWindowOutlineEffect::isEligibleTargetWindow(EffectWindow *w) const
     if (effects && effects->isScreenLocked()) {
         return false;
     }
+    if (isSessionLockOrLogoutActive()) {
+        return false;
+    }
     if (!w || w == m_activeWindow || !isEligibleOutlineWindow(w)) {
         return false;
     }
-    if (w->isSkipSwitcher() || w->isLockScreen()) {
+    if (w->isSkipSwitcher() || w->isLockScreen() || isSystemOverlay(w)) {
         return false;
     }
     if (!w->acceptsFocus()) {
@@ -2641,6 +2716,9 @@ bool ActiveWindowOutlineEffect::isEligibleTargetWindow(EffectWindow *w) const
 QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
 {
     if (effects && effects->isScreenLocked()) {
+        return {};
+    }
+    if (isSessionLockOrLogoutActive()) {
         return {};
     }
     QMap<QChar, EffectWindow *> map;
@@ -2911,8 +2989,8 @@ bool ActiveWindowOutlineEffect::isBadgeOccluded(EffectWindow *target, const QRec
         if (!candidate || candidate->isDeleted() || !candidate->isVisible()
             || candidate->isMinimized() || !candidate->isOnCurrentDesktop()
             || candidate->isHiddenByShowDesktop() || candidate->isOutline()
-            || candidate->isDesktop() || candidate->isSpecialWindow()
-            || candidate->isSkipSwitcher()
+            || candidate->isDesktop()
+            || candidate->opacity() <= 0.05
             || candidate->frameGeometry().width() < 10
             || candidate->frameGeometry().height() < 10) {
             continue;
@@ -4074,6 +4152,17 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
 #else
     effects->paintScreen(renderTarget, viewport, mask, deviceRegion, screen);
 #endif
+
+    if (isSessionLockOrLogoutActive()) {
+        if (m_jumpMode) {
+            cancelJumpMode();
+        }
+#ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
+        return true;
+#else
+        return;
+#endif
+    }
 
     const qreal elapsedSec = m_animationClock.isValid() ? (m_animationClock.elapsed() / 1000.0) : 0.0;
     const qreal sampleInterval = 1.0 / qMax<qreal>(0.1, m_ambilightFrequency);
