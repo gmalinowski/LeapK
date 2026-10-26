@@ -48,6 +48,7 @@ struct BadgeConfig {
     int windowBadgeSize = 28;
     int jumpBadgeSize = 34;
     int windowIconSize = 20;
+    int windowThumbnailSize = 56;
     int windowThumbnailWidth = 56;
     int windowThumbnailHeight = 32;
     int margin = 0;
@@ -59,6 +60,7 @@ struct BadgeConfig {
     // HUD Badges Sizing & Features
     int hudBadgeSize = 36;
     int hudIconSize = 24;
+    int hudThumbnailSize = 80;
     int hudThumbnailWidth = 80;
     int hudThumbnailHeight = 48;
     bool hudShowIcon = true;
@@ -77,6 +79,7 @@ struct BadgeConfig {
     // Features (Legacy / Fallback)
     bool showIcon = false;
     bool showThumbnail = false;
+    int thumbnailSize = 56;
 
     // Typography (Global / Fallback)
     QString letterFontFamily;
@@ -352,8 +355,9 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
     const int iconSectionW = hasIcon ? (iconDim + 10) : 0;
 
     const bool hasThumb = (cfg.windowShowThumbnail || cfg.showThumbnail) && !thumbnail.isNull();
-    const int maxThumbW = (cfg.windowThumbnailWidth > 0) ? cfg.windowThumbnailWidth : cfg.thumbnailWidth;
-    const int maxThumbH = (cfg.windowThumbnailHeight > 0) ? cfg.windowThumbnailHeight : cfg.thumbnailHeight;
+    const int effWinThumbSize = (cfg.windowThumbnailSize > 0) ? cfg.windowThumbnailSize : cfg.thumbnailSize;
+    const int maxThumbW = (cfg.windowThumbnailWidth > 0) ? cfg.windowThumbnailWidth : ((effWinThumbSize > 0) ? effWinThumbSize : cfg.thumbnailWidth);
+    const int maxThumbH = (cfg.windowThumbnailHeight > 0) ? cfg.windowThumbnailHeight : ((effWinThumbSize > 0) ? effWinThumbSize : cfg.thumbnailHeight);
     const int maxPillThumbH = qMax(12, effectiveBaseHeight - 6);
     int thumbW = 0;
     int thumbH = 0;
@@ -550,8 +554,9 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     const bool hasIcon = cfg.hudShowIcon && !icon.isNull();
     const bool hasThumb = cfg.hudShowThumbnail && !thumbnail.isNull();
     const int effectiveIconSize = (cfg.hudIconSize > 0) ? cfg.hudIconSize : 24;
-    const int effectiveThumbW = (cfg.hudThumbnailWidth > 0) ? cfg.hudThumbnailWidth : 80;
-    const int effectiveThumbH = (cfg.hudThumbnailHeight > 0) ? cfg.hudThumbnailHeight : 48;
+    const int effectiveThumbSize = (cfg.hudThumbnailSize > 0) ? cfg.hudThumbnailSize : 80;
+    const int effectiveThumbW = (cfg.hudThumbnailWidth > 0) ? cfg.hudThumbnailWidth : effectiveThumbSize;
+    const int effectiveThumbH = (cfg.hudThumbnailHeight > 0) ? cfg.hudThumbnailHeight : effectiveThumbSize;
     const bool isTopOrBottom = (cfg.hudPosition == 0 || cfg.hudPosition == 1);
 
     const int padX = qRound(8 * scale);
@@ -995,7 +1000,7 @@ inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
             qreal currentX = rowStartX;
             for (int idx : r.indices) {
                 const QSizeF &sz = pillSizes.at(idx);
-                const qreal itemY = rowY + (r.maxHeight - sz.height()) / 2.0;
+                const qreal itemY = rowY; // Top-aligned so letter badges align in a straight horizontal row
                 result[idx] = QRectF(currentX, itemY, sz.width(), sz.height());
                 currentX += sz.width() + gap;
             }

@@ -289,6 +289,21 @@ void testComputeHudPillPositions()
     assert(qFuzzyCompare(rWrapLeft[2].left(), 130.0));
     assert(qFuzzyCompare(rWrapLeft[2].top(), 150.0));
     assert(qFuzzyCompare(rWrapLeft[2].width(), 80.0));
+
+    // 8. Multi-pill in row with varying heights in Top (hudPosition = 1) and Bottom (0) -> all pills strictly TOP-ALIGNED at rowY
+    QList<QSizeF> varyingHeightPills = { QSizeF(150, 180), QSizeF(140, 120), QSizeF(160, 90) };
+    QList<QRectF> rVaryingTop = computeHudPillPositions(varyingHeightPills, screen, 1, 24.0, 12.0);
+    assert(rVaryingTop.size() == 3);
+    assert(qFuzzyCompare(rVaryingTop[0].top(), 24.0));
+    assert(qFuzzyCompare(rVaryingTop[1].top(), 24.0)); // Strictly top-aligned, NOT centered at 24 + (180-120)/2 = 54
+    assert(qFuzzyCompare(rVaryingTop[2].top(), 24.0)); // Strictly top-aligned, NOT centered at 24 + (180-90)/2 = 69
+
+    QList<QRectF> rVaryingBottom = computeHudPillPositions(varyingHeightPills, screen, 0, 24.0, 12.0);
+    assert(rVaryingBottom.size() == 3);
+    const qreal bottomRowY = 1080.0 - 24.0 - 180.0;
+    assert(qFuzzyCompare(rVaryingBottom[0].top(), bottomRowY));
+    assert(qFuzzyCompare(rVaryingBottom[1].top(), bottomRowY)); // Strictly top-aligned in bottom layout
+    assert(qFuzzyCompare(rVaryingBottom[2].top(), bottomRowY));
 }
 
 void testIconAndThumbnailBadges()

@@ -269,15 +269,20 @@
             <min>12</min>
             <max>64</max>
         </entry>
+        <entry name="BadgeWindowThumbnailSize" type="Int">
+            <default>56</default>
+            <min>16</min>
+            <max>600</max>
+        </entry>
         <entry name="BadgeWindowThumbnailWidth" type="Int">
             <default>56</default>
-            <min>24</min>
-            <max>200</max>
+            <min>16</min>
+            <max>600</max>
         </entry>
         <entry name="BadgeWindowThumbnailHeight" type="Int">
             <default>32</default>
             <min>16</min>
-            <max>120</max>
+            <max>600</max>
         </entry>
         <entry name="BadgeWindowLetterFontSize" type="Int">
             <default>0</default>
@@ -300,15 +305,20 @@
             <min>12</min>
             <max>64</max>
         </entry>
+        <entry name="BadgeHudThumbnailSize" type="Int">
+            <default>80</default>
+            <min>24</min>
+            <max>1000</max>
+        </entry>
         <entry name="BadgeHudThumbnailWidth" type="Int">
             <default>80</default>
             <min>24</min>
-            <max>300</max>
+            <max>1000</max>
         </entry>
         <entry name="BadgeHudThumbnailHeight" type="Int">
             <default>48</default>
             <min>16</min>
-            <max>200</max>
+            <max>1000</max>
         </entry>
         <entry name="BadgeHudLetterFontSize" type="Int">
             <default>0</default>

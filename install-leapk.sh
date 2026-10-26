@@ -395,6 +395,7 @@ set_default BadgeShowThumbnail false
 set_default BadgeWindowShowIcon false
 set_default BadgeWindowShowThumbnail false
 set_default BadgeWindowIconSize 20
+set_default BadgeWindowThumbnailSize 56
 set_default BadgeWindowThumbnailWidth 56
 set_default BadgeWindowThumbnailHeight 32
 set_default BadgeWindowLetterFontSize 0
@@ -402,6 +403,7 @@ set_default BadgeWindowLabelFontSize 0
 set_default BadgeHudShowIcon true
 set_default BadgeHudShowThumbnail true
 set_default BadgeHudIconSize 24
+set_default BadgeHudThumbnailSize 80
 set_default BadgeHudThumbnailWidth 80
 set_default BadgeHudThumbnailHeight 48
 set_default BadgeHudLetterFontSize 0
