@@ -3076,14 +3076,14 @@ void ActiveWindowOutlineEffect::paintWindow(const RenderTarget &renderTarget,
 
     const bool wantThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail);
     if (wantThumbnail && w && !w->isDeleted() && isEligibleOutlineWindow(w)
-        && !w->isMinimized() && w->isVisible()
+        && !w->isMinimized() && w->isVisible() && !isWindowObscured(w)
         && !(effects && effects->isScreenLocked()) && !w->isLockScreen()) {
         const qint64 now = QDateTime::currentMSecsSinceEpoch();
         const qint64 lastCapture = m_lastCaptureTimestamp.value(w, 0);
         if (!m_thumbnailCache.contains(w) || (now - lastCapture > 1000)) {
             const QSize targetSize(qMax(m_badgeConfig.windowThumbnailWidth, m_badgeConfig.hudThumbnailWidth) * 2,
                                    qMax(m_badgeConfig.windowThumbnailHeight, m_badgeConfig.hudThumbnailHeight) * 2);
-            captureWindowThumbnail(w, renderTarget, viewport, targetSize, /*forceBlit=*/true);
+            captureWindowThumbnail(w, renderTarget, viewport, targetSize, /*forceBlit=*/false);
             m_lastCaptureTimestamp[w] = now;
         }
     }
@@ -3112,14 +3112,14 @@ void ActiveWindowOutlineEffect::drawWindow(const RenderTarget &renderTarget,
 
     const bool wantThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail);
     if (wantThumbnail && w && !w->isDeleted() && isEligibleOutlineWindow(w)
-        && !w->isMinimized() && w->isVisible()
+        && !w->isMinimized() && w->isVisible() && !isWindowObscured(w)
         && !(effects && effects->isScreenLocked()) && !w->isLockScreen()) {
         const qint64 now = QDateTime::currentMSecsSinceEpoch();
         const qint64 lastCapture = m_lastCaptureTimestamp.value(w, 0);
         if (!m_thumbnailCache.contains(w) || (now - lastCapture > 1000)) {
             const QSize targetSize(qMax(m_badgeConfig.windowThumbnailWidth, m_badgeConfig.hudThumbnailWidth) * 2,
                                    qMax(m_badgeConfig.windowThumbnailHeight, m_badgeConfig.hudThumbnailHeight) * 2);
-            captureWindowThumbnail(w, renderTarget, viewport, targetSize, /*forceBlit=*/true);
+            captureWindowThumbnail(w, renderTarget, viewport, targetSize, /*forceBlit=*/false);
             m_lastCaptureTimestamp[w] = now;
         }
     }
@@ -3265,6 +3265,79 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
                 }
                 if (savedFbo && GLFramebuffer::currentFramebuffer() != savedFbo) {
                     GLFramebuffer::pushFramebuffer(savedFbo);
+                }
+            }
+        }
+    }
+
+    // 2. Offscreen rendering for covered/obscured windows, or windows on other desktops/minimized
+    const QRectF offscreenFrameGeo = target->frameGeometry();
+    if (offscreenFrameGeo.width() >= 16 && offscreenFrameGeo.height() >= 16) {
+        if (!m_thumbTexture || m_thumbTexture->size() != targetSize) {
+            m_thumbTexture = GLTexture::allocate(GL_RGBA8, targetSize);
+            if (m_thumbTexture) {
+                m_thumbFbo = std::make_unique<GLFramebuffer>(m_thumbTexture.get());
+            }
+        }
+
+        if (m_thumbFbo && m_thumbFbo->valid()) {
+            GLFramebuffer *savedFbo = GLFramebuffer::currentFramebuffer();
+
+            EffectWindowVisibleRef visDesk(target, EffectWindow::PAINT_DISABLED_BY_DESKTOP);
+            EffectWindowVisibleRef visMin(target, EffectWindow::PAINT_DISABLED_BY_MINIMIZE);
+            EffectWindowVisibleRef visAct(target, EffectWindow::PAINT_DISABLED_BY_ACTIVITY);
+
+            RenderTarget thumbTarget(m_thumbFbo.get());
+            RenderViewport thumbViewport(RectF(0, 0, targetSize.width(), targetSize.height()), 1.0, thumbTarget, QPoint(0, 0));
+
+            GLFramebuffer::pushFramebuffer(m_thumbFbo.get());
+            glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            WindowPaintData data;
+            data += -offscreenFrameGeo.toRect().topLeft();
+            const qreal sx = qreal(targetSize.width()) / qMax(1.0, offscreenFrameGeo.width());
+            const qreal sy = qreal(targetSize.height()) / qMax(1.0, offscreenFrameGeo.height());
+            data *= QVector2D(sx, sy);
+
+            OutlineRegion devReg(QRegion(0, 0, targetSize.width(), targetSize.height()));
+            static_cast<void>(effects->drawWindow(thumbTarget, thumbViewport, target, PAINT_WINDOW_TRANSFORMED, devReg, data));
+
+            QImage thumb = m_thumbTexture->toImage();
+            if (thumb.isNull()) {
+                thumb = QImage(targetSize, QImage::Format_RGBA8888);
+                glReadPixels(0, 0, targetSize.width(), targetSize.height(), GL_RGBA, GL_UNSIGNED_BYTE, thumb.bits());
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+                thumb = thumb.flipped(Qt::Vertical);
+#else
+                thumb = thumb.mirrored(false, true);
+#endif
+            }
+            GLFramebuffer::popFramebuffer();
+            if (savedFbo && GLFramebuffer::currentFramebuffer() != savedFbo) {
+                GLFramebuffer::pushFramebuffer(savedFbo);
+            }
+
+            if (!thumb.isNull()) {
+                if (thumb.format() != QImage::Format_RGBA8888 && thumb.format() != QImage::Format_ARGB32_Premultiplied) {
+                    thumb = thumb.convertToFormat(QImage::Format_RGBA8888);
+                }
+                bool hasContent = false;
+                const quint32 *pixels = reinterpret_cast<const quint32 *>(thumb.constBits());
+                const qsizetype count = thumb.sizeInBytes() / 4;
+                for (qsizetype i = 0; i < count; ++i) {
+                    if ((pixels[i] & 0x00FFFFFF) != 0) {
+                        hasContent = true;
+                        break;
+                    }
+                }
+                if (hasContent) {
+                    for (qsizetype i = 3; i < thumb.sizeInBytes(); i += 4) {
+                        thumb.bits()[i] = 255;
+                    }
+                    m_thumbnailCache[target] = thumb;
+                    m_lastCaptureTimestamp[target] = now;
+                    return thumb;
                 }
             }
         }
