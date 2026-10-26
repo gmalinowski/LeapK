@@ -337,7 +337,7 @@ void testIconAndThumbnailBadges()
     assert(combinedBadge.width() > iconBadge.width());
     assert(combinedBadge.width() > thumbBadge.width());
 
-    // 3. renderOffscreenTargetPill checks
+    // 3. renderOffscreenTargetPill checks (Top/Bottom puts thumbnail underneath badges)
     QImage normalPill = renderOffscreenTargetPill(QLatin1Char('F'), QColor(231, 76, 60), Qt::white,
                                                  QStringLiteral("Desktop 1"), QStringLiteral("Firefox"), 28, 1.0);
     assert(!normalPill.isNull());
@@ -348,18 +348,29 @@ void testIconAndThumbnailBadges()
     assert(!iconPill.isNull());
     assert(iconPill.width() > normalPill.width());
 
+    // Top/Bottom (default hudPosition=0): thumbnail is placed UNDER the badge, so height increases
     QImage thumbPill = renderOffscreenTargetPill(QLatin1Char('F'), QColor(231, 76, 60), Qt::white,
                                                 QStringLiteral("Desktop 1"), QStringLiteral("Firefox"), 28, 1.0,
                                                 QString(), false, QIcon(), true, testThumb);
     assert(!thumbPill.isNull());
-    assert(thumbPill.width() > normalPill.width());
+    assert(thumbPill.height() > normalPill.height());
 
     QImage bothPill = renderOffscreenTargetPill(QLatin1Char('F'), QColor(231, 76, 60), Qt::white,
                                                QStringLiteral("Desktop 1"), QStringLiteral("Firefox"), 28, 1.0,
                                                QStringLiteral("Browser"), true, testIcon, true, testThumb);
     assert(!bothPill.isNull());
-    assert(bothPill.width() > iconPill.width());
-    assert(bothPill.width() > thumbPill.width());
+    assert(bothPill.height() > normalPill.height());
+
+    // Left/Right mode (hudPosition=2): thumbnail is side-by-side, icon is at the very end
+    OutlineBadge::BadgeConfig cfgSide;
+    cfgSide.hudPosition = 2; // Left
+    cfgSide.showThumbnail = true;
+    cfgSide.showIcon = true;
+    QImage sidePill = renderOffscreenTargetPill(cfgSide, QLatin1Char('F'), QColor(231, 76, 60), Qt::white,
+                                               QStringLiteral("Desktop 1"), QStringLiteral("Firefox"), 28, 1.0,
+                                               QStringLiteral("Browser"), testIcon, testThumb);
+    assert(!sidePill.isNull());
+    assert(sidePill.width() > normalPill.width());
 }
 
 void testBadgeConfigAndStyling()
@@ -550,6 +561,73 @@ void testHudMarkColorModes()
     assert(bgDark.red() < 40 && bgDark.green() < 40 && bgDark.blue() < 45);
 }
 
+void testHudPositionsAndThumbnailLayout()
+{
+    // Create distinct test assets
+    QImage magentaIconImg(20, 20, QImage::Format_RGBA8888);
+    magentaIconImg.fill(QColor(255, 0, 255)); // Bright Magenta
+    QIcon testIcon(QPixmap::fromImage(magentaIconImg));
+
+    QImage cyanThumbImg(80, 45, QImage::Format_RGBA8888);
+    cyanThumbImg.fill(QColor(0, 255, 255)); // Bright Cyan
+
+    OutlineBadge::BadgeConfig cfg;
+    cfg.showIcon = true;
+    cfg.showThumbnail = true;
+    cfg.thumbnailWidth = 80;
+    cfg.thumbnailHeight = 45;
+    cfg.iconSize = 20;
+
+    // 1. Top/Bottom HUD position (0 = Bottom, 1 = Top) -> preview must be UNDER badges
+    for (int pos : {0, 1}) {
+        cfg.hudPosition = pos;
+
+        // Without thumbnail: compact single-row pill
+        cfg.showThumbnail = false;
+        QImage pillNoThumb = renderOffscreenTargetPill(cfg, QLatin1Char('A'), QColor(40, 44, 52), Qt::white,
+                                                      QStringLiteral("Desktop 1"), QStringLiteral("Editor"), 36, 1.0,
+                                                      QString(), testIcon, QImage());
+        assert(!pillNoThumb.isNull());
+        const int singleRowH = pillNoThumb.height();
+
+        // With thumbnail: window preview is stacked underneath, increasing height by thumbH + gap
+        cfg.showThumbnail = true;
+        QImage pillWithThumb = renderOffscreenTargetPill(cfg, QLatin1Char('A'), QColor(40, 44, 52), Qt::white,
+                                                        QStringLiteral("Desktop 1"), QStringLiteral("Editor"), 36, 1.0,
+                                                        QString(), testIcon, cyanThumbImg);
+        assert(!pillWithThumb.isNull());
+        assert(pillWithThumb.height() > singleRowH + 30);
+
+        // Verify cyan pixels from the thumbnail appear in the lower half (under badges)
+        const int midX = pillWithThumb.width() / 2;
+        const int lowerY = pillWithThumb.height() - 20;
+        const QColor lowerColor = pillWithThumb.pixelColor(midX, lowerY);
+        assert(lowerColor.green() > 200 && lowerColor.blue() > 200);
+    }
+
+    // 2. Left/Right HUD position (2 = Left, 3 = Right) -> icon must be AT THE VERY END
+    for (int pos : {2, 3}) {
+        cfg.hudPosition = pos;
+        cfg.showThumbnail = true;
+        cfg.showIcon = true;
+
+        QImage pillSide = renderOffscreenTargetPill(cfg, QLatin1Char('B'), QColor(30, 34, 40), Qt::white,
+                                                   QStringLiteral("Desktop 2"), QStringLiteral("Firefox"), 36, 1.0,
+                                                   QStringLiteral("Web"), testIcon, cyanThumbImg);
+        assert(!pillSide.isNull());
+
+        // In side mode, it's a single row, so height is standard pill height
+        assert(pillSide.height() < 60);
+
+        // Icon (magenta) is at the VERY END (near right edge: pill.width() - 15)
+        const int rightSampleX = pillSide.width() - 15;
+        const int sampleY = pillSide.height() / 2;
+        const QColor rightColor = pillSide.pixelColor(rightSampleX, sampleY);
+        // Magenta has high red and blue, low green
+        assert(rightColor.red() > 200 && rightColor.blue() > 200 && rightColor.green() < 60);
+    }
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -567,6 +645,7 @@ int main(int argc, char *argv[])
     testAutoContrastTypography();
     testWindowPreviewOnWindowBadges();
     testHudMarkColorModes();
+    testHudPositionsAndThumbnailLayout();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

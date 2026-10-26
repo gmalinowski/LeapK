@@ -807,6 +807,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_badgeConfig.margin = m_badgeMargin;
     m_badgeConfig.cornerRadius = qBound(0, config.readEntry("BadgeCornerRadius", 6), 32);
     m_badgeConfig.opacityPercent = qBound(10, config.readEntry("BadgeOpacity", 92), 100);
+    m_badgeConfig.hudPosition = m_badgeHudPosition;
     m_badgeConfig.hudMarkColorMode = qBound(0, config.readEntry("BadgeHudMarkColorMode", 0), 2);
     m_badgeConfig.defaultBgColor = config.readEntry("BadgeDefaultColor", QColor(QStringLiteral("#232629")));
     m_badgeConfig.letterColorAuto = config.readEntry("BadgeLetterColorAuto", true);
@@ -2674,7 +2675,6 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
 
     m_jumpMode = true;
     m_badgeTextureCache.clear();
-    m_thumbnailCache.clear();
     if (m_jumpTimeoutTimer) {
         m_jumpTimeoutTimer->start(5000);
     }
@@ -2687,7 +2687,6 @@ void ActiveWindowOutlineEffect::cancelJumpMode()
         return;
     }
     m_jumpMode = false;
-    m_thumbnailCache.clear();
     if (m_jumpTimeoutTimer && m_jumpTimeoutTimer->isActive()) {
         m_jumpTimeoutTimer->stop();
     }
@@ -2990,8 +2989,11 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
     }
 
     auto it = m_thumbnailCache.find(target);
-    if (it != m_thumbnailCache.end()) {
-        return it.value();
+    if (it != m_thumbnailCache.end() && !it.value().isNull()) {
+        // If window is not on current desktop or minimized, use the cached real capture
+        if (!target->isOnCurrentDesktop() || target->isMinimized() || !target->isVisible()) {
+            return it.value();
+        }
     }
 
     const QRectF frameGeo = target->frameGeometry();
@@ -3062,7 +3064,85 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
         }
     }
 
-    // 2. Fallback for offscreen / covered / minimized windows: stylish preview card with app icon and title
+    // 2. For windows on other desktops, covered, or minimized: try offscreen scene rendering
+    if ((!target->isOnCurrentDesktop() || target->isMinimized()) && frameGeo.width() >= 16 && frameGeo.height() >= 16) {
+#ifndef ACTIVE_WINDOW_OUTLINE_X11
+        if (!m_thumbTexture || m_thumbTexture->size() != targetSize) {
+            m_thumbTexture = GLTexture::allocate(GL_RGBA8, targetSize);
+            if (m_thumbTexture) {
+                m_thumbFbo = std::make_unique<GLFramebuffer>(m_thumbTexture.get());
+            }
+        }
+
+        if (m_thumbFbo && m_thumbFbo->valid()) {
+            GLFramebuffer *savedFbo = GLFramebuffer::currentFramebuffer();
+
+            EffectWindowVisibleRef visDesk(target, EffectWindow::PAINT_DISABLED_BY_DESKTOP);
+            EffectWindowVisibleRef visMin(target, EffectWindow::PAINT_DISABLED_BY_MINIMIZE);
+            EffectWindowVisibleRef visAct(target, EffectWindow::PAINT_DISABLED_BY_ACTIVITY);
+
+            RenderTarget thumbTarget(m_thumbFbo.get());
+            RenderViewport thumbViewport(RectF(0, 0, targetSize.width(), targetSize.height()), 1.0, thumbTarget, QPoint(0, 0));
+
+            GLFramebuffer::pushFramebuffer(m_thumbFbo.get());
+            glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            WindowPaintData data;
+            data += -frameGeo.toRect().topLeft();
+            const qreal sx = qreal(targetSize.width()) / frameGeo.width();
+            const qreal sy = qreal(targetSize.height()) / frameGeo.height();
+            data *= QVector2D(sx, sy);
+
+            OutlineRegion devReg(QRegion(0, 0, targetSize.width(), targetSize.height()));
+            effects->renderWindow(thumbTarget, thumbViewport, target, PAINT_WINDOW_TRANSFORMED, devReg, data);
+
+            QImage thumb = m_thumbTexture->toImage();
+            if (thumb.isNull()) {
+                thumb = QImage(targetSize, QImage::Format_RGBA8888);
+                glReadPixels(0, 0, targetSize.width(), targetSize.height(), GL_RGBA, GL_UNSIGNED_BYTE, thumb.bits());
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+                thumb = thumb.flipped(Qt::Vertical);
+#else
+                thumb = thumb.mirrored(false, true);
+#endif
+            }
+            GLFramebuffer::popFramebuffer();
+            if (savedFbo && GLFramebuffer::currentFramebuffer() != savedFbo) {
+                GLFramebuffer::pushFramebuffer(savedFbo);
+            }
+
+            if (!thumb.isNull()) {
+                if (thumb.format() != QImage::Format_RGBA8888 && thumb.format() != QImage::Format_ARGB32_Premultiplied) {
+                    thumb = thumb.convertToFormat(QImage::Format_RGBA8888);
+                }
+                bool hasContent = false;
+                const quint32 *pixels = reinterpret_cast<const quint32 *>(thumb.constBits());
+                const qsizetype count = thumb.sizeInBytes() / 4;
+                for (qsizetype i = 0; i < count; ++i) {
+                    if ((pixels[i] & 0x00FFFFFF) != 0) {
+                        hasContent = true;
+                        break;
+                    }
+                }
+                if (hasContent) {
+                    for (qsizetype i = 3; i < thumb.sizeInBytes(); i += 4) {
+                        thumb.bits()[i] = 255;
+                    }
+                    m_thumbnailCache[target] = thumb;
+                    return thumb;
+                }
+            }
+        }
+#endif
+    }
+
+    // If we have any previously cached capture for this window, return it rather than the fallback
+    if (it != m_thumbnailCache.end() && !it.value().isNull()) {
+        return it.value();
+    }
+
+    // 3. Fallback for windows that cannot be captured: stylish preview card with app icon and title
     QImage fallback(targetSize, QImage::Format_RGBA8888_Premultiplied);
     fallback.fill(QColor(26, 29, 33, 245));
     QPainter p(&fallback);
@@ -3085,7 +3165,6 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
         p.drawText(QRect(4, targetSize.height() - fm.height() - 4, targetSize.width() - 8, fm.height()), Qt::AlignCenter, elided);
     }
     p.end();
-    m_thumbnailCache[target] = fallback;
     return fallback;
 }
 
@@ -3765,6 +3844,25 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             if (sampleAmbilightColor(renderTarget, viewport, m_activeWindow)) {
                 m_ambilightSampleNeeded = false;
                 m_lastAmbilightSampleTime = elapsedSec;
+            }
+        }
+    }
+
+    if (m_badgeShowThumbnail && !inhibited) {
+        if (m_activeWindow && m_activeWindow->isOnCurrentDesktop()
+            && !m_activeWindow->isMinimized() && m_activeWindow->isVisible() && !m_activeWindow->isDeleted()
+            && timeToSample) {
+            captureWindowThumbnail(m_activeWindow, renderTarget, viewport,
+                                   QSize(m_badgeConfig.thumbnailWidth * 2, m_badgeConfig.thumbnailHeight * 2));
+        }
+        const auto stacking = effects->stackingOrder();
+        for (EffectWindow *candidate : stacking) {
+            if (candidate && candidate->isOnCurrentDesktop() && !candidate->isMinimized()
+                && candidate->isVisible() && !candidate->isDeleted()
+                && isEligibleOutlineWindow(candidate) && !m_thumbnailCache.contains(candidate)) {
+                captureWindowThumbnail(candidate, renderTarget, viewport,
+                                       QSize(m_badgeConfig.thumbnailWidth * 2, m_badgeConfig.thumbnailHeight * 2));
+                break;
             }
         }
     }
