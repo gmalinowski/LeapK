@@ -3053,14 +3053,22 @@ bool ActiveWindowOutlineEffect::isWindowObscured(EffectWindow *target) const
     return false;
 }
 
+#if defined(ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_WINDOW) || defined(ACTIVE_WINDOW_OUTLINE_BOOL_DRAW_WINDOW) || defined(ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN)
+bool ActiveWindowOutlineEffect::paintWindow(const RenderTarget &renderTarget,
+#else
 void ActiveWindowOutlineEffect::paintWindow(const RenderTarget &renderTarget,
+#endif
                                             const RenderViewport &viewport,
                                             EffectWindow *w,
                                             int mask,
                                             const OutlineRegion &deviceRegion,
                                             WindowPaintData &data)
 {
+#if defined(ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_WINDOW) || defined(ACTIVE_WINDOW_OUTLINE_BOOL_DRAW_WINDOW) || defined(ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN)
+    static_cast<void>(effects->paintWindow(renderTarget, viewport, w, mask, deviceRegion, data));
+#else
     effects->paintWindow(renderTarget, viewport, w, mask, deviceRegion, data);
+#endif
 
     const bool wantThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail);
     if (wantThumbnail && w && !w->isDeleted() && isEligibleOutlineWindow(w)
@@ -3075,6 +3083,10 @@ void ActiveWindowOutlineEffect::paintWindow(const RenderTarget &renderTarget,
             m_lastCaptureTimestamp[w] = now;
         }
     }
+
+#if defined(ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_WINDOW) || defined(ACTIVE_WINDOW_OUTLINE_BOOL_DRAW_WINDOW) || defined(ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN)
+    return true;
+#endif
 }
 
 #if defined(ACTIVE_WINDOW_OUTLINE_BOOL_DRAW_WINDOW) || defined(ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN)
@@ -3089,7 +3101,7 @@ void ActiveWindowOutlineEffect::drawWindow(const RenderTarget &renderTarget,
                                           WindowPaintData &data)
 {
 #if defined(ACTIVE_WINDOW_OUTLINE_BOOL_DRAW_WINDOW) || defined(ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN)
-    const bool ret = effects->drawWindow(renderTarget, viewport, w, mask, deviceRegion, data);
+    static_cast<void>(effects->drawWindow(renderTarget, viewport, w, mask, deviceRegion, data));
 #else
     effects->drawWindow(renderTarget, viewport, w, mask, deviceRegion, data);
 #endif
@@ -3109,7 +3121,7 @@ void ActiveWindowOutlineEffect::drawWindow(const RenderTarget &renderTarget,
     }
 
 #if defined(ACTIVE_WINDOW_OUTLINE_BOOL_DRAW_WINDOW) || defined(ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN)
-    return ret;
+    return true;
 #endif
 }
 

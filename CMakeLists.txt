@@ -101,6 +101,7 @@ if(KWIN_BACKEND STREQUAL "X11")
         target_compile_definitions(active-window-outline PRIVATE
             ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
             ACTIVE_WINDOW_OUTLINE_BOOL_DRAW_WINDOW
+            ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_WINDOW
         )
     endif()
 else()
@@ -124,6 +125,7 @@ else()
         target_compile_definitions(active-window-outline PRIVATE
             ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
             ACTIVE_WINDOW_OUTLINE_BOOL_DRAW_WINDOW
+            ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_WINDOW
         )
     endif()
 endif()
