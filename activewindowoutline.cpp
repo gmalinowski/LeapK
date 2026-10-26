@@ -36,7 +36,9 @@
 #include "cursoroverlay.h"
 #include <scene/workspacescene.h>
 #include <scene/windowitem.h>
+#ifdef ACTIVE_WINDOW_OUTLINE_HAS_OPENGL_SURFACE_TEXTURE
 #include <scene/surfaceitem.h>
+#endif
 #endif
 #include <KConfigGroup>
 #include <QGuiApplication>
@@ -3146,7 +3148,7 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
         return it.value();
     }
 
-#ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
+#if !defined(ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES) && defined(ACTIVE_WINDOW_OUTLINE_HAS_OPENGL_SURFACE_TEXTURE)
     // Priority 1: Window's direct surface texture from KWin's scene graph.
     // This is the window's actual GPU surface buffer. It completely ignores Z-order
     // (windows on top do NOT obscure it), and works even when the window is covered

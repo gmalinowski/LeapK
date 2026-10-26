@@ -127,6 +127,10 @@ else()
             ACTIVE_WINDOW_OUTLINE_BOOL_DRAW_WINDOW
             ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_WINDOW
         )
+    else()
+        target_compile_definitions(active-window-outline PRIVATE
+            ACTIVE_WINDOW_OUTLINE_HAS_OPENGL_SURFACE_TEXTURE
+        )
     endif()
 endif()
 
