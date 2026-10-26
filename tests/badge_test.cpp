@@ -528,20 +528,33 @@ void testHudMarkColorModes()
     cfg.hudBadgeSize = 36;
     const QColor markColor(QStringLiteral("#f1c40f")); // Bright yellow mark
 
-    // Mode 0: Full mark color
+    // Mode 0: Dark card with mark border & badge (Default / Recommended)
     cfg.hudMarkColorMode = 0;
+    QImage hudDark = renderOffscreenTargetPill(cfg, QLatin1Char('M'), markColor, Qt::black,
+                                             QStringLiteral("Desktop 1"), QStringLiteral("Terminal"), 36, 1.0,
+                                             QStringLiteral("Dev"), QIcon(), QImage(), true);
+    assert(!hudDark.isNull());
+    // Sample background of the card in the gap between badge and text
+    const int sampleX = 8 + (hudDark.height() - 8) + 4;
+    const int sampleY = hudDark.height() / 2;
+    const QColor bgDark = hudDark.pixelColor(sampleX, sampleY);
+    // Charcoal base has low RGB values
+    assert(bgDark.red() < 40 && bgDark.green() < 40 && bgDark.blue() < 45);
+    // Badge background inside letter badge is vibrant undimmed yellow
+    const QColor badgeBg = hudDark.pixelColor(12, 10);
+    assert(badgeBg.red() > 220 && badgeBg.green() > 180 && badgeBg.blue() < 30);
+
+    // Mode 1: Full mark color
+    cfg.hudMarkColorMode = 1;
     QImage hudFull = renderOffscreenTargetPill(cfg, QLatin1Char('M'), markColor, Qt::black,
                                              QStringLiteral("Desktop 1"), QStringLiteral("Terminal"), 36, 1.0,
                                              QStringLiteral("Dev"), QIcon(), QImage(), true);
     assert(!hudFull.isNull());
-    // Sample background of the card in the gap between badge and text
-    const int sampleX = 8 + (hudFull.height() - 8) + 4;
-    const int sampleY = hudFull.height() / 2;
     const QColor bgFull = hudFull.pixelColor(sampleX, sampleY);
     assert(bgFull.red() > 180 && bgFull.green() > 140 && bgFull.blue() < 60);
 
-    // Mode 1: Tinted mark color
-    cfg.hudMarkColorMode = 1;
+    // Mode 2: Tinted mark color
+    cfg.hudMarkColorMode = 2;
     QImage hudTinted = renderOffscreenTargetPill(cfg, QLatin1Char('M'), markColor, Qt::black,
                                                QStringLiteral("Desktop 1"), QStringLiteral("Terminal"), 36, 1.0,
                                                QStringLiteral("Dev"), QIcon(), QImage(), true);
@@ -549,16 +562,6 @@ void testHudMarkColorModes()
     const QColor bgTinted = hudTinted.pixelColor(sampleX, sampleY);
     // Tinted has intermediate red/green higher than charcoal
     assert(bgTinted.red() > 60 && bgTinted.green() > 50);
-
-    // Mode 2: Dark card with mark badge & border
-    cfg.hudMarkColorMode = 2;
-    QImage hudDark = renderOffscreenTargetPill(cfg, QLatin1Char('M'), markColor, Qt::black,
-                                             QStringLiteral("Desktop 1"), QStringLiteral("Terminal"), 36, 1.0,
-                                             QStringLiteral("Dev"), QIcon(), QImage(), true);
-    assert(!hudDark.isNull());
-    const QColor bgDark = hudDark.pixelColor(sampleX, sampleY);
-    // Charcoal base has low RGB values
-    assert(bgDark.red() < 40 && bgDark.green() < 40 && bgDark.blue() < 45);
 }
 
 void testHudPositionsAndThumbnailLayout()

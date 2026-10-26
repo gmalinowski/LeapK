@@ -243,16 +243,16 @@ public:
             const int mode = val.toInt();
             if (isPolish) {
                 switch (mode) {
-                case 0: return QStringLiteral("Pełny kolor oznaczenia");
-                case 1: return QStringLiteral("Zabarwienie kolorem oznaczenia");
-                case 2: return QStringLiteral("Ciemna karta z plakietką");
+                case 0: return QStringLiteral("Ciemna karta z ramką i literą znaku");
+                case 1: return QStringLiteral("Pełny kolor znaku");
+                case 2: return QStringLiteral("Zabarwienie kolorem znaku");
                 default: return QString::number(mode);
                 }
             } else {
                 switch (mode) {
-                case 0: return QStringLiteral("Full mark color");
-                case 1: return QStringLiteral("Tinted mark color");
-                case 2: return QStringLiteral("Dark card with badge");
+                case 0: return QStringLiteral("Dark card with mark border & badge");
+                case 1: return QStringLiteral("Full mark color");
+                case 2: return QStringLiteral("Tinted mark color");
                 default: return QString::number(mode);
                 }
             }

@@ -2454,17 +2454,17 @@
                 </property>
                 <item>
                  <property name="text">
-                  <string>Full mark color (same as window mark)</string>
+                  <string>Dark card with mark border &amp; badge (Recommended)</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Full mark color</string>
                  </property>
                 </item>
                 <item>
                  <property name="text">
                   <string>Tinted mark color</string>
-                 </property>
-                </item>
-                <item>
-                 <property name="text">
-                  <string>Dark card with mark border &amp; badge</string>
                  </property>
                 </item>
                </widget>

@@ -38,9 +38,9 @@ enum class BadgePosition {
 };
 
 enum class HudMarkColorMode {
-    FullMarkColor = 0,
-    TintedMarkColor = 1,
-    DarkWithBadge = 2
+    DarkWithBadge = 0,
+    FullMarkColor = 1,
+    TintedMarkColor = 2
 };
 
 struct BadgeConfig {
@@ -72,7 +72,7 @@ struct BadgeConfig {
     int cornerRadius = 6;
     int opacityPercent = 92;
     int hudPosition = 0; // 0 = Bottom, 1 = Top, 2 = Left, 3 = Right
-    int hudMarkColorMode = 0; // 0 = Full mark color, 1 = Tinted mark color, 2 = Dark with badge
+    int hudMarkColorMode = 0; // 0 = Dark card with mark border & badge, 1 = Full mark color, 2 = Tinted mark color
 
     // Features (Legacy / Fallback)
     bool showIcon = false;
@@ -701,45 +701,48 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     p.setPen(Qt::NoPen);
     p.fillPath(shadowPath.subtracted(bgPath), QColor(0, 0, 0, 140));
 
-    QColor effectiveBg = bgColor.isValid() ? bgColor : cfg.defaultBgColor;
-    effectiveBg.setAlphaF(qBound(0.1, effectiveBg.alphaF() * (cfg.opacityPercent / 100.0), 1.0));
-
     const bool effectivelyMarked = isMarked || (bgColor.isValid() && bgColor != cfg.defaultBgColor && bgColor != QColor(35, 38, 41, 235));
+    const QColor rawMarkColor = bgColor.isValid() ? bgColor : cfg.defaultBgColor;
+    QColor pureMarkColor = rawMarkColor;
+    pureMarkColor.setAlpha(255); // Solid, vibrant, undimmed 100% mark color
 
-    QColor pillBg;
+    QColor pillBg(22, 25, 29);
+    pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0), 1.0));
+
     QColor borderColor;
     QColor badgeBg;
 
     if (effectivelyMarked) {
-        if (cfg.hudMarkColorMode == 0) { // Full mark color
-            pillBg = effectiveBg;
+        if (cfg.hudMarkColorMode == 1) { // 1 = Full mark color
+            pillBg = pureMarkColor;
+            pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0), 1.0));
             const bool isLight = (perceivedLuminance(pillBg) > 0.53);
             borderColor = isLight ? QColor(0, 0, 0, 160) : QColor(255, 255, 255, 180);
-            badgeBg = isLight ? pillBg.darker(118) : pillBg.lighter(125);
-        } else if (cfg.hudMarkColorMode == 1) { // Tinted mark color
+            badgeBg = pureMarkColor;
+        } else if (cfg.hudMarkColorMode == 2) { // 2 = Tinted mark color
             const QColor darkBase(22, 25, 29);
             pillBg = QColor::fromRgbF(
-                darkBase.redF() * 0.45 + effectiveBg.redF() * 0.55,
-                darkBase.greenF() * 0.45 + effectiveBg.greenF() * 0.55,
-                darkBase.blueF() * 0.45 + effectiveBg.blueF() * 0.55
+                darkBase.redF() * 0.45 + pureMarkColor.redF() * 0.55,
+                darkBase.greenF() * 0.45 + pureMarkColor.greenF() * 0.55,
+                darkBase.blueF() * 0.45 + pureMarkColor.blueF() * 0.55
             );
             pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0), 1.0));
-            borderColor = effectiveBg;
-            borderColor.setAlpha(180);
-            badgeBg = effectiveBg;
-        } else { // 2 = Dark with badge (legacy / mixed)
+            borderColor = pureMarkColor;
+            borderColor.setAlpha(220);
+            badgeBg = pureMarkColor;
+        } else { // 0 = Dark card with mark border & badge (Recommended default)
             pillBg = QColor(22, 25, 29);
             pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0), 1.0));
-            borderColor = effectiveBg;
-            borderColor.setAlpha(160);
-            badgeBg = effectiveBg;
+            borderColor = pureMarkColor;
+            borderColor.setAlpha(245);
+            badgeBg = pureMarkColor;
         }
     } else {
         pillBg = QColor(22, 25, 29);
         pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0), 1.0));
-        borderColor = effectiveBg;
-        borderColor.setAlpha(140);
-        badgeBg = effectiveBg;
+        borderColor = QColor(255, 255, 255, 45);
+        badgeBg = cfg.defaultBgColor;
+        badgeBg.setAlpha(255);
     }
 
     p.fillPath(bgPath, pillBg);
@@ -759,11 +762,18 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     QPainterPath bPath;
     bPath.addRoundedRect(badgeRect, innerRadius, innerRadius);
     p.fillPath(bPath, badgeBg);
-    const QColor innerBorder = isLightBadge
-        ? QColor(0, 0, 0, 160)
-        : QColor(255, 255, 255, 200);
-    p.setPen(QPen(innerBorder, 1.0 * scale));
-    p.drawPath(bPath);
+
+    if (effectivelyMarked) {
+        // Pure undimmed badge: no dark stroke dimming the bright mark color.
+        // For dark badges sitting on a dark card, draw a subtle light stroke to preserve edge definition.
+        if (!isLightBadge) {
+            p.setPen(QPen(QColor(255, 255, 255, 75), 1.0 * scale));
+            p.drawPath(bPath);
+        }
+    } else {
+        p.setPen(QPen(QColor(255, 255, 255, 45), 1.0 * scale));
+        p.drawPath(bPath);
+    }
 
     const QString letterFam = cfg.letterFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.letterFontFamily.trimmed();
     QFont letterFont(letterFam);
