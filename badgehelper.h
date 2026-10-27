@@ -279,10 +279,24 @@ inline qreal computeBadgeWidth(qreal baseHeight, const QString &customLabel = QS
                                qreal thumbnailAspect = 1.6, int iconSize = 0,
                                int thumbWidth = 0, int labelFontSize = 0,
                                const QString &labelFontFamily = QString(),
-                               int thumbHeight = 0)
+                               int thumbHeight = 0,
+                               const QString &recentKey = QString(),
+                               int letterFontSize = 0,
+                               const QString &letterFontFamily = QString())
 {
     const qreal baseW = qRound(baseHeight * 1.35);
     qreal totalW = baseW;
+
+    if (!recentKey.trimmed().isEmpty()) {
+        const QString rKey = recentKey.trimmed();
+        const QString fam = letterFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : letterFontFamily.trimmed();
+        QFont rFont(fam);
+        rFont.setBold(true);
+        const int lPx = (letterFontSize > 0) ? letterFontSize : qMax(8, qRound(baseHeight * 0.52));
+        rFont.setPixelSize(qMax(8, qRound(lPx * 0.82)));
+        QFontMetrics fm(rFont);
+        totalW += fm.horizontalAdvance(rKey) + 12.0;
+    }
 
     if (showIcon) {
         const int maxIconDim = qMax(12, qRound(baseHeight - 6.0));
@@ -328,19 +342,10 @@ inline qreal computeBadgeWidth(const BadgeConfig &cfg, qreal baseHeight, const Q
     const int thumbW = (cfg.windowThumbnailWidth > 0) ? cfg.windowThumbnailWidth : cfg.thumbnailWidth;
     const int thumbH = (cfg.windowThumbnailHeight > 0) ? cfg.windowThumbnailHeight : cfg.thumbnailHeight;
     const int labelSz = (cfg.windowLabelFontSize > 0) ? cfg.windowLabelFontSize : cfg.labelFontSize;
-    qreal w = computeBadgeWidth(baseHeight, customLabel, showI, showT,
-                                1.6, iconSz, thumbW, labelSz, cfg.labelFontFamily,
-                                thumbH);
-    if (!recentKey.trimmed().isEmpty()) {
-        const QString rKey = recentKey.trimmed();
-        const QString fam = cfg.letterFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.letterFontFamily.trimmed();
-        QFont rFont(fam);
-        rFont.setBold(true);
-        rFont.setPixelSize(qMax(8, qRound(baseHeight * 0.44)));
-        QFontMetrics fm(rFont);
-        w += fm.horizontalAdvance(rKey) + 12.0;
-    }
-    return w;
+    const int letterSz = (cfg.windowLetterFontSize > 0) ? cfg.windowLetterFontSize : cfg.letterFontSize;
+    return computeBadgeWidth(baseHeight, customLabel, showI, showT,
+                             1.6, iconSz, thumbW, labelSz, cfg.labelFontFamily,
+                             thumbH, recentKey, letterSz, cfg.letterFontFamily);
 }
 
 inline QImage renderBadgeImage(const BadgeConfig &cfg,
@@ -415,8 +420,26 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
     }
     const int labelSectionW = hasLabel ? qRound((labelTextWidth + 18 * scale) / scale) : 0;
 
+    const QString letterFam = cfg.letterFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.letterFontFamily.trimmed();
+    QFont font(letterFam);
+    font.setBold(true);
+    const int effectiveLetterFontSize = (cfg.windowLetterFontSize > 0) ? cfg.windowLetterFontSize : cfg.letterFontSize;
+    const int letterPx = (effectiveLetterFontSize > 0) ? qRound(effectiveLetterFontSize * scale) : qMax(8, qRound(effectiveBaseHeight * 0.52 * scale));
+    font.setPixelSize(letterPx);
+
+    QFont rFont(letterFam);
+    int rTextW = 0;
+    int recentSectionW = 0;
+    if (hasRecentKey) {
+        rFont.setBold(true);
+        rFont.setPixelSize(qMax(8, qRound(letterPx * 0.82)));
+        QFontMetrics fmR(rFont);
+        rTextW = fmR.horizontalAdvance(cleanRecentKey);
+        recentSectionW = qRound((rTextW + 12.0 * scale) / scale);
+    }
+
     const int effectiveLetterWidth = qRound(effectiveBaseHeight * 1.35);
-    const int effectiveBaseWidth = effectiveLetterWidth + iconSectionW + thumbSectionW + labelSectionW;
+    const int effectiveBaseWidth = effectiveLetterWidth + recentSectionW + iconSectionW + thumbSectionW + labelSectionW;
 
     const int w = qMax(1, qRound(effectiveBaseWidth * scale));
     const int h = qMax(1, qRound(effectiveBaseHeight * scale));
@@ -459,12 +482,6 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
 
     const QColor sepCol = isLightBg ? QColor(0, 0, 0, 70) : QColor(255, 255, 255, 90);
 
-    const QString letterFam = cfg.letterFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.letterFontFamily.trimmed();
-    QFont font(letterFam);
-    font.setBold(true);
-    const int effectiveLetterFontSize = (cfg.windowLetterFontSize > 0) ? cfg.windowLetterFontSize : cfg.letterFontSize;
-    const int letterPx = (effectiveLetterFontSize > 0) ? qRound(effectiveLetterFontSize * scale) : qMax(8, qRound(effectiveBaseHeight * 0.52 * scale));
-    font.setPixelSize(letterPx);
     p.setFont(font);
     const QColor effLetterColor = (cfg.letterColorAuto || !cfg.letterColor.isValid()) ? autoTextColor : cfg.letterColor;
     p.setPen(effLetterColor);
@@ -477,30 +494,23 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
 
         // 1. Letter & optional recent key
         const qreal letterW = qRound(effectiveLetterWidth * scale);
-        if (!hasRecentKey) {
-            const QRectF letterRect(currentX, margin, letterW - margin, h - 2 * margin);
-            p.drawText(letterRect, Qt::AlignCenter, QString(letter.toUpper()));
-            currentX += letterW;
-        } else {
-            QFont rFont(letterFam);
-            rFont.setBold(true);
-            rFont.setPixelSize(qMax(8, qRound(letterPx * 0.82)));
-            QFontMetrics fmR(rFont);
-            const qreal rTextW = fmR.horizontalAdvance(cleanRecentKey);
-            const QRectF letterRect(currentX, margin, letterW - margin, h - 2 * margin);
-            p.drawText(letterRect, Qt::AlignCenter, QString(letter.toUpper()));
+        const QRectF letterRect(currentX, margin, letterW - margin, h - 2 * margin);
+        p.drawText(letterRect, Qt::AlignCenter, QString(letter.toUpper()));
+        currentX += letterW;
 
-            const qreal sepRecentX = currentX + letterW;
-            p.setPen(QPen(sepCol, 1.0 * scale));
+        if (hasRecentKey) {
+            const qreal sepRecentX = currentX - 1.0 * scale;
+            p.setPen(QPen(sepCol, 1.2 * scale));
             p.drawLine(QPointF(sepRecentX, margin + 4.0 * scale), QPointF(sepRecentX, h - margin - 4.0 * scale));
 
-            const QRectF recentRect(sepRecentX + 4.0 * scale, margin, rTextW, h - 2 * margin);
+            const qreal recentAreaW = recentSectionW * scale;
+            const QRectF recentRect(sepRecentX, margin, recentAreaW, h - 2 * margin);
             p.setFont(rFont);
             p.setPen(effLetterColor);
             p.drawText(recentRect, Qt::AlignCenter, cleanRecentKey);
 
             p.setFont(font);
-            currentX += letterW + rTextW + 8.0 * scale;
+            currentX += recentAreaW;
         }
 
         // 2. Icon

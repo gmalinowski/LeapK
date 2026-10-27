@@ -21,6 +21,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Added live preview toggles for on-window badges and edge HUD cards with real-time updates directly from the settings module.
 
 ### Fixed
+- **Window Badge Content Cut-Off with Recent Key Indicator (`recentKey` / "Space")**:
+  - Fixed an issue where window badges on previously active windows had their content clipped or pushed offscreen when the recent shortcut indicator ("Space") was appended.
+  - Added `recentSectionW` calculation and reservation into `effectiveBaseWidth` in `renderBadgeImage()`, ensuring the badge image buffer dimensions properly expand to fit the letter, shortcut indicator, icon, thumbnail, and custom label with uniform separator lines and margins.
 - **Real-Time Live Previews Refresh & Obscured Window Cache Bypass**:
   - Fixed an aggressive caching trap in `captureWindowThumbnail()` that prematurely returned stale static frames for obscured, minimized, or background windows instead of executing offscreen rendering (Priority 3).
   - Connected `EffectWindow::windowDamaged` signal to invalidate thumbnail and badge texture caches when window contents change (e.g. playing videos, browser animation, terminal output).

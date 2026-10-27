@@ -732,7 +732,21 @@ void testRecentBadgeAndIncludeAll()
                                           true, 34, 1.0, QString(), QIcon(), QImage(),
                                           QStringLiteral("Space"), true);
     assert(!recentBadge.isNull());
-    assert(recentBadge.width() > 40);
+    assert(recentBadge.width() == qRound(recentW));
+    assert(recentBadge.width() > qRound(standardW));
+
+    // 2b. renderBadgeImage with recentKey + label + thumbnail
+    cfg.windowShowThumbnail = true;
+    QImage testThumb(56, 32, QImage::Format_ARGB32_Premultiplied);
+    testThumb.fill(QColor(255, 0, 0));
+    const QString testLabel = QStringLiteral("Editor");
+    const qreal recentFullW = computeBadgeWidth(cfg, 34, testLabel, QStringLiteral("Space"));
+    QImage fullBadge = renderBadgeImage(cfg, QLatin1Char('D'), QColor(52, 152, 219), Qt::white,
+                                        true, 34, 1.0, testLabel, QIcon(), testThumb,
+                                        QStringLiteral("Space"), true);
+    assert(!fullBadge.isNull());
+    assert(fullBadge.width() == qRound(recentFullW));
+    assert(fullBadge.width() > recentBadge.width());
 
     // 3. renderOffscreenTargetPill with recentKey and isRecent
     QImage recentPill = renderOffscreenTargetPill(cfg, QLatin1Char('D'), QColor(52, 152, 219), Qt::white,
