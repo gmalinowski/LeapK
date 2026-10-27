@@ -36,15 +36,19 @@ qt_plugin_dir() {
   return 1
 }
 
-effect_id="active-window-outline"
-config_group="Effect-active-window-outline"
+effect_id="leapk"
+config_group="Effect-leapk"
 
 echo "[1/4] Disabling LeapK…"
 kwriteconfig6 --file kwinrc --group Plugins \
-  --key "${effect_id}Enabled" false
+  --key "leapkEnabled" false
+kwriteconfig6 --file kwinrc --group Plugins \
+  --key "active-window-outlineEnabled" false
 if command -v qdbus6 >/dev/null 2>&1; then
   qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect \
-    "$effect_id" >/dev/null 2>&1 || true
+    "leapk" >/dev/null 2>&1 || true
+  qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect \
+    "active-window-outline" >/dev/null 2>&1 || true
 fi
 
 # Stop background tray processes and systemd user services
@@ -61,6 +65,10 @@ if [[ -z "$plugin_dir" || "$plugin_dir" != /* ]]; then
 fi
 
 system_files=(
+  "$plugin_dir/kwin/effects/plugins/leapk.so"
+  "$plugin_dir/kwin/effects/configs/kwin_leapk_config.so"
+  "$plugin_dir/kwin-x11/effects/plugins/leapk.so"
+  "$plugin_dir/kwin-x11/effects/configs/kwin_leapk_config.so"
   "$plugin_dir/kwin/effects/plugins/active-window-outline.so"
   "$plugin_dir/kwin/effects/configs/kwin_active-window-outline_config.so"
   "$plugin_dir/kwin-x11/effects/plugins/active-window-outline.so"
@@ -169,9 +177,12 @@ for key in UseAccentColor AccentOpacity CustomColor EnsurePerimeterContrast Bord
            MarkDefaultColor MarkSmartAdaptive MarkRandomColor StylePrecedence MarkInactiveDashGap MarkInactiveWidthReduction MarkInactiveDashed MarkInactiveDashSmooth MarkShowLetterBadges BadgesAlwaysVisible BadgeDisplayMode BadgeWindowBadgesEnabled BadgePosition BadgeHudPosition BadgeSize BadgeMargin BadgeShowIcon BadgeShowThumbnail BadgeWindowShowIcon BadgeWindowShowThumbnail BadgeWindowIconSize BadgeWindowThumbnailWidth BadgeWindowThumbnailHeight BadgeWindowLetterFontSize BadgeWindowLabelFontSize BadgeHudShowIcon BadgeHudShowThumbnail BadgeHudIconSize BadgeHudThumbnailWidth BadgeHudThumbnailHeight BadgeHudLetterFontSize BadgeHudCaptionFontSize BadgeHudLocationFontSize BadgeHudIncludeAll BadgeLivePreviews BadgeTimeout JumpRecentKey BadgeJumpSize BadgeHudSize BadgeIconSize BadgeThumbnailWidth BadgeThumbnailHeight BadgeWindowThumbnailSize BadgeHudThumbnailSize BadgeCornerRadius BadgeOpacity BadgeHudMarkColorMode BadgeDefaultColor BadgeLetterColorAuto BadgeLetterColor BadgeLabelColorAuto BadgeLabelUnmarkedColor BadgeCaptionColorAuto BadgeCaptionColor BadgeLocationColorAuto BadgeLocationColor BadgeLetterFont BadgeLabelFont BadgeCaptionFont BadgeLocationFont BadgeLetterFontSize BadgeLabelFontSize BadgeCaptionFontSize BadgeLocationFontSize JumpTargets \
            HighlightRecentWindow RecentWindowsCount RecentWindowColorMode RecentWindowCustomColor RecentWindowOpacity RecentWindowHueShift RecentWindowSaturation RecentWindowWidthReduction RecentWindowDashed RecentWindowGapGrowth RecentWindowDashSmooth; do
   kwriteconfig6 --file kwinrc --group "$config_group" --key "$key" --delete ''
+  kwriteconfig6 --file kwinrc --group "Effect-active-window-outline" --key "$key" --delete ''
 done
 kwriteconfig6 --file kwinrc --group Plugins \
-  --key "${effect_id}Enabled" --delete ''
+  --key "leapkEnabled" --delete ''
+kwriteconfig6 --file kwinrc --group Plugins \
+  --key "active-window-outlineEnabled" --delete ''
 kwriteconfig6 --file kglobalshortcutsrc --group kwin \
   --key "ToggleActiveWindowOutline" --delete ''
 kwriteconfig6 --file kglobalshortcutsrc --group kwin \

@@ -58,6 +58,17 @@
 namespace
 {
 
+inline KConfigGroup getKWinGroup(const KSharedConfigPtr &cfg = KSharedConfig::openConfig(QStringLiteral("kwinrc")))
+{
+    if (cfg->hasGroup(QStringLiteral("Effect-leapk"))) {
+        return cfg->group(QStringLiteral("Effect-leapk"));
+    }
+    if (cfg->hasGroup(QStringLiteral("Effect-active-window-outline"))) {
+        return cfg->group(QStringLiteral("Effect-active-window-outline"));
+    }
+    return cfg->group(QStringLiteral("Effect-leapk"));
+}
+
 QIcon createTrayIconPixmap(bool enabled, const QColor &outlineColor = QColor(61, 174, 233))
 {
     QPixmap pix(64, 64);
@@ -260,7 +271,7 @@ private slots:
     void onApplyPreset(const QString &presetName)
     {
         // Remember active preset name in kwinrc
-        KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
+        KConfigGroup group = getKWinGroup();
         group.writeEntry(QStringLiteral("ActivePreset"), presetName);
         group.sync();
 
@@ -320,7 +331,7 @@ private slots:
         const auto presets = OutlinePreset::loadPresets(OutlinePreset::defaultPresetsDirectory());
         for (const auto &p : presets) {
             if (p.name == presetName) {
-                KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
+                KConfigGroup group = getKWinGroup();
                 QJsonObject currentSettings = OutlinePreset::getDefaultSettings();
                 for (auto it = currentSettings.begin(); it != currentSettings.end(); ++it) {
                     const QString key = it.key();
@@ -376,7 +387,7 @@ private slots:
             : QStringLiteral("Saved from system tray (%1)").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")));
         p.isBuiltIn = false;
 
-        KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
+        KConfigGroup group = getKWinGroup();
         const QJsonObject defaults = OutlinePreset::getDefaultSettings();
         for (auto it = defaults.constBegin(); it != defaults.constEnd(); ++it) {
             const QString key = it.key();
@@ -435,7 +446,7 @@ private slots:
             : QStringLiteral("Exported at: %1").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")));
         p.isBuiltIn = false;
 
-        KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
+        KConfigGroup group = getKWinGroup();
         const QJsonObject defaults = OutlinePreset::getDefaultSettings();
         for (auto it = defaults.constBegin(); it != defaults.constEnd(); ++it) {
             const QString key = it.key();
@@ -775,7 +786,7 @@ private slots:
 
         auto cfg = KSharedConfig::openConfig(QStringLiteral("kwinrc"));
         cfg->reparseConfiguration();
-        KConfigGroup group(cfg, QStringLiteral("Effect-active-window-outline"));
+        KConfigGroup group = getKWinGroup(cfg);
         return group.readEntry(QStringLiteral("OutlineEnabled"), true);
     }
 
@@ -833,7 +844,7 @@ private slots:
 
         auto cfg = KSharedConfig::openConfig(QStringLiteral("kwinrc"));
         cfg->reparseConfiguration();
-        KConfigGroup group(cfg, QStringLiteral("Effect-active-window-outline"));
+        KConfigGroup group = getKWinGroup(cfg);
 
         const bool useAccent = group.readEntry(QStringLiteral("UseAccentColor"), true);
         QColor outlineColor = group.readEntry(QStringLiteral("CustomColor"), QColor(QStringLiteral("#3daee9")));
@@ -914,7 +925,7 @@ private:
             QStringLiteral("/Effects"),
             QStringLiteral("org.kde.kwin.Effects"),
             QStringLiteral("reconfigureEffect"));
-        msg << QStringLiteral("active-window-outline");
+        msg << QStringLiteral("leapk");
         QDBusConnection::sessionBus().call(msg, QDBus::NoBlock);
     }
 
@@ -1007,7 +1018,7 @@ private:
         auto *actionGroup = new QActionGroup(m_menuPresets);
         actionGroup->setExclusive(true);
 
-        KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
+        KConfigGroup group = getKWinGroup();
         const QString activePresetName = group.readEntry(QStringLiteral("ActivePreset"), QString());
 
         for (const auto &p : presets) {
@@ -1064,14 +1075,14 @@ private:
         }
         m_menuShaders->clear();
 
-        KConfigGroup group(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
+        KConfigGroup group = getKWinGroup();
         const bool shaderEnabled = group.readEntry(QStringLiteral("CustomShaderEnabled"), false);
         const QString activeShaderId = group.readEntry(QStringLiteral("ActiveCustomShaderId"), QString());
 
         QAction *actToggle = m_menuShaders->addAction(
             m_isPolish ? QStringLiteral("Włącz efekt shadera") : QStringLiteral("Enable Custom Shader"),
             this, [this, shaderEnabled]() {
-                KConfigGroup g(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
+                KConfigGroup g = getKWinGroup();
                 g.writeEntry(QStringLiteral("CustomShaderEnabled"), !shaderEnabled);
                 g.sync();
                 notifyKWinReconfigure();
@@ -1098,7 +1109,7 @@ private:
 
             const QString id = s.id;
             connect(act, &QAction::triggered, this, [this, id]() {
-                KConfigGroup g(KSharedConfig::openConfig(QStringLiteral("kwinrc")), QStringLiteral("Effect-active-window-outline"));
+                KConfigGroup g = getKWinGroup();
                 g.writeEntry(QStringLiteral("CustomShaderEnabled"), true);
                 g.writeEntry(QStringLiteral("ActiveCustomShaderId"), id);
                 g.sync();
@@ -1164,7 +1175,7 @@ private:
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
-    app.setApplicationName(QStringLiteral("active-window-outline-tray"));
+    app.setApplicationName(QStringLiteral("leapk-tray"));
     app.setApplicationDisplayName(QStringLiteral("LeapK Tray"));
     app.setWindowIcon(QIcon::fromTheme(QStringLiteral("leapk"),
                                        QIcon(QStringLiteral(":/icons/leapk.svg"))));
@@ -1173,6 +1184,7 @@ int main(int argc, char *argv[])
     if (app.arguments().contains(QStringLiteral("--settings"))
         || app.arguments().contains(QStringLiteral("-s"))
         || app.arguments().contains(QStringLiteral("settings"))
+        || app.applicationFilePath().endsWith(QStringLiteral("leapk-settings"))
         || app.applicationFilePath().endsWith(QStringLiteral("active-window-outline-settings"))) {
         SettingsDialog dialog;
         dialog.show();
@@ -1180,10 +1192,10 @@ int main(int argc, char *argv[])
     }
 
     // Single-instance lock
-    QLockFile lock(QDir::tempPath() + QStringLiteral("/active-window-outline-tray.lock"));
+    QLockFile lock(QDir::tempPath() + QStringLiteral("/leapk-tray.lock"));
     lock.setStaleLockTime(0);
     if (!lock.tryLock(100)) {
-        std::cerr << "active-window-outline-tray is already running." << std::endl;
+        std::cerr << "leapk-tray is already running." << std::endl;
         return 0;
     }
 

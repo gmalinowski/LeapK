@@ -32,6 +32,8 @@
 #include "shadereffects.h"
 #include "customshaderhelper.h"
 #include "visibilitystate.h"
+#include "keyboardlayouthelper.h"
+#include "persistentmarkhelper.h"
 
 class QFileSystemWatcher;
 
@@ -207,12 +209,14 @@ private:
     void toggleWindowMark(EffectWindow *w);
     void setWindowMarkColor(EffectWindow *w, const QColor &color);
     void setWindowMark(EffectWindow *w, const QColor &color, const QChar &letter = QChar(), const QString &label = QString());
+    void applyPersistentMarksToWindow(EffectWindow *w);
     QColor generateRandomMarkColor() const;
     QColor detectSmartAccentForWindow(EffectWindow *w) const;
     QChar nextAvailableLetter() const;
     bool isEligibleTargetWindow(EffectWindow *w) const;
     QMap<QChar, EffectWindow *> assignJumpLetters() const;
     void cancelJumpMode();
+    void exitSubLeapMode();
     bool isWindowObscured(EffectWindow *target) const;
     bool isBadgeOccluded(EffectWindow *target, const QRectF &badgeRect, const QList<QRectF> &hudRects = {}) const;
     QString getWindowLocationString(EffectWindow *target) const;
@@ -406,9 +410,20 @@ private:
     bool m_jumpMode = false;
     int m_jumpTargets = 0; // 0 = All visible windows, 1 = Marked windows only
     QMap<QChar, EffectWindow *> m_jumpLetterToWindow;
+    mutable QMap<QChar, QList<EffectWindow *>> m_letterWindowGroups;
     QTimer *m_jumpTimeoutTimer = nullptr;
     QPointer<EffectWindow> m_expectedJumpTarget;
     QTimer *m_expectedJumpTargetTimer = nullptr;
+
+    // Sub-Leap Disambiguation (multi-instance window disambiguation)
+    bool m_subLeapActive = false;
+    QChar m_subLeapBaseKey;
+    QList<EffectWindow *> m_subLeapWindows;
+    QMap<QChar, EffectWindow *> m_subLeapLetterToWindow;
+    QList<QPair<QChar, EffectWindow *>> m_subLeapTargets;
+
+    // Persistent Marks (saved across desktop sessions)
+    QList<LeapKMarks::PersistentMarkRule> m_persistentMarks;
 
     // History Navigation
     bool m_isHistoryNavigating = false;

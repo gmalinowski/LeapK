@@ -4,8 +4,8 @@
     SPDX-License-Identifier: GPL-3.0-or-later
 */
 
-#include "activewindowoutline_config.h"
-#include "ui_activewindowoutline_config.h"
+#include "leapk_config.h"
+#include "ui_leapk_config.h"
 #include "precedencehelper.h"
 #include "presetactivationdialog.h"
 #include "presethelper.h"
@@ -207,8 +207,16 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     infoPalette.setColor(QPalette::WindowText, infoText);
     m_ui->label_info->setPalette(infoPalette);
 
+    auto kwinConfig = KSharedConfig::openConfig(QStringLiteral("kwinrc"));
+    if (!kwinConfig->hasGroup(QStringLiteral("Effect-leapk")) && kwinConfig->hasGroup(QStringLiteral("Effect-active-window-outline"))) {
+        KConfigGroup oldGrp = kwinConfig->group(QStringLiteral("Effect-active-window-outline"));
+        KConfigGroup newGrp = kwinConfig->group(QStringLiteral("Effect-leapk"));
+        oldGrp.copyTo(&newGrp);
+        newGrp.sync();
+    }
+
     m_configSkeleton = new KConfigSkeleton(QStringLiteral("kwinrc"), this);
-    m_configSkeleton->setCurrentGroup(QStringLiteral("Effect-active-window-outline"));
+    m_configSkeleton->setCurrentGroup(QStringLiteral("Effect-leapk"));
 
     // Tab 1: General
     m_configSkeleton->addItemBool(QStringLiteral("UseAccentColor"), *new bool, true);
@@ -1170,7 +1178,10 @@ void ActiveWindowOutlineConfig::showAmbilightHelpDialog()
 void ActiveWindowOutlineConfig::load()
 {
     KCModule::load();
-    KConfigGroup group = KSharedConfig::openConfig(QStringLiteral("kwinrc"))->group(QStringLiteral("Effect-active-window-outline"));
+    auto cfg = KSharedConfig::openConfig(QStringLiteral("kwinrc"));
+    KConfigGroup group = cfg->hasGroup(QStringLiteral("Effect-leapk"))
+        ? cfg->group(QStringLiteral("Effect-leapk"))
+        : cfg->group(QStringLiteral("Effect-active-window-outline"));
     const bool ensureContrast = group.readEntry("EnsurePerimeterContrast", group.readEntry("AmbilightEnsureContrast", true));
     m_ui->kcfg_EnsurePerimeterContrast->setChecked(ensureContrast);
     populateColorTable(group.readEntry(QStringLiteral("ColorList"), QStringLiteral("#3daee9:3.0;#2ecc71:3.0;#9b59b6:3.0")));
@@ -2301,7 +2312,7 @@ void ActiveWindowOutlineConfig::save()
 {
     KCModule::save();
 
-    KConfigGroup group = KSharedConfig::openConfig(QStringLiteral("kwinrc"))->group(QStringLiteral("Effect-active-window-outline"));
+    KConfigGroup group = KSharedConfig::openConfig(QStringLiteral("kwinrc"))->group(QStringLiteral("Effect-leapk"));
     group.writeEntry(QStringLiteral("ColorList"), serializeColorTable());
     group.writeEntry(QStringLiteral("AmbilightEnsureContrast"), m_ui->kcfg_EnsurePerimeterContrast->isChecked());
     group.writeEntry(QStringLiteral("StylePrecedence"), serializePrecedenceList());
@@ -2348,24 +2359,29 @@ void ActiveWindowOutlineConfig::save()
         QStringLiteral("/Effects"),
         QStringLiteral("org.kde.kwin.Effects"),
         QStringLiteral("reconfigureEffect"));
-    message << QStringLiteral("active-window-outline");
+    message << QStringLiteral("leapk");
     QDBusConnection::sessionBus().call(message, QDBus::Block, 2000);
 
     const bool trayEnabled = m_ui->kcfg_TrayIconEnabled->isChecked();
     const QString autostartDir = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/autostart");
-    const QString desktopPath = autostartDir + QStringLiteral("/active-window-outline-tray.desktop");
+    const QString desktopPath = autostartDir + QStringLiteral("/leapk-tray.desktop");
+    const QString oldDesktopPath = autostartDir + QStringLiteral("/active-window-outline-tray.desktop");
+    QFile::remove(oldDesktopPath);
     if (trayEnabled) {
         if (!QFile::exists(desktopPath)) {
-            const QString systemDesktop = QStandardPaths::locate(QStandardPaths::ApplicationsLocation, QStringLiteral("active-window-outline-tray.desktop"));
+            QString systemDesktop = QStandardPaths::locate(QStandardPaths::ApplicationsLocation, QStringLiteral("leapk-tray.desktop"));
+            if (systemDesktop.isEmpty()) {
+                systemDesktop = QStandardPaths::locate(QStandardPaths::ApplicationsLocation, QStringLiteral("active-window-outline-tray.desktop"));
+            }
             if (!systemDesktop.isEmpty()) {
                 QDir().mkpath(autostartDir);
                 QFile::copy(systemDesktop, desktopPath);
             }
         }
-        QProcess::startDetached(QStringLiteral("active-window-outline-tray"), {});
+        QProcess::startDetached(QStringLiteral("leapk-tray"), {});
     } else {
         QFile::remove(desktopPath);
-        QProcess::execute(QStringLiteral("killall"), {QStringLiteral("active-window-outline-tray")});
+        QProcess::execute(QStringLiteral("killall"), {QStringLiteral("leapk-tray"), QStringLiteral("kleap-tray"), QStringLiteral("active-window-outline-tray")});
     }
 }
 
@@ -2871,4 +2887,4 @@ void ActiveWindowOutlineConfig::importShader()
                              QStringLiteral("Efekt shadera '%1' został pomyślnie zaimportowany i dodany do listy.").arg(effect.name));
 }
 
-#include "activewindowoutline_config.moc"
+#include "leapk_config.moc"

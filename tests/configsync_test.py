@@ -10,7 +10,9 @@ from pathlib import Path
 
 def main():
     repo_dir = Path(__file__).resolve().parent.parent
-    kcfg_file = repo_dir / "activewindowoutlineconfig.kcfg"
+    kcfg_file = repo_dir / "leapkconfig.kcfg"
+    if not kcfg_file.exists():
+        kcfg_file = repo_dir / "activewindowoutlineconfig.kcfg"
     install_file = repo_dir / "install-leapk.sh"
     if not install_file.exists():
         install_file = repo_dir / "install-kleap.sh"

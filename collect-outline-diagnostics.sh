@@ -17,6 +17,11 @@ if [[ -z "$qdbus_bin" ]]; then
 fi
 
 snapshot() {
+    local out
+    if out=$("$qdbus_bin" org.kde.KWin /Effects org.kde.kwin.Effects.debug leapk windows 2>/dev/null); then
+        printf '%s\n' "$out"
+        return 0
+    fi
     "$qdbus_bin" org.kde.KWin /Effects org.kde.kwin.Effects.debug active-window-outline windows
 }
 if ! initial=$(snapshot); then
@@ -29,12 +34,12 @@ if [[ "$initial" != version=*build=* ]]; then
     exit 1
 fi
 
-log_file=$(mktemp "${TMPDIR:-/tmp}/active-window-outline-diagnostics.XXXXXX.log")
+log_file=$(mktemp "${TMPDIR:-/tmp}/leapk-diagnostics.XXXXXX.log")
 printf 'Saving to: %s\n' "$log_file"
 printf '%s\n' 'Recording for 20 seconds. Switch to a window, open and close its context menu,' \
     'then move it towards and away from the floating panel.' \
     'Only geometry, window flags and the effect build ID are recorded, not window titles or content.'
-printf '%s\n%s\n' 'Active Window Outline diagnostics' "$initial" > "$log_file"
+printf '%s\n%s\n' 'LeapK diagnostics' "$initial" > "$log_file"
 previous=$initial
 for ((sample = 1; sample <= 40; sample++)); do
     sleep 0.5

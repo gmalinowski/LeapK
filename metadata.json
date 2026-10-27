@@ -11,10 +11,10 @@
         "Category": "Appearance",
         "Description": "Vim-style Window Navigator & Window Highlighter for KDE",
         "EnabledByDefault": false,
-        "Id": "active-window-outline",
+        "Id": "leapk",
         "License": "GPL-3.0-or-later",
         "Name": "LeapK",
         "Version": "1.6.0"
     },
-    "X-KDE-ConfigModule": "kwin_active-window-outline_config"
+    "X-KDE-ConfigModule": "kwin_leapk_config"
 }

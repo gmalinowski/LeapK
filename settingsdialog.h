@@ -14,7 +14,7 @@
 #include <QScreen>
 #include <QGuiApplication>
 #include <KPluginMetaData>
-#include "activewindowoutline_config.h"
+#include "leapk_config.h"
 
 class SettingsDialog : public QDialog
 {

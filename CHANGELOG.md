@@ -4,6 +4,30 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0] - 2026-10-27
+
+### Added
+- **Persistent Window Marks (`~/.config/leapk/marks.json`)**:
+  - Window marks and custom letters can now be permanently remembered across desktop sessions and system restarts.
+  - Multi-attribute window matching algorithm scoring application ID (`windowClass`), window caption patterns, and virtual desktop index.
+  - Integrated "Remember permanently for this application" toggle in `leapk-colorpicker` GUI dialog.
+  - Automatic mark restoration upon window creation and effect reconfiguration.
+- **Dynamic Keyboard Layout Awareness & Home-Row Prioritization**:
+  - Automatic detection of active keyboard layouts from KDE Plasma (`kxkbrc`), `$XKB_DEFAULT_LAYOUT`, and system locale.
+  - Native support for QWERTY, QWERTZ, AZERTY, Colemak, and Dvorak layouts.
+  - Letter assignment algorithm dynamically prioritizes ergonomic home-row keys first (e.g. `ASDFGHJKL` on QWERTY, `ARSTDHNEIO` on Colemak, `AOEUIDHTNS` on Dvorak) before reaching to top or bottom rows.
+- **Sub-Leap Disambiguation & Spatial Neighbor Keys**:
+  - When multiple windows share the same mark letter (e.g. `F` for Firefox across 2 or more open windows), selecting that letter enters an interactive Sub-Leap disambiguation mode.
+  - Disambiguation instances are presented in the screen edge HUD dock and with on-screen badges using physical spatial neighbor keys.
+  - Centered 3-key layout (`[ D | F | G ]`) ensures double-tapping the base key (`F + F`) immediately activates the primary/most recent window instance.
+  - Physical adjacent neighbor keys immediately leap to the corresponding sibling instances.
+  - Pressing `Escape` or `Backspace` smoothly returns to the main Jump Mode without dismissing navigation.
+- **Unified Codebase & Clean Rebranding to LeapK**:
+  - Complete transition of source files, headers, configuration UI, schema, and binaries to `leapk` (`leapk.cpp`, `leapk.h`, `leapk_config.cpp`, `leapkconfig.kcfg`, `kwin_leapk_config.so`).
+  - Seamless migration of user settings from `[Effect-active-window-outline]` to `[Effect-leapk]` in `kwinrc`.
+  - Comprehensive migration and cleanup in `install-leapk.sh` and `uninstall-leapk.sh`, automatically cleaning up legacy shared libraries, desktop launchers, autostart entries, and config entries.
+  - Dedicated unit tests for keyboard layout algorithms (`outline-keyboardlayout`) and persistent mark serialization/scoring (`outline-persistentmark`).
+
 ## [1.6.0-beta2] - 2026-10-26
 
 ### Added

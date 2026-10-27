@@ -4,7 +4,7 @@
     SPDX-License-Identifier: GPL-3.0-or-later
 */
 
-#include "activewindowoutline.h"
+#include "leapk.h"
 #include "popupfilter.h"
 #include "precedencehelper.h"
 #include <QKeyEvent>
@@ -712,7 +712,13 @@ bool ActiveWindowOutlineEffect::supported()
 
 void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
 {
-    KConfigGroup config = effects->config()->group(QStringLiteral("Effect-active-window-outline"));
+    KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+    KConfigGroup fallbackConfig = effects->config()->group(QStringLiteral("Effect-active-window-outline"));
+    if (!effects->config()->hasGroup(QStringLiteral("Effect-leapk")) && effects->config()->hasGroup(QStringLiteral("Effect-active-window-outline"))) {
+        fallbackConfig.copyTo(&primaryConfig);
+        primaryConfig.sync();
+    }
+    KConfigGroup config = primaryConfig.exists() ? primaryConfig : fallbackConfig;
     const bool configOutlineEnabled = config.readEntry("OutlineEnabled", true);
     if (m_outlineEnabled != configOutlineEnabled) {
         slotToggleAction();
@@ -926,6 +932,12 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
 
     m_outlineCache.clear();
     updateAnimationTimer();
+
+    m_persistentMarks = LeapKMarks::loadPersistentMarks();
+    for (EffectWindow *w : effects->stackingOrder()) {
+        applyPersistentMarksToWindow(w);
+    }
+
     effects->addRepaintFull();
     Q_EMIT stateChanged();
 }
@@ -1179,6 +1191,19 @@ QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity, EffectWindow
     return color;
 }
 
+void ActiveWindowOutlineEffect::applyPersistentMarksToWindow(EffectWindow *w)
+{
+    if (!w || w->isDeleted() || m_markedWindows.contains(w) || !isEligibleTargetWindow(w)) {
+        return;
+    }
+    const auto desktops = w->desktops();
+    const int desktopNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+    const auto *rule = LeapKMarks::findBestMatchingRule(m_persistentMarks, w->windowClass(), w->caption(), desktopNum);
+    if (rule) {
+        setWindowMark(w, rule->color, rule->letter, rule->label);
+    }
+}
+
 void ActiveWindowOutlineEffect::slotWindowAdded(EffectWindow *w)
 {
     connect(w, &EffectWindow::windowFrameGeometryChanged,
@@ -1191,6 +1216,8 @@ void ActiveWindowOutlineEffect::slotWindowAdded(EffectWindow *w)
             this, &ActiveWindowOutlineEffect::slotWindowFullScreenChanged);
     connect(w, &EffectWindow::windowDamaged,
             this, &ActiveWindowOutlineEffect::slotWindowDamaged);
+
+    applyPersistentMarksToWindow(w);
 
     if (isSystemOverlay(w)) {
         if (m_jumpMode) {
@@ -2241,7 +2268,7 @@ void ActiveWindowOutlineEffect::slotWindowFrameGeometryChanged(EffectWindow *w,
 void ActiveWindowOutlineEffect::slotToggleAction()
 {
     m_outlineEnabled = !m_outlineEnabled;
-    KConfigGroup config = effects->config()->group(QStringLiteral("Effect-active-window-outline"));
+    KConfigGroup config = effects->config()->group(QStringLiteral("Effect-leapk"));
     config.writeEntry("OutlineEnabled", m_outlineEnabled);
     config.sync();
 
@@ -2309,7 +2336,7 @@ bool ActiveWindowOutlineEffect::isOutlineEnabled() const
 
 void ActiveWindowOutlineEffect::toggleAmbilight()
 {
-    KConfigGroup config = effects->config()->group(QStringLiteral("Effect-active-window-outline"));
+    KConfigGroup config = effects->config()->group(QStringLiteral("Effect-leapk"));
     const bool current = config.readEntry("AmbilightEnabled", false);
     config.writeEntry("AmbilightEnabled", !current);
     config.sync();
@@ -2324,7 +2351,7 @@ bool ActiveWindowOutlineEffect::isAmbilightEnabled() const
 
 void ActiveWindowOutlineEffect::toggleGlow()
 {
-    KConfigGroup config = effects->config()->group(QStringLiteral("Effect-active-window-outline"));
+    KConfigGroup config = effects->config()->group(QStringLiteral("Effect-leapk"));
     const bool current = config.readEntry("GlowEnabled", false);
     config.writeEntry("GlowEnabled", !current);
     config.sync();
@@ -2387,7 +2414,7 @@ void ActiveWindowOutlineEffect::applyPreset(const QString &presetName)
                 LeapKShader::applyShaderBundle(p.settings.value(QStringLiteral("ShaderEffect")).toObject());
             }
 
-            KConfigGroup group = effects->config()->group(QStringLiteral("Effect-active-window-outline"));
+            KConfigGroup group = effects->config()->group(QStringLiteral("Effect-leapk"));
             for (auto it = p.settings.constBegin(); it != p.settings.constEnd(); ++it) {
                 if (it.key() == QStringLiteral("ShaderEffect")) continue;
                 group.writeEntry(it.key(), it.value().toVariant());
@@ -2904,7 +2931,7 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
     if (!customPicker.isEmpty()) {
         QProcess *process = new QProcess(this);
         connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
-                this, [process, applyMark](int exitCode, QProcess::ExitStatus exitStatus) {
+                this, [this, process, applyMark, targetWindow](int exitCode, QProcess::ExitStatus exitStatus) {
             process->deleteLater();
             if (exitStatus == QProcess::NormalExit && exitCode == 0) {
                 const QString out = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
@@ -2915,9 +2942,17 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
                         const int secondSpace = out.indexOf(QLatin1Char(' '), firstSpace + 1);
                         QString letterStr;
                         QString labelStr;
+                        bool persist = true;
                         if (secondSpace != -1) {
                             letterStr = out.mid(firstSpace + 1, secondSpace - firstSpace - 1).trimmed();
-                            labelStr = out.mid(secondSpace + 1).trimmed();
+                            const int thirdSpace = out.lastIndexOf(QLatin1Char(' '));
+                            if (thirdSpace > secondSpace) {
+                                labelStr = out.mid(secondSpace + 1, thirdSpace - secondSpace - 1).trimmed();
+                                const QString persistStr = out.mid(thirdSpace + 1).trimmed();
+                                persist = (persistStr == QStringLiteral("1") || persistStr == QStringLiteral("true"));
+                            } else {
+                                labelStr = out.mid(secondSpace + 1).trimmed();
+                            }
                             if (labelStr == QStringLiteral("-")) {
                                 labelStr.clear();
                             }
@@ -2937,6 +2972,34 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
                         const QChar pickedLetter = useLetter ? letterStr.at(0).toUpper() : QChar();
 
                         applyMark(picked, pickedLetter, labelStr, useColor, useLetter);
+
+                        if (persist && targetWindow && !pickedLetter.isNull()) {
+                            EffectWindow *w = targetWindow.data();
+                            LeapKMarks::PersistentMarkRule rule;
+                            rule.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+                            rule.letter = pickedLetter;
+                            rule.color = picked.isValid() ? picked : m_markDefaultColor;
+                            rule.label = labelStr;
+                            rule.matchApp = w->windowClass();
+                            const auto desktops = w->desktops();
+                            rule.matchDesktop = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+                            rule.enabled = true;
+                            rule.createdAt = QDateTime::currentMSecsSinceEpoch();
+
+                            bool updated = false;
+                            for (auto &r : m_persistentMarks) {
+                                if (r.matchApp.compare(rule.matchApp, Qt::CaseInsensitive) == 0 && r.letter == rule.letter) {
+                                    r.color = rule.color;
+                                    r.label = rule.label;
+                                    updated = true;
+                                    break;
+                                }
+                            }
+                            if (!updated) {
+                                m_persistentMarks.append(rule);
+                            }
+                            LeapKMarks::savePersistentMarks(m_persistentMarks);
+                        }
                     }
                 }
             }
@@ -2956,6 +3019,7 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
             args << QStringLiteral("1");
             args << initialLabel;
         }
+        args << QStringLiteral("1");
         process->start(customPicker, args);
         return;
     }
@@ -3066,6 +3130,7 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
         return {};
     }
     QMap<QChar, EffectWindow *> map;
+    m_letterWindowGroups.clear();
     const auto windows = effects->stackingOrder();
     QList<EffectWindow *> candidates;
     for (EffectWindow *w : windows) {
@@ -3107,16 +3172,15 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
     for (EffectWindow *w : candidates) {
         if (m_markedWindowLetters.contains(w)) {
             const QChar ch = m_markedWindowLetters.value(w).toUpper();
-            if (!assignedLetters.contains(ch)) {
-                map[ch] = w;
-                assignedLetters.insert(ch);
-                continue;
-            }
+            m_letterWindowGroups[ch].append(w);
+            assignedLetters.insert(ch);
+            continue;
         }
         unassignedCandidates.append(w);
     }
 
-    const QString &pool = OutlineBadge::preferredLetterPool();
+    const auto activeLayout = LeapKKeyboard::detectActiveLayout();
+    const QString pool = LeapKKeyboard::preferredLetterPool(activeLayout);
     int poolIdx = 0;
     for (EffectWindow *w : unassignedCandidates) {
         while (poolIdx < pool.length() && assignedLetters.contains(pool.at(poolIdx))) {
@@ -3124,9 +3188,15 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
         }
         if (poolIdx < pool.length()) {
             const QChar ch = pool.at(poolIdx);
-            map[ch] = w;
+            m_letterWindowGroups[ch].append(w);
             assignedLetters.insert(ch);
             poolIdx++;
+        }
+    }
+
+    for (auto it = m_letterWindowGroups.constBegin(); it != m_letterWindowGroups.constEnd(); ++it) {
+        if (!it.value().isEmpty()) {
+            map[it.key()] = it.value().first();
         }
     }
 
@@ -3146,6 +3216,12 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
         slotJumpToRecentWindow();
         return;
     }
+
+    m_subLeapActive = false;
+    m_subLeapBaseKey = QChar();
+    m_subLeapWindows.clear();
+    m_subLeapLetterToWindow.clear();
+    m_subLeapTargets.clear();
 
     m_jumpLetterToWindow = assignJumpLetters();
     if (m_jumpLetterToWindow.isEmpty()) {
@@ -3177,11 +3253,31 @@ void ActiveWindowOutlineEffect::cancelJumpMode()
         return;
     }
     m_jumpMode = false;
+    m_subLeapActive = false;
+    m_subLeapBaseKey = QChar();
+    m_subLeapWindows.clear();
+    m_subLeapLetterToWindow.clear();
+    m_subLeapTargets.clear();
+    m_letterWindowGroups.clear();
     if (m_jumpTimeoutTimer && m_jumpTimeoutTimer->isActive()) {
         m_jumpTimeoutTimer->stop();
     }
     m_jumpLetterToWindow.clear();
     effects->ungrabKeyboard();
+    effects->addRepaintFull();
+}
+
+void ActiveWindowOutlineEffect::exitSubLeapMode()
+{
+    m_subLeapActive = false;
+    m_subLeapBaseKey = QChar();
+    m_subLeapWindows.clear();
+    m_subLeapLetterToWindow.clear();
+    m_subLeapTargets.clear();
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+    }
+    m_badgeTextureCache.clear();
     effects->addRepaintFull();
 }
 
@@ -3193,6 +3289,53 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     if (e->type() != QEvent::KeyPress) {
         return;
     }
+
+    // 1. If currently in Sub-Leap disambiguation:
+    if (m_subLeapActive) {
+        if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace) {
+            exitSubLeapMode();
+            return;
+        }
+
+        QString text = e->text().toUpper().trimmed();
+        if (text.isEmpty()) {
+            if (e->key() >= Qt::Key_A && e->key() <= Qt::Key_Z) {
+                text = QChar('A' + (e->key() - Qt::Key_A));
+            } else if (e->key() >= Qt::Key_0 && e->key() <= Qt::Key_9) {
+                text = QChar('0' + (e->key() - Qt::Key_0));
+            }
+        }
+
+        if (!text.isEmpty()) {
+            const QChar keyChar = text.at(0);
+            if (m_subLeapLetterToWindow.contains(keyChar)) {
+                EffectWindow *target = m_subLeapLetterToWindow.value(keyChar);
+                cancelJumpMode();
+                if (target && !target->isDeleted()) {
+                    m_expectedJumpTarget = target;
+                    if (m_expectedJumpTargetTimer) {
+                        m_expectedJumpTargetTimer->start(1000);
+                    }
+                    if (!target->isOnCurrentDesktop()) {
+                        const auto desktops = target->desktops();
+                        if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
+                            effects->setCurrentDesktop(desktops.first());
+                        }
+                    }
+                    if (target->isMinimized()) {
+                        target->setMinimized(false);
+                    }
+                    effects->activateWindow(target);
+                }
+                return;
+            }
+        }
+
+        cancelJumpMode();
+        return;
+    }
+
+    // 2. Main Jump Mode:
     if (e->key() == Qt::Key_Escape) {
         cancelJumpMode();
         return;
@@ -3235,26 +3378,80 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     if (!text.isEmpty()) {
         const QChar keyChar = text.at(0);
-        if (m_jumpLetterToWindow.contains(keyChar)) {
-            EffectWindow *target = m_jumpLetterToWindow.value(keyChar);
-            cancelJumpMode();
-            if (target && !target->isDeleted()) {
-                m_expectedJumpTarget = target;
-                if (m_expectedJumpTargetTimer) {
-                    m_expectedJumpTargetTimer->start(1000);
-                }
-                if (!target->isOnCurrentDesktop()) {
-                    const auto desktops = target->desktops();
-                    if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
-                        effects->setCurrentDesktop(desktops.first());
+        if (m_letterWindowGroups.contains(keyChar)) {
+            const auto &group = m_letterWindowGroups.value(keyChar);
+            if (group.size() > 1) {
+                // Enter Sub-Leap disambiguation for this group of windows!
+                m_subLeapActive = true;
+                m_subLeapBaseKey = keyChar;
+                m_subLeapWindows = group;
+
+                // Sort by recency so primary/most recent window is at index 0
+                std::sort(m_subLeapWindows.begin(), m_subLeapWindows.end(), [this](EffectWindow *a, EffectWindow *b) {
+                    int idxA = m_windowHistory.indexOf(a);
+                    int idxB = m_windowHistory.indexOf(b);
+                    if (idxA != -1 && idxB != -1) return idxA < idxB;
+                    if (idxA != -1) return true;
+                    if (idxB != -1) return false;
+                    return false;
+                });
+
+                const auto layout = LeapKKeyboard::detectActiveLayout();
+                const QList<QChar> neighborKeys = LeapKKeyboard::findSpatialNeighborKeys(keyChar, m_subLeapWindows.size(), layout);
+
+                m_subLeapLetterToWindow.clear();
+                m_subLeapTargets.clear();
+
+                // If count == 3, neighborKeys is [Left, Base, Right] (e.g. [D, F, G])
+                // Make sure baseKey maps to primary window (m_subLeapWindows[0])
+                if (neighborKeys.contains(keyChar)) {
+                    const int baseIdx = neighborKeys.indexOf(keyChar);
+                    int otherWinIdx = 1;
+                    for (int i = 0; i < neighborKeys.size(); ++i) {
+                        const QChar k = neighborKeys.at(i);
+                        if (i == baseIdx) {
+                            m_subLeapLetterToWindow[k] = m_subLeapWindows[0];
+                            m_subLeapTargets.append(qMakePair(k, m_subLeapWindows[0]));
+                        } else if (otherWinIdx < m_subLeapWindows.size()) {
+                            m_subLeapLetterToWindow[k] = m_subLeapWindows[otherWinIdx];
+                            m_subLeapTargets.append(qMakePair(k, m_subLeapWindows[otherWinIdx]));
+                            otherWinIdx++;
+                        }
+                    }
+                } else {
+                    for (int i = 0; i < neighborKeys.size() && i < m_subLeapWindows.size(); ++i) {
+                        m_subLeapLetterToWindow[neighborKeys[i]] = m_subLeapWindows[i];
+                        m_subLeapTargets.append(qMakePair(neighborKeys[i], m_subLeapWindows[i]));
                     }
                 }
-                if (target->isMinimized()) {
-                    target->setMinimized(false);
+
+                if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+                    m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
                 }
-                effects->activateWindow(target);
+                m_badgeTextureCache.clear();
+                effects->addRepaintFull();
+                return;
+            } else if (group.size() == 1) {
+                EffectWindow *target = group.first();
+                cancelJumpMode();
+                if (target && !target->isDeleted()) {
+                    m_expectedJumpTarget = target;
+                    if (m_expectedJumpTargetTimer) {
+                        m_expectedJumpTargetTimer->start(1000);
+                    }
+                    if (!target->isOnCurrentDesktop()) {
+                        const auto desktops = target->desktops();
+                        if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
+                            effects->setCurrentDesktop(desktops.first());
+                        }
+                    }
+                    if (target->isMinimized()) {
+                        target->setMinimized(false);
+                    }
+                    effects->activateWindow(target);
+                }
+                return;
             }
-            return;
         }
     }
 
@@ -4831,39 +5028,58 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         QList<QPair<QChar, EffectWindow *>> offscreenTargets;
         QList<QPair<QChar, EffectWindow *>> onscreenTargets;
 
-        for (auto it = m_jumpLetterToWindow.constBegin(); it != m_jumpLetterToWindow.constEnd(); ++it) {
-            const QChar letter = it.key();
-            EffectWindow *target = it.value();
-            if (!target || target == w || target->isDeleted() || !isEligibleTargetWindow(target)) {
-                continue;
-            }
-
-            const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled;
-            if (forceHud) {
-                offscreenTargets.append(qMakePair(letter, target));
-            }
-
-            const bool onCurrent = target->isOnCurrentDesktop();
-            const bool minimized = target->isMinimized();
-
-            if (!onCurrent || minimized) {
-                if (!forceHud) {
-                    offscreenTargets.append(qMakePair(letter, target));
-                }
-                continue;
-            }
-
-            const QRectF geo = target->frameGeometry();
-            const QRectF visibleWindowGeo = geo.intersected(screenRect);
-            if (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50) {
-                if (!forceHud) {
-                    offscreenTargets.append(qMakePair(letter, target));
-                }
-                continue;
-            }
+        if (m_subLeapActive) {
+            // In Sub-Leap disambiguation mode, HUD displays all candidate instances centered
+            offscreenTargets = m_subLeapTargets;
 
             if (m_badgeConfig.windowBadgesEnabled) {
-                onscreenTargets.append(qMakePair(letter, target));
+                for (const auto &pair : m_subLeapTargets) {
+                    EffectWindow *target = pair.second;
+                    if (target && !target->isDeleted() && target->isOnCurrentDesktop() && !target->isMinimized()) {
+                        const QRectF geo = target->frameGeometry();
+                        const QRectF visibleWindowGeo = geo.intersected(screenRect);
+                        if (visibleWindowGeo.width() >= 50 && visibleWindowGeo.height() >= 50) {
+                            onscreenTargets.append(pair);
+                        }
+                    }
+                }
+            }
+        } else {
+            for (auto it = m_letterWindowGroups.constBegin(); it != m_letterWindowGroups.constEnd(); ++it) {
+                const QChar letter = it.key();
+                for (EffectWindow *target : it.value()) {
+                    if (!target || target == w || target->isDeleted() || !isEligibleTargetWindow(target)) {
+                        continue;
+                    }
+
+                    const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled;
+                    if (forceHud) {
+                        offscreenTargets.append(qMakePair(letter, target));
+                    }
+
+                    const bool onCurrent = target->isOnCurrentDesktop();
+                    const bool minimized = target->isMinimized();
+
+                    if (!onCurrent || minimized) {
+                        if (!forceHud) {
+                            offscreenTargets.append(qMakePair(letter, target));
+                        }
+                        continue;
+                    }
+
+                    const QRectF geo = target->frameGeometry();
+                    const QRectF visibleWindowGeo = geo.intersected(screenRect);
+                    if (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50) {
+                        if (!forceHud) {
+                            offscreenTargets.append(qMakePair(letter, target));
+                        }
+                        continue;
+                    }
+
+                    if (m_badgeConfig.windowBadgesEnabled) {
+                        onscreenTargets.append(qMakePair(letter, target));
+                    }
+                }
             }
         }
 
@@ -5235,4 +5451,4 @@ void ActiveWindowOutlineEffect::generateRoundedRectStrip(
 
 } // namespace KWin
 
-#include "activewindowoutline.moc"
+#include "leapk.moc"

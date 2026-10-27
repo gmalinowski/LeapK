@@ -22,8 +22,8 @@
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
-    app.setApplicationName(QStringLiteral("active-window-outline-colorpicker"));
-    app.setApplicationDisplayName(QObject::tr("Active Window Outline - Mark Window"));
+    app.setApplicationName(QStringLiteral("leapk-colorpicker"));
+    app.setApplicationDisplayName(QObject::tr("LeapK - Mark Window"));
 
     QColor currentColor(QStringLiteral("#e74c3c"));
     if (argc > 1 && argv[1]) {
@@ -41,9 +41,18 @@ int main(int argc, char *argv[])
         }
     }
 
-    QSettings settings(QStringLiteral("kwin-active-window-outline"), QStringLiteral("colorpicker"));
+    QSettings settings(QStringLiteral("leapk"), QStringLiteral("colorpicker"));
+    if (!settings.contains(QStringLiteral("MarkWithLetter"))) {
+        QSettings oldSettings(QStringLiteral("kwin-active-window-outline"), QStringLiteral("colorpicker"));
+        if (oldSettings.contains(QStringLiteral("MarkWithLetter"))) {
+            settings.setValue(QStringLiteral("MarkWithLetter"), oldSettings.value(QStringLiteral("MarkWithLetter")));
+            settings.setValue(QStringLiteral("MarkWithColor"), oldSettings.value(QStringLiteral("MarkWithColor")));
+            settings.setValue(QStringLiteral("MarkPersistent"), oldSettings.value(QStringLiteral("MarkPersistent"), true));
+        }
+    }
     bool useLetter = settings.value(QStringLiteral("MarkWithLetter"), true).toBool();
     bool useColor = settings.value(QStringLiteral("MarkWithColor"), true).toBool();
+    bool usePersistent = settings.value(QStringLiteral("MarkPersistent"), true).toBool();
 
     if (argc > 3 && argv[3]) {
         const QString arg3 = QString::fromUtf8(argv[3]).trimmed();
@@ -65,6 +74,14 @@ int main(int argc, char *argv[])
     QString currentLabel;
     if (argc > 5 && argv[5]) {
         currentLabel = QString::fromUtf8(argv[5]).trimmed();
+    }
+    if (argc > 6 && argv[6]) {
+        const QString arg6 = QString::fromUtf8(argv[6]).trimmed();
+        if (arg6 == QStringLiteral("1") || arg6 == QStringLiteral("true")) {
+            usePersistent = true;
+        } else if (arg6 == QStringLiteral("0") || arg6 == QStringLiteral("false")) {
+            usePersistent = false;
+        }
     }
 
     const bool isPolish = (QLocale().language() == QLocale::Polish);
@@ -138,6 +155,10 @@ int main(int argc, char *argv[])
     labelEdit->setMaxLength(50);
     formLayout->addRow(lblLabel, labelEdit);
 
+    auto *chkPersistent = new QCheckBox(isPolish ? QStringLiteral("Zapamiętaj na stałe (przypnij regułę dla aplikacji):") : QObject::tr("Remember mark permanently (pin rule for app):"), &dlg);
+    chkPersistent->setChecked(usePersistent);
+    formLayout->addRow(chkPersistent);
+
     layout->addLayout(formLayout);
 
     auto *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
@@ -171,9 +192,11 @@ int main(int argc, char *argv[])
     if (dlg.exec() == QDialog::Accepted) {
         const bool finalUseLetter = chkLetter->isChecked();
         const bool finalUseColor = chkColor->isChecked();
+        const bool finalPersistent = chkPersistent->isChecked();
 
         settings.setValue(QStringLiteral("MarkWithLetter"), finalUseLetter);
         settings.setValue(QStringLiteral("MarkWithColor"), finalUseColor);
+        settings.setValue(QStringLiteral("MarkPersistent"), finalPersistent);
 
         QString finalLetter = QStringLiteral("none");
         if (finalUseLetter) {
@@ -193,7 +216,7 @@ int main(int argc, char *argv[])
             finalLabel = QStringLiteral("-");
         }
 
-        std::cout << finalColor.toStdString() << " " << finalLetter.toStdString() << " " << finalLabel.toStdString() << std::endl;
+        std::cout << finalColor.toStdString() << " " << finalLetter.toStdString() << " " << finalLabel.toStdString() << " " << (finalPersistent ? "1" : "0") << std::endl;
         return 0;
     }
     return 1;

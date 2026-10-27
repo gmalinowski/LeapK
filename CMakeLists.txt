@@ -59,11 +59,11 @@ else()
 endif()
 
 # --- Effect plugin ---
-kcoreaddons_add_plugin(active-window-outline
-    SOURCES activewindowoutline.cpp
+kcoreaddons_add_plugin(leapk
+    SOURCES leapk.cpp
     INSTALL_NAMESPACE "${KWIN_EFFECT_NAMESPACE}"
 )
-target_link_libraries(active-window-outline PRIVATE
+target_link_libraries(leapk PRIVATE
     ${KWIN_TARGET}
     KF6::GlobalAccel
     Qt6::Widgets
@@ -71,16 +71,16 @@ target_link_libraries(active-window-outline PRIVATE
 )
 # Identify the loaded library, including uncommitted test builds.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    activewindowoutline.cpp activewindowoutline.h popupfilter.h cursoroverlay.h visibilitystate.h ambilightalgorithm.h)
-file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/activewindowoutline.cpp" OUTLINE_CPP_HASH)
-file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/activewindowoutline.h" OUTLINE_HEADER_HASH)
+    leapk.cpp leapk.h popupfilter.h cursoroverlay.h visibilitystate.h ambilightalgorithm.h keyboardlayouthelper.h persistentmarkhelper.h)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk.cpp" OUTLINE_CPP_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk.h" OUTLINE_HEADER_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/popupfilter.h" OUTLINE_POPUP_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/cursoroverlay.h" OUTLINE_CURSOR_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/visibilitystate.h" OUTLINE_VISIBILITY_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/ambilightalgorithm.h" OUTLINE_AMBILIGHT_HASH)
 string(SHA256 OUTLINE_BUILD_HASH "${OUTLINE_CPP_HASH}${OUTLINE_HEADER_HASH}${OUTLINE_POPUP_HASH}${OUTLINE_CURSOR_HASH}${OUTLINE_VISIBILITY_HASH}${OUTLINE_AMBILIGHT_HASH}")
 string(SUBSTRING "${OUTLINE_BUILD_HASH}" 0 12 OUTLINE_BUILD_ID)
-target_compile_definitions(active-window-outline PRIVATE
+target_compile_definitions(leapk PRIVATE
     ACTIVE_WINDOW_OUTLINE_VERSION="${PROJECT_VERSION}"
     ACTIVE_WINDOW_OUTLINE_BUILD_ID="${OUTLINE_BUILD_ID}"
     ACTIVE_WINDOW_OUTLINE_KWIN_VERSION="${DETECTED_KWIN_VERSION}"
@@ -88,17 +88,17 @@ target_compile_definitions(active-window-outline PRIVATE
 )
 
 if(KWIN_BACKEND STREQUAL "X11")
-    target_compile_definitions(active-window-outline PRIVATE
+    target_compile_definitions(leapk PRIVATE
         ACTIVE_WINDOW_OUTLINE_X11
         ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
         ACTIVE_WINDOW_OUTLINE_PREPAINT_PRESENT_TIME
     )
     # KWin X11 6.7 headers use C++23 library types such as std::expected.
     if(DETECTED_KWIN_VERSION VERSION_GREATER_EQUAL "6.7")
-        target_compile_features(active-window-outline PRIVATE cxx_std_23)
+        target_compile_features(leapk PRIVATE cxx_std_23)
     endif()
     if(DETECTED_KWIN_VERSION VERSION_GREATER_EQUAL "6.7.80")
-        target_compile_definitions(active-window-outline PRIVATE
+        target_compile_definitions(leapk PRIVATE
             ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
             ACTIVE_WINDOW_OUTLINE_BOOL_DRAW_WINDOW
             ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_WINDOW
@@ -106,44 +106,44 @@ if(KWIN_BACKEND STREQUAL "X11")
     endif()
 else()
     if(DETECTED_KWIN_VERSION VERSION_LESS "6.6")
-        target_compile_definitions(active-window-outline PRIVATE
+        target_compile_definitions(leapk PRIVATE
             ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
         )
     endif()
     if(DETECTED_KWIN_VERSION VERSION_LESS "6.7")
-        target_compile_definitions(active-window-outline PRIVATE
+        target_compile_definitions(leapk PRIVATE
             ACTIVE_WINDOW_OUTLINE_PREPAINT_PRESENT_TIME
         )
     endif()
     if(DETECTED_KWIN_VERSION VERSION_GREATER_EQUAL "6.7")
-        target_compile_definitions(active-window-outline PRIVATE
+        target_compile_definitions(leapk PRIVATE
             ACTIVE_WINDOW_OUTLINE_SHADER_POINTER_VALIDITY
             ACTIVE_WINDOW_OUTLINE_SURFACE_BLUR_REGION
         )
     endif()
     if(DETECTED_KWIN_VERSION VERSION_GREATER_EQUAL "6.7.80")
-        target_compile_definitions(active-window-outline PRIVATE
+        target_compile_definitions(leapk PRIVATE
             ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
             ACTIVE_WINDOW_OUTLINE_BOOL_DRAW_WINDOW
             ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_WINDOW
         )
     else()
-        target_compile_definitions(active-window-outline PRIVATE
+        target_compile_definitions(leapk PRIVATE
             ACTIVE_WINDOW_OUTLINE_HAS_OPENGL_SURFACE_TEXTURE
         )
     endif()
 endif()
 
 # --- Config module plugin ---
-qt6_wrap_ui(CONFIG_UI_SRCS activewindowoutline_config.ui)
+qt6_wrap_ui(CONFIG_UI_SRCS leapk_config.ui)
 
-kcoreaddons_add_plugin(kwin_active-window-outline_config
-    SOURCES activewindowoutline_config.cpp ${CONFIG_UI_SRCS}
+kcoreaddons_add_plugin(kwin_leapk_config
+    SOURCES leapk_config.cpp ${CONFIG_UI_SRCS}
     INSTALL_NAMESPACE "${KWIN_CONFIG_NAMESPACE}"
 )
-target_include_directories(kwin_active-window-outline_config PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(kwin_leapk_config PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
-target_link_libraries(kwin_active-window-outline_config PRIVATE
+target_link_libraries(kwin_leapk_config PRIVATE
     Qt6::DBus
     Qt6::Widgets
     Qt6::Network
@@ -152,7 +152,7 @@ target_link_libraries(kwin_active-window-outline_config PRIVATE
     KF6::KCMUtils
     KF6::GlobalAccel
 )
-target_compile_definitions(kwin_active-window-outline_config PRIVATE
+target_compile_definitions(kwin_leapk_config PRIVATE
     ACTIVE_WINDOW_OUTLINE_VERSION="${PROJECT_VERSION}"
 )
 
@@ -169,7 +169,7 @@ install(TARGETS leapk-colorpicker
 add_executable(leapk-tray
     tray.cpp
     settingsdialog.cpp
-    activewindowoutline_config.cpp
+    leapk_config.cpp
     resources.qrc
     ${CONFIG_UI_SRCS}
 )
@@ -191,7 +191,7 @@ target_compile_definitions(leapk-tray PRIVATE
 add_executable(leapk-settings
     settingsmain.cpp
     settingsdialog.cpp
-    activewindowoutline_config.cpp
+    leapk_config.cpp
     resources.qrc
     ${CONFIG_UI_SRCS}
 )
@@ -216,7 +216,7 @@ install(TARGETS leapk-tray leapk-settings
 install(PROGRAMS leapk-tray.desktop leapk-settings.desktop
     DESTINATION ${KDE_INSTALL_APPDIR}
 )
-install(FILES leapk.svg kleap.svg active-window-outline.svg
+install(FILES leapk.svg
     DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps
 )
 
@@ -313,6 +313,16 @@ if(OUTLINE_BUILD_TESTS)
     target_link_libraries(outline-customshader-test PRIVATE Qt6::Core Qt6::Gui)
     add_test(NAME outline-customshader COMMAND outline-customshader-test)
 
+    add_executable(outline-keyboardlayout-test tests/keyboardlayout_test.cpp)
+    target_include_directories(outline-keyboardlayout-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-keyboardlayout-test PRIVATE Qt6::Core)
+    add_test(NAME outline-keyboardlayout COMMAND outline-keyboardlayout-test)
+
+    add_executable(outline-persistentmark-test tests/persistentmark_test.cpp)
+    target_include_directories(outline-persistentmark-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-persistentmark-test PRIVATE Qt6::Core Qt6::Gui)
+    add_test(NAME outline-persistentmark COMMAND outline-persistentmark-test)
+
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
         add_test(NAME outline-config-sync COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/configsync_test.py)
@@ -323,7 +333,7 @@ if(OUTLINE_BUILD_TESTS)
         target_include_directories(outline-cursor-overlay-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
         target_link_libraries(outline-cursor-overlay-test PRIVATE ${KWIN_TARGET})
         target_compile_definitions(outline-cursor-overlay-test PRIVATE
-            $<TARGET_PROPERTY:active-window-outline,COMPILE_DEFINITIONS>)
+            $<TARGET_PROPERTY:leapk,COMPILE_DEFINITIONS>)
         add_test(NAME outline-cursor-overlay COMMAND outline-cursor-overlay-test)
     endif()
 endif()

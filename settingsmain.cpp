@@ -9,10 +9,10 @@
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
-    app.setApplicationName(QStringLiteral("active-window-outline-settings"));
-    app.setApplicationDisplayName(QStringLiteral("Active Window Outline Settings"));
-    app.setWindowIcon(QIcon::fromTheme(QStringLiteral("active-window-outline"),
-                                       QIcon(QStringLiteral(":/icons/active-window-outline.svg"))));
+    app.setApplicationName(QStringLiteral("leapk-settings"));
+    app.setApplicationDisplayName(QStringLiteral("LeapK Settings"));
+    app.setWindowIcon(QIcon::fromTheme(QStringLiteral("leapk"),
+                                       QIcon(QStringLiteral(":/icons/leapk.svg"))));
 
     SettingsDialog dialog;
     dialog.show();

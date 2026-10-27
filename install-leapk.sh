@@ -299,17 +299,26 @@ fi
 
 echo "[5/5] Enabling the effect…"
 kwriteconfig6 --file kwinrc --group Plugins \
-  --key active-window-outlineEnabled true
+  --key leapkEnabled true
+kwriteconfig6 --file kwinrc --group Plugins \
+  --key active-window-outlineEnabled false
 
 set_default() {
   local key="$1"
   local value="$2"
   local current
-  current="$(kreadconfig6 --file kwinrc --group Effect-active-window-outline \
+  current="$(kreadconfig6 --file kwinrc --group Effect-leapk \
     --key "$key" --default '')"
   if [[ -z "$current" ]]; then
-    kwriteconfig6 --file kwinrc --group Effect-active-window-outline \
+    current="$(kreadconfig6 --file kwinrc --group Effect-active-window-outline \
+      --key "$key" --default '')"
+  fi
+  if [[ -z "$current" ]]; then
+    kwriteconfig6 --file kwinrc --group Effect-leapk \
       --key "$key" "$value"
+  else
+    kwriteconfig6 --file kwinrc --group Effect-leapk \
+      --key "$key" "$current"
   fi
 }
 
@@ -481,20 +490,22 @@ if command -v qdbus6 >/dev/null 2>&1; then
   qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
   qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect \
     active-window-outline >/dev/null 2>&1 || true
+  qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect \
+    leapk >/dev/null 2>&1 || true
   qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.loadEffect \
-    active-window-outline >/dev/null 2>&1 || true
+    leapk >/dev/null 2>&1 || true
 fi
 
+rm -f "$HOME/.config/autostart/active-window-outline-tray.desktop" "$HOME/.config/autostart/kleap-tray.desktop"
 mkdir -p "$HOME/.config/autostart"
 if [[ -f "$project_dir/leapk-tray.desktop" ]]; then
   cp "$project_dir/leapk-tray.desktop" "$HOME/.config/autostart/"
-elif [[ -f "$project_dir/kleap-tray.desktop" ]]; then
-  cp "$project_dir/kleap-tray.desktop" "$HOME/.config/autostart/"
-elif [[ -f "$project_dir/active-window-outline-tray.desktop" ]]; then
-  cp "$project_dir/active-window-outline-tray.desktop" "$HOME/.config/autostart/"
 fi
 
-tray_enabled="$(kreadconfig6 --file kwinrc --group Effect-active-window-outline --key TrayIconEnabled --default true 2>/dev/null || echo true)"
+tray_enabled="$(kreadconfig6 --file kwinrc --group Effect-leapk --key TrayIconEnabled --default '' 2>/dev/null || true)"
+if [[ -z "$tray_enabled" ]]; then
+  tray_enabled="$(kreadconfig6 --file kwinrc --group Effect-active-window-outline --key TrayIconEnabled --default true 2>/dev/null || echo true)"
+fi
 if [[ "$tray_enabled" == "true" ]]; then
   if command -v leapk-tray >/dev/null 2>&1; then
     leapk-tray >/dev/null 2>&1 &
