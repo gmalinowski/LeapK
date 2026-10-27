@@ -645,6 +645,10 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->combo_BadgeLocationFont, &QFontComboBox::currentFontChanged, this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeHudIncludeAll, &QCheckBox::toggled, this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeHudGroupWindows, &QCheckBox::toggled, this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeHudGroupBorderWidth, &QDoubleSpinBox::valueChanged, this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeHudGroupFontSize, &QSpinBox::valueChanged, this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeHudGroupCornerRadius, &QSpinBox::valueChanged, this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeHudGroupShaderEnabled, &QCheckBox::toggled, this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeLivePreviews, &QCheckBox::toggled, this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeTimeout, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
     connect(m_ui->kcfg_JumpRecentKey, &QKeySequenceEdit::keySequenceChanged, this, onBadgeSettingChanged);
@@ -685,6 +689,14 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
         m_ui->kcfg_BadgeHudIncludeAll->setToolTip(QStringLiteral("Zawsze wyświetla karty w HUD dla wszystkich otwartych okien, niezależnie czy są widoczne na bieżącym ekranie, czy zakryte."));
         m_ui->kcfg_BadgeHudGroupWindows->setText(QStringLiteral("Grupuj okna tej samej aplikacji w jedną kartę z licznikiem"));
         m_ui->kcfg_BadgeHudGroupWindows->setToolTip(QStringLiteral("Gdy zaznaczone, wiele okien tej samej aplikacji jest zwijanych w jedną kartę HUD z licznikiem (wciśnięcie litery rozwija je w podpoziomie Sub-Leap). Gdy odznaczone, wszystkie okna wyświetlają się od razu z osobnymi literami i wspólną ramką grupy."));
+        m_ui->label_badgeHudGroupBorderWidth->setText(QStringLiteral("Grubość ramki grupy:"));
+        m_ui->kcfg_BadgeHudGroupBorderWidth->setToolTip(QStringLiteral("Grubość linii obramowania otaczającego grupę okien w HUD (domyślnie: 2.0 px)."));
+        m_ui->label_badgeHudGroupFontSize->setText(QStringLiteral("Rozmiar czcionki etykiety grupy:"));
+        m_ui->kcfg_BadgeHudGroupFontSize->setToolTip(QStringLiteral("Rozmiar czcionki dla etykiety grupy i litery skrótu (0 = Auto)."));
+        m_ui->label_badgeHudGroupCornerRadius->setText(QStringLiteral("Zaokrąglenie rogów ramki grupy:"));
+        m_ui->kcfg_BadgeHudGroupCornerRadius->setToolTip(QStringLiteral("Promień zaokrąglenia rogów ramki kontenera grupy w HUD (domyślnie: 8 px)."));
+        m_ui->kcfg_BadgeHudGroupShaderEnabled->setText(QStringLiteral("Zezwalaj na animacje i shadery na ramce grupy okien"));
+        m_ui->kcfg_BadgeHudGroupShaderEnabled->setToolTip(QStringLiteral("Włącza efekty oddychania (breathe), migotania (flicker) i shadery na kontenerze grupy podczas skoku."));
         m_ui->kcfg_BadgeLivePreviews->setText(QStringLiteral("Podgląd okien na żywo (płynne odświeżanie miniatur w czasie rzeczywistym)"));
         m_ui->kcfg_BadgeLivePreviews->setToolTip(QStringLiteral("Płynnie odświeża miniatury okien w czasie rzeczywistym (np. wideo, animacje), gdy widoczne są karty okien lub HUD."));
     }
@@ -728,6 +740,9 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->tableShaders, &QTableWidget::cellDoubleClicked, this, [this](int, int) {
         editSelectedShader();
     });
+
+    // Persistent Marks section
+    initPersistentMarksSection();
 
     load();
 }
@@ -1221,6 +1236,11 @@ void ActiveWindowOutlineConfig::load()
     m_ui->kcfg_BadgeWindowBadgesEnabled->setChecked(group.readEntry("BadgeWindowBadgesEnabled", true));
     m_ui->kcfg_BadgeHudIncludeAll->setChecked(group.readEntry("BadgeHudIncludeAll", false));
     m_ui->kcfg_BadgeHudGroupWindows->setChecked(group.readEntry("BadgeHudGroupWindows", true));
+    m_ui->kcfg_BadgeHudGroupBorderWidth->setValue(group.readEntry("BadgeHudGroupBorderWidth", 2.0));
+    m_ui->kcfg_BadgeHudGroupFontSize->setValue(group.readEntry("BadgeHudGroupFontSize", 0));
+    m_ui->kcfg_BadgeHudGroupCornerRadius->setValue(group.readEntry("BadgeHudGroupCornerRadius", 8));
+    m_ui->kcfg_BadgeHudGroupShaderEnabled->setChecked(group.readEntry("BadgeHudGroupShaderEnabled", true));
+    refreshPersistentMarksTable();
     m_ui->kcfg_BadgeLivePreviews->setChecked(group.readEntry("BadgeLivePreviews", false));
     m_ui->kcfg_BadgeTimeout->setValue(group.readEntry("BadgeTimeout", 5));
     m_ui->kcfg_JumpRecentKey->setKeySequence(QKeySequence(group.readEntry("JumpRecentKey", QStringLiteral("Space"))));
@@ -1280,6 +1300,10 @@ void ActiveWindowOutlineConfig::defaults()
     m_ui->kcfg_BadgeWindowBadgesEnabled->setChecked(true);
     m_ui->kcfg_BadgeHudIncludeAll->setChecked(false);
     m_ui->kcfg_BadgeHudGroupWindows->setChecked(true);
+    m_ui->kcfg_BadgeHudGroupBorderWidth->setValue(2.0);
+    m_ui->kcfg_BadgeHudGroupFontSize->setValue(0);
+    m_ui->kcfg_BadgeHudGroupCornerRadius->setValue(8);
+    m_ui->kcfg_BadgeHudGroupShaderEnabled->setChecked(true);
     m_ui->kcfg_BadgeLivePreviews->setChecked(false);
     m_ui->kcfg_BadgeTimeout->setValue(5);
     m_ui->kcfg_JumpRecentKey->setKeySequence(QKeySequence(QStringLiteral("Space")));
@@ -1619,6 +1643,10 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("BadgeLocationFont")] = m_ui->combo_BadgeLocationFont->currentFont().family();
     s[QStringLiteral("BadgeHudIncludeAll")] = m_ui->kcfg_BadgeHudIncludeAll->isChecked();
     s[QStringLiteral("BadgeHudGroupWindows")] = m_ui->kcfg_BadgeHudGroupWindows->isChecked();
+    s[QStringLiteral("BadgeHudGroupBorderWidth")] = m_ui->kcfg_BadgeHudGroupBorderWidth->value();
+    s[QStringLiteral("BadgeHudGroupFontSize")] = m_ui->kcfg_BadgeHudGroupFontSize->value();
+    s[QStringLiteral("BadgeHudGroupCornerRadius")] = m_ui->kcfg_BadgeHudGroupCornerRadius->value();
+    s[QStringLiteral("BadgeHudGroupShaderEnabled")] = m_ui->kcfg_BadgeHudGroupShaderEnabled->isChecked();
     s[QStringLiteral("BadgeLivePreviews")] = m_ui->kcfg_BadgeLivePreviews->isChecked();
     s[QStringLiteral("BadgeTimeout")] = m_ui->kcfg_BadgeTimeout->value();
     s[QStringLiteral("JumpRecentKey")] = m_ui->kcfg_JumpRecentKey->keySequence().toString();
@@ -1819,6 +1847,10 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
     if (s.contains(QStringLiteral("BadgeLocationFont"))) m_ui->combo_BadgeLocationFont->setCurrentFont(QFont(s[QStringLiteral("BadgeLocationFont")].toString()));
     if (s.contains(QStringLiteral("BadgeHudIncludeAll"))) m_ui->kcfg_BadgeHudIncludeAll->setChecked(s[QStringLiteral("BadgeHudIncludeAll")].toBool());
     if (s.contains(QStringLiteral("BadgeHudGroupWindows"))) m_ui->kcfg_BadgeHudGroupWindows->setChecked(s[QStringLiteral("BadgeHudGroupWindows")].toBool());
+    if (s.contains(QStringLiteral("BadgeHudGroupBorderWidth"))) m_ui->kcfg_BadgeHudGroupBorderWidth->setValue(s[QStringLiteral("BadgeHudGroupBorderWidth")].toDouble(2.0));
+    if (s.contains(QStringLiteral("BadgeHudGroupFontSize"))) m_ui->kcfg_BadgeHudGroupFontSize->setValue(s[QStringLiteral("BadgeHudGroupFontSize")].toInt(0));
+    if (s.contains(QStringLiteral("BadgeHudGroupCornerRadius"))) m_ui->kcfg_BadgeHudGroupCornerRadius->setValue(s[QStringLiteral("BadgeHudGroupCornerRadius")].toInt(8));
+    if (s.contains(QStringLiteral("BadgeHudGroupShaderEnabled"))) m_ui->kcfg_BadgeHudGroupShaderEnabled->setChecked(s[QStringLiteral("BadgeHudGroupShaderEnabled")].toBool(true));
     if (s.contains(QStringLiteral("BadgeLivePreviews"))) m_ui->kcfg_BadgeLivePreviews->setChecked(s[QStringLiteral("BadgeLivePreviews")].toBool());
     if (s.contains(QStringLiteral("BadgeTimeout"))) m_ui->kcfg_BadgeTimeout->setValue(s[QStringLiteral("BadgeTimeout")].toInt());
     if (s.contains(QStringLiteral("JumpRecentKey"))) m_ui->kcfg_JumpRecentKey->setKeySequence(QKeySequence(s[QStringLiteral("JumpRecentKey")].toString()));
@@ -2347,6 +2379,10 @@ void ActiveWindowOutlineConfig::save()
     group.writeEntry(QStringLiteral("BadgeHudThumbnailHeight"), hudThumbSize);
     group.writeEntry(QStringLiteral("BadgeHudIncludeAll"), m_ui->kcfg_BadgeHudIncludeAll->isChecked());
     group.writeEntry(QStringLiteral("BadgeHudGroupWindows"), m_ui->kcfg_BadgeHudGroupWindows->isChecked());
+    group.writeEntry(QStringLiteral("BadgeHudGroupBorderWidth"), m_ui->kcfg_BadgeHudGroupBorderWidth->value());
+    group.writeEntry(QStringLiteral("BadgeHudGroupFontSize"), m_ui->kcfg_BadgeHudGroupFontSize->value());
+    group.writeEntry(QStringLiteral("BadgeHudGroupCornerRadius"), m_ui->kcfg_BadgeHudGroupCornerRadius->value());
+    group.writeEntry(QStringLiteral("BadgeHudGroupShaderEnabled"), m_ui->kcfg_BadgeHudGroupShaderEnabled->isChecked());
     group.writeEntry(QStringLiteral("BadgeLivePreviews"), m_ui->kcfg_BadgeLivePreviews->isChecked());
     group.writeEntry(QStringLiteral("BadgeTimeout"), m_ui->kcfg_BadgeTimeout->value());
     group.writeEntry(QStringLiteral("JumpRecentKey"), m_ui->kcfg_JumpRecentKey->keySequence().toString());
@@ -2893,6 +2929,139 @@ void ActiveWindowOutlineConfig::importShader()
     refreshShadersTable();
     QMessageBox::information(widget(), QStringLiteral("Import zakończony"),
                              QStringLiteral("Efekt shadera '%1' został pomyślnie zaimportowany i dodany do listy.").arg(effect.name));
+}
+
+void ActiveWindowOutlineConfig::initPersistentMarksSection()
+{
+    const bool isPolish = (QLocale().language() == QLocale::Polish);
+    if (isPolish) {
+        m_ui->groupPersistentMarks->setTitle(QStringLiteral("Stałe reguły i oznaczenia okien"));
+        m_ui->label_persistentMarksDescription->setText(QStringLiteral(
+            "Reguły zapisane trwale w ~/.config/leapk/marks.json. Okna pasujące do aplikacji, podciągu tytułu, procesu potomnego lub pulpitu otrzymują automatycznie przypisane litery, obramowania i klawisze skoku."));
+        m_ui->btnDeletePersistentMark->setText(QStringLiteral("Usuń regułę"));
+        m_ui->btnClearAllPersistentMarks->setText(QStringLiteral("Wyczyść wszystkie"));
+        m_ui->btnReloadPersistentMarks->setText(QStringLiteral("Wczytaj ponownie"));
+    }
+
+    auto *table = m_ui->tablePersistentMarks;
+    table->setColumnCount(6);
+    table->setHorizontalHeaderLabels({
+        isPolish ? QStringLiteral("Litera") : tr("Letter"),
+        isPolish ? QStringLiteral("Kolor") : tr("Color"),
+        isPolish ? QStringLiteral("Etykieta") : tr("Label"),
+        isPolish ? QStringLiteral("Aplikacja (Klasa)") : tr("Application (Class)"),
+        isPolish ? QStringLiteral("Wzorzec tytułu / Procesu") : tr("Title / Process Pattern"),
+        isPolish ? QStringLiteral("Pulpit") : tr("Desktop")
+    });
+    table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Stretch);
+    table->horizontalHeader()->setSectionResizeMode(5, QHeaderView::ResizeToContents);
+
+    connect(m_ui->btnDeletePersistentMark, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::deleteSelectedPersistentMark);
+    connect(m_ui->btnClearAllPersistentMarks, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::clearAllPersistentMarks);
+    connect(m_ui->btnReloadPersistentMarks, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::refreshPersistentMarksTable);
+
+    refreshPersistentMarksTable();
+}
+
+void ActiveWindowOutlineConfig::refreshPersistentMarksTable()
+{
+    const bool isPolish = (QLocale().language() == QLocale::Polish);
+    m_persistentMarks = LeapKMarks::loadPersistentMarks();
+
+    auto *table = m_ui->tablePersistentMarks;
+    table->setRowCount(m_persistentMarks.size());
+
+    for (int i = 0; i < m_persistentMarks.size(); ++i) {
+        const auto &rule = m_persistentMarks.at(i);
+
+        // Letter
+        auto *itemLetter = new QTableWidgetItem(rule.letter.isNull() ? QStringLiteral("-") : QString(rule.letter));
+        itemLetter->setTextAlignment(Qt::AlignCenter);
+        QFont f = itemLetter->font();
+        f.setBold(true);
+        itemLetter->setFont(f);
+        table->setItem(i, 0, itemLetter);
+
+        // Color
+        QPixmap pix(16, 16);
+        pix.fill(rule.color.isValid() ? rule.color : Qt::transparent);
+        auto *itemColor = new QTableWidgetItem(QIcon(pix), rule.color.isValid() ? rule.color.name(QColor::HexArgb) : QStringLiteral("-"));
+        table->setItem(i, 1, itemColor);
+
+        // Label
+        auto *itemLabel = new QTableWidgetItem(rule.label.isEmpty() ? QStringLiteral("-") : rule.label);
+        table->setItem(i, 2, itemLabel);
+
+        // App
+        auto *itemApp = new QTableWidgetItem(rule.matchApp);
+        table->setItem(i, 3, itemApp);
+
+        // Caption / Process
+        auto *itemCaption = new QTableWidgetItem(rule.matchCaption.isEmpty() ? (isPolish ? QStringLiteral("(dowolny)") : tr("(any)")) : rule.matchCaption);
+        table->setItem(i, 4, itemCaption);
+
+        // Desktop
+        QString deskStr;
+        if (rule.matchDesktop > 0) {
+            deskStr = isPolish ? QStringLiteral("Pulpit %1").arg(rule.matchDesktop) : tr("Desktop %1").arg(rule.matchDesktop);
+        } else {
+            deskStr = isPolish ? QStringLiteral("Wszystkie") : tr("All");
+        }
+        auto *itemDesk = new QTableWidgetItem(deskStr);
+        itemDesk->setTextAlignment(Qt::AlignCenter);
+        table->setItem(i, 5, itemDesk);
+    }
+}
+
+void ActiveWindowOutlineConfig::deleteSelectedPersistentMark()
+{
+    auto *table = m_ui->tablePersistentMarks;
+    const int row = table->currentRow();
+    if (row < 0 || row >= m_persistentMarks.size()) {
+        return;
+    }
+    m_persistentMarks.removeAt(row);
+    LeapKMarks::savePersistentMarks(m_persistentMarks);
+    refreshPersistentMarksTable();
+
+    QDBusMessage msg = QDBusMessage::createMethodCall(
+        QStringLiteral("org.kde.KWin"),
+        QStringLiteral("/KWin"),
+        QStringLiteral("org.kde.KWin"),
+        QStringLiteral("reconfigureEffect")
+    );
+    msg << QStringLiteral("leapk");
+    QDBusConnection::sessionBus().send(msg);
+}
+
+void ActiveWindowOutlineConfig::clearAllPersistentMarks()
+{
+    const bool isPolish = (QLocale().language() == QLocale::Polish);
+    auto res = QMessageBox::question(
+        widget(),
+        isPolish ? QStringLiteral("Usuwanie reguł") : tr("Clear Rules"),
+        isPolish ? QStringLiteral("Czy na pewno chcesz usunąć wszystkie trwale zapisane reguły oznaczeń?") : tr("Are you sure you want to delete all persistent mark rules?"),
+        QMessageBox::Yes | QMessageBox::No
+    );
+    if (res != QMessageBox::Yes) {
+        return;
+    }
+    m_persistentMarks.clear();
+    LeapKMarks::savePersistentMarks(m_persistentMarks);
+    refreshPersistentMarksTable();
+
+    QDBusMessage msg = QDBusMessage::createMethodCall(
+        QStringLiteral("org.kde.KWin"),
+        QStringLiteral("/KWin"),
+        QStringLiteral("org.kde.KWin"),
+        QStringLiteral("reconfigureEffect")
+    );
+    msg << QStringLiteral("leapk");
+    QDBusConnection::sessionBus().send(msg);
 }
 
 #include "leapk_config.moc"

@@ -72,6 +72,10 @@ struct BadgeConfig {
     int hudLocationFontSize = 0; // 0 = auto
     bool hudIncludeAll = false;
     bool hudGroupWindows = true;
+    qreal hudGroupBorderWidth = 2.0;
+    int hudGroupFontSize = 0; // 0 = auto
+    int hudGroupCornerRadius = 8;
+    bool hudGroupShaderEnabled = true;
     int badgeTimeout = 5;
     QString jumpRecentKey = QStringLiteral("Space");
     bool livePreviews = false;
@@ -1439,7 +1443,10 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
                                         const QString &groupTitle,
                                         int windowCount,
                                         qreal scale,
-                                        int cornerRadius = 8)
+                                        int cornerRadius = 8,
+                                        qreal borderWidth = 2.0,
+                                        int fontSize = 0,
+                                        bool tabAtBottom = false)
 {
     const int w = qRound(size.width() * scale);
     const int h = qRound(size.height() * scale);
@@ -1455,8 +1462,14 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
     p.setRenderHint(QPainter::TextAntialiasing, true);
 
     const qreal r = cornerRadius * scale;
-    const int tabHalfH = qRound(10 * scale);
-    const QRectF rect(scale, tabHalfH + scale, w - 2 * scale, h - tabHalfH - 2 * scale);
+    const qreal bw = qMax(1.0, borderWidth * scale);
+
+    const int effFontSize = (fontSize > 0) ? qRound(fontSize * scale) : qMax(9, qRound(11 * scale));
+    const int badgeH = qMax(qRound(22 * scale), effFontSize + qRound(10 * scale));
+    const int tabHalfH = badgeH / 2;
+
+    const QRectF rect(bw / 2.0, tabAtBottom ? (bw / 2.0) : (tabHalfH + bw / 2.0),
+                     w - bw, h - tabHalfH - bw);
 
     // Subtle container background tint
     QColor fillCol = groupColor.isValid() ? groupColor : QColor(52, 152, 219);
@@ -1466,17 +1479,16 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
     // Border in group color
     QColor borderCol = groupColor.isValid() ? groupColor : QColor(52, 152, 219);
     borderCol.setAlpha(175);
-    QPen pen(borderCol, qMax(1.5, 1.8 * scale), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+    QPen pen(borderCol, bw, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
     p.setPen(pen);
     p.drawRoundedRect(rect, r, r);
 
-    // Group badge tab at the top
+    // Group badge tab
     if (!groupLetter.isNull() && groupLetter.toLatin1() != 0) {
-        const int badgeH = qRound(20 * scale);
-        const int badgePad = qRound(6 * scale);
+        const int badgePad = qRound(7 * scale);
 
         QFont font(QStringLiteral("sans-serif"));
-        font.setPixelSize(qMax(9, qRound(11 * scale)));
+        font.setPixelSize(effFontSize);
         font.setBold(true);
         p.setFont(font);
         QFontMetrics fm(font);
@@ -1492,7 +1504,8 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
         const int textW = fm.horizontalAdvance(tabText);
         const int totalTabW = letterW + (textW > 0 ? (badgePad + textW + badgePad) : 0);
 
-        const QRectF tabRect(rect.left() + qRound(8 * scale), rect.top() - qRound(10 * scale), totalTabW, badgeH);
+        const qreal tabY = tabAtBottom ? (rect.bottom() - tabHalfH) : (rect.top() - tabHalfH);
+        const QRectF tabRect(rect.left() + qRound(10 * scale), tabY, totalTabW, badgeH);
 
         // Tab background
         p.setPen(Qt::NoPen);

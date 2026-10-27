@@ -210,6 +210,7 @@ private:
     void setWindowMarkColor(EffectWindow *w, const QColor &color);
     void setWindowMark(EffectWindow *w, const QColor &color, const QChar &letter = QChar(), const QString &label = QString());
     void applyPersistentMarksToWindow(EffectWindow *w);
+    void refreshPersistentMarksForWindows();
     QColor generateRandomMarkColor() const;
     QColor detectSmartAccentForWindow(EffectWindow *w) const;
     QChar nextAvailableLetter() const;
@@ -411,6 +412,10 @@ private:
     bool m_jumpMode = false;
     int m_jumpTargets = 0; // 0 = All visible windows, 1 = Marked windows only
     bool m_badgeHudGroupWindows = true;
+    qreal m_badgeHudGroupBorderWidth = 2.0;
+    int m_badgeHudGroupFontSize = 0;
+    int m_badgeHudGroupCornerRadius = 8;
+    bool m_badgeHudGroupShaderEnabled = true;
     QMap<QChar, EffectWindow *> m_jumpLetterToWindow;
     mutable QMap<QChar, QList<EffectWindow *>> m_letterWindowGroups;
     mutable QMap<QChar, QList<EffectWindow *>> m_groupJumpLetters;

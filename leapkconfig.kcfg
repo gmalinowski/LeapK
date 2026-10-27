@@ -269,6 +269,24 @@
         <entry name="BadgeHudGroupWindows" type="Bool">
             <default>true</default>
         </entry>
+        <entry name="BadgeHudGroupBorderWidth" type="Double">
+            <default>2.0</default>
+            <min>1.0</min>
+            <max>20.0</max>
+        </entry>
+        <entry name="BadgeHudGroupFontSize" type="Int">
+            <default>0</default>
+            <min>0</min>
+            <max>100</max>
+        </entry>
+        <entry name="BadgeHudGroupCornerRadius" type="Int">
+            <default>8</default>
+            <min>0</min>
+            <max>50</max>
+        </entry>
+        <entry name="BadgeHudGroupShaderEnabled" type="Bool">
+            <default>true</default>
+        </entry>
         <entry name="BadgeLivePreviews" type="Bool">
             <default>false</default>
         </entry>

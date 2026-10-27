@@ -10,6 +10,7 @@
 #include <QColor>
 #include <QJsonObject>
 #include "customshaderhelper.h"
+#include "persistentmarkhelper.h"
 
 namespace Ui
 {
@@ -78,6 +79,11 @@ private:
     void updateShaderParametersUIFor(const QString &id);
     void saveShaderParameterValues();
 
+    void initPersistentMarksSection();
+    void refreshPersistentMarksTable();
+    void deleteSelectedPersistentMark();
+    void clearAllPersistentMarks();
+
     Ui::ActiveWindowOutlineConfigForm *m_ui;
     KConfigSkeleton *m_configSkeleton = nullptr;
     QNetworkAccessManager *m_networkManager = nullptr;
@@ -86,4 +92,5 @@ private:
     QString m_currentDisplayedShaderId;
     QList<LeapKShader::CustomShaderEffect> m_shaders;
     QString m_activeShaderId;
+    QList<LeapKMarks::PersistentMarkRule> m_persistentMarks;
 };

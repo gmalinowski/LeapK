@@ -131,9 +131,47 @@ inline bool savePersistentMarks(const QList<PersistentMarkRule> &rules, const QS
     return true;
 }
 
+// Detects names of child processes running under a given process (e.g. nvim/vim running inside a terminal)
+inline QStringList detectProcessTreeNames(pid_t pid, int maxDepth = 2)
+{
+    QStringList names;
+    if (pid <= 0) {
+        return names;
+    }
+
+    QList<pid_t> currentPids = { pid };
+    for (int depth = 0; depth < maxDepth && !currentPids.isEmpty(); ++depth) {
+        QList<pid_t> nextPids;
+        for (pid_t p : currentPids) {
+            const QString childrenPath = QStringLiteral("/proc/%1/task/%1/children").arg(p);
+            QFile f(childrenPath);
+            if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                const QByteArray content = f.readAll();
+                const auto parts = content.split(' ');
+                for (const auto &part : parts) {
+                    bool ok = false;
+                    pid_t childPid = part.trimmed().toInt(&ok);
+                    if (ok && childPid > 0) {
+                        nextPids.append(childPid);
+                        QFile commFile(QStringLiteral("/proc/%1/comm").arg(childPid));
+                        if (commFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                            const QString comm = QString::fromUtf8(commFile.readAll()).trimmed();
+                            if (!comm.isEmpty()) {
+                                names.append(comm);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        currentPids = nextPids;
+    }
+    return names;
+}
+
 // Computes a match score for an open window against a persistent rule.
 // Returns 0 if window doesn't match the rule, or a positive score (higher = better specific match).
-inline int scoreWindowMatch(const PersistentMarkRule &rule, const QString &appId, const QString &caption, int desktop)
+inline int scoreWindowMatch(const PersistentMarkRule &rule, const QString &appId, const QString &caption, int desktop, pid_t pid = 0)
 {
     if (!rule.enabled) {
         return 0;
@@ -160,26 +198,36 @@ inline int scoreWindowMatch(const PersistentMarkRule &rule, const QString &appId
         }
     }
 
-    // 3. Caption / title pattern matching
+    // 3. Caption / title pattern matching (also checks child processes like nvim in terminal)
     if (!rule.matchCaption.trimmed().isEmpty()) {
         const QString pattern = rule.matchCaption.trimmed();
-        if (!caption.contains(pattern, Qt::CaseInsensitive)) {
-            return 0; // Caption requirement not met
+        bool matches = caption.contains(pattern, Qt::CaseInsensitive);
+        if (!matches && pid > 0) {
+            const QStringList childProcesses = detectProcessTreeNames(pid);
+            for (const QString &proc : childProcesses) {
+                if (proc.contains(pattern, Qt::CaseInsensitive)) {
+                    matches = true;
+                    break;
+                }
+            }
         }
-        score += 50; // High score for matching specific window title/project!
+        if (!matches) {
+            return 0; // Caption / process requirement not met
+        }
+        score += 50; // High score for matching specific window title/project or running child process!
     }
 
     return score;
 }
 
 // Finds the best matching persistent rule for a given window among a list of rules
-inline const PersistentMarkRule *findBestMatchingRule(const QList<PersistentMarkRule> &rules, const QString &appId, const QString &caption, int desktop)
+inline const PersistentMarkRule *findBestMatchingRule(const QList<PersistentMarkRule> &rules, const QString &appId, const QString &caption, int desktop, pid_t pid = 0)
 {
     const PersistentMarkRule *best = nullptr;
     int highestScore = 0;
 
     for (const auto &rule : rules) {
-        const int s = scoreWindowMatch(rule, appId, caption, desktop);
+        const int s = scoreWindowMatch(rule, appId, caption, desktop, pid);
         if (s > highestScore) {
             highestScore = s;
             best = &rule;

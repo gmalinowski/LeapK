@@ -1648,6 +1648,89 @@
        </item>
 
        <item>
+        <widget class="QGroupBox" name="groupPersistentMarks">
+         <property name="title">
+          <string>Persistent Marks &amp; Rules</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayoutPersistentMarks">
+          <item>
+           <widget class="QLabel" name="label_persistentMarksDescription">
+            <property name="text">
+             <string>Persistent rules saved in ~/.config/leapk/marks.json. Windows matching the application, title substring, process, or desktop are automatically marked with letter badges and jump keys.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QTableWidget" name="tablePersistentMarks">
+            <property name="selectionBehavior">
+             <enum>QAbstractItemView::SelectRows</enum>
+            </property>
+            <property name="selectionMode">
+             <enum>QAbstractItemView::SingleSelection</enum>
+            </property>
+            <property name="editTriggers">
+             <enum>QAbstractItemView::NoEditTriggers</enum>
+            </property>
+            <property name="minimumHeight">
+             <number>150</number>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="layoutPersistentMarksButtons">
+            <item>
+             <widget class="QPushButton" name="btnDeletePersistentMark">
+              <property name="text">
+               <string>Delete Rule</string>
+              </property>
+              <property name="toolTip">
+               <string>Deletes the selected persistent mark rule from marks.json.</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnClearAllPersistentMarks">
+              <property name="text">
+               <string>Clear All Rules</string>
+              </property>
+              <property name="toolTip">
+               <string>Deletes all saved mark rules.</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="spacerPersistentMarks">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnReloadPersistentMarks">
+              <property name="text">
+               <string>Reload Rules</string>
+              </property>
+              <property name="toolTip">
+               <string>Reloads rules from ~/.config/leapk/marks.json.</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+
+       <item>
         <spacer name="verticalSpacerBehavior">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -2429,7 +2512,104 @@
                 </property>
                </widget>
               </item>
-             </layout>
+               <item row="11" column="0">
+                <widget class="QLabel" name="label_badgeHudGroupBorderWidth">
+                 <property name="text">
+                  <string>Group frame border width:</string>
+                 </property>
+                 <property name="toolTip">
+                  <string>Border thickness of the multi-instance group container frame in the edge HUD (default: 2.0 px).</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="11" column="1">
+                <widget class="QDoubleSpinBox" name="kcfg_BadgeHudGroupBorderWidth">
+                 <property name="minimum">
+                  <double>0.500000000000000</double>
+                 </property>
+                 <property name="maximum">
+                  <double>20.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.500000000000000</double>
+                 </property>
+                 <property name="value">
+                  <double>2.000000000000000</double>
+                 </property>
+                 <property name="suffix">
+                  <string> px</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="12" column="0">
+                <widget class="QLabel" name="label_badgeHudGroupFontSize">
+                 <property name="text">
+                  <string>Group frame font size:</string>
+                 </property>
+                 <property name="toolTip">
+                  <string>Font size for the group tab label and group letter (0 = Auto).</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="12" column="1">
+                <widget class="QSpinBox" name="kcfg_BadgeHudGroupFontSize">
+                 <property name="minimum">
+                  <number>0</number>
+                 </property>
+                 <property name="maximum">
+                  <number>200</number>
+                 </property>
+                 <property name="specialValueText">
+                  <string>Auto</string>
+                 </property>
+                 <property name="value">
+                  <number>0</number>
+                 </property>
+                 <property name="suffix">
+                  <string> px</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="13" column="0">
+                <widget class="QLabel" name="label_badgeHudGroupCornerRadius">
+                 <property name="text">
+                  <string>Group frame corner radius:</string>
+                 </property>
+                 <property name="toolTip">
+                  <string>Corner radius of the multi-instance group container frame in the edge HUD (default: 8 px).</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="13" column="1">
+                <widget class="QSpinBox" name="kcfg_BadgeHudGroupCornerRadius">
+                 <property name="minimum">
+                  <number>0</number>
+                 </property>
+                 <property name="maximum">
+                  <number>50</number>
+                 </property>
+                 <property name="value">
+                  <number>8</number>
+                 </property>
+                 <property name="suffix">
+                  <string> px</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="14" column="0" colspan="2">
+                <widget class="QCheckBox" name="kcfg_BadgeHudGroupShaderEnabled">
+                 <property name="text">
+                  <string>Apply animations &amp; shaders to group container frames</string>
+                 </property>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
+                 <property name="toolTip">
+                  <string>Enables breathing, neon flicker, and shader animations on the group container frame during jump mode.</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
             </widget>
            </item>
 

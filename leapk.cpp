@@ -871,6 +871,14 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_badgeConfig.hudIncludeAll = m_badgeHudIncludeAll;
     m_badgeHudGroupWindows = config.readEntry("BadgeHudGroupWindows", true);
     m_badgeConfig.hudGroupWindows = m_badgeHudGroupWindows;
+    m_badgeHudGroupBorderWidth = qBound<qreal>(0.5, config.readEntry("BadgeHudGroupBorderWidth", 2.0), 20.0);
+    m_badgeConfig.hudGroupBorderWidth = m_badgeHudGroupBorderWidth;
+    m_badgeHudGroupFontSize = qBound(0, config.readEntry("BadgeHudGroupFontSize", 0), 200);
+    m_badgeConfig.hudGroupFontSize = m_badgeHudGroupFontSize;
+    m_badgeHudGroupCornerRadius = qBound(0, config.readEntry("BadgeHudGroupCornerRadius", 8), 50);
+    m_badgeConfig.hudGroupCornerRadius = m_badgeHudGroupCornerRadius;
+    m_badgeHudGroupShaderEnabled = config.readEntry("BadgeHudGroupShaderEnabled", true);
+    m_badgeConfig.hudGroupShaderEnabled = m_badgeHudGroupShaderEnabled;
     m_badgeLivePreviews = config.readEntry("BadgeLivePreviews", false);
     m_badgeConfig.livePreviews = m_badgeLivePreviews;
     m_badgeTimeout = qBound(0, config.readEntry("BadgeTimeout", 5), 300);
@@ -963,6 +971,9 @@ bool ActiveWindowOutlineEffect::isAnimationActive() const
             || m_glitchEnabled || m_neonFlickerEnabled || m_flashEnabled
             || m_ambilightInTransition
             || (m_customShaderEnabled && !m_activeCustomShaderId.isEmpty());
+    }
+    if (m_jumpMode && m_badgeHudGroupShaderEnabled && (m_breatheEnabled || m_neonFlickerEnabled || (m_customShaderEnabled && !m_activeCustomShaderId.isEmpty()))) {
+        return true;
     }
     return false;
 }
@@ -1200,9 +1211,34 @@ void ActiveWindowOutlineEffect::applyPersistentMarksToWindow(EffectWindow *w)
     }
     const auto desktops = w->desktops();
     const int desktopNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
-    const auto *rule = LeapKMarks::findBestMatchingRule(m_persistentMarks, w->windowClass(), w->caption(), desktopNum);
+    const auto *rule = LeapKMarks::findBestMatchingRule(m_persistentMarks, w->windowClass(), w->caption(), desktopNum, w->pid());
     if (rule) {
         setWindowMark(w, rule->color, rule->letter, rule->label);
+    }
+}
+
+void ActiveWindowOutlineEffect::refreshPersistentMarksForWindows()
+{
+    if (m_persistentMarks.isEmpty() || !effects) {
+        return;
+    }
+    const auto windows = effects->stackingOrder();
+    for (EffectWindow *w : windows) {
+        if (!w || w->isDeleted() || !isEligibleTargetWindow(w)) {
+            continue;
+        }
+        const auto desktops = w->desktops();
+        const int desktopNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+        const auto *rule = LeapKMarks::findBestMatchingRule(m_persistentMarks, w->windowClass(), w->caption(), desktopNum, w->pid());
+        if (rule) {
+            const bool marked = m_markedWindows.contains(w);
+            const QChar curLetter = m_markedWindowLetters.value(w);
+            const QColor curColor = m_markedWindows.value(w);
+            const QString curLabel = m_markedWindowLabels.value(w);
+            if (!marked || curLetter != rule->letter || curColor != rule->color || curLabel != rule->label) {
+                setWindowMark(w, rule->color, rule->letter, rule->label);
+            }
+        }
     }
 }
 
@@ -2945,16 +2981,46 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
                     bool groupByApp = true;
                     QString matchCaption;
 
+                    int matchDesktop = 0;
+
                     if (out.startsWith(QLatin1Char('{'))) {
                         const QJsonDocument doc = QJsonDocument::fromJson(out.toUtf8());
                         if (doc.isObject()) {
                             const QJsonObject obj = doc.object();
+                            if (obj.value(QStringLiteral("action")).toString() == QStringLiteral("remove")) {
+                                const bool removePersistent = obj.value(QStringLiteral("removePersistent")).toBool(true);
+                                if (targetWindow) {
+                                    EffectWindow *w = targetWindow.data();
+                                    m_markedWindows.remove(w);
+                                    m_markedWindowLetters.remove(w);
+                                    m_markedWindowLabels.remove(w);
+                                    if (removePersistent) {
+                                        const auto desktops = w->desktops();
+                                        const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+                                        for (int i = m_persistentMarks.size() - 1; i >= 0; --i) {
+                                            const auto &r = m_persistentMarks.at(i);
+                                            if (r.matchApp.compare(w->windowClass(), Qt::CaseInsensitive) == 0) {
+                                                if (r.matchDesktop == 0 || r.matchDesktop == dNum) {
+                                                    m_persistentMarks.removeAt(i);
+                                                }
+                                            }
+                                        }
+                                        LeapKMarks::savePersistentMarks(m_persistentMarks);
+                                    }
+                                    if (effects) {
+                                        effects->addRepaint(expandedGeometryFor(w));
+                                        effects->addRepaintFull();
+                                    }
+                                }
+                                return;
+                            }
                             colorStr = obj.value(QStringLiteral("color")).toString();
                             letterStr = obj.value(QStringLiteral("letter")).toString();
                             labelStr = obj.value(QStringLiteral("label")).toString();
                             persist = obj.value(QStringLiteral("persist")).toBool(true);
                             groupByApp = obj.value(QStringLiteral("groupByApp")).toBool(true);
                             matchCaption = obj.value(QStringLiteral("matchCaption")).toString().trimmed();
+                            matchDesktop = obj.value(QStringLiteral("matchDesktop")).toInt(0);
                         }
                     } else {
                         // Legacy space-separated fallback
@@ -3022,7 +3088,7 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
                             rule.label = labelStr;
                             rule.matchApp = w->windowClass();
                             rule.matchCaption = matchCaption;
-                            rule.matchDesktop = 0; // Match application across all desktops by default
+                            rule.matchDesktop = matchDesktop;
                             rule.enabled = true;
                             rule.createdAt = QDateTime::currentMSecsSinceEpoch();
 
@@ -3030,10 +3096,10 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
                             for (auto &r : m_persistentMarks) {
                                 if (r.matchApp.compare(rule.matchApp, Qt::CaseInsensitive) == 0
                                     && r.matchCaption.compare(rule.matchCaption, Qt::CaseInsensitive) == 0
+                                    && r.matchDesktop == rule.matchDesktop
                                     && r.letter == rule.letter) {
                                     r.color = rule.color;
                                     r.label = rule.label;
-                                    r.matchDesktop = 0;
                                     updated = true;
                                     break;
                                 }
@@ -3055,9 +3121,14 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
             process->deleteLater();
         });
 
+        const auto desktops = target->desktops();
+        const int desktopNum = (!desktops.isEmpty() && !target->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+        const QString desktopName = (!desktops.isEmpty() && !target->isOnAllDesktops()) ? desktops.first()->name() : QString();
+        const bool isAlreadyMarked = m_markedWindows.contains(target);
+
         QStringList args;
         args << initialColor.name(QColor::HexArgb) << QString(initialLetter);
-        if (m_markedWindows.contains(target)) {
+        if (isAlreadyMarked) {
             args << (m_markedWindowLetters.contains(target) ? QStringLiteral("1") : QStringLiteral("0"));
             args << QStringLiteral("1");
             args << initialLabel;
@@ -3069,6 +3140,9 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
         args << QStringLiteral("1");
         args << target->windowClass();
         args << target->caption();
+        args << QString::number(desktopNum);
+        args << desktopName;
+        args << (isAlreadyMarked ? QStringLiteral("1") : QStringLiteral("0"));
         process->start(customPicker, args);
         return;
     }
@@ -3337,6 +3411,8 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_subLeapLetterToWindow.clear();
     m_subLeapTargets.clear();
 
+    refreshPersistentMarksForWindows();
+
     m_jumpLetterToWindow = assignJumpLetters();
     if (m_jumpLetterToWindow.isEmpty()) {
         return;
@@ -3348,6 +3424,7 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     }
 
     m_jumpMode = true;
+    updateAnimationTimer();
     m_badgeTextureCache.clear();
     m_thumbnailCache.clear();
     m_lastCaptureTimestamp.clear();
@@ -3378,6 +3455,7 @@ void ActiveWindowOutlineEffect::cancelJumpMode()
     }
     m_jumpLetterToWindow.clear();
     effects->ungrabKeyboard();
+    updateAnimationTimer();
     effects->addRepaintFull();
 }
 
@@ -4502,9 +4580,12 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
                 continue;
             }
 
+            const int effGroupFontSize = (hudCfg.hudGroupFontSize > 0) ? hudCfg.hudGroupFontSize : 11;
+            const int tabH = qMax(22, effGroupFontSize + 10);
+            const bool tabAtBottom = (hudPos == 1);
             const qreal padX = 8.0;
-            const qreal padBottom = 8.0;
-            const qreal padTop = 14.0;
+            const qreal padBottom = tabAtBottom ? (tabH + 10.0) : 8.0;
+            const qreal padTop = tabAtBottom ? 8.0 : (tabH + 10.0);
             const QRectF frameRect = groupBoundingRect.adjusted(-padX, -padTop, padX, padBottom);
 
             EffectWindow *firstWin = m_groupJumpLetters.value(gKey).first();
@@ -4515,7 +4596,10 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             }
             const int count = m_groupJumpLetters.value(gKey).size();
 
-            const QImage frameImg = OutlineBadge::renderGroupContainerFrame(frameRect.size(), gKey, groupColor, groupTitle, count, scale);
+            const QImage frameImg = OutlineBadge::renderGroupContainerFrame(
+                frameRect.size(), gKey, groupColor, groupTitle, count, scale,
+                hudCfg.hudGroupCornerRadius, hudCfg.hudGroupBorderWidth,
+                hudCfg.hudGroupFontSize, tabAtBottom);
             auto uploaded = GLTexture::upload(frameImg);
             if (uploaded) {
                 uploaded->setFilter(GL_LINEAR);
@@ -4538,12 +4622,25 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     GLboolean scissorWasEnabled = glIsEnabled(GL_SCISSOR_TEST);
     glDisable(GL_SCISSOR_TEST);
 
-    ShaderBinder binder(ShaderTrait::MapTexture | ShaderTrait::TransformColorspace);
+    ShaderBinder binder(ShaderTrait::MapTexture | ShaderTrait::Modulate | ShaderTrait::TransformColorspace);
     GLShader *shader = binder.shader();
     shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix, viewport.projectionMatrix());
     shader->setColorspaceUniforms(ColorDescription::sRGB, renderTarget.colorDescription(), RenderingIntent::Perceptual);
 
+    float groupAlpha = 1.0f;
+    if (hudCfg.hudGroupShaderEnabled) {
+        const qint64 elapsedMs = m_animationClock.isValid() ? m_animationClock.elapsed() : 0;
+        const qreal elapsedSec = elapsedMs / 1000.0;
+        if (m_breatheEnabled) {
+            groupAlpha *= float(computeBreatheFactor(elapsedSec));
+        }
+        if (m_neonFlickerEnabled) {
+            groupAlpha *= float(computeNeonFactor(elapsedSec));
+        }
+    }
+
     // 1. Render group container frames behind HUD pills
+    shader->setUniform(GLShader::Vec4Uniform::ModulationConstant, QVector4D(groupAlpha, groupAlpha, groupAlpha, groupAlpha));
     for (const GroupFrameItem &gf : groupFrames) {
         const float x0 = gf.rect.left() * scale;
         const float y0 = gf.rect.top() * scale;
@@ -4568,7 +4665,8 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         gf.texture->unbind();
     }
 
-    // 2. Render HUD pills on top
+    // 2. Render HUD pills on top with full modulation
+    shader->setUniform(GLShader::Vec4Uniform::ModulationConstant, QVector4D(1.0f, 1.0f, 1.0f, 1.0f));
     for (int i = 0; i < pills.size(); ++i) {
         const PillItem &item = pills.at(i);
         const QRectF &rect = rects.at(i);

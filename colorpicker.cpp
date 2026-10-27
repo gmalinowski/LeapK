@@ -97,6 +97,22 @@ int main(int argc, char *argv[])
         windowCaption = QString::fromUtf8(argv[8]).trimmed();
     }
 
+    int desktopNum = 0;
+    if (argc > 9 && argv[9]) {
+        desktopNum = QString::fromUtf8(argv[9]).trimmed().toInt();
+    }
+
+    QString desktopName;
+    if (argc > 10 && argv[10]) {
+        desktopName = QString::fromUtf8(argv[10]).trimmed();
+    }
+
+    bool isAlreadyMarked = false;
+    if (argc > 11 && argv[11]) {
+        const QString mStr = QString::fromUtf8(argv[11]).trimmed();
+        isAlreadyMarked = (mStr == QStringLiteral("1") || mStr == QStringLiteral("true"));
+    }
+
     const bool isPolish = (QLocale().language() == QLocale::Polish);
 
     QDialog dlg;
@@ -199,6 +215,15 @@ int main(int argc, char *argv[])
         }
     });
 
+    QCheckBox *chkMatchDesktop = nullptr;
+    if (desktopNum > 0) {
+        const QString deskLabel = desktopName.isEmpty() ? QStringLiteral("Pulpit %1").arg(desktopNum) : desktopName;
+        chkMatchDesktop = new QCheckBox(isPolish ? QStringLiteral("Tylko na tym pulpicie (%1)").arg(deskLabel) : QObject::tr("Only on this virtual desktop (%1)").arg(deskLabel), &dlg);
+        chkMatchDesktop->setChecked(false);
+        chkMatchDesktop->setToolTip(isPolish ? QStringLiteral("Przypisuje to oznaczenie tylko, gdy okno znajduje się na tym konkretnym pulpicie.") : QObject::tr("Applies this mark only when the window is on this virtual desktop."));
+        formLayout->addRow(chkMatchDesktop);
+    }
+
     auto *chkPersistent = new QCheckBox(isPolish ? QStringLiteral("Zapisz regułę na stałe (pamiętaj po restarcie sesji)") : QObject::tr("Save rule permanently (remember across sessions)"), &dlg);
     chkPersistent->setChecked(usePersistent);
     chkPersistent->setToolTip(isPolish ? QStringLiteral("Zapisuje regułę w ~/.config/leapk/marks.json, aby była aktywna również po restarcie komputera.") : QObject::tr("Saves rule to ~/.config/leapk/marks.json so it persists after reboot/re-login."));
@@ -207,6 +232,17 @@ int main(int argc, char *argv[])
     layout->addLayout(formLayout);
 
     auto *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
+    bool markRemoved = false;
+    if (isAlreadyMarked) {
+        auto *btnRemove = new QPushButton(isPolish ? QStringLiteral("Wyczyść oznaczenie") : QObject::tr("Clear Mark"), &dlg);
+        btnRemove->setStyleSheet(QStringLiteral("QPushButton { color: #e74c3c; font-weight: bold; }"));
+        btnRemove->setToolTip(isPolish ? QStringLiteral("Usuwa oznaczenie z tego okna (oraz ze stałych reguł, jeśli zaznaczono zapis na stałe).") : QObject::tr("Removes mark from this window (and permanent rules if save rule is checked)."));
+        buttonBox->addButton(btnRemove, QDialogButtonBox::DestructiveRole);
+        QObject::connect(btnRemove, &QPushButton::clicked, [&]() {
+            markRemoved = true;
+            dlg.accept();
+        });
+    }
     layout->addWidget(buttonBox);
 
     const auto updateUI = [chkLetter, letterEdit, chkColor, colorBtn, labelEdit, buttonBox, updateColorBtn, isPolish]() {
@@ -235,6 +271,15 @@ int main(int argc, char *argv[])
     QObject::connect(buttonBox, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
 
     if (dlg.exec() == QDialog::Accepted) {
+        if (markRemoved) {
+            const bool finalPersistent = chkPersistent->isChecked();
+            QJsonObject resp;
+            resp[QStringLiteral("action")] = QStringLiteral("remove");
+            resp[QStringLiteral("removePersistent")] = finalPersistent;
+            std::cout << QJsonDocument(resp).toJson(QJsonDocument::Compact).toStdString() << std::endl;
+            return 0;
+        }
+
         const bool finalUseLetter = chkLetter->isChecked();
         const bool finalUseColor = chkColor->isChecked();
         const bool finalPersistent = chkPersistent->isChecked();
@@ -273,6 +318,7 @@ int main(int argc, char *argv[])
         resp[QStringLiteral("persist")] = finalPersistent;
         resp[QStringLiteral("groupByApp")] = finalGroupByApp;
         resp[QStringLiteral("matchCaption")] = finalCaptionPattern;
+        resp[QStringLiteral("matchDesktop")] = (chkMatchDesktop && chkMatchDesktop->isChecked()) ? desktopNum : 0;
 
         std::cout << QJsonDocument(resp).toJson(QJsonDocument::Compact).toStdString() << std::endl;
         return 0;
