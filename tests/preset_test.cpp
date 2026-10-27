@@ -6,6 +6,9 @@
 #include "presethelper.h"
 #include "presetactivationdialog.h"
 #include "customshaderhelper.h"
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
 #include <cassert>
 #include <iostream>
 #include <QSet>
@@ -493,7 +496,8 @@ void testPresetWithEmbeddedShader()
     // 4. Parse preset back
     OutlinePreset::PresetInfo parsed;
     QString err;
-    assert(OutlinePreset::parsePresetJson(json, parsed, &err));
+    const bool parsedOk = OutlinePreset::parsePresetJson(json, parsed, &err);
+    assert(parsedOk);
     assert(parsed.name == p.name);
     assert(!parsed.shader.isEmpty());
     assert(parsed.shader[QStringLiteral("id")].toString() == effect.id);
@@ -510,13 +514,14 @@ void testPresetWithEmbeddedShader()
 
     // 6. Test updating an existing shader's parameters
     QJsonObject updatedBundle = parsed.shader;
-    QJsonObject effectObj = updatedBundle[QStringLiteral("effect")].toObject();
-    QJsonArray paramsArr = effectObj[QStringLiteral("parameters")].toArray();
-    QJsonObject param0 = paramsArr[0].toObject();
-    param0[QStringLiteral("value")] = 1.45;
-    paramsArr[0] = param0;
-    effectObj[QStringLiteral("parameters")] = paramsArr;
-    updatedBundle[QStringLiteral("effect")] = effectObj;
+    QJsonObject effectObj = updatedBundle.value(QStringLiteral("effect")).toObject();
+    QJsonArray paramsArr = effectObj.value(QStringLiteral("parameters")).toArray();
+    assert(!paramsArr.isEmpty());
+    QJsonObject param0 = paramsArr.at(0).toObject();
+    param0.insert(QStringLiteral("value"), 1.45);
+    paramsArr.replace(0, param0);
+    effectObj.insert(QStringLiteral("parameters"), paramsArr);
+    updatedBundle.insert(QStringLiteral("effect"), effectObj);
 
     const bool reApplied = LeapKShader::applyShaderBundle(updatedBundle, &localShaders);
     assert(reApplied);

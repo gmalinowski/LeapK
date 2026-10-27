@@ -271,7 +271,7 @@ fi
 echo "[4/5] Installing the KWin effect…"
 run_privileged cmake --install "$build_dir"
 
-# Clean up legacy system launchers from earlier versions
+# Clean up legacy system launchers and binaries from earlier versions
 run_privileged rm -f /usr/share/applications/kleap-settings.desktop \
                      /usr/share/applications/kleap-tray.desktop \
                      /usr/share/applications/active-window-outline-settings.desktop \
@@ -279,7 +279,19 @@ run_privileged rm -f /usr/share/applications/kleap-settings.desktop \
                      /usr/local/share/applications/kleap-settings.desktop \
                      /usr/local/share/applications/kleap-tray.desktop \
                      /usr/local/share/applications/active-window-outline-settings.desktop \
-                     /usr/local/share/applications/active-window-outline-tray.desktop || true
+                     /usr/local/share/applications/active-window-outline-tray.desktop \
+                     "$plugin_dir/kwin/effects/plugins/active-window-outline.so" \
+                     "$plugin_dir/kwin/effects/configs/kwin_active-window-outline_config.so" \
+                     "$plugin_dir/kwin-x11/effects/plugins/active-window-outline.so" \
+                     "$plugin_dir/kwin-x11/effects/configs/kwin_active-window-outline_config.so" \
+                     /usr/libexec/active-window-outline-colorpicker \
+                     /usr/lib/x86_64-linux-gnu/libexec/active-window-outline-colorpicker \
+                     /usr/lib/libexec/active-window-outline-colorpicker \
+                     /usr/local/libexec/active-window-outline-colorpicker \
+                     /usr/libexec/kleap-colorpicker \
+                     /usr/lib/x86_64-linux-gnu/libexec/kleap-colorpicker \
+                     /usr/lib/libexec/kleap-colorpicker \
+                     /usr/local/libexec/kleap-colorpicker || true
 
 # Clean up legacy user-level launchers and autostarts
 rm -f "$HOME/.local/share/applications/kleap-settings.desktop" \

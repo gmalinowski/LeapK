@@ -2911,11 +2911,11 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
 
     // 1. Dedicated Qt6 color picker helper (natively supports alpha channel, letter badge, and custom label)
     QStringList candidateDirs;
+    candidateDirs << QDir::homePath() + QStringLiteral("/.local/bin");
 #ifdef COLORPICKER_INSTALL_DIR
     candidateDirs << QStringLiteral(COLORPICKER_INSTALL_DIR);
 #endif
-    candidateDirs << QDir::homePath() + QStringLiteral("/.local/bin")
-                  << QCoreApplication::applicationDirPath()
+    candidateDirs << QCoreApplication::applicationDirPath()
                   << QStringLiteral("/usr/libexec")
                   << QStringLiteral("/usr/lib/libexec")
                   << QStringLiteral("/usr/local/bin")
