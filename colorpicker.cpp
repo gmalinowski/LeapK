@@ -14,6 +14,7 @@
 #include <QCheckBox>
 #include <QColorDialog>
 #include <QDialogButtonBox>
+#include <QMessageBox>
 #include <QRegularExpressionValidator>
 #include <QSettings>
 #include <QJsonObject>
@@ -113,6 +114,17 @@ int main(int argc, char *argv[])
         isAlreadyMarked = (mStr == QStringLiteral("1") || mStr == QStringLiteral("true"));
     }
 
+    QJsonObject usedLettersMap;
+    if (argc > 12 && argv[12]) {
+        const QString arg12 = QString::fromUtf8(argv[12]).trimmed();
+        if (arg12.startsWith(QLatin1Char('{'))) {
+            const QJsonDocument doc = QJsonDocument::fromJson(arg12.toUtf8());
+            if (doc.isObject()) {
+                usedLettersMap = doc.object();
+            }
+        }
+    }
+
     const bool isPolish = (QLocale().language() == QLocale::Polish);
 
     QDialog dlg;
@@ -143,6 +155,36 @@ int main(int argc, char *argv[])
         letterEdit->selectAll();
     }
     formLayout->addRow(chkLetter, letterEdit);
+
+    auto *lblLetterConflict = new QLabel(&dlg);
+    lblLetterConflict->setStyleSheet(QStringLiteral("color: #d35400; font-weight: bold; font-size: 11px; margin-top: -4px; margin-bottom: 4px;"));
+    lblLetterConflict->setWordWrap(true);
+    lblLetterConflict->hide();
+    formLayout->addRow(QString(), lblLetterConflict);
+
+    const auto checkLetterConflict = [&usedLettersMap, appClass, chkLetter, letterEdit, lblLetterConflict, isPolish]() -> QString {
+        if (!chkLetter->isChecked()) {
+            lblLetterConflict->hide();
+            return QString();
+        }
+        const QString let = letterEdit->text().trimmed().toUpper();
+        if (!let.isEmpty() && usedLettersMap.contains(let)) {
+            const QString existingApp = usedLettersMap.value(let).toString();
+            if (!existingApp.isEmpty() && existingApp.compare(appClass, Qt::CaseInsensitive) != 0) {
+                lblLetterConflict->setText(isPolish
+                    ? QStringLiteral("⚠️ Litera '%1' jest już przypisana do innej aplikacji: %2.\nZatwierdzenie przeniesie tę literę na bieżące okno.").arg(let, existingApp)
+                    : QObject::tr("⚠️ Letter '%1' is already assigned to: %2.\nConfirming will reassign it to this window.").arg(let, existingApp));
+                lblLetterConflict->show();
+                return existingApp;
+            }
+        }
+        lblLetterConflict->hide();
+        return QString();
+    };
+
+    QObject::connect(letterEdit, &QLineEdit::textChanged, &dlg, [checkLetterConflict]() { checkLetterConflict(); });
+    QObject::connect(chkLetter, &QCheckBox::toggled, &dlg, [checkLetterConflict]() { checkLetterConflict(); });
+    checkLetterConflict();
 
     auto *chkColor = new QCheckBox(isPolish ? QStringLiteral("Własny kolor oznaczenia:") : QObject::tr("Custom mark color:"), &dlg);
     chkColor->setChecked(useColor);
@@ -286,7 +328,30 @@ int main(int argc, char *argv[])
     QObject::connect(labelEdit, &QLineEdit::textChanged, &dlg, updateUI);
     updateUI();
 
-    QObject::connect(buttonBox, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    QObject::connect(buttonBox, &QDialogButtonBox::accepted, [&dlg, checkLetterConflict, letterEdit, appClass, isPolish]() {
+        const QString conflictApp = checkLetterConflict();
+        if (!conflictApp.isEmpty()) {
+            const QString let = letterEdit->text().trimmed().toUpper();
+            const QString targetAppDisp = appClass.isEmpty() ? (isPolish ? QStringLiteral("bieżącego okna") : QStringLiteral("this window")) : appClass;
+            const QMessageBox::StandardButton res = QMessageBox::question(
+                &dlg,
+                isPolish ? QStringLiteral("Konflikt litery oznaczenia") : QObject::tr("Letter Assignment Conflict"),
+                isPolish
+                    ? QStringLiteral("Litera '%1' jest już przypisana do innej aplikacji (%2).\n\nCzy na pewno chcesz odebrać literę '%1' aplikacji %2 i przypisać ją do %3?")
+                        .arg(let, conflictApp, targetAppDisp)
+                    : QObject::tr("Letter '%1' is already assigned to another application (%2).\n\nDo you want to reassign letter '%1' from %2 to %3?")
+                        .arg(let, conflictApp, targetAppDisp),
+                QMessageBox::Yes | QMessageBox::No,
+                QMessageBox::Yes
+            );
+            if (res != QMessageBox::Yes) {
+                letterEdit->setFocus();
+                letterEdit->selectAll();
+                return;
+            }
+        }
+        dlg.accept();
+    });
     QObject::connect(buttonBox, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
 
     if (dlg.exec() == QDialog::Accepted) {

@@ -3113,6 +3113,29 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
                     if (targetWindow && !pickedLetter.isNull()) {
                         EffectWindow *w = targetWindow.data();
 
+                        // Reassign: if any other window belonging to a DIFFERENT application held this letter, release it
+                        if (effects) {
+                            for (auto it = m_markedWindowLetters.begin(); it != m_markedWindowLetters.end(); ) {
+                                EffectWindow *other = it.key();
+                                if (other && other != w && it.value() == pickedLetter) {
+                                    if (other->windowClass().compare(w->windowClass(), Qt::CaseInsensitive) != 0) {
+                                        it = m_markedWindowLetters.erase(it);
+                                        effects->addRepaint(expandedGeometryFor(other));
+                                        continue;
+                                    }
+                                }
+                                ++it;
+                            }
+                        }
+
+                        // Also clean up any persistent mark rule for a different app that claimed this letter
+                        for (int i = m_persistentMarks.size() - 1; i >= 0; --i) {
+                            const auto &r = m_persistentMarks.at(i);
+                            if (r.letter == pickedLetter && r.matchApp.compare(w->windowClass(), Qt::CaseInsensitive) != 0) {
+                                m_persistentMarks.removeAt(i);
+                            }
+                        }
+
                         if (groupByApp) {
                             // Apply mark to all open windows of this application matching matchCaption
                             if (effects) {
@@ -3175,6 +3198,27 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
         const QString desktopName = (!desktops.isEmpty() && !target->isOnAllDesktops()) ? desktops.first()->name() : QString();
         const bool isAlreadyMarked = m_markedWindows.contains(target);
 
+        QJsonObject usedLettersObj;
+        for (auto it = m_markedWindowLetters.constBegin(); it != m_markedWindowLetters.constEnd(); ++it) {
+            EffectWindow *ew = it.key();
+            const QChar ch = it.value().toUpper();
+            if (ew && !ch.isNull()) {
+                QString app = ew->windowClass();
+                if (app.isEmpty()) {
+                    app = ew->caption().left(25);
+                }
+                usedLettersObj[QString(ch)] = app;
+            }
+        }
+        for (const auto &r : m_persistentMarks) {
+            if (!r.letter.isNull() && !r.matchApp.isEmpty()) {
+                const QString chStr = QString(r.letter).toUpper();
+                if (!usedLettersObj.contains(chStr)) {
+                    usedLettersObj[chStr] = r.matchApp;
+                }
+            }
+        }
+
         QStringList args;
         args << initialColor.name(QColor::HexArgb) << QString(initialLetter);
         if (isAlreadyMarked) {
@@ -3192,6 +3236,7 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
         args << QString::number(desktopNum);
         args << desktopName;
         args << (isAlreadyMarked ? QStringLiteral("1") : QStringLiteral("0"));
+        args << QString::fromUtf8(QJsonDocument(usedLettersObj).toJson(QJsonDocument::Compact));
         process->start(customPicker, args);
         return;
     }
