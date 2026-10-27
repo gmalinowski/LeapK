@@ -21,6 +21,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Added live preview toggles for on-window badges and edge HUD cards with real-time updates directly from the settings module.
 
 ### Fixed
+- **Real-Time Live Previews Refresh & Obscured Window Cache Bypass**:
+  - Fixed an aggressive caching trap in `captureWindowThumbnail()` that prematurely returned stale static frames for obscured, minimized, or background windows instead of executing offscreen rendering (Priority 3).
+  - Connected `EffectWindow::windowDamaged` signal to invalidate thumbnail and badge texture caches when window contents change (e.g. playing videos, browser animation, terminal output).
+  - Ensured `setBadgePreview()` clears `m_thumbnailCache` and `m_lastCaptureTimestamp` so any slider or checkbox adjustment in the settings dialog immediately regenerates and re-renders live previews.
 - **Inverted Window Previews (Firefox DMABUF & OpenGL FBO Readbacks)**:
   - Fixed upside-down window thumbnail previews for hardware-accelerated Wayland clients using DMABUF (e.g. Firefox, Chromium, mpv) where OpenGL texture coordinate space inverted raw buffer memory.
   - Ensured all offscreen framebuffer (FBO) thumbnail readback paths (`blitFromRenderTarget` and `drawWindow`) are vertically flipped to match `QImage` top-left raster coordinates.

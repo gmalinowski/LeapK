@@ -540,6 +540,8 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
                 this, &ActiveWindowOutlineEffect::slotWindowHiddenChanged);
         connect(w, &EffectWindow::windowFullScreenChanged,
                 this, &ActiveWindowOutlineEffect::slotWindowFullScreenChanged);
+        connect(w, &EffectWindow::windowDamaged,
+                this, &ActiveWindowOutlineEffect::slotWindowDamaged);
     }
 
     connect(effects, &EffectsHandler::windowActivated,
@@ -567,6 +569,8 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
                         cancelJumpMode();
                     }
                     m_badgeTextureCache.clear();
+                    m_thumbnailCache.clear();
+                    m_lastCaptureTimestamp.clear();
                 }
                 repaintAllOutlines();
             });
@@ -584,6 +588,8 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
                     cancelJumpMode();
                 }
                 m_badgeTextureCache.clear();
+                m_thumbnailCache.clear();
+                m_lastCaptureTimestamp.clear();
                 repaintAllOutlines();
             });
 #endif
@@ -631,6 +637,8 @@ ActiveWindowOutlineEffect::~ActiveWindowOutlineEffect()
         m_previewSafetyTimer->stop();
     }
     m_badgeTextureCache.clear();
+    m_thumbnailCache.clear();
+    m_lastCaptureTimestamp.clear();
 
     if (m_animationTimer) {
         m_animationTimer->stop();
@@ -1179,12 +1187,16 @@ void ActiveWindowOutlineEffect::slotWindowAdded(EffectWindow *w)
             this, &ActiveWindowOutlineEffect::slotWindowHiddenChanged);
     connect(w, &EffectWindow::windowFullScreenChanged,
             this, &ActiveWindowOutlineEffect::slotWindowFullScreenChanged);
+    connect(w, &EffectWindow::windowDamaged,
+            this, &ActiveWindowOutlineEffect::slotWindowDamaged);
 
     if (isSystemOverlay(w)) {
         if (m_jumpMode) {
             cancelJumpMode();
         }
         m_badgeTextureCache.clear();
+        m_thumbnailCache.clear();
+        m_lastCaptureTimestamp.clear();
     }
 
     updatePopupBlockingState();
@@ -2268,6 +2280,8 @@ void ActiveWindowOutlineEffect::slotToggleAction()
         m_delayedHideState.reset();
         m_outlineCache.clear();
         m_badgeTextureCache.clear();
+        m_thumbnailCache.clear();
+        m_lastCaptureTimestamp.clear();
         repaintAllOutlines();
         effects->addRepaintFull();
     }
@@ -2342,6 +2356,8 @@ void ActiveWindowOutlineEffect::clearAllMarks()
     m_markedWindowLetters.clear();
     m_markedWindowLabels.clear();
     m_badgeTextureCache.clear();
+    m_thumbnailCache.clear();
+    m_lastCaptureTimestamp.clear();
     repaintAllOutlines();
     effects->addRepaintFull();
     Q_EMIT stateChanged();
@@ -2552,6 +2568,8 @@ void ActiveWindowOutlineEffect::setBadgePreview(bool active, bool showWindowBadg
     }
 
     m_badgeTextureCache.clear();
+    m_thumbnailCache.clear();
+    m_lastCaptureTimestamp.clear();
 
     if (!m_previewSafetyTimer) {
         m_previewSafetyTimer = std::make_unique<QTimer>();
@@ -2577,6 +2595,8 @@ void ActiveWindowOutlineEffect::clearBadgePreview()
         m_previewSafetyTimer->stop();
     }
     m_badgeTextureCache.clear();
+    m_thumbnailCache.clear();
+    m_lastCaptureTimestamp.clear();
     effects->addRepaintFull();
 }
 
@@ -3107,6 +3127,8 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
 
     m_jumpMode = true;
     m_badgeTextureCache.clear();
+    m_thumbnailCache.clear();
+    m_lastCaptureTimestamp.clear();
     if (m_jumpTimeoutTimer) {
         if (m_badgeTimeout > 0) {
             m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
@@ -3477,17 +3499,19 @@ void ActiveWindowOutlineEffect::paintWindow(const RenderTarget &renderTarget,
     effects->paintWindow(renderTarget, viewport, w, mask, deviceRegion, data);
 #endif
 
-    const bool wantThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail)
+    const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
+    const bool wantThumbnail = (cfg.windowShowThumbnail || cfg.hudShowThumbnail)
         || (m_badgePreviewActive && (m_previewBadgeConfig.windowShowThumbnail || m_previewBadgeConfig.hudShowThumbnail));
     if (wantThumbnail && w && !w->isDeleted() && isEligibleOutlineWindow(w)
         && !w->isMinimized() && w->isVisible() && !isWindowObscured(w)
-        && !(effects && effects->isScreenLocked()) && !w->isLockScreen()) {
+        && !(effects && effects->isScreenLocked()) && !w->isLockScreen()
+        && !m_inThumbnailCapture) {
         const qint64 now = QDateTime::currentMSecsSinceEpoch();
         const qint64 lastCapture = m_lastCaptureTimestamp.value(w, 0);
         const qint64 throttleInterval = m_badgeLivePreviews ? 33 : 1000;
         if (!m_thumbnailCache.contains(w) || (now - lastCapture >= throttleInterval)) {
-            const QSize targetSize(qMax(m_badgeConfig.windowThumbnailWidth, m_badgeConfig.hudThumbnailWidth) * 2,
-                                   qMax(m_badgeConfig.windowThumbnailHeight, m_badgeConfig.hudThumbnailHeight) * 2);
+            const QSize targetSize(qMax(cfg.windowThumbnailWidth, cfg.hudThumbnailWidth) * 2,
+                                   qMax(cfg.windowThumbnailHeight, cfg.hudThumbnailHeight) * 2);
             captureWindowThumbnail(w, renderTarget, viewport, targetSize, /*forceBlit=*/false);
             m_lastCaptureTimestamp[w] = now;
         }
@@ -3515,17 +3539,19 @@ void ActiveWindowOutlineEffect::drawWindow(const RenderTarget &renderTarget,
     effects->drawWindow(renderTarget, viewport, w, mask, deviceRegion, data);
 #endif
 
-    const bool wantThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail)
+    const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
+    const bool wantThumbnail = (cfg.windowShowThumbnail || cfg.hudShowThumbnail)
         || (m_badgePreviewActive && (m_previewBadgeConfig.windowShowThumbnail || m_previewBadgeConfig.hudShowThumbnail));
     if (wantThumbnail && w && !w->isDeleted() && isEligibleOutlineWindow(w)
         && !w->isMinimized() && w->isVisible() && !isWindowObscured(w)
-        && !(effects && effects->isScreenLocked()) && !w->isLockScreen()) {
+        && !(effects && effects->isScreenLocked()) && !w->isLockScreen()
+        && !m_inThumbnailCapture) {
         const qint64 now = QDateTime::currentMSecsSinceEpoch();
         const qint64 lastCapture = m_lastCaptureTimestamp.value(w, 0);
         const qint64 throttleInterval = m_badgeLivePreviews ? 33 : 1000;
         if (!m_thumbnailCache.contains(w) || (now - lastCapture >= throttleInterval)) {
-            const QSize targetSize(qMax(m_badgeConfig.windowThumbnailWidth, m_badgeConfig.hudThumbnailWidth) * 2,
-                                   qMax(m_badgeConfig.windowThumbnailHeight, m_badgeConfig.hudThumbnailHeight) * 2);
+            const QSize targetSize(qMax(cfg.windowThumbnailWidth, cfg.hudThumbnailWidth) * 2,
+                                   qMax(cfg.windowThumbnailHeight, cfg.hudThumbnailHeight) * 2);
             captureWindowThumbnail(w, renderTarget, viewport, targetSize, /*forceBlit=*/false);
             m_lastCaptureTimestamp[w] = now;
         }
@@ -3544,6 +3570,11 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
 {
     if (!target || target->isDeleted()) {
         return QImage();
+    }
+
+    if (m_inThumbnailCapture) {
+        auto itEarly = m_thumbnailCache.find(target);
+        return itEarly != m_thumbnailCache.end() ? itEarly.value() : QImage();
     }
 
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
@@ -3605,27 +3636,6 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
     }
 #endif
 
-    if (!forceBlit) {
-        if (it != m_thumbnailCache.end() && !it.value().isNull()) {
-            // If window is not on current desktop or minimized, use the cached real capture
-            if (!target->isOnCurrentDesktop() || target->isMinimized() || !target->isVisible()) {
-                return it.value();
-            }
-            // If window is covered/obscured by another window, return the clean capture from when it was rendered
-            if (isWindowObscured(target)) {
-                return it.value();
-            }
-        }
-
-        // If target is obscured by another window on screen, renderTarget contains that window,
-        // so we cannot blit from it.
-        if (isWindowObscured(target)) {
-            if (it != m_thumbnailCache.end() && !it.value().isNull()) {
-                return it.value();
-            }
-        }
-    }
-
     const QRectF frameGeo = target->frameGeometry();
     const QSize winSize = frameGeo.size().toSize();
     QSize actualThumbSize = targetSize;
@@ -3635,13 +3645,12 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
         actualThumbSize.setHeight(qMax(8, actualThumbSize.height()));
     }
 
-    if (forceBlit || !isWindowObscured(target)) {
+    // Priority 2: Blit directly from renderTarget if the window is currently visible and unobscured on this desktop
+    if (forceBlit || (!isWindowObscured(target) && target->isOnCurrentDesktop() && !target->isMinimized() && target->isVisible())) {
         const QRect viewRect = QRectF(viewport.renderRect()).toRect();
         const QRect windowRect = frameGeo.toRect().intersected(viewRect);
 
-        // 1. Try blitting from renderTarget if window is currently visible and unobscured on this desktop
-        if (target->isOnCurrentDesktop() && !target->isMinimized() && target->isVisible()
-            && windowRect.width() >= 16 && windowRect.height() >= 16) {
+        if (windowRect.width() >= 16 && windowRect.height() >= 16) {
             if (renderTarget.image()) {
                 const QImage *img = renderTarget.image();
                 const QRect src = windowRect.intersected(img->rect());
@@ -3735,7 +3744,9 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
             data *= QVector2D(scale, scale);
 
             OutlineRegion devReg(QRegion(0, 0, actualThumbSize.width(), actualThumbSize.height()));
+            m_inThumbnailCapture = true;
             static_cast<void>(effects->drawWindow(thumbTarget, thumbViewport, target, PAINT_WINDOW_TRANSFORMED, devReg, data));
+            m_inThumbnailCapture = false;
 
             QImage thumb = m_thumbTexture->toImage();
             if (thumb.isNull()) {
@@ -3845,10 +3856,13 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
     auto it = m_badgeTextureCache.find(key);
     const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
     const bool showThumbOnWindow = cfg.windowShowThumbnail;
-    if (!m_badgeLivePreviews || !showThumbOnWindow) {
-        if (it != m_badgeTextureCache.end()) {
-            texture = it.value();
-        }
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    const qint64 lastCapture = m_lastCaptureTimestamp.value(target, 0);
+    const qint64 cacheInterval = m_badgeLivePreviews ? 33 : 750;
+    const bool cacheExpired = showThumbOnWindow && (now - lastCapture >= cacheInterval);
+
+    if (!cacheExpired && it != m_badgeTextureCache.end()) {
+        texture = it.value();
     }
     if (!texture || texture->isNull()) {
         const bool showIconOnWindow = cfg.windowShowIcon;
@@ -4123,6 +4137,27 @@ void ActiveWindowOutlineEffect::slotWindowFullScreenChanged(EffectWindow *w)
     }
     if (w && w == m_activeWindow) {
         effects->addRepaint(expandedGeometryFor(w));
+    }
+}
+
+void ActiveWindowOutlineEffect::slotWindowDamaged(EffectWindow *w)
+{
+    if (!w || w->isDeleted()) {
+        return;
+    }
+    const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
+    const bool wantThumbnail = (cfg.windowShowThumbnail || cfg.hudShowThumbnail)
+        || (m_badgePreviewActive && (m_previewBadgeConfig.windowShowThumbnail || m_previewBadgeConfig.hudShowThumbnail));
+    if (!wantThumbnail) {
+        return;
+    }
+    m_thumbnailCache.remove(w);
+    m_lastCaptureTimestamp.remove(w);
+    const bool showContinuousBadges = m_outlineEnabled && (m_badgeDisplayMode == 1) && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked;
+    const bool hasBadgesToDraw = (showContinuousBadges || (m_outlineEnabled && m_jumpMode) || m_badgePreviewActive);
+    if (hasBadgesToDraw) {
+        m_badgeTextureCache.clear();
+        effects->addRepaintFull();
     }
 }
 
@@ -4541,7 +4576,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         }
     }
 
-    const bool wantThumbnail = (m_badgeConfig.windowShowThumbnail || m_badgeConfig.hudShowThumbnail || m_badgeShowThumbnail)
+    const OutlineBadge::BadgeConfig &activeBadgeCfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
+    const bool wantThumbnail = (activeBadgeCfg.windowShowThumbnail || activeBadgeCfg.hudShowThumbnail || m_badgeShowThumbnail)
         || (m_badgePreviewActive && (m_previewBadgeConfig.windowShowThumbnail || m_previewBadgeConfig.hudShowThumbnail));
     if (wantThumbnail && !inhibited) {
         const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
@@ -4551,7 +4587,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             && !m_activeWindow->isMinimized() && m_activeWindow->isVisible() && !m_activeWindow->isDeleted()
             && (!m_thumbnailCache.contains(m_activeWindow) || (nowMs - lastCapture >= throttleInterval))) {
             captureWindowThumbnail(m_activeWindow, renderTarget, viewport,
-                                   QSize(m_badgeConfig.hudThumbnailWidth * 2, m_badgeConfig.hudThumbnailHeight * 2));
+                                   QSize(activeBadgeCfg.hudThumbnailWidth * 2, activeBadgeCfg.hudThumbnailHeight * 2));
         }
     }
 

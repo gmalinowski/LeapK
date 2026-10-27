@@ -162,6 +162,7 @@ private Q_SLOTS:
     void slotWindowMinimizedChanged(KWin::EffectWindow *w);
     void slotWindowHiddenChanged(KWin::EffectWindow *w);
     void slotWindowFullScreenChanged(KWin::EffectWindow *w);
+    void slotWindowDamaged(KWin::EffectWindow *w);
     void slotShowingDesktopChanged();
     void slotActiveFullScreenEffectChanged();
     void slotToggleAction();
@@ -415,6 +416,7 @@ private:
     mutable QHash<EffectWindow *, qint64> m_lastCaptureTimestamp;
     std::unique_ptr<GLTexture> m_thumbTexture;
     std::unique_ptr<GLFramebuffer> m_thumbFbo;
+    bool m_inThumbnailCapture = false;
 
     // Runtime delay, buffer & visibility transition state
     OutlineVisibility::StateMachine m_visibilityState;
