@@ -677,6 +677,10 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
         m_ui->check_previewWindowBadges->setToolTip(QStringLiteral("Tymczasowo wyświetla przykładowe badges na wszystkich widocznych oknach, aby podejrzeć zmiany na żywo."));
         m_ui->kcfg_BadgeWindowBadgesEnabled->setText(QStringLiteral("Wyświetlaj plakietki na oknach"));
         m_ui->kcfg_BadgeWindowBadgesEnabled->setToolTip(QStringLiteral("Rysuje plakietki z literami skoku bezpośrednio na widocznych oknach. Gdy odznaczone, okna pozostają czyste, a nawigacja odbywa się wyłącznie przez dok HUD."));
+        m_ui->kcfg_BadgeWindowShowIcon->setText(QStringLiteral("Wyświetlaj ikonę aplikacji na plakietce okna"));
+        m_ui->kcfg_BadgeWindowShowIcon->setToolTip(QStringLiteral("Wyświetla ikonę aplikacji obok litery skoku na plakietkach umieszczonych bezpośrednio na oknach."));
+        m_ui->kcfg_BadgeWindowShowThumbnail->setText(QStringLiteral("Wyświetlaj podgląd na żywo na plakietce okna"));
+        m_ui->kcfg_BadgeWindowShowThumbnail->setToolTip(QStringLiteral("Wyświetla miniaturowy podgląd na żywo zawartości okna na plakietce skoku."));
         m_ui->check_previewHudBadges->setText(QStringLiteral("Podgląd kart HUD na ekranie"));
         m_ui->check_previewHudBadges->setToolTip(QStringLiteral("Tymczasowo wyświetla wszystkie otwarte okna w HUD na krawędzi ekranu, aby podejrzeć zmiany na żywo."));
         m_ui->label_badgeTimeout->setText(QStringLiteral("Czas wyświetlania badges:"));

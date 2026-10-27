@@ -671,17 +671,24 @@ void ActiveWindowOutlineEffect::initShortcuts()
 
     QAction *markAction = new QAction(this);
     markAction->setObjectName(QStringLiteral("MarkActiveWindow"));
-    markAction->setText(QStringLiteral("LeapK: Toggle Mark Window"));
-    KGlobalAccel::self()->setDefaultShortcut(markAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_Space));
-    KGlobalAccel::self()->setGlobalShortcut(markAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_Space));
+    markAction->setText(QStringLiteral("LeapK: Toggle Mark Window (Quick)"));
+    KGlobalAccel::self()->setDefaultShortcut(markAction, QList<QKeySequence>());
+    KGlobalAccel::self()->setGlobalShortcut(markAction, QKeySequence());
     connect(markAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotMarkWindowToggle);
 
     QAction *markWithColorAction = new QAction(this);
     markWithColorAction->setObjectName(QStringLiteral("MarkActiveWindowWithColor"));
     markWithColorAction->setText(QStringLiteral("LeapK: Mark Window with Color Picker"));
-    KGlobalAccel::self()->setDefaultShortcut(markWithColorAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::SHIFT | Qt::Key_Space));
-    KGlobalAccel::self()->setGlobalShortcut(markWithColorAction, QKeySequence(Qt::META | Qt::CTRL | Qt::SHIFT | Qt::Key_Space));
+    KGlobalAccel::self()->setDefaultShortcut(markWithColorAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_Space));
+    KGlobalAccel::self()->setGlobalShortcut(markWithColorAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_Space));
     connect(markWithColorAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotMarkWindowWithColor);
+
+    QAction *toggleGroupAction = new QAction(this);
+    toggleGroupAction->setObjectName(QStringLiteral("ToggleHudGrouping"));
+    toggleGroupAction->setText(QStringLiteral("LeapK: Toggle HUD Window Grouping"));
+    KGlobalAccel::self()->setDefaultShortcut(toggleGroupAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_G));
+    KGlobalAccel::self()->setGlobalShortcut(toggleGroupAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_G));
+    connect(toggleGroupAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotToggleHudGrouping);
 
     QAction *jumpAction = new QAction(this);
     jumpAction->setObjectName(QStringLiteral("JumpToWindow"));
@@ -2836,40 +2843,76 @@ QColor ActiveWindowOutlineEffect::detectSmartAccentForWindow(EffectWindow *w) co
         return generateRandomMarkColor();
     }
 
+    QColor candidate;
+
     // 1. Cached live Smart Adaptive color sampled from window pixels
     if (m_smartAccentCache.contains(w) && m_smartAccentCache.value(w).isValid()) {
-        return m_smartAccentCache.value(w);
+        candidate = m_smartAccentCache.value(w);
     }
 
-    // 2. Active window live ambilight color
-    if (w == m_activeWindow && m_ambilightCurrentColor.isValid()) {
-        return m_ambilightCurrentColor;
-    }
-
-    // 3. Recent window live ambilight color
-    if (m_recentAmbilightColors.contains(w) && m_recentAmbilightColors.value(w).isValid()) {
-        return m_recentAmbilightColors.value(w);
-    }
-
-    // 4. Extract smart adaptive accent from window icon using OutlineBadge helper
-    const QIcon icon = w->icon();
-    if (!icon.isNull()) {
-        const QPixmap pix = icon.pixmap(QSize(32, 32));
-        if (!pix.isNull()) {
-            const QColor iconColor = OutlineBadge::extractSmartAccentFromImage(
-                pix.toImage(),
-                m_ambilightSaturationLeveling / 100.0,
-                m_ambilightFallbackStrength / 100.0,
-                m_ambilightMinBrightness / 100.0,
-                m_ambilightMaxBrightness / 100.0);
-            if (iconColor.isValid() && iconColor.saturationF() > 0.10) {
-                m_smartAccentCache[w] = iconColor;
-                return iconColor;
+    // 2. Extract smart adaptive accent from window icon using OutlineBadge helper
+    if (!candidate.isValid()) {
+        const QIcon icon = w->icon();
+        if (!icon.isNull()) {
+            const QPixmap pix = icon.pixmap(QSize(32, 32));
+            if (!pix.isNull()) {
+                const QColor iconColor = OutlineBadge::extractSmartAccentFromImage(
+                    pix.toImage(),
+                    m_ambilightSaturationLeveling / 100.0,
+                    m_ambilightFallbackStrength / 100.0,
+                    m_ambilightMinBrightness / 100.0,
+                    m_ambilightMaxBrightness / 100.0);
+                if (iconColor.isValid() && iconColor.saturationF() > 0.10) {
+                    m_smartAccentCache[w] = iconColor;
+                    candidate = iconColor;
+                }
             }
         }
     }
 
-    // 5. Fallback: random mark color
+    // 3. Window live ambilight color
+    if (!candidate.isValid()) {
+        if (w == m_activeWindow && m_ambilightCurrentColor.isValid()) {
+            candidate = m_ambilightCurrentColor;
+        } else if (m_recentAmbilightColors.contains(w) && m_recentAmbilightColors.value(w).isValid()) {
+            candidate = m_recentAmbilightColors.value(w);
+        }
+    }
+
+    // Check candidate against existing marked window colors to prevent duplicate/colliding accents (e.g. repeated Tuxedo green)
+    const auto existingColors = m_markedWindows.values();
+    if (candidate.isValid()) {
+        bool collides = false;
+        for (const QColor &used : existingColors) {
+            if (OutlineBadge::isColorTooClose(candidate, used)) {
+                collides = true;
+                break;
+            }
+        }
+        if (!collides) {
+            return candidate;
+        }
+
+        // Collision detected: try shifting hue in steps of 60 degrees to find a contrasting distinct hue
+        if (candidate.saturationF() > 0.15) {
+            for (int step = 1; step <= 5; ++step) {
+                const int shiftedHue = (candidate.hue() + step * 60) % 360;
+                const QColor shifted = QColor::fromHsv(shiftedHue, candidate.saturation(), candidate.value());
+                bool shiftCollision = false;
+                for (const QColor &used : existingColors) {
+                    if (OutlineBadge::isColorTooClose(shifted, used)) {
+                        shiftCollision = true;
+                        break;
+                    }
+                }
+                if (!shiftCollision) {
+                    return shifted;
+                }
+            }
+        }
+    }
+
+    // 4. Fallback: random mark color guaranteed not to collide with used colors
     return generateRandomMarkColor();
 }
 
@@ -2884,11 +2927,13 @@ void ActiveWindowOutlineEffect::toggleWindowMark(EffectWindow *w)
         m_markedWindowLabels.remove(w);
         effects->addRepaint(expandedGeometryFor(w));
     } else {
-        const QColor markCol = m_markSmartAdaptive
-            ? detectSmartAccentForWindow(w)
+        const QColor markCol = m_markedWindows.contains(w)
+            ? m_markedWindows.value(w)
             : (m_markRandomColor
                 ? generateRandomMarkColor()
-                : (m_lastMarkColor.isValid() ? m_lastMarkColor : m_markDefaultColor));
+                : (m_markSmartAdaptive
+                    ? detectSmartAccentForWindow(w)
+                    : (m_lastMarkColor.isValid() ? m_lastMarkColor : m_markDefaultColor)));
         const QChar letter = nextAvailableLetter();
         setWindowMark(w, markCol, letter);
     }
@@ -2917,11 +2962,13 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
 
     QPointer<EffectWindow> targetWindow(target);
     const QColor smartCol = detectSmartAccentForWindow(target);
-    const QColor initialColor = (m_markSmartAdaptive && smartCol.isValid())
-        ? smartCol
-        : (m_markedWindows.contains(target)
-            ? m_markedWindows.value(target)
-            : (m_markRandomColor ? generateRandomMarkColor() : (m_lastMarkColor.isValid() ? m_lastMarkColor : m_markDefaultColor)));
+    const QColor initialColor = m_markedWindows.contains(target)
+        ? m_markedWindows.value(target)
+        : (m_markRandomColor
+            ? generateRandomMarkColor()
+            : ((m_markSmartAdaptive && smartCol.isValid())
+                ? smartCol
+                : (m_lastMarkColor.isValid() ? m_lastMarkColor : m_markDefaultColor)));
     const QChar initialLetter = m_markedWindowLetters.contains(target)
         ? m_markedWindowLetters.value(target)
         : nextAvailableLetter();
@@ -2936,9 +2983,11 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
             ? pickedCol
             : (m_markedWindows.contains(w)
                 ? m_markedWindows.value(w)
-                : (m_markSmartAdaptive
-                    ? detectSmartAccentForWindow(w)
-                    : (m_markRandomColor ? generateRandomMarkColor() : (m_lastMarkColor.isValid() ? m_lastMarkColor : m_markDefaultColor))));
+                : (m_markRandomColor
+                    ? generateRandomMarkColor()
+                    : (m_markSmartAdaptive
+                        ? detectSmartAccentForWindow(w)
+                        : (m_lastMarkColor.isValid() ? m_lastMarkColor : m_markDefaultColor))));
 
         const QChar letter = (useLetter && pickedLetter.isLetterOrNumber())
             ? pickedLetter.toUpper()
@@ -3137,7 +3186,7 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
             args << QStringLiteral("1");
             args << initialLabel;
         }
-        args << QStringLiteral("1");
+        args << QStringLiteral("-1"); // Pass -1 to preserve saved persistence state from QSettings
         args << target->windowClass();
         args << target->caption();
         args << QString::number(desktopNum);
@@ -3209,6 +3258,23 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
         applyMark(color, initialLetter, initialLabel, true, true);
     });
     dialog->show();
+}
+
+void ActiveWindowOutlineEffect::slotToggleHudGrouping()
+{
+    m_badgeConfig.hudGroupWindows = !m_badgeConfig.hudGroupWindows;
+    KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+    primaryConfig.writeEntry("BadgeHudGroupWindows", m_badgeConfig.hudGroupWindows);
+    primaryConfig.sync();
+
+    if (m_jumpMode) {
+        if (m_subLeapActive) {
+            exitSubLeapMode();
+        }
+        m_jumpLetterToWindow = assignJumpLetters();
+        m_badgeTextureCache.clear();
+        effects->addRepaintFull();
+    }
 }
 
 bool ActiveWindowOutlineEffect::isEligibleTargetWindow(EffectWindow *w) const
@@ -3587,6 +3653,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     // 2. Main Jump Mode:
     if (e->key() == Qt::Key_Escape) {
         cancelJumpMode();
+        return;
+    }
+
+    if (e->key() == Qt::Key_Tab || e->key() == Qt::Key_Backtab) {
+        slotToggleHudGrouping();
         return;
     }
 
@@ -4541,7 +4612,9 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     }
 
     const int hudPos = m_badgePreviewActive ? m_previewBadgeHudPosition : m_badgeHudPosition;
-    const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos);
+    const OutlineBadge::BadgeConfig &hudCfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
+    const qreal hudRowGap = (!hudCfg.hudGroupWindows && !m_subLeapActive) ? 40.0 : 12.0;
+    const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, 24.0, 12.0, hudRowGap);
 
     struct GroupFrameItem {
         std::shared_ptr<GLTexture> texture;
@@ -4549,7 +4622,6 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     };
     QList<GroupFrameItem> groupFrames;
 
-    const OutlineBadge::BadgeConfig &hudCfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
     if (!hudCfg.hudGroupWindows && !m_subLeapActive) {
         // Collect multi-window groups
         QMap<QChar, QList<int>> groupIndices;
@@ -4570,28 +4642,16 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
                 continue;
             }
 
-            QRectF groupBoundingRect;
+            // Partition group indices by row / column so wrapping does not create cross-row bounding box collision
+            QMap<int, QList<int>> segmentToIndices;
             for (int idx : indices) {
                 if (idx >= 0 && idx < rects.size()) {
-                    if (groupBoundingRect.isEmpty()) {
-                        groupBoundingRect = rects.at(idx);
-                    } else {
-                        groupBoundingRect = groupBoundingRect.united(rects.at(idx));
-                    }
+                    const int bucket = (hudPos == 2 || hudPos == 3)
+                        ? qRound(rects.at(idx).center().x() / 20.0)
+                        : qRound(rects.at(idx).center().y() / 20.0);
+                    segmentToIndices[bucket].append(idx);
                 }
             }
-
-            if (groupBoundingRect.isEmpty()) {
-                continue;
-            }
-
-            const int effGroupFontSize = (hudCfg.hudGroupFontSize > 0) ? hudCfg.hudGroupFontSize : 11;
-            const int tabH = qMax(22, effGroupFontSize + 10);
-            const bool tabAtBottom = (hudPos == 1);
-            const qreal padX = 8.0;
-            const qreal padBottom = tabAtBottom ? (tabH + 10.0) : 8.0;
-            const qreal padTop = tabAtBottom ? 8.0 : (tabH + 10.0);
-            const QRectF frameRect = groupBoundingRect.adjusted(-padX, -padTop, padX, padBottom);
 
             EffectWindow *firstWin = m_groupJumpLetters.value(gKey).first();
             const QColor groupColor = m_markedWindows.value(firstWin, QColor(52, 152, 219));
@@ -4600,16 +4660,47 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
                 groupTitle = firstWin->windowClass();
             }
             const int count = m_groupJumpLetters.value(gKey).size();
+            const int effGroupFontSize = (hudCfg.hudGroupFontSize > 0) ? hudCfg.hudGroupFontSize : 11;
+            const int tabH = qMax(22, effGroupFontSize + 10);
+            const bool tabAtBottom = (hudPos == 1);
+            const qreal padX = 8.0;
 
-            const QImage frameImg = OutlineBadge::renderGroupContainerFrame(
-                frameRect.size(), gKey, groupColor, groupTitle, count, scale,
-                hudCfg.hudGroupCornerRadius, hudCfg.hudGroupBorderWidth,
-                hudCfg.hudGroupFontSize, tabAtBottom);
-            auto uploaded = GLTexture::upload(frameImg);
-            if (uploaded) {
-                uploaded->setFilter(GL_LINEAR);
-                uploaded->setWrapMode(GL_CLAMP_TO_EDGE);
-                groupFrames.append({std::shared_ptr<GLTexture>(uploaded.release()), frameRect});
+            bool isFirstSegment = true;
+            for (auto segIt = segmentToIndices.constBegin(); segIt != segmentToIndices.constEnd(); ++segIt) {
+                const auto &segIdxs = segIt.value();
+                QRectF groupBoundingRect;
+                for (int idx : segIdxs) {
+                    if (groupBoundingRect.isEmpty()) {
+                        groupBoundingRect = rects.at(idx);
+                    } else {
+                        groupBoundingRect = groupBoundingRect.united(rects.at(idx));
+                    }
+                }
+                if (groupBoundingRect.isEmpty()) {
+                    continue;
+                }
+
+                const qreal padBottom = tabAtBottom ? (tabH + 8.0) : 6.0;
+                const qreal padTop = tabAtBottom ? 6.0 : (tabH + 8.0);
+                QRectF frameRect = groupBoundingRect.adjusted(-padX, -padTop, padX, padBottom);
+
+                if (frameRect.left() < screenRect.left() + 4.0) frameRect.setLeft(screenRect.left() + 4.0);
+                if (frameRect.right() > screenRect.right() - 4.0) frameRect.setRight(screenRect.right() - 4.0);
+                if (frameRect.top() < screenRect.top() + 4.0) frameRect.setTop(screenRect.top() + 4.0);
+                if (frameRect.bottom() > screenRect.bottom() - 4.0) frameRect.setBottom(screenRect.bottom() - 4.0);
+
+                const QImage frameImg = OutlineBadge::renderGroupContainerFrame(
+                    frameRect.size(), isFirstSegment ? gKey : QChar(), groupColor,
+                    isFirstSegment ? groupTitle : QString(), count, scale,
+                    hudCfg.hudGroupCornerRadius, hudCfg.hudGroupBorderWidth,
+                    hudCfg.hudGroupFontSize, tabAtBottom);
+                auto uploaded = GLTexture::upload(frameImg);
+                if (uploaded) {
+                    uploaded->setFilter(GL_LINEAR);
+                    uploaded->setWrapMode(GL_CLAMP_TO_EDGE);
+                    groupFrames.append({std::shared_ptr<GLTexture>(uploaded.release()), frameRect});
+                }
+                isFirstSegment = false;
             }
         }
     }
@@ -5404,37 +5495,49 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                     if (winList.isEmpty()) {
                         continue;
                     }
-                    EffectWindow *target = winList.first();
-                    if (!target || target == w || target->isDeleted() || !isEligibleTargetWindow(target)) {
+                    EffectWindow *firstWin = winList.first();
+                    if (!firstWin || firstWin == w || firstWin->isDeleted() || !isEligibleTargetWindow(firstWin)) {
                         continue;
                     }
 
                     const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled;
                     if (forceHud) {
-                        offscreenTargets.append(qMakePair(letter, target));
-                    }
-
-                    const bool onCurrent = target->isOnCurrentDesktop();
-                    const bool minimized = target->isMinimized();
-
-                    if (!onCurrent || minimized) {
-                        if (!forceHud) {
-                            offscreenTargets.append(qMakePair(letter, target));
+                        offscreenTargets.append(qMakePair(letter, firstWin));
+                    } else {
+                        bool hasOffscreenMember = false;
+                        for (EffectWindow *target : winList) {
+                            if (!target || target == w || target->isDeleted()) continue;
+                            if (!target->isOnCurrentDesktop() || target->isMinimized()) {
+                                hasOffscreenMember = true;
+                                break;
+                            }
+                            const QRectF geo = target->frameGeometry();
+                            const QRectF visibleWindowGeo = geo.intersected(screenRect);
+                            if (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50 || isWindowObscured(target)) {
+                                hasOffscreenMember = true;
+                                break;
+                            }
                         }
-                        continue;
-                    }
-
-                    const QRectF geo = target->frameGeometry();
-                    const QRectF visibleWindowGeo = geo.intersected(screenRect);
-                    if (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50) {
-                        if (!forceHud) {
-                            offscreenTargets.append(qMakePair(letter, target));
+                        if (hasOffscreenMember) {
+                            offscreenTargets.append(qMakePair(letter, firstWin));
                         }
-                        continue;
                     }
 
                     if (m_badgeConfig.windowBadgesEnabled) {
-                        onscreenTargets.append(qMakePair(letter, target));
+                        for (EffectWindow *target : winList) {
+                            if (!target || target == w || target->isDeleted() || !isEligibleTargetWindow(target)) {
+                                continue;
+                            }
+                            if (!target->isOnCurrentDesktop() || target->isMinimized()) {
+                                continue;
+                            }
+                            const QRectF geo = target->frameGeometry();
+                            const QRectF visibleWindowGeo = geo.intersected(screenRect);
+                            if (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50) {
+                                continue;
+                            }
+                            onscreenTargets.append(qMakePair(letter, target));
+                        }
                     }
                 }
             } else {

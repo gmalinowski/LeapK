@@ -594,8 +594,9 @@ private slots:
         const QString scJump = getGlobalShortcutText(QStringLiteral("JumpToWindow"), QStringLiteral("Meta+Space"));
         const QString scRecent = getGlobalShortcutText(QStringLiteral("RecentWindow"), QString());
         const QString scJumpRecent = QStringLiteral("%1 Space").arg(scJump);
-        const QString scMark = getGlobalShortcutText(QStringLiteral("MarkActiveWindow"), QStringLiteral("Meta+Ctrl+Space"));
-        const QString scMarkColor = getGlobalShortcutText(QStringLiteral("MarkActiveWindowWithColor"), QStringLiteral("Meta+Ctrl+Shift+Space"));
+        const QString scMark = getGlobalShortcutText(QStringLiteral("MarkActiveWindow"), QString());
+        const QString scMarkColor = getGlobalShortcutText(QStringLiteral("MarkActiveWindowWithColor"), QStringLiteral("Meta+Ctrl+Space"));
+        const QString scToggleGroup = getGlobalShortcutText(QStringLiteral("ToggleHudGrouping"), QStringLiteral("Meta+Ctrl+G"));
         const QString scToggle = getGlobalShortcutText(QStringLiteral("ToggleActiveWindowOutline"), QStringLiteral("Meta+Ctrl+O"));
         const QString scPrev = getGlobalShortcutText(QStringLiteral("PrevRecentWindow"), QStringLiteral("Meta+Ctrl+["));
         const QString scNext = getGlobalShortcutText(QStringLiteral("NextRecentWindow"), QStringLiteral("Meta+Ctrl+]"));
@@ -615,8 +616,9 @@ private slots:
             if (!scRecent.isEmpty() && scRecent.compare(QStringLiteral("none"), Qt::CaseInsensitive) != 0) {
                 rows += formatRow(scRecent, QStringLiteral("Przełącz na ostatnie okno (skrót bezpośredni)"));
             }
-            rows += formatRow(scMark, QStringLiteral("Oznacz / Odznacz aktywne okno"));
+            rows += formatRow(scMark, QStringLiteral("Szybkie oznaczenie aktywnego okna"));
             rows += formatRow(scMarkColor, QStringLiteral("Własne oznaczenie okna (kolor, litera, etykieta)"));
+            rows += formatRow(scToggleGroup, QStringLiteral("Przełącz grupowanie okien w HUD (lub klawisz Tab podczas skoku)"));
             rows += formatRow(scToggle, QStringLiteral("Włącz / Wyłącz aktywny obrys"));
             rows += formatRow(scPrev, QStringLiteral("Przejdź do poprzedniego okna w historii"));
             rows += formatRow(scNext, QStringLiteral("Przejdź do następnego okna w historii"));
@@ -626,8 +628,9 @@ private slots:
             if (!scRecent.isEmpty() && scRecent.compare(QStringLiteral("none"), Qt::CaseInsensitive) != 0) {
                 rows += formatRow(scRecent, QStringLiteral("Switch to recent window (direct shortcut)"));
             }
-            rows += formatRow(scMark, QStringLiteral("Mark / Unmark Active Window"));
+            rows += formatRow(scMark, QStringLiteral("Quick mark active window"));
             rows += formatRow(scMarkColor, QStringLiteral("Custom Mark Window (Color, Letter, Label)"));
+            rows += formatRow(scToggleGroup, QStringLiteral("Toggle HUD Window Grouping (or Tab key during Leap)"));
             rows += formatRow(scToggle, QStringLiteral("Toggle LeapK window highlight on/off"));
             rows += formatRow(scPrev, QStringLiteral("Navigate to Previous Window in focus history"));
             rows += formatRow(scNext, QStringLiteral("Navigate to Next Window in focus history"));
@@ -799,8 +802,9 @@ private slots:
         const QString scJump = getGlobalShortcutText(QStringLiteral("JumpToWindow"), QStringLiteral("Meta+Space"));
         const QString scRecent = getGlobalShortcutText(QStringLiteral("RecentWindow"), QString());
         const QString scJumpRecent = QStringLiteral("%1 Space").arg(scJump);
-        const QString scMark = getGlobalShortcutText(QStringLiteral("MarkActiveWindow"), QStringLiteral("Meta+Ctrl+Space"));
-        const QString scMarkColor = getGlobalShortcutText(QStringLiteral("MarkActiveWindowWithColor"), QStringLiteral("Meta+Ctrl+Shift+Space"));
+        const QString scMark = getGlobalShortcutText(QStringLiteral("MarkActiveWindow"), QString());
+        const QString scMarkColor = getGlobalShortcutText(QStringLiteral("MarkActiveWindowWithColor"), QStringLiteral("Meta+Ctrl+Space"));
+        const QString scToggleGroup = getGlobalShortcutText(QStringLiteral("ToggleHudGrouping"), QStringLiteral("Meta+Ctrl+G"));
         const QString scToggle = getGlobalShortcutText(QStringLiteral("ToggleActiveWindowOutline"), QStringLiteral("Meta+Ctrl+O"));
         const QString scPrev = getGlobalShortcutText(QStringLiteral("PrevRecentWindow"), QStringLiteral("Meta+Ctrl+["));
         const QString scNext = getGlobalShortcutText(QStringLiteral("NextRecentWindow"), QStringLiteral("Meta+Ctrl+]"));

@@ -493,10 +493,10 @@ if command -v kreadconfig6 >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/nul
     fi
     local active_keys="${current%%,*}"
     [[ -z "$active_keys" ]] && active_keys="$def_key"
-    if [[ "$key" == "MarkActiveWindow" && "$active_keys" == "Meta+Ctrl+M" ]]; then
-      active_keys="$def_key"
-    elif [[ "$key" == "MarkActiveWindowWithColor" && "$active_keys" == *"Meta+Ctrl+Shift+M"* ]]; then
-      active_keys="${active_keys//Meta+Ctrl+Shift+M/Meta+Ctrl+Shift+Space}"
+    if [[ "$key" == "MarkActiveWindow" && "$active_keys" == "Meta+Ctrl+Space" ]]; then
+      active_keys="none"
+    elif [[ "$key" == "MarkActiveWindowWithColor" && ("$active_keys" == *"Meta+Ctrl+Shift+Space"* || "$active_keys" == *"Meta+Ctrl+Shift+M"*) ]]; then
+      active_keys="Meta+Ctrl+Space"
     elif [[ "$key" == "JumpToWindow" && "$active_keys" == *"Meta+Alt+Space"* ]]; then
       active_keys="$def_key"
     elif [[ "$key" == "PrevRecentWindow" && "$active_keys" == *"Meta+Alt+["* ]]; then
@@ -508,8 +508,9 @@ if command -v kreadconfig6 >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/nul
   }
 
   migrate_shortcut "ToggleActiveWindowOutline" "Meta+Ctrl+O" "LeapK: Toggle Window Highlight"
-  migrate_shortcut "MarkActiveWindow" "Meta+Ctrl+Space" "LeapK: Toggle Mark Window"
-  migrate_shortcut "MarkActiveWindowWithColor" "Meta+Ctrl+Shift+Space" "LeapK: Mark Window with Color Picker"
+  migrate_shortcut "MarkActiveWindow" "none" "LeapK: Toggle Mark Window (Quick)"
+  migrate_shortcut "MarkActiveWindowWithColor" "Meta+Ctrl+Space" "LeapK: Mark Window with Color Picker"
+  migrate_shortcut "ToggleHudGrouping" "Meta+Ctrl+G" "LeapK: Toggle HUD Window Grouping"
   migrate_shortcut "JumpToWindow" "Meta+Space" "LeapK: Jump to Window"
   migrate_shortcut "RecentWindow" "" "LeapK: Switch to Recent Window"
   migrate_shortcut "PrevRecentWindow" "Meta+Ctrl+[" "LeapK: Previous Recent Window"

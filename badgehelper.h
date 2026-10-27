@@ -165,6 +165,32 @@ inline QChar findNextAvailableLetter(const QList<QChar> &usedLetters)
     return QLatin1Char('?');
 }
 
+inline bool isColorTooClose(const QColor &c1, const QColor &c2, qreal minHueDelta = 35.0, qreal minRgbDistance = 65.0)
+{
+    if (!c1.isValid() || !c2.isValid()) {
+        return false;
+    }
+    const qreal dr = c1.red() - c2.red();
+    const qreal dg = c1.green() - c2.green();
+    const qreal db = c1.blue() - c2.blue();
+    const qreal rgbDist = std::sqrt(dr * dr + dg * dg + db * db);
+    if (rgbDist < minRgbDistance) {
+        return true;
+    }
+    if (c1.saturationF() > 0.15 && c2.saturationF() > 0.15) {
+        int h1 = c1.hue();
+        int h2 = c2.hue();
+        if (h1 >= 0 && h2 >= 0) {
+            int diff = std::abs(h1 - h2);
+            if (diff > 180) diff = 360 - diff;
+            if (diff < minHueDelta) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 inline QColor generateRandomMarkColor(const QList<QColor> &usedColors = {})
 {
     static const QList<QColor> palette = {
@@ -188,7 +214,14 @@ inline QColor generateRandomMarkColor(const QList<QColor> &usedColors = {})
 
     QList<QColor> available;
     for (const QColor &col : palette) {
-        if (!usedColors.contains(col)) {
+        bool collision = false;
+        for (const QColor &used : usedColors) {
+            if (isColorTooClose(col, used)) {
+                collision = true;
+                break;
+            }
+        }
+        if (!collision) {
             available.append(col);
         }
     }
@@ -196,6 +229,23 @@ inline QColor generateRandomMarkColor(const QList<QColor> &usedColors = {})
     if (!available.isEmpty()) {
         const int idx = QRandomGenerator::global()->bounded(available.size());
         return available.at(idx);
+    }
+
+    for (int attempt = 0; attempt < 16; ++attempt) {
+        const int hue = QRandomGenerator::global()->bounded(360);
+        const int sat = 210 + QRandomGenerator::global()->bounded(45);
+        const int val = 220 + QRandomGenerator::global()->bounded(35);
+        const QColor cand = QColor::fromHsv(hue, sat, val);
+        bool collision = false;
+        for (const QColor &used : usedColors) {
+            if (isColorTooClose(cand, used)) {
+                collision = true;
+                break;
+            }
+        }
+        if (!collision) {
+            return cand;
+        }
     }
 
     const int hue = QRandomGenerator::global()->bounded(360);
@@ -1291,7 +1341,8 @@ inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
                                              const QRectF &screenRect,
                                              int hudPosition = 0,
                                              qreal margin = 24.0,
-                                             qreal gap = 12.0)
+                                             qreal gap = 12.0,
+                                             qreal rowGap = -1.0)
 {
     if (pillSizes.isEmpty()) {
         return {};
@@ -1301,6 +1352,7 @@ inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
     result.resize(pillSizes.size());
 
     const int clampedPos = qBound(0, hudPosition, 3);
+    const qreal vGap = (rowGap >= 0.0) ? rowGap : gap;
 
     if (clampedPos == 0 || clampedPos == 1) {
         // Horizontal layout with row wrapping: 0 = Bottom (default), 1 = Top
@@ -1341,7 +1393,7 @@ inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
         for (const Row &r : rows) {
             clusterHeight += r.maxHeight;
         }
-        clusterHeight += (rows.size() - 1) * gap;
+        clusterHeight += (rows.size() - 1) * vGap;
 
         qreal rowY = 0.0;
         if (clampedPos == 1) { // Top
@@ -1365,11 +1417,12 @@ inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
                 result[idx] = QRectF(currentX, itemY, sz.width(), sz.height());
                 currentX += sz.width() + gap;
             }
-            rowY += r.maxHeight + gap;
+            rowY += r.maxHeight + vGap;
         }
     } else {
         // Vertical layout with column wrapping: 2 = Left, 3 = Right
         const qreal availHeight = qMax(60.0, screenRect.height() - 2.0 * margin);
+        const qreal hGap = (rowGap >= 0.0) ? rowGap : gap;
 
         struct Col {
             QList<int> indices;
@@ -1406,7 +1459,7 @@ inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
         for (const Col &c : cols) {
             clusterWidth += c.maxWidth;
         }
-        clusterWidth += (cols.size() - 1) * gap;
+        clusterWidth += (cols.size() - 1) * hGap;
 
         qreal colX = 0.0;
         if (clampedPos == 2) { // Left
@@ -1430,7 +1483,7 @@ inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
                 result[idx] = QRectF(itemX, currentY, sz.width(), sz.height());
                 currentY += sz.height() + gap;
             }
-            colX += c.maxWidth + gap;
+            colX += c.maxWidth + hGap;
         }
     }
 

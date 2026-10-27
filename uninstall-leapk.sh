@@ -190,6 +190,8 @@ kwriteconfig6 --file kglobalshortcutsrc --group kwin \
 kwriteconfig6 --file kglobalshortcutsrc --group kwin \
   --key "MarkActiveWindowWithColor" --delete ''
 kwriteconfig6 --file kglobalshortcutsrc --group kwin \
+  --key "ToggleHudGrouping" --delete ''
+kwriteconfig6 --file kglobalshortcutsrc --group kwin \
   --key "JumpToWindow" --delete ''
 kwriteconfig6 --file kglobalshortcutsrc --group kwin \
   --key "RecentWindow" --delete ''

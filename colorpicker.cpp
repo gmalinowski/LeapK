@@ -184,22 +184,41 @@ int main(int argc, char *argv[])
     labelEdit->setMaxLength(50);
     formLayout->addRow(lblLabel, labelEdit);
 
-    QString groupTitleText = isPolish ? QStringLiteral("Grupuj okna tego typu aplikacji:") : QObject::tr("Group windows of this app type:");
-    if (!appClass.isEmpty()) {
-        groupTitleText = isPolish ? QStringLiteral("Grupuj okna tej aplikacji (%1):").arg(appClass) : QObject::tr("Group windows of this app (%1):").arg(appClass);
-    }
+    QString groupTitleText = isPolish
+        ? QStringLiteral("Zastosuj do wszystkich okien tej aplikacji%1").arg(appClass.isEmpty() ? QString() : QStringLiteral(" (%1)").arg(appClass))
+        : QObject::tr("Apply to all windows of this app%1").arg(appClass.isEmpty() ? QString() : QStringLiteral(" (%1)").arg(appClass));
     auto *chkGroupByApp = new QCheckBox(groupTitleText, &dlg);
     chkGroupByApp->setChecked(groupByApp);
-    chkGroupByApp->setToolTip(isPolish ? QStringLiteral("Przypisuje tę literę i kolor do wszystkich okien tej aplikacji jako grupę.") : QObject::tr("Applies this letter and color to all windows of this application as a group."));
+    chkGroupByApp->setToolTip(isPolish
+        ? QStringLiteral("Gdy zaznaczone, reguła dotyczy wszystkich okien tej aplikacji. Gdy odznaczone, dotyczy wyłącznie tego jednego bieżącego okna.")
+        : QObject::tr("When checked, mark applies to all windows of this application. When unchecked, mark applies only to this specific window."));
     formLayout->addRow(chkGroupByApp);
 
-    auto *chkMatchCaption = new QCheckBox(isPolish ? QStringLiteral("Zawęź do okien z tytułem (np. nvim, projekt):") : QObject::tr("Narrow to windows matching title (e.g. nvim, project):"), &dlg);
+    auto *chkMatchCaption = new QCheckBox(isPolish
+        ? QStringLiteral("Zawęź do tytułu lub procesu potomnego (np. nvim, ssh):")
+        : QObject::tr("Narrow to window title or child process (e.g. nvim, ssh):"), &dlg);
+    chkMatchCaption->setToolTip(isPolish
+        ? QStringLiteral("Dopasowuje regułę po fragmencie tytułu okna LUB nazwie procesu potomnego (np. gdy w terminalu działa neovim, python lub ssh).")
+        : QObject::tr("Matches rule against window title OR running child process (e.g. when neovim, python, or ssh is active in terminal)."));
     auto *captionEdit = new QLineEdit(&dlg);
-    captionEdit->setPlaceholderText(isPolish ? QStringLiteral("np. nvim, dev, bash, zadanie...") : QObject::tr("e.g. nvim, dev, bash, task..."));
+    captionEdit->setPlaceholderText(isPolish ? QStringLiteral("np. nvim, dev, bash, ssh, zadanie...") : QObject::tr("e.g. nvim, dev, bash, ssh, task..."));
     captionEdit->setEnabled(false);
     captionEdit->setClearButtonEnabled(true);
     captionEdit->setMaxLength(80);
     formLayout->addRow(chkMatchCaption, captionEdit);
+
+    const auto updateGroupDependency = [chkGroupByApp, chkMatchCaption, captionEdit]() {
+        const bool appChecked = chkGroupByApp->isChecked();
+        chkMatchCaption->setEnabled(appChecked);
+        if (!appChecked) {
+            chkMatchCaption->setChecked(false);
+            captionEdit->setEnabled(false);
+        } else {
+            captionEdit->setEnabled(chkMatchCaption->isChecked());
+        }
+    };
+    QObject::connect(chkGroupByApp, &QCheckBox::toggled, updateGroupDependency);
+    updateGroupDependency();
 
     QObject::connect(chkMatchCaption, &QCheckBox::toggled, [captionEdit, windowCaption](bool checked) {
         captionEdit->setEnabled(checked);
