@@ -3477,7 +3477,12 @@ void ActiveWindowOutlineEffect::enterSubLeapForGroup(QChar keyChar, const QList<
 {
     m_subLeapActive = true;
     m_subLeapBaseKey = keyChar;
-    m_subLeapWindows = group;
+    m_subLeapWindows.clear();
+    for (EffectWindow *w : group) {
+        if (w && !w->isDeleted() && !m_subLeapWindows.contains(w)) {
+            m_subLeapWindows.append(w);
+        }
+    }
 
     // Sort by recency so primary/most recent window is at index 0
     std::sort(m_subLeapWindows.begin(), m_subLeapWindows.end(), [this](EffectWindow *a, EffectWindow *b) {
@@ -5353,19 +5358,41 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         QList<QPair<QChar, EffectWindow *>> onscreenTargets;
 
         if (m_subLeapActive) {
-            // In Sub-Leap disambiguation mode, HUD displays all candidate instances centered
-            offscreenTargets = m_subLeapTargets;
+            // In Sub-Leap disambiguation mode, distribute targets mutually exclusively:
+            // Visible unobscured windows on current desktop get badges on the windows;
+            // covered, minimized, or other-desktop windows appear in the edge HUD.
+            const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled;
+            for (const auto &pair : m_subLeapTargets) {
+                EffectWindow *target = pair.second;
+                if (!target || target->isDeleted() || !isEligibleTargetWindow(target)) {
+                    continue;
+                }
 
-            if (m_badgeConfig.windowBadgesEnabled) {
-                for (const auto &pair : m_subLeapTargets) {
-                    EffectWindow *target = pair.second;
-                    if (target && !target->isDeleted() && target->isOnCurrentDesktop() && !target->isMinimized()) {
-                        const QRectF geo = target->frameGeometry();
-                        const QRectF visibleWindowGeo = geo.intersected(screenRect);
-                        if (visibleWindowGeo.width() >= 50 && visibleWindowGeo.height() >= 50) {
-                            onscreenTargets.append(pair);
-                        }
+                if (forceHud) {
+                    offscreenTargets.append(pair);
+                }
+
+                const bool onCurrent = target->isOnCurrentDesktop();
+                const bool minimized = target->isMinimized();
+
+                if (!onCurrent || minimized) {
+                    if (!forceHud) {
+                        offscreenTargets.append(pair);
                     }
+                    continue;
+                }
+
+                const QRectF geo = target->frameGeometry();
+                const QRectF visibleWindowGeo = geo.intersected(screenRect);
+                if (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50 || isWindowObscured(target)) {
+                    if (!forceHud) {
+                        offscreenTargets.append(pair);
+                    }
+                    continue;
+                }
+
+                if (m_badgeConfig.windowBadgesEnabled) {
+                    onscreenTargets.append(pair);
                 }
             }
         } else {
