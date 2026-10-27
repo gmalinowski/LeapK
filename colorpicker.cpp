@@ -12,7 +12,6 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
-#include <QCheckBox>
 #include <QColorDialog>
 #include <QMessageBox>
 #include <QRegularExpressionValidator>
@@ -58,12 +57,12 @@ protected:
         const QRectF r = rect().adjusted(1, 1, -1, -1);
 
         // Dark HUD acrylic body
-        p.setPen(QPen(QColor(255, 255, 255, 36), 1.5));
-        p.setBrush(QColor(18, 21, 26, 246));
+        p.setPen(QPen(QColor(255, 255, 255, 45), 1.5));
+        p.setBrush(QColor(18, 21, 26, 248));
         p.drawRoundedRect(r, 16.0, 16.0);
 
-        // Subtle top accent highlight
-        p.setPen(QPen(QColor(52, 152, 219, 120), 1.5));
+        // Top accent line
+        p.setPen(QPen(QColor(52, 152, 219, 150), 1.5));
         QPainterPath topPath;
         topPath.moveTo(r.left() + 16, r.top());
         topPath.lineTo(r.right() - 16, r.top());
@@ -87,21 +86,21 @@ public:
         if (sel) {
             setStyleSheet(QStringLiteral(
                 "QFrame#hudCard {"
-                "  background-color: rgba(52, 152, 219, 0.22);"
+                "  background-color: rgba(52, 152, 219, 0.25);"
                 "  border: 1.5px solid #3498db;"
-                "  border-radius: 10px;"
+                "  border-radius: 12px;"
                 "}"
             ));
         } else {
             setStyleSheet(QStringLiteral(
                 "QFrame#hudCard {"
-                "  background-color: rgba(255, 255, 255, 0.05);"
-                "  border: 1px solid rgba(255, 255, 255, 0.12);"
-                "  border-radius: 10px;"
+                "  background-color: rgba(255, 255, 255, 0.06);"
+                "  border: 1px solid rgba(255, 255, 255, 0.15);"
+                "  border-radius: 12px;"
                 "}"
                 "QFrame#hudCard:hover {"
-                "  background-color: rgba(255, 255, 255, 0.09);"
-                "  border: 1px solid rgba(52, 152, 219, 0.7);"
+                "  background-color: rgba(255, 255, 255, 0.11);"
+                "  border: 1px solid rgba(52, 152, 219, 0.8);"
                 "}"
             ));
         }
@@ -179,10 +178,10 @@ public:
             }
         }
 
-        // Frameless translucent HUD window
+        // Frameless translucent HUD window with larger comfortable dimensions
         setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Dialog);
         setAttribute(Qt::WA_TranslucentBackground, true);
-        setFixedSize(560, 440);
+        setFixedSize(600, 480);
 
         regeneratePalette();
         initUI();
@@ -204,7 +203,6 @@ protected:
     void showEvent(QShowEvent *event) override
     {
         QDialog::showEvent(event);
-        // Center on screen where mouse cursor is located
         QScreen *screen = QGuiApplication::screenAt(QCursor::pos());
         if (!screen) {
             screen = QGuiApplication::primaryScreen();
@@ -263,6 +261,10 @@ protected:
                     tryFinishMark();
                     return true;
                 }
+                if (keyEv->key() == Qt::Key_Backspace && m_labelEdit->text().isEmpty()) {
+                    goToStep(2);
+                    return true;
+                }
                 if (keyEv->key() == Qt::Key_Escape) {
                     m_labelEdit->clearFocus();
                     setFocus();
@@ -303,7 +305,7 @@ protected:
             break;
         }
         case 1: { // Step 1: Color
-            // Check letter hotkeys A, S, D, F, G, H, J, K or 1..8
+            // Hotkeys A, S, D, F, G, H, J, K or 1..8
             for (int i = 0; i < 8; ++i) {
                 if (event->key() == s_paletteQtKeys[i] || event->key() == s_paletteNumKeys[i]) {
                     handleColorCardSelected(i);
@@ -339,17 +341,17 @@ protected:
             }
             break;
         }
-        case 2: { // Step 2: Scope
+        case 2: { // Step 2: Scope (Keys: A, S, D or 1, 2, 3)
             if (!m_captionEdit->hasFocus()) {
-                if (event->key() == Qt::Key_1 || event->key() == Qt::Key_A) {
+                if (event->key() == Qt::Key_A || event->key() == Qt::Key_1) {
                     handleScopeSelected(1);
                     return;
                 }
-                if (event->key() == Qt::Key_2 || event->key() == Qt::Key_P) {
+                if (event->key() == Qt::Key_S || event->key() == Qt::Key_2) {
                     handleScopeSelected(2);
                     return;
                 }
-                if (event->key() == Qt::Key_3 || event->key() == Qt::Key_O) {
+                if (event->key() == Qt::Key_D || event->key() == Qt::Key_3) {
                     handleScopeSelected(3);
                     return;
                 }
@@ -371,12 +373,12 @@ protected:
                     m_labelEdit->selectAll();
                     return;
                 }
-                if (event->key() == Qt::Key_P && m_chkPersistent->isEnabled()) {
-                    m_chkPersistent->setChecked(!m_chkPersistent->isChecked());
+                if (event->key() == Qt::Key_P && m_groupByApp) {
+                    togglePersistence();
                     return;
                 }
-                if (event->key() == Qt::Key_D && m_chkDesktop && m_chkDesktop->isVisible()) {
-                    m_chkDesktop->setChecked(!m_chkDesktop->isChecked());
+                if (event->key() == Qt::Key_D && m_desktopNum > 0) {
+                    toggleDesktopConstraint();
                     return;
                 }
                 if (event->key() == Qt::Key_Delete && m_isAlreadyMarked) {
@@ -404,8 +406,8 @@ private:
 
         m_mainFrame = new MainHudFrame(this);
         auto *mainLayout = new QVBoxLayout(m_mainFrame);
-        mainLayout->setContentsMargins(18, 14, 18, 12);
-        mainLayout->setSpacing(10);
+        mainLayout->setContentsMargins(20, 16, 20, 14);
+        mainLayout->setSpacing(12);
 
         setupHeader(mainLayout);
 
@@ -436,26 +438,26 @@ private:
         auto *headerWidget = new QWidget(m_mainFrame);
         auto *hLayout = new QVBoxLayout(headerWidget);
         hLayout->setContentsMargins(0, 0, 0, 4);
-        hLayout->setSpacing(6);
+        hLayout->setSpacing(8);
 
-        // Top context row
+        // Top context row with window info
         auto *topRow = new QHBoxLayout();
-        topRow->setSpacing(8);
+        topRow->setSpacing(10);
 
         auto *lblLogo = new QLabel(QStringLiteral("🎯"), headerWidget);
-        lblLogo->setStyleSheet(QStringLiteral("font-size: 15px;"));
+        lblLogo->setStyleSheet(QStringLiteral("font-size: 18px;"));
         topRow->addWidget(lblLogo);
 
         const QString appDisp = m_appClass.isEmpty() ? (m_isPolish ? QStringLiteral("Okno bez nazwy") : QStringLiteral("Unnamed Window")) : m_appClass;
         QString captionSnippet = m_windowCaption;
-        if (captionSnippet.length() > 38) {
-            captionSnippet = captionSnippet.left(35) + QStringLiteral("…");
+        if (captionSnippet.length() > 44) {
+            captionSnippet = captionSnippet.left(41) + QStringLiteral("…");
         }
         if (captionSnippet.isEmpty()) {
             captionSnippet = QStringLiteral("—");
         }
 
-        auto *lblContext = new QLabel(QStringLiteral("<b style='color:#ffffff;'>%1</b> <span style='color: rgba(255,255,255,0.55);'>• %2</span>")
+        auto *lblContext = new QLabel(QStringLiteral("<span style='font-size:15px; font-weight:bold; color:#ffffff;'>Custom Marker: %1</span> <span style='font-size:13px; color:rgba(255,255,255,0.65);'>• %2</span>")
                                           .arg(appDisp.toHtmlEscaped(), captionSnippet.toHtmlEscaped()), headerWidget);
         lblContext->setTextFormat(Qt::RichText);
         topRow->addWidget(lblContext, 1);
@@ -464,7 +466,7 @@ private:
 
         // HUD Breadcrumbs tracker
         auto *breadRow = new QHBoxLayout();
-        breadRow->setSpacing(4);
+        breadRow->setSpacing(6);
 
         const QStringList stepNames = {
             m_isPolish ? QStringLiteral("1. Litera") : QStringLiteral("1. Letter"),
@@ -485,7 +487,7 @@ private:
 
             if (i < 3) {
                 auto *sep = new QLabel(QStringLiteral("➔"), headerWidget);
-                sep->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.3); font-size: 10px;"));
+                sep->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.35); font-size: 11px;"));
                 breadRow->addWidget(sep);
             }
         }
@@ -498,28 +500,28 @@ private:
     {
         auto *layout = new QVBoxLayout(page);
         layout->setContentsMargins(8, 6, 8, 6);
-        layout->setSpacing(10);
+        layout->setSpacing(12);
 
         auto *lblTitle = new QLabel(m_isPolish ? QStringLiteral("Krok 1: Litera skrótu HUD (Jump Key)") : QStringLiteral("Step 1: HUD Jump Letter"), page);
-        lblTitle->setStyleSheet(QStringLiteral("font-size: 14px; font-weight: bold; color: #ffffff;"));
+        lblTitle->setStyleSheet(QStringLiteral("font-size: 17px; font-weight: bold; color: #ffffff;"));
         layout->addWidget(lblTitle);
 
         auto *lblSub = new QLabel(m_isPolish
             ? QStringLiteral("Wciśnij dowolną literę [A-Z] lub cyfrę. Wybór następuje bezpośrednio z klawiatury.")
             : QStringLiteral("Press any letter [A-Z] or digit on your keyboard."), page);
-        lblSub->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.65); font-size: 11px;"));
+        lblSub->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.75); font-size: 13px;"));
         layout->addWidget(lblSub);
 
         // Center HUD letter badge
         auto *centerBox = new QHBoxLayout();
         centerBox->setAlignment(Qt::AlignCenter);
-        centerBox->setContentsMargins(0, 8, 0, 8);
+        centerBox->setContentsMargins(0, 10, 0, 10);
 
         m_step0BadgeBox = new QLabel(m_letter, page);
-        m_step0BadgeBox->setFixedSize(76, 76);
+        m_step0BadgeBox->setFixedSize(84, 84);
         m_step0BadgeBox->setAlignment(Qt::AlignCenter);
         QFont bf = m_step0BadgeBox->font();
-        bf.setPointSize(30);
+        bf.setPointSize(34);
         bf.setBold(true);
         m_step0BadgeBox->setFont(bf);
         centerBox->addWidget(m_step0BadgeBox);
@@ -530,13 +532,13 @@ private:
         m_lblStep0Conflict = new QLabel(page);
         m_lblStep0Conflict->setStyleSheet(QStringLiteral(
             "QLabel {"
-            "  background-color: rgba(230, 126, 34, 0.2);"
-            "  border: 1px solid #e67e22;"
+            "  background-color: rgba(230, 126, 34, 0.25);"
+            "  border: 1.5px solid #e67e22;"
             "  border-radius: 8px;"
-            "  padding: 6px 10px;"
+            "  padding: 8px 12px;"
             "  color: #f39c12;"
             "  font-weight: bold;"
-            "  font-size: 11px;"
+            "  font-size: 12px;"
             "}"
         ));
         m_lblStep0Conflict->setWordWrap(true);
@@ -545,37 +547,39 @@ private:
 
         // Quick action buttons
         auto *btnRow = new QHBoxLayout();
-        btnRow->setSpacing(8);
+        btnRow->setSpacing(10);
 
         m_btnStep0Keep = new QPushButton(page);
         m_btnStep0Keep->setFocusPolicy(Qt::NoFocus);
         m_btnStep0Keep->setStyleSheet(QStringLiteral(
             "QPushButton {"
-            "  background-color: rgba(52, 152, 219, 0.25);"
-            "  border: 1px solid #3498db;"
-            "  border-radius: 8px;"
+            "  background-color: rgba(52, 152, 219, 0.28);"
+            "  border: 1.5px solid #3498db;"
+            "  border-radius: 10px;"
             "  color: #ffffff;"
+            "  font-size: 14px;"
             "  font-weight: bold;"
-            "  padding: 8px 14px;"
+            "  padding: 10px 18px;"
             "}"
-            "QPushButton:hover { background-color: rgba(52, 152, 219, 0.4); }"
+            "QPushButton:hover { background-color: rgba(52, 152, 219, 0.45); }"
         ));
         connect(m_btnStep0Keep, &QPushButton::clicked, this, [this]() {
             goToStep(1);
         });
         btnRow->addWidget(m_btnStep0Keep, 1);
 
-        m_btnStep0NoLetter = new QPushButton(m_isPolish ? QStringLiteral("Bez litery (Spacja / 0)") : QStringLiteral("No fixed letter (Space / 0)"), page);
+        m_btnStep0NoLetter = new QPushButton(m_isPolish ? QStringLiteral("Bez stałej litery (Spacja / 0)") : QStringLiteral("No fixed letter (Space / 0)"), page);
         m_btnStep0NoLetter->setFocusPolicy(Qt::NoFocus);
         m_btnStep0NoLetter->setStyleSheet(QStringLiteral(
             "QPushButton {"
-            "  background-color: rgba(255, 255, 255, 0.06);"
-            "  border: 1px solid rgba(255, 255, 255, 0.15);"
-            "  border-radius: 8px;"
-            "  color: rgba(255, 255, 255, 0.85);"
-            "  padding: 8px 14px;"
+            "  background-color: rgba(255, 255, 255, 0.08);"
+            "  border: 1px solid rgba(255, 255, 255, 0.2);"
+            "  border-radius: 10px;"
+            "  color: rgba(255, 255, 255, 0.9);"
+            "  font-size: 13px;"
+            "  padding: 10px 18px;"
             "}"
-            "QPushButton:hover { background-color: rgba(255, 255, 255, 0.12); }"
+            "QPushButton:hover { background-color: rgba(255, 255, 255, 0.15); }"
         ));
         connect(m_btnStep0NoLetter, &QPushButton::clicked, this, [this]() {
             m_useLetter = false;
@@ -600,8 +604,8 @@ private:
                 "QLabel {"
                 "  background-color: %1;"
                 "  color: %2;"
-                "  border-radius: 14px;"
-                "  border: 2px solid rgba(255,255,255,0.4);"
+                "  border-radius: 16px;"
+                "  border: 2px solid rgba(255,255,255,0.45);"
                 "  font-weight: bold;"
                 "}"
             ).arg(m_color.name(), textCol == Qt::black ? QStringLiteral("#000000") : QStringLiteral("#ffffff")));
@@ -610,10 +614,10 @@ private:
             m_step0BadgeBox->setText(QStringLiteral("—"));
             m_step0BadgeBox->setStyleSheet(QStringLiteral(
                 "QLabel {"
-                "  background-color: rgba(255, 255, 255, 0.08);"
-                "  color: rgba(255, 255, 255, 0.4);"
-                "  border-radius: 14px;"
-                "  border: 2px dashed rgba(255, 255, 255, 0.25);"
+                "  background-color: rgba(255, 255, 255, 0.09);"
+                "  color: rgba(255, 255, 255, 0.45);"
+                "  border-radius: 16px;"
+                "  border: 2px dashed rgba(255, 255, 255, 0.3);"
                 "  font-weight: bold;"
                 "}"
             ));
@@ -643,24 +647,24 @@ private:
         layout->setSpacing(10);
 
         auto *lblTitle = new QLabel(m_isPolish ? QStringLiteral("Krok 2: Wybierz kolor oznaczenia") : QStringLiteral("Step 2: Choose Mark Color"), page);
-        lblTitle->setStyleSheet(QStringLiteral("font-size: 14px; font-weight: bold; color: #ffffff;"));
+        lblTitle->setStyleSheet(QStringLiteral("font-size: 17px; font-weight: bold; color: #ffffff;"));
         layout->addWidget(lblTitle);
 
         auto *lblSub = new QLabel(m_isPolish
-            ? QStringLiteral("Wciśnij literę przypisaną do barwy, aby natychmiast przejść do zakresu.")
-            : QStringLiteral("Press any letter key to pick a color and advance instantly."), page);
-        lblSub->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.65); font-size: 11px;"));
+            ? QStringLiteral("Wciśnij literę przypisaną do barwy, aby natychmiast przejść do zakresu:")
+            : QStringLiteral("Press any letter key to pick a color and advance instantly:"), page);
+        lblSub->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.75); font-size: 13px;"));
         layout->addWidget(lblSub);
 
         // 8 Palette Tiles Grid
         auto *gridContainer = new QWidget(page);
         m_paletteGrid = new QGridLayout(gridContainer);
-        m_paletteGrid->setSpacing(8);
-        m_paletteGrid->setContentsMargins(0, 2, 0, 2);
+        m_paletteGrid->setSpacing(10);
+        m_paletteGrid->setContentsMargins(0, 4, 0, 4);
 
         for (int i = 0; i < 8; ++i) {
             auto *btn = new QPushButton(gridContainer);
-            btn->setFixedHeight(52);
+            btn->setFixedHeight(58);
             btn->setCursor(Qt::PointingHandCursor);
             btn->setFocusPolicy(Qt::NoFocus);
             connect(btn, &QPushButton::clicked, this, [this, i]() {
@@ -673,20 +677,21 @@ private:
 
         // Secondary Palette Controls: Reroll, Custom Color, No Color
         auto *ctrlLayout = new QHBoxLayout();
-        ctrlLayout->setSpacing(8);
+        ctrlLayout->setSpacing(10);
 
         m_btnReroll = new QPushButton(m_isPolish ? QStringLiteral("🎲 Nowe barwy (R / Spacja)") : QStringLiteral("🎲 New Colors (R / Space)"), page);
         m_btnReroll->setFocusPolicy(Qt::NoFocus);
         m_btnReroll->setStyleSheet(QStringLiteral(
             "QPushButton {"
-            "  background-color: rgba(255, 255, 255, 0.08);"
-            "  border: 1px solid rgba(255, 255, 255, 0.18);"
+            "  background-color: rgba(255, 255, 255, 0.1);"
+            "  border: 1px solid rgba(255, 255, 255, 0.25);"
             "  border-radius: 8px;"
             "  color: #ffffff;"
+            "  font-size: 13px;"
             "  font-weight: bold;"
-            "  padding: 6px 10px;"
+            "  padding: 8px 14px;"
             "}"
-            "QPushButton:hover { background-color: rgba(255, 255, 255, 0.15); }"
+            "QPushButton:hover { background-color: rgba(255, 255, 255, 0.18); }"
         ));
         connect(m_btnReroll, &QPushButton::clicked, this, [this]() {
             rerollPalette();
@@ -697,13 +702,14 @@ private:
         m_btnCustomColor->setFocusPolicy(Qt::NoFocus);
         m_btnCustomColor->setStyleSheet(QStringLiteral(
             "QPushButton {"
-            "  background-color: rgba(255, 255, 255, 0.06);"
-            "  border: 1px solid rgba(255, 255, 255, 0.15);"
+            "  background-color: rgba(255, 255, 255, 0.08);"
+            "  border: 1px solid rgba(255, 255, 255, 0.18);"
             "  border-radius: 8px;"
-            "  color: rgba(255, 255, 255, 0.85);"
-            "  padding: 6px 10px;"
+            "  color: rgba(255, 255, 255, 0.9);"
+            "  font-size: 13px;"
+            "  padding: 8px 14px;"
             "}"
-            "QPushButton:hover { background-color: rgba(255, 255, 255, 0.12); }"
+            "QPushButton:hover { background-color: rgba(255, 255, 255, 0.14); }"
         ));
         connect(m_btnCustomColor, &QPushButton::clicked, this, [this]() {
             openCustomColorDialog();
@@ -714,13 +720,14 @@ private:
         m_btnNoColor->setFocusPolicy(Qt::NoFocus);
         m_btnNoColor->setStyleSheet(QStringLiteral(
             "QPushButton {"
-            "  background-color: rgba(255, 255, 255, 0.06);"
-            "  border: 1px solid rgba(255, 255, 255, 0.15);"
+            "  background-color: rgba(255, 255, 255, 0.08);"
+            "  border: 1px solid rgba(255, 255, 255, 0.18);"
             "  border-radius: 8px;"
-            "  color: rgba(255, 255, 255, 0.85);"
-            "  padding: 6px 10px;"
+            "  color: rgba(255, 255, 255, 0.9);"
+            "  font-size: 13px;"
+            "  padding: 8px 14px;"
             "}"
-            "QPushButton:hover { background-color: rgba(255, 255, 255, 0.12); }"
+            "QPushButton:hover { background-color: rgba(255, 255, 255, 0.14); }"
         ));
         connect(m_btnNoColor, &QPushButton::clicked, this, [this]() {
             m_useColor = false;
@@ -770,15 +777,15 @@ private:
                 "QPushButton {"
                 "  background-color: %1;"
                 "  color: %2;"
-                "  font-size: 15px;"
+                "  font-size: 16px;"
                 "  font-weight: bold;"
-                "  border-radius: 10px;"
+                "  border-radius: 12px;"
                 "  border: %3;"
                 "}"
                 "QPushButton:hover {"
-                "  border: 3px solid rgba(255,255,255,0.95);"
+                "  border: 3.5px solid rgba(255,255,255,0.95);"
                 "}"
-            ).arg(c.name(), textColStr, isSelected ? QStringLiteral("3px solid #ffffff") : QStringLiteral("1px solid rgba(0,0,0,0.3)")));
+            ).arg(c.name(), textColStr, isSelected ? QStringLiteral("3.5px solid #ffffff") : QStringLiteral("1.5px solid rgba(0,0,0,0.35)")));
         }
     }
 
@@ -818,79 +825,79 @@ private:
     {
         auto *layout = new QVBoxLayout(page);
         layout->setContentsMargins(8, 6, 8, 6);
-        layout->setSpacing(8);
+        layout->setSpacing(10);
 
         auto *lblTitle = new QLabel(m_isPolish ? QStringLiteral("Krok 3: Wybierz zakres reguły") : QStringLiteral("Step 3: Choose Rule Scope"), page);
-        lblTitle->setStyleSheet(QStringLiteral("font-size: 14px; font-weight: bold; color: #ffffff;"));
+        lblTitle->setStyleSheet(QStringLiteral("font-size: 17px; font-weight: bold; color: #ffffff;"));
         layout->addWidget(lblTitle);
 
         auto *lblSub = new QLabel(m_isPolish
-            ? QStringLiteral("Wciśnij [1], [2] lub [3] na klawiaturze:")
-            : QStringLiteral("Press [1], [2], or [3] on your keyboard:"), page);
-        lblSub->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.65); font-size: 11px;"));
+            ? QStringLiteral("Wciśnij literę [A], [S] lub [D] na klawiaturze:")
+            : QStringLiteral("Press letter [A], [S], or [D] on your keyboard:"), page);
+        lblSub->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.75); font-size: 13px;"));
         layout->addWidget(lblSub);
 
         const QString appDisp = m_appClass.isEmpty() ? (m_isPolish ? QStringLiteral("tej aplikacji") : QStringLiteral("this app")) : m_appClass;
 
-        // Card 1: All App
+        // Card A: All App (Key: A or 1)
         m_cardAllApp = new HudOptionCard(page);
         m_cardAllApp->onClicked = [this]() { handleScopeSelected(1); };
 
         auto *c1Layout = new QHBoxLayout(m_cardAllApp);
-        c1Layout->setContentsMargins(12, 8, 12, 8);
-        c1Layout->setSpacing(12);
+        c1Layout->setContentsMargins(14, 10, 14, 10);
+        c1Layout->setSpacing(14);
 
-        auto *c1Badge = new QLabel(QStringLiteral("[ 1 ]"), m_cardAllApp);
+        auto *c1Badge = new QLabel(QStringLiteral("[ A ]"), m_cardAllApp);
         c1Badge->setAttribute(Qt::WA_TransparentForMouseEvents);
-        c1Badge->setStyleSheet(QStringLiteral("font-weight: bold; font-size: 15px; color: #3498db;"));
+        c1Badge->setStyleSheet(QStringLiteral("font-weight: bold; font-size: 16px; color: #3498db;"));
         c1Layout->addWidget(c1Badge);
 
         auto *c1TextLayout = new QVBoxLayout();
-        c1TextLayout->setSpacing(2);
-        auto *c1Title = new QLabel(m_isPolish ? QStringLiteral("<b style='color:#ffffff;'>Cała aplikacja (%1)</b>").arg(appDisp) : QStringLiteral("<b style='color:#ffffff;'>All windows of this app (%1)</b>").arg(appDisp), m_cardAllApp);
+        c1TextLayout->setSpacing(3);
+        auto *c1Title = new QLabel(m_isPolish ? QStringLiteral("<b style='font-size:15px; color:#ffffff;'>Cała aplikacja (%1)</b>").arg(appDisp) : QStringLiteral("<b style='font-size:15px; color:#ffffff;'>All windows of this app (%1)</b>").arg(appDisp), m_cardAllApp);
         c1Title->setAttribute(Qt::WA_TransparentForMouseEvents);
         c1Title->setTextFormat(Qt::RichText);
-        auto *c1Desc = new QLabel(m_isPolish ? QStringLiteral("Wszystkie obecne i przyszłe okna tego programu.") : QStringLiteral("All current and future windows of this app."), m_cardAllApp);
+        auto *c1Desc = new QLabel(m_isPolish ? QStringLiteral("Wszystkie obecne i przyszłe okna tego programu będą miały ten mark.") : QStringLiteral("All current and future windows of this app will share this mark."), m_cardAllApp);
         c1Desc->setAttribute(Qt::WA_TransparentForMouseEvents);
-        c1Desc->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.6); font-size: 11px;"));
+        c1Desc->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.75); font-size: 13px;"));
         c1TextLayout->addWidget(c1Title);
         c1TextLayout->addWidget(c1Desc);
         c1Layout->addLayout(c1TextLayout, 1);
         layout->addWidget(m_cardAllApp);
 
-        // Card 2: Process / Caption with inline expandable input
+        // Card S: Process / Caption with inline expandable input (Key: S or 2)
         m_cardCaption = new HudOptionCard(page);
         m_cardCaption->onClicked = [this]() { handleScopeSelected(2); };
 
         auto *c2Layout = new QVBoxLayout(m_cardCaption);
-        c2Layout->setContentsMargins(12, 8, 12, 8);
-        c2Layout->setSpacing(6);
+        c2Layout->setContentsMargins(14, 10, 14, 10);
+        c2Layout->setSpacing(8);
 
         auto *c2TopRow = new QHBoxLayout();
-        c2TopRow->setSpacing(12);
-        auto *c2Badge = new QLabel(QStringLiteral("[ 2 ]"), m_cardCaption);
+        c2TopRow->setSpacing(14);
+        auto *c2Badge = new QLabel(QStringLiteral("[ S ]"), m_cardCaption);
         c2Badge->setAttribute(Qt::WA_TransparentForMouseEvents);
-        c2Badge->setStyleSheet(QStringLiteral("font-weight: bold; font-size: 15px; color: #e67e22;"));
+        c2Badge->setStyleSheet(QStringLiteral("font-weight: bold; font-size: 16px; color: #e67e22;"));
         c2TopRow->addWidget(c2Badge);
 
         auto *c2TextLayout = new QVBoxLayout();
-        c2TextLayout->setSpacing(2);
-        auto *c2Title = new QLabel(m_isPolish ? QStringLiteral("<b style='color:#ffffff;'>Zawęź do procesu potomnego lub tytułu</b>") : QStringLiteral("<b style='color:#ffffff;'>Narrow to child process or title</b>"), m_cardCaption);
+        c2TextLayout->setSpacing(3);
+        auto *c2Title = new QLabel(m_isPolish ? QStringLiteral("<b style='font-size:15px; color:#ffffff;'>Zawęź do procesu potomnego lub tytułu</b>") : QStringLiteral("<b style='font-size:15px; color:#ffffff;'>Narrow to child process or title</b>"), m_cardCaption);
         c2Title->setAttribute(Qt::WA_TransparentForMouseEvents);
         c2Title->setTextFormat(Qt::RichText);
         auto *c2Desc = new QLabel(m_isPolish ? QStringLiteral("Dopasuj tylko gdy w oknie działa program (np. nvim, ssh, dev).") : QStringLiteral("Match only when specific child command is running (e.g. nvim, ssh, dev)."), m_cardCaption);
         c2Desc->setAttribute(Qt::WA_TransparentForMouseEvents);
-        c2Desc->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.6); font-size: 11px;"));
+        c2Desc->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.75); font-size: 13px;"));
         c2TextLayout->addWidget(c2Title);
         c2TextLayout->addWidget(c2Desc);
         c2TopRow->addLayout(c2TextLayout, 1);
         c2Layout->addLayout(c2TopRow);
 
-        // Inline input container (only active when Option 2 chosen)
+        // Inline input container (active when Option S chosen)
         m_captionInputRow = new QWidget(m_cardCaption);
         auto *c2InputLayout = new QHBoxLayout(m_captionInputRow);
-        c2InputLayout->setContentsMargins(36, 4, 0, 0);
-        c2InputLayout->setSpacing(8);
+        c2InputLayout->setContentsMargins(42, 4, 0, 0);
+        c2InputLayout->setSpacing(10);
 
         m_captionEdit = new QLineEdit(m_detectedCaption, m_captionInputRow);
         m_captionEdit->setPlaceholderText(m_isPolish ? QStringLiteral("np. nvim, ssh, dev, zadanie...") : QStringLiteral("e.g. nvim, ssh, dev, task..."));
@@ -898,12 +905,12 @@ private:
         m_captionEdit->installEventFilter(this);
         m_captionEdit->setStyleSheet(QStringLiteral(
             "QLineEdit {"
-            "  background-color: rgba(0, 0, 0, 0.35);"
+            "  background-color: rgba(0, 0, 0, 0.45);"
             "  border: 1.5px solid #e67e22;"
-            "  border-radius: 6px;"
+            "  border-radius: 8px;"
             "  color: #ffffff;"
-            "  padding: 5px 8px;"
-            "  font-size: 12px;"
+            "  padding: 6px 10px;"
+            "  font-size: 13px;"
             "}"
         ));
         c2InputLayout->addWidget(m_captionEdit, 1);
@@ -913,10 +920,11 @@ private:
         m_btnConfirmCaption->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background-color: #e67e22;"
-            "  border-radius: 6px;"
+            "  border-radius: 8px;"
             "  color: #ffffff;"
             "  font-weight: bold;"
-            "  padding: 5px 12px;"
+            "  font-size: 13px;"
+            "  padding: 6px 14px;"
             "}"
             "QPushButton:hover { background-color: #d35400; }"
         ));
@@ -927,30 +935,30 @@ private:
         });
         c2InputLayout->addWidget(m_btnConfirmCaption);
         c2Layout->addWidget(m_captionInputRow);
-        m_captionInputRow->hide(); // Initially hidden until option 2 is chosen!
+        m_captionInputRow->hide();
         layout->addWidget(m_cardCaption);
 
-        // Card 3: Single Window
+        // Card D: Single Window (Key: D or 3)
         m_cardSingleWindow = new HudOptionCard(page);
         m_cardSingleWindow->onClicked = [this]() { handleScopeSelected(3); };
 
         auto *c3Layout = new QHBoxLayout(m_cardSingleWindow);
-        c3Layout->setContentsMargins(12, 8, 12, 8);
-        c3Layout->setSpacing(12);
+        c3Layout->setContentsMargins(14, 10, 14, 10);
+        c3Layout->setSpacing(14);
 
-        auto *c3Badge = new QLabel(QStringLiteral("[ 3 ]"), m_cardSingleWindow);
+        auto *c3Badge = new QLabel(QStringLiteral("[ D ]"), m_cardSingleWindow);
         c3Badge->setAttribute(Qt::WA_TransparentForMouseEvents);
-        c3Badge->setStyleSheet(QStringLiteral("font-weight: bold; font-size: 15px; color: #2ecc71;"));
+        c3Badge->setStyleSheet(QStringLiteral("font-weight: bold; font-size: 16px; color: #2ecc71;"));
         c3Layout->addWidget(c3Badge);
 
         auto *c3TextLayout = new QVBoxLayout();
-        c3TextLayout->setSpacing(2);
-        auto *c3Title = new QLabel(m_isPolish ? QStringLiteral("<b style='color:#ffffff;'>Tylko to jedno okno</b>") : QStringLiteral("<b style='color:#ffffff;'>This window only</b>"), m_cardSingleWindow);
+        c3TextLayout->setSpacing(3);
+        auto *c3Title = new QLabel(m_isPolish ? QStringLiteral("<b style='font-size:15px; color:#ffffff;'>Tylko to jedno okno</b>") : QStringLiteral("<b style='font-size:15px; color:#ffffff;'>This window only</b>"), m_cardSingleWindow);
         c3Title->setAttribute(Qt::WA_TransparentForMouseEvents);
         c3Title->setTextFormat(Qt::RichText);
-        auto *c3Desc = new QLabel(m_isPolish ? QStringLiteral("Tymczasowe oznaczenie wyłącznie dla tej jednej instancji.") : QStringLiteral("Temporary mark applied only to this specific window."), m_cardSingleWindow);
+        auto *c3Desc = new QLabel(m_isPolish ? QStringLiteral("Tymczasowe oznaczenie wyłącznie dla tej jednej instancji.") : QStringLiteral("Temporary mark applied only to this specific window instance."), m_cardSingleWindow);
         c3Desc->setAttribute(Qt::WA_TransparentForMouseEvents);
-        c3Desc->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.6); font-size: 11px;"));
+        c3Desc->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.75); font-size: 13px;"));
         c3TextLayout->addWidget(c3Title);
         c3TextLayout->addWidget(c3Desc);
         c3Layout->addLayout(c3TextLayout, 1);
@@ -993,72 +1001,69 @@ private:
     {
         auto *layout = new QVBoxLayout(page);
         layout->setContentsMargins(8, 6, 8, 6);
-        layout->setSpacing(10);
+        layout->setSpacing(12);
 
         auto *lblTitle = new QLabel(m_isPolish ? QStringLiteral("Krok 4: Podsumowanie i zapis reguły") : QStringLiteral("Step 4: Summary & Save"), page);
-        lblTitle->setStyleSheet(QStringLiteral("font-size: 14px; font-weight: bold; color: #ffffff;"));
+        lblTitle->setStyleSheet(QStringLiteral("font-size: 17px; font-weight: bold; color: #ffffff;"));
         layout->addWidget(lblTitle);
 
         // Live Preview Mockup Card
         m_previewCard = new QFrame(page);
         m_previewCard->setStyleSheet(QStringLiteral(
             "QFrame {"
-            "  background-color: rgba(255, 255, 255, 0.06);"
-            "  border: 1px solid rgba(255, 255, 255, 0.15);"
-            "  border-radius: 12px;"
+            "  background-color: rgba(255, 255, 255, 0.08);"
+            "  border: 1.5px solid rgba(255, 255, 255, 0.2);"
+            "  border-radius: 14px;"
             "}"
         ));
         auto *prevLayout = new QHBoxLayout(m_previewCard);
-        prevLayout->setSpacing(14);
-        prevLayout->setContentsMargins(12, 10, 12, 10);
+        prevLayout->setSpacing(16);
+        prevLayout->setContentsMargins(14, 12, 14, 12);
 
         m_previewBadge = new QLabel(m_previewCard);
-        m_previewBadge->setFixedSize(56, 56);
+        m_previewBadge->setFixedSize(62, 62);
         m_previewBadge->setAlignment(Qt::AlignCenter);
         QFont pf = m_previewBadge->font();
-        pf.setPointSize(22);
+        pf.setPointSize(24);
         pf.setBold(true);
         m_previewBadge->setFont(pf);
         prevLayout->addWidget(m_previewBadge);
 
         auto *prevDetailsLayout = new QVBoxLayout();
-        prevDetailsLayout->setSpacing(3);
+        prevDetailsLayout->setSpacing(4);
 
         m_previewTitle = new QLabel(m_previewCard);
-        m_previewTitle->setStyleSheet(QStringLiteral("font-size: 13px; font-weight: bold; color: #ffffff;"));
+        m_previewTitle->setStyleSheet(QStringLiteral("font-size: 15px; font-weight: bold; color: #ffffff;"));
         m_previewTitle->setTextFormat(Qt::RichText);
         prevDetailsLayout->addWidget(m_previewTitle);
 
         m_previewScope = new QLabel(m_previewCard);
-        m_previewScope->setStyleSheet(QStringLiteral("color: rgba(255, 255, 255, 0.7); font-size: 11px;"));
+        m_previewScope->setStyleSheet(QStringLiteral("color: rgba(255, 255, 255, 0.85); font-size: 13px;"));
         m_previewScope->setTextFormat(Qt::RichText);
         prevDetailsLayout->addWidget(m_previewScope);
 
         m_previewConflictWarn = new QLabel(m_previewCard);
-        m_previewConflictWarn->setStyleSheet(QStringLiteral("color: #e67e22; font-size: 11px; font-weight: bold;"));
+        m_previewConflictWarn->setStyleSheet(QStringLiteral("color: #e67e22; font-size: 12px; font-weight: bold;"));
         m_previewConflictWarn->hide();
         prevDetailsLayout->addWidget(m_previewConflictWarn);
 
         prevLayout->addLayout(prevDetailsLayout, 1);
         layout->addWidget(m_previewCard);
 
-        // Interactive HUD pills row for Label, Persistent, Desktop
-        auto *pillsRow = new QHBoxLayout();
-        pillsRow->setSpacing(8);
-
+        // Label input field
         m_labelEdit = new QLineEdit(m_label, page);
-        m_labelEdit->setPlaceholderText(m_isPolish ? QStringLiteral("[L] Własna etykieta (np. Backend, Dev)...") : QStringLiteral("[L] Custom label (e.g. Backend, Dev)..."));
+        m_labelEdit->setPlaceholderText(m_isPolish ? QStringLiteral("🏷 [L] Własna etykieta (np. Backend, Dev, Terminal)...") : QStringLiteral("🏷 [L] Custom label (e.g. Backend, Dev, Terminal)..."));
         m_labelEdit->setClearButtonEnabled(true);
         m_labelEdit->setMaxLength(50);
         m_labelEdit->installEventFilter(this);
         m_labelEdit->setStyleSheet(QStringLiteral(
             "QLineEdit {"
-            "  background-color: rgba(0, 0, 0, 0.35);"
-            "  border: 1px solid rgba(255, 255, 255, 0.2);"
+            "  background-color: rgba(0, 0, 0, 0.45);"
+            "  border: 1.5px solid rgba(255, 255, 255, 0.25);"
             "  border-radius: 8px;"
             "  color: #ffffff;"
-            "  padding: 6px 10px;"
-            "  font-size: 12px;"
+            "  padding: 8px 12px;"
+            "  font-size: 13px;"
             "}"
             "QLineEdit:focus {"
             "  border: 1.5px solid #3498db;"
@@ -1068,39 +1073,48 @@ private:
             m_label = txt.trimmed();
             updateStep3Preview();
         });
-        pillsRow->addWidget(m_labelEdit, 1);
+        layout->addWidget(m_labelEdit);
 
-        layout->addLayout(pillsRow);
+        // High-Contrast HUD Toggle Buttons instead of small checkboxes!
+        auto *togglesLayout = new QVBoxLayout();
+        togglesLayout->setSpacing(8);
 
-        // Checkboxes / Toggles row
-        auto *chkRow = new QHBoxLayout();
-        chkRow->setSpacing(12);
-
-        m_chkPersistent = new QCheckBox(m_isPolish ? QStringLiteral("[P] Zapisz regułę na stałe (marks.json)") : QStringLiteral("[P] Save permanently (marks.json)"), page);
-        m_chkPersistent->setFocusPolicy(Qt::NoFocus);
-        m_chkPersistent->setChecked(m_persistent);
-        m_chkPersistent->setStyleSheet(QStringLiteral("QCheckBox { color: rgba(255,255,255,0.85); font-size: 11px; }"));
-        connect(m_chkPersistent, &QCheckBox::toggled, this, [this](bool checked) {
-            m_persistent = checked;
+        // 1. Persistent Toggle Button
+        m_btnTogglePersistent = new QPushButton(page);
+        m_btnTogglePersistent->setFocusPolicy(Qt::NoFocus);
+        m_btnTogglePersistent->setCursor(Qt::PointingHandCursor);
+        connect(m_btnTogglePersistent, &QPushButton::clicked, this, [this]() {
+            togglePersistence();
         });
-        chkRow->addWidget(m_chkPersistent);
+        togglesLayout->addWidget(m_btnTogglePersistent);
 
+        // 2. Desktop Toggle Button (if desktopNum > 0)
         if (m_desktopNum > 0) {
-            const QString deskLabel = m_desktopName.isEmpty() ? QStringLiteral("Pulpit %1").arg(m_desktopNum) : m_desktopName;
-            m_chkDesktop = new QCheckBox(m_isPolish ? QStringLiteral("[D] Tylko na: %1").arg(deskLabel) : QStringLiteral("[D] Only on: %1").arg(deskLabel), page);
-            m_chkDesktop->setFocusPolicy(Qt::NoFocus);
-            m_chkDesktop->setChecked(m_matchDesktop);
-            m_chkDesktop->setStyleSheet(QStringLiteral("QCheckBox { color: rgba(255,255,255,0.85); font-size: 11px; }"));
-            connect(m_chkDesktop, &QCheckBox::toggled, this, [this](bool checked) {
-                m_matchDesktop = checked;
+            m_btnToggleDesktop = new QPushButton(page);
+            m_btnToggleDesktop->setFocusPolicy(Qt::NoFocus);
+            m_btnToggleDesktop->setCursor(Qt::PointingHandCursor);
+            connect(m_btnToggleDesktop, &QPushButton::clicked, this, [this]() {
+                toggleDesktopConstraint();
             });
-            chkRow->addWidget(m_chkDesktop);
+            togglesLayout->addWidget(m_btnToggleDesktop);
         }
 
-        chkRow->addStretch(1);
-        layout->addLayout(chkRow);
-
+        layout->addLayout(togglesLayout);
         layout->addStretch(1);
+    }
+
+    void togglePersistence()
+    {
+        if (!m_groupByApp) return;
+        m_persistent = !m_persistent;
+        updateStep3Preview();
+    }
+
+    void toggleDesktopConstraint()
+    {
+        if (m_desktopNum <= 0) return;
+        m_matchDesktop = !m_matchDesktop;
+        updateStep3Preview();
     }
 
     void updateStep3Preview()
@@ -1114,16 +1128,16 @@ private:
             "QLabel {"
             "  background-color: %1;"
             "  color: %2;"
-            "  border-radius: 12px;"
-            "  border: 2px solid rgba(255,255,255,0.4);"
+            "  border-radius: 14px;"
+            "  border: 2px solid rgba(255,255,255,0.45);"
             "  font-weight: bold;"
             "}"
         ).arg(effectiveBg.name(), textCol == Qt::black ? QStringLiteral("#000000") : QStringLiteral("#ffffff")));
 
         const QString appDisp = m_appClass.isEmpty() ? (m_isPolish ? QStringLiteral("Bieżące okno") : QStringLiteral("Current Window")) : m_appClass;
-        QString titleStr = QStringLiteral("<b style='color:#ffffff;'>%1</b>").arg(appDisp.toHtmlEscaped());
+        QString titleStr = QStringLiteral("<b style='color:#ffffff; font-size:16px;'>%1</b>").arg(appDisp.toHtmlEscaped());
         if (!m_label.isEmpty()) {
-            titleStr += QStringLiteral(" <span style='color: #3498db; font-weight:bold;'>[%1]</span>").arg(m_label.toHtmlEscaped());
+            titleStr += QStringLiteral(" <span style='color: #3498db; font-size:14px; font-weight:bold;'>[%1]</span>").arg(m_label.toHtmlEscaped());
         }
         m_previewTitle->setText(titleStr);
 
@@ -1145,8 +1159,8 @@ private:
             const QString existingApp = m_usedLettersMap.value(m_letter).toString();
             if (!existingApp.isEmpty() && existingApp.compare(m_appClass, Qt::CaseInsensitive) != 0) {
                 m_previewConflictWarn->setText(m_isPolish
-                    ? QStringLiteral("⚠️ Zastąpi literę '%1' przypisaną do %2").arg(m_letter, existingApp)
-                    : QStringLiteral("⚠️ Will reassign letter '%1' from %2").arg(m_letter, existingApp));
+                    ? QStringLiteral("⚠️ Zastąpi literę '%1' przypisaną do: %2").arg(m_letter, existingApp)
+                    : QStringLiteral("⚠️ Will reassign letter '%1' from: %2").arg(m_letter, existingApp));
                 m_previewConflictWarn->show();
             } else {
                 m_previewConflictWarn->hide();
@@ -1155,9 +1169,69 @@ private:
             m_previewConflictWarn->hide();
         }
 
-        m_chkPersistent->setEnabled(m_groupByApp);
-        if (!m_groupByApp) {
-            m_chkPersistent->setChecked(false);
+        // Update High-Contrast Persistence Toggle Pill
+        if (m_btnTogglePersistent) {
+            if (!m_groupByApp) {
+                m_persistent = false;
+                m_btnTogglePersistent->setEnabled(false);
+                m_btnTogglePersistent->setText(m_isPolish
+                    ? QStringLiteral("💾 [P] Zapis na stałe (marks.json):  NIE DOTYCZY (Jedno okno)")
+                    : QStringLiteral("💾 [P] Save permanently (marks.json):  N/A (Single Window)"));
+                m_btnTogglePersistent->setStyleSheet(QStringLiteral(
+                    "QPushButton {"
+                    "  background-color: rgba(255, 255, 255, 0.04);"
+                    "  border: 1px dashed rgba(255, 255, 255, 0.15);"
+                    "  border-radius: 8px;"
+                    "  color: rgba(255, 255, 255, 0.35);"
+                    "  text-align: left;"
+                    "  padding: 8px 14px;"
+                    "  font-size: 13px;"
+                    "}"
+                ));
+            } else {
+                m_btnTogglePersistent->setEnabled(true);
+                const QString statusText = m_persistent
+                    ? (m_isPolish ? QStringLiteral("WŁĄCZONY (pamiętaj po restarcie)") : QStringLiteral("ENABLED (persist across reboots)"))
+                    : (m_isPolish ? QStringLiteral("WYŁĄCZONY (tylko bieżąca sesja)") : QStringLiteral("DISABLED (current session only)"));
+                const QString tagColor = m_persistent ? QStringLiteral("#2ecc71") : QStringLiteral("#e74c3c");
+                m_btnTogglePersistent->setText(QStringLiteral("💾 [P] Zapis na stałe (marks.json):  %1").arg(statusText));
+                m_btnTogglePersistent->setStyleSheet(QStringLiteral(
+                    "QPushButton {"
+                    "  background-color: rgba(255, 255, 255, 0.07);"
+                    "  border: 1.5px solid %1;"
+                    "  border-radius: 8px;"
+                    "  color: #ffffff;"
+                    "  text-align: left;"
+                    "  padding: 8px 14px;"
+                    "  font-size: 13px;"
+                    "  font-weight: bold;"
+                    "}"
+                    "QPushButton:hover { background-color: rgba(255, 255, 255, 0.12); }"
+                ).arg(tagColor));
+            }
+        }
+
+        // Update High-Contrast Virtual Desktop Toggle Pill
+        if (m_btnToggleDesktop && m_desktopNum > 0) {
+            const QString deskLabel = m_desktopName.isEmpty() ? QStringLiteral("Pulpit %1").arg(m_desktopNum) : m_desktopName;
+            const QString statusText = m_matchDesktop
+                ? (m_isPolish ? QStringLiteral("TYLKO TEN PULPIT (%1)").arg(deskLabel) : QStringLiteral("ONLY THIS DESKTOP (%1)").arg(deskLabel))
+                : (m_isPolish ? QStringLiteral("WSZYSTKIE PULPITY") : QStringLiteral("ALL VIRTUAL DESKTOPS"));
+            const QString tagColor = m_matchDesktop ? QStringLiteral("#3498db") : QStringLiteral("rgba(255,255,255,0.25)");
+            m_btnToggleDesktop->setText(QStringLiteral("🖥 [D] Przypisanie pulpitu:  %1").arg(statusText));
+            m_btnToggleDesktop->setStyleSheet(QStringLiteral(
+                "QPushButton {"
+                "  background-color: rgba(255, 255, 255, 0.07);"
+                "  border: 1.5px solid %1;"
+                "  border-radius: 8px;"
+                "  color: #ffffff;"
+                "  text-align: left;"
+                "  padding: 8px 14px;"
+                "  font-size: 13px;"
+                "  font-weight: bold;"
+                "}"
+                "QPushButton:hover { background-color: rgba(255, 255, 255, 0.12); }"
+            ).arg(tagColor));
         }
     }
 
@@ -1166,22 +1240,23 @@ private:
         auto *bottomWidget = new QWidget(m_mainFrame);
         auto *bLayout = new QVBoxLayout(bottomWidget);
         bLayout->setContentsMargins(0, 4, 0, 0);
-        bLayout->setSpacing(4);
+        bLayout->setSpacing(6);
 
         auto *btnRow = new QHBoxLayout();
-        btnRow->setSpacing(8);
+        btnRow->setSpacing(10);
 
-        m_btnBack = new QPushButton(m_isPolish ? QStringLiteral("❮ Wstecz") : QStringLiteral("❮ Back"), bottomWidget);
+        m_btnBack = new QPushButton(m_isPolish ? QStringLiteral("❮ Wstecz [Backspace]") : QStringLiteral("❮ Back [Backspace]"), bottomWidget);
         m_btnBack->setFocusPolicy(Qt::NoFocus);
         m_btnBack->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background-color: rgba(255, 255, 255, 0.08);"
-            "  border: 1px solid rgba(255, 255, 255, 0.15);"
+            "  border: 1px solid rgba(255, 255, 255, 0.18);"
             "  border-radius: 8px;"
             "  color: #ffffff;"
-            "  padding: 7px 14px;"
+            "  font-size: 13px;"
+            "  padding: 8px 16px;"
             "}"
-            "QPushButton:hover { background-color: rgba(255, 255, 255, 0.15); }"
+            "QPushButton:hover { background-color: rgba(255, 255, 255, 0.16); }"
             "QPushButton:disabled { color: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.06); }"
         ));
         connect(m_btnBack, &QPushButton::clicked, this, [this]() {
@@ -1196,14 +1271,15 @@ private:
             m_btnRemove->setFocusPolicy(Qt::NoFocus);
             m_btnRemove->setStyleSheet(QStringLiteral(
                 "QPushButton {"
-                "  background-color: rgba(231, 76, 60, 0.2);"
-                "  border: 1px solid #e74c3c;"
+                "  background-color: rgba(231, 76, 60, 0.22);"
+                "  border: 1.5px solid #e74c3c;"
                 "  border-radius: 8px;"
                 "  color: #e74c3c;"
                 "  font-weight: bold;"
-                "  padding: 7px 12px;"
+                "  font-size: 13px;"
+                "  padding: 8px 14px;"
                 "}"
-                "QPushButton:hover { background-color: rgba(231, 76, 60, 0.35); }"
+                "QPushButton:hover { background-color: rgba(231, 76, 60, 0.38); }"
             ));
             connect(m_btnRemove, &QPushButton::clicked, this, [this]() {
                 m_markRemoved = true;
@@ -1219,10 +1295,11 @@ private:
         m_btnCancel->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background-color: rgba(255, 255, 255, 0.06);"
-            "  border: 1px solid rgba(255, 255, 255, 0.15);"
+            "  border: 1px solid rgba(255, 255, 255, 0.18);"
             "  border-radius: 8px;"
-            "  color: rgba(255, 255, 255, 0.85);"
-            "  padding: 7px 14px;"
+            "  color: rgba(255, 255, 255, 0.9);"
+            "  font-size: 13px;"
+            "  padding: 8px 16px;"
             "}"
             "QPushButton:hover { background-color: rgba(255, 255, 255, 0.12); }"
         ));
@@ -1237,7 +1314,8 @@ private:
             "  border-radius: 8px;"
             "  color: #ffffff;"
             "  font-weight: bold;"
-            "  padding: 7px 18px;"
+            "  font-size: 14px;"
+            "  padding: 8px 20px;"
             "}"
             "QPushButton:hover { background-color: #2980b9; }"
         ));
@@ -1252,10 +1330,10 @@ private:
 
         bLayout->addLayout(btnRow);
 
-        // Subtle Keyboard hint bar
+        // Keyboard hint line explicitly indicating Backspace goes back
         auto *lblHint = new QLabel(m_isPolish
-            ? QStringLiteral("<span style='color: rgba(255,255,255,0.45); font-size: 10px;'>[Enter] Dalej / Zatwierdź   •   [Backspace] Wstecz   •   [Esc] Anuluj</span>")
-            : QStringLiteral("<span style='color: rgba(255,255,255,0.45); font-size: 10px;'>[Enter] Next / Confirm   •   [Backspace] Back   •   [Esc] Cancel</span>"), bottomWidget);
+            ? QStringLiteral("<span style='color: rgba(255,255,255,0.55); font-size: 11px;'>[Enter] Dalej / Zatwierdź   •   [Backspace] Wstecz (cofa krok)   •   [Esc] Anuluj</span>")
+            : QStringLiteral("<span style='color: rgba(255,255,255,0.55); font-size: 11px;'>[Enter] Next / Confirm   •   [Backspace] Back (previous step)   •   [Esc] Cancel</span>"), bottomWidget);
         lblHint->setTextFormat(Qt::RichText);
         lblHint->setAlignment(Qt::AlignCenter);
         bLayout->addWidget(lblHint);
@@ -1274,10 +1352,10 @@ private:
             if (i == step) {
                 m_stepPills[i]->setStyleSheet(QStringLiteral(
                     "QPushButton {"
-                    "  padding: 3px 10px;"
-                    "  border-radius: 10px;"
+                    "  padding: 4px 12px;"
+                    "  border-radius: 12px;"
                     "  font-weight: bold;"
-                    "  font-size: 11px;"
+                    "  font-size: 12px;"
                     "  background-color: #3498db;"
                     "  color: #ffffff;"
                     "}"
@@ -1285,10 +1363,10 @@ private:
             } else if (i < step) {
                 m_stepPills[i]->setStyleSheet(QStringLiteral(
                     "QPushButton {"
-                    "  padding: 3px 10px;"
-                    "  border-radius: 10px;"
+                    "  padding: 4px 12px;"
+                    "  border-radius: 12px;"
                     "  font-weight: bold;"
-                    "  font-size: 11px;"
+                    "  font-size: 12px;"
                     "  background-color: rgba(46, 204, 113, 0.25);"
                     "  color: #2ecc71;"
                     "}"
@@ -1296,12 +1374,12 @@ private:
             } else {
                 m_stepPills[i]->setStyleSheet(QStringLiteral(
                     "QPushButton {"
-                    "  padding: 3px 10px;"
-                    "  border-radius: 10px;"
+                    "  padding: 4px 12px;"
+                    "  border-radius: 12px;"
                     "  font-weight: bold;"
-                    "  font-size: 11px;"
+                    "  font-size: 12px;"
                     "  background-color: rgba(255, 255, 255, 0.08);"
-                    "  color: rgba(255, 255, 255, 0.6);"
+                    "  color: rgba(255, 255, 255, 0.65);"
                     "}"
                 ));
             }
@@ -1312,14 +1390,14 @@ private:
         if (step == 0) {
             m_btnNext->setText(m_isPolish ? QStringLiteral("Dalej (Kolor) ❯") : QStringLiteral("Next (Color) ❯"));
             m_btnNext->setStyleSheet(QStringLiteral(
-                "QPushButton { background-color: #3498db; border-radius: 8px; color: #ffffff; font-weight: bold; padding: 7px 18px; }"
+                "QPushButton { background-color: #3498db; border-radius: 8px; color: #ffffff; font-weight: bold; font-size: 14px; padding: 8px 20px; }"
                 "QPushButton:hover { background-color: #2980b9; }"
             ));
             setFocus();
         } else if (step == 1) {
             m_btnNext->setText(m_isPolish ? QStringLiteral("Dalej (Zakres) ❯") : QStringLiteral("Next (Scope) ❯"));
             m_btnNext->setStyleSheet(QStringLiteral(
-                "QPushButton { background-color: #3498db; border-radius: 8px; color: #ffffff; font-weight: bold; padding: 7px 18px; }"
+                "QPushButton { background-color: #3498db; border-radius: 8px; color: #ffffff; font-weight: bold; font-size: 14px; padding: 8px 20px; }"
                 "QPushButton:hover { background-color: #2980b9; }"
             ));
             updatePaletteUI();
@@ -1327,7 +1405,7 @@ private:
         } else if (step == 2) {
             m_btnNext->setText(m_isPolish ? QStringLiteral("Dalej (Zapis) ❯") : QStringLiteral("Next (Save) ❯"));
             m_btnNext->setStyleSheet(QStringLiteral(
-                "QPushButton { background-color: #3498db; border-radius: 8px; color: #ffffff; font-weight: bold; padding: 7px 18px; }"
+                "QPushButton { background-color: #3498db; border-radius: 8px; color: #ffffff; font-weight: bold; font-size: 14px; padding: 8px 20px; }"
                 "QPushButton:hover { background-color: #2980b9; }"
             ));
             setFocus();
@@ -1340,7 +1418,8 @@ private:
                 "  border-radius: 8px;"
                 "  color: #ffffff;"
                 "  font-weight: bold;"
-                "  padding: 7px 18px;"
+                "  font-size: 14px;"
+                "  padding: 8px 22px;"
                 "}"
                 "QPushButton:hover { background-color: #27ae60; }"
             ));
@@ -1437,8 +1516,8 @@ private:
     QLabel *m_previewScope;
     QLabel *m_previewConflictWarn;
     QLineEdit *m_labelEdit;
-    QCheckBox *m_chkPersistent;
-    QCheckBox *m_chkDesktop = nullptr;
+    QPushButton *m_btnTogglePersistent = nullptr;
+    QPushButton *m_btnToggleDesktop = nullptr;
 
     // Bottom bar
     QPushButton *m_btnBack;
@@ -1451,7 +1530,7 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("leapk-colorpicker"));
-    app.setApplicationDisplayName(QObject::tr("LeapK - Mark Window"));
+    app.setApplicationDisplayName(QObject::tr("LeapK - Custom Marker"));
 
     QColor currentColor(QStringLiteral("#3498db"));
     if (argc > 1 && argv[1]) {
