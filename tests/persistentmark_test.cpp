@@ -5,6 +5,7 @@
 
 #include "persistentmarkhelper.h"
 #include <QTemporaryDir>
+#undef NDEBUG
 #include <cassert>
 #include <iostream>
 

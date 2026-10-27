@@ -828,13 +828,14 @@ inline QSizeF computeHudPillSize(const QString &locationText,
                                  bool hasThumb = false,
                                  const QSize &thumbSize = QSize(),
                                  const QString &recentKey = QString(),
-                                 bool isRecent = false)
+                                 bool isRecent = false,
+                                 int groupCount = 0)
 {
     BadgeConfig cfg;
     cfg.hudBadgeSize = badgeSize;
     cfg.hudShowIcon = hasIcon;
     cfg.hudShowThumbnail = hasThumb;
-    return computeHudPillSize(cfg, locationText, caption, badgeSize, scale, customLabel, hasIcon, hasThumb, thumbSize, recentKey, isRecent);
+    return computeHudPillSize(cfg, locationText, caption, badgeSize, scale, customLabel, hasIcon, hasThumb, thumbSize, recentKey, isRecent, groupCount);
 }
 
 inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
@@ -1279,7 +1280,7 @@ inline QImage renderOffscreenTargetPill(const QChar &letter,
     cfg.hudBadgeSize = badgeSize;
     cfg.showIcon = showIcon;
     cfg.showThumbnail = showThumbnail;
-    return renderOffscreenTargetPill(cfg, letter, bgColor, textColor, locationText, caption, badgeSize, scale, customLabel, icon, thumbnail, isMarked, recentKey, isRecent);
+    return renderOffscreenTargetPill(cfg, letter, bgColor, textColor, locationText, caption, badgeSize, scale, customLabel, icon, thumbnail, isMarked, recentKey, isRecent, groupCount);
 }
 
 inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,

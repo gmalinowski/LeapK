@@ -5,6 +5,7 @@
 
 #include "badgehelper.h"
 #include <QGuiApplication>
+#undef NDEBUG
 #include <cassert>
 #include <iostream>
 
@@ -916,6 +917,8 @@ void testHudWindowGroupingAndFrames()
     const QSizeF singleSize = OutlineBadge::computeHudPillSize(cfg, QStringLiteral("Desktop 1"), QStringLiteral("Firefox"), 36, 1.0, QString(), false, false, QSize(), QString(), false, 0);
     const QSizeF groupSize = OutlineBadge::computeHudPillSize(cfg, QStringLiteral("Desktop 1"), QStringLiteral("Firefox"), 36, 1.0, QString(), false, false, QSize(), QString(), false, 3);
     assert(groupSize.width() >= singleSize.width());
+    Q_UNUSED(singleSize);
+    Q_UNUSED(groupSize);
 
     // Render offscreen pill with group count
     const QImage pillImg = OutlineBadge::renderOffscreenTargetPill(cfg, QChar('F'), QColor(52, 152, 219), Qt::white,
