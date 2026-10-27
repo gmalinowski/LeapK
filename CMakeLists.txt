@@ -127,7 +127,20 @@ else()
             ACTIVE_WINDOW_OUTLINE_BOOL_DRAW_WINDOW
             ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_WINDOW
         )
-    else()
+    endif()
+
+    include(CheckCXXSourceCompiles)
+    set(CMAKE_REQUIRED_LIBRARIES ${KWIN_TARGET} Qt6::Gui)
+    check_cxx_source_compiles("
+    #include <scene/surfaceitem.h>
+    int main() {
+        KWin::OpenGLSurfaceTexture *tex = nullptr;
+        (void)tex;
+        return 0;
+    }
+    " HAVE_KWIN_OPENGL_SURFACE_TEXTURE)
+
+    if(HAVE_KWIN_OPENGL_SURFACE_TEXTURE)
         target_compile_definitions(leapk PRIVATE
             ACTIVE_WINDOW_OUTLINE_HAS_OPENGL_SURFACE_TEXTURE
         )
