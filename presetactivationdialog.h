@@ -169,6 +169,7 @@ public:
                     {QStringLiteral("BadgeHudIncludeAll"), QStringLiteral("Wyświetl wszystkie okna w HUD"), QStringLiteral("Include All Windows in HUD")},
                     {QStringLiteral("BadgeTimeout"), QStringLiteral("Czas wyświetlania plakietek (timeout)"), QStringLiteral("Badges Display Timeout")},
                     {QStringLiteral("JumpRecentKey"), QStringLiteral("Klawisz powrotu do ostatniego okna"), QStringLiteral("Jump to Recent Window Key")},
+                    {QStringLiteral("BadgeWindowBadgesEnabled"), QStringLiteral("Wyświetlaj plakietki na oknach"), QStringLiteral("Show Badges on Windows")},
                     {QStringLiteral("BadgeWindowShowIcon"), QStringLiteral("Ikona aplikacji w plakietce okna"), QStringLiteral("Application Icon in Window Badge")},
                     {QStringLiteral("BadgeWindowShowThumbnail"), QStringLiteral("Miniatura w plakietce okna"), QStringLiteral("Thumbnail in Window Badge")},
                     {QStringLiteral("BadgeWindowIconSize"), QStringLiteral("Rozmiar ikony w plakietce okna"), QStringLiteral("Window Badge Icon Size")},

@@ -829,6 +829,8 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
             m_badgeDisplayMode = 0;
         }
     }
+    m_badgeWindowBadgesEnabled = config.readEntry("BadgeWindowBadgesEnabled", true);
+    m_badgeConfig.windowBadgesEnabled = m_badgeWindowBadgesEnabled;
     m_badgePosition = qBound(0, config.readEntry("BadgePosition", 1), 8);
     m_badgeHudPosition = qBound(0, config.readEntry("BadgeHudPosition", 0), 3);
     m_badgeSize = qBound(16, config.readEntry("BadgeSize", 28), 500);
@@ -2417,6 +2419,9 @@ static void parseBadgeConfigFromJson(OutlineBadge::BadgeConfig &cfg, int &badgeP
         cfg.opacityPercent = qBound(10, obj.value(QStringLiteral("BadgeOpacity")).toInt(92), 100);
     }
 
+    if (obj.contains(QStringLiteral("BadgeWindowBadgesEnabled"))) {
+        cfg.windowBadgesEnabled = obj.value(QStringLiteral("BadgeWindowBadgesEnabled")).toBool(true);
+    }
     if (obj.contains(QStringLiteral("BadgeWindowShowIcon"))) {
         cfg.windowShowIcon = obj.value(QStringLiteral("BadgeWindowShowIcon")).toBool(false);
     }
@@ -2648,7 +2653,7 @@ void ActiveWindowOutlineEffect::renderBadgePreview(const RenderTarget &renderTar
     }
 
     // 1. Render Window Badges if enabled
-    if (m_previewShowWindowBadges) {
+    if (m_previewShowWindowBadges && m_previewBadgeConfig.windowBadgesEnabled) {
         EffectWindow *recentWin = findRecentWindow();
         if (!recentWin && !targetWindows.isEmpty()) {
             recentWin = targetWindows.first();
@@ -4675,7 +4680,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         }
     }
 
-    const bool showContinuousBadges = m_outlineEnabled && (m_badgeDisplayMode == 1) && !inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked;
+    const bool showContinuousBadges = m_outlineEnabled && m_badgeConfig.windowBadgesEnabled && (m_badgeDisplayMode == 1) && !inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked;
     const bool hasBadgesToDraw = (showContinuousBadges || (m_outlineEnabled && m_jumpMode) || m_badgePreviewActive);
 
     if ((!m_outlineEnabled && !m_badgePreviewActive) || (!drawOutline && !drawDelayed && !hasRecentToDraw && !hasMarkedToDraw && !hasBadgesToDraw)) {
@@ -4833,7 +4838,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 continue;
             }
 
-            if (m_badgeConfig.hudIncludeAll) {
+            const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled;
+            if (forceHud) {
                 offscreenTargets.append(qMakePair(letter, target));
             }
 
@@ -4841,7 +4847,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             const bool minimized = target->isMinimized();
 
             if (!onCurrent || minimized) {
-                if (!m_badgeConfig.hudIncludeAll) {
+                if (!forceHud) {
                     offscreenTargets.append(qMakePair(letter, target));
                 }
                 continue;
@@ -4850,13 +4856,15 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             const QRectF geo = target->frameGeometry();
             const QRectF visibleWindowGeo = geo.intersected(screenRect);
             if (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50) {
-                if (!m_badgeConfig.hudIncludeAll) {
+                if (!forceHud) {
                     offscreenTargets.append(qMakePair(letter, target));
                 }
                 continue;
             }
 
-            onscreenTargets.append(qMakePair(letter, target));
+            if (m_badgeConfig.windowBadgesEnabled) {
+                onscreenTargets.append(qMakePair(letter, target));
+            }
         }
 
         QList<QRectF> hudRects = computeHudPillRects(offscreenTargets, viewport, m_badgeConfig.hudBadgeSize, m_badgeConfig);

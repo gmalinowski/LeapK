@@ -264,6 +264,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemBool(QStringLiteral("MarkShowLetterBadges"), *new bool, true);
     m_configSkeleton->addItemBool(QStringLiteral("BadgesAlwaysVisible"), *new bool, false);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeDisplayMode"), *new int, 0);
+    m_configSkeleton->addItemBool(QStringLiteral("BadgeWindowBadgesEnabled"), *new bool, true);
     m_configSkeleton->addItemInt(QStringLiteral("BadgePosition"), *new int, 1);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeHudPosition"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeSize"), *new int, 28);
@@ -579,6 +580,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->combo_BadgeLabelFont, &QFontComboBox::currentFontChanged, this, &ActiveWindowOutlineConfig::markAsChanged);
     connect(m_ui->combo_BadgeCaptionFont, &QFontComboBox::currentFontChanged, this, &ActiveWindowOutlineConfig::markAsChanged);
     connect(m_ui->combo_BadgeLocationFont, &QFontComboBox::currentFontChanged, this, &ActiveWindowOutlineConfig::markAsChanged);
+    connect(m_ui->kcfg_BadgeWindowBadgesEnabled, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
     connect(m_ui->kcfg_BadgeWindowShowIcon, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
     connect(m_ui->kcfg_BadgeWindowShowThumbnail, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
     connect(m_ui->kcfg_BadgeHudShowIcon, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
@@ -605,6 +607,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->kcfg_BadgeCornerRadius, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeOpacity, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeHudMarkColorMode, qOverload<int>(&QComboBox::currentIndexChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeWindowBadgesEnabled, &QCheckBox::toggled, this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeWindowShowIcon, &QCheckBox::toggled, this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeWindowShowThumbnail, &QCheckBox::toggled, this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeWindowIconSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
@@ -659,6 +662,8 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
         }
         m_ui->check_previewWindowBadges->setText(QStringLiteral("Podgląd badges okien na ekranie"));
         m_ui->check_previewWindowBadges->setToolTip(QStringLiteral("Tymczasowo wyświetla przykładowe badges na wszystkich widocznych oknach, aby podejrzeć zmiany na żywo."));
+        m_ui->kcfg_BadgeWindowBadgesEnabled->setText(QStringLiteral("Wyświetlaj plakietki na oknach"));
+        m_ui->kcfg_BadgeWindowBadgesEnabled->setToolTip(QStringLiteral("Rysuje plakietki z literami skoku bezpośrednio na widocznych oknach. Gdy odznaczone, okna pozostają czyste, a nawigacja odbywa się wyłącznie przez dok HUD."));
         m_ui->check_previewHudBadges->setText(QStringLiteral("Podgląd kart HUD na ekranie"));
         m_ui->check_previewHudBadges->setToolTip(QStringLiteral("Tymczasowo wyświetla wszystkie otwarte okna w HUD na krawędzi ekranu, aby podejrzeć zmiany na żywo."));
         m_ui->label_badgeTimeout->setText(QStringLiteral("Czas wyświetlania badges:"));
@@ -790,27 +795,31 @@ void ActiveWindowOutlineConfig::updateMarkWindowUI()
     m_ui->kcfg_MarkInactiveDashSmooth->setEnabled(dashed);
 
     const bool badgesEnabled = (m_ui->kcfg_BadgeDisplayMode->currentIndex() != 2);
-    m_ui->label_badgePosition->setEnabled(badgesEnabled);
-    m_ui->kcfg_BadgePosition->setEnabled(badgesEnabled);
+    const bool windowBadgesEnabled = badgesEnabled && m_ui->kcfg_BadgeWindowBadgesEnabled->isChecked();
+    m_ui->label_badgePosition->setEnabled(windowBadgesEnabled);
+    m_ui->kcfg_BadgePosition->setEnabled(windowBadgesEnabled);
     m_ui->label_badgeHudPosition->setEnabled(badgesEnabled);
     m_ui->kcfg_BadgeHudPosition->setEnabled(badgesEnabled);
-    m_ui->label_badgeSize->setEnabled(badgesEnabled);
-    m_ui->kcfg_BadgeSize->setEnabled(badgesEnabled);
-    m_ui->label_badgeMargin->setEnabled(badgesEnabled);
-    m_ui->kcfg_BadgeMargin->setEnabled(badgesEnabled);
+    m_ui->label_badgeSize->setEnabled(windowBadgesEnabled);
+    m_ui->kcfg_BadgeSize->setEnabled(windowBadgesEnabled);
+    m_ui->label_badgeMargin->setEnabled(windowBadgesEnabled);
+    m_ui->kcfg_BadgeMargin->setEnabled(windowBadgesEnabled);
     m_ui->label_jumpTargets->setEnabled(badgesEnabled);
     m_ui->kcfg_JumpTargets->setEnabled(badgesEnabled);
 
     m_ui->groupWindowBadges->setEnabled(badgesEnabled);
+    m_ui->check_previewWindowBadges->setEnabled(windowBadgesEnabled);
+    m_ui->kcfg_BadgeWindowShowIcon->setEnabled(windowBadgesEnabled);
+    m_ui->kcfg_BadgeWindowShowThumbnail->setEnabled(windowBadgesEnabled);
     m_ui->groupHudBadges->setEnabled(badgesEnabled);
     m_ui->groupBadgeAppearance->setEnabled(badgesEnabled);
     m_ui->groupBadgeTypography->setEnabled(badgesEnabled);
 
-    const bool showWindowIcon = badgesEnabled && m_ui->kcfg_BadgeWindowShowIcon->isChecked();
+    const bool showWindowIcon = windowBadgesEnabled && m_ui->kcfg_BadgeWindowShowIcon->isChecked();
     m_ui->label_badgeWindowIconSize->setEnabled(showWindowIcon);
     m_ui->kcfg_BadgeWindowIconSize->setEnabled(showWindowIcon);
 
-    const bool showWindowThumb = badgesEnabled && m_ui->kcfg_BadgeWindowShowThumbnail->isChecked();
+    const bool showWindowThumb = windowBadgesEnabled && m_ui->kcfg_BadgeWindowShowThumbnail->isChecked();
     m_ui->label_badgeWindowThumbnailSize->setEnabled(showWindowThumb);
     m_ui->kcfg_BadgeWindowThumbnailSize->setEnabled(showWindowThumb);
 
@@ -1195,6 +1204,7 @@ void ActiveWindowOutlineConfig::load()
     if (!locFont.trimmed().isEmpty()) {
         m_ui->combo_BadgeLocationFont->setCurrentFont(QFont(locFont.trimmed()));
     }
+    m_ui->kcfg_BadgeWindowBadgesEnabled->setChecked(group.readEntry("BadgeWindowBadgesEnabled", true));
     m_ui->kcfg_BadgeHudIncludeAll->setChecked(group.readEntry("BadgeHudIncludeAll", false));
     m_ui->kcfg_BadgeLivePreviews->setChecked(group.readEntry("BadgeLivePreviews", false));
     m_ui->kcfg_BadgeTimeout->setValue(group.readEntry("BadgeTimeout", 5));
@@ -1252,6 +1262,7 @@ void ActiveWindowOutlineConfig::defaults()
     m_ui->kcfg_BadgeLabelFontSize->setValue(0);
     m_ui->kcfg_BadgeCaptionFontSize->setValue(0);
     m_ui->kcfg_BadgeLocationFontSize->setValue(0);
+    m_ui->kcfg_BadgeWindowBadgesEnabled->setChecked(true);
     m_ui->kcfg_BadgeHudIncludeAll->setChecked(false);
     m_ui->kcfg_BadgeLivePreviews->setChecked(false);
     m_ui->kcfg_BadgeTimeout->setValue(5);
@@ -1536,6 +1547,7 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("MarkInactiveDashSmooth")] = m_ui->kcfg_MarkInactiveDashSmooth->isChecked();
     const int badgeMode = m_ui->kcfg_BadgeDisplayMode->currentIndex();
     s[QStringLiteral("BadgeDisplayMode")] = badgeMode;
+    s[QStringLiteral("BadgeWindowBadgesEnabled")] = m_ui->kcfg_BadgeWindowBadgesEnabled->isChecked();
     s[QStringLiteral("MarkShowLetterBadges")] = (badgeMode != 2);
     s[QStringLiteral("BadgesAlwaysVisible")] = (badgeMode == 1);
     s[QStringLiteral("BadgePosition")] = m_ui->kcfg_BadgePosition->currentIndex();
@@ -1719,6 +1731,7 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
         const bool always = s.value(QStringLiteral("BadgesAlwaysVisible")).toBool(false);
         m_ui->kcfg_BadgeDisplayMode->setCurrentIndex(!show ? 2 : (always ? 1 : 0));
     }
+    if (s.contains(QStringLiteral("BadgeWindowBadgesEnabled"))) m_ui->kcfg_BadgeWindowBadgesEnabled->setChecked(s[QStringLiteral("BadgeWindowBadgesEnabled")].toBool());
     if (s.contains(QStringLiteral("BadgePosition"))) m_ui->kcfg_BadgePosition->setCurrentIndex(s[QStringLiteral("BadgePosition")].toInt());
     if (s.contains(QStringLiteral("BadgeHudPosition"))) m_ui->kcfg_BadgeHudPosition->setCurrentIndex(s[QStringLiteral("BadgeHudPosition")].toInt());
     if (s.contains(QStringLiteral("BadgeSize"))) m_ui->kcfg_BadgeSize->setValue(s[QStringLiteral("BadgeSize")].toInt());
@@ -2295,6 +2308,7 @@ void ActiveWindowOutlineConfig::save()
     const int badgeMode = m_ui->kcfg_BadgeDisplayMode->currentIndex();
     group.writeEntry(QStringLiteral("MarkShowLetterBadges"), badgeMode != 2);
     group.writeEntry(QStringLiteral("BadgesAlwaysVisible"), badgeMode == 1);
+    group.writeEntry(QStringLiteral("BadgeWindowBadgesEnabled"), m_ui->kcfg_BadgeWindowBadgesEnabled->isChecked());
     group.writeEntry(QStringLiteral("BadgeLetterFont"), m_ui->combo_BadgeLetterFont->currentFont().family());
     group.writeEntry(QStringLiteral("BadgeLabelFont"), m_ui->combo_BadgeLabelFont->currentFont().family());
     group.writeEntry(QStringLiteral("BadgeCaptionFont"), m_ui->combo_BadgeCaptionFont->currentFont().family());

@@ -53,6 +53,7 @@ struct BadgeConfig {
     int windowThumbnailWidth = 56;
     int windowThumbnailHeight = 32;
     int margin = 0;
+    bool windowBadgesEnabled = true;
     bool windowShowIcon = false;
     bool windowShowThumbnail = false;
     int windowLetterFontSize = 0; // 0 = auto

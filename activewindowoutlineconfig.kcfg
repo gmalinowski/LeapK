@@ -227,6 +227,9 @@
             <min>0</min>
             <max>2</max>
         </entry>
+        <entry name="BadgeWindowBadgesEnabled" type="Bool">
+            <default>true</default>
+        </entry>
         <entry name="BadgePosition" type="Int">
             <default>1</default>
             <min>0</min>

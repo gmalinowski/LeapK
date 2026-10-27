@@ -14,7 +14,7 @@
 void testBuiltInPresets()
 {
     const auto list = OutlinePreset::getBuiltInPresets();
-    assert(list.size() == 15);
+    assert(list.size() == 16);
 
     // 1. Verify LeapK Default (v1.6)
     assert(list[0].name == QStringLiteral("LeapK Default (v1.6)"));
@@ -122,6 +122,16 @@ void testBuiltInPresets()
     assert(list[14].settings[QStringLiteral("AccentOpacity")].toInt() == 35);
     assert(list[14].settings[QStringLiteral("BadgeTimeout")].toInt() == 3);
     assert(list[14].settings[QStringLiteral("GlowEnabled")].toBool() == false);
+
+    // 16. Verify HUD Dock Navigator
+    assert(list[15].name == QStringLiteral("HUD Dock Navigator"));
+    assert(list[15].settings[QStringLiteral("BadgeWindowBadgesEnabled")].toBool() == false);
+    assert(list[15].settings[QStringLiteral("BadgeHudIncludeAll")].toBool() == true);
+    assert(list[15].settings[QStringLiteral("BadgeHudPosition")].toInt() == 0);
+    assert(list[15].settings[QStringLiteral("BadgeHudThumbnailWidth")].toInt() == 240);
+    assert(list[15].settings[QStringLiteral("BadgeHudThumbnailHeight")].toInt() == 135);
+    assert(list[15].settings[QStringLiteral("BadgeHudSize")].toInt() == 52);
+    assert(list[15].settings[QStringLiteral("BadgeLivePreviews")].toBool() == true);
 }
 
 void testSerializationAndParsing()
@@ -174,7 +184,7 @@ void testDirectoryLoadingAndSaving()
 
     // 1. Initial load should populate built-ins
     auto loaded = OutlinePreset::loadPresets(tempDir.path());
-    assert(loaded.size() == 15);
+    assert(loaded.size() == 16);
 
     // 2. Add custom preset
     OutlinePreset::PresetInfo custom;
@@ -190,7 +200,7 @@ void testDirectoryLoadingAndSaving()
 
     // 3. Reload
     auto reloaded = OutlinePreset::loadPresets(tempDir.path());
-    assert(reloaded.size() == 16);
+    assert(reloaded.size() == 17);
 
     // Built-ins come first, then custom
     assert(reloaded.last().name == QStringLiteral("My Awesome Setup"));
@@ -245,7 +255,7 @@ void testPresetEditingRenamingAndPersistence()
     assert(OutlinePreset::savePreset(tempDir.path(), p, &err));
 
     auto list = OutlinePreset::loadPresets(tempDir.path());
-    assert(list.size() == 16);
+    assert(list.size() == 17);
     assert(list.last().name == QStringLiteral("Initial Gaming"));
     assert(list.last().description == QStringLiteral("First version"));
     assert(list.last().settings[QStringLiteral("BorderWidth")].toInt() == 6);
@@ -267,7 +277,7 @@ void testPresetEditingRenamingAndPersistence()
     }
 
     auto reloaded = OutlinePreset::loadPresets(tempDir.path());
-    assert(reloaded.size() == 16);
+    assert(reloaded.size() == 17);
     assert(reloaded.last().name == QStringLiteral("Pro Gaming Elite"));
     assert(reloaded.last().description == QStringLiteral("Updated description with HDR glow"));
     assert(reloaded.last().settings[QStringLiteral("BorderWidth")].toInt() == 8);
@@ -275,7 +285,7 @@ void testPresetEditingRenamingAndPersistence()
     // 3. Delete preset file
     assert(QFile::remove(reloaded.last().filePath));
     auto afterDelete = OutlinePreset::loadPresets(tempDir.path());
-    assert(afterDelete.size() == 15); // only built-ins remain
+    assert(afterDelete.size() == 16); // only built-ins remain
 }
 
 void testPresetCorruptedFileHandling()
@@ -305,7 +315,7 @@ void testPresetCorruptedFileHandling()
 
     // loadPresets must safely ignore all 3 corrupted files without crashing
     auto loaded = OutlinePreset::loadPresets(tempDir.path());
-    assert(loaded.size() == 15);
+    assert(loaded.size() == 16);
 
     // Directly calling parsePresetJson must return false and write error message
     OutlinePreset::PresetInfo parsed;

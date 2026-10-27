@@ -15,8 +15,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Added an option to display cards in the edge HUD for all open windows, regardless of whether they are visible on screen, covered, minimized, or on other virtual desktops.
 - **Badges Display Timeout (`BadgeTimeout`)**:
   - Added configurable timeout in seconds (0–300 s, default 5 s) before badges auto-hide during Jump Mode (0 = unlimited / no timeout).
-- **15 Thoughtfully Designed Built-In Presets for LeapK v1.6 with Custom GLSL Shaders & Enlarged Previews**:
-  - Overhauled and expanded built-in presets to 15 distinct profiles with deep parameter tuning, embedded GLSL fragment shaders, and significantly enlarged HUD preview cards:
+- **Option to Disable On-Window Badges (`BadgeWindowBadgesEnabled`)**:
+  - Added an option allowing users to toggle off on-window badges completely (`BadgeWindowBadgesEnabled = false`), keeping documents, terminals, and web browsers completely clean without letter overlays.
+  - When disabled, all navigation targets are presented exclusively through the screen edge HUD dock bar.
+  - Full configuration synchronization across settings GUI, KConfig schema, shell installers, uninstallers, and D-Bus IPC.
+- **16 Thoughtfully Designed Built-In Presets for LeapK v1.6 with Custom GLSL Shaders & Enlarged Previews**:
+  - Overhauled and expanded built-in presets to 16 distinct profiles with deep parameter tuning, embedded GLSL fragment shaders, and significantly enlarged HUD preview cards:
     1. *LeapK Default (v1.6)*: Balanced daily driver with 2px KDE accent outline, top jump badges, 180×100 px bottom HUD preview cards, and Space jump.
     2. *Vim Motion & HUD Center*: Command center for Vim/i3 tiling power users: background letter badges, 160×90 px HUD cards, multi-level focus trail, zero latency.
     3. *Live Vision Dashboard*: Multitasking powerhouse with continuous real-time live window thumbnails (30–60 fps), massive 320×180 px HUD cards (56 px HUD dock), 160×90 px window badges, and ambient glow.
@@ -32,8 +36,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     13. *High-Contrast Amber A11y*: Maximum visibility and cognitive clarity: bold 5px safety amber border (`#f39c12`), full 100% opacity, enlarged typography, persistent badges, 220×124 px HUD cards.
     14. *Retro CRT Amber Phosphor*: Vintage 1980s mainframe terminal: warm amber phosphor (`#ffb000`), subtle CRT flicker, gentle breathing, square corners, contrast-protected inverse video, and 200×112 px top-docked HUD.
     15. *Focus Zen Distraction-Free*: Deep focus and writing: discreet 1px graphite outline with gentle 35% opacity, zero animations or glow, jump badges strictly on demand with fast 3-second auto-hide.
+    16. *HUD Dock Navigator*: Focuses navigation entirely on a bottom edge HUD dock for all open windows: on-window badges are hidden for a clean workspace, featuring large 240×135 px 16:9 previews, app icons, and single-key jump.
   - Built-in presets seamlessly bundle custom GLSL shaders via `makeShaderBundle()`, automatically registering shader code and uniform parameters upon preset activation.
-  - Fully synchronized all 126 configuration keys across `getDefaultSettings()`, presets catalog, and `PresetActivationDialog` categories.
+  - Fully synchronized all 127 configuration keys across `getDefaultSettings()`, presets catalog, and `PresetActivationDialog` categories.
 - **Jump to Recent Window Shortcut in LeapK Settings (`JumpRecentKey`)**:
   - Migrated "Jump to recent window" from KDE global shortcuts (`KGlobalAccel`) into LeapK settings as an exclusive modal 2nd-level jump key (default: `Space`).
 - **Live On-Screen Badges Preview**:

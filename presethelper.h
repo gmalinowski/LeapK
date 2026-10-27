@@ -86,6 +86,7 @@ inline QJsonObject getDefaultSettings()
     s[QStringLiteral("MarkShowLetterBadges")] = true;
     s[QStringLiteral("BadgesAlwaysVisible")] = false;
     s[QStringLiteral("BadgeDisplayMode")] = 0;
+    s[QStringLiteral("BadgeWindowBadgesEnabled")] = true;
     s[QStringLiteral("BadgePosition")] = 1;
     s[QStringLiteral("BadgeHudPosition")] = 0;
     s[QStringLiteral("BadgeSize")] = 28;
@@ -713,6 +714,39 @@ inline QList<PresetInfo> getBuiltInPresets()
         p.settings[QStringLiteral("BadgeHudShowThumbnail")] = false;
         p.settings[QStringLiteral("BadgeSize")] = 26;
         p.settings[QStringLiteral("BadgeHudSize")] = 30;
+        list.append(p);
+    }
+
+    // 16. HUD Dock Navigator
+    {
+        PresetInfo p;
+        p.name = QStringLiteral("HUD Dock Navigator");
+        p.description = QStringLiteral("Focuses navigation entirely on a bottom edge HUD dock for all open windows: on-window badges are hidden for a clean workspace, featuring large 16:9 previews, app icons, and single-key jump.");
+        p.isBuiltIn = true;
+        p.settings = getDefaultSettings();
+        p.settings[QStringLiteral("UseAccentColor")] = true;
+        p.settings[QStringLiteral("BorderWidth")] = 2;
+        p.settings[QStringLiteral("BorderRadius")] = 6;
+        p.settings[QStringLiteral("GlowEnabled")] = true;
+        p.settings[QStringLiteral("GlowRadius")] = 8;
+        p.settings[QStringLiteral("BadgeDisplayMode")] = 0; // Modal Jump Mode
+        p.settings[QStringLiteral("BadgeWindowBadgesEnabled")] = false; // Hide on-window badges for clean documents!
+        p.settings[QStringLiteral("BadgeHudIncludeAll")] = true; // All windows mapped in bottom HUD dock!
+        p.settings[QStringLiteral("BadgeHudPosition")] = 0; // Bottom horizontal dock
+        p.settings[QStringLiteral("BadgeLivePreviews")] = true; // Real-time previews in HUD
+        p.settings[QStringLiteral("BadgeHudShowIcon")] = true;
+        p.settings[QStringLiteral("BadgeHudShowThumbnail")] = true;
+        p.settings[QStringLiteral("BadgeHudThumbnailWidth")] = 240;
+        p.settings[QStringLiteral("BadgeHudThumbnailHeight")] = 135;
+        p.settings[QStringLiteral("BadgeHudThumbnailSize")] = 240;
+        p.settings[QStringLiteral("BadgeHudSize")] = 52;
+        p.settings[QStringLiteral("BadgeCornerRadius")] = 8;
+        p.settings[QStringLiteral("BadgeOpacity")] = 95;
+        p.settings[QStringLiteral("BadgeTimeout")] = 8;
+        p.settings[QStringLiteral("JumpRecentKey")] = QStringLiteral("Space");
+        p.settings[QStringLiteral("HighlightRecentWindow")] = true;
+        p.settings[QStringLiteral("RecentWindowsCount")] = 2;
+        p.settings[QStringLiteral("RecentWindowDashed")] = true;
         list.append(p);
     }
 

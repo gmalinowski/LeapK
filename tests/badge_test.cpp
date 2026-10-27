@@ -895,6 +895,18 @@ void testHudBadgeOcclusionAvoidance()
     }
 }
 
+void testWindowBadgesEnabledConfig()
+{
+    OutlineBadge::BadgeConfig cfgDefault;
+    assert(cfgDefault.windowBadgesEnabled == true);
+
+    OutlineBadge::BadgeConfig cfgHudOnly;
+    cfgHudOnly.windowBadgesEnabled = false;
+    cfgHudOnly.hudIncludeAll = true;
+    assert(cfgHudOnly.windowBadgesEnabled == false);
+    assert(cfgHudOnly.hudIncludeAll == true);
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -916,6 +928,7 @@ int main(int argc, char *argv[])
     testIndependentWindowAndHudBadges();
     testRecentBadgeAndIncludeAll();
     testHudBadgeOcclusionAvoidance();
+    testWindowBadgesEnabledConfig();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;
