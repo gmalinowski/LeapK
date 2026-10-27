@@ -232,13 +232,16 @@ if [[ -z "$plugin_dir" || "$plugin_dir" != /* ]]; then
   echo "Unable to determine the Qt 6 plugin directory (qtpaths6 or qmake6)." >&2
   exit 1
 fi
-installed_plugin="$plugin_dir/kwin/effects/plugins/active-window-outline.so"
+installed_plugin="$plugin_dir/kwin/effects/plugins/leapk.so"
+if [[ ! -e "$installed_plugin" ]]; then
+  installed_plugin="$plugin_dir/kwin/effects/plugins/active-window-outline.so"
+fi
 updating_existing=false
 if [[ -e "$installed_plugin" ]]; then
   updating_existing=true
 fi
 
-build_dir="$(mktemp -d /tmp/active-window-outline-build.XXXXXX)"
+build_dir="$(mktemp -d /tmp/leapk-build.XXXXXX)"
 trap 'cmake -E remove_directory "$build_dir"' EXIT
 
 echo "[2/5] Building LeapK (using $parallel_jobs parallel jobs)…"
@@ -247,10 +250,10 @@ cmake -S "$project_dir" -B "$build_dir" \
   -DCMAKE_BUILD_TYPE=Release
 cmake --build "$build_dir" --parallel "$parallel_jobs"
 
-effect_binary="$build_dir/lib/kwin/effects/plugins/active-window-outline.so"
+effect_binary="$build_dir/lib/kwin/effects/plugins/leapk.so"
 plugin_info="$("$plugin_info_tool" "$effect_binary" 2>&1 || true)"
 if [[ "$plugin_info" != *'org.kde.kwin.EffectPluginFactory'* \
-   || "$plugin_info" != *'"Id": "active-window-outline"'* \
+   || "$plugin_info" != *'"Id": "leapk"'* \
    || "$plugin_info" != *'"Version": "'"$version"'"'* ]]; then
   echo "The compiled library does not contain valid KWin effect metadata." >&2
   echo "$plugin_info" >&2
@@ -261,6 +264,8 @@ echo "[3/5] Unloading the previous version…"
 if command -v qdbus6 >/dev/null 2>&1; then
   qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect \
     active-window-outline >/dev/null 2>&1 || true
+  qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect \
+    leapk >/dev/null 2>&1 || true
 fi
 
 echo "[4/5] Installing the KWin effect…"
@@ -289,6 +294,14 @@ mkdir -p "$HOME/.local/share/applications" "$HOME/.local/share/icons/hicolor/sca
 cp "$project_dir/leapk-settings.desktop" "$HOME/.local/share/applications/"
 cp "$project_dir/leapk-tray.desktop" "$HOME/.local/share/applications/"
 cp "$project_dir/leapk.svg" "$HOME/.local/share/icons/hicolor/scalable/apps/leapk.svg"
+
+# Install/update user binaries in ~/.local/bin if present
+if [[ -d "$HOME/.local/bin" ]]; then
+  cp -f "$build_dir/leapk-colorpicker" "$HOME/.local/bin/leapk-colorpicker" 2>/dev/null || true
+  cp -f "$build_dir/leapk-tray" "$HOME/.local/bin/leapk-tray" 2>/dev/null || true
+  cp -f "$build_dir/leapk-settings" "$HOME/.local/bin/leapk-settings" 2>/dev/null || true
+  (cd "$HOME/.local/bin" && ln -sf leapk-colorpicker kleap-colorpicker && ln -sf leapk-colorpicker active-window-outline-colorpicker && ln -sf leapk-tray kleap-tray && ln -sf leapk-tray active-window-outline-tray && ln -sf leapk-settings kleap-settings && ln -sf leapk-settings active-window-outline-settings && ln -sf leapk-settings leapk) 2>/dev/null || true
+fi
 
 if command -v update-desktop-database >/dev/null 2>&1; then
   update-desktop-database "$HOME/.local/share/applications" >/dev/null 2>&1 || true
