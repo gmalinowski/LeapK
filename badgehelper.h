@@ -133,6 +133,15 @@ inline QColor contrastingTextColor(const QColor &bgColor)
     return (perceivedLuminance(bgColor) > 0.53) ? QColor(0, 0, 0) : QColor(255, 255, 255);
 }
 
+inline qreal contrastRatio(const QColor &c1, const QColor &c2)
+{
+    const qreal l1 = perceivedLuminance(c1);
+    const qreal l2 = perceivedLuminance(c2);
+    const qreal lighter = qMax(l1, l2);
+    const qreal darker = qMin(l1, l2);
+    return (lighter + 0.05) / (darker + 0.05);
+}
+
 inline QChar findNextAvailableLetter(const QList<QChar> &usedLetters)
 {
     QSet<QChar> usedSet;
@@ -474,16 +483,33 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
 
     // Background pill
     p.setBrush(effectiveBg);
-    const QColor borderColor = isLightBg
-        ? (isJumpMode ? QColor(0, 0, 0, 180) : QColor(0, 0, 0, 120))
-        : (isJumpMode ? QColor(255, 255, 255, 230) : QColor(255, 255, 255, 170));
+    QColor borderColor;
+    if (isLightBg) {
+        borderColor = isJumpMode ? QColor(0, 0, 0, 180) : QColor(0, 0, 0, 120);
+    } else {
+        if (!cfg.letterColorAuto && cfg.letterColor.isValid() && contrastRatio(effectiveBg, cfg.letterColor) >= 2.5) {
+            borderColor = QColor(cfg.letterColor.red(), cfg.letterColor.green(), cfg.letterColor.blue(), isJumpMode ? 220 : 160);
+        } else {
+            borderColor = isJumpMode ? QColor(255, 255, 255, 230) : QColor(255, 255, 255, 170);
+        }
+    }
     p.setPen(QPen(borderColor, isJumpMode ? (2.0 * scale) : (1.2 * scale)));
     p.drawRoundedRect(rect, radius, radius);
 
     const QColor sepCol = isLightBg ? QColor(0, 0, 0, 70) : QColor(255, 255, 255, 90);
 
     p.setFont(font);
-    const QColor effLetterColor = (cfg.letterColorAuto || !cfg.letterColor.isValid()) ? autoTextColor : cfg.letterColor;
+    QColor effLetterColor = autoTextColor;
+    if (!cfg.letterColorAuto && cfg.letterColor.isValid()) {
+        if (contrastRatio(effectiveBg, cfg.letterColor) >= 2.5) {
+            effLetterColor = cfg.letterColor;
+        } else {
+            // Background color does not provide sufficient contrast for the configured letter color
+            // (e.g. amber letters on an amber recent/marked badge, or white on light badge).
+            // Fall back to auto-contrast text color to prevent unreadable badges.
+            effLetterColor = autoTextColor;
+        }
+    }
     p.setPen(effLetterColor);
 
     const bool hasExtra = hasIcon || hasThumb || hasLabel || hasRecentKey;
@@ -561,9 +587,14 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
 
             const QRectF labelRect(currentX, margin, w - margin - currentX, h - 2 * margin);
             p.setFont(labelFont);
-            const QColor effLabelColor = textColor.isValid()
-                ? textColor
-                : ((cfg.labelColorAuto || !cfg.labelUnmarkedColor.isValid()) ? autoTextColor : cfg.labelUnmarkedColor);
+            QColor effLabelColor = autoTextColor;
+            if (!cfg.labelColorAuto && cfg.labelUnmarkedColor.isValid()) {
+                if (contrastRatio(effectiveBg, cfg.labelUnmarkedColor) >= 2.5) {
+                    effLabelColor = cfg.labelUnmarkedColor;
+                }
+            } else if (textColor.isValid()) {
+                effLabelColor = textColor;
+            }
             p.setPen(effLabelColor);
             p.drawText(labelRect, Qt::AlignVCenter | Qt::AlignLeft, displayLabel);
         }
@@ -1083,7 +1114,14 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         p.drawPath(bPath);
     }
 
-    const QColor effLetterCol = (cfg.letterColorAuto || !cfg.letterColor.isValid()) ? badgeAutoText : cfg.letterColor;
+    QColor effLetterCol = badgeAutoText;
+    if (!cfg.letterColorAuto && cfg.letterColor.isValid()) {
+        if (contrastRatio(badgeBg, cfg.letterColor) >= 2.5) {
+            effLetterCol = cfg.letterColor;
+        } else {
+            effLetterCol = badgeAutoText;
+        }
+    }
     if (!hasRecentKey) {
         p.setFont(letterFont);
         p.setPen(effLetterCol);

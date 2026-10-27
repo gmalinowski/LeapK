@@ -36,6 +36,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Added live preview toggles for on-window badges and edge HUD cards with real-time updates directly from the settings module.
 
 ### Fixed
+- **Window and HUD Badge Typography Contrast Safeguard**:
+  - Fixed an issue where custom jump letter colors (such as amber `#ffb000` in the *Retro CRT Amber Phosphor* preset) blended invisibly with matching badge backgrounds (e.g. amber recent window or marked window badges).
+  - Added `contrastRatio()` calculation based on perceived luminance in `renderBadgeImage()` and `renderOffscreenTargetPill()`. When the configured letter color does not meet the minimum contrast threshold (ratio < 2.5:1), the renderer automatically falls back to contrasting black or white text, ensuring jump letters and shortcut keys ("Space") remain razor-sharp and fully readable under all theme combinations.
+  - Enhanced *Retro CRT Amber Phosphor* typography colors (amber labels, captions, and locations) with themed amber border outlines on dark backgrounds.
 - **Window Badge Content Cut-Off with Recent Key Indicator (`recentKey` / "Space")**:
   - Fixed an issue where window badges on previously active windows had their content clipped or pushed offscreen when the recent shortcut indicator ("Space") was appended.
   - Added `recentSectionW` calculation and reservation into `effectiveBaseWidth` in `renderBadgeImage()`, ensuring the badge image buffer dimensions properly expand to fit the letter, shortcut indicator, icon, thumbnail, and custom label with uniform separator lines and margins.

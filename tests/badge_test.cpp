@@ -490,6 +490,64 @@ void testAutoContrastTypography()
     cfg.letterColor = QColor(QStringLiteral("#ff3366"));
     QImage customColBadge = renderBadgeImage(cfg, QLatin1Char('B'), QColor(QStringLiteral("#232629")), QColor(), false, 28, 1.0);
     assert(!customColBadge.isNull());
+
+    // Contrast safeguard test (Retro CRT Amber issue prevention):
+    // When letter color is amber (#ffb000), but badge background is ALSO amber (#ffb000, e.g. recent window),
+    // the system MUST NOT draw amber-on-amber (zero contrast). It must automatically fall back to dark/black text.
+    assert(OutlineBadge::contrastRatio(QColor(QStringLiteral("#ffb000")), QColor(QStringLiteral("#ffb000"))) < 1.05);
+    assert(OutlineBadge::contrastRatio(QColor(QStringLiteral("#ffb000")), QColor(QStringLiteral("#1a1200"))) > 6.0);
+    assert(OutlineBadge::contrastRatio(QColor(QStringLiteral("#ffb000")), QColor(QStringLiteral("#000000"))) > 15.0);
+
+    cfg.letterColorAuto = false;
+    cfg.letterColor = QColor(QStringLiteral("#ffb000")); // Amber letter
+
+    // 1. Amber background (#ffb000) -> Must fall back to dark text to guarantee contrast!
+    QImage amberOnAmberBadge = renderBadgeImage(cfg, QLatin1Char('D'), QColor(QStringLiteral("#ffb000")), QColor(), false, 28, 1.0, QString(), QIcon(), QImage(), QStringLiteral("Space"), true);
+    assert(!amberOnAmberBadge.isNull());
+    bool foundContrastingDarkText = false;
+    for (int y = 5; y < amberOnAmberBadge.height() - 5; ++y) {
+        for (int x = 5; x < 25; ++x) {
+            const QColor pCol = amberOnAmberBadge.pixelColor(x, y);
+            if (pCol.red() < 60 && pCol.green() < 60 && pCol.blue() < 60 && pCol.alpha() > 200) {
+                foundContrastingDarkText = true;
+                break;
+            }
+        }
+        if (foundContrastingDarkText) break;
+    }
+    assert(foundContrastingDarkText);
+
+    // 2. Dark CRT background (#1a1200) -> Contrast ratio > 6.0, so amber text (#ffb000) MUST be preserved!
+    QImage amberOnDarkBadge = renderBadgeImage(cfg, QLatin1Char('D'), QColor(QStringLiteral("#1a1200")), QColor(), false, 28, 1.0);
+    assert(!amberOnDarkBadge.isNull());
+    bool foundAmberLetterPixel = false;
+    for (int y = 5; y < amberOnDarkBadge.height() - 5; ++y) {
+        for (int x = 5; x < 25; ++x) {
+            const QColor pCol = amberOnDarkBadge.pixelColor(x, y);
+            if (pCol.red() > 200 && pCol.green() > 140 && pCol.blue() < 50 && pCol.alpha() > 200) {
+                foundAmberLetterPixel = true;
+                break;
+            }
+        }
+        if (foundAmberLetterPixel) break;
+    }
+    assert(foundAmberLetterPixel);
+
+    // 3. HUD pill with Amber on Amber -> Must also fall back to contrasting dark letter
+    QImage hudAmberPill = renderOffscreenTargetPill(cfg, QLatin1Char('D'), QColor(QStringLiteral("#ffb000")), QColor(), QStringLiteral("Pulpit 1"), QStringLiteral("Terminal"), 36, 1.0, QString(), QIcon(), QImage(), true, QStringLiteral("Space"), true);
+    assert(!hudAmberPill.isNull());
+    bool foundHudDarkText = false;
+    for (int y = 5; y < hudAmberPill.height() - 5; ++y) {
+        for (int x = 5; x < 35; ++x) {
+            const QColor pCol = hudAmberPill.pixelColor(x, y);
+            if (pCol.red() < 60 && pCol.green() < 60 && pCol.blue() < 60 && pCol.alpha() > 200) {
+                foundHudDarkText = true;
+                break;
+            }
+        }
+        if (foundHudDarkText) break;
+    }
+    assert(foundHudDarkText);
 }
 
 void testWindowPreviewOnWindowBadges()

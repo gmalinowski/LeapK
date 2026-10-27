@@ -465,6 +465,13 @@ inline QList<PresetInfo> getBuiltInPresets()
         p.settings[QStringLiteral("BadgeDefaultColor")] = QStringLiteral("#1a1200");
         p.settings[QStringLiteral("BadgeLetterColorAuto")] = false;
         p.settings[QStringLiteral("BadgeLetterColor")] = QStringLiteral("#ffb000");
+        p.settings[QStringLiteral("RecentWindowCustomColor")] = QStringLiteral("#ffb000");
+        p.settings[QStringLiteral("BadgeLabelColorAuto")] = false;
+        p.settings[QStringLiteral("BadgeLabelUnmarkedColor")] = QStringLiteral("#ffcc33");
+        p.settings[QStringLiteral("BadgeCaptionColorAuto")] = false;
+        p.settings[QStringLiteral("BadgeCaptionColor")] = QStringLiteral("#ffb000");
+        p.settings[QStringLiteral("BadgeLocationColorAuto")] = false;
+        p.settings[QStringLiteral("BadgeLocationColor")] = QStringLiteral("#cc8800");
         list.append(p);
     }
 
