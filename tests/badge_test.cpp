@@ -907,6 +907,39 @@ void testWindowBadgesEnabledConfig()
     assert(cfgHudOnly.hudIncludeAll == true);
 }
 
+void testHudWindowGroupingAndFrames()
+{
+    OutlineBadge::BadgeConfig cfg;
+    assert(cfg.hudGroupWindows == true);
+
+    // Pill size with group count
+    const QSizeF singleSize = OutlineBadge::computeHudPillSize(cfg, QStringLiteral("Desktop 1"), QStringLiteral("Firefox"), 36, 1.0, QString(), false, false, QSize(), QString(), false, 0);
+    const QSizeF groupSize = OutlineBadge::computeHudPillSize(cfg, QStringLiteral("Desktop 1"), QStringLiteral("Firefox"), 36, 1.0, QString(), false, false, QSize(), QString(), false, 3);
+    assert(groupSize.width() >= singleSize.width());
+
+    // Render offscreen pill with group count
+    const QImage pillImg = OutlineBadge::renderOffscreenTargetPill(cfg, QChar('F'), QColor(52, 152, 219), Qt::white,
+                                                                   QStringLiteral("Desktop 1"), QStringLiteral("Firefox"), 36, 1.0,
+                                                                   QString(), QIcon(), QImage(), true, QString(), false, 3);
+    assert(!pillImg.isNull());
+    assert(pillImg.width() > 0 && pillImg.height() > 0);
+
+    // Group container frame
+    const QSizeF frameSize(320.0, 90.0);
+    const QImage frameImg = OutlineBadge::renderGroupContainerFrame(frameSize, QChar('F'), QColor(52, 152, 219),
+                                                                    QStringLiteral("Firefox"), 3, 1.0);
+    assert(!frameImg.isNull());
+    assert(frameImg.width() == 320);
+    assert(frameImg.height() == 90);
+
+    // High DPI scale 2.0
+    const QImage frameImgHiDpi = OutlineBadge::renderGroupContainerFrame(frameSize, QChar('F'), QColor(52, 152, 219),
+                                                                         QStringLiteral("Firefox"), 3, 2.0);
+    assert(!frameImgHiDpi.isNull());
+    assert(frameImgHiDpi.width() == 640);
+    assert(frameImgHiDpi.height() == 180);
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -929,6 +962,7 @@ int main(int argc, char *argv[])
     testRecentBadgeAndIncludeAll();
     testHudBadgeOcclusionAvoidance();
     testWindowBadgesEnabledConfig();
+    testHudWindowGroupingAndFrames();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

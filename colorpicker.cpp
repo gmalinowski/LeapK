@@ -16,6 +16,8 @@
 #include <QDialogButtonBox>
 #include <QRegularExpressionValidator>
 #include <QSettings>
+#include <QJsonObject>
+#include <QJsonDocument>
 #include "badgehelper.h"
 #include <iostream>
 
@@ -53,6 +55,7 @@ int main(int argc, char *argv[])
     bool useLetter = settings.value(QStringLiteral("MarkWithLetter"), true).toBool();
     bool useColor = settings.value(QStringLiteral("MarkWithColor"), true).toBool();
     bool usePersistent = settings.value(QStringLiteral("MarkPersistent"), true).toBool();
+    bool groupByApp = settings.value(QStringLiteral("MarkGroupByApp"), true).toBool();
 
     if (argc > 3 && argv[3]) {
         const QString arg3 = QString::fromUtf8(argv[3]).trimmed();
@@ -84,11 +87,21 @@ int main(int argc, char *argv[])
         }
     }
 
+    QString appClass;
+    if (argc > 7 && argv[7]) {
+        appClass = QString::fromUtf8(argv[7]).trimmed();
+    }
+
+    QString windowCaption;
+    if (argc > 8 && argv[8]) {
+        windowCaption = QString::fromUtf8(argv[8]).trimmed();
+    }
+
     const bool isPolish = (QLocale().language() == QLocale::Polish);
 
     QDialog dlg;
     dlg.setWindowTitle(isPolish ? QStringLiteral("Ustawienia oznaczenia okna") : QObject::tr("Mark Window Settings"));
-    dlg.setMinimumWidth(380);
+    dlg.setMinimumWidth(420);
 
     auto *layout = new QVBoxLayout(&dlg);
     layout->setSpacing(14);
@@ -155,8 +168,40 @@ int main(int argc, char *argv[])
     labelEdit->setMaxLength(50);
     formLayout->addRow(lblLabel, labelEdit);
 
-    auto *chkPersistent = new QCheckBox(isPolish ? QStringLiteral("Zapamiętaj na stałe (przypnij regułę dla aplikacji):") : QObject::tr("Remember mark permanently (pin rule for app):"), &dlg);
+    QString groupTitleText = isPolish ? QStringLiteral("Grupuj okna tego typu aplikacji:") : QObject::tr("Group windows of this app type:");
+    if (!appClass.isEmpty()) {
+        groupTitleText = isPolish ? QStringLiteral("Grupuj okna tej aplikacji (%1):").arg(appClass) : QObject::tr("Group windows of this app (%1):").arg(appClass);
+    }
+    auto *chkGroupByApp = new QCheckBox(groupTitleText, &dlg);
+    chkGroupByApp->setChecked(groupByApp);
+    chkGroupByApp->setToolTip(isPolish ? QStringLiteral("Przypisuje tę literę i kolor do wszystkich okien tej aplikacji jako grupę.") : QObject::tr("Applies this letter and color to all windows of this application as a group."));
+    formLayout->addRow(chkGroupByApp);
+
+    auto *chkMatchCaption = new QCheckBox(isPolish ? QStringLiteral("Zawęź do okien z tytułem (np. nvim, projekt):") : QObject::tr("Narrow to windows matching title (e.g. nvim, project):"), &dlg);
+    auto *captionEdit = new QLineEdit(&dlg);
+    captionEdit->setPlaceholderText(isPolish ? QStringLiteral("np. nvim, dev, bash, zadanie...") : QObject::tr("e.g. nvim, dev, bash, task..."));
+    captionEdit->setEnabled(false);
+    captionEdit->setClearButtonEnabled(true);
+    captionEdit->setMaxLength(80);
+    formLayout->addRow(chkMatchCaption, captionEdit);
+
+    QObject::connect(chkMatchCaption, &QCheckBox::toggled, [captionEdit, windowCaption](bool checked) {
+        captionEdit->setEnabled(checked);
+        if (checked && captionEdit->text().isEmpty() && !windowCaption.isEmpty()) {
+            const QString cap = windowCaption.trimmed();
+            if (cap.contains(QStringLiteral("nvim"), Qt::CaseInsensitive)) {
+                captionEdit->setText(QStringLiteral("nvim"));
+            } else if (cap.contains(QStringLiteral("vim"), Qt::CaseInsensitive)) {
+                captionEdit->setText(QStringLiteral("vim"));
+            } else {
+                captionEdit->setText(cap.left(30));
+            }
+        }
+    });
+
+    auto *chkPersistent = new QCheckBox(isPolish ? QStringLiteral("Zapisz regułę na stałe (pamiętaj po restarcie sesji)") : QObject::tr("Save rule permanently (remember across sessions)"), &dlg);
     chkPersistent->setChecked(usePersistent);
+    chkPersistent->setToolTip(isPolish ? QStringLiteral("Zapisuje regułę w ~/.config/leapk/marks.json, aby była aktywna również po restarcie komputera.") : QObject::tr("Saves rule to ~/.config/leapk/marks.json so it persists after reboot/re-login."));
     formLayout->addRow(chkPersistent);
 
     layout->addLayout(formLayout);
@@ -193,10 +238,14 @@ int main(int argc, char *argv[])
         const bool finalUseLetter = chkLetter->isChecked();
         const bool finalUseColor = chkColor->isChecked();
         const bool finalPersistent = chkPersistent->isChecked();
+        const bool finalGroupByApp = chkGroupByApp->isChecked();
+        const bool finalMatchCaptionActive = chkMatchCaption->isChecked();
+        const QString finalCaptionPattern = finalMatchCaptionActive ? captionEdit->text().trimmed() : QString();
 
         settings.setValue(QStringLiteral("MarkWithLetter"), finalUseLetter);
         settings.setValue(QStringLiteral("MarkWithColor"), finalUseColor);
         settings.setValue(QStringLiteral("MarkPersistent"), finalPersistent);
+        settings.setValue(QStringLiteral("MarkGroupByApp"), finalGroupByApp);
 
         QString finalLetter = QStringLiteral("none");
         if (finalUseLetter) {
@@ -216,7 +265,16 @@ int main(int argc, char *argv[])
             finalLabel = QStringLiteral("-");
         }
 
-        std::cout << finalColor.toStdString() << " " << finalLetter.toStdString() << " " << finalLabel.toStdString() << " " << (finalPersistent ? "1" : "0") << std::endl;
+        // Output JSON structured message for LeapK
+        QJsonObject resp;
+        resp[QStringLiteral("color")] = finalColor;
+        resp[QStringLiteral("letter")] = finalLetter;
+        resp[QStringLiteral("label")] = finalLabel;
+        resp[QStringLiteral("persist")] = finalPersistent;
+        resp[QStringLiteral("groupByApp")] = finalGroupByApp;
+        resp[QStringLiteral("matchCaption")] = finalCaptionPattern;
+
+        std::cout << QJsonDocument(resp).toJson(QJsonDocument::Compact).toStdString() << std::endl;
         return 0;
     }
     return 1;

@@ -424,6 +424,7 @@ set_default BadgeWindowBadgesEnabled true
 set_default BadgePosition 1
 set_default BadgeHudPosition 0
 set_default BadgeHudIncludeAll false
+set_default BadgeHudGroupWindows true
 set_default BadgeLivePreviews false
 set_default BadgeTimeout 5
 set_default JumpRecentKey "Space"

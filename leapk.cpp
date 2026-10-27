@@ -869,6 +869,8 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
 
     m_badgeHudIncludeAll = config.readEntry("BadgeHudIncludeAll", false);
     m_badgeConfig.hudIncludeAll = m_badgeHudIncludeAll;
+    m_badgeHudGroupWindows = config.readEntry("BadgeHudGroupWindows", true);
+    m_badgeConfig.hudGroupWindows = m_badgeHudGroupWindows;
     m_badgeLivePreviews = config.readEntry("BadgeLivePreviews", false);
     m_badgeConfig.livePreviews = m_badgeLivePreviews;
     m_badgeTimeout = qBound(0, config.readEntry("BadgeTimeout", 5), 300);
@@ -2936,58 +2938,99 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
             if (exitStatus == QProcess::NormalExit && exitCode == 0) {
                 const QString out = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
                 if (!out.isEmpty()) {
-                    const int firstSpace = out.indexOf(QLatin1Char(' '));
-                    if (firstSpace != -1) {
-                        const QString colorStr = out.left(firstSpace).trimmed();
-                        const int secondSpace = out.indexOf(QLatin1Char(' '), firstSpace + 1);
-                        QString letterStr;
-                        QString labelStr;
-                        bool persist = true;
-                        if (secondSpace != -1) {
-                            letterStr = out.mid(firstSpace + 1, secondSpace - firstSpace - 1).trimmed();
-                            const int thirdSpace = out.lastIndexOf(QLatin1Char(' '));
-                            if (thirdSpace > secondSpace) {
-                                labelStr = out.mid(secondSpace + 1, thirdSpace - secondSpace - 1).trimmed();
-                                const QString persistStr = out.mid(thirdSpace + 1).trimmed();
-                                persist = (persistStr == QStringLiteral("1") || persistStr == QStringLiteral("true"));
+                    QString colorStr;
+                    QString letterStr;
+                    QString labelStr;
+                    bool persist = true;
+                    bool groupByApp = true;
+                    QString matchCaption;
+
+                    if (out.startsWith(QLatin1Char('{'))) {
+                        const QJsonDocument doc = QJsonDocument::fromJson(out.toUtf8());
+                        if (doc.isObject()) {
+                            const QJsonObject obj = doc.object();
+                            colorStr = obj.value(QStringLiteral("color")).toString();
+                            letterStr = obj.value(QStringLiteral("letter")).toString();
+                            labelStr = obj.value(QStringLiteral("label")).toString();
+                            persist = obj.value(QStringLiteral("persist")).toBool(true);
+                            groupByApp = obj.value(QStringLiteral("groupByApp")).toBool(true);
+                            matchCaption = obj.value(QStringLiteral("matchCaption")).toString().trimmed();
+                        }
+                    } else {
+                        // Legacy space-separated fallback
+                        const int firstSpace = out.indexOf(QLatin1Char(' '));
+                        if (firstSpace != -1) {
+                            colorStr = out.left(firstSpace).trimmed();
+                            const int secondSpace = out.indexOf(QLatin1Char(' '), firstSpace + 1);
+                            if (secondSpace != -1) {
+                                letterStr = out.mid(firstSpace + 1, secondSpace - firstSpace - 1).trimmed();
+                                const int thirdSpace = out.lastIndexOf(QLatin1Char(' '));
+                                if (thirdSpace > secondSpace) {
+                                    labelStr = out.mid(secondSpace + 1, thirdSpace - secondSpace - 1).trimmed();
+                                    const QString persistStr = out.mid(thirdSpace + 1).trimmed();
+                                    persist = (persistStr == QStringLiteral("1") || persistStr == QStringLiteral("true"));
+                                } else {
+                                    labelStr = out.mid(secondSpace + 1).trimmed();
+                                }
                             } else {
-                                labelStr = out.mid(secondSpace + 1).trimmed();
+                                letterStr = out.mid(firstSpace + 1).trimmed();
                             }
-                            if (labelStr == QStringLiteral("-")) {
-                                labelStr.clear();
+                        }
+                    }
+
+                    if (labelStr == QStringLiteral("-")) {
+                        labelStr.clear();
+                    }
+
+                    const bool useColor = (colorStr.compare(QStringLiteral("none"), Qt::CaseInsensitive) != 0
+                                        && colorStr.compare(QStringLiteral("auto"), Qt::CaseInsensitive) != 0
+                                        && colorStr != QStringLiteral("-"));
+                    const bool useLetter = (!letterStr.isEmpty()
+                                         && letterStr.compare(QStringLiteral("none"), Qt::CaseInsensitive) != 0
+                                         && letterStr.compare(QStringLiteral("auto"), Qt::CaseInsensitive) != 0
+                                         && letterStr != QStringLiteral("-"));
+
+                    const QColor picked = useColor ? QColor(colorStr) : QColor();
+                    const QChar pickedLetter = useLetter ? letterStr.at(0).toUpper() : QChar();
+
+                    applyMark(picked, pickedLetter, labelStr, useColor, useLetter);
+
+                    if (targetWindow && !pickedLetter.isNull()) {
+                        EffectWindow *w = targetWindow.data();
+
+                        if (groupByApp) {
+                            // Apply mark to all open windows of this application matching matchCaption
+                            if (effects) {
+                                const auto allWindows = effects->stackingOrder();
+                                for (EffectWindow *other : allWindows) {
+                                    if (other && other != w && isEligibleTargetWindow(other)) {
+                                        if (other->windowClass().compare(w->windowClass(), Qt::CaseInsensitive) == 0) {
+                                            if (matchCaption.isEmpty() || other->caption().contains(matchCaption, Qt::CaseInsensitive)) {
+                                                setWindowMark(other, picked.isValid() ? picked : m_markDefaultColor, pickedLetter, labelStr);
+                                            }
+                                        }
+                                    }
+                                }
                             }
-                        } else {
-                            letterStr = out.mid(firstSpace + 1).trimmed();
                         }
 
-                        const bool useColor = (colorStr.compare(QStringLiteral("none"), Qt::CaseInsensitive) != 0
-                                            && colorStr.compare(QStringLiteral("auto"), Qt::CaseInsensitive) != 0
-                                            && colorStr != QStringLiteral("-"));
-                        const bool useLetter = (!letterStr.isEmpty()
-                                             && letterStr.compare(QStringLiteral("none"), Qt::CaseInsensitive) != 0
-                                             && letterStr.compare(QStringLiteral("auto"), Qt::CaseInsensitive) != 0
-                                             && letterStr != QStringLiteral("-"));
-
-                        const QColor picked = useColor ? QColor(colorStr) : QColor();
-                        const QChar pickedLetter = useLetter ? letterStr.at(0).toUpper() : QChar();
-
-                        applyMark(picked, pickedLetter, labelStr, useColor, useLetter);
-
-                        if (persist && targetWindow && !pickedLetter.isNull()) {
-                            EffectWindow *w = targetWindow.data();
+                        if (persist) {
                             LeapKMarks::PersistentMarkRule rule;
                             rule.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
                             rule.letter = pickedLetter;
                             rule.color = picked.isValid() ? picked : m_markDefaultColor;
                             rule.label = labelStr;
                             rule.matchApp = w->windowClass();
+                            rule.matchCaption = matchCaption;
                             rule.matchDesktop = 0; // Match application across all desktops by default
                             rule.enabled = true;
                             rule.createdAt = QDateTime::currentMSecsSinceEpoch();
 
                             bool updated = false;
                             for (auto &r : m_persistentMarks) {
-                                if (r.matchApp.compare(rule.matchApp, Qt::CaseInsensitive) == 0 && r.letter == rule.letter) {
+                                if (r.matchApp.compare(rule.matchApp, Qt::CaseInsensitive) == 0
+                                    && r.matchCaption.compare(rule.matchCaption, Qt::CaseInsensitive) == 0
+                                    && r.letter == rule.letter) {
                                     r.color = rule.color;
                                     r.label = rule.label;
                                     r.matchDesktop = 0;
@@ -2999,17 +3042,10 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
                                 m_persistentMarks.append(rule);
                             }
                             LeapKMarks::savePersistentMarks(m_persistentMarks);
+                        }
 
-                            // Apply new rule immediately to any other currently open windows of this application
-                            if (effects) {
-                                const auto allWindows = effects->stackingOrder();
-                                for (EffectWindow *other : allWindows) {
-                                    if (other && other != w && isEligibleTargetWindow(other) && !m_markedWindows.contains(other)) {
-                                        applyPersistentMarksToWindow(other);
-                                    }
-                                }
-                                effects->addRepaintFull();
-                            }
+                        if (effects) {
+                            effects->addRepaintFull();
                         }
                     }
                 }
@@ -3031,6 +3067,8 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
             args << initialLabel;
         }
         args << QStringLiteral("1");
+        args << target->windowClass();
+        args << target->caption();
         process->start(customPicker, args);
         return;
     }
@@ -3180,11 +3218,14 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
 
     QSet<QChar> assignedLetters;
     QList<EffectWindow *> unassignedCandidates;
+    m_groupJumpLetters.clear();
+    m_windowToGroupLetter.clear();
+    m_windowToDirectLetter.clear();
+
     for (EffectWindow *w : candidates) {
         if (m_markedWindowLetters.contains(w)) {
             const QChar ch = m_markedWindowLetters.value(w).toUpper();
             m_letterWindowGroups[ch].append(w);
-            assignedLetters.insert(ch);
             continue;
         }
         unassignedCandidates.append(w);
@@ -3193,21 +3234,83 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
     const auto activeLayout = LeapKKeyboard::detectActiveLayout();
     const QString pool = LeapKKeyboard::preferredLetterPool(activeLayout);
     int poolIdx = 0;
-    for (EffectWindow *w : unassignedCandidates) {
+
+    auto nextFreeLetter = [&]() -> QChar {
         while (poolIdx < pool.length() && assignedLetters.contains(pool.at(poolIdx))) {
             poolIdx++;
         }
         if (poolIdx < pool.length()) {
             const QChar ch = pool.at(poolIdx);
-            m_letterWindowGroups[ch].append(w);
             assignedLetters.insert(ch);
             poolIdx++;
+            return ch;
         }
-    }
+        return QChar();
+    };
 
-    for (auto it = m_letterWindowGroups.constBegin(); it != m_letterWindowGroups.constEnd(); ++it) {
-        if (!it.value().isEmpty()) {
-            map[it.key()] = it.value().first();
+    if (m_badgeConfig.hudGroupWindows) {
+        // Mode A: Group multi-instance windows into single card with counter
+        for (auto it = m_letterWindowGroups.constBegin(); it != m_letterWindowGroups.constEnd(); ++it) {
+            const QChar groupKey = it.key();
+            const auto &winList = it.value();
+            assignedLetters.insert(groupKey);
+            m_groupJumpLetters[groupKey] = winList;
+            if (!winList.isEmpty()) {
+                map[groupKey] = winList.first();
+                for (EffectWindow *w : winList) {
+                    m_windowToGroupLetter[w] = groupKey;
+                    m_windowToDirectLetter[w] = groupKey;
+                }
+            }
+        }
+
+        for (EffectWindow *w : unassignedCandidates) {
+            const QChar ch = nextFreeLetter();
+            if (!ch.isNull()) {
+                m_letterWindowGroups[ch].append(w);
+                map[ch] = w;
+                m_windowToDirectLetter[w] = ch;
+            }
+        }
+    } else {
+        // Mode B: Show all windows directly with unique jump letters and group container frame
+        for (auto it = m_letterWindowGroups.constBegin(); it != m_letterWindowGroups.constEnd(); ++it) {
+            const QChar groupKey = it.key();
+            const auto &winList = it.value();
+            if (winList.size() > 1) {
+                assignedLetters.insert(groupKey);
+                m_groupJumpLetters[groupKey] = winList;
+            }
+        }
+
+        for (auto it = m_letterWindowGroups.constBegin(); it != m_letterWindowGroups.constEnd(); ++it) {
+            const QChar groupKey = it.key();
+            const auto &winList = it.value();
+            if (winList.size() > 1) {
+                for (EffectWindow *w : winList) {
+                    const QChar directKey = nextFreeLetter();
+                    if (!directKey.isNull()) {
+                        map[directKey] = w;
+                        m_windowToGroupLetter[w] = groupKey;
+                        m_windowToDirectLetter[w] = directKey;
+                    }
+                }
+            } else if (winList.size() == 1) {
+                EffectWindow *w = winList.first();
+                assignedLetters.insert(groupKey);
+                map[groupKey] = w;
+                m_windowToGroupLetter[w] = groupKey;
+                m_windowToDirectLetter[w] = groupKey;
+            }
+        }
+
+        for (EffectWindow *w : unassignedCandidates) {
+            const QChar directKey = nextFreeLetter();
+            if (!directKey.isNull()) {
+                m_letterWindowGroups[directKey].append(w);
+                map[directKey] = w;
+                m_windowToDirectLetter[w] = directKey;
+            }
         }
     }
 
@@ -3285,6 +3388,58 @@ void ActiveWindowOutlineEffect::exitSubLeapMode()
     m_subLeapWindows.clear();
     m_subLeapLetterToWindow.clear();
     m_subLeapTargets.clear();
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+    }
+    m_badgeTextureCache.clear();
+    effects->addRepaintFull();
+}
+
+void ActiveWindowOutlineEffect::enterSubLeapForGroup(QChar keyChar, const QList<EffectWindow *> &group)
+{
+    m_subLeapActive = true;
+    m_subLeapBaseKey = keyChar;
+    m_subLeapWindows = group;
+
+    // Sort by recency so primary/most recent window is at index 0
+    std::sort(m_subLeapWindows.begin(), m_subLeapWindows.end(), [this](EffectWindow *a, EffectWindow *b) {
+        int idxA = m_windowHistory.indexOf(a);
+        int idxB = m_windowHistory.indexOf(b);
+        if (idxA != -1 && idxB != -1) return idxA < idxB;
+        if (idxA != -1) return true;
+        if (idxB != -1) return false;
+        return false;
+    });
+
+    const auto layout = LeapKKeyboard::detectActiveLayout();
+    const QList<QChar> neighborKeys = LeapKKeyboard::findSpatialNeighborKeys(keyChar, m_subLeapWindows.size(), layout);
+
+    m_subLeapLetterToWindow.clear();
+    m_subLeapTargets.clear();
+
+    // If count == 3, neighborKeys is [Left, Base, Right] (e.g. [D, F, G])
+    // Make sure baseKey maps to primary window (m_subLeapWindows[0])
+    if (neighborKeys.contains(keyChar)) {
+        const int baseIdx = neighborKeys.indexOf(keyChar);
+        int otherWinIdx = 1;
+        for (int i = 0; i < neighborKeys.size(); ++i) {
+            const QChar k = neighborKeys.at(i);
+            if (i == baseIdx) {
+                m_subLeapLetterToWindow[k] = m_subLeapWindows[0];
+                m_subLeapTargets.append(qMakePair(k, m_subLeapWindows[0]));
+            } else if (otherWinIdx < m_subLeapWindows.size()) {
+                m_subLeapLetterToWindow[k] = m_subLeapWindows[otherWinIdx];
+                m_subLeapTargets.append(qMakePair(k, m_subLeapWindows[otherWinIdx]));
+                otherWinIdx++;
+            }
+        }
+    } else {
+        for (int i = 0; i < neighborKeys.size() && i < m_subLeapWindows.size(); ++i) {
+            m_subLeapLetterToWindow[neighborKeys[i]] = m_subLeapWindows[i];
+            m_subLeapTargets.append(qMakePair(neighborKeys[i], m_subLeapWindows[i]));
+        }
+    }
+
     if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
         m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
     }
@@ -3389,80 +3544,34 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     if (!text.isEmpty()) {
         const QChar keyChar = text.at(0);
-        if (m_letterWindowGroups.contains(keyChar)) {
-            const auto &group = m_letterWindowGroups.value(keyChar);
-            if (group.size() > 1) {
-                // Enter Sub-Leap disambiguation for this group of windows!
-                m_subLeapActive = true;
-                m_subLeapBaseKey = keyChar;
-                m_subLeapWindows = group;
 
-                // Sort by recency so primary/most recent window is at index 0
-                std::sort(m_subLeapWindows.begin(), m_subLeapWindows.end(), [this](EffectWindow *a, EffectWindow *b) {
-                    int idxA = m_windowHistory.indexOf(a);
-                    int idxB = m_windowHistory.indexOf(b);
-                    if (idxA != -1 && idxB != -1) return idxA < idxB;
-                    if (idxA != -1) return true;
-                    if (idxB != -1) return false;
-                    return false;
-                });
+        // Check if keyChar is a group trigger key with multiple windows
+        if (m_groupJumpLetters.contains(keyChar) && m_groupJumpLetters.value(keyChar).size() > 1) {
+            enterSubLeapForGroup(keyChar, m_groupJumpLetters.value(keyChar));
+            return;
+        }
 
-                const auto layout = LeapKKeyboard::detectActiveLayout();
-                const QList<QChar> neighborKeys = LeapKKeyboard::findSpatialNeighborKeys(keyChar, m_subLeapWindows.size(), layout);
-
-                m_subLeapLetterToWindow.clear();
-                m_subLeapTargets.clear();
-
-                // If count == 3, neighborKeys is [Left, Base, Right] (e.g. [D, F, G])
-                // Make sure baseKey maps to primary window (m_subLeapWindows[0])
-                if (neighborKeys.contains(keyChar)) {
-                    const int baseIdx = neighborKeys.indexOf(keyChar);
-                    int otherWinIdx = 1;
-                    for (int i = 0; i < neighborKeys.size(); ++i) {
-                        const QChar k = neighborKeys.at(i);
-                        if (i == baseIdx) {
-                            m_subLeapLetterToWindow[k] = m_subLeapWindows[0];
-                            m_subLeapTargets.append(qMakePair(k, m_subLeapWindows[0]));
-                        } else if (otherWinIdx < m_subLeapWindows.size()) {
-                            m_subLeapLetterToWindow[k] = m_subLeapWindows[otherWinIdx];
-                            m_subLeapTargets.append(qMakePair(k, m_subLeapWindows[otherWinIdx]));
-                            otherWinIdx++;
-                        }
-                    }
-                } else {
-                    for (int i = 0; i < neighborKeys.size() && i < m_subLeapWindows.size(); ++i) {
-                        m_subLeapLetterToWindow[neighborKeys[i]] = m_subLeapWindows[i];
-                        m_subLeapTargets.append(qMakePair(neighborKeys[i], m_subLeapWindows[i]));
+        // Check direct jump letter (either single marked window or unique direct letter)
+        if (m_jumpLetterToWindow.contains(keyChar)) {
+            EffectWindow *target = m_jumpLetterToWindow.value(keyChar);
+            cancelJumpMode();
+            if (target && !target->isDeleted()) {
+                m_expectedJumpTarget = target;
+                if (m_expectedJumpTargetTimer) {
+                    m_expectedJumpTargetTimer->start(1000);
+                }
+                if (!target->isOnCurrentDesktop()) {
+                    const auto desktops = target->desktops();
+                    if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
+                        effects->setCurrentDesktop(desktops.first());
                     }
                 }
-
-                if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
-                    m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+                if (target->isMinimized()) {
+                    target->setMinimized(false);
                 }
-                m_badgeTextureCache.clear();
-                effects->addRepaintFull();
-                return;
-            } else if (group.size() == 1) {
-                EffectWindow *target = group.first();
-                cancelJumpMode();
-                if (target && !target->isDeleted()) {
-                    m_expectedJumpTarget = target;
-                    if (m_expectedJumpTargetTimer) {
-                        m_expectedJumpTargetTimer->start(1000);
-                    }
-                    if (!target->isOnCurrentDesktop()) {
-                        const auto desktops = target->desktops();
-                        if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
-                            effects->setCurrentDesktop(desktops.first());
-                        }
-                    }
-                    if (target->isMinimized()) {
-                        target->setMinimized(false);
-                    }
-                    effects->activateWindow(target);
-                }
-                return;
+                effects->activateWindow(target);
             }
+            return;
         }
     }
 
@@ -4279,7 +4388,22 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         }
 
         const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
-        const bool isMarked = m_markedWindows.contains(target);
+
+        int groupCount = 0;
+        if (cfg.hudGroupWindows && m_groupJumpLetters.contains(letter)) {
+            groupCount = m_groupJumpLetters.value(letter).size();
+        }
+
+        bool isMarked = m_markedWindows.contains(target);
+        // If grouping is unchecked and this window is part of a multi-window group,
+        // the enclosing group frame visually groups them and carries the mark styling
+        if (!cfg.hudGroupWindows && !m_subLeapActive && m_windowToGroupLetter.contains(target)) {
+            const QChar gKey = m_windowToGroupLetter.value(target);
+            if (m_groupJumpLetters.contains(gKey) && m_groupJumpLetters.value(gKey).size() > 1) {
+                isMarked = false;
+            }
+        }
+
         const bool isRecent = (target == findRecentWindow()) || m_recentWindows.contains(target);
         const bool isMostRecent = (target == findRecentWindow());
         const QString recentKey = isMostRecent ? (m_badgePreviewActive ? m_previewBadgeConfig.jumpRecentKey : m_jumpRecentKey) : QString();
@@ -4310,7 +4434,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             : QImage();
 
         const QImage img = OutlineBadge::renderOffscreenTargetPill(cfg, letter, bgCol, textCol, loc, caption, badgeSize, scale, customLabel,
-                                                                   icon, thumbnail, isMarked, recentKey, isRecent);
+                                                                   icon, thumbnail, isMarked, recentKey, isRecent, groupCount);
         auto uploaded = GLTexture::upload(img);
         if (!uploaded) {
             continue;
@@ -4336,6 +4460,71 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     const int hudPos = m_badgePreviewActive ? m_previewBadgeHudPosition : m_badgeHudPosition;
     const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos);
 
+    struct GroupFrameItem {
+        std::shared_ptr<GLTexture> texture;
+        QRectF rect;
+    };
+    QList<GroupFrameItem> groupFrames;
+
+    const OutlineBadge::BadgeConfig &hudCfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
+    if (!hudCfg.hudGroupWindows && !m_subLeapActive) {
+        // Collect multi-window groups
+        QMap<QChar, QList<int>> groupIndices;
+        for (int i = 0; i < targets.size(); ++i) {
+            EffectWindow *win = targets.at(i).second;
+            if (win && m_windowToGroupLetter.contains(win)) {
+                const QChar gKey = m_windowToGroupLetter.value(win);
+                if (m_groupJumpLetters.contains(gKey) && m_groupJumpLetters.value(gKey).size() > 1) {
+                    groupIndices[gKey].append(i);
+                }
+            }
+        }
+
+        for (auto it = groupIndices.constBegin(); it != groupIndices.constEnd(); ++it) {
+            const QChar gKey = it.key();
+            const auto &indices = it.value();
+            if (indices.isEmpty()) {
+                continue;
+            }
+
+            QRectF groupBoundingRect;
+            for (int idx : indices) {
+                if (idx >= 0 && idx < rects.size()) {
+                    if (groupBoundingRect.isEmpty()) {
+                        groupBoundingRect = rects.at(idx);
+                    } else {
+                        groupBoundingRect = groupBoundingRect.united(rects.at(idx));
+                    }
+                }
+            }
+
+            if (groupBoundingRect.isEmpty()) {
+                continue;
+            }
+
+            const qreal padX = 8.0;
+            const qreal padBottom = 8.0;
+            const qreal padTop = 14.0;
+            const QRectF frameRect = groupBoundingRect.adjusted(-padX, -padTop, padX, padBottom);
+
+            EffectWindow *firstWin = m_groupJumpLetters.value(gKey).first();
+            const QColor groupColor = m_markedWindows.value(firstWin, QColor(52, 152, 219));
+            QString groupTitle = m_markedWindowLabels.value(firstWin);
+            if (groupTitle.isEmpty() && firstWin) {
+                groupTitle = firstWin->windowClass();
+            }
+            const int count = m_groupJumpLetters.value(gKey).size();
+
+            const QImage frameImg = OutlineBadge::renderGroupContainerFrame(frameRect.size(), gKey, groupColor, groupTitle, count, scale);
+            auto uploaded = GLTexture::upload(frameImg);
+            if (uploaded) {
+                uploaded->setFilter(GL_LINEAR);
+                uploaded->setWrapMode(GL_CLAMP_TO_EDGE);
+                groupFrames.append({std::shared_ptr<GLTexture>(uploaded.release()), frameRect});
+            }
+        }
+    }
+
     GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
     GLint previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha;
     glGetIntegerv(GL_BLEND_SRC_RGB, &previousSrcRgb);
@@ -4354,6 +4543,32 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix, viewport.projectionMatrix());
     shader->setColorspaceUniforms(ColorDescription::sRGB, renderTarget.colorDescription(), RenderingIntent::Perceptual);
 
+    // 1. Render group container frames behind HUD pills
+    for (const GroupFrameItem &gf : groupFrames) {
+        const float x0 = gf.rect.left() * scale;
+        const float y0 = gf.rect.top() * scale;
+        const float x1 = gf.rect.right() * scale;
+        const float y1 = gf.rect.bottom() * scale;
+
+        const std::array<GLVertex2D, 6> verts = {{
+            {QVector2D(x0, y0), QVector2D(0.0f, 0.0f)},
+            {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+            {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+            {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+            {QVector2D(x1, y1), QVector2D(1.0f, 1.0f)},
+            {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+        }};
+
+        auto vbo = GLVertexBuffer::streamingBuffer();
+        vbo->setVertices(verts);
+
+        shader->setUniform(GLShader::Mat4Uniform::TextureMatrix, gf.texture->matrix(NormalizedCoordinates));
+        gf.texture->bind();
+        vbo->render(GL_TRIANGLES);
+        gf.texture->unbind();
+    }
+
+    // 2. Render HUD pills on top
     for (int i = 0; i < pills.size(); ++i) {
         const PillItem &item = pills.at(i);
         const QRectF &rect = rects.at(i);
@@ -5056,9 +5271,15 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 }
             }
         } else {
-            for (auto it = m_letterWindowGroups.constBegin(); it != m_letterWindowGroups.constEnd(); ++it) {
-                const QChar letter = it.key();
-                for (EffectWindow *target : it.value()) {
+            if (m_badgeConfig.hudGroupWindows) {
+                // Mode A: Group multi-instance windows into single card with counter
+                for (auto it = m_letterWindowGroups.constBegin(); it != m_letterWindowGroups.constEnd(); ++it) {
+                    const QChar letter = it.key();
+                    const auto &winList = it.value();
+                    if (winList.isEmpty()) {
+                        continue;
+                    }
+                    EffectWindow *target = winList.first();
                     if (!target || target == w || target->isDeleted() || !isEligibleTargetWindow(target)) {
                         continue;
                     }
@@ -5089,6 +5310,47 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
 
                     if (m_badgeConfig.windowBadgesEnabled) {
                         onscreenTargets.append(qMakePair(letter, target));
+                    }
+                }
+            } else {
+                // Mode B: Show all windows directly with unique jump letters
+                for (auto it = m_letterWindowGroups.constBegin(); it != m_letterWindowGroups.constEnd(); ++it) {
+                    for (EffectWindow *target : it.value()) {
+                        if (!target || target == w || target->isDeleted() || !isEligibleTargetWindow(target)) {
+                            continue;
+                        }
+                        const QChar directKey = m_windowToDirectLetter.value(target);
+                        if (directKey.isNull()) {
+                            continue;
+                        }
+
+                        const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled;
+                        if (forceHud) {
+                            offscreenTargets.append(qMakePair(directKey, target));
+                        }
+
+                        const bool onCurrent = target->isOnCurrentDesktop();
+                        const bool minimized = target->isMinimized();
+
+                        if (!onCurrent || minimized) {
+                            if (!forceHud) {
+                                offscreenTargets.append(qMakePair(directKey, target));
+                            }
+                            continue;
+                        }
+
+                        const QRectF geo = target->frameGeometry();
+                        const QRectF visibleWindowGeo = geo.intersected(screenRect);
+                        if (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50) {
+                            if (!forceHud) {
+                                offscreenTargets.append(qMakePair(directKey, target));
+                            }
+                            continue;
+                        }
+
+                        if (m_badgeConfig.windowBadgesEnabled) {
+                            onscreenTargets.append(qMakePair(directKey, target));
+                        }
                     }
                 }
             }

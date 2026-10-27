@@ -216,6 +216,7 @@ private:
     bool isEligibleTargetWindow(EffectWindow *w) const;
     QMap<QChar, EffectWindow *> assignJumpLetters() const;
     void cancelJumpMode();
+    void enterSubLeapForGroup(QChar keyChar, const QList<EffectWindow *> &group);
     void exitSubLeapMode();
     bool isWindowObscured(EffectWindow *target) const;
     bool isBadgeOccluded(EffectWindow *target, const QRectF &badgeRect, const QList<QRectF> &hudRects = {}) const;
@@ -409,8 +410,12 @@ private:
     // Jump to Window
     bool m_jumpMode = false;
     int m_jumpTargets = 0; // 0 = All visible windows, 1 = Marked windows only
+    bool m_badgeHudGroupWindows = true;
     QMap<QChar, EffectWindow *> m_jumpLetterToWindow;
     mutable QMap<QChar, QList<EffectWindow *>> m_letterWindowGroups;
+    mutable QMap<QChar, QList<EffectWindow *>> m_groupJumpLetters;
+    mutable QMap<EffectWindow *, QChar> m_windowToGroupLetter;
+    mutable QMap<EffectWindow *, QChar> m_windowToDirectLetter;
     QTimer *m_jumpTimeoutTimer = nullptr;
     QPointer<EffectWindow> m_expectedJumpTarget;
     QTimer *m_expectedJumpTargetTimer = nullptr;

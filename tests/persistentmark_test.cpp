@@ -107,6 +107,29 @@ void testScoreWindowMatch()
     const auto *best3 = findBestMatchingRule(rules, QStringLiteral("org.kde.konsole"), QStringLiteral("Shell"), 1);
     assert(best3 == nullptr);
 
+    // 4. Terminal with nvim vs general terminal
+    PersistentMarkRule konsoleGeneral;
+    konsoleGeneral.id = QStringLiteral("konsole-gen");
+    konsoleGeneral.letter = QChar('T');
+    konsoleGeneral.matchApp = QStringLiteral("org.kde.konsole");
+
+    PersistentMarkRule konsoleNvim;
+    konsoleNvim.id = QStringLiteral("konsole-nvim");
+    konsoleNvim.letter = QChar('V');
+    konsoleNvim.matchApp = QStringLiteral("org.kde.konsole");
+    konsoleNvim.matchCaption = QStringLiteral("nvim");
+
+    QList<PersistentMarkRule> termRules = { konsoleGeneral, konsoleNvim };
+    const auto *bestNvim = findBestMatchingRule(termRules, QStringLiteral("org.kde.konsole"), QStringLiteral("leapk.cpp - nvim"), 1);
+    assert(bestNvim != nullptr);
+    assert(bestNvim->id == konsoleNvim.id);
+    assert(bestNvim->letter == QChar('V'));
+
+    const auto *bestBash = findBestMatchingRule(termRules, QStringLiteral("org.kde.konsole"), QStringLiteral("bash — Konsole"), 1);
+    assert(bestBash != nullptr);
+    assert(bestBash->id == konsoleGeneral.id);
+    assert(bestBash->letter == QChar('T'));
+
     std::cout << "testScoreWindowMatch PASSED\n";
 }
 

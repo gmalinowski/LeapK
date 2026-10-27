@@ -71,6 +71,7 @@ struct BadgeConfig {
     int hudCaptionFontSize = 0; // 0 = auto
     int hudLocationFontSize = 0; // 0 = auto
     bool hudIncludeAll = false;
+    bool hudGroupWindows = true;
     int badgeTimeout = 5;
     QString jumpRecentKey = QStringLiteral("Space");
     bool livePreviews = false;
@@ -630,7 +631,8 @@ inline QSizeF computeHudPillSize(const BadgeConfig &cfg,
                                  bool hasThumb = false,
                                  const QSize &thumbSize = QSize(),
                                  const QString &recentKey = QString(),
-                                 bool isRecent = false)
+                                 bool isRecent = false,
+                                 int groupCount = 0)
 {
     const int effectivePillBaseH = (badgeSize > 0) ? badgeSize : cfg.hudBadgeSize;
 
@@ -697,6 +699,9 @@ inline QSizeF computeHudPillSize(const BadgeConfig &cfg,
         QFontMetrics fmLine2(line2Font);
 
         line1Text = cleanLabel;
+        if (groupCount > 1) {
+            line1Text += QStringLiteral(" (%1)").arg(groupCount);
+        }
         if (fmLine1.horizontalAdvance(line1Text) > qRound(220 * scale)) {
             line1Text = fmLine1.elidedText(line1Text, Qt::ElideRight, qRound(220 * scale));
         }
@@ -724,6 +729,11 @@ inline QSizeF computeHudPillSize(const BadgeConfig &cfg,
             line1Text += QStringLiteral(" · ") + (isPolish ? QStringLiteral("Ostatnie") : QStringLiteral("Recent"));
         }
         line2Text = displayCap;
+        if (groupCount > 1 && !line2Text.isEmpty()) {
+            line2Text += QStringLiteral(" (%1)").arg(groupCount);
+        } else if (groupCount > 1) {
+            line1Text += QStringLiteral(" (%1)").arg(groupCount);
+        }
 
         const int locWidth = fmLoc.horizontalAdvance(line1Text);
         const int capWidth = line2Text.isEmpty() ? 0 : fmCap.horizontalAdvance(line2Text);
@@ -840,7 +850,8 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
                                         const QImage &thumbnail = QImage(),
                                         bool isMarked = false,
                                         const QString &recentKey = QString(),
-                                        bool isRecent = false)
+                                        bool isRecent = false,
+                                        int groupCount = 0)
 {
     Q_UNUSED(textColor);
     const int effectivePillBaseH = (badgeSize > 0) ? badgeSize : cfg.hudBadgeSize;
@@ -910,6 +921,9 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         QFontMetrics fmLine2(line2Font);
 
         line1Text = cleanLabel;
+        if (groupCount > 1) {
+            line1Text += QStringLiteral(" (%1)").arg(groupCount);
+        }
         if (fmLine1.horizontalAdvance(line1Text) > qRound(220 * scale)) {
             line1Text = fmLine1.elidedText(line1Text, Qt::ElideRight, qRound(220 * scale));
         }
@@ -937,6 +951,11 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
             line1Text += QStringLiteral(" · ") + (isPolish ? QStringLiteral("Ostatnie") : QStringLiteral("Recent"));
         }
         line2Text = displayCap;
+        if (groupCount > 1 && !line2Text.isEmpty()) {
+            line2Text += QStringLiteral(" (%1)").arg(groupCount);
+        } else if (groupCount > 1) {
+            line1Text += QStringLiteral(" (%1)").arg(groupCount);
+        }
 
         const int locWidth = fmLoc.horizontalAdvance(line1Text);
         const int capWidth = line2Text.isEmpty() ? 0 : fmCap.horizontalAdvance(line2Text);
@@ -1253,7 +1272,8 @@ inline QImage renderOffscreenTargetPill(const QChar &letter,
                                         bool showThumbnail = false, const QImage &thumbnail = QImage(),
                                         bool isMarked = false,
                                         const QString &recentKey = QString(),
-                                        bool isRecent = false)
+                                        bool isRecent = false,
+                                        int groupCount = 0)
 {
     BadgeConfig cfg;
     cfg.hudBadgeSize = badgeSize;
@@ -1410,6 +1430,94 @@ inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
     }
 
     return result;
+}
+
+inline QImage renderGroupContainerFrame(const QSizeF &size,
+                                        const QChar &groupLetter,
+                                        const QColor &groupColor,
+                                        const QString &groupTitle,
+                                        int windowCount,
+                                        qreal scale,
+                                        int cornerRadius = 8)
+{
+    const int w = qRound(size.width() * scale);
+    const int h = qRound(size.height() * scale);
+    if (w <= 0 || h <= 0) {
+        return QImage();
+    }
+
+    QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+
+    QPainter p(&img);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+
+    const qreal r = cornerRadius * scale;
+    const int tabHalfH = qRound(10 * scale);
+    const QRectF rect(scale, tabHalfH + scale, w - 2 * scale, h - tabHalfH - 2 * scale);
+
+    // Subtle container background tint
+    QColor fillCol = groupColor.isValid() ? groupColor : QColor(52, 152, 219);
+    fillCol.setAlpha(26);
+    p.setBrush(fillCol);
+
+    // Border in group color
+    QColor borderCol = groupColor.isValid() ? groupColor : QColor(52, 152, 219);
+    borderCol.setAlpha(175);
+    QPen pen(borderCol, qMax(1.5, 1.8 * scale), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+    p.setPen(pen);
+    p.drawRoundedRect(rect, r, r);
+
+    // Group badge tab at the top
+    if (!groupLetter.isNull() && groupLetter.toLatin1() != 0) {
+        const int badgeH = qRound(20 * scale);
+        const int badgePad = qRound(6 * scale);
+
+        QFont font(QStringLiteral("sans-serif"));
+        font.setPixelSize(qMax(9, qRound(11 * scale)));
+        font.setBold(true);
+        p.setFont(font);
+        QFontMetrics fm(font);
+
+        QString countStr = (windowCount > 1) ? QStringLiteral(" (%1)").arg(windowCount) : QString();
+        QString titleStr = groupTitle.trimmed();
+        if (titleStr.isEmpty()) {
+            titleStr = QStringLiteral("Grupa");
+        }
+        QString tabText = titleStr + countStr;
+
+        const int letterW = qMax(badgeH, fm.horizontalAdvance(QString(groupLetter)) + qRound(8 * scale));
+        const int textW = fm.horizontalAdvance(tabText);
+        const int totalTabW = letterW + (textW > 0 ? (badgePad + textW + badgePad) : 0);
+
+        const QRectF tabRect(rect.left() + qRound(8 * scale), rect.top() - qRound(10 * scale), totalTabW, badgeH);
+
+        // Tab background
+        p.setPen(Qt::NoPen);
+        QColor tabBg = groupColor.isValid() ? groupColor : QColor(52, 152, 219);
+        tabBg.setAlpha(235);
+        p.setBrush(tabBg);
+        p.drawRoundedRect(tabRect, badgeH / 2.0, badgeH / 2.0);
+
+        // Draw letter
+        const QColor textCol = contrastingTextColor(tabBg);
+        p.setPen(textCol);
+        const QRectF letRect(tabRect.left(), tabRect.top(), letterW, badgeH);
+        p.drawText(letRect, Qt::AlignCenter, QString(groupLetter));
+
+        // Draw tab text
+        if (textW > 0) {
+            const QRectF txtRect(tabRect.left() + letterW, tabRect.top(), textW + badgePad, badgeH);
+            QFont subFont = font;
+            subFont.setBold(false);
+            p.setFont(subFont);
+            p.drawText(txtRect, Qt::AlignVCenter | Qt::AlignLeft, tabText);
+        }
+    }
+
+    p.end();
+    return img;
 }
 
 } // namespace OutlineBadge
