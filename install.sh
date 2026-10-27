@@ -120,9 +120,9 @@ else
 fi
 
 if command -v curl >/dev/null 2>&1; then
-  curl -sSL "$archive_url" | tar -xz -C "$tmp_dir" --strip-components=1
+  curl -sSL "$archive_url" | tar -mxz -C "$tmp_dir" --strip-components=1
 elif command -v wget >/dev/null 2>&1; then
-  wget -qO- "$archive_url" | tar -xz -C "$tmp_dir" --strip-components=1
+  wget -qO- "$archive_url" | tar -mxz -C "$tmp_dir" --strip-components=1
 else
   echo "Neither curl nor wget was found. Please install curl or wget." >&2
   exit 1
