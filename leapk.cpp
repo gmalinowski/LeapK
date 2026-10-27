@@ -3008,7 +3008,13 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
                   << QStringLiteral("/usr/local/bin")
                   << QStringLiteral("/usr/bin");
 
-    QString customPicker = QStandardPaths::findExecutable(QStringLiteral("leapk-colorpicker"), candidateDirs);
+    QString customPicker = QStandardPaths::findExecutable(QStringLiteral("leapk-custom-marker"), candidateDirs);
+    if (customPicker.isEmpty()) {
+        customPicker = QStandardPaths::findExecutable(QStringLiteral("leapk-colorpicker"), candidateDirs);
+    }
+    if (customPicker.isEmpty()) {
+        customPicker = QStandardPaths::findExecutable(QStringLiteral("kleap-custom-marker"), candidateDirs);
+    }
     if (customPicker.isEmpty()) {
         customPicker = QStandardPaths::findExecutable(QStringLiteral("kleap-colorpicker"), candidateDirs);
     }

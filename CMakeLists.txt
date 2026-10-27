@@ -169,12 +169,12 @@ target_compile_definitions(kwin_leapk_config PRIVATE
     ACTIVE_WINDOW_OUTLINE_VERSION="${PROJECT_VERSION}"
 )
 
-# --- Standalone Color Picker helper ---
-add_executable(leapk-colorpicker colorpicker.cpp)
-target_link_libraries(leapk-colorpicker PRIVATE
+# --- Standalone Custom Marker helper ---
+add_executable(leapk-custom-marker colorpicker.cpp)
+target_link_libraries(leapk-custom-marker PRIVATE
     Qt6::Widgets
 )
-install(TARGETS leapk-colorpicker
+install(TARGETS leapk-custom-marker
     DESTINATION ${KDE_INSTALL_LIBEXECDIR}
 )
 
@@ -250,13 +250,21 @@ add_custom_target(active-window-outline-settings ALL
     COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-settings active-window-outline-settings
     DEPENDS leapk-settings
 )
+add_custom_target(leapk-colorpicker ALL
+    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-custom-marker leapk-colorpicker
+    DEPENDS leapk-custom-marker
+)
+add_custom_target(kleap-custom-marker ALL
+    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-custom-marker kleap-custom-marker
+    DEPENDS leapk-custom-marker
+)
 add_custom_target(kleap-colorpicker ALL
-    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-colorpicker kleap-colorpicker
-    DEPENDS leapk-colorpicker
+    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-custom-marker kleap-colorpicker
+    DEPENDS leapk-custom-marker
 )
 add_custom_target(active-window-outline-colorpicker ALL
-    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-colorpicker active-window-outline-colorpicker
-    DEPENDS leapk-colorpicker
+    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-custom-marker active-window-outline-colorpicker
+    DEPENDS leapk-custom-marker
 )
 add_custom_target(leapk-cli ALL
     COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-settings leapk

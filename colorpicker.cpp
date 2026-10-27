@@ -41,10 +41,10 @@ static const Qt::Key s_paletteNumKeys[8] = {
 };
 
 // Main card with LeapK HUD dark acrylic style
-class MainHudFrame : public QFrame
+class MainMarkerFrame : public QFrame
 {
 public:
-    explicit MainHudFrame(QWidget *parent = nullptr) : QFrame(parent)
+    explicit MainMarkerFrame(QWidget *parent = nullptr) : QFrame(parent)
     {
         setAttribute(Qt::WA_StyledBackground, false);
     }
@@ -71,10 +71,10 @@ protected:
 };
 
 // Clickable HUD Option Card
-class HudOptionCard : public QFrame
+class MarkerOptionCard : public QFrame
 {
 public:
-    explicit HudOptionCard(QWidget *parent = nullptr) : QFrame(parent)
+    explicit MarkerOptionCard(QWidget *parent = nullptr) : QFrame(parent)
     {
         setCursor(Qt::PointingHandCursor);
         setObjectName(QStringLiteral("hudCard"));
@@ -120,22 +120,152 @@ protected:
     }
 };
 
-class HudMarkDialog : public QDialog
+// Popup dialog for entering child process or caption pattern cleanly
+class PatternFilterDialog : public QDialog
 {
 public:
-    HudMarkDialog(const QColor &initialColor,
-                  const QString &initialLetter,
-                  bool initialUseLetter,
-                  bool initialUseColor,
-                  const QString &initialLabel,
-                  bool initialPersistent,
-                  const QString &appClass,
-                  const QString &windowCaption,
-                  int desktopNum,
-                  const QString &desktopName,
-                  bool isAlreadyMarked,
-                  const QJsonObject &usedLettersMap,
-                  QWidget *parent = nullptr)
+    PatternFilterDialog(const QString &currentPattern, bool isPolish, QWidget *parent = nullptr)
+        : QDialog(parent)
+        , m_pattern(currentPattern)
+        , m_isPolish(isPolish)
+    {
+        setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
+        setAttribute(Qt::WA_TranslucentBackground, true);
+        setFixedSize(500, 220);
+
+        auto *dialogLayout = new QVBoxLayout(this);
+        dialogLayout->setContentsMargins(4, 4, 4, 4);
+
+        auto *card = new QFrame(this);
+        card->setStyleSheet(QStringLiteral(
+            "QFrame {"
+            "  background-color: rgba(18, 21, 26, 252);"
+            "  border: 1.5px solid #e67e22;"
+            "  border-radius: 14px;"
+            "}"
+        ));
+        auto *layout = new QVBoxLayout(card);
+        layout->setContentsMargins(20, 18, 20, 18);
+        layout->setSpacing(12);
+
+        auto *title = new QLabel(m_isPolish ? QStringLiteral("<b>Zawęź do procesu lub tytułu okna</b>") : QStringLiteral("<b>Narrow to Child Process or Window Title</b>"), card);
+        title->setStyleSheet(QStringLiteral("font-size: 15px; color: #ffffff; border: none; background: transparent;"));
+        title->setTextFormat(Qt::RichText);
+        layout->addWidget(title);
+
+        auto *desc = new QLabel(m_isPolish
+            ? QStringLiteral("Wpisz fragment tytułu lub nazwę procesu potomnego (np. nvim, ssh, vim, dev, bash):")
+            : QStringLiteral("Enter title substring or child process name (e.g. nvim, ssh, vim, dev, bash):"), card);
+        desc->setStyleSheet(QStringLiteral("font-size: 12px; color: rgba(255, 255, 255, 0.75); border: none; background: transparent;"));
+        desc->setWordWrap(true);
+        layout->addWidget(desc);
+
+        m_edit = new QLineEdit(m_pattern, card);
+        m_edit->setPlaceholderText(m_isPolish ? QStringLiteral("np. nvim, ssh, bash...") : QStringLiteral("e.g. nvim, ssh, bash..."));
+        m_edit->setClearButtonEnabled(true);
+        m_edit->setStyleSheet(QStringLiteral(
+            "QLineEdit {"
+            "  background-color: rgba(0, 0, 0, 0.55);"
+            "  border: 1.5px solid rgba(255, 255, 255, 0.3);"
+            "  border-radius: 8px;"
+            "  color: #ffffff;"
+            "  padding: 8px 12px;"
+            "  font-size: 14px;"
+            "  font-weight: bold;"
+            "}"
+            "QLineEdit:focus {"
+            "  border: 1.5px solid #e67e22;"
+            "}"
+        ));
+        layout->addWidget(m_edit);
+
+        auto *btnRow = new QHBoxLayout();
+        btnRow->setSpacing(10);
+        btnRow->addStretch(1);
+
+        auto *btnCancel = new QPushButton(m_isPolish ? QStringLiteral("Anuluj (Esc)") : QStringLiteral("Cancel (Esc)"), card);
+        btnCancel->setFocusPolicy(Qt::NoFocus);
+        btnCancel->setStyleSheet(QStringLiteral(
+            "QPushButton {"
+            "  background-color: rgba(255, 255, 255, 0.08);"
+            "  border: 1px solid rgba(255, 255, 255, 0.2);"
+            "  border-radius: 8px;"
+            "  color: #ffffff;"
+            "  padding: 8px 16px;"
+            "  font-size: 13px;"
+            "}"
+            "QPushButton:hover { background-color: rgba(255, 255, 255, 0.15); }"
+        ));
+        connect(btnCancel, &QPushButton::clicked, this, &QDialog::reject);
+        btnRow->addWidget(btnCancel);
+
+        auto *btnOk = new QPushButton(m_isPolish ? QStringLiteral("✓ Zastosuj (Enter)") : QStringLiteral("✓ Apply (Enter)"), card);
+        btnOk->setFocusPolicy(Qt::NoFocus);
+        btnOk->setStyleSheet(QStringLiteral(
+            "QPushButton {"
+            "  background-color: #e67e22;"
+            "  border-radius: 8px;"
+            "  color: #ffffff;"
+            "  font-weight: bold;"
+            "  padding: 8px 20px;"
+            "  font-size: 13px;"
+            "}"
+            "QPushButton:hover { background-color: #d35400; }"
+        ));
+        connect(btnOk, &QPushButton::clicked, this, &QDialog::accept);
+        btnRow->addWidget(btnOk);
+
+        layout->addLayout(btnRow);
+        dialogLayout->addWidget(card);
+
+        connect(m_edit, &QLineEdit::returnPressed, this, &QDialog::accept);
+    }
+
+    QString pattern() const { return m_edit->text().trimmed(); }
+
+protected:
+    void showEvent(QShowEvent *event) override
+    {
+        QDialog::showEvent(event);
+        if (parentWidget()) {
+            move(parentWidget()->geometry().center().x() - width() / 2,
+                 parentWidget()->geometry().center().y() - height() / 2);
+        }
+        m_edit->setFocus();
+        m_edit->selectAll();
+    }
+
+    void keyPressEvent(QKeyEvent *event) override
+    {
+        if (event->key() == Qt::Key_Escape) {
+            reject();
+            return;
+        }
+        QDialog::keyPressEvent(event);
+    }
+
+private:
+    QString m_pattern;
+    bool m_isPolish;
+    QLineEdit *m_edit;
+};
+
+class CustomMarkerDialog : public QDialog
+{
+public:
+    CustomMarkerDialog(const QColor &initialColor,
+                       const QString &initialLetter,
+                       bool initialUseLetter,
+                       bool initialUseColor,
+                       const QString &initialLabel,
+                       bool initialPersistent,
+                       const QString &appClass,
+                       const QString &windowCaption,
+                       int desktopNum,
+                       const QString &desktopName,
+                       bool isAlreadyMarked,
+                       const QJsonObject &usedLettersMap,
+                       QWidget *parent = nullptr)
         : QDialog(parent)
         , m_color(initialColor.isValid() ? initialColor : QColor(QStringLiteral("#3498db")))
         , m_useColor(initialUseColor)
@@ -177,8 +307,13 @@ public:
                 m_detectedCaption = cap.left(30);
             }
         }
+        m_matchCaption = m_detectedCaption;
 
-        // Frameless translucent HUD window with larger comfortable dimensions
+        // System font adaptation
+        const QFont sysFont = QApplication::font();
+        m_basePt = sysFont.pointSizeF() > 0 ? sysFont.pointSizeF() : 10.0;
+
+        // Frameless translucent HUD window with comfortable dimensions
         setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Dialog);
         setAttribute(Qt::WA_TranslucentBackground, true);
         setFixedSize(600, 480);
@@ -240,22 +375,7 @@ protected:
     {
         if (event->type() == QEvent::KeyPress) {
             auto *keyEv = static_cast<QKeyEvent*>(event);
-            if (watched == m_captionEdit) {
-                if (keyEv->key() == Qt::Key_Return || keyEv->key() == Qt::Key_Enter) {
-                    m_matchCaption = m_captionEdit->text().trimmed();
-                    m_groupByApp = true;
-                    goToStep(3);
-                    return true;
-                }
-                if (keyEv->key() == Qt::Key_Backspace && m_captionEdit->text().isEmpty()) {
-                    goToStep(1);
-                    return true;
-                }
-                if (keyEv->key() == Qt::Key_Escape) {
-                    reject();
-                    return true;
-                }
-            } else if (watched == m_labelEdit) {
+            if (watched == m_labelEdit) {
                 if (keyEv->key() == Qt::Key_Return || keyEv->key() == Qt::Key_Enter) {
                     m_label = m_labelEdit->text().trimmed();
                     tryFinishMark();
@@ -342,23 +462,25 @@ protected:
             break;
         }
         case 2: { // Step 2: Scope (Keys: A, S, D or 1, 2, 3)
-            if (!m_captionEdit->hasFocus()) {
-                if (event->key() == Qt::Key_A || event->key() == Qt::Key_1) {
-                    handleScopeSelected(1);
-                    return;
-                }
-                if (event->key() == Qt::Key_S || event->key() == Qt::Key_2) {
-                    handleScopeSelected(2);
-                    return;
-                }
-                if (event->key() == Qt::Key_D || event->key() == Qt::Key_3) {
-                    handleScopeSelected(3);
-                    return;
-                }
-                if (event->key() == Qt::Key_Backspace || event->key() == Qt::Key_Left) {
-                    goToStep(1);
-                    return;
-                }
+            if (event->key() == Qt::Key_A || event->key() == Qt::Key_1) {
+                handleScopeSelected(1);
+                return;
+            }
+            if (event->key() == Qt::Key_S || event->key() == Qt::Key_2) {
+                handleScopeSelected(2);
+                return;
+            }
+            if (event->key() == Qt::Key_D || event->key() == Qt::Key_3) {
+                handleScopeSelected(3);
+                return;
+            }
+            if (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) {
+                goToStep(3);
+                return;
+            }
+            if (event->key() == Qt::Key_Backspace || event->key() == Qt::Key_Left) {
+                goToStep(1);
+                return;
             }
             break;
         }
@@ -404,7 +526,7 @@ private:
         auto *dialogLayout = new QVBoxLayout(this);
         dialogLayout->setContentsMargins(6, 6, 6, 6);
 
-        m_mainFrame = new MainHudFrame(this);
+        m_mainFrame = new MainMarkerFrame(this);
         auto *mainLayout = new QVBoxLayout(m_mainFrame);
         mainLayout->setContentsMargins(20, 16, 20, 14);
         mainLayout->setSpacing(12);
@@ -825,7 +947,7 @@ private:
     {
         auto *layout = new QVBoxLayout(page);
         layout->setContentsMargins(8, 6, 8, 6);
-        layout->setSpacing(10);
+        layout->setSpacing(12);
 
         auto *lblTitle = new QLabel(m_isPolish ? QStringLiteral("Krok 3: Wybierz zakres reguły") : QStringLiteral("Step 3: Choose Rule Scope"), page);
         lblTitle->setStyleSheet(QStringLiteral("font-size: 17px; font-weight: bold; color: #ffffff;"));
@@ -840,20 +962,20 @@ private:
         const QString appDisp = m_appClass.isEmpty() ? (m_isPolish ? QStringLiteral("tej aplikacji") : QStringLiteral("this app")) : m_appClass;
 
         // Card A: All App (Key: A or 1)
-        m_cardAllApp = new HudOptionCard(page);
+        m_cardAllApp = new MarkerOptionCard(page);
         m_cardAllApp->onClicked = [this]() { handleScopeSelected(1); };
 
         auto *c1Layout = new QHBoxLayout(m_cardAllApp);
-        c1Layout->setContentsMargins(14, 10, 14, 10);
+        c1Layout->setContentsMargins(16, 12, 16, 12);
         c1Layout->setSpacing(14);
 
         auto *c1Badge = new QLabel(QStringLiteral("[ A ]"), m_cardAllApp);
         c1Badge->setAttribute(Qt::WA_TransparentForMouseEvents);
-        c1Badge->setStyleSheet(QStringLiteral("font-weight: bold; font-size: 16px; color: #3498db;"));
+        c1Badge->setStyleSheet(QStringLiteral("font-weight: bold; font-size: 17px; color: #3498db;"));
         c1Layout->addWidget(c1Badge);
 
         auto *c1TextLayout = new QVBoxLayout();
-        c1TextLayout->setSpacing(3);
+        c1TextLayout->setSpacing(4);
         auto *c1Title = new QLabel(m_isPolish ? QStringLiteral("<b style='font-size:15px; color:#ffffff;'>Cała aplikacja (%1)</b>").arg(appDisp) : QStringLiteral("<b style='font-size:15px; color:#ffffff;'>All windows of this app (%1)</b>").arg(appDisp), m_cardAllApp);
         c1Title->setAttribute(Qt::WA_TransparentForMouseEvents);
         c1Title->setTextFormat(Qt::RichText);
@@ -865,94 +987,50 @@ private:
         c1Layout->addLayout(c1TextLayout, 1);
         layout->addWidget(m_cardAllApp);
 
-        // Card S: Process / Caption with inline expandable input (Key: S or 2)
-        m_cardCaption = new HudOptionCard(page);
+        // Card S: Process / Caption with clean popup prompt (Key: S or 2)
+        m_cardCaption = new MarkerOptionCard(page);
         m_cardCaption->onClicked = [this]() { handleScopeSelected(2); };
 
-        auto *c2Layout = new QVBoxLayout(m_cardCaption);
-        c2Layout->setContentsMargins(14, 10, 14, 10);
-        c2Layout->setSpacing(8);
+        auto *c2Layout = new QHBoxLayout(m_cardCaption);
+        c2Layout->setContentsMargins(16, 12, 16, 12);
+        c2Layout->setSpacing(14);
 
-        auto *c2TopRow = new QHBoxLayout();
-        c2TopRow->setSpacing(14);
         auto *c2Badge = new QLabel(QStringLiteral("[ S ]"), m_cardCaption);
         c2Badge->setAttribute(Qt::WA_TransparentForMouseEvents);
-        c2Badge->setStyleSheet(QStringLiteral("font-weight: bold; font-size: 16px; color: #e67e22;"));
-        c2TopRow->addWidget(c2Badge);
+        c2Badge->setStyleSheet(QStringLiteral("font-weight: bold; font-size: 17px; color: #e67e22;"));
+        c2Layout->addWidget(c2Badge);
 
         auto *c2TextLayout = new QVBoxLayout();
-        c2TextLayout->setSpacing(3);
+        c2TextLayout->setSpacing(4);
         auto *c2Title = new QLabel(m_isPolish ? QStringLiteral("<b style='font-size:15px; color:#ffffff;'>Zawęź do procesu potomnego lub tytułu</b>") : QStringLiteral("<b style='font-size:15px; color:#ffffff;'>Narrow to child process or title</b>"), m_cardCaption);
         c2Title->setAttribute(Qt::WA_TransparentForMouseEvents);
         c2Title->setTextFormat(Qt::RichText);
-        auto *c2Desc = new QLabel(m_isPolish ? QStringLiteral("Dopasuj tylko gdy w oknie działa program (np. nvim, ssh, dev).") : QStringLiteral("Match only when specific child command is running (e.g. nvim, ssh, dev)."), m_cardCaption);
-        c2Desc->setAttribute(Qt::WA_TransparentForMouseEvents);
-        c2Desc->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.75); font-size: 13px;"));
+
+        m_lblCardCaptionDesc = new QLabel(m_cardCaption);
+        m_lblCardCaptionDesc->setAttribute(Qt::WA_TransparentForMouseEvents);
+        m_lblCardCaptionDesc->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.75); font-size: 13px;"));
+        m_lblCardCaptionDesc->setTextFormat(Qt::RichText);
+
         c2TextLayout->addWidget(c2Title);
-        c2TextLayout->addWidget(c2Desc);
-        c2TopRow->addLayout(c2TextLayout, 1);
-        c2Layout->addLayout(c2TopRow);
-
-        // Inline input container (active when Option S chosen)
-        m_captionInputRow = new QWidget(m_cardCaption);
-        auto *c2InputLayout = new QHBoxLayout(m_captionInputRow);
-        c2InputLayout->setContentsMargins(42, 4, 0, 0);
-        c2InputLayout->setSpacing(10);
-
-        m_captionEdit = new QLineEdit(m_detectedCaption, m_captionInputRow);
-        m_captionEdit->setPlaceholderText(m_isPolish ? QStringLiteral("np. nvim, ssh, dev, zadanie...") : QStringLiteral("e.g. nvim, ssh, dev, task..."));
-        m_captionEdit->setClearButtonEnabled(true);
-        m_captionEdit->installEventFilter(this);
-        m_captionEdit->setStyleSheet(QStringLiteral(
-            "QLineEdit {"
-            "  background-color: rgba(0, 0, 0, 0.45);"
-            "  border: 1.5px solid #e67e22;"
-            "  border-radius: 8px;"
-            "  color: #ffffff;"
-            "  padding: 6px 10px;"
-            "  font-size: 13px;"
-            "}"
-        ));
-        c2InputLayout->addWidget(m_captionEdit, 1);
-
-        m_btnConfirmCaption = new QPushButton(m_isPolish ? QStringLiteral("Zastosuj (Enter)") : QStringLiteral("Apply (Enter)"), m_captionInputRow);
-        m_btnConfirmCaption->setFocusPolicy(Qt::NoFocus);
-        m_btnConfirmCaption->setStyleSheet(QStringLiteral(
-            "QPushButton {"
-            "  background-color: #e67e22;"
-            "  border-radius: 8px;"
-            "  color: #ffffff;"
-            "  font-weight: bold;"
-            "  font-size: 13px;"
-            "  padding: 6px 14px;"
-            "}"
-            "QPushButton:hover { background-color: #d35400; }"
-        ));
-        connect(m_btnConfirmCaption, &QPushButton::clicked, this, [this]() {
-            m_matchCaption = m_captionEdit->text().trimmed();
-            m_groupByApp = true;
-            goToStep(3);
-        });
-        c2InputLayout->addWidget(m_btnConfirmCaption);
-        c2Layout->addWidget(m_captionInputRow);
-        m_captionInputRow->hide();
+        c2TextLayout->addWidget(m_lblCardCaptionDesc);
+        c2Layout->addLayout(c2TextLayout, 1);
         layout->addWidget(m_cardCaption);
 
         // Card D: Single Window (Key: D or 3)
-        m_cardSingleWindow = new HudOptionCard(page);
+        m_cardSingleWindow = new MarkerOptionCard(page);
         m_cardSingleWindow->onClicked = [this]() { handleScopeSelected(3); };
 
         auto *c3Layout = new QHBoxLayout(m_cardSingleWindow);
-        c3Layout->setContentsMargins(14, 10, 14, 10);
+        c3Layout->setContentsMargins(16, 12, 16, 12);
         c3Layout->setSpacing(14);
 
         auto *c3Badge = new QLabel(QStringLiteral("[ D ]"), m_cardSingleWindow);
         c3Badge->setAttribute(Qt::WA_TransparentForMouseEvents);
-        c3Badge->setStyleSheet(QStringLiteral("font-weight: bold; font-size: 16px; color: #2ecc71;"));
+        c3Badge->setStyleSheet(QStringLiteral("font-weight: bold; font-size: 17px; color: #2ecc71;"));
         c3Layout->addWidget(c3Badge);
 
         auto *c3TextLayout = new QVBoxLayout();
-        c3TextLayout->setSpacing(3);
+        c3TextLayout->setSpacing(4);
         auto *c3Title = new QLabel(m_isPolish ? QStringLiteral("<b style='font-size:15px; color:#ffffff;'>Tylko to jedno okno</b>") : QStringLiteral("<b style='font-size:15px; color:#ffffff;'>This window only</b>"), m_cardSingleWindow);
         c3Title->setAttribute(Qt::WA_TransparentForMouseEvents);
         c3Title->setTextFormat(Qt::RichText);
@@ -965,6 +1043,31 @@ private:
         layout->addWidget(m_cardSingleWindow);
 
         layout->addStretch(1);
+
+        updateScopeCardsUI();
+    }
+
+    void updateScopeCardsUI()
+    {
+        const bool isAllApp = m_groupByApp && m_matchCaption.isEmpty();
+        const bool isCaption = m_groupByApp && !m_matchCaption.isEmpty();
+        const bool isSingle = !m_groupByApp;
+
+        m_cardAllApp->setSelected(isAllApp);
+        m_cardCaption->setSelected(isCaption);
+        m_cardSingleWindow->setSelected(isSingle);
+
+        if (m_lblCardCaptionDesc) {
+            if (m_matchCaption.isEmpty()) {
+                m_lblCardCaptionDesc->setText(m_isPolish
+                    ? QStringLiteral("Dopasuj do programu (np. nvim, ssh). <span style='color:#e67e22;'>[Wciśnij S, aby ustawić]</span>")
+                    : QStringLiteral("Match process or title (e.g. nvim, ssh). <span style='color:#e67e22;'>[Press S to set]</span>"));
+            } else {
+                m_lblCardCaptionDesc->setText(m_isPolish
+                    ? QStringLiteral("Aktywny filtr: <b style='color:#e67e22;'>\"%1\"</b> &bull; <span style='color:rgba(255,255,255,0.6);'>Wciśnij Enter, aby przejść dalej (lub S aby zmienić)</span>").arg(m_matchCaption.toHtmlEscaped())
+                    : QStringLiteral("Active filter: <b style='color:#e67e22;'>\"%1\"</b> &bull; <span style='color:rgba(255,255,255,0.6);'>Press Enter to proceed (or S to edit)</span>").arg(m_matchCaption.toHtmlEscaped()));
+            }
+        }
     }
 
     void handleScopeSelected(int scopeType)
@@ -972,27 +1075,22 @@ private:
         if (scopeType == 1) { // All app
             m_groupByApp = true;
             m_matchCaption.clear();
-            m_cardAllApp->setSelected(true);
-            m_cardCaption->setSelected(false);
-            m_cardSingleWindow->setSelected(false);
-            m_captionInputRow->hide();
+            updateScopeCardsUI();
             goToStep(3);
         } else if (scopeType == 2) { // Process / caption
-            m_groupByApp = true;
-            m_cardAllApp->setSelected(false);
-            m_cardCaption->setSelected(true);
-            m_cardSingleWindow->setSelected(false);
-            m_captionInputRow->show();
-            m_captionEdit->setFocus();
-            m_captionEdit->selectAll();
+            // Open clean HUD popup without squeezing cards or trapping focus!
+            PatternFilterDialog dlg(m_matchCaption.isEmpty() ? m_detectedCaption : m_matchCaption, m_isPolish, this);
+            if (dlg.exec() == QDialog::Accepted) {
+                m_matchCaption = dlg.pattern();
+                m_groupByApp = true;
+                updateScopeCardsUI();
+            }
+            setFocus();
         } else if (scopeType == 3) { // Single window
             m_groupByApp = false;
             m_matchCaption.clear();
             m_persistent = false;
-            m_cardAllApp->setSelected(false);
-            m_cardCaption->setSelected(false);
-            m_cardSingleWindow->setSelected(true);
-            m_captionInputRow->hide();
+            updateScopeCardsUI();
             goToStep(3);
         }
     }
@@ -1075,7 +1173,7 @@ private:
         });
         layout->addWidget(m_labelEdit);
 
-        // High-Contrast HUD Toggle Buttons instead of small checkboxes!
+        // High-Contrast HUD Toggle Buttons
         auto *togglesLayout = new QVBoxLayout();
         togglesLayout->setSpacing(8);
 
@@ -1403,6 +1501,7 @@ private:
             updatePaletteUI();
             setFocus();
         } else if (step == 2) {
+            updateScopeCardsUI();
             m_btnNext->setText(m_isPolish ? QStringLiteral("Dalej (Zapis) ❯") : QStringLiteral("Next (Save) ❯"));
             m_btnNext->setStyleSheet(QStringLiteral(
                 "QPushButton { background-color: #3498db; border-radius: 8px; color: #ffffff; font-weight: bold; font-size: 14px; padding: 8px 20px; }"
@@ -1475,12 +1574,13 @@ private:
     int m_currentStep;
     int m_seedOffset;
     int m_rerollCount;
+    qreal m_basePt;
     QList<QColor> m_paletteColors;
 
     QPoint m_dragPos;
     bool m_isDragging;
 
-    MainHudFrame *m_mainFrame;
+    MainMarkerFrame *m_mainFrame;
     QPushButton *m_stepPills[4];
     QStackedWidget *m_stack;
     QWidget *m_step0Page;
@@ -1502,12 +1602,10 @@ private:
     QPushButton *m_btnNoColor;
 
     // Step 2 widgets
-    HudOptionCard *m_cardAllApp;
-    HudOptionCard *m_cardCaption;
-    QWidget *m_captionInputRow;
-    QLineEdit *m_captionEdit;
-    QPushButton *m_btnConfirmCaption;
-    HudOptionCard *m_cardSingleWindow;
+    MarkerOptionCard *m_cardAllApp;
+    MarkerOptionCard *m_cardCaption;
+    QLabel *m_lblCardCaptionDesc = nullptr;
+    MarkerOptionCard *m_cardSingleWindow;
 
     // Step 3 widgets
     QFrame *m_previewCard;
@@ -1529,7 +1627,7 @@ private:
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
-    app.setApplicationName(QStringLiteral("leapk-colorpicker"));
+    app.setApplicationName(QStringLiteral("leapk-custom-marker"));
     app.setApplicationDisplayName(QObject::tr("LeapK - Custom Marker"));
 
     QColor currentColor(QStringLiteral("#3498db"));
@@ -1628,18 +1726,18 @@ int main(int argc, char *argv[])
         }
     }
 
-    HudMarkDialog dlg(currentColor,
-                      currentLetter,
-                      useLetter,
-                      useColor,
-                      currentLabel,
-                      usePersistent,
-                      appClass,
-                      windowCaption,
-                      desktopNum,
-                      desktopName,
-                      isAlreadyMarked,
-                      usedLettersMap);
+    CustomMarkerDialog dlg(currentColor,
+                           currentLetter,
+                           useLetter,
+                           useColor,
+                           currentLabel,
+                           usePersistent,
+                           appClass,
+                           windowCaption,
+                           desktopNum,
+                           desktopName,
+                           isAlreadyMarked,
+                           usedLettersMap);
 
     if (dlg.exec() == QDialog::Accepted) {
         if (dlg.isMarkRemoved()) {

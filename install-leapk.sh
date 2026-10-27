@@ -309,10 +309,10 @@ cp "$project_dir/leapk.svg" "$HOME/.local/share/icons/hicolor/scalable/apps/leap
 
 # Install/update user binaries in ~/.local/bin if present
 if [[ -d "$HOME/.local/bin" ]]; then
-  cp -f "$build_dir/leapk-colorpicker" "$HOME/.local/bin/leapk-colorpicker" 2>/dev/null || true
+  cp -f "$build_dir/leapk-custom-marker" "$HOME/.local/bin/leapk-custom-marker" 2>/dev/null || true
   cp -f "$build_dir/leapk-tray" "$HOME/.local/bin/leapk-tray" 2>/dev/null || true
   cp -f "$build_dir/leapk-settings" "$HOME/.local/bin/leapk-settings" 2>/dev/null || true
-  (cd "$HOME/.local/bin" && ln -sf leapk-colorpicker kleap-colorpicker && ln -sf leapk-colorpicker active-window-outline-colorpicker && ln -sf leapk-tray kleap-tray && ln -sf leapk-tray active-window-outline-tray && ln -sf leapk-settings kleap-settings && ln -sf leapk-settings active-window-outline-settings && ln -sf leapk-settings leapk) 2>/dev/null || true
+  (cd "$HOME/.local/bin" && ln -sf leapk-custom-marker leapk-colorpicker && ln -sf leapk-custom-marker kleap-custom-marker && ln -sf leapk-custom-marker kleap-colorpicker && ln -sf leapk-custom-marker active-window-outline-colorpicker && ln -sf leapk-tray kleap-tray && ln -sf leapk-tray active-window-outline-tray && ln -sf leapk-settings kleap-settings && ln -sf leapk-settings active-window-outline-settings && ln -sf leapk-settings leapk) 2>/dev/null || true
 fi
 
 if command -v update-desktop-database >/dev/null 2>&1; then
