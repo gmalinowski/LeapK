@@ -164,7 +164,28 @@ public:
                     {QStringLiteral("BadgeLetterFontSize"), QStringLiteral("Rozmiar czcionki litery skoku"), QStringLiteral("Jump Letter Font Size")},
                     {QStringLiteral("BadgeLabelFontSize"), QStringLiteral("Rozmiar czcionki etykiety"), QStringLiteral("Window Label Font Size")},
                     {QStringLiteral("BadgeCaptionFontSize"), QStringLiteral("Rozmiar czcionki tytułu w HUD"), QStringLiteral("HUD Caption Font Size")},
-                    {QStringLiteral("BadgeLocationFontSize"), QStringLiteral("Rozmiar czcionki lokalizacji w HUD"), QStringLiteral("HUD Location Font Size")}
+                    {QStringLiteral("BadgeLocationFontSize"), QStringLiteral("Rozmiar czcionki lokalizacji w HUD"), QStringLiteral("HUD Location Font Size")},
+                    {QStringLiteral("BadgeLivePreviews"), QStringLiteral("Podgląd na żywo w czasie rzeczywistym"), QStringLiteral("Real-Time Live Previews")},
+                    {QStringLiteral("BadgeHudIncludeAll"), QStringLiteral("Wyświetl wszystkie okna w HUD"), QStringLiteral("Include All Windows in HUD")},
+                    {QStringLiteral("BadgeTimeout"), QStringLiteral("Czas wyświetlania plakietek (timeout)"), QStringLiteral("Badges Display Timeout")},
+                    {QStringLiteral("JumpRecentKey"), QStringLiteral("Klawisz powrotu do ostatniego okna"), QStringLiteral("Jump to Recent Window Key")},
+                    {QStringLiteral("BadgeWindowShowIcon"), QStringLiteral("Ikona aplikacji w plakietce okna"), QStringLiteral("Application Icon in Window Badge")},
+                    {QStringLiteral("BadgeWindowShowThumbnail"), QStringLiteral("Miniatura w plakietce okna"), QStringLiteral("Thumbnail in Window Badge")},
+                    {QStringLiteral("BadgeWindowIconSize"), QStringLiteral("Rozmiar ikony w plakietce okna"), QStringLiteral("Window Badge Icon Size")},
+                    {QStringLiteral("BadgeWindowThumbnailWidth"), QStringLiteral("Szerokość miniatury w plakietce okna"), QStringLiteral("Window Thumbnail Width")},
+                    {QStringLiteral("BadgeWindowThumbnailHeight"), QStringLiteral("Wysokość miniatury w plakietce okna"), QStringLiteral("Window Thumbnail Height")},
+                    {QStringLiteral("BadgeWindowThumbnailSize"), QStringLiteral("Rozmiar bazowy miniatury okna"), QStringLiteral("Window Thumbnail Base Size")},
+                    {QStringLiteral("BadgeWindowLetterFontSize"), QStringLiteral("Rozmiar czcionki litery okna"), QStringLiteral("Window Badge Letter Font Size")},
+                    {QStringLiteral("BadgeWindowLabelFontSize"), QStringLiteral("Rozmiar czcionki etykiety okna"), QStringLiteral("Window Badge Label Font Size")},
+                    {QStringLiteral("BadgeHudShowIcon"), QStringLiteral("Ikona aplikacji w karcie HUD"), QStringLiteral("Application Icon in HUD Card")},
+                    {QStringLiteral("BadgeHudShowThumbnail"), QStringLiteral("Miniatura w karcie HUD"), QStringLiteral("Thumbnail in HUD Card")},
+                    {QStringLiteral("BadgeHudIconSize"), QStringLiteral("Rozmiar ikony w karcie HUD"), QStringLiteral("HUD Card Icon Size")},
+                    {QStringLiteral("BadgeHudThumbnailWidth"), QStringLiteral("Szerokość miniatury w karcie HUD"), QStringLiteral("HUD Thumbnail Width")},
+                    {QStringLiteral("BadgeHudThumbnailHeight"), QStringLiteral("Wysokość miniatury w karcie HUD"), QStringLiteral("HUD Thumbnail Height")},
+                    {QStringLiteral("BadgeHudThumbnailSize"), QStringLiteral("Rozmiar bazowy miniatury HUD"), QStringLiteral("HUD Thumbnail Base Size")},
+                    {QStringLiteral("BadgeHudLetterFontSize"), QStringLiteral("Rozmiar czcionki litery HUD"), QStringLiteral("HUD Card Letter Font Size")},
+                    {QStringLiteral("BadgeHudCaptionFontSize"), QStringLiteral("Rozmiar czcionki tytułu HUD"), QStringLiteral("HUD Card Caption Font Size")},
+                    {QStringLiteral("BadgeHudLocationFontSize"), QStringLiteral("Rozmiar czcionki lokalizacji HUD"), QStringLiteral("HUD Card Location Font Size")}
                 }
             },
             // 6. Window Marks
@@ -256,6 +277,11 @@ public:
                 default: return QString::number(mode);
                 }
             }
+        }
+        if (key == QStringLiteral("BadgeTimeout")) {
+            const int t = val.toInt();
+            if (t == 0) return isPolish ? QStringLiteral("Brak limitu (0 s)") : QStringLiteral("Unlimited (0 s)");
+            return QStringLiteral("%1 s").arg(t);
         }
         if (key == QStringLiteral("BadgePosition")) {
             const int p = val.toInt();
