@@ -33,6 +33,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Ensured all offscreen framebuffer (FBO) thumbnail readback paths (`blitFromRenderTarget` and `drawWindow`) are vertically flipped to match `QImage` top-left raster coordinates.
 
 ### Changed & Improved
+- **HUD Occlusion Avoidance for Window Badges**:
+  - Window badges are now treated as occluded when edge HUD cards overlap or cover them.
+  - Automatically moves window badges to unoccluded alternative positions (Center, Top, etc.) when the configured position collides with HUD cards.
+  - If no unoccluded position is available on the window, the badge is gracefully omitted from the window and displayed inside the HUD, preventing overlapping or clipped elements both in modal Jump Mode and during settings live previews.
 - **Clean Jump-to-Recent Badge Layout (`[ Key | Space ]`)**:
   - Relocated the recent key indicator into the badge key capsule (e.g. `[ D | Space ]`), eliminating pollution of window custom labels and preserving original desktop locations and window titles.
 - **Previously Active Windows Highlighting in HUD Cards**:

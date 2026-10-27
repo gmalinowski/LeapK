@@ -2633,6 +2633,20 @@ void ActiveWindowOutlineEffect::renderBadgePreview(const RenderTarget &renderTar
 
     const QRectF screenRect = viewport.renderRect();
 
+    QList<QPair<QChar, EffectWindow *>> hudTargets;
+    QList<QRectF> hudRects;
+    if (m_previewShowHud) {
+        for (EffectWindow *target : targetWindows) {
+            if (!target || target->isDeleted()) {
+                continue;
+            }
+            hudTargets.append(qMakePair(winLetters.value(target, 'A'), target));
+        }
+        if (!hudTargets.isEmpty()) {
+            hudRects = computeHudPillRects(hudTargets, viewport, m_previewBadgeConfig.hudBadgeSize, m_previewBadgeConfig);
+        }
+    }
+
     // 1. Render Window Badges if enabled
     if (m_previewShowWindowBadges) {
         EffectWindow *recentWin = findRecentWindow();
@@ -2667,22 +2681,35 @@ void ActiveWindowOutlineEffect::renderBadgePreview(const RenderTarget &renderTar
             if (badgeRect.top() < screenRect.top() + 4.0) badgeRect.moveTop(screenRect.top() + 4.0);
             if (badgeRect.bottom() > screenRect.bottom() - 4.0) badgeRect.moveBottom(screenRect.bottom() - 4.0);
 
+            if (isBadgeOccluded(target, badgeRect, hudRects)) {
+                const int altPositions[] = { 4 /* Center */, 1 /* Top */, 0 /* TopLeft */, 2 /* TopRight */, 7 /* Bottom */, 6 /* BottomLeft */, 8 /* BottomRight */, 3 /* Left */, 5 /* Right */ };
+                bool foundVisiblePosition = false;
+                for (int altPos : altPositions) {
+                    if (altPos == m_previewBadgePosition) continue;
+                    QRectF altRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, altPos, badgeW, badgeH, m_previewBadgeConfig.margin);
+                    if (altRect.left() < screenRect.left() + 4.0) altRect.moveLeft(screenRect.left() + 4.0);
+                    if (altRect.right() > screenRect.right() - 4.0) altRect.moveRight(screenRect.right() - 4.0);
+                    if (altRect.top() < screenRect.top() + 4.0) altRect.moveTop(screenRect.top() + 4.0);
+                    if (altRect.bottom() > screenRect.bottom() - 4.0) altRect.moveBottom(screenRect.bottom() - 4.0);
+
+                    if (!isBadgeOccluded(target, altRect, hudRects)) {
+                        badgeRect = altRect;
+                        foundVisiblePosition = true;
+                        break;
+                    }
+                }
+                if (!foundVisiblePosition) {
+                    continue;
+                }
+            }
+
             renderBadge(renderTarget, viewport, badgeRect, winLetters.value(target, 'A'), bgCol, textCol, false, badgeH, customLabel, target, recentKey, isRecent);
         }
     }
 
     // 2. Render HUD Badges if enabled
-    if (m_previewShowHud) {
-        QList<QPair<QChar, EffectWindow *>> hudTargets;
-        for (EffectWindow *target : targetWindows) {
-            if (!target || target->isDeleted()) {
-                continue;
-            }
-            hudTargets.append(qMakePair(winLetters.value(target, 'A'), target));
-        }
-        if (!hudTargets.isEmpty()) {
-            renderOffscreenJumpTargets(renderTarget, viewport, hudTargets, m_previewBadgeConfig.hudBadgeSize);
-        }
+    if (m_previewShowHud && !hudTargets.isEmpty()) {
+        renderOffscreenJumpTargets(renderTarget, viewport, hudTargets, m_previewBadgeConfig.hudBadgeSize);
     }
 }
 
@@ -3306,7 +3333,7 @@ void ActiveWindowOutlineEffect::updateRecentWindowsFromHistory()
     }
 }
 
-bool ActiveWindowOutlineEffect::isBadgeOccluded(EffectWindow *target, const QRectF &badgeRect) const
+bool ActiveWindowOutlineEffect::isBadgeOccluded(EffectWindow *target, const QRectF &badgeRect, const QList<QRectF> &hudRects) const
 {
     if (!target) {
         return true;
@@ -3315,6 +3342,11 @@ bool ActiveWindowOutlineEffect::isBadgeOccluded(EffectWindow *target, const QRec
     const QRect virtualScreen = effects->virtualScreenGeometry();
     if (!virtualScreen.intersects(badgeAligned)) {
         return true;
+    }
+    for (const QRectF &hudRect : hudRects) {
+        if (hudRect.intersects(badgeRect)) {
+            return true;
+        }
     }
     bool aboveTarget = false;
     const auto windows = effects->stackingOrder();
@@ -3935,6 +3967,78 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
     }
 }
 
+QString ActiveWindowOutlineEffect::getWindowLocationString(EffectWindow *target) const
+{
+    if (!target) {
+        return QString();
+    }
+    QString loc;
+    const bool isPolish = (QLocale().language() == QLocale::Polish);
+    if (!target->isOnCurrentDesktop()) {
+        const auto desktops = target->desktops();
+        if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
+            loc = desktops.first()->name();
+        }
+        if (loc.isEmpty()) {
+            const uint num = desktops.isEmpty() ? 0 : desktops.first()->x11DesktopNumber();
+            loc = isPolish ? QStringLiteral("Pulpit %1").arg(num) : tr("Desktop %1").arg(num);
+        }
+        if (target->isMinimized()) {
+            loc += isPolish ? QStringLiteral(" (zmin)") : QStringLiteral(" (min)");
+        }
+    } else if (target->isMinimized()) {
+        loc = isPolish ? QStringLiteral("Zminimalizowane") : tr("Minimized");
+    } else if (m_badgePreviewActive || target->isVisible()) {
+        loc = isPolish ? QStringLiteral("Bieżący pulpit") : QStringLiteral("Current Desktop");
+    } else {
+        loc = isPolish ? QStringLiteral("Schowane") : tr("Covered");
+    }
+    return loc;
+}
+
+QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
+    const QList<QPair<QChar, EffectWindow *>> &targets,
+    const RenderViewport &viewport,
+    int badgeSize,
+    const OutlineBadge::BadgeConfig &cfg) const
+{
+    if (targets.isEmpty()) {
+        return {};
+    }
+
+    const qreal scale = viewport.scale();
+    const QRectF screenRect = viewport.renderRect();
+    QList<QSizeF> pillSizes;
+    pillSizes.reserve(targets.size());
+
+    EffectWindow *recentWin = findRecentWindow();
+
+    for (const auto &pair : targets) {
+        EffectWindow *target = pair.second;
+        if (!target || target->isDeleted()) {
+            continue;
+        }
+
+        const bool isRecent = (target == recentWin) || m_recentWindows.contains(target);
+        const bool isMostRecent = (target == recentWin);
+        const QString recentKey = isMostRecent ? (m_badgePreviewActive ? cfg.jumpRecentKey : m_jumpRecentKey) : QString();
+        const QString loc = getWindowLocationString(target);
+        const QString caption = target->caption();
+        const QString customLabel = m_markedWindowLabels.value(target);
+        const bool hasIcon = cfg.hudShowIcon && !target->icon().isNull();
+        const bool hasThumb = cfg.hudShowThumbnail && m_thumbnailCache.contains(target);
+        const QSize thumbSize = hasThumb ? m_thumbnailCache.value(target).size() : QSize();
+
+        const QSizeF sz = OutlineBadge::computeHudPillSize(cfg, loc, caption, badgeSize, scale,
+                                                           customLabel, hasIcon, hasThumb, thumbSize,
+                                                           recentKey, isRecent);
+        pillSizes.append(sz);
+    }
+
+    const int hudPos = m_badgePreviewActive ? m_previewBadgeHudPosition : m_badgeHudPosition;
+    return OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos);
+}
+
 void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &renderTarget,
                                                            const RenderViewport &viewport,
                                                            const QList<QPair<QChar, EffectWindow *>> &targets,
@@ -3980,27 +4084,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         }
         const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
 
-        QString loc;
-        const bool isPolish = (QLocale().language() == QLocale::Polish);
-        if (!target->isOnCurrentDesktop()) {
-            const auto desktops = target->desktops();
-            if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
-                loc = desktops.first()->name();
-            }
-            if (loc.isEmpty()) {
-                const uint num = desktops.isEmpty() ? 0 : desktops.first()->x11DesktopNumber();
-                loc = isPolish ? QStringLiteral("Pulpit %1").arg(num) : tr("Desktop %1").arg(num);
-            }
-            if (target->isMinimized()) {
-                loc += isPolish ? QStringLiteral(" (zmin)") : QStringLiteral(" (min)");
-            }
-        } else if (target->isMinimized()) {
-            loc = isPolish ? QStringLiteral("Zminimalizowane") : tr("Minimized");
-        } else if (m_badgePreviewActive || target->isVisible()) {
-            loc = isPolish ? QStringLiteral("Bieżący pulpit") : QStringLiteral("Current Desktop");
-        } else {
-            loc = isPolish ? QStringLiteral("Schowane") : tr("Covered");
-        }
+        const QString loc = getWindowLocationString(target);
 
         const QString caption = target->caption();
         const QString customLabel = m_markedWindowLabels.value(target);
@@ -4740,6 +4824,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         const int jumpH = m_badgeConfig.jumpBadgeSize;
         const QRectF screenRect = viewport.renderRect();
         QList<QPair<QChar, EffectWindow *>> offscreenTargets;
+        QList<QPair<QChar, EffectWindow *>> onscreenTargets;
 
         for (auto it = m_jumpLetterToWindow.constBegin(); it != m_jumpLetterToWindow.constEnd(); ++it) {
             const QChar letter = it.key();
@@ -4771,6 +4856,17 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 continue;
             }
 
+            onscreenTargets.append(qMakePair(letter, target));
+        }
+
+        QList<QRectF> hudRects = computeHudPillRects(offscreenTargets, viewport, m_badgeConfig.hudBadgeSize, m_badgeConfig);
+
+        for (const auto &pair : onscreenTargets) {
+            const QChar letter = pair.first;
+            EffectWindow *target = pair.second;
+            const QRectF geo = target->frameGeometry();
+            const QRectF visibleWindowGeo = geo.intersected(screenRect);
+
             const bool isMarked = m_markedWindows.contains(target);
             const bool isRecent = (target == findRecentWindow()) || m_recentWindows.contains(target);
             const bool isMostRecent = (target == findRecentWindow());
@@ -4796,7 +4892,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             if (badgeRect.top() < screenRect.top() + 4.0) badgeRect.moveTop(screenRect.top() + 4.0);
             if (badgeRect.bottom() > screenRect.bottom() - 4.0) badgeRect.moveBottom(screenRect.bottom() - 4.0);
 
-            if (isBadgeOccluded(target, badgeRect)) {
+            if (isBadgeOccluded(target, badgeRect, hudRects)) {
                 const int altPositions[] = { 4 /* Center */, 1 /* Top */, 0 /* TopLeft */, 2 /* TopRight */, 7 /* Bottom */, 6 /* BottomLeft */, 8 /* BottomRight */, 3 /* Left */, 5 /* Right */ };
                 bool foundVisiblePosition = false;
                 for (int altPos : altPositions) {
@@ -4807,7 +4903,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                     if (altRect.top() < screenRect.top() + 4.0) altRect.moveTop(screenRect.top() + 4.0);
                     if (altRect.bottom() > screenRect.bottom() - 4.0) altRect.moveBottom(screenRect.bottom() - 4.0);
 
-                    if (!isBadgeOccluded(target, altRect)) {
+                    if (!isBadgeOccluded(target, altRect, hudRects)) {
                         badgeRect = altRect;
                         foundVisiblePosition = true;
                         break;
@@ -4816,6 +4912,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 if (!foundVisiblePosition) {
                     if (!m_badgeConfig.hudIncludeAll) {
                         offscreenTargets.append(qMakePair(letter, target));
+                        hudRects = computeHudPillRects(offscreenTargets, viewport, m_badgeConfig.hudBadgeSize, m_badgeConfig);
                     }
                     continue;
                 }

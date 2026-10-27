@@ -757,6 +757,86 @@ void testRecentBadgeAndIncludeAll()
     assert(recentPill.width() > 100);
 }
 
+void testHudBadgeOcclusionAvoidance()
+{
+    using OutlineBadge::BadgeConfig;
+    using OutlineBadge::computeBadgeRect;
+    using OutlineBadge::computeBadgeWidth;
+    using OutlineBadge::computeHudPillPositions;
+    using OutlineBadge::computeHudPillSize;
+    using OutlineBadge::renderOffscreenTargetPill;
+
+    BadgeConfig cfg;
+    cfg.hudPosition = 0; // Bottom
+    cfg.hudBadgeSize = 36;
+
+    // 1. Verify computeHudPillSize matches renderOffscreenTargetPill dimensions
+    const QString loc = QStringLiteral("Desktop 1");
+    const QString cap = QStringLiteral("Firefox Browser");
+    const QSizeF pillSize = computeHudPillSize(cfg, loc, cap, 36, 1.0);
+    const QImage renderedPill = renderOffscreenTargetPill(cfg, QLatin1Char('F'), QColor(231, 76, 60), Qt::white, loc, cap, 36, 1.0);
+    assert(qRound(pillSize.width()) == renderedPill.width());
+    assert(qRound(pillSize.height()) == renderedPill.height());
+
+    // 2. HUD Pill positioning on a 1920x1080 screen
+    const QRectF screenRect(0, 0, 1920, 1080);
+    QList<QSizeF> hudPills = { pillSize, pillSize };
+    QList<QRectF> hudRects = computeHudPillPositions(hudPills, screenRect, 0);
+    assert(hudRects.size() == 2);
+    // Both HUD pills are at the bottom of the screen
+    for (const QRectF &hr : hudRects) {
+        assert(hr.bottom() <= screenRect.bottom());
+        assert(hr.top() >= 950.0); // comfortably near the bottom
+    }
+
+    // 3. A window positioned at the bottom of the screen overlapping HUD pills
+    const QRectF windowGeo(400, 700, 1120, 380);
+    const int badgeH = 34;
+    const qreal badgeW = computeBadgeWidth(cfg, badgeH);
+
+    // Initial position: Bottom (pos 7)
+    QRectF bottomBadgeRect = computeBadgeRect(windowGeo, 7, badgeW, badgeH, 0);
+    // bottomBadgeRect should overlap with at least one HUD pill at the bottom
+    bool bottomOverlapsHud = false;
+    for (const QRectF &hr : hudRects) {
+        if (hr.intersects(bottomBadgeRect)) {
+            bottomOverlapsHud = true;
+            break;
+        }
+    }
+    assert(bottomOverlapsHud);
+
+    // Occlusion check & alternative position search:
+    const int altPositions[] = { 4 /* Center */, 1 /* Top */, 0 /* TopLeft */, 2 /* TopRight */, 7 /* Bottom */, 6 /* BottomLeft */, 8 /* BottomRight */, 3 /* Left */, 5 /* Right */ };
+    bool foundVisiblePosition = false;
+    QRectF finalBadgeRect = bottomBadgeRect;
+
+    for (int altPos : altPositions) {
+        if (altPos == 7) continue; // skip initial position
+        QRectF altRect = computeBadgeRect(windowGeo, altPos, badgeW, badgeH, 0);
+        bool occludedByHud = false;
+        for (const QRectF &hr : hudRects) {
+            if (hr.intersects(altRect)) {
+                occludedByHud = true;
+                break;
+            }
+        }
+        if (!occludedByHud) {
+            finalBadgeRect = altRect;
+            foundVisiblePosition = true;
+            break;
+        }
+    }
+
+    // Assert that an alternative unoccluded position was found (Center: pos 4)
+    assert(foundVisiblePosition);
+    assert(finalBadgeRect != bottomBadgeRect);
+    // Verify final badge position does NOT intersect any HUD card
+    for (const QRectF &hr : hudRects) {
+        assert(!hr.intersects(finalBadgeRect));
+    }
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -777,6 +857,7 @@ int main(int argc, char *argv[])
     testHudPositionsAndThumbnailLayout();
     testIndependentWindowAndHudBadges();
     testRecentBadgeAndIncludeAll();
+    testHudBadgeOcclusionAvoidance();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

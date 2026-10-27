@@ -588,6 +588,213 @@ inline QImage renderBadgeImage(const QChar &letter, const QColor &bgColor, const
     return renderBadgeImage(cfg, letter, bgColor, textColor, isJumpMode, effectiveSize, scale, customLabel, icon, thumbnail);
 }
 
+inline QSizeF computeHudPillSize(const BadgeConfig &cfg,
+                                 const QString &locationText,
+                                 const QString &caption,
+                                 int badgeSize = 0,
+                                 qreal scale = 1.0,
+                                 const QString &customLabel = QString(),
+                                 bool hasIcon = false,
+                                 bool hasThumb = false,
+                                 const QSize &thumbSize = QSize(),
+                                 const QString &recentKey = QString(),
+                                 bool isRecent = false)
+{
+    const int effectivePillBaseH = (badgeSize > 0) ? badgeSize : cfg.hudBadgeSize;
+
+    const int effectiveIconSize = (cfg.hudIconSize > 0) ? cfg.hudIconSize : 24;
+    const int effectiveThumbSize = (cfg.hudThumbnailSize > 0) ? cfg.hudThumbnailSize : 80;
+    const int effectiveThumbW = (cfg.hudThumbnailWidth > 0) ? cfg.hudThumbnailWidth : effectiveThumbSize;
+    const int effectiveThumbH = (cfg.hudThumbnailHeight > 0) ? cfg.hudThumbnailHeight : effectiveThumbSize;
+    const bool isTopOrBottom = (cfg.hudPosition == 0 || cfg.hudPosition == 1);
+
+    const int padX = qRound(8 * scale);
+    const int padY = qRound(6 * scale);
+    const int gapX = qRound(8 * scale);
+    const int gapY = qRound(6 * scale);
+
+    int pillW = 0;
+    int pillH = 0;
+    int badgeDim = 0;
+    int badgeW = 0;
+    int iconDim = 0;
+    int thumbW = 0;
+    int thumbH = 0;
+    int headerH = 0;
+
+    const QString cleanRecentKey = recentKey.trimmed();
+    const bool hasRecentKey = !cleanRecentKey.isEmpty();
+
+    const QString locFam = cfg.locationFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.locationFontFamily.trimmed();
+    QFont locFont(locFam);
+    const int effectiveLocFontSize = (cfg.hudLocationFontSize > 0) ? cfg.hudLocationFontSize : cfg.locationFontSize;
+    const int locPx = (effectiveLocFontSize > 0) ? qRound(effectiveLocFontSize * scale) : qMax(10, qRound(11 * scale));
+    locFont.setPixelSize(locPx);
+    locFont.setBold(true);
+
+    const QString capFam = cfg.captionFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.captionFontFamily.trimmed();
+    QFont capFont(capFam);
+    const int effectiveCapFontSize = (cfg.hudCaptionFontSize > 0) ? cfg.hudCaptionFontSize : cfg.captionFontSize;
+    const int capPx = (effectiveCapFontSize > 0) ? qRound(effectiveCapFontSize * scale) : qMax(9, qRound(10 * scale));
+    capFont.setPixelSize(capPx);
+    capFont.setBold(false);
+
+    QFontMetrics fmLoc(locFont);
+    QFontMetrics fmCap(capFont);
+
+    const QString cleanLabel = customLabel.trimmed();
+    const bool hasCustomLabel = !cleanLabel.isEmpty();
+
+    QString line1Text;
+    QString line2Text;
+    int textWidth = 0;
+
+    QFont line1Font = locFont;
+    QFont line2Font = capFont;
+
+    if (hasCustomLabel) {
+        const QString labelFam = cfg.labelFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.labelFontFamily.trimmed();
+        line1Font = QFont(labelFam);
+        const int labelPx = (cfg.labelFontSize > 0) ? qRound(cfg.labelFontSize * scale) : qMax(10, qRound(11.5 * scale));
+        line1Font.setPixelSize(labelPx);
+        line1Font.setBold(true);
+
+        line2Font = capFont;
+
+        QFontMetrics fmLine1(line1Font);
+        QFontMetrics fmLine2(line2Font);
+
+        line1Text = cleanLabel;
+        if (fmLine1.horizontalAdvance(line1Text) > qRound(220 * scale)) {
+            line1Text = fmLine1.elidedText(line1Text, Qt::ElideRight, qRound(220 * scale));
+        }
+
+        line2Text = locationText;
+        if (!caption.trimmed().isEmpty()) {
+            line2Text += QStringLiteral(" · ") + caption.trimmed();
+        }
+        if (fmLine2.horizontalAdvance(line2Text) > qRound(240 * scale)) {
+            line2Text = fmLine2.elidedText(line2Text, Qt::ElideRight, qRound(240 * scale));
+        }
+
+        const int w1 = fmLine1.horizontalAdvance(line1Text);
+        const int w2 = fmLine2.horizontalAdvance(line2Text);
+        textWidth = qMax(w1, w2);
+    } else {
+        QString displayCap = caption;
+        if (fmCap.horizontalAdvance(displayCap) > qRound(180 * scale)) {
+            displayCap = fmCap.elidedText(displayCap, Qt::ElideRight, qRound(180 * scale));
+        }
+
+        line1Text = locationText;
+        if (isRecent) {
+            const bool isPolish = (QLocale().language() == QLocale::Polish);
+            line1Text += QStringLiteral(" · ") + (isPolish ? QStringLiteral("Ostatnie") : QStringLiteral("Recent"));
+        }
+        line2Text = displayCap;
+
+        const int locWidth = fmLoc.horizontalAdvance(line1Text);
+        const int capWidth = line2Text.isEmpty() ? 0 : fmCap.horizontalAdvance(line2Text);
+        textWidth = qMax(locWidth, capWidth);
+    }
+
+    const QString letterFam = cfg.letterFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.letterFontFamily.trimmed();
+    QFont letterFont(letterFam);
+    const int effectiveLetterFontSize = (cfg.hudLetterFontSize > 0) ? cfg.hudLetterFontSize : cfg.letterFontSize;
+    const int lPx = (effectiveLetterFontSize > 0) ? qRound(effectiveLetterFontSize * scale) : qMax(8, qRound(effectivePillBaseH * 0.62 * scale));
+    letterFont.setPixelSize(lPx);
+    letterFont.setBold(true);
+
+    QFont rFont(letterFam);
+    rFont.setBold(true);
+    rFont.setPixelSize(qMax(8, qRound(lPx * 0.78)));
+    QFontMetrics fmR(rFont);
+    const int rKeyWidth = hasRecentKey ? (fmR.horizontalAdvance(cleanRecentKey) + qRound(10 * scale)) : 0;
+
+    if (isTopOrBottom && hasThumb) {
+        headerH = qMax(22, qRound(effectivePillBaseH * 1.05 * scale));
+        badgeDim = qMax(16, headerH - qRound(4 * scale));
+        badgeW = badgeDim + rKeyWidth;
+        iconDim = hasIcon
+            ? ((effectiveIconSize > 0) ? qMin(qRound(effectiveIconSize * scale), badgeDim) : qRound(badgeDim * 0.85))
+            : 0;
+
+        if (thumbSize.width() > 0 && thumbSize.height() > 0) {
+            const int targetMaxW = (effectiveThumbW > 0) ? qRound(effectiveThumbW * scale) : qRound(80 * scale);
+            const int targetMaxH = (effectiveThumbH > 0) ? qRound(effectiveThumbH * scale) : qMax(32, qRound(48 * scale));
+            const QSize maxBox(targetMaxW, targetMaxH);
+            const QSize fitSize = thumbSize.scaled(maxBox, Qt::KeepAspectRatio);
+            thumbW = qMax(qRound(16 * scale), fitSize.width());
+            thumbH = qMax(qRound(12 * scale), fitSize.height());
+        } else {
+            thumbH = (effectiveThumbH > 0) ? qRound(effectiveThumbH * scale) : qMax(32, qRound(48 * scale));
+            thumbW = (effectiveThumbW > 0) ? qRound(effectiveThumbW * scale) : qRound(thumbH * 1.6);
+        }
+
+        const int headerContentW = badgeW + (hasIcon ? (gapX + iconDim) : 0) + gapX + textWidth;
+        const int contentW = qMax(headerContentW, thumbW);
+
+        pillW = padX + contentW + padX;
+        pillH = padY + headerH + gapY + thumbH + padY;
+    } else {
+        pillH = qMax(24, qRound(effectivePillBaseH * 1.35 * scale));
+        badgeDim = qMax(16, pillH - qRound(8 * scale));
+        badgeW = badgeDim + rKeyWidth;
+        const int maxIconDim = qMax(12, pillH - qRound(8 * scale));
+        iconDim = hasIcon
+            ? ((effectiveIconSize > 0) ? qMin(qRound(effectiveIconSize * scale), maxIconDim) : qRound(badgeDim * 0.85))
+            : 0;
+
+        const int maxThumbH = qMax(14, pillH - qRound(8 * scale));
+        if (hasThumb) {
+            const int targetMaxW = (effectiveThumbW > 0) ? qRound(effectiveThumbW * scale) : qRound(80 * scale);
+            const int targetMaxH = (effectiveThumbH > 0) ? qMin(qRound(effectiveThumbH * scale), maxThumbH) : maxThumbH;
+            if (thumbSize.width() > 0 && thumbSize.height() > 0) {
+                const QSize maxBox(targetMaxW, targetMaxH);
+                const QSize fitSize = thumbSize.scaled(maxBox, Qt::KeepAspectRatio);
+                thumbW = qMax(qRound(14 * scale), fitSize.width());
+                thumbH = qMax(qRound(14 * scale), fitSize.height());
+            } else {
+                thumbH = targetMaxH;
+                thumbW = (effectiveThumbW > 0) ? qMin(qRound(effectiveThumbW * scale), qRound(thumbH * 1.6)) : qRound(thumbH * 1.6);
+            }
+        } else {
+            thumbW = 0;
+            thumbH = 0;
+        }
+
+        int extraW = 0;
+        if (hasIcon) {
+            extraW += iconDim + gapX;
+        }
+        if (hasThumb) {
+            extraW += thumbW + gapX;
+        }
+
+        pillW = padX + badgeW + extraW + gapX + textWidth + padX;
+    }
+
+    return QSizeF(static_cast<qreal>(pillW) / scale, static_cast<qreal>(pillH) / scale);
+}
+
+inline QSizeF computeHudPillSize(const QString &locationText,
+                                 const QString &caption,
+                                 int badgeSize = 28,
+                                 qreal scale = 1.0,
+                                 const QString &customLabel = QString(),
+                                 bool hasIcon = false,
+                                 bool hasThumb = false,
+                                 const QSize &thumbSize = QSize(),
+                                 const QString &recentKey = QString(),
+                                 bool isRecent = false)
+{
+    BadgeConfig cfg;
+    cfg.hudBadgeSize = badgeSize;
+    cfg.hudShowIcon = hasIcon;
+    cfg.hudShowThumbnail = hasThumb;
+    return computeHudPillSize(cfg, locationText, caption, badgeSize, scale, customLabel, hasIcon, hasThumb, thumbSize, recentKey, isRecent);
+}
+
 inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
                                         const QChar &letter,
                                         const QColor &bgColor,

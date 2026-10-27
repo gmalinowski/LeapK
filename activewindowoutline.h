@@ -214,7 +214,12 @@ private:
     QMap<QChar, EffectWindow *> assignJumpLetters() const;
     void cancelJumpMode();
     bool isWindowObscured(EffectWindow *target) const;
-    bool isBadgeOccluded(EffectWindow *target, const QRectF &badgeRect) const;
+    bool isBadgeOccluded(EffectWindow *target, const QRectF &badgeRect, const QList<QRectF> &hudRects = {}) const;
+    QString getWindowLocationString(EffectWindow *target) const;
+    QList<QRectF> computeHudPillRects(const QList<QPair<QChar, EffectWindow *>> &targets,
+                                      const RenderViewport &viewport,
+                                      int badgeSize,
+                                      const OutlineBadge::BadgeConfig &cfg) const;
     EffectWindow *findRecentWindow() const;
     void updateRecentWindowsFromHistory();
     void renderBadge(const RenderTarget &renderTarget,
