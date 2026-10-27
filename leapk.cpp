@@ -2981,8 +2981,7 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
                             rule.color = picked.isValid() ? picked : m_markDefaultColor;
                             rule.label = labelStr;
                             rule.matchApp = w->windowClass();
-                            const auto desktops = w->desktops();
-                            rule.matchDesktop = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+                            rule.matchDesktop = 0; // Match application across all desktops by default
                             rule.enabled = true;
                             rule.createdAt = QDateTime::currentMSecsSinceEpoch();
 
@@ -2991,6 +2990,7 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
                                 if (r.matchApp.compare(rule.matchApp, Qt::CaseInsensitive) == 0 && r.letter == rule.letter) {
                                     r.color = rule.color;
                                     r.label = rule.label;
+                                    r.matchDesktop = 0;
                                     updated = true;
                                     break;
                                 }
@@ -2999,6 +2999,17 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
                                 m_persistentMarks.append(rule);
                             }
                             LeapKMarks::savePersistentMarks(m_persistentMarks);
+
+                            // Apply new rule immediately to any other currently open windows of this application
+                            if (effects) {
+                                const auto allWindows = effects->stackingOrder();
+                                for (EffectWindow *other : allWindows) {
+                                    if (other && other != w && isEligibleTargetWindow(other) && !m_markedWindows.contains(other)) {
+                                        applyPersistentMarksToWindow(other);
+                                    }
+                                }
+                                effects->addRepaintFull();
+                            }
                         }
                     }
                 }
