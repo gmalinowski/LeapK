@@ -14,7 +14,7 @@
 void testBuiltInPresets()
 {
     const auto list = OutlinePreset::getBuiltInPresets();
-    assert(list.size() == 12);
+    assert(list.size() == 15);
 
     // 1. Verify LeapK Default (v1.6)
     assert(list[0].name == QStringLiteral("LeapK Default (v1.6)"));
@@ -22,6 +22,7 @@ void testBuiltInPresets()
     assert(list[0].settings[QStringLiteral("BadgeDisplayMode")].toInt() == 0);
     assert(list[0].settings[QStringLiteral("JumpRecentKey")].toString() == QStringLiteral("Space"));
     assert(list[0].settings[QStringLiteral("BadgeHudShowThumbnail")].toBool() == true);
+    assert(list[0].settings[QStringLiteral("BadgeHudThumbnailWidth")].toInt() == 180);
     assert(list[0].settings[QStringLiteral("BadgeTimeout")].toInt() == 5);
     assert(list[0].settings[QStringLiteral("BorderWidth")].toInt() == 2);
 
@@ -32,65 +33,95 @@ void testBuiltInPresets()
     assert(list[1].settings[QStringLiteral("JumpTargets")].toInt() == 2);
     assert(list[1].settings[QStringLiteral("RecentWindowsCount")].toInt() == 3);
 
-    // 3. Verify Live Vision Dashboard
+    // 3. Verify Live Vision Dashboard (Massive 320x180 previews)
     assert(list[2].name == QStringLiteral("Live Vision Dashboard"));
     assert(list[2].settings[QStringLiteral("BadgeLivePreviews")].toBool() == true);
     assert(list[2].settings[QStringLiteral("BadgeHudIncludeAll")].toBool() == true);
-    assert(list[2].settings[QStringLiteral("BadgeHudThumbnailWidth")].toInt() == 140);
+    assert(list[2].settings[QStringLiteral("BadgeHudThumbnailWidth")].toInt() == 320);
+    assert(list[2].settings[QStringLiteral("BadgeHudThumbnailHeight")].toInt() == 180);
+    assert(list[2].settings[QStringLiteral("BadgeWindowThumbnailWidth")].toInt() == 160);
+    assert(list[2].settings[QStringLiteral("BadgeWindowThumbnailHeight")].toInt() == 90);
+    assert(list[2].settings[QStringLiteral("BadgeHudSize")].toInt() == 56);
 
-    // 4. Verify Nordic Frost & Aura
-    assert(list[3].name == QStringLiteral("Nordic Frost & Aura"));
-    assert(list[3].settings[QStringLiteral("CustomColor")].toString() == QStringLiteral("#88c0d0"));
-    assert(list[3].settings[QStringLiteral("OutlineGap")].toInt() == 4);
-    assert(list[3].settings[QStringLiteral("BreatheEnabled")].toBool() == true);
+    // 4. Verify Electric Plasma Storm (Custom Shader)
+    assert(list[3].name == QStringLiteral("Electric Plasma Storm"));
+    assert(list[3].settings[QStringLiteral("CustomShaderEnabled")].toBool() == true);
+    assert(list[3].settings[QStringLiteral("ActiveCustomShaderId")].toString() == QStringLiteral("electric_plasma"));
+    assert(!list[3].shader.isEmpty());
+    assert(list[3].settings[QStringLiteral("GlowRadius")].toInt() == 14);
 
-    // 5. Verify Cyberpunk Neon 2077
-    assert(list[4].name == QStringLiteral("Cyberpunk Neon 2077"));
-    assert(list[4].settings[QStringLiteral("CustomColor")].toString() == QStringLiteral("#00f0ff"));
-    assert(list[4].settings[QStringLiteral("GlowRadius")].toInt() == 16);
-    assert(list[4].settings[QStringLiteral("GlitchEnabled")].toBool() == true);
-    assert(list[4].settings[QStringLiteral("NeonFlickerEnabled")].toBool() == true);
+    // 5. Verify Matrix Digital Rain (Custom Shader)
+    assert(list[4].name == QStringLiteral("Matrix Digital Rain"));
+    assert(list[4].settings[QStringLiteral("CustomShaderEnabled")].toBool() == true);
+    assert(list[4].settings[QStringLiteral("ActiveCustomShaderId")].toString() == QStringLiteral("matrix_rain"));
+    assert(list[4].settings[QStringLiteral("BorderRadius")].toInt() == 0);
+    assert(list[4].settings[QStringLiteral("BadgeHudPosition")].toInt() == 2);
 
-    // 6. Verify Ambilight Screen Cinema
-    assert(list[5].name == QStringLiteral("Ambilight Screen Cinema"));
-    assert(list[5].settings[QStringLiteral("AmbilightEnabled")].toBool() == true);
-    assert(list[5].settings[QStringLiteral("GlowEnabled")].toBool() == true);
+    // 6. Verify Inferno Blaze & Embers (Custom Shader)
+    assert(list[5].name == QStringLiteral("Inferno Blaze & Embers"));
+    assert(list[5].settings[QStringLiteral("CustomShaderEnabled")].toBool() == true);
+    assert(list[5].settings[QStringLiteral("ActiveCustomShaderId")].toString() == QStringLiteral("fire_aura"));
+    assert(list[5].settings[QStringLiteral("GlowRadius")].toInt() == 16);
+    assert(list[5].settings[QStringLiteral("BadgeHudThumbnailWidth")].toInt() == 240);
 
-    // 7. Verify macOS Sonoma Minimal
-    assert(list[6].name == QStringLiteral("macOS Sonoma Minimal"));
-    assert(list[6].settings[QStringLiteral("BorderWidth")].toInt() == 1);
-    assert(list[6].settings[QStringLiteral("BorderRadius")].toInt() == 10);
-    assert(list[6].settings[QStringLiteral("BadgeCornerRadius")].toInt() == 12);
+    // 7. Verify Cyberpunk Hologram 2077 (Custom Shader)
+    assert(list[6].name == QStringLiteral("Cyberpunk Hologram 2077"));
+    assert(list[6].settings[QStringLiteral("CustomShaderEnabled")].toBool() == true);
+    assert(list[6].settings[QStringLiteral("ActiveCustomShaderId")].toString() == QStringLiteral("futuristic_glitch"));
+    assert(list[6].settings[QStringLiteral("GlowRadius")].toInt() == 16);
+    assert(list[6].settings[QStringLiteral("GlitchEnabled")].toBool() == true);
+    assert(list[6].settings[QStringLiteral("NeonFlickerEnabled")].toBool() == true);
 
-    // 8. Verify Tiling Matrix Trail
-    assert(list[7].name == QStringLiteral("Tiling Matrix Trail"));
-    assert(list[7].settings[QStringLiteral("CustomColor")].toString() == QStringLiteral("#00ff66"));
-    assert(list[7].settings[QStringLiteral("BorderRadius")].toInt() == 0);
-    assert(list[7].settings[QStringLiteral("BadgeHudPosition")].toInt() == 2);
-    assert(list[7].settings[QStringLiteral("RecentWindowsCount")].toInt() == 4);
+    // 8. Verify Ambilight Screen Cinema (16:9 cinema wide previews)
+    assert(list[7].name == QStringLiteral("Ambilight Screen Cinema"));
+    assert(list[7].settings[QStringLiteral("AmbilightEnabled")].toBool() == true);
+    assert(list[7].settings[QStringLiteral("BadgeHudThumbnailWidth")].toInt() == 260);
+    assert(list[7].settings[QStringLiteral("BadgeHudThumbnailHeight")].toInt() == 146);
+    assert(list[7].settings[QStringLiteral("GlowEnabled")].toBool() == true);
 
-    // 9. Verify RGB Chroma Spectrum
-    assert(list[8].name == QStringLiteral("RGB Chroma Spectrum"));
-    assert(list[8].settings[QStringLiteral("ColorCycleEnabled")].toBool() == true);
-    assert(list[8].settings[QStringLiteral("GlowRadius")].toInt() == 10);
+    // 9. Verify Nordic Frost & Aura
+    assert(list[8].name == QStringLiteral("Nordic Frost & Aura"));
+    assert(list[8].settings[QStringLiteral("CustomColor")].toString() == QStringLiteral("#88c0d0"));
+    assert(list[8].settings[QStringLiteral("OutlineGap")].toInt() == 4);
+    assert(list[8].settings[QStringLiteral("BreatheEnabled")].toBool() == true);
 
-    // 10. Verify High-Contrast Amber A11y
-    assert(list[9].name == QStringLiteral("High-Contrast Amber A11y"));
-    assert(list[9].settings[QStringLiteral("BorderWidth")].toInt() == 5);
-    assert(list[9].settings[QStringLiteral("BadgesAlwaysVisible")].toBool() == true);
-    assert(list[9].settings[QStringLiteral("BadgeSize")].toInt() == 36);
+    // 10. Verify macOS Sonoma Minimal
+    assert(list[9].name == QStringLiteral("macOS Sonoma Minimal"));
+    assert(list[9].settings[QStringLiteral("BorderWidth")].toInt() == 1);
+    assert(list[9].settings[QStringLiteral("BorderRadius")].toInt() == 10);
+    assert(list[9].settings[QStringLiteral("BadgeCornerRadius")].toInt() == 12);
 
-    // 11. Verify Retro CRT Amber Phosphor
-    assert(list[10].name == QStringLiteral("Retro CRT Amber Phosphor"));
-    assert(list[10].settings[QStringLiteral("CustomColor")].toString() == QStringLiteral("#ffb000"));
-    assert(list[10].settings[QStringLiteral("NeonFlickerEnabled")].toBool() == true);
-    assert(list[10].settings[QStringLiteral("BadgeHudPosition")].toInt() == 1);
+    // 11. Verify Tiling Matrix Trail
+    assert(list[10].name == QStringLiteral("Tiling Matrix Trail"));
+    assert(list[10].settings[QStringLiteral("CustomColor")].toString() == QStringLiteral("#00ff66"));
+    assert(list[10].settings[QStringLiteral("BorderRadius")].toInt() == 0);
+    assert(list[10].settings[QStringLiteral("BadgeHudPosition")].toInt() == 2);
+    assert(list[10].settings[QStringLiteral("RecentWindowsCount")].toInt() == 4);
 
-    // 12. Verify Focus Zen Distraction-Free
-    assert(list[11].name == QStringLiteral("Focus Zen Distraction-Free"));
-    assert(list[11].settings[QStringLiteral("AccentOpacity")].toInt() == 35);
-    assert(list[11].settings[QStringLiteral("BadgeTimeout")].toInt() == 3);
-    assert(list[11].settings[QStringLiteral("GlowEnabled")].toBool() == false);
+    // 12. Verify RGB Chroma Spectrum (Custom Shader)
+    assert(list[11].name == QStringLiteral("RGB Chroma Spectrum"));
+    assert(list[11].settings[QStringLiteral("CustomShaderEnabled")].toBool() == true);
+    assert(list[11].settings[QStringLiteral("ActiveCustomShaderId")].toString() == QStringLiteral("rainbow_wave"));
+    assert(list[11].settings[QStringLiteral("ColorCycleEnabled")].toBool() == true);
+    assert(list[11].settings[QStringLiteral("GlowRadius")].toInt() == 12);
+
+    // 13. Verify High-Contrast Amber A11y
+    assert(list[12].name == QStringLiteral("High-Contrast Amber A11y"));
+    assert(list[12].settings[QStringLiteral("BorderWidth")].toInt() == 5);
+    assert(list[12].settings[QStringLiteral("BadgesAlwaysVisible")].toBool() == true);
+    assert(list[12].settings[QStringLiteral("BadgeSize")].toInt() == 36);
+
+    // 14. Verify Retro CRT Amber Phosphor
+    assert(list[13].name == QStringLiteral("Retro CRT Amber Phosphor"));
+    assert(list[13].settings[QStringLiteral("CustomColor")].toString() == QStringLiteral("#ffb000"));
+    assert(list[13].settings[QStringLiteral("NeonFlickerEnabled")].toBool() == true);
+    assert(list[13].settings[QStringLiteral("BadgeHudPosition")].toInt() == 1);
+
+    // 15. Verify Focus Zen Distraction-Free
+    assert(list[14].name == QStringLiteral("Focus Zen Distraction-Free"));
+    assert(list[14].settings[QStringLiteral("AccentOpacity")].toInt() == 35);
+    assert(list[14].settings[QStringLiteral("BadgeTimeout")].toInt() == 3);
+    assert(list[14].settings[QStringLiteral("GlowEnabled")].toBool() == false);
 }
 
 void testSerializationAndParsing()
@@ -143,7 +174,7 @@ void testDirectoryLoadingAndSaving()
 
     // 1. Initial load should populate built-ins
     auto loaded = OutlinePreset::loadPresets(tempDir.path());
-    assert(loaded.size() == 12);
+    assert(loaded.size() == 15);
 
     // 2. Add custom preset
     OutlinePreset::PresetInfo custom;
@@ -159,7 +190,7 @@ void testDirectoryLoadingAndSaving()
 
     // 3. Reload
     auto reloaded = OutlinePreset::loadPresets(tempDir.path());
-    assert(reloaded.size() == 13);
+    assert(reloaded.size() == 16);
 
     // Built-ins come first, then custom
     assert(reloaded.last().name == QStringLiteral("My Awesome Setup"));
@@ -214,7 +245,7 @@ void testPresetEditingRenamingAndPersistence()
     assert(OutlinePreset::savePreset(tempDir.path(), p, &err));
 
     auto list = OutlinePreset::loadPresets(tempDir.path());
-    assert(list.size() == 13);
+    assert(list.size() == 16);
     assert(list.last().name == QStringLiteral("Initial Gaming"));
     assert(list.last().description == QStringLiteral("First version"));
     assert(list.last().settings[QStringLiteral("BorderWidth")].toInt() == 6);
@@ -236,7 +267,7 @@ void testPresetEditingRenamingAndPersistence()
     }
 
     auto reloaded = OutlinePreset::loadPresets(tempDir.path());
-    assert(reloaded.size() == 13);
+    assert(reloaded.size() == 16);
     assert(reloaded.last().name == QStringLiteral("Pro Gaming Elite"));
     assert(reloaded.last().description == QStringLiteral("Updated description with HDR glow"));
     assert(reloaded.last().settings[QStringLiteral("BorderWidth")].toInt() == 8);
@@ -244,7 +275,7 @@ void testPresetEditingRenamingAndPersistence()
     // 3. Delete preset file
     assert(QFile::remove(reloaded.last().filePath));
     auto afterDelete = OutlinePreset::loadPresets(tempDir.path());
-    assert(afterDelete.size() == 12); // only built-ins remain
+    assert(afterDelete.size() == 15); // only built-ins remain
 }
 
 void testPresetCorruptedFileHandling()
@@ -274,7 +305,7 @@ void testPresetCorruptedFileHandling()
 
     // loadPresets must safely ignore all 3 corrupted files without crashing
     auto loaded = OutlinePreset::loadPresets(tempDir.path());
-    assert(loaded.size() == 12);
+    assert(loaded.size() == 15);
 
     // Directly calling parsePresetJson must return false and write error message
     OutlinePreset::PresetInfo parsed;

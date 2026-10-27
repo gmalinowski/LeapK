@@ -14,6 +14,7 @@
 #include <QList>
 #include <QStandardPaths>
 #include <QString>
+#include "customshaderhelper.h"
 
 namespace OutlinePreset {
 
@@ -168,6 +169,27 @@ inline QJsonObject getDefaultSettings()
     return s;
 }
 
+inline QJsonObject makeShaderBundle(const QString &id, const QMap<QString, QVariant> &paramOverrides = {})
+{
+    auto effect = LeapKShader::findShaderById(id, LeapKShader::getBuiltInShaders());
+    if (effect.id.isEmpty()) {
+        return QJsonObject();
+    }
+    for (auto &param : effect.parameters) {
+        if (paramOverrides.contains(param.id)) {
+            const QVariant val = paramOverrides.value(param.id);
+            if (param.type == QStringLiteral("color")) {
+                param.colorCurrent = val.toString();
+            } else if (param.type == QStringLiteral("bool")) {
+                param.currentValue = val.toBool() ? 1.0 : 0.0;
+            } else {
+                param.currentValue = val.toDouble();
+            }
+        }
+    }
+    return LeapKShader::createShaderBundle(effect.id, true, {effect});
+}
+
 inline QList<PresetInfo> getBuiltInPresets()
 {
     QList<PresetInfo> list;
@@ -195,6 +217,13 @@ inline QList<PresetInfo> getBuiltInPresets()
         p.settings[QStringLiteral("RecentWindowDashed")] = true;
         p.settings[QStringLiteral("BadgeHudShowIcon")] = true;
         p.settings[QStringLiteral("BadgeHudShowThumbnail")] = true;
+        p.settings[QStringLiteral("BadgeHudThumbnailWidth")] = 180;
+        p.settings[QStringLiteral("BadgeHudThumbnailHeight")] = 100;
+        p.settings[QStringLiteral("BadgeHudThumbnailSize")] = 180;
+        p.settings[QStringLiteral("BadgeHudSize")] = 44;
+        p.settings[QStringLiteral("BadgeWindowShowIcon")] = true;
+        p.settings[QStringLiteral("BadgeWindowShowThumbnail")] = false;
+        p.settings[QStringLiteral("BadgeSize")] = 28;
         list.append(p);
     }
 
@@ -219,6 +248,13 @@ inline QList<PresetInfo> getBuiltInPresets()
         p.settings[QStringLiteral("BadgeTimeout")] = 0; // No timeout
         p.settings[QStringLiteral("BadgeWindowShowIcon")] = true;
         p.settings[QStringLiteral("BadgeWindowShowThumbnail")] = false;
+        p.settings[QStringLiteral("BadgeSize")] = 28;
+        p.settings[QStringLiteral("BadgeHudShowIcon")] = true;
+        p.settings[QStringLiteral("BadgeHudShowThumbnail")] = true;
+        p.settings[QStringLiteral("BadgeHudThumbnailWidth")] = 160;
+        p.settings[QStringLiteral("BadgeHudThumbnailHeight")] = 90;
+        p.settings[QStringLiteral("BadgeHudThumbnailSize")] = 160;
+        p.settings[QStringLiteral("BadgeHudSize")] = 42;
         p.settings[QStringLiteral("HighlightRecentWindow")] = true;
         p.settings[QStringLiteral("RecentWindowsCount")] = 3;
         p.settings[QStringLiteral("RecentWindowColorMode")] = 0;
@@ -233,7 +269,7 @@ inline QList<PresetInfo> getBuiltInPresets()
     {
         PresetInfo p;
         p.name = QStringLiteral("Live Vision Dashboard");
-        p.description = QStringLiteral("Multitasking workstation with continuous real-time live window thumbnails (30-60 fps), full-size cards in HUD, and ambient glow.");
+        p.description = QStringLiteral("Multitasking workstation with continuous real-time live window thumbnails (30-60 fps), massive 16:9 previews in HUD, and ambient glow.");
         p.isBuiltIn = true;
         p.settings = getDefaultSettings();
         p.settings[QStringLiteral("UseAccentColor")] = false;
@@ -241,25 +277,219 @@ inline QList<PresetInfo> getBuiltInPresets()
         p.settings[QStringLiteral("BorderWidth")] = 3;
         p.settings[QStringLiteral("BorderRadius")] = 8;
         p.settings[QStringLiteral("GlowEnabled")] = true;
-        p.settings[QStringLiteral("GlowRadius")] = 8;
+        p.settings[QStringLiteral("GlowRadius")] = 10;
         p.settings[QStringLiteral("BadgeLivePreviews")] = true; // Real-time video/app previews!
+        p.settings[QStringLiteral("BadgeHudIncludeAll")] = true;
         p.settings[QStringLiteral("BadgeWindowShowIcon")] = true;
         p.settings[QStringLiteral("BadgeWindowShowThumbnail")] = true;
-        p.settings[QStringLiteral("BadgeWindowThumbnailWidth")] = 96;
-        p.settings[QStringLiteral("BadgeWindowThumbnailHeight")] = 54;
+        p.settings[QStringLiteral("BadgeWindowThumbnailWidth")] = 160;
+        p.settings[QStringLiteral("BadgeWindowThumbnailHeight")] = 90;
+        p.settings[QStringLiteral("BadgeWindowThumbnailSize")] = 160;
+        p.settings[QStringLiteral("BadgeSize")] = 42;
         p.settings[QStringLiteral("BadgeHudShowIcon")] = true;
         p.settings[QStringLiteral("BadgeHudShowThumbnail")] = true;
-        p.settings[QStringLiteral("BadgeHudThumbnailWidth")] = 140;
-        p.settings[QStringLiteral("BadgeHudThumbnailHeight")] = 80;
-        p.settings[QStringLiteral("BadgeHudIncludeAll")] = true;
-        p.settings[QStringLiteral("BadgeHudSize")] = 44;
-        p.settings[QStringLiteral("BadgeSize")] = 34;
+        p.settings[QStringLiteral("BadgeHudThumbnailWidth")] = 320;
+        p.settings[QStringLiteral("BadgeHudThumbnailHeight")] = 180;
+        p.settings[QStringLiteral("BadgeHudThumbnailSize")] = 320;
+        p.settings[QStringLiteral("BadgeHudSize")] = 56;
         p.settings[QStringLiteral("BadgePosition")] = 7; // Bottom
         p.settings[QStringLiteral("BadgeHudPosition")] = 0; // Bottom
+        p.settings[QStringLiteral("BadgeTimeout")] = 10;
         list.append(p);
     }
 
-    // 4. Nordic Frost & Aura
+    // 4. Electric Plasma Storm
+    {
+        PresetInfo p;
+        p.name = QStringLiteral("Electric Plasma Storm");
+        p.description = QStringLiteral("High-voltage crackling electric plasma arcs and energy sparks dancing along the outline with glowing plasma discharge.");
+        p.isBuiltIn = true;
+        p.settings = getDefaultSettings();
+        p.shader = makeShaderBundle(QStringLiteral("electric_plasma"), {
+            {QStringLiteral("voltage"), 1.8},
+            {QStringLiteral("sparkFrequency"), 12.0},
+            {QStringLiteral("glowBoost"), 1.5},
+            {QStringLiteral("plasmaColor"), QStringLiteral("#00d4ff")}
+        });
+        p.settings[QStringLiteral("ShaderEffect")] = p.shader;
+        p.settings[QStringLiteral("CustomShaderEnabled")] = true;
+        p.settings[QStringLiteral("ActiveCustomShaderId")] = QStringLiteral("electric_plasma");
+        p.settings[QStringLiteral("UseAccentColor")] = false;
+        p.settings[QStringLiteral("CustomColor")] = QStringLiteral("#00d4ff");
+        p.settings[QStringLiteral("BorderWidth")] = 3;
+        p.settings[QStringLiteral("BorderRadius")] = 8;
+        p.settings[QStringLiteral("GlowEnabled")] = true;
+        p.settings[QStringLiteral("GlowRadius")] = 14;
+        p.settings[QStringLiteral("BadgeHudPosition")] = 0;
+        p.settings[QStringLiteral("BadgeHudShowIcon")] = true;
+        p.settings[QStringLiteral("BadgeHudShowThumbnail")] = true;
+        p.settings[QStringLiteral("BadgeHudThumbnailWidth")] = 220;
+        p.settings[QStringLiteral("BadgeHudThumbnailHeight")] = 124;
+        p.settings[QStringLiteral("BadgeHudThumbnailSize")] = 220;
+        p.settings[QStringLiteral("BadgeHudSize")] = 48;
+        p.settings[QStringLiteral("BadgeDefaultColor")] = QStringLiteral("#0c1524");
+        p.settings[QStringLiteral("BadgeCornerRadius")] = 6;
+        list.append(p);
+    }
+
+    // 5. Matrix Digital Rain
+    {
+        PresetInfo p;
+        p.name = QStringLiteral("Matrix Digital Rain");
+        p.description = QStringLiteral("Green cascading digital code streams falling down the aura with glowing drops, sharp geometry, and left dock HUD.");
+        p.isBuiltIn = true;
+        p.settings = getDefaultSettings();
+        p.shader = makeShaderBundle(QStringLiteral("matrix_rain"), {
+            {QStringLiteral("dropSpeed"), 1.6},
+            {QStringLiteral("streamDensity"), 24.0},
+            {QStringLiteral("tailLength"), 1.2},
+            {QStringLiteral("matrixColor"), QStringLiteral("#00ff66")}
+        });
+        p.settings[QStringLiteral("ShaderEffect")] = p.shader;
+        p.settings[QStringLiteral("CustomShaderEnabled")] = true;
+        p.settings[QStringLiteral("ActiveCustomShaderId")] = QStringLiteral("matrix_rain");
+        p.settings[QStringLiteral("UseAccentColor")] = false;
+        p.settings[QStringLiteral("CustomColor")] = QStringLiteral("#00ff66");
+        p.settings[QStringLiteral("BorderWidth")] = 2;
+        p.settings[QStringLiteral("BorderRadius")] = 0;
+        p.settings[QStringLiteral("DrawInside")] = true;
+        p.settings[QStringLiteral("GlowEnabled")] = true;
+        p.settings[QStringLiteral("GlowRadius")] = 12;
+        p.settings[QStringLiteral("BadgeHudPosition")] = 2; // Left vertical edge HUD
+        p.settings[QStringLiteral("BadgePosition")] = 0; // TopLeft
+        p.settings[QStringLiteral("BadgeCornerRadius")] = 0;
+        p.settings[QStringLiteral("BadgeDefaultColor")] = QStringLiteral("#001a0a");
+        p.settings[QStringLiteral("BadgeLetterColorAuto")] = false;
+        p.settings[QStringLiteral("BadgeLetterColor")] = QStringLiteral("#00ff66");
+        p.settings[QStringLiteral("BadgeHudShowIcon")] = true;
+        p.settings[QStringLiteral("BadgeHudShowThumbnail")] = true;
+        p.settings[QStringLiteral("BadgeHudThumbnailWidth")] = 200;
+        p.settings[QStringLiteral("BadgeHudThumbnailHeight")] = 112;
+        p.settings[QStringLiteral("BadgeHudThumbnailSize")] = 200;
+        p.settings[QStringLiteral("BadgeHudSize")] = 46;
+        p.settings[QStringLiteral("HighlightRecentWindow")] = true;
+        p.settings[QStringLiteral("RecentWindowsCount")] = 4;
+        list.append(p);
+    }
+
+    // 6. Inferno Blaze & Embers
+    {
+        PresetInfo p;
+        p.name = QStringLiteral("Inferno Blaze & Embers");
+        p.description = QStringLiteral("Warm blazing animated flames and rising fire embers radiating from window edges with intense glowing heat.");
+        p.isBuiltIn = true;
+        p.settings = getDefaultSettings();
+        p.shader = makeShaderBundle(QStringLiteral("fire_aura"), {
+            {QStringLiteral("flameSpeed"), 1.4},
+            {QStringLiteral("turbulence"), 3.2},
+            {QStringLiteral("fireColor"), QStringLiteral("#ff3300")},
+            {QStringLiteral("coreColor"), QStringLiteral("#ffea00")}
+        });
+        p.settings[QStringLiteral("ShaderEffect")] = p.shader;
+        p.settings[QStringLiteral("CustomShaderEnabled")] = true;
+        p.settings[QStringLiteral("ActiveCustomShaderId")] = QStringLiteral("fire_aura");
+        p.settings[QStringLiteral("UseAccentColor")] = false;
+        p.settings[QStringLiteral("CustomColor")] = QStringLiteral("#ff4500");
+        p.settings[QStringLiteral("BorderWidth")] = 3;
+        p.settings[QStringLiteral("BorderRadius")] = 8;
+        p.settings[QStringLiteral("GlowEnabled")] = true;
+        p.settings[QStringLiteral("GlowRadius")] = 16;
+        p.settings[QStringLiteral("BadgeHudPosition")] = 0;
+        p.settings[QStringLiteral("BadgeHudShowIcon")] = true;
+        p.settings[QStringLiteral("BadgeHudShowThumbnail")] = true;
+        p.settings[QStringLiteral("BadgeHudThumbnailWidth")] = 240;
+        p.settings[QStringLiteral("BadgeHudThumbnailHeight")] = 135;
+        p.settings[QStringLiteral("BadgeHudThumbnailSize")] = 240;
+        p.settings[QStringLiteral("BadgeHudSize")] = 48;
+        p.settings[QStringLiteral("BadgeDefaultColor")] = QStringLiteral("#220800");
+        p.settings[QStringLiteral("BadgeCornerRadius")] = 6;
+        p.settings[QStringLiteral("BadgeLetterColorAuto")] = false;
+        p.settings[QStringLiteral("BadgeLetterColor")] = QStringLiteral("#ffea00");
+        list.append(p);
+    }
+
+    // 7. Cyberpunk Hologram 2077
+    {
+        PresetInfo p;
+        p.name = QStringLiteral("Cyberpunk Hologram 2077");
+        p.description = QStringLiteral("High-voltage cyberpunk HUD with holographic scanlines, rolling sweep beam, glitch noise disturbances, and neon flicker.");
+        p.isBuiltIn = true;
+        p.settings = getDefaultSettings();
+        p.shader = makeShaderBundle(QStringLiteral("futuristic_glitch"), {
+            {QStringLiteral("speed"), 1.3},
+            {QStringLiteral("intensity"), 60.0},
+            {QStringLiteral("anomalyEnabled"), 1.0},
+            {QStringLiteral("frequency"), 3.0}
+        });
+        p.settings[QStringLiteral("ShaderEffect")] = p.shader;
+        p.settings[QStringLiteral("CustomShaderEnabled")] = true;
+        p.settings[QStringLiteral("ActiveCustomShaderId")] = QStringLiteral("futuristic_glitch");
+        p.settings[QStringLiteral("UseAccentColor")] = false;
+        p.settings[QStringLiteral("CustomColor")] = QStringLiteral("#00f0ff");
+        p.settings[QStringLiteral("BorderWidth")] = 3;
+        p.settings[QStringLiteral("BorderRadius")] = 2;
+        p.settings[QStringLiteral("FadeCorners")] = false;
+        p.settings[QStringLiteral("GlowEnabled")] = true;
+        p.settings[QStringLiteral("GlowRadius")] = 16;
+        p.settings[QStringLiteral("GlitchEnabled")] = true;
+        p.settings[QStringLiteral("GlitchSpeed")] = 1.4;
+        p.settings[QStringLiteral("GlitchIntensity")] = 45;
+        p.settings[QStringLiteral("GlitchAnomalyEnabled")] = true;
+        p.settings[QStringLiteral("GlitchFrequency")] = 2;
+        p.settings[QStringLiteral("NeonFlickerEnabled")] = true;
+        p.settings[QStringLiteral("NeonFlickerInterval")] = 2.5;
+        p.settings[QStringLiteral("NeonFlickerDuration")] = 0.20;
+        p.settings[QStringLiteral("NeonFlickerIntensity")] = 40;
+        p.settings[QStringLiteral("BadgeHudPosition")] = 1; // Top screen edge HUD
+        p.settings[QStringLiteral("BadgeHudShowIcon")] = true;
+        p.settings[QStringLiteral("BadgeHudShowThumbnail")] = true;
+        p.settings[QStringLiteral("BadgeHudThumbnailWidth")] = 220;
+        p.settings[QStringLiteral("BadgeHudThumbnailHeight")] = 124;
+        p.settings[QStringLiteral("BadgeHudThumbnailSize")] = 220;
+        p.settings[QStringLiteral("BadgeHudSize")] = 46;
+        p.settings[QStringLiteral("BadgeCornerRadius")] = 2;
+        p.settings[QStringLiteral("BadgeDefaultColor")] = QStringLiteral("#0d1117");
+        list.append(p);
+    }
+
+    // 8. Ambilight Screen Cinema
+    {
+        PresetInfo p;
+        p.name = QStringLiteral("Ambilight Screen Cinema");
+        p.description = QStringLiteral("Cinema reactive edge lighting: live color sampling from window contents, smooth transitions, and wide 16:9 previews.");
+        p.isBuiltIn = true;
+        p.settings = getDefaultSettings();
+        p.settings[QStringLiteral("AmbilightEnabled")] = true;
+        p.settings[QStringLiteral("AmbilightMode")] = 0;
+        p.settings[QStringLiteral("AmbilightOpacity")] = 100;
+        p.settings[QStringLiteral("AmbilightFrequency")] = 3.0;
+        p.settings[QStringLiteral("AmbilightDuration")] = 0.25;
+        p.settings[QStringLiteral("AmbilightSaturationLeveling")] = 75;
+        p.settings[QStringLiteral("AmbilightFallbackStrength")] = 60;
+        p.settings[QStringLiteral("AmbilightMinBrightness")] = 25;
+        p.settings[QStringLiteral("AmbilightMaxBrightness")] = 85;
+        p.settings[QStringLiteral("EnsurePerimeterContrast")] = true;
+        p.settings[QStringLiteral("BorderWidth")] = 3;
+        p.settings[QStringLiteral("BorderRadius")] = 8;
+        p.settings[QStringLiteral("FadeCorners")] = true;
+        p.settings[QStringLiteral("GlowEnabled")] = true;
+        p.settings[QStringLiteral("GlowRadius")] = 14;
+        p.settings[QStringLiteral("FadeDuration")] = 250;
+        p.settings[QStringLiteral("BadgeHudShowIcon")] = true;
+        p.settings[QStringLiteral("BadgeHudShowThumbnail")] = true;
+        p.settings[QStringLiteral("BadgeHudThumbnailWidth")] = 260;
+        p.settings[QStringLiteral("BadgeHudThumbnailHeight")] = 146;
+        p.settings[QStringLiteral("BadgeHudThumbnailSize")] = 260;
+        p.settings[QStringLiteral("BadgeHudSize")] = 50;
+        p.settings[QStringLiteral("BadgeWindowShowThumbnail")] = true;
+        p.settings[QStringLiteral("BadgeWindowThumbnailWidth")] = 120;
+        p.settings[QStringLiteral("BadgeWindowThumbnailHeight")] = 68;
+        p.settings[QStringLiteral("BadgeWindowThumbnailSize")] = 120;
+        p.settings[QStringLiteral("BadgeSize")] = 36;
+        list.append(p);
+    }
+
+    // 9. Nordic Frost & Aura
     {
         PresetInfo p;
         p.name = QStringLiteral("Nordic Frost & Aura");
@@ -281,65 +511,16 @@ inline QList<PresetInfo> getBuiltInPresets()
         p.settings[QStringLiteral("BadgeCornerRadius")] = 8;
         p.settings[QStringLiteral("BadgePosition")] = 4; // Center
         p.settings[QStringLiteral("BadgeDefaultColor")] = QStringLiteral("#2e3440");
+        p.settings[QStringLiteral("BadgeHudShowIcon")] = true;
+        p.settings[QStringLiteral("BadgeHudShowThumbnail")] = true;
+        p.settings[QStringLiteral("BadgeHudThumbnailWidth")] = 200;
+        p.settings[QStringLiteral("BadgeHudThumbnailHeight")] = 112;
+        p.settings[QStringLiteral("BadgeHudThumbnailSize")] = 200;
+        p.settings[QStringLiteral("BadgeHudSize")] = 46;
         list.append(p);
     }
 
-    // 5. Cyberpunk Neon 2077
-    {
-        PresetInfo p;
-        p.name = QStringLiteral("Cyberpunk Neon 2077");
-        p.description = QStringLiteral("High-voltage cyberpunk outline: electric cyan (#00f0ff), massive 16px glow, digital glitch noise, anomalies, and neon flickering.");
-        p.isBuiltIn = true;
-        p.settings = getDefaultSettings();
-        p.settings[QStringLiteral("UseAccentColor")] = false;
-        p.settings[QStringLiteral("CustomColor")] = QStringLiteral("#00f0ff");
-        p.settings[QStringLiteral("BorderWidth")] = 3;
-        p.settings[QStringLiteral("BorderRadius")] = 2;
-        p.settings[QStringLiteral("FadeCorners")] = false;
-        p.settings[QStringLiteral("GlowEnabled")] = true;
-        p.settings[QStringLiteral("GlowRadius")] = 16;
-        p.settings[QStringLiteral("GlitchEnabled")] = true;
-        p.settings[QStringLiteral("GlitchSpeed")] = 1.4;
-        p.settings[QStringLiteral("GlitchIntensity")] = 45;
-        p.settings[QStringLiteral("GlitchAnomalyEnabled")] = true;
-        p.settings[QStringLiteral("GlitchFrequency")] = 2;
-        p.settings[QStringLiteral("NeonFlickerEnabled")] = true;
-        p.settings[QStringLiteral("NeonFlickerInterval")] = 2.5;
-        p.settings[QStringLiteral("NeonFlickerDuration")] = 0.20;
-        p.settings[QStringLiteral("NeonFlickerIntensity")] = 40;
-        p.settings[QStringLiteral("MarkDefaultColor")] = QStringLiteral("#ff007f");
-        p.settings[QStringLiteral("BadgeDefaultColor")] = QStringLiteral("#0d1117");
-        p.settings[QStringLiteral("BadgeCornerRadius")] = 2;
-        list.append(p);
-    }
-
-    // 6. Ambilight Screen Cinema
-    {
-        PresetInfo p;
-        p.name = QStringLiteral("Ambilight Screen Cinema");
-        p.description = QStringLiteral("Cinema reactive edge lighting: live color sampling from window contents, smooth transitions, and ambient matching perimeter glow.");
-        p.isBuiltIn = true;
-        p.settings = getDefaultSettings();
-        p.settings[QStringLiteral("AmbilightEnabled")] = true;
-        p.settings[QStringLiteral("AmbilightMode")] = 0;
-        p.settings[QStringLiteral("AmbilightOpacity")] = 100;
-        p.settings[QStringLiteral("AmbilightFrequency")] = 3.0;
-        p.settings[QStringLiteral("AmbilightDuration")] = 0.25;
-        p.settings[QStringLiteral("AmbilightSaturationLeveling")] = 75;
-        p.settings[QStringLiteral("AmbilightFallbackStrength")] = 60;
-        p.settings[QStringLiteral("AmbilightMinBrightness")] = 25;
-        p.settings[QStringLiteral("AmbilightMaxBrightness")] = 85;
-        p.settings[QStringLiteral("EnsurePerimeterContrast")] = true;
-        p.settings[QStringLiteral("BorderWidth")] = 3;
-        p.settings[QStringLiteral("BorderRadius")] = 8;
-        p.settings[QStringLiteral("FadeCorners")] = true;
-        p.settings[QStringLiteral("GlowEnabled")] = true;
-        p.settings[QStringLiteral("GlowRadius")] = 12;
-        p.settings[QStringLiteral("FadeDuration")] = 250;
-        list.append(p);
-    }
-
-    // 7. macOS Sonoma Minimal
+    // 10. macOS Sonoma Minimal
     {
         PresetInfo p;
         p.name = QStringLiteral("macOS Sonoma Minimal");
@@ -364,7 +545,7 @@ inline QList<PresetInfo> getBuiltInPresets()
         list.append(p);
     }
 
-    // 8. Tiling Matrix Trail
+    // 11. Tiling Matrix Trail
     {
         PresetInfo p;
         p.name = QStringLiteral("Tiling Matrix Trail");
@@ -390,28 +571,49 @@ inline QList<PresetInfo> getBuiltInPresets()
         p.settings[QStringLiteral("BadgeHudPosition")] = 2; // Left vertical edge HUD
         p.settings[QStringLiteral("BadgePosition")] = 0; // TopLeft
         p.settings[QStringLiteral("BadgeCornerRadius")] = 0;
+        p.settings[QStringLiteral("BadgeHudShowIcon")] = true;
+        p.settings[QStringLiteral("BadgeHudShowThumbnail")] = true;
+        p.settings[QStringLiteral("BadgeHudThumbnailWidth")] = 180;
+        p.settings[QStringLiteral("BadgeHudThumbnailHeight")] = 100;
+        p.settings[QStringLiteral("BadgeHudThumbnailSize")] = 180;
+        p.settings[QStringLiteral("BadgeHudSize")] = 44;
         list.append(p);
     }
 
-    // 9. RGB Chroma Spectrum
+    // 12. RGB Chroma Spectrum
     {
         PresetInfo p;
         p.name = QStringLiteral("RGB Chroma Spectrum");
-        p.description = QStringLiteral("Dynamic animated rainbow wave for gamers: continuous smooth chromatic color cycling across spectrum hues with 10px glow.");
+        p.description = QStringLiteral("Dynamic animated prismatic rainbow waves for gamers: continuous smooth chromatic color cycling with 12px glow.");
         p.isBuiltIn = true;
         p.settings = getDefaultSettings();
+        p.shader = makeShaderBundle(QStringLiteral("rainbow_wave"), {
+            {QStringLiteral("speed"), 1.2},
+            {QStringLiteral("waveFrequency"), 0.003},
+            {QStringLiteral("saturation"), 0.95},
+            {QStringLiteral("brightness"), 1.3}
+        });
+        p.settings[QStringLiteral("ShaderEffect")] = p.shader;
+        p.settings[QStringLiteral("CustomShaderEnabled")] = true;
+        p.settings[QStringLiteral("ActiveCustomShaderId")] = QStringLiteral("rainbow_wave");
         p.settings[QStringLiteral("ColorCycleEnabled")] = true;
         p.settings[QStringLiteral("ColorTransitionDuration")] = 1.2;
         p.settings[QStringLiteral("ColorList")] = QStringLiteral("#ff0055:2.0;#ff9900:2.0;#00ffcc:2.0;#3388ff:2.0;#cc00ff:2.0");
         p.settings[QStringLiteral("BorderWidth")] = 3;
         p.settings[QStringLiteral("BorderRadius")] = 8;
         p.settings[QStringLiteral("GlowEnabled")] = true;
-        p.settings[QStringLiteral("GlowRadius")] = 10;
+        p.settings[QStringLiteral("GlowRadius")] = 12;
         p.settings[QStringLiteral("AccentOpacity")] = 100;
+        p.settings[QStringLiteral("BadgeHudShowIcon")] = true;
+        p.settings[QStringLiteral("BadgeHudShowThumbnail")] = true;
+        p.settings[QStringLiteral("BadgeHudThumbnailWidth")] = 200;
+        p.settings[QStringLiteral("BadgeHudThumbnailHeight")] = 112;
+        p.settings[QStringLiteral("BadgeHudThumbnailSize")] = 200;
+        p.settings[QStringLiteral("BadgeHudSize")] = 46;
         list.append(p);
     }
 
-    // 10. High-Contrast Amber A11y
+    // 13. High-Contrast Amber A11y
     {
         PresetInfo p;
         p.name = QStringLiteral("High-Contrast Amber A11y");
@@ -436,10 +638,16 @@ inline QList<PresetInfo> getBuiltInPresets()
         p.settings[QStringLiteral("MarkInactiveDashed")] = true;
         p.settings[QStringLiteral("MarkInactiveDashGap")] = 4;
         p.settings[QStringLiteral("BadgeTimeout")] = 0; // No timeout
+        p.settings[QStringLiteral("BadgeHudShowIcon")] = true;
+        p.settings[QStringLiteral("BadgeHudShowThumbnail")] = true;
+        p.settings[QStringLiteral("BadgeHudThumbnailWidth")] = 220;
+        p.settings[QStringLiteral("BadgeHudThumbnailHeight")] = 124;
+        p.settings[QStringLiteral("BadgeHudThumbnailSize")] = 220;
+        p.settings[QStringLiteral("BadgeHudSize")] = 48;
         list.append(p);
     }
 
-    // 11. Retro CRT Amber Phosphor
+    // 14. Retro CRT Amber Phosphor
     {
         PresetInfo p;
         p.name = QStringLiteral("Retro CRT Amber Phosphor");
@@ -472,10 +680,16 @@ inline QList<PresetInfo> getBuiltInPresets()
         p.settings[QStringLiteral("BadgeCaptionColor")] = QStringLiteral("#ffb000");
         p.settings[QStringLiteral("BadgeLocationColorAuto")] = false;
         p.settings[QStringLiteral("BadgeLocationColor")] = QStringLiteral("#cc8800");
+        p.settings[QStringLiteral("BadgeHudShowIcon")] = true;
+        p.settings[QStringLiteral("BadgeHudShowThumbnail")] = true;
+        p.settings[QStringLiteral("BadgeHudThumbnailWidth")] = 200;
+        p.settings[QStringLiteral("BadgeHudThumbnailHeight")] = 112;
+        p.settings[QStringLiteral("BadgeHudThumbnailSize")] = 200;
+        p.settings[QStringLiteral("BadgeHudSize")] = 44;
         list.append(p);
     }
 
-    // 12. Focus Zen Distraction-Free
+    // 15. Focus Zen Distraction-Free
     {
         PresetInfo p;
         p.name = QStringLiteral("Focus Zen Distraction-Free");
@@ -649,6 +863,7 @@ inline void ensureBuiltInPresets(const QString &dirPath)
         QStringLiteral("Vim Focus Navigator.json"),
         QStringLiteral("Subtle Minimal.json"),
         QStringLiteral("Cyberpunk Neon.json"),
+        QStringLiteral("Cyberpunk Neon 2077.json"),
         QStringLiteral("Ambilight Flow.json")
     };
     for (const QString &oldFile : legacyBuiltInFiles) {

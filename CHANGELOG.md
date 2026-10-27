@@ -15,20 +15,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Added an option to display cards in the edge HUD for all open windows, regardless of whether they are visible on screen, covered, minimized, or on other virtual desktops.
 - **Badges Display Timeout (`BadgeTimeout`)**:
   - Added configurable timeout in seconds (0–300 s, default 5 s) before badges auto-hide during Jump Mode (0 = unlimited / no timeout).
-- **12 Thoughtfully Designed Built-In Presets for LeapK v1.6**:
-  - Overhauled and replaced legacy presets with 12 distinct built-in presets covering diverse workflows, visual styles, and LeapK 1.6 mechanics:
-    1. *LeapK Default (v1.6)*: Balanced daily driver with 2px KDE accent outline, top jump badges, bottom HUD preview cards, and Space jump.
-    2. *Vim Motion & HUD Center*: Command center for Vim/i3 tiling power users: background letter badges, all windows mapped in HUD, multi-level focus trail, zero latency.
-    3. *Live Vision Dashboard*: Multitasking workstation with continuous real-time live window thumbnails (30–60 fps), full-size cards in HUD, and ambient glow.
-    4. *Nordic Frost & Aura*: Calming Scandinavian Nord aesthetic with 4px floating offset border, arctic ice cyan (`#88c0d0`), breathing pulse, and soft aura.
-    5. *Cyberpunk Neon 2077*: High-voltage cyberpunk outline: electric cyan (`#00f0ff`), massive 16px glow, digital glitch noise, anomalies, and neon flickering.
-    6. *Ambilight Screen Cinema*: Cinema reactive edge lighting: live color sampling from window contents, smooth transitions, and ambient matching perimeter glow.
-    7. *macOS Sonoma Minimal*: Clean, understated modern minimalism: ultra-thin 1px crisp outline, generous 10px rounded corners, no glow or delay, compact pill badges.
-    8. *Tiling Matrix Trail*: Strict tiling geometry: sharp emerald (`#00ff66`) with zero corner radius, 4-step focus breadcrumb trail, and left-docked vertical HUD.
-    9. *RGB Chroma Spectrum*: Dynamic animated rainbow wave for gamers: continuous smooth chromatic color cycling across spectrum hues with 10px glow.
-    10. *High-Contrast Amber A11y*: Maximum visibility and cognitive clarity: bold 5px safety amber border (`#f39c12`), full 100% opacity, enlarged typography, and persistent badges.
-    11. *Retro CRT Amber Phosphor*: Vintage 1980s mainframe terminal: warm amber phosphor (`#ffb000`), subtle CRT flicker, gentle breathing, square corners, and top-docked HUD.
-    12. *Focus Zen Distraction-Free*: Deep focus and writing: discreet 1px graphite outline with gentle 35% opacity, zero animations or glow, jump badges strictly on demand with fast auto-hide.
+- **15 Thoughtfully Designed Built-In Presets for LeapK v1.6 with Custom GLSL Shaders & Enlarged Previews**:
+  - Overhauled and expanded built-in presets to 15 distinct profiles with deep parameter tuning, embedded GLSL fragment shaders, and significantly enlarged HUD preview cards:
+    1. *LeapK Default (v1.6)*: Balanced daily driver with 2px KDE accent outline, top jump badges, 180×100 px bottom HUD preview cards, and Space jump.
+    2. *Vim Motion & HUD Center*: Command center for Vim/i3 tiling power users: background letter badges, 160×90 px HUD cards, multi-level focus trail, zero latency.
+    3. *Live Vision Dashboard*: Multitasking powerhouse with continuous real-time live window thumbnails (30–60 fps), massive 320×180 px HUD cards (56 px HUD dock), 160×90 px window badges, and ambient glow.
+    4. *Electric Plasma Storm*: **Custom Shader: `electric_plasma`** (high-voltage energy arcs, voltage 1.8, spark frequency 12, glow boost 1.5, arc color `#00d4ff`), 220×124 px HUD cards.
+    5. *Matrix Digital Rain*: **Custom Shader: `matrix_rain`** (green digital code rain `#00ff66`, speed 1.6, density 24, trail length 1.2, sharp 0px corners, left-docked 180×100 px HUD).
+    6. *Inferno Blaze & Embers*: **Custom Shader: `fire_aura`** (animated blazing flames and rising embers, speed 1.4, turbulence 3.2, flame `#ff3300`, core `#ffea00`), 240×135 px HUD cards.
+    7. *Cyberpunk Hologram 2077*: **Custom Shader: `futuristic_glitch`** (holographic scanlines, chromatic anomaly sweep, neon flicker), 220×124 px top HUD cards.
+    8. *Ambilight Screen Cinema*: Cinema reactive edge lighting with real-time screen edge sampling, 16:9 cinema wide 260×146 px HUD cards, 120×68 px window badges.
+    9. *Nordic Frost & Aura*: Calming Scandinavian Nord aesthetic with 4px floating offset border, arctic ice cyan (`#88c0d0`), breathing pulse, soft aura, and 200×112 px HUD cards.
+    10. *macOS Sonoma Minimal*: Clean, understated modern minimalism: ultra-thin 1px crisp outline, generous 10px rounded corners, no glow or delay, compact pill badges, zero previews.
+    11. *Tiling Matrix Trail*: Strict tiling geometry: sharp emerald (`#00ff66`) with zero corner radius, 4-step focus breadcrumb trail, and left-docked vertical 180×100 px HUD cards.
+    12. *RGB Chroma Spectrum*: **Custom Shader: `rainbow_wave`** (flowing prismatic rainbow spectrum hues), 200×112 px HUD cards.
+    13. *High-Contrast Amber A11y*: Maximum visibility and cognitive clarity: bold 5px safety amber border (`#f39c12`), full 100% opacity, enlarged typography, persistent badges, 220×124 px HUD cards.
+    14. *Retro CRT Amber Phosphor*: Vintage 1980s mainframe terminal: warm amber phosphor (`#ffb000`), subtle CRT flicker, gentle breathing, square corners, contrast-protected inverse video, and 200×112 px top-docked HUD.
+    15. *Focus Zen Distraction-Free*: Deep focus and writing: discreet 1px graphite outline with gentle 35% opacity, zero animations or glow, jump badges strictly on demand with fast 3-second auto-hide.
+  - Built-in presets seamlessly bundle custom GLSL shaders via `makeShaderBundle()`, automatically registering shader code and uniform parameters upon preset activation.
   - Fully synchronized all 126 configuration keys across `getDefaultSettings()`, presets catalog, and `PresetActivationDialog` categories.
 - **Jump to Recent Window Shortcut in LeapK Settings (`JumpRecentKey`)**:
   - Migrated "Jump to recent window" from KDE global shortcuts (`KGlobalAccel`) into LeapK settings as an exclusive modal 2nd-level jump key (default: `Space`).
