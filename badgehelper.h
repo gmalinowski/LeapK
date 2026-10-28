@@ -1671,7 +1671,7 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
     if (isSuperJump) {
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Pull to workspace"), QColor(0, 195, 255)},
-            {QStringLiteral("Meta / Esc"), QStringLiteral("Back"), QColor(149, 165, 166)}
+            {QStringLiteral("Meta+A / Esc"), QStringLiteral("Back"), QColor(149, 165, 166)}
         };
     } else if (isStashMode) {
         segments = {
@@ -1692,7 +1692,7 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
     } else {
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Jump"), QColor(52, 152, 219)},
-            {QStringLiteral("Meta"), QStringLiteral("Super Jump"), QColor(0, 195, 255)},
+            {QStringLiteral("Meta+A"), QStringLiteral("Super Jump"), QColor(0, 195, 255)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pull here"), QColor(241, 196, 15)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
@@ -1802,7 +1802,7 @@ inline QImage renderHudModeHeader(bool isPolish,
     Q_UNUSED(isPolish);
     if (isSuperJump) {
         const QString leftText = QStringLiteral("⚡ SUPER JUMP: Pick any window to pull into [%1]").arg(!targetWorkspaceName.isEmpty() ? targetWorkspaceName : QStringLiteral("Workspace"));
-        const QString rightText = QStringLiteral("Meta / Esc : Back");
+        const QString rightText = QStringLiteral("Meta+A / Esc : Back");
 
         QFont titleFont(QStringLiteral("sans-serif"));
         titleFont.setPixelSize(qMax(10, qRound(13.0 * scale)));

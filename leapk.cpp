@@ -4587,15 +4587,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     case Qt::Key_Direction_L:
     case Qt::Key_Direction_R:
     case Qt::Key_Mode_switch:
-        if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
-            m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
-        }
-        return;
     case Qt::Key_Meta:
     case Qt::Key_Super_L:
     case Qt::Key_Super_R:
-        if (!e->isAutoRepeat()) {
-            toggleSuperJumpMode();
+        if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+            m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
         }
         return;
     default:
@@ -4636,6 +4632,13 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     if (m_subLeapActive) {
         if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace) {
             exitSubLeapMode();
+            return;
+        }
+
+        if (((mods & Qt::MetaModifier) && e->key() == Qt::Key_A)
+            || ((mods & (Qt::AltModifier | Qt::ControlModifier)) && e->key() == Qt::Key_A)) {
+            exitSubLeapMode();
+            toggleSuperJumpMode();
             return;
         }
 
@@ -4756,6 +4759,13 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
+        if (((mods & Qt::MetaModifier) && e->key() == Qt::Key_A)
+            || ((mods & (Qt::AltModifier | Qt::ControlModifier)) && e->key() == Qt::Key_A)) {
+            exitStashMode();
+            toggleSuperJumpMode();
+            return;
+        }
+
         if (e->key() == Qt::Key_Comma || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char(','))) {
             slotCycleHudView(-1);
             return;
@@ -4843,6 +4853,12 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     if (m_superJumpActive && (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace)) {
         exitSuperJumpMode();
+        return;
+    }
+
+    if (((mods & Qt::MetaModifier) && e->key() == Qt::Key_A)
+        || ((mods & (Qt::AltModifier | Qt::ControlModifier)) && e->key() == Qt::Key_A)) {
+        toggleSuperJumpMode();
         return;
     }
 
