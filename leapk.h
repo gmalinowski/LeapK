@@ -262,6 +262,8 @@ private:
     void exitStashMode();
     void addWindowToWorkspace(EffectWindow *w, int workspaceIndex);
     void createEmptyWorkspace(const QString &suggestedName = QString());
+    void slotCloseActiveWorkspace();
+    void applyWorkspaceDeletion(const QString &deletedWorkspaceId, const QString &windowAction);
     void renderBadgePreview(const RenderTarget &renderTarget,
                             const RenderViewport &viewport);
     QImage captureWindowThumbnail(EffectWindow *target,

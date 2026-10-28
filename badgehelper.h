@@ -1660,6 +1660,9 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
                 {QStringLiteral("[Ctrl+N / +]"), QStringLiteral("Nowy workspace"), QColor(52, 152, 219)},
                 {QStringLiteral("[, / .]"), viewName, viewColor}
             };
+            if (activeView >= 1) {
+                segments.append({QStringLiteral("[Shift+Del]"), QStringLiteral("Zamknij workspace"), QColor(231, 76, 60)});
+            }
         } else {
             segments = {
                 {QStringLiteral("[Key]"), QStringLiteral("Jump"), QColor(52, 152, 219)},
@@ -1671,6 +1674,9 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
                 {QStringLiteral("[Ctrl+N / +]"), QStringLiteral("New workspace"), QColor(52, 152, 219)},
                 {QStringLiteral("[, / .]"), viewName, viewColor}
             };
+            if (activeView >= 1) {
+                segments.append({QStringLiteral("[Shift+Del]"), QStringLiteral("Close workspace"), QColor(231, 76, 60)});
+            }
         }
     }
 

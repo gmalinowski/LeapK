@@ -49,6 +49,209 @@ protected:
     }
 };
 
+class CloseWorkspaceDialog : public QDialog
+{
+public:
+    enum Action {
+        Cancel = 0,
+        CloseWindows,
+        MoveToStandard,
+        MoveToStash
+    };
+
+    explicit CloseWorkspaceDialog(const QString &wsName, bool isPolish, QWidget *parent = nullptr)
+        : QDialog(parent)
+        , m_wsName(wsName)
+        , m_isPolish(isPolish)
+        , m_selectedAction(Cancel)
+    {
+        setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
+        setAttribute(Qt::WA_TranslucentBackground, true);
+        resize(500, 370);
+
+        auto *rootLayout = new QVBoxLayout(this);
+        rootLayout->setContentsMargins(0, 0, 0, 0);
+
+        auto *frame = new MainWorkspaceFrame(this);
+        rootLayout->addWidget(frame);
+
+        auto *layout = new QVBoxLayout(frame);
+        layout->setContentsMargins(22, 20, 22, 20);
+        layout->setSpacing(12);
+
+        // Header
+        auto *lblTitle = new QLabel(m_isPolish
+            ? QStringLiteral("🗑 Zamknij przestrzeń: <b style='color:#e74c3c;'>%1</b>").arg(wsName.toHtmlEscaped())
+            : QStringLiteral("🗑 Close Workspace: <b style='color:#e74c3c;'>%1</b>").arg(wsName.toHtmlEscaped()), this);
+        lblTitle->setTextFormat(Qt::RichText);
+        lblTitle->setStyleSheet(QStringLiteral("font-size: 17px; color: #ffffff;"));
+        layout->addWidget(lblTitle);
+
+        auto *lblPrompt = new QLabel(m_isPolish
+            ? QStringLiteral("Wybierz, co chcesz zrobić z oknami należącymi do tego workspace:")
+            : QStringLiteral("Choose what you want to do with the windows in this workspace:"), this);
+        lblPrompt->setStyleSheet(QStringLiteral("font-size: 13px; color: rgba(255,255,255,0.75);"));
+        layout->addWidget(lblPrompt);
+
+        layout->addSpacing(4);
+
+        // Option 1: Close all windows
+        auto *btnClose = createOptionButton(
+            QStringLiteral("[1]"),
+            m_isPolish ? QStringLiteral("Zamknij wszystkie okna") : QStringLiteral("Close all windows"),
+            m_isPolish ? QStringLiteral("Zamyka aplikacje i procesy powiązane z tym obszarem") : QStringLiteral("Terminates applications and windows in this workspace"),
+            QColor(231, 76, 60),
+            [this]() { choose(CloseWindows); }
+        );
+        layout->addWidget(btnClose);
+
+        // Option 2: Move to Standard (keep open)
+        auto *btnStd = createOptionButton(
+            QStringLiteral("[2]"),
+            m_isPolish ? QStringLiteral("Przenieś do Standard (pozostaw otwarte)") : QStringLiteral("Move to Standard (keep open)"),
+            m_isPolish ? QStringLiteral("Okna pozostaną otwarte i widoczne na bieżącym pulpicie") : QStringLiteral("Windows stay open and visible on desktop"),
+            QColor(52, 152, 219),
+            [this]() { choose(MoveToStandard); }
+        );
+        layout->addWidget(btnStd);
+
+        // Option 3: Move to Stash
+        auto *btnStash = createOptionButton(
+            QStringLiteral("[3]"),
+            m_isPolish ? QStringLiteral("Przenieś do Schowka (Stash)") : QStringLiteral("Move to Stash"),
+            m_isPolish ? QStringLiteral("Okna zostaną ukryte w Schowku do późniejszego użycia") : QStringLiteral("Windows are hidden in Stash for later retrieval"),
+            QColor(46, 204, 113),
+            [this]() { choose(MoveToStash); }
+        );
+        layout->addWidget(btnStash);
+
+        layout->addStretch(1);
+
+        // Cancel button
+        auto *bottomLayout = new QHBoxLayout();
+        bottomLayout->addStretch(1);
+        auto *btnCancel = new QPushButton(m_isPolish ? QStringLiteral("Anuluj [Esc]") : QStringLiteral("Cancel [Esc]"), this);
+        btnCancel->setStyleSheet(QStringLiteral(
+            "QPushButton {"
+            "  background-color: rgba(255, 255, 255, 0.1);"
+            "  border-radius: 8px;"
+            "  color: #ffffff;"
+            "  padding: 8px 20px;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: rgba(255, 255, 255, 0.2);"
+            "}"
+        ));
+        connect(btnCancel, &QPushButton::clicked, this, &QDialog::reject);
+        bottomLayout->addWidget(btnCancel);
+        layout->addLayout(bottomLayout);
+    }
+
+    Action selectedAction() const { return m_selectedAction; }
+
+protected:
+    void keyPressEvent(QKeyEvent *e) override
+    {
+        if (e->key() == Qt::Key_Escape) {
+            reject();
+            return;
+        }
+        if (e->key() == Qt::Key_1) {
+            choose(CloseWindows);
+            return;
+        }
+        if (e->key() == Qt::Key_2) {
+            choose(MoveToStandard);
+            return;
+        }
+        if (e->key() == Qt::Key_3) {
+            choose(MoveToStash);
+            return;
+        }
+        QDialog::keyPressEvent(e);
+    }
+
+    void mousePressEvent(QMouseEvent *e) override
+    {
+        if (e->button() == Qt::LeftButton) {
+            m_dragPos = e->globalPosition().toPoint() - frameGeometry().topLeft();
+            m_isDragging = true;
+        }
+        QDialog::mousePressEvent(e);
+    }
+
+    void mouseMoveEvent(QMouseEvent *e) override
+    {
+        if (m_isDragging && (e->buttons() & Qt::LeftButton)) {
+            move(e->globalPosition().toPoint() - m_dragPos);
+        }
+        QDialog::mouseMoveEvent(e);
+    }
+
+    void mouseReleaseEvent(QMouseEvent *e) override
+    {
+        m_isDragging = false;
+        QDialog::mouseReleaseEvent(e);
+    }
+
+private:
+    void choose(Action act)
+    {
+        m_selectedAction = act;
+        accept();
+    }
+
+    QWidget *createOptionButton(const QString &keyBadge, const QString &title, const QString &desc, const QColor &accent, const std::function<void()> &callback)
+    {
+        auto *btn = new QPushButton(this);
+        btn->setCursor(Qt::PointingHandCursor);
+        btn->setStyleSheet(QStringLiteral(
+            "QPushButton {"
+            "  background-color: rgba(%1, %2, %3, 0.12);"
+            "  border: 1.5px solid rgba(%1, %2, %3, 0.4);"
+            "  border-radius: 10px;"
+            "  padding: 8px 12px;"
+            "  text-align: left;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: rgba(%1, %2, %3, 0.25);"
+            "  border-color: rgba(%1, %2, %3, 0.8);"
+            "}"
+        ).arg(accent.red()).arg(accent.green()).arg(accent.blue()));
+
+        auto *hlayout = new QHBoxLayout(btn);
+        hlayout->setContentsMargins(6, 4, 6, 4);
+        hlayout->setSpacing(12);
+
+        auto *lblKey = new QLabel(keyBadge, btn);
+        lblKey->setStyleSheet(QStringLiteral(
+            "background-color: %1; color: #ffffff; font-weight: bold; font-size: 13px; border-radius: 6px; padding: 4px 8px;"
+        ).arg(accent.name(QColor::HexRgb)));
+        hlayout->addWidget(lblKey);
+
+        auto *vbox = new QVBoxLayout();
+        vbox->setSpacing(2);
+        auto *lblTitle = new QLabel(title, btn);
+        lblTitle->setStyleSheet(QStringLiteral("font-size: 14px; font-weight: bold; color: #ffffff;"));
+        vbox->addWidget(lblTitle);
+
+        auto *lblDesc = new QLabel(desc, btn);
+        lblDesc->setStyleSheet(QStringLiteral("font-size: 11px; color: rgba(255, 255, 255, 0.65);"));
+        vbox->addWidget(lblDesc);
+
+        hlayout->addLayout(vbox, 1);
+
+        connect(btn, &QPushButton::clicked, this, callback);
+        return btn;
+    }
+
+    QString m_wsName;
+    bool m_isPolish;
+    Action m_selectedAction;
+    QPoint m_dragPos;
+    bool m_isDragging = false;
+};
+
 class WorkspaceCard : public QFrame
 {
 public:
@@ -97,6 +300,31 @@ public:
         m_lblStatus = new QLabel(this);
         updateStatusBadge();
         layout->addWidget(m_lblStatus);
+
+        // Delete / Close Workspace button
+        m_btnDelete = new QPushButton(QStringLiteral("🗑"), this);
+        m_btnDelete->setFixedSize(32, 28);
+        m_btnDelete->setCursor(Qt::PointingHandCursor);
+        m_btnDelete->setToolTip(m_isPolish ? QStringLiteral("Zamknij / Usuń ten workspace") : QStringLiteral("Close / Delete this workspace"));
+        m_btnDelete->setStyleSheet(QStringLiteral(
+            "QPushButton {"
+            "  background-color: rgba(231, 76, 60, 0.15);"
+            "  color: #e74c3c;"
+            "  font-size: 13px;"
+            "  border: 1px solid rgba(231, 76, 60, 0.35);"
+            "  border-radius: 6px;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: rgba(231, 76, 60, 0.4);"
+            "  color: #ffffff;"
+            "}"
+        ));
+        connect(m_btnDelete, &QPushButton::clicked, this, [this]() {
+            if (onDeleteClicked) {
+                onDeleteClicked(m_index);
+            }
+        });
+        layout->addWidget(m_btnDelete);
     }
 
     void setAssigned(bool assigned)
@@ -111,6 +339,7 @@ public:
     int index() const { return m_index; }
 
     std::function<void(int)> onClicked;
+    std::function<void(int)> onDeleteClicked;
 
 protected:
     void mousePressEvent(QMouseEvent *e) override
@@ -171,6 +400,7 @@ private:
     bool m_isPolish;
     QLabel *m_lblKey = nullptr;
     QLabel *m_lblStatus = nullptr;
+    QPushButton *m_btnDelete = nullptr;
 };
 
 class WorkspaceManagerDialog : public QDialog
@@ -370,6 +600,7 @@ public:
     QString assignedWorkspaceId() const { return m_assignedWsId; }
     bool groupByApp() const { return m_groupByApp; }
     QList<LeapKWorkspace::WorkspaceInfo> workspaces() const { return m_workspaces; }
+    QJsonArray deletedWorkspaces() const { return m_deletedWorkspaces; }
 
 protected:
     void keyPressEvent(QKeyEvent *e) override
@@ -477,10 +708,45 @@ private:
             card->onClicked = [this](int idx) {
                 toggleWorkspaceAssignment(idx);
             };
+            card->onDeleteClicked = [this](int idx) {
+                closeWorkspace(idx);
+            };
             m_cardsLayout->addWidget(card);
         }
 
         m_cardsLayout->addStretch(1);
+    }
+
+    void closeWorkspace(int idx)
+    {
+        if (idx < 0 || idx >= m_workspaces.size()) {
+            return;
+        }
+        const auto ws = m_workspaces.at(idx);
+        CloseWorkspaceDialog dlg(ws.name, m_isPolish, this);
+        if (dlg.exec() == QDialog::Accepted) {
+            const auto act = dlg.selectedAction();
+            QString actStr = QStringLiteral("standard");
+            if (act == CloseWorkspaceDialog::CloseWindows) {
+                actStr = QStringLiteral("close");
+            } else if (act == CloseWorkspaceDialog::MoveToStash) {
+                actStr = QStringLiteral("stash");
+            }
+
+            QJsonObject delInfo;
+            delInfo[QStringLiteral("id")] = ws.id;
+            delInfo[QStringLiteral("name")] = ws.name;
+            delInfo[QStringLiteral("action")] = actStr;
+            m_deletedWorkspaces.append(delInfo);
+
+            if (m_assignedWsId == ws.id) {
+                m_assignedWsId.clear();
+            }
+
+            m_workspaces.removeAt(idx);
+            LeapKWorkspace::saveWorkspaces(m_workspaces);
+            rebuildCards();
+        }
     }
 
     void toggleWorkspaceAssignment(int idx)
@@ -621,6 +887,7 @@ private:
     QPushButton *m_btnNewWs = nullptr;
     QPushButton *m_btnNewEmptyWs = nullptr;
     QPushButton *m_btnUnassign = nullptr;
+    QJsonArray m_deletedWorkspaces;
 };
 
 int main(int argc, char *argv[])
@@ -633,6 +900,56 @@ int main(int argc, char *argv[])
         const auto ws = LeapKWorkspace::createEmptyWorkspace(workspaces, name);
         std::cout << "Created empty workspace: " << ws.name.toStdString() << " (" << ws.id.toStdString() << ")" << std::endl;
         return 0;
+    }
+
+    if (argc > 1 && QString::fromUtf8(argv[1]) == QLatin1String("--close-workspace")) {
+        const QString targetWsId = (argc > 2 && argv[2]) ? QString::fromUtf8(argv[2]).trimmed() : QString();
+        QList<LeapKWorkspace::WorkspaceInfo> workspaces = LeapKWorkspace::loadWorkspaces();
+        int foundIdx = -1;
+        for (int i = 0; i < workspaces.size(); ++i) {
+            if (workspaces.at(i).id == targetWsId) {
+                foundIdx = i;
+                break;
+            }
+        }
+        if (foundIdx < 0) {
+            std::cerr << "Workspace not found: " << targetWsId.toStdString() << std::endl;
+            return 1;
+        }
+
+        const auto ws = workspaces.at(foundIdx);
+        const bool isPolish = (QLocale().language() == QLocale::Polish);
+        CloseWorkspaceDialog dlg(ws.name, isPolish);
+        if (dlg.exec() == QDialog::Accepted) {
+            const auto act = dlg.selectedAction();
+            QString actStr = QStringLiteral("standard");
+            if (act == CloseWorkspaceDialog::CloseWindows) {
+                actStr = QStringLiteral("close");
+            } else if (act == CloseWorkspaceDialog::MoveToStash) {
+                actStr = QStringLiteral("stash");
+            }
+
+            workspaces.removeAt(foundIdx);
+            LeapKWorkspace::saveWorkspaces(workspaces);
+
+            QJsonObject resp;
+            resp[QStringLiteral("action")] = QStringLiteral("deleteWorkspace");
+            resp[QStringLiteral("deletedWorkspaceId")] = ws.id;
+            resp[QStringLiteral("deletedWorkspaceName")] = ws.name;
+            resp[QStringLiteral("windowAction")] = actStr;
+
+            QJsonArray delArr;
+            QJsonObject delInfo;
+            delInfo[QStringLiteral("id")] = ws.id;
+            delInfo[QStringLiteral("name")] = ws.name;
+            delInfo[QStringLiteral("action")] = actStr;
+            delArr.append(delInfo);
+            resp[QStringLiteral("deletedWorkspaces")] = delArr;
+
+            std::cout << QJsonDocument(resp).toJson(QJsonDocument::Compact).toStdString() << std::endl;
+            return 0;
+        }
+        return 1;
     }
 
     QString appClass;
@@ -665,6 +982,7 @@ int main(int argc, char *argv[])
             arr.append(LeapKWorkspace::workspaceToJson(ws));
         }
         resp[QStringLiteral("workspaces")] = arr;
+        resp[QStringLiteral("deletedWorkspaces")] = dlg.deletedWorkspaces();
 
         std::cout << QJsonDocument(resp).toJson(QJsonDocument::Compact).toStdString() << std::endl;
         return 0;

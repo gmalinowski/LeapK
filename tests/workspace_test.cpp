@@ -181,6 +181,35 @@ void testCreateEmptyWorkspace()
     std::cout << "testCreateEmptyWorkspace PASSED\n";
 }
 
+void testDeleteWorkspace()
+{
+    using namespace LeapKWorkspace;
+
+    QTemporaryDir tempDir;
+    assert(tempDir.isValid());
+    const QString filePath = tempDir.path() + QStringLiteral("/workspaces.json");
+
+    QList<WorkspaceInfo> list;
+    WorkspaceInfo ws1 = createEmptyWorkspace(list, QStringLiteral("Frontend"), filePath);
+    WorkspaceInfo ws2 = createEmptyWorkspace(list, QStringLiteral("Backend"), filePath);
+    assert(list.size() == 2);
+
+    bool deleted = deleteWorkspace(list, ws1.id, filePath);
+    assert(deleted);
+    assert(list.size() == 1);
+    assert(list.first().id == ws2.id);
+
+    QList<WorkspaceInfo> reloaded = loadWorkspaces(filePath);
+    assert(reloaded.size() == 1);
+    assert(reloaded.first().id == ws2.id);
+
+    bool deleteNonExistent = deleteWorkspace(list, QStringLiteral("non-existent-id"), filePath);
+    assert(!deleteNonExistent);
+    assert(list.size() == 1);
+
+    std::cout << "testDeleteWorkspace PASSED\n";
+}
+
 int main()
 {
     testRuleSerialization();
@@ -188,6 +217,7 @@ int main()
     testSaveAndLoadWorkspaces();
     testWorkspaceMatching();
     testCreateEmptyWorkspace();
+    testDeleteWorkspace();
     std::cout << "All workspace tests passed successfully!\n";
     return 0;
 }

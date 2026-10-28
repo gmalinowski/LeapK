@@ -3435,8 +3435,21 @@ void ActiveWindowOutlineEffect::slotOpenWorkspaceManager()
     QProcess *process = new QProcess(this);
     connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
             this, [this, process](int exitCode, QProcess::ExitStatus exitStatus) {
+        const QByteArray out = process->readAllStandardOutput();
         process->deleteLater();
         if (exitStatus == QProcess::NormalExit && exitCode == 0) {
+            const QJsonDocument doc = QJsonDocument::fromJson(out);
+            if (doc.isObject()) {
+                const QJsonObject obj = doc.object();
+                const QJsonArray delArr = obj.value(QStringLiteral("deletedWorkspaces")).toArray();
+                for (const auto &val : delArr) {
+                    if (val.isObject()) {
+                        const QJsonObject delObj = val.toObject();
+                        applyWorkspaceDeletion(delObj.value(QStringLiteral("id")).toString(),
+                                               delObj.value(QStringLiteral("action")).toString(QStringLiteral("standard")));
+                    }
+                }
+            }
             refreshWorkspaces();
             if (effects) {
                 effects->addRepaintFull();
@@ -3678,6 +3691,161 @@ void ActiveWindowOutlineEffect::createEmptyWorkspace(const QString &suggestedNam
     if (effects) {
         effects->addRepaintFull();
     }
+}
+
+void ActiveWindowOutlineEffect::applyWorkspaceDeletion(const QString &deletedWorkspaceId, const QString &windowAction)
+{
+    if (deletedWorkspaceId.isEmpty()) {
+        return;
+    }
+
+    refreshWorkspaces();
+
+    // Find the workspace rules before deleting
+    LeapKWorkspace::WorkspaceInfo targetWs;
+    int foundIdx = -1;
+    for (int i = 0; i < m_workspaces.size(); ++i) {
+        if (m_workspaces.at(i).id == deletedWorkspaceId) {
+            targetWs = m_workspaces.at(i);
+            foundIdx = i;
+            break;
+        }
+    }
+
+    const auto windows = effects ? effects->stackingOrder() : QList<EffectWindow *>();
+    QList<EffectWindow *> matchingWindows;
+    if (!targetWs.id.isEmpty()) {
+        for (EffectWindow *w : windows) {
+            if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
+                continue;
+            }
+            const auto desktops = w->desktops();
+            const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+            if (LeapKWorkspace::matchesWorkspace(targetWs, w->windowClass(), w->caption(), dNum)) {
+                matchingWindows.append(w);
+            }
+        }
+    }
+
+    // Apply the chosen windowAction
+    if (windowAction == QLatin1String("close")) {
+        for (EffectWindow *w : matchingWindows) {
+            if (w && !w->isDeleted()) {
+                m_workspaceMinimizedWindows.remove(w);
+                m_stashedWindows.remove(w);
+                w->closeWindow();
+            }
+        }
+    } else if (windowAction == QLatin1String("stash")) {
+        for (EffectWindow *w : matchingWindows) {
+            if (w && !w->isDeleted()) {
+                m_workspaceMinimizedWindows.remove(w);
+                m_stashedWindows.insert(w);
+                w->setMinimized(true);
+            }
+        }
+    } else { // "standard"
+        for (EffectWindow *w : matchingWindows) {
+            if (w && !w->isDeleted()) {
+                m_workspaceMinimizedWindows.remove(w);
+                m_stashedWindows.remove(w);
+                if (w->isMinimized()) {
+                    w->setMinimized(false);
+                }
+            }
+        }
+    }
+
+    // Remove from workspaces list if still there
+    if (foundIdx >= 0 && foundIdx < m_workspaces.size()) {
+        m_workspaces.removeAt(foundIdx);
+        LeapKWorkspace::saveWorkspaces(m_workspaces);
+    }
+
+    // Reset active view to Standard (0)
+    m_activeHudView = 0;
+    if (effects && effects->config()) {
+        KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+        primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
+        primaryConfig.sync();
+    }
+
+    applyWorkspaceViewIsolation(0);
+
+    m_jumpLetterToWindow = assignJumpLetters();
+    m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::slotCloseActiveWorkspace()
+{
+    if (m_activeHudView < 1 || m_activeHudView > m_workspaces.size()) {
+        return;
+    }
+
+    refreshWorkspaces();
+    if (m_activeHudView < 1 || m_activeHudView > m_workspaces.size()) {
+        return;
+    }
+
+    const auto ws = m_workspaces.at(m_activeHudView - 1);
+
+    if (m_jumpMode) {
+        cancelJumpMode();
+    }
+
+    QStringList candidateDirs;
+    candidateDirs << QDir::homePath() + QStringLiteral("/.local/bin");
+#ifdef COLORPICKER_INSTALL_DIR
+    candidateDirs << QStringLiteral(COLORPICKER_INSTALL_DIR);
+#endif
+    candidateDirs << QCoreApplication::applicationDirPath()
+                  << QStringLiteral("/usr/libexec")
+                  << QStringLiteral("/usr/lib/libexec")
+                  << QStringLiteral("/usr/local/bin")
+                  << QStringLiteral("/usr/bin");
+
+    QString wsManagerExe = QStandardPaths::findExecutable(QStringLiteral("leapk-workspace-manager"), candidateDirs);
+    if (wsManagerExe.isEmpty()) {
+        wsManagerExe = QStandardPaths::findExecutable(QStringLiteral("kleap-workspace-manager"), candidateDirs);
+    }
+    if (wsManagerExe.isEmpty()) {
+        wsManagerExe = QStandardPaths::findExecutable(QStringLiteral("active-window-outline-workspace-manager"), candidateDirs);
+    }
+    if (wsManagerExe.isEmpty()) {
+        return;
+    }
+
+    QStringList args;
+    args << QStringLiteral("--close-workspace") << ws.id;
+
+    QProcess *process = new QProcess(this);
+    connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
+            this, [this, process](int exitCode, QProcess::ExitStatus exitStatus) {
+        const QByteArray out = process->readAllStandardOutput();
+        process->deleteLater();
+        if (exitStatus == QProcess::NormalExit && exitCode == 0) {
+            const QJsonDocument doc = QJsonDocument::fromJson(out);
+            if (doc.isObject()) {
+                const QJsonObject obj = doc.object();
+                const QString delId = obj.value(QStringLiteral("deletedWorkspaceId")).toString();
+                const QString winAction = obj.value(QStringLiteral("windowAction")).toString(QStringLiteral("standard"));
+                applyWorkspaceDeletion(delId, winAction);
+            }
+        }
+    });
+    connect(process, &QProcess::errorOccurred, this, [process]() {
+        process->deleteLater();
+    });
+
+    process->start(wsManagerExe, args);
 }
 
 void ActiveWindowOutlineEffect::slotCycleHudView(int delta)
@@ -4319,6 +4487,17 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('+') || (e->key() == Qt::Key_Equal && isShift)))) {
         createEmptyWorkspace();
         return;
+    }
+
+    if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
+        if ((isShift || isCtrl) && (e->key() == Qt::Key_Delete || e->key() == Qt::Key_Backspace)) {
+            slotCloseActiveWorkspace();
+            return;
+        }
+        if (e->key() == Qt::Key_Delete) {
+            slotCloseActiveWorkspace();
+            return;
+        }
     }
 
     bool isRecentKeyMatch = false;

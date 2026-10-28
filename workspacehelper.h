@@ -200,4 +200,16 @@ inline WorkspaceInfo createEmptyWorkspace(QList<WorkspaceInfo> &workspaces, cons
     return ws;
 }
 
+inline bool deleteWorkspace(QList<WorkspaceInfo> &workspaces, const QString &wsId, const QString &filePath = QString())
+{
+    for (int i = workspaces.size() - 1; i >= 0; --i) {
+        if (workspaces.at(i).id == wsId) {
+            workspaces.removeAt(i);
+            saveWorkspaces(workspaces, filePath);
+            return true;
+        }
+    }
+    return false;
+}
+
 } // namespace LeapKWorkspace
