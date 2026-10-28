@@ -1729,4 +1729,190 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
     return img;
 }
 
+struct HudModeHeaderView {
+    QString name;
+    QColor color;
+    int windowCount = 0;
+    bool isActive = false;
+};
+
+inline QImage renderHudModeHeader(bool isPolish,
+                                  qreal scale,
+                                  bool isSubLeap,
+                                  const QString &subLeapTitle,
+                                  const QColor &subLeapColor,
+                                  int subLeapCount,
+                                  const QList<HudModeHeaderView> &views)
+{
+    if (isSubLeap) {
+        const QString leftText = isPolish
+            ? QStringLiteral("🗂 TRYB GRUPY: %1 (%2 okna)  •  Wybierz docelowe okno").arg(subLeapTitle).arg(subLeapCount)
+            : QStringLiteral("🗂 GROUP DISAMBIGUATION: %1 (%2 windows)  •  Press target letter").arg(subLeapTitle).arg(subLeapCount);
+        const QString rightText = isPolish
+            ? QStringLiteral("[Backspace / Esc: Powrót]")
+            : QStringLiteral("[Backspace / Esc: Back]");
+
+        QFont titleFont(QStringLiteral("sans-serif"));
+        titleFont.setPixelSize(qMax(10, qRound(13.0 * scale)));
+        titleFont.setBold(true);
+        QFontMetrics fmTitle(titleFont);
+
+        QFont keyFont(QStringLiteral("sans-serif"));
+        keyFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
+        keyFont.setBold(true);
+        QFontMetrics fmKey(keyFont);
+
+        const int padX = qRound(16 * scale);
+        const int padY = qRound(6 * scale);
+        const int gap = qRound(16 * scale);
+
+        const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + padX;
+        const int h = qMax(qRound(34 * scale), fmTitle.height() + 2 * padY);
+
+        QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
+        img.fill(Qt::transparent);
+
+        QPainter p(&img);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setRenderHint(QPainter::TextAntialiasing, true);
+
+        const QRectF rect(0.5 * scale, 0.5 * scale, w - 1.0 * scale, h - 1.0 * scale);
+        const qreal radius = h / 2.0;
+
+        const QColor accent = subLeapColor.isValid() ? subLeapColor : QColor(155, 89, 182);
+        p.setPen(QPen(accent, 1.8 * scale));
+        p.setBrush(QColor(16, 20, 26, 245));
+        p.drawRoundedRect(rect, radius, radius);
+
+        const qreal baselineY = padY + fmTitle.ascent();
+        p.setFont(titleFont);
+        p.setPen(QColor(255, 255, 255));
+        p.drawText(QPointF(padX, baselineY), leftText);
+
+        p.setFont(keyFont);
+        p.setPen(QColor(231, 76, 60));
+        const qreal keyX = w - padX - fmKey.horizontalAdvance(rightText);
+        p.drawText(QPointF(keyX, baselineY), rightText);
+
+        p.end();
+        return img;
+    }
+
+    if (views.isEmpty()) {
+        return QImage();
+    }
+
+    const QString navLeft = QStringLiteral("◂ [,]");
+    const QString navRight = QStringLiteral("[.] ▸");
+
+    QFont navFont(QStringLiteral("sans-serif"));
+    navFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
+    navFont.setBold(true);
+    QFontMetrics fmNav(navFont);
+
+    QFont activeFont(QStringLiteral("sans-serif"));
+    activeFont.setPixelSize(qMax(10, qRound(12.5 * scale)));
+    activeFont.setBold(true);
+    QFontMetrics fmActive(activeFont);
+
+    QFont inactiveFont(QStringLiteral("sans-serif"));
+    inactiveFont.setPixelSize(qMax(9, qRound(12.0 * scale)));
+    inactiveFont.setBold(false);
+    QFontMetrics fmInactive(inactiveFont);
+
+    const int padX = qRound(12 * scale);
+    const int padY = qRound(5 * scale);
+    const int tabPadX = qRound(10 * scale);
+    const int tabGap = qRound(6 * scale);
+    const int navGap = qRound(10 * scale);
+
+    const int headerH = qRound(34 * scale);
+    const int tabH = headerH - 2 * padY;
+
+    struct TabRenderInfo {
+        QString text;
+        int width;
+        bool isActive;
+        QColor color;
+    };
+
+    QList<TabRenderInfo> tabInfos;
+    tabInfos.reserve(views.size());
+
+    int allTabsW = 0;
+    for (const auto &v : views) {
+        const QString text = QStringLiteral("%1 (%2)").arg(v.name).arg(v.windowCount);
+        const int textW = v.isActive ? fmActive.horizontalAdvance(text) : fmInactive.horizontalAdvance(text);
+        const int tabW = textW + 2 * tabPadX;
+        tabInfos.append({text, tabW, v.isActive, v.color});
+        allTabsW += tabW;
+    }
+    allTabsW += (views.size() - 1) * tabGap;
+
+    const int navLeftW = fmNav.horizontalAdvance(navLeft);
+    const int navRightW = fmNav.horizontalAdvance(navRight);
+
+    const int totalW = padX + navLeftW + navGap + allTabsW + navGap + navRightW + padX;
+
+    QImage img(totalW, headerH, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+
+    QPainter p(&img);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+
+    // Outer background capsule
+    const QRectF outerRect(0.5 * scale, 0.5 * scale, totalW - 1.0 * scale, headerH - 1.0 * scale);
+    const qreal outerRadius = headerH / 2.0;
+
+    p.setPen(QPen(QColor(255, 255, 255, 38), 1.0 * scale));
+    p.setBrush(QColor(14, 18, 24, 242));
+    p.drawRoundedRect(outerRect, outerRadius, outerRadius);
+
+    // Navigation Left ◂ [,]
+    p.setFont(navFont);
+    p.setPen(QColor(230, 126, 34));
+    const qreal navLeftY = (headerH - fmNav.height()) / 2.0 + fmNav.ascent();
+    p.drawText(QPointF(padX, navLeftY), navLeft);
+
+    // Draw tabs
+    qreal curX = padX + navLeftW + navGap;
+    const qreal tabY = padY;
+
+    for (const auto &tab : tabInfos) {
+        const QRectF tabRect(curX, tabY, tab.width, tabH);
+        const qreal tabRadius = tabH / 2.0;
+
+        if (tab.isActive) {
+            const QColor col = tab.color.isValid() ? tab.color : QColor(52, 152, 219);
+            p.setPen(QPen(col, 1.8 * scale));
+            p.setBrush(QColor(col.red(), col.green(), col.blue(), 55));
+            p.drawRoundedRect(tabRect, tabRadius, tabRadius);
+
+            p.setFont(activeFont);
+            p.setPen(QColor(255, 255, 255));
+            p.drawText(tabRect, Qt::AlignCenter, tab.text);
+        } else {
+            p.setPen(QPen(QColor(255, 255, 255, 24), 1.0 * scale));
+            p.setBrush(QColor(255, 255, 255, 12));
+            p.drawRoundedRect(tabRect, tabRadius, tabRadius);
+
+            p.setFont(inactiveFont);
+            p.setPen(QColor(190, 195, 205, 175));
+            p.drawText(tabRect, Qt::AlignCenter, tab.text);
+        }
+
+        curX += tab.width + tabGap;
+    }
+
+    // Navigation Right [.] ▸
+    p.setFont(navFont);
+    p.setPen(QColor(230, 126, 34));
+    const qreal navRightX = curX - tabGap + navGap;
+    p.drawText(QPointF(navRightX, navLeftY), navRight);
+
+    p.end();
+    return img;
+}
+
 } // namespace OutlineBadge

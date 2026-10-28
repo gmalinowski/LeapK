@@ -250,9 +250,14 @@ private:
                                    const RenderViewport &viewport,
                                    const QList<QPair<QChar, EffectWindow *>> &targets,
                                    int badgeSize);
-    void renderHudHintBar(const RenderTarget &renderTarget,
-                          const RenderViewport &viewport,
-                          const QRectF &pillsBounds = QRectF());
+    QRectF renderHudHintBar(const RenderTarget &renderTarget,
+                            const RenderViewport &viewport,
+                            const QRectF &pillsBounds = QRectF());
+    void renderHudModeHeader(const RenderTarget &renderTarget,
+                             const RenderViewport &viewport,
+                             const QRectF &pillsBounds = QRectF(),
+                             const QRectF &hintBarBounds = QRectF());
+    void applyWorkspaceViewIsolation(int hudViewIndex);
     void renderBadgePreview(const RenderTarget &renderTarget,
                             const RenderViewport &viewport);
     QImage captureWindowThumbnail(EffectWindow *target,
@@ -437,6 +442,9 @@ private:
     QSet<EffectWindow *> m_closingWindows;
     std::shared_ptr<GLTexture> m_hudHintBarTexture;
     int m_hudHintBarCacheKey = -1;
+    std::shared_ptr<GLTexture> m_hudHeaderTexture;
+    int m_hudHeaderCacheKey = -1;
+    QSet<EffectWindow *> m_workspaceMinimizedWindows;
 
     // Sub-Leap Disambiguation (multi-instance window disambiguation)
     bool m_subLeapActive = false;

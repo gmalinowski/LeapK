@@ -643,6 +643,12 @@ ActiveWindowOutlineEffect::~ActiveWindowOutlineEffect()
     if (m_animationTimer) {
         m_animationTimer->stop();
     }
+    for (EffectWindow *w : m_workspaceMinimizedWindows) {
+        if (w && !w->isDeleted() && w->isMinimized()) {
+            w->setMinimized(false);
+        }
+    }
+    m_workspaceMinimizedWindows.clear();
     if (m_menuHideTimer) {
         m_menuHideTimer->stop();
     }
@@ -1434,6 +1440,7 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
     m_markedWindowLetters.remove(w);
     m_markedWindowLabels.remove(w);
     m_closingWindows.remove(w);
+    m_workspaceMinimizedWindows.remove(w);
     for (auto it = m_jumpLetterToWindow.begin(); it != m_jumpLetterToWindow.end(); ) {
         if (it.value() == w) {
             it = m_jumpLetterToWindow.erase(it);
@@ -3432,6 +3439,59 @@ void ActiveWindowOutlineEffect::slotToggleHudGrouping()
     }
 }
 
+void ActiveWindowOutlineEffect::applyWorkspaceViewIsolation(int hudViewIndex)
+{
+    if (!effects) {
+        return;
+    }
+
+    const auto windows = effects->stackingOrder();
+
+    if (hudViewIndex >= 1 && hudViewIndex <= m_workspaces.size()) {
+        const auto &ws = m_workspaces.at(hudViewIndex - 1);
+        EffectWindow *topMatchingWindow = nullptr;
+
+        for (EffectWindow *w : windows) {
+            if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
+                continue;
+            }
+
+            const auto desktops = w->desktops();
+            const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+            const bool matches = LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum);
+
+            if (matches) {
+                // Should appear: unminimize if minimized
+                if (w->isMinimized()) {
+                    m_workspaceMinimizedWindows.remove(w);
+                    w->setMinimized(false);
+                }
+                topMatchingWindow = w;
+            } else {
+                // Should disappear: minimize if not minimized
+                if (!w->isMinimized()) {
+                    m_workspaceMinimizedWindows.insert(w);
+                    w->setMinimized(true);
+                }
+            }
+        }
+
+        // If active window was minimized (or does not match workspace), focus top matching window
+        if (topMatchingWindow && (!m_activeWindow || m_activeWindow->isMinimized())) {
+            effects->activateWindow(topMatchingWindow);
+            m_activeWindow = topMatchingWindow;
+        }
+    } else if (hudViewIndex == 0 || hudViewIndex == m_workspaces.size() + 2) {
+        // Standard view (0) or All windows: restore windows minimized by workspace isolation
+        for (EffectWindow *w : m_workspaceMinimizedWindows) {
+            if (w && !w->isDeleted() && w->isMinimized()) {
+                w->setMinimized(false);
+            }
+        }
+        m_workspaceMinimizedWindows.clear();
+    }
+}
+
 void ActiveWindowOutlineEffect::slotCycleHudView(int delta)
 {
     refreshWorkspaces();
@@ -3448,8 +3508,20 @@ void ActiveWindowOutlineEffect::slotCycleHudView(int delta)
     if (m_subLeapActive) {
         exitSubLeapMode();
     }
+
+    applyWorkspaceViewIsolation(m_activeHudView);
+
     m_jumpLetterToWindow = assignJumpLetters();
     m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+    }
+
     effects->addRepaintFull();
 }
 
@@ -3674,11 +3746,13 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_closingWindows.clear();
 
     refreshPersistentMarksForWindows();
+    refreshWorkspaces();
+
+    if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
+        applyWorkspaceViewIsolation(m_activeHudView);
+    }
 
     m_jumpLetterToWindow = assignJumpLetters();
-    if (m_jumpLetterToWindow.isEmpty()) {
-        return;
-    }
 
     if (!effects->grabKeyboard(this)) {
         m_jumpLetterToWindow.clear();
@@ -3688,6 +3762,10 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_jumpMode = true;
     updateAnimationTimer();
     m_badgeTextureCache.clear();
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
     m_thumbnailCache.clear();
     m_lastCaptureTimestamp.clear();
     if (m_jumpTimeoutTimer) {
@@ -3717,6 +3795,10 @@ void ActiveWindowOutlineEffect::cancelJumpMode()
         m_jumpTimeoutTimer->stop();
     }
     m_jumpLetterToWindow.clear();
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
     effects->ungrabKeyboard();
     updateAnimationTimer();
     effects->addRepaintFull();
@@ -3729,6 +3811,10 @@ void ActiveWindowOutlineEffect::exitSubLeapMode()
     m_subLeapWindows.clear();
     m_subLeapLetterToWindow.clear();
     m_subLeapTargets.clear();
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
     if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
         m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
     }
@@ -3950,7 +4036,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     }
 
     // 2. Main Jump Mode:
-    if (e->key() == Qt::Key_Escape) {
+    if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
         cancelJumpMode();
         return;
     }
@@ -5208,12 +5294,13 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     for (const GroupFrameItem &gf : groupFrames) {
         allPillsBounds = allPillsBounds.united(gf.rect);
     }
-    renderHudHintBar(renderTarget, viewport, allPillsBounds);
+    const QRectF hintRect = renderHudHintBar(renderTarget, viewport, allPillsBounds);
+    renderHudModeHeader(renderTarget, viewport, allPillsBounds, hintRect);
 }
 
-void ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTarget,
-                                                 const RenderViewport &viewport,
-                                                 const QRectF &pillsBounds)
+QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTarget,
+                                                  const RenderViewport &viewport,
+                                                  const QRectF &pillsBounds)
 {
     const qreal scale = viewport.scale();
     const QRectF screenRect = viewport.renderRect();
@@ -5250,7 +5337,7 @@ void ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTarge
     }
 
     if (!m_hudHintBarTexture) {
-        return;
+        return QRectF();
     }
 
     const qreal hintW = m_hudHintBarTexture->width() / scale;
@@ -5331,10 +5418,218 @@ void ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTarge
     } else {
         glDisable(GL_BLEND);
     }
+    return hintRect;
+}
+
+void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTarget,
+                                                   const RenderViewport &viewport,
+                                                   const QRectF &pillsBounds,
+                                                   const QRectF &hintBarBounds)
+{
+    const qreal scale = viewport.scale();
+    const QRectF screenRect = viewport.renderRect();
+    const bool isPolish = (QLocale().language() == QLocale::Polish);
+
+    QString subLeapTitle;
+    QColor subLeapColor;
+    int subLeapCount = 0;
+
+    QList<OutlineBadge::HudModeHeaderView> viewTabs;
+
+    if (m_subLeapActive) {
+        subLeapCount = m_subLeapWindows.size();
+        if (!m_subLeapWindows.isEmpty() && m_subLeapWindows.first()) {
+            EffectWindow *firstWin = m_subLeapWindows.first();
+            subLeapTitle = !m_markedWindowLabels.value(firstWin).isEmpty()
+                ? m_markedWindowLabels.value(firstWin)
+                : (!firstWin->windowClass().isEmpty() ? firstWin->windowClass() : firstWin->caption());
+            if (m_markedWindows.contains(firstWin)) {
+                subLeapColor = m_markedWindows.value(firstWin);
+            }
+        }
+        if (subLeapTitle.isEmpty()) {
+            subLeapTitle = QString(m_subLeapBaseKey);
+        }
+    } else {
+        const auto windows = effects ? effects->stackingOrder() : QList<EffectWindow *>();
+
+        // 1. Standard count: windows eligible on current desktop (visible or unminimized)
+        int standardCount = 0;
+        for (EffectWindow *w : windows) {
+            if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
+                continue;
+            }
+            if (w->isOnCurrentDesktop() && !w->isMinimized()) {
+                standardCount++;
+            }
+        }
+        viewTabs.append({
+            isPolish ? QStringLiteral("💻 Standard") : QStringLiteral("💻 Standard"),
+            QColor(230, 126, 34),
+            standardCount,
+            m_activeHudView == 0
+        });
+
+        // 2. Workspaces
+        for (int i = 0; i < m_workspaces.size(); ++i) {
+            const auto &ws = m_workspaces.at(i);
+            int wsCount = 0;
+            for (EffectWindow *w : windows) {
+                if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
+                    continue;
+                }
+                const auto desktops = w->desktops();
+                const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+                if (LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum)) {
+                    wsCount++;
+                }
+            }
+            viewTabs.append({
+                QStringLiteral("📁 ") + ws.name,
+                ws.color.isValid() ? ws.color : QColor(52, 152, 219),
+                wsCount,
+                m_activeHudView == (i + 1)
+            });
+        }
+
+        // 3. Schowek (Stash / Minimized only)
+        int stashCount = 0;
+        for (EffectWindow *w : windows) {
+            if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
+                continue;
+            }
+            if (w->isMinimized()) {
+                stashCount++;
+            }
+        }
+        viewTabs.append({
+            isPolish ? QStringLiteral("📦 Schowek") : QStringLiteral("📦 Stash"),
+            QColor(46, 204, 113),
+            stashCount,
+            m_activeHudView == (m_workspaces.size() + 1)
+        });
+
+        // 4. All windows
+        int allCount = 0;
+        for (EffectWindow *w : windows) {
+            if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
+                continue;
+            }
+            allCount++;
+        }
+        viewTabs.append({
+            isPolish ? QStringLiteral("🌐 Wszystkie") : QStringLiteral("🌐 All"),
+            QColor(155, 89, 182),
+            allCount,
+            m_activeHudView == (m_workspaces.size() + 2)
+        });
+    }
+
+    int countsHash = 0;
+    for (const auto &vt : viewTabs) {
+        countsHash = (countsHash * 31 + vt.windowCount + (vt.isActive ? 1000 : 0)) % 100000;
+    }
+    const int headerKey = (m_subLeapActive ? 2000000 : 0) + m_activeHudView * 100000
+        + (isPolish ? 50000 : 0) + countsHash + qRound(scale * 10);
+
+    if (!m_hudHeaderTexture || m_hudHeaderCacheKey != headerKey) {
+        const QImage headerImg = OutlineBadge::renderHudModeHeader(
+            isPolish, scale, m_subLeapActive, subLeapTitle, subLeapColor, subLeapCount, viewTabs);
+        if (!headerImg.isNull()) {
+            auto uploaded = GLTexture::upload(headerImg);
+            if (uploaded) {
+                uploaded->setFilter(GL_LINEAR);
+                uploaded->setWrapMode(GL_CLAMP_TO_EDGE);
+                m_hudHeaderTexture = std::shared_ptr<GLTexture>(uploaded.release());
+                m_hudHeaderCacheKey = headerKey;
+            }
+        }
+    }
+
+    if (!m_hudHeaderTexture) {
+        return;
+    }
+
+    const qreal headerW = m_hudHeaderTexture->width() / scale;
+    const qreal headerH = m_hudHeaderTexture->height() / scale;
+
+    const int hudPos = m_badgePreviewActive ? m_previewBadgeHudPosition : m_badgeHudPosition;
+    qreal headerY = 0.0;
+    if (hudPos == 1) { // Top HUD
+        headerY = screenRect.top() + 12.0;
+    } else { // Bottom (0), Left (2), Right (3): place above hint bar
+        if (hintBarBounds.isValid() && !hintBarBounds.isEmpty()) {
+            headerY = hintBarBounds.top() - headerH - 8.0;
+        } else if (pillsBounds.isValid() && !pillsBounds.isEmpty()) {
+            headerY = pillsBounds.top() - headerH - 8.0;
+        } else {
+            headerY = screenRect.bottom() - headerH - 64.0;
+        }
+        if (headerY < screenRect.top() + 10.0) {
+            headerY = screenRect.top() + 10.0;
+        }
+    }
+
+    const qreal headerX = screenRect.center().x() - (headerW / 2.0);
+    const QRectF headerRect(headerX, headerY, headerW, headerH);
+
+    GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
+    GLint previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha;
+    glGetIntegerv(GL_BLEND_SRC_RGB, &previousSrcRgb);
+    glGetIntegerv(GL_BLEND_DST_RGB, &previousDstRgb);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &previousSrcAlpha);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &previousDstAlpha);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+    GLboolean scissorWasEnabled = glIsEnabled(GL_SCISSOR_TEST);
+    glDisable(GL_SCISSOR_TEST);
+
+    ShaderBinder binder(ShaderTrait::MapTexture | ShaderTrait::Modulate | ShaderTrait::TransformColorspace);
+    GLShader *shader = binder.shader();
+    shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix, viewport.projectionMatrix());
+    shader->setColorspaceUniforms(ColorDescription::sRGB, renderTarget.colorDescription(), RenderingIntent::Perceptual);
+    shader->setUniform(GLShader::Vec4Uniform::ModulationConstant, QVector4D(1.0f, 1.0f, 1.0f, 1.0f));
+
+    const float x0 = headerRect.left() * scale;
+    const float y0 = headerRect.top() * scale;
+    const float x1 = headerRect.right() * scale;
+    const float y1 = headerRect.bottom() * scale;
+
+    const std::array<GLVertex2D, 6> verts = {{
+        {QVector2D(x0, y0), QVector2D(0.0f, 0.0f)},
+        {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+        {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+        {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+        {QVector2D(x1, y1), QVector2D(1.0f, 1.0f)},
+        {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+    }};
+
+    auto vbo = GLVertexBuffer::streamingBuffer();
+    vbo->setVertices(verts);
+
+    shader->setUniform(GLShader::Mat4Uniform::TextureMatrix, m_hudHeaderTexture->matrix(NormalizedCoordinates));
+    m_hudHeaderTexture->bind();
+    vbo->render(GL_TRIANGLES);
+    m_hudHeaderTexture->unbind();
+
+    if (scissorWasEnabled) {
+        glEnable(GL_SCISSOR_TEST);
+    }
+    glBlendFuncSeparate(previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha);
+    if (blendWasEnabled) {
+        glEnable(GL_BLEND);
+    } else {
+        glDisable(GL_BLEND);
+    }
 }
 
 void ActiveWindowOutlineEffect::slotWindowMinimizedChanged(EffectWindow *w)
 {
+    if (w && !w->isMinimized()) {
+        m_workspaceMinimizedWindows.remove(w);
+    }
     if (m_delayedHideWindow == w) {
         m_delayedHideWindow = nullptr;
         m_delayedHideState.reset();
@@ -6179,7 +6474,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         if (!offscreenTargets.isEmpty()) {
             renderOffscreenJumpTargets(renderTarget, viewport, offscreenTargets, m_badgeConfig.hudBadgeSize);
         } else {
-            renderHudHintBar(renderTarget, viewport, QRectF());
+            const QRectF hintRect = renderHudHintBar(renderTarget, viewport, QRectF());
+            renderHudModeHeader(renderTarget, viewport, QRectF(), hintRect);
         }
     }
 

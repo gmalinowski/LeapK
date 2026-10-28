@@ -969,6 +969,35 @@ void testHudActionHintBar()
     assert(barWs.width() > 100);
 }
 
+void testHudModeHeader()
+{
+    // 1. View Navigation Tabs
+    QList<OutlineBadge::HudModeHeaderView> views;
+    views.append({QStringLiteral("💻 Standard"), QColor(230, 126, 34), 4, true});
+    views.append({QStringLiteral("📁 Backend"), QColor(52, 152, 219), 2, false});
+    views.append({QStringLiteral("📦 Schowek"), QColor(46, 204, 113), 0, false});
+    views.append({QStringLiteral("🌐 Wszystkie"), QColor(155, 89, 182), 6, false});
+
+    QImage headerPl = OutlineBadge::renderHudModeHeader(true, 1.0, false, QString(), QColor(), 0, views);
+    assert(!headerPl.isNull());
+    assert(headerPl.width() > 200);
+    assert(headerPl.height() >= 30);
+
+    QImage headerEn = OutlineBadge::renderHudModeHeader(false, 1.5, false, QString(), QColor(), 0, views);
+    assert(!headerEn.isNull());
+    assert(headerEn.width() > 300);
+
+    // 2. Sub-Leap Mode Header Banner
+    QImage subLeapPl = OutlineBadge::renderHudModeHeader(true, 1.0, true, QStringLiteral("Firefox"), QColor(230, 126, 34), 3, {});
+    assert(!subLeapPl.isNull());
+    assert(subLeapPl.width() > 200);
+    assert(subLeapPl.height() >= 30);
+
+    QImage subLeapEn = OutlineBadge::renderHudModeHeader(false, 1.25, true, QStringLiteral("Alacritty"), QColor(52, 152, 219), 2, {});
+    assert(!subLeapEn.isNull());
+    assert(subLeapEn.width() > 200);
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -993,6 +1022,7 @@ int main(int argc, char *argv[])
     testWindowBadgesEnabledConfig();
     testHudWindowGroupingAndFrames();
     testHudActionHintBar();
+    testHudModeHeader();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;
