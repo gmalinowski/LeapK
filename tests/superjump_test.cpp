@@ -125,6 +125,41 @@ void testCrossWorkspacePullLogic()
     std::cout << "testCrossWorkspacePullLogic PASSED\n";
 }
 
+void testSuperJumpDefaultJumpVsPullHere()
+{
+    using namespace LeapKWorkspace;
+
+    // Workspace 1: Backend
+    WorkspaceInfo ws1;
+    ws1.id = QStringLiteral("ws-backend");
+    ws1.name = QStringLiteral("Backend");
+
+    // Workspace 2: Frontend
+    WorkspaceInfo ws2;
+    ws2.id = QStringLiteral("ws-frontend");
+    ws2.name = QStringLiteral("Frontend");
+
+    WindowMatchRule r;
+    r.matchApp = QStringLiteral("firefox");
+    ws2.rules.append(r);
+
+    QList<WorkspaceInfo> list = { ws1, ws2 };
+
+    // Default Jump: window in ws2 resolves target workspace to 2 (without modifying rules or pulling!)
+    int targetWs = findWorkspaceIndexForWindow(list, QStringLiteral("firefox"), QStringLiteral("Mozilla"), 1);
+    assert(targetWs == 2);
+    assert(ws1.rules.isEmpty());
+    assert(ws2.rules.size() == 1);
+
+    // Alt+Key (Pull Here): reassigns window from ws2 to ws1
+    reassignWindowToWorkspace(list, ws1.id, QStringLiteral("firefox"), QStringLiteral("Mozilla"), true, 0);
+    assert(findWorkspaceIndexForWindow(list, QStringLiteral("firefox"), QStringLiteral("Mozilla"), 1) == 1);
+    assert(list.at(0).rules.size() == 1);
+    assert(list.at(1).rules.isEmpty());
+
+    std::cout << "testSuperJumpDefaultJumpVsPullHere PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
@@ -134,6 +169,7 @@ int main(int argc, char *argv[])
     testStashViewHeaderBanner();
     testStashedBadgeDesaturationAndDashing();
     testCrossWorkspacePullLogic();
+    testSuperJumpDefaultJumpVsPullHere();
 
     std::cout << "All Super Jump tests passed successfully!\n";
     return 0;
