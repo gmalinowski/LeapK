@@ -1077,6 +1077,37 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
+    if (argc > 1 && QString::fromUtf8(argv[1]) == QLatin1String("--prompt-new-workspace")) {
+        const bool isPolish = (QLocale().language() == QLocale::Polish);
+        QList<LeapKWorkspace::WorkspaceInfo> workspaces = LeapKWorkspace::loadWorkspaces();
+        const int nextNum = workspaces.size() + 1;
+        const QString defaultName = isPolish
+            ? QStringLiteral("Obszar %1").arg(nextNum)
+            : QStringLiteral("Workspace %1").arg(nextNum);
+
+        bool ok = false;
+        const QString name = QInputDialog::getText(
+            nullptr,
+            isPolish ? QStringLiteral("Nowy Workspace") : QStringLiteral("New Workspace"),
+            isPolish ? QStringLiteral("Wpisz nazwę dla nowego Workspace:") : QStringLiteral("Enter a name for the new Workspace:"),
+            QLineEdit::Normal,
+            defaultName,
+            &ok
+        );
+
+        if (!ok || name.trimmed().isEmpty()) {
+            return 1;
+        }
+
+        const auto ws = LeapKWorkspace::createEmptyWorkspace(workspaces, name.trimmed());
+        QJsonObject resp;
+        resp[QStringLiteral("action")] = QStringLiteral("createWorkspace");
+        resp[QStringLiteral("newWorkspaceId")] = ws.id;
+        resp[QStringLiteral("newWorkspaceName")] = ws.name;
+        std::cout << QJsonDocument(resp).toJson(QJsonDocument::Compact).toStdString() << std::endl;
+        return 0;
+    }
+
     if (argc > 1 && QString::fromUtf8(argv[1]) == QLatin1String("--create-empty")) {
         QString name = (argc > 2 && argv[2]) ? QString::fromUtf8(argv[2]).trimmed() : QString();
         QList<LeapKWorkspace::WorkspaceInfo> workspaces = LeapKWorkspace::loadWorkspaces();

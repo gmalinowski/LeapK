@@ -1589,25 +1589,8 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
 
 inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false)
 {
-    QString viewName = customViewName;
-    if (viewName.isEmpty()) {
-        if (isPolish) {
-            switch (activeView) {
-            case 1: viewName = QStringLiteral("Widok: 🏷 Grupy"); break;
-            case 2: viewName = QStringLiteral("Widok: 📦 Schowek"); break;
-            case 3: viewName = QStringLiteral("Widok: 🌐 Wszystkie"); break;
-            default: viewName = QStringLiteral("Widok: 💻 Standard"); break;
-            }
-        } else {
-            switch (activeView) {
-            case 1: viewName = QStringLiteral("View: 🏷 Workspaces"); break;
-            case 2: viewName = QStringLiteral("View: 📦 Stash"); break;
-            case 3: viewName = QStringLiteral("View: 🌐 All"); break;
-            default: viewName = QStringLiteral("View: 💻 Standard"); break;
-            }
-        }
-    }
-    const QColor viewColor = customViewColor.isValid() ? customViewColor : QColor(230, 126, 34);
+    Q_UNUSED(customViewName);
+    Q_UNUSED(customViewColor);
 
     struct Segment {
         QString key;
@@ -1619,14 +1602,16 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
     if (isStashMode) {
         if (isPolish) {
             segments = {
-                {QStringLiteral("[Litera]"), QStringLiteral("Dodaj do workspace"), QColor(46, 204, 113)},
-                {QStringLiteral("[Shift+Litera]"), QStringLiteral("Zamknij"), QColor(231, 76, 60)},
+                {QStringLiteral("[Litera]"), QStringLiteral("Dodaj do wybranego workspace"), QColor(46, 204, 113)},
+                {QStringLiteral("[, / .]"), QStringLiteral("Wybierz workspace"), QColor(52, 152, 219)},
+                {QStringLiteral("[Shift+Litera]"), QStringLiteral("Zamknij (:bd)"), QColor(231, 76, 60)},
                 {QStringLiteral("[Tab / Esc]"), QStringLiteral("Powrót"), QColor(149, 165, 166)}
             };
         } else {
             segments = {
-                {QStringLiteral("[Key]"), QStringLiteral("Add to workspace"), QColor(46, 204, 113)},
-                {QStringLiteral("[Shift+Key]"), QStringLiteral("Close"), QColor(231, 76, 60)},
+                {QStringLiteral("[Key]"), QStringLiteral("Add to selected workspace"), QColor(46, 204, 113)},
+                {QStringLiteral("[, / .]"), QStringLiteral("Choose workspace"), QColor(52, 152, 219)},
+                {QStringLiteral("[Shift+Key]"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
                 {QStringLiteral("[Tab / Esc]"), QStringLiteral("Back"), QColor(149, 165, 166)}
             };
         }
@@ -1656,13 +1641,13 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
                 {QStringLiteral("[Alt+Litera]"), QStringLiteral("Przyciągnij"), QColor(241, 196, 15)},
                 {QStringLiteral("[Ctrl+Litera]"), QStringLiteral("Schowek (:hide)"), QColor(46, 204, 113)},
                 {QStringLiteral("[Tab]"), QStringLiteral("Grupuj"), QColor(155, 89, 182)},
-                {QStringLiteral("[Alt+S]"), QStringLiteral("Schowek"), QColor(46, 204, 113)},
-                {QStringLiteral("[Ctrl+M]"), QStringLiteral("Markery"), QColor(155, 89, 182)},
-                {QStringLiteral("[Ctrl+N / +]"), QStringLiteral("Nowy workspace"), QColor(52, 152, 219)},
-                {QStringLiteral("[, / .]"), viewName, viewColor}
+                {QStringLiteral("[Meta+S]"), QStringLiteral("Schowek"), QColor(46, 204, 113)},
+                {QStringLiteral("[Meta+M]"), QStringLiteral("Markery"), QColor(155, 89, 182)},
+                {QStringLiteral("[+]"), QStringLiteral("Nowy workspace"), QColor(52, 152, 219)},
+                {QStringLiteral("[, / .]"), QStringLiteral("Przełącz"), QColor(52, 152, 219)}
             };
             if (activeView >= 1) {
-                segments.append({QStringLiteral("[Shift+Del]"), QStringLiteral("Zamknij workspace"), QColor(231, 76, 60)});
+                segments.append({QStringLiteral("[_]"), QStringLiteral("Usuń workspace"), QColor(231, 76, 60)});
             }
         } else {
             segments = {
@@ -1671,13 +1656,13 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
                 {QStringLiteral("[Alt+Key]"), QStringLiteral("Pull here"), QColor(241, 196, 15)},
                 {QStringLiteral("[Ctrl+Key]"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
                 {QStringLiteral("[Tab]"), QStringLiteral("Group"), QColor(155, 89, 182)},
-                {QStringLiteral("[Alt+S]"), QStringLiteral("Stash"), QColor(46, 204, 113)},
-                {QStringLiteral("[Ctrl+M]"), QStringLiteral("Markers"), QColor(155, 89, 182)},
-                {QStringLiteral("[Ctrl+N / +]"), QStringLiteral("New workspace"), QColor(52, 152, 219)},
-                {QStringLiteral("[, / .]"), viewName, viewColor}
+                {QStringLiteral("[Meta+S]"), QStringLiteral("Stash"), QColor(46, 204, 113)},
+                {QStringLiteral("[Meta+M]"), QStringLiteral("Markers"), QColor(155, 89, 182)},
+                {QStringLiteral("[+]"), QStringLiteral("New workspace"), QColor(52, 152, 219)},
+                {QStringLiteral("[, / .]"), QStringLiteral("Switch"), QColor(52, 152, 219)}
             };
             if (activeView >= 1) {
-                segments.append({QStringLiteral("[Shift+Del]"), QStringLiteral("Close workspace"), QColor(231, 76, 60)});
+                segments.append({QStringLiteral("[_]"), QStringLiteral("Delete workspace"), QColor(231, 76, 60)});
             }
         }
     }
@@ -1832,8 +1817,8 @@ inline QImage renderHudModeHeader(bool isPolish,
             ? QStringLiteral("📦 SCHOWEK: Wybierz okno, aby dodać do [%1]").arg(!targetWorkspaceName.isEmpty() ? targetWorkspaceName : QStringLiteral("Workspace"))
             : QStringLiteral("📦 STASH: Pick window to add to [%1]").arg(!targetWorkspaceName.isEmpty() ? targetWorkspaceName : QStringLiteral("Workspace"));
         const QString rightText = isPolish
-            ? QStringLiteral("[Tab / Esc: Powrót]")
-            : QStringLiteral("[Tab / Esc: Back]");
+            ? QStringLiteral("[, / . : Wybierz workspace]  •  [Esc: Powrót]")
+            : QStringLiteral("[, / . : Choose workspace]  •  [Esc: Back]");
 
         QFont titleFont(QStringLiteral("sans-serif"));
         titleFont.setPixelSize(qMax(10, qRound(13.0 * scale)));

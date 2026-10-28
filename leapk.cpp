@@ -3889,6 +3889,63 @@ void ActiveWindowOutlineEffect::applyWorkspaceDeletion(const QString &deletedWor
     }
 }
 
+void ActiveWindowOutlineEffect::slotCreateNewWorkspacePrompt()
+{
+    if (m_jumpMode) {
+        cancelJumpMode();
+    }
+
+    QStringList candidateDirs;
+    candidateDirs << QDir::homePath() + QStringLiteral("/.local/bin");
+#ifdef COLORPICKER_INSTALL_DIR
+    candidateDirs << QStringLiteral(COLORPICKER_INSTALL_DIR);
+#endif
+    candidateDirs << QCoreApplication::applicationDirPath()
+                  << QStringLiteral("/usr/libexec")
+                  << QStringLiteral("/usr/lib/libexec")
+                  << QStringLiteral("/usr/local/bin")
+                  << QStringLiteral("/usr/bin");
+
+    QString wsManagerExe = QStandardPaths::findExecutable(QStringLiteral("leapk-workspace-manager"), candidateDirs);
+    if (wsManagerExe.isEmpty()) {
+        wsManagerExe = QStandardPaths::findExecutable(QStringLiteral("kleap-workspace-manager"), candidateDirs);
+    }
+    if (wsManagerExe.isEmpty()) {
+        wsManagerExe = QStandardPaths::findExecutable(QStringLiteral("active-window-outline-workspace-manager"), candidateDirs);
+    }
+    if (wsManagerExe.isEmpty()) {
+        return;
+    }
+
+    QStringList args;
+    args << QStringLiteral("--prompt-new-workspace");
+
+    QProcess *process = new QProcess(this);
+    connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
+            this, [this, process](int exitCode, QProcess::ExitStatus exitStatus) {
+        Q_UNUSED(exitStatus);
+        const QByteArray out = process->readAllStandardOutput();
+        process->deleteLater();
+        if (exitCode == 0) {
+            refreshWorkspaces();
+            m_activeHudView = m_workspaces.size();
+            if (effects && effects->config()) {
+                KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+                primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
+                primaryConfig.sync();
+            }
+            slotTriggerJumpMode();
+        } else {
+            slotTriggerJumpMode();
+        }
+    });
+    connect(process, &QProcess::errorOccurred, this, [process]() {
+        process->deleteLater();
+    });
+
+    process->start(wsManagerExe, args);
+}
+
 void ActiveWindowOutlineEffect::slotCloseActiveWorkspace()
 {
     if (m_activeHudView < 1 || m_activeHudView > m_workspaces.size()) {
@@ -3901,6 +3958,34 @@ void ActiveWindowOutlineEffect::slotCloseActiveWorkspace()
     }
 
     const auto ws = m_workspaces.at(m_activeHudView - 1);
+
+    // Check if there are any open windows assigned to this workspace
+    int matchingWindowsCount = 0;
+    if (effects) {
+        for (EffectWindow *win : effects->stackingOrder()) {
+            if (!win || win->isDeleted() || !isEligibleOutlineWindow(win)) continue;
+            const auto desktops = win->desktops();
+            const int dNum = (!desktops.isEmpty() && !win->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+            if (LeapKWorkspace::matchesWorkspace(ws, win->windowClass(), win->caption(), dNum)) {
+                matchingWindowsCount++;
+            }
+        }
+    }
+
+    // If no windows assigned, delete directly without prompting
+    if (matchingWindowsCount == 0) {
+        applyWorkspaceDeletion(ws.id, QStringLiteral("standard"));
+        if (m_jumpMode) {
+            m_jumpLetterToWindow = assignJumpLetters();
+            m_badgeTextureCache.clear();
+            m_hudHeaderTexture.reset();
+            m_hudHeaderCacheKey = -1;
+            m_hudHintBarTexture.reset();
+            m_hudHintBarCacheKey = -1;
+            effects->addRepaintFull();
+        }
+        return;
+    }
 
     if (m_jumpMode) {
         cancelJumpMode();
@@ -3934,9 +4019,10 @@ void ActiveWindowOutlineEffect::slotCloseActiveWorkspace()
     QProcess *process = new QProcess(this);
     connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
             this, [this, process](int exitCode, QProcess::ExitStatus exitStatus) {
+        Q_UNUSED(exitStatus);
         const QByteArray out = process->readAllStandardOutput();
         process->deleteLater();
-        if (exitStatus == QProcess::NormalExit && exitCode == 0) {
+        if (exitCode == 0) {
             const QJsonDocument doc = QJsonDocument::fromJson(out);
             if (doc.isObject()) {
                 const QJsonObject obj = doc.object();
@@ -3944,6 +4030,9 @@ void ActiveWindowOutlineEffect::slotCloseActiveWorkspace()
                 const QString winAction = obj.value(QStringLiteral("windowAction")).toString(QStringLiteral("standard"));
                 applyWorkspaceDeletion(delId, winAction);
             }
+            slotTriggerJumpMode();
+        } else {
+            slotTriggerJumpMode();
         }
     });
     connect(process, &QProcess::errorOccurred, this, [process]() {
@@ -3956,7 +4045,30 @@ void ActiveWindowOutlineEffect::slotCloseActiveWorkspace()
 void ActiveWindowOutlineEffect::slotCycleHudView(int delta)
 {
     if (m_stashModeActive) {
-        exitStashMode();
+        refreshWorkspaces();
+        const int totalViews = qMax(1, 2 + m_workspaces.size());
+        m_activeHudView = (m_activeHudView + delta) % totalViews;
+        if (m_activeHudView < 0) {
+            m_activeHudView += totalViews;
+        }
+        if (effects && effects->config()) {
+            KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+            primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
+            primaryConfig.sync();
+        }
+        m_jumpLetterToWindow = assignJumpLetters();
+        m_badgeTextureCache.clear();
+        m_hudHeaderTexture.reset();
+        m_hudHeaderCacheKey = -1;
+        m_hudHintBarTexture.reset();
+        m_hudHintBarCacheKey = -1;
+
+        if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+            m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+        }
+
+        effects->addRepaintFull();
+        return;
     }
     refreshWorkspaces();
     const int totalViews = qMax(1, 2 + m_workspaces.size());
@@ -4525,7 +4637,22 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     // 2. Main Jump Mode:
     if (m_stashModeActive) {
-        if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Tab || e->key() == Qt::Key_Backtab) {
+        if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace) {
+            exitStashMode();
+            return;
+        }
+
+        if (e->key() == Qt::Key_Comma || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char(','))) {
+            slotCycleHudView(-1);
+            return;
+        }
+
+        if (e->key() == Qt::Key_Period || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char('.'))) {
+            slotCycleHudView(1);
+            return;
+        }
+
+        if (e->key() == Qt::Key_Tab || e->key() == Qt::Key_Backtab) {
             exitStashMode();
             return;
         }
@@ -4543,12 +4670,33 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                         m_badgeTextureCache.clear();
                         m_hudHeaderTexture.reset();
                         m_hudHeaderCacheKey = -1;
-                        effects->addRepaintFull();
+                        m_hudHintBarTexture.reset();
+                        m_hudHintBarCacheKey = -1;
+                        if (m_jumpLetterToWindow.isEmpty()) {
+                            exitStashMode();
+                        } else {
+                            if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+                                m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+                            }
+                            effects->addRepaintFull();
+                        }
                         return;
                     }
                     addWindowToWorkspace(target, m_activeHudView);
-                    exitStashMode();
-                    cancelJumpMode();
+                    m_jumpLetterToWindow = assignJumpLetters();
+                    m_badgeTextureCache.clear();
+                    m_hudHeaderTexture.reset();
+                    m_hudHeaderCacheKey = -1;
+                    m_hudHintBarTexture.reset();
+                    m_hudHintBarCacheKey = -1;
+                    if (m_jumpLetterToWindow.isEmpty()) {
+                        exitStashMode();
+                    } else {
+                        if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+                            m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+                        }
+                        effects->addRepaintFull();
+                    }
                     return;
                 }
             }
@@ -4561,7 +4709,8 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
-    if ((mods & (Qt::AltModifier | Qt::ControlModifier)) && e->key() == Qt::Key_S) {
+    if (((mods & Qt::MetaModifier) && e->key() == Qt::Key_S)
+        || ((mods & (Qt::AltModifier | Qt::ControlModifier)) && e->key() == Qt::Key_S)) {
         enterStashMode();
         return;
     }
@@ -4576,7 +4725,8 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
-    if ((isCtrl || (mods & Qt::AltModifier)) && e->key() == Qt::Key_M) {
+    if (((mods & Qt::MetaModifier) && e->key() == Qt::Key_M)
+        || ((isCtrl || (mods & Qt::AltModifier)) && e->key() == Qt::Key_M)) {
         cancelJumpMode();
         slotOpenMarkerManager();
         return;
@@ -4598,20 +4748,21 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
-    if ((isCtrl && e->key() == Qt::Key_N)
-        || ((mods & Qt::AltModifier) && e->key() == Qt::Key_N)
-        || e->key() == Qt::Key_Plus
-        || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('+') || (e->key() == Qt::Key_Equal && isShift)))) {
-        createEmptyWorkspace();
+    const bool isPlus = (e->key() == Qt::Key_Plus)
+        || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char('+'))
+        || (e->key() == Qt::Key_Equal && isShift);
+
+    if (isPlus || (isCtrl && e->key() == Qt::Key_N) || ((mods & Qt::AltModifier) && e->key() == Qt::Key_N)) {
+        slotCreateNewWorkspacePrompt();
         return;
     }
 
+    const bool isUnderscore = (e->key() == Qt::Key_Underscore)
+        || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('_') || e->text().at(0) == QLatin1Char('-')))
+        || (e->key() == Qt::Key_Minus);
+
     if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
-        if ((isShift || isCtrl) && (e->key() == Qt::Key_Delete || e->key() == Qt::Key_Backspace)) {
-            slotCloseActiveWorkspace();
-            return;
-        }
-        if (e->key() == Qt::Key_Delete) {
+        if (isUnderscore || e->key() == Qt::Key_Delete || e->key() == Qt::Key_Backspace) {
             slotCloseActiveWorkspace();
             return;
         }

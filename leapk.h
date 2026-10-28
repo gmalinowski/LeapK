@@ -264,6 +264,7 @@ private:
     void exitStashMode();
     void addWindowToWorkspace(EffectWindow *w, int workspaceIndex);
     void createEmptyWorkspace(const QString &suggestedName = QString());
+    void slotCreateNewWorkspacePrompt();
     void slotCloseActiveWorkspace();
     void applyWorkspaceDeletion(const QString &deletedWorkspaceId, const QString &windowAction);
     void renderBadgePreview(const RenderTarget &renderTarget,
