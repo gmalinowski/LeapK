@@ -349,6 +349,9 @@ inline qreal computeBadgeWidth(qreal baseHeight, const QString &customLabel = QS
                                int letterFontSize = 0,
                                const QString &letterFontFamily = QString())
 {
+    if (customLabel == QStringLiteral("●") && !showIcon && !showThumbnail && recentKey.trimmed().isEmpty()) {
+        return baseHeight;
+    }
     const qreal baseW = qRound(baseHeight * 1.35);
     qreal totalW = baseW;
 
@@ -413,6 +416,69 @@ inline qreal computeBadgeWidth(const BadgeConfig &cfg, qreal baseHeight, const Q
                              thumbH, recentKey, letterSz, cfg.letterFontFamily);
 }
 
+inline void drawHighContrastPinDot(QPainter &p, const QPointF &center, qreal radius, qreal scale)
+{
+    p.save();
+    p.setRenderHint(QPainter::Antialiasing, true);
+
+    // 1. Soft drop shadow for elevation
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(0, 0, 0, 130));
+    p.drawEllipse(center + QPointF(0, 1.2 * scale), radius + 1.0 * scale, radius + 1.0 * scale);
+
+    // 2. High-contrast dark perimeter ring (ensures contrast against light/white backgrounds)
+    p.setBrush(QColor(15, 17, 20, 240));
+    p.drawEllipse(center, radius + 1.5 * scale, radius + 1.5 * scale);
+
+    // 3. Vibrant amber-gold core (ensures contrast against dark/black backgrounds)
+    p.setBrush(QColor(241, 196, 15));
+    p.drawEllipse(center, radius, radius);
+
+    // 4. Inner bright specular highlight/pip (adds depth and extra luminance)
+    p.setBrush(QColor(255, 255, 255, 190));
+    p.drawEllipse(center - QPointF(radius * 0.28, radius * 0.28), radius * 0.35, radius * 0.35);
+
+    p.restore();
+}
+
+inline QImage renderPinDotBadgeImage(qreal diameter, qreal scale, const QColor &coreColor = QColor(241, 196, 15))
+{
+    const int d = qMax(12, qRound(diameter * scale));
+    const int pad = qMax(2, qRound(3.0 * scale));
+    const int w = d + 2 * pad;
+    const int h = d + 2 * pad;
+
+    QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+
+    QPainter p(&img);
+    p.setRenderHint(QPainter::Antialiasing, true);
+
+    const QPointF center(w / 2.0, h / 2.0);
+    const qreal r = (d / 2.0) - 1.0 * scale;
+
+    // 1. Soft drop shadow
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(0, 0, 0, 130));
+    p.drawEllipse(center + QPointF(0, 1.5 * scale), r + 1.0 * scale, r + 1.0 * scale);
+
+    // 2. High-contrast dark perimeter ring
+    p.setBrush(QColor(15, 17, 20, 240));
+    p.drawEllipse(center, r + 1.5 * scale, r + 1.5 * scale);
+
+    // 3. Vibrant amber-gold core
+    const QColor effectiveCore = coreColor.isValid() ? coreColor : QColor(241, 196, 15);
+    p.setBrush(effectiveCore);
+    p.drawEllipse(center, r, r);
+
+    // 4. Inner bright specular highlight/pip
+    p.setBrush(QColor(255, 255, 255, 190));
+    p.drawEllipse(center - QPointF(r * 0.28, r * 0.28), r * 0.35, r * 0.35);
+
+    p.end();
+    return img;
+}
+
 inline QImage renderBadgeImage(const BadgeConfig &cfg,
                                const QChar &letter,
                                const QColor &bgColor,
@@ -447,6 +513,10 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
     const int iconSectionW = hasIcon ? (iconDim + 10) : 0;
 
     const bool hasThumb = (cfg.windowShowThumbnail || cfg.showThumbnail) && !thumbnail.isNull();
+
+    if (letter.isNull() && cleanLabel == QStringLiteral("●") && !hasIcon && !hasThumb && !hasRecentKey) {
+        return renderPinDotBadgeImage(effectiveBaseHeight, scale, bgColor);
+    }
     const int effWinThumbSize = (cfg.windowThumbnailSize > 0) ? cfg.windowThumbnailSize : cfg.thumbnailSize;
     const int maxThumbW = (cfg.windowThumbnailWidth > 0) ? cfg.windowThumbnailWidth : ((effWinThumbSize > 0) ? effWinThumbSize : cfg.thumbnailWidth);
     const int maxThumbH = (cfg.windowThumbnailHeight > 0) ? cfg.windowThumbnailHeight : ((effWinThumbSize > 0) ? effWinThumbSize : cfg.thumbnailHeight);
@@ -662,18 +732,41 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
             p.drawLine(QPointF(sepLabelX, margin + 4.0 * scale), QPointF(sepLabelX, h - margin - 4.0 * scale));
             currentX += 6.0 * scale;
 
-            const QRectF labelRect(currentX, margin, w - margin - currentX, h - 2 * margin);
-            p.setFont(labelFont);
-            QColor effLabelColor = autoTextColor;
-            if (!cfg.labelColorAuto && cfg.labelUnmarkedColor.isValid()) {
-                if (contrastRatio(effectiveBg, cfg.labelUnmarkedColor) >= 2.5) {
-                    effLabelColor = cfg.labelUnmarkedColor;
+            if (cleanLabel.startsWith(QStringLiteral("●"))) {
+                const qreal dotR = qMax(3.0 * scale, (h - 2 * margin) * 0.22);
+                const QPointF dotCenter(currentX + dotR + 1.0 * scale, h / 2.0);
+                drawHighContrastPinDot(p, dotCenter, dotR, scale);
+                currentX += (dotR + 1.5 * scale) * 2.0 + 4.0 * scale;
+
+                const QString restLabel = cleanLabel.mid(1).trimmed();
+                if (!restLabel.isEmpty()) {
+                    const QRectF labelRect(currentX, margin, w - margin - currentX, h - 2 * margin);
+                    p.setFont(labelFont);
+                    QColor effLabelColor = autoTextColor;
+                    if (!cfg.labelColorAuto && cfg.labelUnmarkedColor.isValid()) {
+                        if (contrastRatio(effectiveBg, cfg.labelUnmarkedColor) >= 2.5) {
+                            effLabelColor = cfg.labelUnmarkedColor;
+                        }
+                    } else if (textColor.isValid()) {
+                        effLabelColor = textColor;
+                    }
+                    p.setPen(effLabelColor);
+                    p.drawText(labelRect, Qt::AlignVCenter | Qt::AlignLeft, restLabel);
                 }
-            } else if (textColor.isValid()) {
-                effLabelColor = textColor;
+            } else {
+                const QRectF labelRect(currentX, margin, w - margin - currentX, h - 2 * margin);
+                p.setFont(labelFont);
+                QColor effLabelColor = autoTextColor;
+                if (!cfg.labelColorAuto && cfg.labelUnmarkedColor.isValid()) {
+                    if (contrastRatio(effectiveBg, cfg.labelUnmarkedColor) >= 2.5) {
+                        effLabelColor = cfg.labelUnmarkedColor;
+                    }
+                } else if (textColor.isValid()) {
+                    effLabelColor = textColor;
+                }
+                p.setPen(effLabelColor);
+                p.drawText(labelRect, Qt::AlignVCenter | Qt::AlignLeft, displayLabel);
             }
-            p.setPen(effLabelColor);
-            p.drawText(labelRect, Qt::AlignVCenter | Qt::AlignLeft, displayLabel);
         }
     }
 
@@ -1370,7 +1463,36 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         line2Color = (cfg.captionColorAuto || !cfg.captionColor.isValid()) ? (isLightPill ? QColor(50, 50, 50) : QColor(220, 225, 230)) : cfg.captionColor;
     }
 
-    if (line2Text.isEmpty()) {
+    if (isPinned && line1Text.startsWith(QStringLiteral("●"))) {
+        const QString pinnedLabel = line1Text.mid(1).trimmed();
+        QFontMetrics fm1(line1Font);
+        const qreal dotR = qMax(3.0 * scale, fm1.xHeight() * 0.50);
+        const qreal dotY = line2Text.isEmpty()
+            ? ((isTopOrBottom && hasThumb) ? padY + textLineHeight / 2.0 : textCenterY)
+            : qRound(textCenterY - fm1.height() * 0.45);
+        const QPointF dotCenter(textLeft + dotR + 1.0 * scale, dotY);
+        drawHighContrastPinDot(p, dotCenter, dotR, scale);
+
+        const int dotOffset = qRound((dotR + 1.5 * scale) * 2.0 + 5.0 * scale);
+        if (line2Text.isEmpty()) {
+            const QRectF locRect(textLeft + dotOffset, (isTopOrBottom && hasThumb) ? padY : 0, textWidth - dotOffset, textLineHeight);
+            p.setFont(line1Font);
+            p.setPen(line1Color);
+            p.drawText(locRect, Qt::AlignVCenter | Qt::AlignLeft, pinnedLabel);
+        } else {
+            QFontMetrics fm2(line2Font);
+            const QRectF r1(textLeft + dotOffset, qRound(textCenterY - fm1.height() * 0.95), textWidth - dotOffset, fm1.height());
+            const QRectF r2(textLeft, qRound(textCenterY + fm2.height() * 0.05), textWidth, fm2.height());
+
+            p.setFont(line1Font);
+            p.setPen(line1Color);
+            p.drawText(r1, Qt::AlignLeft | Qt::AlignVCenter, pinnedLabel);
+
+            p.setFont(line2Font);
+            p.setPen(line2Color);
+            p.drawText(r2, Qt::AlignLeft | Qt::AlignVCenter, line2Text);
+        }
+    } else if (line2Text.isEmpty()) {
         const QRectF locRect(textLeft, (isTopOrBottom && hasThumb) ? padY : 0, textWidth, textLineHeight);
         p.setFont(line1Font);
         p.setPen(line1Color);

@@ -2840,7 +2840,7 @@ void ActiveWindowOutlineEffect::renderBadgePreview(const RenderTarget &renderTar
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
             QString customLabel = m_markedWindowLabels.value(target);
         if (isWindowPinned(target)) {
-            customLabel = customLabel.isEmpty() ? QStringLiteral("📌") : QStringLiteral("📌 %1").arg(customLabel);
+            customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
         }
             const qreal badgeW = OutlineBadge::computeBadgeWidth(m_previewBadgeConfig, badgeH, customLabel, recentKey);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_previewBadgePosition, badgeW, badgeH, m_previewBadgeConfig.margin);
@@ -6084,7 +6084,7 @@ QString ActiveWindowOutlineEffect::getWindowLocationString(EffectWindow *target)
     }
 
     if (isWindowPinned(target)) {
-        return QStringLiteral("📌 Pinned");
+        return QStringLiteral("● Pinned");
     }
 
     const int wsIdx = findWorkspaceForWindow(target);
@@ -6149,7 +6149,7 @@ QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
         const QString caption = target->caption();
         QString customLabel = m_markedWindowLabels.value(target);
         if (isWindowPinned(target)) {
-            customLabel = customLabel.isEmpty() ? QStringLiteral("📌") : QStringLiteral("📌 %1").arg(customLabel);
+            customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
         }
         const bool hasIcon = cfg.hudShowIcon && !target->icon().isNull();
         const bool hasThumb = cfg.hudShowThumbnail && m_thumbnailCache.contains(target);
@@ -6238,7 +6238,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         const QString caption = target->caption();
         QString customLabel = m_markedWindowLabels.value(target);
         if (isPinned) {
-            customLabel = customLabel.isEmpty() ? QStringLiteral("📌") : QStringLiteral("📌 %1").arg(customLabel);
+            customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
         }
 
         const bool showIconOnHud = cfg.hudShowIcon;
@@ -7504,7 +7504,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
             QString customLabel = m_markedWindowLabels.value(target);
         if (isWindowPinned(target)) {
-            customLabel = customLabel.isEmpty() ? QStringLiteral("📌") : QStringLiteral("📌 %1").arg(customLabel);
+            customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
         }
             const qreal badgeW = OutlineBadge::computeBadgeWidth(m_badgeConfig, badgeH, customLabel);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, badgeW, badgeH, m_badgeMargin);
@@ -7558,7 +7558,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             QColor bgCol = isMarked ? m_markedWindows.value(target) : QColor(241, 196, 15);
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
             QString customLabel = m_markedWindowLabels.value(target);
-            customLabel = customLabel.isEmpty() ? QStringLiteral("📌") : QStringLiteral("📌 %1").arg(customLabel);
+            customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
 
             const qreal badgeW = OutlineBadge::computeBadgeWidth(m_badgeConfig, badgeH, customLabel);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, badgeW, badgeH, m_badgeMargin);
@@ -7834,7 +7834,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
             QString customLabel = m_markedWindowLabels.value(target);
         if (isWindowPinned(target)) {
-            customLabel = customLabel.isEmpty() ? QStringLiteral("📌") : QStringLiteral("📌 %1").arg(customLabel);
+            customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
         }
             const qreal jumpW = OutlineBadge::computeBadgeWidth(m_badgeConfig, jumpH, customLabel, recentKey);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, jumpW, jumpH, m_badgeMargin);

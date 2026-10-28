@@ -300,7 +300,7 @@ void testPinnedWindowPinAndDropLogic()
 
     auto getLocationString = [&](const MockWindow &win) -> QString {
         if (pinnedWindows.contains(win.id)) {
-            return QStringLiteral("📌 Pinned");
+            return QStringLiteral("● Pinned");
         }
         return QStringLiteral("Workspace %1").arg(win.workspaceIndex);
     };
@@ -315,7 +315,7 @@ void testPinnedWindowPinAndDropLogic()
     // 2. Alt+Key in Workspace 1 pins w1
     onAltKey(w1);
     assert(pinnedWindows.contains(w1.id));
-    assert(getLocationString(w1) == QStringLiteral("📌 Pinned"));
+    assert(getLocationString(w1) == QStringLiteral("● Pinned"));
 
     // 3. Pinned window is visible in Workspace 1, Workspace 2, and Workspace 3!
     assert(isVisibleInWorkspace(w1, 1) == true);

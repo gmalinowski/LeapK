@@ -205,10 +205,16 @@ void testHudDividerLayout()
     cfg.hudBadgeSize = 28;
     QImage pinnedPill = OutlineBadge::renderOffscreenTargetPill(
         cfg, QChar('P'), QColor(241, 196, 15), Qt::black,
-        QStringLiteral("📌 Pinned"), QStringLiteral("Dolphin"),
+        QStringLiteral("● Pinned"), QStringLiteral("Dolphin"),
         28, 1.0, QString(), QIcon(), QImage(), false, QString(), false, 0, false, true);
     assert(!pinnedPill.isNull());
     assert(pinnedPill.width() > 60);
+
+    // 4. Render high-contrast pin dot badge
+    QImage pinDot = OutlineBadge::renderPinDotBadgeImage(24, 1.0);
+    assert(!pinDot.isNull());
+    assert(pinDot.width() >= 24);
+    assert(pinDot.height() >= 24);
 
     std::cout << "testHudDividerLayout PASSED\n";
 }
