@@ -1670,7 +1670,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     if (isSuperJump) {
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Jump to workspace"), QColor(0, 195, 255)},
-            {QStringLiteral("Alt+Key"), QStringLiteral("Pull here"), QColor(241, 196, 15)},
+            {QStringLiteral("Alt+Key"), QStringLiteral("Pull / Drop here"), QColor(241, 196, 15)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
             {QStringLiteral("Meta+A / Esc"), QStringLiteral("Back"), QColor(149, 165, 166)}
@@ -1686,20 +1686,21 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     } else if (isSubLeap) {
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Select"), QColor(52, 152, 219)},
+            {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close"), QColor(231, 76, 60)},
-            {QStringLiteral("Alt+Key"), QStringLiteral("Pull here"), QColor(241, 196, 15)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash"), QColor(46, 204, 113)},
             {QStringLiteral("Backspace / Esc"), QStringLiteral("Back"), QColor(149, 165, 166)}
         };
     } else {
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Jump"), QColor(52, 152, 219)},
+            {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
             {QStringLiteral("Meta+A"), QStringLiteral("Super Jump"), QColor(0, 195, 255)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
-            {QStringLiteral("Alt+Key"), QStringLiteral("Pull here"), QColor(241, 196, 15)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
             {QStringLiteral("Tab"), QStringLiteral("Group"), QColor(155, 89, 182)},
             {QStringLiteral("Meta+S"), QStringLiteral("Stash"), QColor(46, 204, 113)},
+            {QStringLiteral("Meta+P"), QStringLiteral("Pin active"), QColor(241, 196, 15)},
             {QStringLiteral("Meta+M"), QStringLiteral("Markers"), QColor(155, 89, 182)},
             {QStringLiteral("Shift++"), QStringLiteral("New workspace"), QColor(52, 152, 219)},
             {QStringLiteral(", / ."), QStringLiteral("Switch"), QColor(52, 152, 219)}

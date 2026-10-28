@@ -715,6 +715,13 @@ void ActiveWindowOutlineEffect::initShortcuts()
     KGlobalAccel::self()->setGlobalShortcut(toggleGroupAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_G));
     connect(toggleGroupAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotToggleHudGrouping);
 
+    QAction *pinAction = new QAction(this);
+    pinAction->setObjectName(QStringLiteral("TogglePinActiveWindow"));
+    pinAction->setText(QStringLiteral("LeapK: Toggle Pin Active Window"));
+    KGlobalAccel::self()->setDefaultShortcut(pinAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_P));
+    KGlobalAccel::self()->setGlobalShortcut(pinAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_P));
+    connect(pinAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotTogglePinActiveWindow);
+
     QAction *jumpAction = new QAction(this);
     jumpAction->setObjectName(QStringLiteral("JumpToWindow"));
     jumpAction->setText(QStringLiteral("LeapK: Jump to Window"));
@@ -1471,6 +1478,7 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
     m_closingWindows.remove(w);
     m_workspaceMinimizedWindows.remove(w);
     m_stashedWindows.remove(w);
+    m_pinnedWindows.remove(w);
     for (auto it = m_jumpLetterToWindow.begin(); it != m_jumpLetterToWindow.end(); ) {
         if (it.value() == w) {
             it = m_jumpLetterToWindow.erase(it);
@@ -2823,7 +2831,10 @@ void ActiveWindowOutlineEffect::renderBadgePreview(const RenderTarget &renderTar
                 ? m_markedWindows.value(target)
                 : (isRecent ? (m_recentWindowCustomColor.isValid() ? m_recentWindowCustomColor : QColor(52, 152, 219)) : m_previewBadgeConfig.defaultBgColor);
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
-            const QString customLabel = m_markedWindowLabels.value(target);
+            QString customLabel = m_markedWindowLabels.value(target);
+        if (isWindowPinned(target)) {
+            customLabel = customLabel.isEmpty() ? QStringLiteral("📌") : QStringLiteral("📌 %1").arg(customLabel);
+        }
             const qreal badgeW = OutlineBadge::computeBadgeWidth(m_previewBadgeConfig, badgeH, customLabel, recentKey);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_previewBadgePosition, badgeW, badgeH, m_previewBadgeConfig.margin);
             if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
@@ -3615,6 +3626,15 @@ void ActiveWindowOutlineEffect::applyWorkspaceViewIsolation(int hudViewIndex)
                 continue;
             }
 
+            // Pinned windows must stay visible across all workspaces!
+            if (m_pinnedWindows.contains(w)) {
+                if (w->isMinimized()) {
+                    m_workspaceMinimizedWindows.remove(w);
+                    w->setMinimized(false);
+                }
+                continue;
+            }
+
             const auto desktops = w->desktops();
             const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
             const bool matches = LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum);
@@ -4278,7 +4298,9 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
                 continue;
             }
 
-            if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) { // Workspace view: only windows matching this workspace
+            if (m_pinnedWindows.contains(w)) {
+                // Pinned window: always visible across all workspaces!
+            } else if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) { // Workspace view: only windows matching this workspace
                 const auto &ws = m_workspaces.at(m_activeHudView - 1);
                 if (!LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum)) {
                     continue;
@@ -4673,6 +4695,13 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
+        if (isMetaOnly && e->key() == Qt::Key_P) {
+            exitSubLeapMode();
+            cancelJumpMode();
+            slotTogglePinActiveWindow();
+            return;
+        }
+
         const QString text = extractKeyChar();
 
         if (!text.isEmpty()) {
@@ -4723,22 +4752,28 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     }
 
                     if (isAlt) {
-                        // Pull to current desktop (and workspace if Super Jump) and activate
+                        // Pin / Pull / Drop
                         cancelJumpMode();
-                        if (m_superJumpActive) {
-                            const int targetWs = m_superJumpTargetWorkspace;
-                            if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
-                                addWindowToWorkspace(target, targetWs);
+                        if (m_pinnedWindows.contains(target)) {
+                            unpinWindow(target, m_activeHudView);
+                        } else if (findWorkspaceForWindow(target) == m_activeHudView && target->isOnCurrentDesktop()) {
+                            pinWindow(target);
+                        } else {
+                            if (m_superJumpActive) {
+                                const int targetWs = m_superJumpTargetWorkspace;
+                                if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
+                                    addWindowToWorkspace(target, targetWs);
+                                }
+                                if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
+                                    applyWorkspaceViewIsolation(targetWs);
+                                }
                             }
-                            if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
-                                applyWorkspaceViewIsolation(targetWs);
+                            effects->windowToDesktops(target, {effects->currentDesktop()});
+                            m_workspaceMinimizedWindows.remove(target);
+                            m_stashedWindows.remove(target);
+                            if (target->isMinimized()) {
+                                target->setMinimized(false);
                             }
-                        }
-                        effects->windowToDesktops(target, {effects->currentDesktop()});
-                        m_workspaceMinimizedWindows.remove(target);
-                        m_stashedWindows.remove(target);
-                        if (target->isMinimized()) {
-                            target->setMinimized(false);
                         }
                         effects->activateWindow(target);
                         return;
@@ -4796,6 +4831,13 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         if (isMetaOnly && e->key() == Qt::Key_A) {
             exitStashMode();
             toggleSuperJumpMode();
+            return;
+        }
+
+        if (isMetaOnly && e->key() == Qt::Key_P) {
+            exitStashMode();
+            cancelJumpMode();
+            slotTogglePinActiveWindow();
             return;
         }
 
@@ -4920,6 +4962,12 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
+    if (isMetaOnly && e->key() == Qt::Key_P) {
+        cancelJumpMode();
+        slotTogglePinActiveWindow();
+        return;
+    }
+
     if (e->key() == Qt::Key_Comma || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char(','))) {
         slotCycleHudView(-1);
         return;
@@ -4982,20 +5030,26 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             EffectWindow *target = findRecentWindow();
             if (target && !target->isDeleted()) {
                 cancelJumpMode();
-                if (m_superJumpActive) {
-                    const int targetWs = m_superJumpTargetWorkspace;
-                    if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
-                        addWindowToWorkspace(target, targetWs);
+                if (m_pinnedWindows.contains(target)) {
+                    unpinWindow(target, m_activeHudView);
+                } else if (findWorkspaceForWindow(target) == m_activeHudView && target->isOnCurrentDesktop()) {
+                    pinWindow(target);
+                } else {
+                    if (m_superJumpActive) {
+                        const int targetWs = m_superJumpTargetWorkspace;
+                        if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
+                            addWindowToWorkspace(target, targetWs);
+                        }
+                        if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
+                            applyWorkspaceViewIsolation(targetWs);
+                        }
                     }
-                    if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
-                        applyWorkspaceViewIsolation(targetWs);
+                    effects->windowToDesktops(target, {effects->currentDesktop()});
+                    m_workspaceMinimizedWindows.remove(target);
+                    m_stashedWindows.remove(target);
+                    if (target->isMinimized()) {
+                        target->setMinimized(false);
                     }
-                }
-                effects->windowToDesktops(target, {effects->currentDesktop()});
-                m_workspaceMinimizedWindows.remove(target);
-                m_stashedWindows.remove(target);
-                if (target->isMinimized()) {
-                    target->setMinimized(false);
                 }
                 effects->activateWindow(target);
             }
@@ -5020,9 +5074,13 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                 EffectWindow *topWin = nullptr;
                 for (EffectWindow *w : group) {
                     if (w && !w->isDeleted()) {
-                        effects->windowToDesktops(w, {currDesktop});
-                        if (w->isMinimized()) {
-                            w->setMinimized(false);
+                        if (m_pinnedWindows.contains(w)) {
+                            unpinWindow(w, m_activeHudView);
+                        } else {
+                            effects->windowToDesktops(w, {currDesktop});
+                            if (w->isMinimized()) {
+                                w->setMinimized(false);
+                            }
                         }
                         if (!topWin) {
                             topWin = w;
@@ -5113,22 +5171,31 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                 }
 
                 if (isAlt) {
-                    // Pull to current desktop (and workspace if Super Jump) and activate
+                    // Pin / Pull / Drop
                     cancelJumpMode();
-                    if (m_superJumpActive) {
-                        const int targetWs = m_superJumpTargetWorkspace;
-                        if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
-                            addWindowToWorkspace(target, targetWs);
+                    if (m_pinnedWindows.contains(target)) {
+                        // Drop pinned window into current workspace
+                        unpinWindow(target, m_activeHudView);
+                    } else if (findWorkspaceForWindow(target) == m_activeHudView && target->isOnCurrentDesktop()) {
+                        // Already in current workspace and desktop -> Pin across all workspaces!
+                        pinWindow(target);
+                    } else {
+                        // Pull from other desktop/workspace to current desktop & workspace
+                        if (m_superJumpActive) {
+                            const int targetWs = m_superJumpTargetWorkspace;
+                            if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
+                                addWindowToWorkspace(target, targetWs);
+                            }
+                            if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
+                                applyWorkspaceViewIsolation(targetWs);
+                            }
                         }
-                        if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
-                            applyWorkspaceViewIsolation(targetWs);
+                        effects->windowToDesktops(target, {effects->currentDesktop()});
+                        m_workspaceMinimizedWindows.remove(target);
+                        m_stashedWindows.remove(target);
+                        if (target->isMinimized()) {
+                            target->setMinimized(false);
                         }
-                    }
-                    effects->windowToDesktops(target, {effects->currentDesktop()});
-                    m_workspaceMinimizedWindows.remove(target);
-                    m_stashedWindows.remove(target);
-                    if (target->isMinimized()) {
-                        target->setMinimized(false);
                     }
                     effects->activateWindow(target);
                     return;
@@ -5909,6 +5976,90 @@ bool ActiveWindowOutlineEffect::isWindowInStash(EffectWindow *w) const
     return m_stashedWindows.contains(w) || w->isMinimized();
 }
 
+bool ActiveWindowOutlineEffect::isWindowPinned(EffectWindow *w) const
+{
+    return w && !w->isDeleted() && m_pinnedWindows.contains(w);
+}
+
+void ActiveWindowOutlineEffect::pinWindow(EffectWindow *w)
+{
+    if (!w || w->isDeleted()) {
+        return;
+    }
+    m_pinnedWindows.insert(w);
+    m_workspaceMinimizedWindows.remove(w);
+    m_stashedWindows.remove(w);
+    if (w->isMinimized()) {
+        w->setMinimized(false);
+    }
+    if (effects) {
+        effects->windowToDesktops(w, {}); // empty list = all virtual desktops in KWin
+    }
+    m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    repaintAllOutlines();
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::unpinWindow(EffectWindow *w, int targetWorkspace)
+{
+    if (!w || w->isDeleted()) {
+        return;
+    }
+    m_pinnedWindows.remove(w);
+    if (targetWorkspace >= 1 && targetWorkspace <= m_workspaces.size()) {
+        addWindowToWorkspace(w, targetWorkspace);
+    }
+    if (effects) {
+        effects->windowToDesktops(w, {effects->currentDesktop()});
+    }
+    m_workspaceMinimizedWindows.remove(w);
+    m_stashedWindows.remove(w);
+    if (w->isMinimized()) {
+        w->setMinimized(false);
+    }
+    if (targetWorkspace >= 1 && targetWorkspace <= m_workspaces.size()) {
+        applyWorkspaceViewIsolation(targetWorkspace);
+    }
+    m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    repaintAllOutlines();
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::toggleWindowPin(EffectWindow *w)
+{
+    if (!w || w->isDeleted()) {
+        return;
+    }
+    if (m_pinnedWindows.contains(w)) {
+        unpinWindow(w, m_activeHudView);
+    } else {
+        pinWindow(w);
+    }
+}
+
+void ActiveWindowOutlineEffect::slotTogglePinActiveWindow()
+{
+    EffectWindow *w = effects ? effects->activeWindow() : nullptr;
+    if (!isEligibleOutlineWindow(w)) {
+        w = m_activeWindow;
+    }
+    if (w) {
+        toggleWindowPin(w);
+    }
+}
+
 QString ActiveWindowOutlineEffect::getWindowLocationString(EffectWindow *target) const
 {
     if (!target) {
@@ -5923,6 +6074,10 @@ QString ActiveWindowOutlineEffect::getWindowLocationString(EffectWindow *target)
             return dName.isEmpty() ? QStringLiteral("📦 Stash") : QStringLiteral("📦 Stash · %1").arg(dName);
         }
         return QStringLiteral("📦 Stash");
+    }
+
+    if (isWindowPinned(target)) {
+        return QStringLiteral("📌 Pinned");
     }
 
     const int wsIdx = findWorkspaceForWindow(target);
@@ -5983,7 +6138,10 @@ QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
         const QString recentKey = isMostRecent ? (m_badgePreviewActive ? cfg.jumpRecentKey : m_jumpRecentKey) : QString();
         const QString loc = getWindowLocationString(target);
         const QString caption = target->caption();
-        const QString customLabel = m_markedWindowLabels.value(target);
+        QString customLabel = m_markedWindowLabels.value(target);
+        if (isWindowPinned(target)) {
+            customLabel = customLabel.isEmpty() ? QStringLiteral("📌") : QStringLiteral("📌 %1").arg(customLabel);
+        }
         const bool hasIcon = cfg.hudShowIcon && !target->icon().isNull();
         const bool hasThumb = cfg.hudShowThumbnail && m_thumbnailCache.contains(target);
         const QSize thumbSize = hasThumb ? m_thumbnailCache.value(target).size() : QSize();
@@ -6064,7 +6222,10 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         const QString loc = getWindowLocationString(target);
 
         const QString caption = target->caption();
-        const QString customLabel = m_markedWindowLabels.value(target);
+        QString customLabel = m_markedWindowLabels.value(target);
+        if (isWindowPinned(target)) {
+            customLabel = customLabel.isEmpty() ? QStringLiteral("📌") : QStringLiteral("📌 %1").arg(customLabel);
+        }
 
         const bool showIconOnHud = cfg.hudShowIcon;
         const bool showThumbOnHud = cfg.hudShowThumbnail;
@@ -7268,7 +7429,10 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 bgCol = m_badgeConfig.defaultBgColor;
             }
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
-            const QString customLabel = m_markedWindowLabels.value(target);
+            QString customLabel = m_markedWindowLabels.value(target);
+        if (isWindowPinned(target)) {
+            customLabel = customLabel.isEmpty() ? QStringLiteral("📌") : QStringLiteral("📌 %1").arg(customLabel);
+        }
             const qreal badgeW = OutlineBadge::computeBadgeWidth(m_badgeConfig, badgeH, customLabel);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, badgeW, badgeH, m_badgeMargin);
             if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
@@ -7506,7 +7670,10 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 bgCol = m_badgeConfig.defaultBgColor;
             }
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
-            const QString customLabel = m_markedWindowLabels.value(target);
+            QString customLabel = m_markedWindowLabels.value(target);
+        if (isWindowPinned(target)) {
+            customLabel = customLabel.isEmpty() ? QStringLiteral("📌") : QStringLiteral("📌 %1").arg(customLabel);
+        }
             const qreal jumpW = OutlineBadge::computeBadgeWidth(m_badgeConfig, jumpH, customLabel, recentKey);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
             if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);

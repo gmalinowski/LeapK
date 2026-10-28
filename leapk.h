@@ -176,6 +176,7 @@ private Q_SLOTS:
     void slotOpenWorkspaceManager();
     void slotOpenMarkerManager();
     void slotToggleHudGrouping();
+    void slotTogglePinActiveWindow();
     void slotCycleHudView(int delta = 1);
     void slotTriggerJumpMode();
     void slotJumpToRecentWindow();
@@ -230,6 +231,10 @@ private:
     bool isWindowObscured(EffectWindow *target) const;
     bool isBadgeOccluded(EffectWindow *target, const QRectF &badgeRect, const QList<QRectF> &hudRects = {}) const;
     bool isWindowInStash(EffectWindow *w) const;
+    bool isWindowPinned(EffectWindow *w) const;
+    void pinWindow(EffectWindow *w);
+    void unpinWindow(EffectWindow *w, int targetWorkspace = 0);
+    void toggleWindowPin(EffectWindow *w);
     int findWorkspaceForWindow(EffectWindow *target) const;
     void toggleSuperJumpMode();
     void exitSuperJumpMode();
@@ -461,6 +466,7 @@ private:
     QSet<EffectWindow *> m_workspaceMinimizedWindows;
     bool m_stashModeActive = false;
     QSet<EffectWindow *> m_stashedWindows;
+    QSet<EffectWindow *> m_pinnedWindows;
     bool m_superJumpActive = false;
     int m_superJumpTargetWorkspace = 0;
     bool m_globalShortcutsBlocked = false;

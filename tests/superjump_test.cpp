@@ -259,6 +259,84 @@ void testSuperJumpKeyboardModifierIsolation()
     std::cout << "testSuperJumpKeyboardModifierIsolation PASSED\n";
 }
 
+void testPinnedWindowPinAndDropLogic()
+{
+    // Mock simulation of window state and LeapK Pin / Drop behavior
+    struct MockWindow {
+        QString id;
+        int workspaceIndex = 1;
+        bool onCurrentDesktop = true;
+        bool isMinimized = false;
+    };
+
+    QSet<QString> pinnedWindows;
+    int currentWorkspace = 1;
+
+    auto onAltKey = [&](MockWindow &win) {
+        if (pinnedWindows.contains(win.id)) {
+            // Drop window into current workspace
+            pinnedWindows.remove(win.id);
+            win.workspaceIndex = currentWorkspace;
+            win.onCurrentDesktop = true;
+            win.isMinimized = false;
+        } else if (win.workspaceIndex == currentWorkspace && win.onCurrentDesktop) {
+            // Pin across all workspaces
+            pinnedWindows.insert(win.id);
+            win.isMinimized = false;
+        } else {
+            // Pull here
+            win.workspaceIndex = currentWorkspace;
+            win.onCurrentDesktop = true;
+            win.isMinimized = false;
+        }
+    };
+
+    auto isVisibleInWorkspace = [&](const MockWindow &win, int wsIdx) -> bool {
+        if (pinnedWindows.contains(win.id)) {
+            return true; // Pinned windows are visible across ALL workspaces!
+        }
+        return win.workspaceIndex == wsIdx;
+    };
+
+    auto getLocationString = [&](const MockWindow &win) -> QString {
+        if (pinnedWindows.contains(win.id)) {
+            return QStringLiteral("📌 Pinned");
+        }
+        return QStringLiteral("Workspace %1").arg(win.workspaceIndex);
+    };
+
+    MockWindow w1{QStringLiteral("win1"), 1, true, false};
+
+    // 1. Initially w1 is in Workspace 1, not pinned
+    assert(isVisibleInWorkspace(w1, 1) == true);
+    assert(isVisibleInWorkspace(w1, 2) == false);
+    assert(getLocationString(w1) == QStringLiteral("Workspace 1"));
+
+    // 2. Alt+Key in Workspace 1 pins w1
+    onAltKey(w1);
+    assert(pinnedWindows.contains(w1.id));
+    assert(getLocationString(w1) == QStringLiteral("📌 Pinned"));
+
+    // 3. Pinned window is visible in Workspace 1, Workspace 2, and Workspace 3!
+    assert(isVisibleInWorkspace(w1, 1) == true);
+    assert(isVisibleInWorkspace(w1, 2) == true);
+    assert(isVisibleInWorkspace(w1, 3) == true);
+
+    // 4. Switch to Workspace 3 and drop w1 using Alt+Key
+    currentWorkspace = 3;
+    onAltKey(w1); // Drops it!
+    assert(!pinnedWindows.contains(w1.id));
+    assert(w1.workspaceIndex == 3);
+    assert(getLocationString(w1) == QStringLiteral("Workspace 3"));
+
+    // 5. After drop, w1 belongs strictly to Workspace 3
+    assert(isVisibleInWorkspace(w1, 1) == false);
+    assert(isVisibleInWorkspace(w1, 2) == false);
+    assert(isVisibleInWorkspace(w1, 3) == true);
+
+    std::cout << "testPinnedWindowPinAndDropLogic PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
@@ -270,6 +348,7 @@ int main(int argc, char *argv[])
     testCrossWorkspacePullLogic();
     testSuperJumpDefaultJumpVsPullHere();
     testSuperJumpKeyboardModifierIsolation();
+    testPinnedWindowPinAndDropLogic();
 
     std::cout << "All Super Jump tests passed successfully!\n";
     return 0;
