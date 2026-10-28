@@ -3552,6 +3552,9 @@ void ActiveWindowOutlineEffect::slotOpenMarkerManager()
         Q_UNUSED(targetWindow);
         process->deleteLater();
         m_persistentMarks = LeapKMarks::loadPersistentMarks();
+        if (effects) {
+            m_activeWindow = effects->activeWindow();
+        }
         refreshPersistentMarksForWindows();
         m_jumpLetterToWindow = assignJumpLetters();
         m_badgeTextureCache.clear();
@@ -3994,7 +3997,7 @@ bool ActiveWindowOutlineEffect::isEligibleTargetWindow(EffectWindow *w) const
     if (isSessionLockOrLogoutActive()) {
         return false;
     }
-    if (!w || w == m_activeWindow || !isEligibleOutlineWindow(w)) {
+    if (!w || !isEligibleOutlineWindow(w)) {
         return false;
     }
     if (w->isSkipSwitcher() || w->isLockScreen() || isSystemOverlay(w)) {
@@ -4217,6 +4220,9 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_subLeapTargets.clear();
     m_closingWindows.clear();
 
+    if (effects) {
+        m_activeWindow = effects->activeWindow();
+    }
     refreshPersistentMarksForWindows();
     refreshWorkspaces();
 
@@ -6794,7 +6800,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         for (auto it = backgroundBadges.constBegin(); it != backgroundBadges.constEnd(); ++it) {
             const QChar letter = it.key();
             EffectWindow *target = it.value();
-            if (!target || target == w || target->isDeleted() || !isEligibleTargetWindow(target)
+            if (!target || target->isDeleted() || !isEligibleTargetWindow(target)
                 || target->isMinimized() || !target->isOnCurrentDesktop()
                 || !target->isVisible()
                 || (m_hideOnFullScreen && target->isFullScreen())) {
@@ -6815,6 +6821,11 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 bgCol = resolveColor(1.0, target);
                 if (!bgCol.isValid() || bgCol.alpha() == 0) {
                     bgCol = m_recentWindowCustomColor.isValid() ? m_recentWindowCustomColor : QColor(52, 152, 219);
+                }
+            } else if (target == w) {
+                bgCol = resolveColor(1.0, target);
+                if (!bgCol.isValid() || bgCol.alpha() == 0) {
+                    bgCol = m_customColor.isValid() ? m_customColor : m_badgeConfig.defaultBgColor;
                 }
             } else {
                 bgCol = m_badgeConfig.defaultBgColor;
@@ -6870,6 +6881,13 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                     continue;
                 }
 
+                if (target == w) {
+                    if (target->isOnCurrentDesktop() && !target->isMinimized()) {
+                        onscreenTargets.append(pair);
+                    }
+                    continue;
+                }
+
                 if (forceHud) {
                     offscreenTargets.append(pair);
                 }
@@ -6907,13 +6925,28 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                         continue;
                     }
                     EffectWindow *firstWin = winList.first();
-                    if (!firstWin || firstWin == w || firstWin->isDeleted() || !isEligibleTargetWindow(firstWin)) {
+                    if (!firstWin || firstWin->isDeleted() || !isEligibleTargetWindow(firstWin)) {
                         continue;
+                    }
+
+                    EffectWindow *repWin = (firstWin == w && winList.size() > 1) ? nullptr : firstWin;
+                    if (!repWin) {
+                        for (EffectWindow *target : winList) {
+                            if (target && !target->isDeleted() && target != w) {
+                                repWin = target;
+                                break;
+                            }
+                        }
+                    }
+                    if (!repWin) {
+                        repWin = firstWin;
                     }
 
                     const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled;
                     if (forceHud) {
-                        offscreenTargets.append(qMakePair(letter, firstWin));
+                        if (winList.size() > 1 || firstWin != w) {
+                            offscreenTargets.append(qMakePair(letter, repWin));
+                        }
                     } else {
                         bool hasOffscreenMember = false;
                         for (EffectWindow *target : winList) {
@@ -6929,24 +6962,27 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                                 break;
                             }
                         }
-                        if (hasOffscreenMember) {
-                            offscreenTargets.append(qMakePair(letter, firstWin));
+                        if (hasOffscreenMember && (winList.size() > 1 || firstWin != w)) {
+                            offscreenTargets.append(qMakePair(letter, repWin));
                         }
                     }
 
-                    if (m_badgeConfig.windowBadgesEnabled) {
-                        for (EffectWindow *target : winList) {
-                            if (!target || target == w || target->isDeleted() || !isEligibleTargetWindow(target)) {
-                                continue;
-                            }
-                            if (!target->isOnCurrentDesktop() || target->isMinimized()) {
-                                continue;
-                            }
-                            const QRectF geo = target->frameGeometry();
-                            const QRectF visibleWindowGeo = geo.intersected(screenRect);
-                            if (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50) {
-                                continue;
-                            }
+                    for (EffectWindow *target : winList) {
+                        if (!target || target->isDeleted() || !isEligibleTargetWindow(target)) {
+                            continue;
+                        }
+                        if (!target->isOnCurrentDesktop() || target->isMinimized()) {
+                            continue;
+                        }
+                        const QRectF geo = target->frameGeometry();
+                        const QRectF visibleWindowGeo = geo.intersected(screenRect);
+                        if (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50) {
+                            continue;
+                        }
+                        // Force window badge on active window w!
+                        if (target == w) {
+                            onscreenTargets.append(qMakePair(letter, target));
+                        } else if (m_badgeConfig.windowBadgesEnabled && !isWindowObscured(target)) {
                             onscreenTargets.append(qMakePair(letter, target));
                         }
                     }
@@ -6955,11 +6991,19 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 // Mode B: Show all windows directly with unique jump letters
                 for (auto it = m_letterWindowGroups.constBegin(); it != m_letterWindowGroups.constEnd(); ++it) {
                     for (EffectWindow *target : it.value()) {
-                        if (!target || target == w || target->isDeleted() || !isEligibleTargetWindow(target)) {
+                        if (!target || target->isDeleted() || !isEligibleTargetWindow(target)) {
                             continue;
                         }
                         const QChar directKey = m_windowToDirectLetter.value(target);
                         if (directKey.isNull()) {
+                            continue;
+                        }
+
+                        // Force window badge on active window w
+                        if (target == w) {
+                            if (target->isOnCurrentDesktop() && !target->isMinimized()) {
+                                onscreenTargets.append(qMakePair(directKey, target));
+                            }
                             continue;
                         }
 
@@ -7016,6 +7060,11 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 if (!bgCol.isValid() || bgCol.alpha() == 0) {
                     bgCol = m_recentWindowCustomColor.isValid() ? m_recentWindowCustomColor : QColor(52, 152, 219);
                 }
+            } else if (target == w) {
+                bgCol = resolveColor(1.0, target);
+                if (!bgCol.isValid() || bgCol.alpha() == 0) {
+                    bgCol = m_customColor.isValid() ? m_customColor : m_badgeConfig.defaultBgColor;
+                }
             } else {
                 bgCol = m_badgeConfig.defaultBgColor;
             }
@@ -7046,11 +7095,15 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                     }
                 }
                 if (!foundVisiblePosition) {
-                    if (!m_badgeConfig.hudIncludeAll) {
-                        offscreenTargets.append(qMakePair(letter, target));
-                        hudRects = computeHudPillRects(offscreenTargets, viewport, m_badgeConfig.hudBadgeSize, m_badgeConfig);
+                    if (target == w) {
+                        badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
+                    } else {
+                        if (!m_badgeConfig.hudIncludeAll) {
+                            offscreenTargets.append(qMakePair(letter, target));
+                            hudRects = computeHudPillRects(offscreenTargets, viewport, m_badgeConfig.hudBadgeSize, m_badgeConfig);
+                        }
+                        continue;
                     }
-                    continue;
                 }
             }
             renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, true, m_badgeConfig.jumpBadgeSize, customLabel, target, recentKey, isRecent);
