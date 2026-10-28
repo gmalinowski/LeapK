@@ -2416,10 +2416,10 @@
               <item row="5" column="0">
                <widget class="QLabel" name="label_badgeHudSize">
                 <property name="text">
-                 <string>HUD card height / badge size:</string>
+                 <string>HUD size / card height:</string>
                 </property>
                 <property name="toolTip">
-                 <string>Height and proportional size of hint cards at the screen edge HUD (default: 36 px).</string>
+                 <string>Overall size and proportional height of hint cards, workspace header, and hint bars at the screen edge HUD (default: 44 px).</string>
                 </property>
                </widget>
               </item>
@@ -2435,7 +2435,7 @@
                  <number>2</number>
                 </property>
                 <property name="value">
-                 <number>36</number>
+                 <number>44</number>
                 </property>
                 <property name="suffix">
                  <string> px</string>

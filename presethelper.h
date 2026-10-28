@@ -94,7 +94,7 @@ inline QJsonObject getDefaultSettings()
     s[QStringLiteral("BadgeShowIcon")] = false;
     s[QStringLiteral("BadgeShowThumbnail")] = false;
     s[QStringLiteral("BadgeJumpSize")] = 34;
-    s[QStringLiteral("BadgeHudSize")] = 36;
+    s[QStringLiteral("BadgeHudSize")] = 44;
     s[QStringLiteral("BadgeIconSize")] = 20;
     s[QStringLiteral("BadgeThumbnailWidth")] = 56;
     s[QStringLiteral("BadgeThumbnailHeight")] = 32;

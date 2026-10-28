@@ -210,6 +210,34 @@ void testDeleteWorkspace()
     std::cout << "testDeleteWorkspace PASSED\n";
 }
 
+void testUpdateWorkspace()
+{
+    using namespace LeapKWorkspace;
+
+    QTemporaryDir tempDir;
+    assert(tempDir.isValid());
+    const QString filePath = tempDir.path() + QStringLiteral("/workspaces.json");
+
+    QList<WorkspaceInfo> list;
+    WorkspaceInfo ws1 = createEmptyWorkspace(list, QStringLiteral("Frontend"), filePath);
+    assert(list.size() == 1);
+
+    bool updated = updateWorkspace(list, ws1.id, QStringLiteral("Renamed Frontend"), QColor(QStringLiteral("#9b59b6")), filePath);
+    assert(updated);
+    assert(list.first().name == QStringLiteral("Renamed Frontend"));
+    assert(list.first().color == QColor(QStringLiteral("#9b59b6")));
+
+    QList<WorkspaceInfo> reloaded = loadWorkspaces(filePath);
+    assert(reloaded.size() == 1);
+    assert(reloaded.first().name == QStringLiteral("Renamed Frontend"));
+    assert(reloaded.first().color == QColor(QStringLiteral("#9b59b6")));
+
+    bool updateNonExistent = updateWorkspace(list, QStringLiteral("non-existent-id"), QStringLiteral("Test"), QColor());
+    assert(!updateNonExistent);
+
+    std::cout << "testUpdateWorkspace PASSED\n";
+}
+
 int main()
 {
     testRuleSerialization();
@@ -218,6 +246,7 @@ int main()
     testWorkspaceMatching();
     testCreateEmptyWorkspace();
     testDeleteWorkspace();
+    testUpdateWorkspace();
     std::cout << "All workspace tests passed successfully!\n";
     return 0;
 }

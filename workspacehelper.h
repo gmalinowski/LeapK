@@ -212,6 +212,25 @@ inline bool deleteWorkspace(QList<WorkspaceInfo> &workspaces, const QString &wsI
     return false;
 }
 
+inline bool updateWorkspace(QList<WorkspaceInfo> &workspaces, const QString &wsId, const QString &newName, const QColor &newColor, const QString &filePath = QString())
+{
+    for (auto &ws : workspaces) {
+        if (ws.id == wsId) {
+            if (!newName.trimmed().isEmpty()) {
+                ws.name = newName.trimmed();
+            }
+            if (newColor.isValid()) {
+                ws.color = newColor;
+            }
+            if (!filePath.isEmpty()) {
+                saveWorkspaces(workspaces, filePath);
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
 inline int findWorkspaceIndexForWindow(const QList<WorkspaceInfo> &workspaces, const QString &appId, const QString &caption, int desktop = 0)
 {
     for (int i = 0; i < workspaces.size(); ++i) {

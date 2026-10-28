@@ -248,6 +248,229 @@ private:
     bool m_isDragging = false;
 };
 
+class EditWorkspaceDialog : public QDialog
+{
+public:
+    EditWorkspaceDialog(const QString &currentName, const QColor &currentColor, int ruleCount, QWidget *parent = nullptr)
+        : QDialog(parent)
+        , m_name(currentName)
+        , m_color(currentColor.isValid() ? currentColor : QColor(52, 152, 219))
+    {
+        setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
+        setAttribute(Qt::WA_TranslucentBackground, true);
+        resize(460, 360);
+
+        auto *rootLayout = new QVBoxLayout(this);
+        rootLayout->setContentsMargins(0, 0, 0, 0);
+
+        auto *frame = new MainWorkspaceFrame(this);
+        rootLayout->addWidget(frame);
+
+        auto *layout = new QVBoxLayout(frame);
+        layout->setContentsMargins(22, 20, 22, 20);
+        layout->setSpacing(14);
+
+        // Header
+        auto *lblTitle = new QLabel(QStringLiteral("✏️ Edit Workspace"), this);
+        lblTitle->setStyleSheet(QStringLiteral("font-size: 18px; font-weight: bold; color: #ffffff;"));
+        layout->addWidget(lblTitle);
+
+        auto *lblPrompt = new QLabel(QStringLiteral("Update workspace name and accent color:"), this);
+        lblPrompt->setStyleSheet(QStringLiteral("font-size: 13px; color: rgba(255,255,255,0.7);"));
+        layout->addWidget(lblPrompt);
+
+        // Name input
+        auto *vboxName = new QVBoxLayout();
+        vboxName->setSpacing(4);
+        auto *lblNameTag = new QLabel(QStringLiteral("Workspace Name:"), this);
+        lblNameTag->setStyleSheet(QStringLiteral("font-size: 12px; font-weight: bold; color: rgba(255,255,255,0.85);"));
+        vboxName->addWidget(lblNameTag);
+
+        m_editName = new QLineEdit(m_name, this);
+        m_editName->setPlaceholderText(QStringLiteral("e.g. Work, Browsing, Dev"));
+        m_editName->setStyleSheet(QStringLiteral(
+            "QLineEdit {"
+            "  background-color: rgba(255, 255, 255, 0.08);"
+            "  color: #ffffff;"
+            "  font-size: 14px;"
+            "  padding: 8px 12px;"
+            "  border: 1.5px solid rgba(255, 255, 255, 0.2);"
+            "  border-radius: 8px;"
+            "}"
+            "QLineEdit:focus {"
+            "  border-color: #3498db;"
+            "  background-color: rgba(255, 255, 255, 0.12);"
+            "}"
+        ));
+        m_editName->selectAll();
+        vboxName->addWidget(m_editName);
+        layout->addLayout(vboxName);
+
+        // Color selector
+        auto *vboxColor = new QVBoxLayout();
+        vboxColor->setSpacing(6);
+        auto *lblColorTag = new QLabel(QStringLiteral("Accent Color:"), this);
+        lblColorTag->setStyleSheet(QStringLiteral("font-size: 12px; font-weight: bold; color: rgba(255,255,255,0.85);"));
+        vboxColor->addWidget(lblColorTag);
+
+        auto *colorsLayout = new QHBoxLayout();
+        colorsLayout->setSpacing(8);
+
+        static const QList<QColor> s_palette = {
+            QColor(52, 152, 219),   // Blue
+            QColor(46, 204, 113),   // Green
+            QColor(155, 89, 182),   // Purple
+            QColor(230, 126, 34),   // Orange
+            QColor(241, 196, 15),   // Yellow
+            QColor(231, 76, 60),    // Red
+            QColor(26, 188, 156),   // Turquoise
+            QColor(224, 86, 253),   // Magenta
+            QColor(0, 210, 211)     // Cyan
+        };
+
+        for (const auto &col : s_palette) {
+            auto *btn = new QPushButton(this);
+            btn->setFixedSize(28, 28);
+            btn->setCursor(Qt::PointingHandCursor);
+            m_colorButtons.append({btn, col});
+
+            connect(btn, &QPushButton::clicked, this, [this, col]() {
+                m_color = col;
+                updateColorButtons();
+            });
+            colorsLayout->addWidget(btn);
+        }
+        updateColorButtons();
+        vboxColor->addLayout(colorsLayout);
+        layout->addLayout(vboxColor);
+
+        // Rules info
+        auto *lblInfo = new QLabel(QStringLiteral("Rules: %1 window filter(s) configured").arg(ruleCount), this);
+        lblInfo->setStyleSheet(QStringLiteral("font-size: 12px; color: rgba(255, 255, 255, 0.5); font-style: italic;"));
+        layout->addWidget(lblInfo);
+
+        layout->addStretch(1);
+
+        // Buttons
+        auto *btnLayout = new QHBoxLayout();
+        btnLayout->setSpacing(10);
+        btnLayout->addStretch(1);
+
+        auto *btnCancel = new QPushButton(QStringLiteral("Cancel [Esc]"), this);
+        btnCancel->setStyleSheet(QStringLiteral(
+            "QPushButton {"
+            "  background-color: rgba(255, 255, 255, 0.1);"
+            "  border-radius: 8px;"
+            "  color: #ffffff;"
+            "  padding: 8px 18px;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: rgba(255, 255, 255, 0.2);"
+            "}"
+        ));
+        connect(btnCancel, &QPushButton::clicked, this, &QDialog::reject);
+        btnLayout->addWidget(btnCancel);
+
+        auto *btnSave = new QPushButton(QStringLiteral("Save [Enter]"), this);
+        btnSave->setStyleSheet(QStringLiteral(
+            "QPushButton {"
+            "  background-color: #2ecc71;"
+            "  border-radius: 8px;"
+            "  color: #ffffff;"
+            "  font-weight: bold;"
+            "  padding: 8px 22px;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: #27ae60;"
+            "}"
+        ));
+        connect(btnSave, &QPushButton::clicked, this, &EditWorkspaceDialog::onSave);
+        btnLayout->addWidget(btnSave);
+
+        layout->addLayout(btnLayout);
+    }
+
+    QString workspaceName() const { return m_name; }
+    QColor workspaceColor() const { return m_color; }
+
+protected:
+    void keyPressEvent(QKeyEvent *e) override
+    {
+        if (e->key() == Qt::Key_Escape) {
+            reject();
+            return;
+        }
+        if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
+            onSave();
+            return;
+        }
+        QDialog::keyPressEvent(e);
+    }
+
+    void mousePressEvent(QMouseEvent *e) override
+    {
+        if (e->button() == Qt::LeftButton) {
+            m_dragPos = e->globalPosition().toPoint() - frameGeometry().topLeft();
+            m_isDragging = true;
+        }
+        QDialog::mousePressEvent(e);
+    }
+
+    void mouseMoveEvent(QMouseEvent *e) override
+    {
+        if (m_isDragging && (e->buttons() & Qt::LeftButton)) {
+            move(e->globalPosition().toPoint() - m_dragPos);
+        }
+        QDialog::mouseMoveEvent(e);
+    }
+
+    void mouseReleaseEvent(QMouseEvent *e) override
+    {
+        m_isDragging = false;
+        QDialog::mouseReleaseEvent(e);
+    }
+
+private:
+    void onSave()
+    {
+        const QString name = m_editName->text().trimmed();
+        if (name.isEmpty()) {
+            return;
+        }
+        m_name = name;
+        accept();
+    }
+
+    void updateColorButtons()
+    {
+        for (const auto &pair : m_colorButtons) {
+            QPushButton *btn = pair.first;
+            const QColor &col = pair.second;
+            const bool isSelected = (col.name(QColor::HexRgb).toLower() == m_color.name(QColor::HexRgb).toLower());
+            const QString border = isSelected
+                ? QStringLiteral("3px solid #ffffff")
+                : QStringLiteral("1.5px solid rgba(255, 255, 255, 0.35)");
+            btn->setStyleSheet(QStringLiteral(
+                "QPushButton {"
+                "  background-color: %1;"
+                "  border-radius: 14px;"
+                "  border: %2;"
+                "}"
+                "QPushButton:hover {"
+                "  border: 2px solid #ffffff;"
+                "}"
+            ).arg(col.name(QColor::HexRgb), border));
+        }
+    }
+
+    QString m_name;
+    QColor m_color;
+    QLineEdit *m_editName = nullptr;
+    QList<QPair<QPushButton *, QColor>> m_colorButtons;
+    QPoint m_dragPos;
+    bool m_isDragging = false;
+};
+
 class WorkspaceCard : public QFrame
 {
 public:
@@ -294,6 +517,32 @@ public:
         m_lblStatus = new QLabel(this);
         updateStatusBadge();
         layout->addWidget(m_lblStatus);
+
+        // Edit Workspace button
+        m_btnEdit = new QPushButton(QStringLiteral("✏️"), this);
+        m_btnEdit->setFixedSize(32, 28);
+        m_btnEdit->setCursor(Qt::PointingHandCursor);
+        m_btnEdit->setToolTip(QStringLiteral("Edit workspace name and color [F2]"));
+        m_btnEdit->setStyleSheet(QStringLiteral(
+            "QPushButton {"
+            "  background-color: rgba(52, 152, 219, 0.15);"
+            "  color: #3498db;"
+            "  font-size: 13px;"
+            "  font-weight: bold;"
+            "  border: 1px solid rgba(52, 152, 219, 0.35);"
+            "  border-radius: 6px;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: rgba(52, 152, 219, 0.4);"
+            "  color: #ffffff;"
+            "}"
+        ));
+        connect(m_btnEdit, &QPushButton::clicked, this, [this]() {
+            if (onEditClicked) {
+                onEditClicked(m_index);
+            }
+        });
+        layout->addWidget(m_btnEdit);
 
         // Delete / Close Workspace button with keyboard shortcut hint
         const QString deleteBtnText = (index < 9)
@@ -347,6 +596,7 @@ public:
     int index() const { return m_index; }
 
     std::function<void(int)> onClicked;
+    std::function<void(int)> onEditClicked;
     std::function<void(int)> onDeleteClicked;
 
 protected:
@@ -420,6 +670,7 @@ private:
     bool m_isSelected = false;
     QLabel *m_lblKey = nullptr;
     QLabel *m_lblStatus = nullptr;
+    QPushButton *m_btnEdit = nullptr;
     QPushButton *m_btnDelete = nullptr;
 };
 
@@ -589,6 +840,23 @@ public:
         connect(m_btnUnassign, &QPushButton::clicked, this, &WorkspaceManagerDialog::onUnassign);
         bottomLayout->addWidget(m_btnUnassign);
 
+        m_btnEditWs = new QPushButton(QStringLiteral("✏️ Edit [F2]"), this);
+        m_btnEditWs->setStyleSheet(QStringLiteral(
+            "QPushButton {"
+            "  background-color: rgba(52, 152, 219, 0.15);"
+            "  border: 1px solid rgba(52, 152, 219, 0.4);"
+            "  border-radius: 8px;"
+            "  color: #3498db;"
+            "  font-weight: bold;"
+            "  padding: 8px 14px;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: rgba(52, 152, 219, 0.3);"
+            "}"
+        ));
+        connect(m_btnEditWs, &QPushButton::clicked, this, &WorkspaceManagerDialog::editSelectedWorkspace);
+        bottomLayout->addWidget(m_btnEditWs);
+
         m_btnDeleteWs = new QPushButton(QStringLiteral("❌ Delete workspace [Shift+Del]"), this);
         m_btnDeleteWs->setStyleSheet(QStringLiteral(
             "QPushButton {"
@@ -651,6 +919,10 @@ protected:
     {
         if (e->key() == Qt::Key_Escape) {
             reject();
+            return;
+        }
+        if (e->key() == Qt::Key_F2 || ((e->modifiers() & Qt::ControlModifier) && e->key() == Qt::Key_E)) {
+            editSelectedWorkspace();
             return;
         }
         if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
@@ -823,6 +1095,11 @@ private:
                 updateCardSelection();
                 closeWorkspace(idx);
             };
+            card->onEditClicked = [this](int idx) {
+                m_selectedCardIndex = idx;
+                updateCardSelection();
+                editWorkspace(idx);
+            };
             m_cards.append(card);
             m_cardsLayout->addWidget(card);
         }
@@ -862,6 +1139,45 @@ private:
             if (card) {
                 m_scrollArea->ensureWidgetVisible(card);
             }
+        }
+    }
+
+    void editWorkspace(int idx)
+    {
+        if (idx < 0 || idx >= m_workspaces.size()) {
+            return;
+        }
+        auto &ws = m_workspaces[idx];
+        EditWorkspaceDialog dlg(ws.name, ws.color, ws.rules.size(), this);
+        if (dlg.exec() == QDialog::Accepted) {
+            const QString newName = dlg.workspaceName().trimmed();
+            if (!newName.isEmpty()) {
+                ws.name = newName;
+            }
+            if (dlg.workspaceColor().isValid()) {
+                ws.color = dlg.workspaceColor();
+            }
+            LeapKWorkspace::saveWorkspaces(m_workspaces);
+            rebuildCards();
+        }
+    }
+
+    void editSelectedWorkspace()
+    {
+        if (m_selectedCardIndex >= 0 && m_selectedCardIndex < m_workspaces.size()) {
+            editWorkspace(m_selectedCardIndex);
+            return;
+        }
+        if (!m_assignedWsId.isEmpty()) {
+            for (int i = 0; i < m_workspaces.size(); ++i) {
+                if (m_workspaces.at(i).id == m_assignedWsId) {
+                    editWorkspace(i);
+                    return;
+                }
+            }
+        }
+        if (!m_workspaces.isEmpty()) {
+            editWorkspace(0);
         }
     }
 
@@ -1029,6 +1345,7 @@ private:
     QPushButton *m_btnNewWs = nullptr;
     QPushButton *m_btnNewEmptyWs = nullptr;
     QPushButton *m_btnUnassign = nullptr;
+    QPushButton *m_btnEditWs = nullptr;
     QPushButton *m_btnDeleteWs = nullptr;
     QScrollArea *m_scrollArea = nullptr;
     int m_selectedCardIndex = -1;

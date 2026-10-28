@@ -456,7 +456,7 @@ set_default BadgeHudLetterFontSize 0
 set_default BadgeHudCaptionFontSize 0
 set_default BadgeHudLocationFontSize 0
 set_default BadgeJumpSize 34
-set_default BadgeHudSize 36
+set_default BadgeHudSize 44
 set_default BadgeIconSize 20
 set_default BadgeThumbnailWidth 56
 set_default BadgeThumbnailHeight 32

@@ -394,7 +394,7 @@ void testBadgeConfigAndStyling()
     OutlineBadge::BadgeConfig cfg;
     assert(cfg.windowBadgeSize == 28);
     assert(cfg.jumpBadgeSize == 34);
-    assert(cfg.hudBadgeSize == 36);
+    assert(cfg.hudBadgeSize == 44);
     assert(cfg.iconSize == 20);
     assert(cfg.thumbnailWidth == 56);
     assert(cfg.thumbnailHeight == 32);
@@ -972,6 +972,12 @@ void testHudActionHintBar()
     QImage barSuper = OutlineBadge::renderHudActionHintBar(1.0, false, 0, QString(), QColor(), false, true);
     assert(!barSuper.isNull());
     assert(barSuper.width() > 100);
+
+    // 6. Constrained max width wrapping
+    QImage barWrapped = OutlineBadge::renderHudActionHintBar(1.0, false, 0, QString(), QColor(), false, false, false, false, 500.0);
+    assert(!barWrapped.isNull());
+    assert(barWrapped.width() <= 520);
+    assert(barWrapped.height() > barDef.height());
 }
 
 void testHudModeHeader()

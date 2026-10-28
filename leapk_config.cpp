@@ -297,7 +297,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("BadgeHudCaptionFontSize"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeHudLocationFontSize"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeJumpSize"), *new int, 34);
-    m_configSkeleton->addItemInt(QStringLiteral("BadgeHudSize"), *new int, 36);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeHudSize"), *new int, 44);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeIconSize"), *new int, 20);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeThumbnailWidth"), *new int, 56);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeThumbnailHeight"), *new int, 32);
@@ -1188,7 +1188,7 @@ void ActiveWindowOutlineConfig::defaults()
     m_ui->kcfg_BadgeWindowLabelFontSize->setValue(0);
     m_ui->kcfg_BadgeHudShowIcon->setChecked(true);
     m_ui->kcfg_BadgeHudShowThumbnail->setChecked(true);
-    m_ui->kcfg_BadgeHudSize->setValue(36);
+    m_ui->kcfg_BadgeHudSize->setValue(44);
     m_ui->kcfg_BadgeHudIconSize->setValue(24);
     m_ui->kcfg_BadgeHudThumbnailSize->setValue(80);
     m_ui->kcfg_BadgeHudLetterFontSize->setValue(0);

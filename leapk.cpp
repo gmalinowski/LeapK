@@ -929,7 +929,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
 
     m_badgeConfig.hudShowIcon = config.readEntry("BadgeHudShowIcon", true);
     m_badgeConfig.hudShowThumbnail = config.readEntry("BadgeHudShowThumbnail", true);
-    m_badgeConfig.hudBadgeSize = qBound(24, config.readEntry("BadgeHudSize", 36), 500);
+    m_badgeConfig.hudBadgeSize = qBound(24, config.readEntry("BadgeHudSize", 44), 500);
     m_badgeConfig.hudIconSize = qBound(12, config.readEntry("BadgeHudIconSize", 24), 500);
     const int defHudThumb = qMax(config.readEntry("BadgeHudThumbnailWidth", 80), config.readEntry("BadgeHudThumbnailHeight", 48));
     const int hudThumbSize = qBound(24, config.readEntry("BadgeHudThumbnailSize", defHudThumb), 3500);
@@ -2651,7 +2651,7 @@ static void parseBadgeConfigFromJson(OutlineBadge::BadgeConfig &cfg, int &badgeP
         cfg.hudShowThumbnail = obj.value(QStringLiteral("BadgeHudShowThumbnail")).toBool(true);
     }
     if (obj.contains(QStringLiteral("BadgeHudSize"))) {
-        cfg.hudBadgeSize = qBound(24, obj.value(QStringLiteral("BadgeHudSize")).toInt(36), 500);
+        cfg.hudBadgeSize = qBound(24, obj.value(QStringLiteral("BadgeHudSize")).toInt(44), 500);
     }
     if (obj.contains(QStringLiteral("BadgeHudIconSize"))) {
         cfg.hudIconSize = qBound(12, obj.value(QStringLiteral("BadgeHudIconSize")).toInt(24), 500);
@@ -7029,13 +7029,14 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
         customViewColor = QColor(155, 89, 182); // Purple
     }
 
+    const qreal maxHintBarWidth = qMin(qreal(screenRect.width() - 80.0), 1050.0) * scale;
     const int nameHash = (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) ? (qHash(m_workspaces.at(m_activeHudView - 1).name) % 10000) : 0;
     const int hintBarKey = (m_subLeapActive ? 100000 : 0) + (m_stashModeActive ? 500000 : 0) + (m_superJumpActive ? 700000 : 0)
         + (m_audioFilterModeActive ? 900000 : 0)
         + (m_searchModeActive ? 1100000 : 0)
-        + m_activeHudView * 1000 + nameHash + qRound(scale * 10);
+        + m_activeHudView * 1000 + nameHash + qRound(scale * 10) + (qRound(maxHintBarWidth) % 5000);
     if (!m_hudHintBarTexture || m_hudHintBarCacheKey != hintBarKey) {
-        const QImage hintImg = OutlineBadge::renderHudActionHintBar(scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive, m_superJumpActive, m_audioFilterModeActive, m_searchModeActive);
+        const QImage hintImg = OutlineBadge::renderHudActionHintBar(scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive, m_superJumpActive, m_audioFilterModeActive, m_searchModeActive, maxHintBarWidth);
         auto uploaded = GLTexture::upload(hintImg);
         if (uploaded) {
             uploaded->setFilter(GL_LINEAR);
@@ -7268,15 +7269,16 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
     for (const auto &vt : viewTabs) {
         countsHash = (countsHash * 31 + vt.windowCount + (vt.isActive ? 1000 : 0) + (vt.isPlayingAudio ? 500 : 0)) % 100000;
     }
+    const int hudSize = m_badgePreviewActive ? m_previewBadgeConfig.hudBadgeSize : m_badgeConfig.hudBadgeSize;
     const int headerKey = (m_subLeapActive ? 2000000 : 0) + (m_stashModeActive ? 4000000 : 0) + (m_superJumpActive ? 6000000 : 0)
         + (m_audioFilterModeActive ? 8000000 : 0)
         + (m_searchModeActive ? (10000000 + m_searchScope * 100000 + (qHash(m_searchQuery) % 50000) + m_searchMatches.size() * 10) : 0)
-        + m_activeHudView * 100000 + countsHash + stashCount * 13 + qRound(scale * 10);
+        + m_activeHudView * 100000 + countsHash + stashCount * 13 + qRound(scale * 10) + hudSize * 7;
 
     if (!m_hudHeaderTexture || m_hudHeaderCacheKey != headerKey) {
         const QImage headerImg = OutlineBadge::renderHudModeHeader(
             scale, m_subLeapActive, subLeapTitle, subLeapColor, subLeapCount, viewTabs, stashCount, m_stashModeActive, targetWorkspaceName, m_superJumpActive, m_audioFilterModeActive, m_jumpLetterToWindow.size(),
-            m_searchModeActive, m_searchQuery, m_searchScope, m_searchMatches.size());
+            m_searchModeActive, m_searchQuery, m_searchScope, m_searchMatches.size(), hudSize);
         if (!headerImg.isNull()) {
             auto uploaded = GLTexture::upload(headerImg);
             if (uploaded) {

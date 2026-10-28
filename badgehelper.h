@@ -61,11 +61,11 @@ struct BadgeConfig {
     int windowLabelFontSize = 0; // 0 = auto
 
     // HUD Badges Sizing & Features
-    int hudBadgeSize = 36;
-    int hudIconSize = 24;
-    int hudThumbnailSize = 80;
-    int hudThumbnailWidth = 80;
-    int hudThumbnailHeight = 48;
+    int hudBadgeSize = 44;
+    int hudIconSize = 26;
+    int hudThumbnailSize = 90;
+    int hudThumbnailWidth = 90;
+    int hudThumbnailHeight = 52;
     bool hudShowIcon = true;
     bool hudShowThumbnail = true;
     int hudLetterFontSize = 0; // 0 = auto
@@ -425,7 +425,7 @@ inline qreal computeBadgeWidth(qreal baseHeight, const QString &customLabel = QS
     qreal totalW = baseW;
 
     if (isPlayingAudio) {
-        totalW += qRound(baseHeight * 0.75);
+        totalW += qRound(baseHeight * 0.85);
     }
 
     if (!recentKey.trimmed().isEmpty()) {
@@ -578,16 +578,16 @@ inline void drawAudioSpeaker(QPainter &p, const QRectF &rect, const QColor &colo
 
     // Speaker body: box + cone
     QPainterPath body;
-    const qreal boxW = w * 0.28;
-    const qreal boxH = h * 0.44;
-    const qreal boxX = x + w * 0.08;
+    const qreal boxW = w * 0.25;
+    const qreal boxH = h * 0.40;
+    const qreal boxX = x + w * 0.05;
     const qreal boxY = y + (h - boxH) / 2.0;
     body.addRect(boxX, boxY, boxW, boxH);
 
     const qreal coneX = boxX + boxW;
-    const qreal coneMouthX = x + w * 0.60;
-    const qreal coneTopY = y + h * 0.16;
-    const qreal coneBottomY = y + h * 0.84;
+    const qreal coneMouthX = x + w * 0.52;
+    const qreal coneTopY = y + h * 0.18;
+    const qreal coneBottomY = y + h * 0.82;
 
     QPolygonF conePoly;
     conePoly << QPointF(coneX, boxY)
@@ -602,17 +602,17 @@ inline void drawAudioSpeaker(QPainter &p, const QRectF &rect, const QColor &colo
 
     // Sound waves (arcs) on the right
     p.setBrush(Qt::NoBrush);
-    QPen wavePen(color, qMax(1.2, w * 0.09));
+    QPen wavePen(color, qMax(1.2, w * 0.08));
     wavePen.setCapStyle(Qt::RoundCap);
     p.setPen(wavePen);
 
     // Inner wave
-    const QRectF innerWaveRect(x + w * 0.42, y + h * 0.28, w * 0.34, h * 0.44);
+    const QRectF innerWaveRect(x + w * 0.38, y + h * 0.28, w * 0.28, h * 0.44);
     p.drawArc(innerWaveRect, -45 * 16, 90 * 16);
 
     // Outer wave
-    const QRectF outerWaveRect(x + w * 0.52, y + h * 0.15, w * 0.42, h * 0.70);
-    p.drawArc(outerWaveRect, -50 * 16, 100 * 16);
+    const QRectF outerWaveRect(x + w * 0.46, y + h * 0.16, w * 0.38, h * 0.68);
+    p.drawArc(outerWaveRect, -48 * 16, 96 * 16);
 
     p.restore();
 }
@@ -731,7 +731,7 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
         recentSectionW = qRound((rTextW + 12.0 * scale) / scale);
     }
 
-    const int audioSectionW = isPlayingAudio ? qRound(effectiveBaseHeight * 0.70) : 0;
+    const int audioSectionW = isPlayingAudio ? qRound(effectiveBaseHeight * 0.85) : 0;
     const int effectiveLetterWidth = hasLetter ? qRound(effectiveBaseHeight * 1.35) : 0;
     const int effectiveBaseWidth = effectiveLetterWidth + recentSectionW + iconSectionW + thumbSectionW + labelSectionW + audioSectionW;
 
@@ -904,7 +904,8 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
 
                 const QString restLabel = cleanLabel.mid(1).trimmed();
                 if (!restLabel.isEmpty()) {
-                    const QRectF labelRect(currentX, margin, w - margin - currentX, h - 2 * margin);
+                    const int restW = fmLabel.horizontalAdvance(restLabel);
+                    const QRectF labelRect(currentX, margin, restW + 4.0 * scale, h - 2 * margin);
                     p.setFont(labelFont);
                     QColor effLabelColor = autoTextColor;
                     if (!cfg.labelColorAuto && cfg.labelUnmarkedColor.isValid()) {
@@ -916,9 +917,10 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
                     }
                     p.setPen(effLabelColor);
                     p.drawText(labelRect, Qt::AlignVCenter | Qt::AlignLeft, restLabel);
+                    currentX += restW + 6.0 * scale;
                 }
             } else {
-                const QRectF labelRect(currentX, margin, w - margin - currentX, h - 2 * margin);
+                const QRectF labelRect(currentX, margin, labelSectionW * scale, h - 2 * margin);
                 p.setFont(labelFont);
                 QColor effLabelColor = autoTextColor;
                 if (!cfg.labelColorAuto && cfg.labelUnmarkedColor.isValid()) {
@@ -930,6 +932,7 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
                 }
                 p.setPen(effLabelColor);
                 p.drawText(labelRect, Qt::AlignVCenter | Qt::AlignLeft, displayLabel);
+                currentX += labelSectionW * scale;
             }
         }
 
@@ -937,12 +940,15 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
             const qreal sepSpX = currentX - 1.0 * scale;
             p.setPen(QPen(sepCol, 1.2 * scale));
             p.drawLine(QPointF(sepSpX, margin + 4.0 * scale), QPointF(sepSpX, h - margin - 4.0 * scale));
-            currentX += 4.0 * scale;
 
-            const qreal spDim = (h - 2 * margin) * 0.65;
-            const QRectF spRect(currentX, (h - spDim) / 2.0, spDim, spDim);
+            const qreal audioAreaW = audioSectionW * scale;
+            const qreal innerH = h - 2.0 * margin;
+            const qreal spDim = qRound(innerH * 0.52);
+            const qreal spX = currentX + (audioAreaW - spDim) / 2.0;
+            const qreal spY = margin + (innerH - spDim) / 2.0;
+            const QRectF spRect(spX, spY, spDim, spDim);
             drawAudioSpeaker(p, spRect, QColor(241, 196, 15));
-            currentX += spDim + 4.0 * scale;
+            currentX += audioAreaW;
         }
     }
 
@@ -2104,7 +2110,7 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
     return img;
 }
 
-inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false, bool isSearchMode = false)
+inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false, bool isSearchMode = false, qreal maxAllowedWidth = 0.0)
 {
     Q_UNUSED(customViewName);
     Q_UNUSED(customViewColor);
@@ -2176,6 +2182,8 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
         }
     }
 
+    const qreal maxW = (maxAllowedWidth > 0.0) ? maxAllowedWidth : (1050.0 * scale);
+
     QFont keyFont(QStringLiteral("sans-serif"));
     keyFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
     keyFont.setBold(true);
@@ -2186,22 +2194,57 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     lblFont.setBold(false);
     QFontMetrics fmLbl(lblFont);
 
-    const int padX = qRound(14 * scale);
-    const int padY = qRound(5 * scale);
-    const int itemGap = qRound(10 * scale);
+    const int padX = qRound(16 * scale);
+    const int padY = qRound(6 * scale);
+    const int itemGap = qRound(8 * scale);
+    const int bulletW = itemGap + fmLbl.horizontalAdvance(QStringLiteral("•")) + itemGap;
 
-    int totalContentW = 0;
-    for (int i = 0; i < segments.size(); ++i) {
-        const auto &s = segments.at(i);
-        int segW = fmKey.horizontalAdvance(s.key) + qRound(4 * scale) + fmLbl.horizontalAdvance(s.label);
-        totalContentW += segW;
-        if (i < segments.size() - 1) {
-            totalContentW += itemGap + fmLbl.horizontalAdvance(QStringLiteral("•")) + itemGap;
+    const int maxContentW = qMax(qRound(250 * scale), qRound(maxW - 2 * padX));
+
+    // Group segments into lines based on maxContentW
+    QList<QList<Segment>> lines;
+    QList<Segment> curLine;
+    int curLineWidth = 0;
+
+    for (const auto &s : segments) {
+        const int segW = fmKey.horizontalAdvance(s.key) + qRound(4 * scale) + fmLbl.horizontalAdvance(s.label);
+        const int neededW = (curLine.isEmpty() ? 0 : bulletW) + segW;
+        if (!curLine.isEmpty() && curLineWidth + neededW > maxContentW) {
+            lines.append(curLine);
+            curLine.clear();
+            curLineWidth = 0;
         }
+        curLine.append(s);
+        curLineWidth += (curLine.size() == 1 ? segW : neededW);
+    }
+    if (!curLine.isEmpty()) {
+        lines.append(curLine);
+    }
+    if (lines.isEmpty()) {
+        return QImage();
     }
 
-    const int w = totalContentW + 2 * padX;
-    const int h = qMax(qRound(24 * scale), fmKey.height() + 2 * padY);
+    // Determine total width and each line's width
+    int maxLineContentW = 0;
+    QList<int> lineContentWidths;
+    for (const auto &line : lines) {
+        int lW = 0;
+        for (int i = 0; i < line.size(); ++i) {
+            const auto &s = line.at(i);
+            const int segW = fmKey.horizontalAdvance(s.key) + qRound(4 * scale) + fmLbl.horizontalAdvance(s.label);
+            lW += segW;
+            if (i < line.size() - 1) {
+                lW += bulletW;
+            }
+        }
+        lineContentWidths.append(lW);
+        maxLineContentW = qMax(maxLineContentW, lW);
+    }
+
+    const int lineH = fmKey.height();
+    const int lineSpacing = qRound(4 * scale);
+    const int w = maxLineContentW + 2 * padX;
+    const int h = lines.size() * lineH + (lines.size() - 1) * lineSpacing + 2 * padY;
 
     QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
     img.fill(Qt::transparent);
@@ -2211,37 +2254,41 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     p.setRenderHint(QPainter::TextAntialiasing, true);
 
     const QRectF rect(0.5 * scale, 0.5 * scale, w - 1.0 * scale, h - 1.0 * scale);
-    const qreal radius = h / 2.0;
+    const qreal radius = (lines.size() == 1) ? (h / 2.0) : qRound(12 * scale);
 
     // Background capsule with subtle border
     p.setPen(QPen(QColor(255, 255, 255, 42), 1.0 * scale));
     p.setBrush(QColor(16, 20, 25, 235));
     p.drawRoundedRect(rect, radius, radius);
 
-    qreal curX = padX;
-    const qreal baselineY = padY + fmKey.ascent();
+    for (int lineIdx = 0; lineIdx < lines.size(); ++lineIdx) {
+        const auto &line = lines.at(lineIdx);
+        const int lW = lineContentWidths.at(lineIdx);
+        qreal curX = (w - lW) / 2.0;
+        const qreal baselineY = padY + lineIdx * (lineH + lineSpacing) + fmKey.ascent();
 
-    for (int i = 0; i < segments.size(); ++i) {
-        const auto &s = segments.at(i);
+        for (int i = 0; i < line.size(); ++i) {
+            const auto &s = line.at(i);
 
-        // Draw key
-        p.setFont(keyFont);
-        p.setPen(s.keyColor);
-        p.drawText(QPointF(curX, baselineY), s.key);
-        curX += fmKey.horizontalAdvance(s.key) + qRound(4 * scale);
+            // Draw key
+            p.setFont(keyFont);
+            p.setPen(s.keyColor);
+            p.drawText(QPointF(curX, baselineY), s.key);
+            curX += fmKey.horizontalAdvance(s.key) + qRound(4 * scale);
 
-        // Draw label
-        p.setFont(lblFont);
-        p.setPen(QColor(215, 220, 225));
-        p.drawText(QPointF(curX, baselineY), s.label);
-        curX += fmLbl.horizontalAdvance(s.label);
+            // Draw label
+            p.setFont(lblFont);
+            p.setPen(QColor(215, 220, 225));
+            p.drawText(QPointF(curX, baselineY), s.label);
+            curX += fmLbl.horizontalAdvance(s.label);
 
-        // Draw bullet separator
-        if (i < segments.size() - 1) {
-            curX += itemGap;
-            p.setPen(QColor(255, 255, 255, 60));
-            p.drawText(QPointF(curX, baselineY), QStringLiteral("•"));
-            curX += fmLbl.horizontalAdvance(QStringLiteral("•")) + itemGap;
+            // Draw bullet separator
+            if (i < line.size() - 1) {
+                curX += itemGap;
+                p.setPen(QColor(255, 255, 255, 60));
+                p.drawText(QPointF(curX, baselineY), QStringLiteral("•"));
+                curX += fmLbl.horizontalAdvance(QStringLiteral("•")) + itemGap;
+            }
         }
     }
 
@@ -2272,8 +2319,11 @@ inline QImage renderHudModeHeader(qreal scale,
                                   bool isSearchMode = false,
                                   const QString &searchQuery = QString(),
                                   int searchScope = 1,
-                                  int searchCount = 0)
+                                  int searchCount = 0,
+                                  int hudSize = 44)
 {
+    const int baseHeaderH = qBound(32, qRound(hudSize * 0.88), 64);
+
     if (isSearchMode) {
         const QString placeholder = QStringLiteral("Type to search windows...");
         const QString qText = searchQuery.isEmpty() ? placeholder : searchQuery;
@@ -2319,7 +2369,7 @@ inline QImage renderHudModeHeader(qreal scale,
 
         const int searchIconW = qRound(18 * scale);
         const int w = padX + searchIconW + qRound(8 * scale) + queryW + countW + gap + scopesW + padX;
-        const int h = qMax(qRound(36 * scale), fmQuery.height() + 2 * padY);
+        const int h = qMax(qRound(baseHeaderH * scale), fmQuery.height() + 2 * padY);
 
         QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
         img.fill(Qt::transparent);
@@ -2425,7 +2475,7 @@ inline QImage renderHudModeHeader(qreal scale,
         const int gap = qRound(16 * scale);
 
         const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + padX;
-        const int h = qMax(qRound(34 * scale), fmTitle.height() + 2 * padY);
+        const int h = qMax(qRound(baseHeaderH * scale), fmTitle.height() + 2 * padY);
 
         QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
         img.fill(Qt::transparent);
@@ -2475,7 +2525,7 @@ inline QImage renderHudModeHeader(qreal scale,
         const int gap = qRound(16 * scale);
 
         const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + padX;
-        const int h = qMax(qRound(34 * scale), fmTitle.height() + 2 * padY);
+        const int h = qMax(qRound(baseHeaderH * scale), fmTitle.height() + 2 * padY);
 
         QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
         img.fill(Qt::transparent);
@@ -2525,7 +2575,7 @@ inline QImage renderHudModeHeader(qreal scale,
         const int gap = qRound(16 * scale);
 
         const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + padX;
-        const int h = qMax(qRound(34 * scale), fmTitle.height() + 2 * padY);
+        const int h = qMax(qRound(baseHeaderH * scale), fmTitle.height() + 2 * padY);
 
         QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
         img.fill(Qt::transparent);
@@ -2575,7 +2625,7 @@ inline QImage renderHudModeHeader(qreal scale,
         const int gap = qRound(16 * scale);
 
         const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + padX;
-        const int h = qMax(qRound(34 * scale), fmTitle.height() + 2 * padY);
+        const int h = qMax(qRound(baseHeaderH * scale), fmTitle.height() + 2 * padY);
 
         QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
         img.fill(Qt::transparent);
@@ -2634,7 +2684,7 @@ inline QImage renderHudModeHeader(qreal scale,
     const int tabGap = qRound(6 * scale);
     const int navGap = qRound(10 * scale);
 
-    const int headerH = qRound(34 * scale);
+    const int headerH = qRound(baseHeaderH * scale);
     const int tabH = headerH - 2 * padY;
 
     struct TabRenderInfo {
