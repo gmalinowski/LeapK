@@ -4,6 +4,40 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta4] - 2026-10-28
+
+### Added
+- **Configurable Cursor Warp After Window Jump (`CursorWarpMode`)**:
+  - Automatically teleports the mouse cursor to the target window upon landing.
+  - Three configurable modes: `0` (Disabled), `1` (Center of Window), and `2` (Top-Left Titlebar).
+  - Works across all 9 jump pathways: direct window leap, sub-leap disambiguation, recent window jump, Super Jump, Stash pull, Pin & Drop, and Fuzzy Search.
+  - Full configuration synchronization across settings GUI (`leapk_config.ui`), KConfig schema (`leapkconfig.kcfg`), shell scripts, and presets.
+- **Audio Playing Indicator & Direct Audio Jump Mode (`Meta+Ctrl+A` / `Meta+U`)**:
+  - Module `audiotracker.h` detects applications actively playing audio using PipeWire and PulseAudio sink inputs (`pactl` stream inspection) and MPRIS D-Bus state (`org.mpris.MediaPlayer2.*`).
+  - Deep ancestor process resolution (`/proc/<pid>/stat`) maps background audio streams to top-level X11/Wayland windows across sandboxed apps (Flatpak, Electron, Spotify, Chrome).
+  - Dynamic vector speaker icon with sound waves drawn directly on HUD tabs, workspace pills, and window badges.
+  - Dedicated global shortcut `JumpToAudioWindow` (`Meta+Ctrl+A`) and in-HUD interactive filter toggle (`Meta+U`) to instantly isolate and leap to audio-producing windows.
+- **Interactive Fuzzy Window Search with Scope Filters (`/`, `Ctrl+F`, `Meta+Ctrl+F`, `Meta+/`)**:
+  - Subsequence matching algorithm (`fuzzymatcher.h`) with word-boundary, CamelCase, consecutive match, and acronym scoring bonuses.
+  - Floating HUD Search Bar featuring query input, blinking cursor, match counter, and scope pills:
+    - `[💻 Current WS]` (Current Virtual Desktop)
+    - `[🌐 All]` (All Workspaces)
+    - `[📦 All + Stash]` (All Workspaces + Hidden Stash Drawer)
+  - Interactive scope switching via `Tab` / `Shift+Tab`.
+  - Live candidate selection via `↑` / `↓` or `Ctrl+P` / `Ctrl+N` with glowing cyan highlight border.
+  - Press `Enter` to jump, `Alt+<Key>` for direct badge leap, or `Backspace` / `Esc` to clear and exit.
+  - Global shortcut `JumpToSearchWindow` (`Meta+Ctrl+F` and `Meta+/`).
+- **Subtle Tactile Audio Feedback (`SoundFeedbackEnabled`, `SoundFeedbackVolume`)**:
+  - Zero-dependency in-memory PCM WAV generator (`soundhelper.h`) synthesizing two tactile micro-sounds:
+    - `EnterJump`: 12ms crisp tactile mechanical switch click (2200Hz base + 4600Hz transient).
+    - `LandWindow`: 14ms soft damped landing snap (900Hz base + 2200Hz transient).
+  - Ultra-low latency asynchronous playback via PipeWire (`pw-play`), PulseAudio (`paplay`), or ALSA (`aplay`).
+  - Fully configurable in LeapK Settings (default: disabled, volume 0-100%).
+- **Window Stash Drawer, Pin & Drop Across Workspaces, and Super Jump**:
+  - High-contrast dual-ring pinned indicator dot and quick window pinning with `Alt+Key` / `Meta+P`.
+  - Stash drawer to park secondary windows away from the active workspace.
+  - Super Jump (`Meta+Space Meta+A`) to pull or switch to windows across all virtual desktops.
+
 ## [1.6.0] - 2026-10-27
 
 ### Added
