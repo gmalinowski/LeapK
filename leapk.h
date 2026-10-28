@@ -247,6 +247,7 @@ private:
                                       int dividerAfterIndex = -1,
                                       QList<QRectF> *outDividerRects = nullptr) const;
     EffectWindow *findRecentWindow() const;
+    void warpCursorToWindow(EffectWindow *target);
     void updateRecentWindowsFromHistory();
     void renderBadge(const RenderTarget &renderTarget,
                      const RenderViewport &viewport,
@@ -447,6 +448,7 @@ private:
     // Jump to Window
     bool m_jumpMode = false;
     int m_jumpTargets = 0; // 0 = All visible windows, 1 = Marked windows only
+    int m_cursorWarpMode = 0; // 0 = Disabled, 1 = Center of Window, 2 = Top-Left Titlebar
     bool m_badgeHudGroupWindows = true;
     qreal m_badgeHudGroupBorderWidth = 2.0;
     int m_badgeHudGroupFontSize = 0;

@@ -1623,6 +1623,38 @@
             </item>
            </widget>
           </item>
+          <item row="7" column="0">
+           <widget class="QLabel" name="label_cursorWarpMode">
+            <property name="text">
+             <string>Cursor warp after jump:</string>
+            </property>
+            <property name="toolTip">
+             <string>Automatically move mouse pointer to the target window after jumping to it.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="7" column="1">
+           <widget class="QComboBox" name="kcfg_CursorWarpMode">
+            <property name="toolTip">
+             <string>Automatically move mouse pointer to the target window after jumping to it.</string>
+            </property>
+            <item>
+             <property name="text">
+              <string>Disabled</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Center of Window</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Top-Left Titlebar</string>
+             </property>
+            </item>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>

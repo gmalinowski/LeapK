@@ -1097,6 +1097,42 @@ void testPinDotBadgeAspectAndContrast()
     assert(topBarBadge.bottom() <= clientGeo.top()); // Strictly in titlebar, never in client contents!
 }
 
+static void testCursorWarpCalculation()
+{
+    const QRectF frameGeo(100, 100, 800, 600);
+    const QRectF clientGeo(100, 132, 800, 568); // 32px titlebar
+
+    // Mode 0: Disabled
+    assert(OutlineBadge::computeCursorWarpPos(0, frameGeo, clientGeo, true).isNull());
+
+    // Mode 1: Center of Window (decorated) -> center of clientGeometry
+    const QPointF centerDec = OutlineBadge::computeCursorWarpPos(1, frameGeo, clientGeo, true);
+    assert(centerDec == clientGeo.center());
+    assert(centerDec.x() == 500.0);
+    assert(centerDec.y() == 416.0);
+
+    // Mode 1: Center of Window (undecorated) -> center of frameGeometry
+    const QPointF centerUndec = OutlineBadge::computeCursorWarpPos(1, frameGeo, clientGeo, false);
+    assert(centerUndec == frameGeo.center());
+    assert(centerUndec.x() == 500.0);
+    assert(centerUndec.y() == 400.0);
+
+    // Mode 2: Top-Left Titlebar (decorated) -> x: left + 30, y: vertical center of titlebar (100 + 16 = 116)
+    const QPointF tlDec = OutlineBadge::computeCursorWarpPos(2, frameGeo, clientGeo, true);
+    assert(tlDec.x() == 130.0);
+    assert(tlDec.y() == 116.0);
+    assert(tlDec.y() < clientGeo.top()); // In titlebar
+
+    // Mode 2: Top-Left (undecorated) -> x: left + 25, y: top + 25
+    const QPointF tlUndec = OutlineBadge::computeCursorWarpPos(2, frameGeo, clientGeo, false);
+    assert(tlUndec.x() == 125.0);
+    assert(tlUndec.y() == 125.0);
+
+    // Empty geometry protection
+    assert(OutlineBadge::computeCursorWarpPos(1, QRectF(), QRectF(), false).isNull());
+    assert(OutlineBadge::computeCursorWarpPos(2, QRectF(), QRectF(), false).isNull());
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -1124,6 +1160,7 @@ int main(int argc, char *argv[])
     testHudModeHeader();
     testStashBadgeStyling();
     testPinDotBadgeAspectAndContrast();
+    testCursorWarpCalculation();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

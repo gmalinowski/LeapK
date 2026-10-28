@@ -322,6 +322,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemString(QStringLiteral("BadgeCaptionFont"), *new QString, QString());
     m_configSkeleton->addItemString(QStringLiteral("BadgeLocationFont"), *new QString, QString());
     m_configSkeleton->addItemInt(QStringLiteral("JumpTargets"), *new int, 0);
+    m_configSkeleton->addItemInt(QStringLiteral("CursorWarpMode"), *new int, 0);
 
     // Tab 2: Color Cycling
     m_configSkeleton->addItemBool(QStringLiteral("ColorCycleEnabled"), *new bool, false);
@@ -793,6 +794,8 @@ void ActiveWindowOutlineConfig::updateMarkWindowUI()
     m_ui->kcfg_BadgeMargin->setEnabled(windowBadgesEnabled);
     m_ui->label_jumpTargets->setEnabled(badgesEnabled);
     m_ui->kcfg_JumpTargets->setEnabled(badgesEnabled);
+    m_ui->label_cursorWarpMode->setEnabled(badgesEnabled);
+    m_ui->kcfg_CursorWarpMode->setEnabled(badgesEnabled);
 
     m_ui->groupWindowBadges->setEnabled(badgesEnabled);
     m_ui->check_previewWindowBadges->setEnabled(windowBadgesEnabled);
@@ -1496,6 +1499,7 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("BadgeHudCaptionFontSize")] = m_ui->kcfg_BadgeHudCaptionFontSize->value();
     s[QStringLiteral("BadgeHudLocationFontSize")] = m_ui->kcfg_BadgeHudLocationFontSize->value();
     s[QStringLiteral("JumpTargets")] = m_ui->kcfg_JumpTargets->currentIndex();
+    s[QStringLiteral("CursorWarpMode")] = m_ui->kcfg_CursorWarpMode->currentIndex();
     s[QStringLiteral("BadgeJumpSize")] = m_ui->kcfg_BadgeJumpSize->value();
     s[QStringLiteral("BadgeHudSize")] = m_ui->kcfg_BadgeHudSize->value();
     s[QStringLiteral("BadgeIconSize")] = m_ui->kcfg_BadgeWindowIconSize->value();
@@ -1693,6 +1697,7 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
     if (s.contains(QStringLiteral("BadgeHudCaptionFontSize"))) m_ui->kcfg_BadgeHudCaptionFontSize->setValue(s[QStringLiteral("BadgeHudCaptionFontSize")].toInt());
     if (s.contains(QStringLiteral("BadgeHudLocationFontSize"))) m_ui->kcfg_BadgeHudLocationFontSize->setValue(s[QStringLiteral("BadgeHudLocationFontSize")].toInt());
     if (s.contains(QStringLiteral("JumpTargets"))) m_ui->kcfg_JumpTargets->setCurrentIndex(s[QStringLiteral("JumpTargets")].toInt());
+    if (s.contains(QStringLiteral("CursorWarpMode"))) m_ui->kcfg_CursorWarpMode->setCurrentIndex(s[QStringLiteral("CursorWarpMode")].toInt());
     if (s.contains(QStringLiteral("BadgeJumpSize"))) m_ui->kcfg_BadgeJumpSize->setValue(s[QStringLiteral("BadgeJumpSize")].toInt());
     if (s.contains(QStringLiteral("BadgeHudSize"))) m_ui->kcfg_BadgeHudSize->setValue(s[QStringLiteral("BadgeHudSize")].toInt());
     if (s.contains(QStringLiteral("BadgeIconSize"))) {

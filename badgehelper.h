@@ -378,6 +378,31 @@ inline QRectF computeTopBarPinnedBadgeRect(const QRectF &frameGeo, const QRectF 
     return QRectF(badgeX, badgeY, badgeW, badgeH);
 }
 
+inline QPointF computeCursorWarpPos(int warpMode, const QRectF &frameGeo, const QRectF &clientGeo, bool hasDec = false)
+{
+    if (warpMode <= 0 || frameGeo.isEmpty()) {
+        return QPointF();
+    }
+    if (warpMode == 1) { // Center of Window
+        if (hasDec && !clientGeo.isEmpty()) {
+            return clientGeo.center();
+        }
+        return frameGeo.center();
+    }
+    if (warpMode == 2) { // Top-Left / Titlebar
+        if (hasDec && !clientGeo.isEmpty() && clientGeo.top() > frameGeo.top()) {
+            const qreal titlebarH = clientGeo.top() - frameGeo.top();
+            const qreal warpX = qBound(frameGeo.left() + 5.0, frameGeo.left() + 30.0, frameGeo.right() - 5.0);
+            const qreal warpY = frameGeo.top() + (titlebarH / 2.0);
+            return QPointF(warpX, warpY);
+        }
+        const qreal warpX = qBound(frameGeo.left() + 5.0, frameGeo.left() + 25.0, frameGeo.right() - 5.0);
+        const qreal warpY = qBound(frameGeo.top() + 5.0, frameGeo.top() + 25.0, frameGeo.bottom() - 5.0);
+        return QPointF(warpX, warpY);
+    }
+    return QPointF();
+}
+
 inline qreal computeBadgeWidth(qreal baseHeight, const QString &customLabel = QString(),
                                bool showIcon = false, bool showThumbnail = false,
                                qreal thumbnailAspect = 1.6, int iconSize = 0,

@@ -125,6 +125,7 @@ public:
                 {
                     {QStringLiteral("BadgeDisplayMode"), QStringLiteral("Badge Display Mode")},
                     {QStringLiteral("JumpTargets"), QStringLiteral("Jump Targets Scope")},
+                    {QStringLiteral("CursorWarpMode"), QStringLiteral("Cursor Warp After Jump")},
                     {QStringLiteral("BadgePosition"), QStringLiteral("Window Badge Position")},
                     {QStringLiteral("BadgeHudPosition"), QStringLiteral("Screen HUD Position")},
                     {QStringLiteral("BadgeSize"), QStringLiteral("Badge Size")},
@@ -242,6 +243,12 @@ public:
             if (t == 1) return QStringLiteral("Current desktop (visible & min) + marked");
             if (t == 2) return QStringLiteral("All desktops (visible & min)");
             return QStringLiteral("Marked windows only");
+        }
+        if (key == QStringLiteral("CursorWarpMode")) {
+            const int m = val.toInt();
+            if (m == 1) return QStringLiteral("Center of Window");
+            if (m == 2) return QStringLiteral("Top-Left Titlebar");
+            return QStringLiteral("Disabled");
         }
         if (key == QStringLiteral("BadgeHudPosition")) {
             const int p = val.toInt();

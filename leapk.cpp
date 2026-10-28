@@ -9,6 +9,7 @@
 #include "precedencehelper.h"
 #include <QKeyEvent>
 #include <QPainter>
+#include <QCursor>
 #include <effect/effecthandler.h>
 #include <effect/effectwindow.h>
 #include <window.h>
@@ -34,6 +35,9 @@
 #ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
 #include <core/rect.h>
 #include "cursoroverlay.h"
+#ifndef ACTIVE_WINDOW_OUTLINE_X11
+#include <cursor.h>
+#endif
 #include <scene/workspacescene.h>
 #include <scene/windowitem.h>
 #ifdef ACTIVE_WINDOW_OUTLINE_HAS_OPENGL_SURFACE_TEXTURE
@@ -959,6 +963,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_markShowLetterBadges = (m_badgeDisplayMode != 2);
     m_badgesAlwaysVisible = (m_badgeDisplayMode == 1);
     m_jumpTargets = qBound(0, config.readEntry("JumpTargets", 0), 3);
+    m_cursorWarpMode = qBound(0, config.readEntry("CursorWarpMode", 0), 2);
     m_activeHudView = config.readEntry("ActiveHudView", 0);
     m_badgeTextureCache.clear();
     m_thumbnailCache.clear();
@@ -4783,6 +4788,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                             }
                         }
                         effects->activateWindow(target);
+                        warpCursorToWindow(target);
                         return;
                     }
 
@@ -4814,6 +4820,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                         target->setMinimized(false);
                     }
                     effects->activateWindow(target);
+                    warpCursorToWindow(target);
                     return;
                 }
             }
@@ -4924,6 +4931,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                         cancelJumpMode();
                         if (effects) {
                             effects->activateWindow(target);
+                            warpCursorToWindow(target);
                         }
                         return;
                     }
@@ -5059,6 +5067,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     }
                 }
                 effects->activateWindow(target);
+                warpCursorToWindow(target);
             }
             return;
         }
@@ -5096,6 +5105,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                 }
                 if (topWin) {
                     effects->activateWindow(topWin);
+                    warpCursorToWindow(topWin);
                 }
                 return;
             }
@@ -5205,6 +5215,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                         }
                     }
                     effects->activateWindow(target);
+                    warpCursorToWindow(target);
                     return;
                 }
 
@@ -5238,6 +5249,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     target->setMinimized(false);
                 }
                 effects->activateWindow(target);
+                warpCursorToWindow(target);
                 return;
             }
         }
@@ -5311,6 +5323,28 @@ void ActiveWindowOutlineEffect::slotJumpToRecentWindow()
         target->setMinimized(false);
     }
     effects->activateWindow(target);
+    warpCursorToWindow(target);
+}
+
+void ActiveWindowOutlineEffect::warpCursorToWindow(EffectWindow *target)
+{
+    if (m_cursorWarpMode == 0 || !target) {
+        return;
+    }
+    const QRectF frameGeo = target->frameGeometry();
+    const QRectF clientGeo = target->clientGeometry();
+    const bool hasDec = target->hasDecoration();
+    const QPointF warpPos = OutlineBadge::computeCursorWarpPos(m_cursorWarpMode, frameGeo, clientGeo, hasDec);
+    if (warpPos.isNull()) {
+        return;
+    }
+
+#ifndef ACTIVE_WINDOW_OUTLINE_X11
+    if (KWin::Cursors::self() && KWin::Cursors::self()->mouse()) {
+        KWin::Cursors::self()->mouse()->setPos(warpPos);
+    }
+#endif
+    QCursor::setPos(warpPos.toPoint());
 }
 
 void ActiveWindowOutlineEffect::updateRecentWindowsFromHistory()
