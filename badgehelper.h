@@ -709,9 +709,11 @@ inline QSizeF computeHudPillSize(const BadgeConfig &cfg,
                                  const QString &recentKey = QString(),
                                  bool isRecent = false,
                                  int groupCount = 0,
-                                 bool isStashed = false)
+                                 bool isStashed = false,
+                                 bool isPinned = false)
 {
     Q_UNUSED(isStashed);
+    Q_UNUSED(isPinned);
     const int effectivePillBaseH = (badgeSize > 0) ? badgeSize : cfg.hudBadgeSize;
 
     const int effectiveIconSize = (cfg.hudIconSize > 0) ? cfg.hudIconSize : 24;
@@ -907,13 +909,14 @@ inline QSizeF computeHudPillSize(const QString &locationText,
                                  const QString &recentKey = QString(),
                                  bool isRecent = false,
                                  int groupCount = 0,
-                                 bool isStashed = false)
+                                 bool isStashed = false,
+                                 bool isPinned = false)
 {
     BadgeConfig cfg;
     cfg.hudBadgeSize = badgeSize;
     cfg.hudShowIcon = hasIcon;
     cfg.hudShowThumbnail = hasThumb;
-    return computeHudPillSize(cfg, locationText, caption, badgeSize, scale, customLabel, hasIcon, hasThumb, thumbSize, recentKey, isRecent, groupCount, isStashed);
+    return computeHudPillSize(cfg, locationText, caption, badgeSize, scale, customLabel, hasIcon, hasThumb, thumbSize, recentKey, isRecent, groupCount, isStashed, isPinned);
 }
 
 inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
@@ -931,7 +934,8 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
                                         const QString &recentKey = QString(),
                                         bool isRecent = false,
                                         int groupCount = 0,
-                                        bool isStashed = false)
+                                        bool isStashed = false,
+                                        bool isPinned = false)
 {
     Q_UNUSED(textColor);
     const int effectivePillBaseH = (badgeSize > 0) ? badgeSize : cfg.hudBadgeSize;
@@ -1182,6 +1186,11 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
             borderColor.setAlpha(isStashed ? 200 : 245);
             badgeBg = pureMarkColor;
         }
+    } else if (isPinned) {
+        pillBg = QColor(36, 32, 22);
+        pillBg.setAlphaF(qBound(0.1, (240.0 / 255.0) * (cfg.opacityPercent / 100.0), 1.0));
+        borderColor = QColor(241, 196, 15, 230);
+        badgeBg = QColor(241, 196, 15);
     } else {
         pillBg = QColor(22, 25, 29);
         pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0) * (isStashed ? 0.78 : 1.0), 1.0));
@@ -1196,7 +1205,7 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     }
 
     p.fillPath(bgPath, pillBg);
-    QPen borderPen(borderColor, 1.5 * scale);
+    QPen borderPen(borderColor, (isPinned ? 2.0 : 1.5) * scale);
     if (isStashed) {
         borderPen.setStyle(Qt::CustomDashLine);
         borderPen.setDashPattern({4, 3});
@@ -1231,7 +1240,7 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
             p.drawPath(bPath);
         }
     } else {
-        QPen bPen(isStashed ? QColor(255, 255, 255, 80) : QColor(255, 255, 255, 45), 1.0 * scale);
+        QPen bPen(isStashed ? QColor(255, 255, 255, 80) : (isPinned ? QColor(0, 0, 0, 75) : QColor(255, 255, 255, 45)), 1.0 * scale);
         if (isStashed) {
             bPen.setStyle(Qt::CustomDashLine);
             bPen.setDashPattern({3, 2});
@@ -1350,7 +1359,10 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     QColor line1Color;
     QColor line2Color;
 
-    if (hasCustomLabel) {
+    if (isPinned) {
+        line1Color = (cfg.locationColorAuto || !cfg.locationColor.isValid()) ? QColor(241, 196, 15) : cfg.locationColor;
+        line2Color = (cfg.captionColorAuto || !cfg.captionColor.isValid()) ? (isLightPill ? QColor(50, 50, 50) : QColor(220, 225, 230)) : cfg.captionColor;
+    } else if (hasCustomLabel) {
         line1Color = (cfg.labelColorAuto || !cfg.labelUnmarkedColor.isValid()) ? pillAutoText : cfg.labelUnmarkedColor;
         line2Color = (cfg.locationColorAuto || !cfg.locationColor.isValid()) ? (isLightPill ? QColor(40, 40, 40) : QColor(241, 196, 15)) : cfg.locationColor;
     } else {
@@ -1396,13 +1408,52 @@ inline QImage renderOffscreenTargetPill(const QChar &letter,
                                         const QString &recentKey = QString(),
                                         bool isRecent = false,
                                         int groupCount = 0,
-                                        bool isStashed = false)
+                                        bool isStashed = false,
+                                        bool isPinned = false)
 {
     BadgeConfig cfg;
     cfg.hudBadgeSize = badgeSize;
     cfg.showIcon = showIcon;
     cfg.showThumbnail = showThumbnail;
-    return renderOffscreenTargetPill(cfg, letter, bgColor, textColor, locationText, caption, badgeSize, scale, customLabel, icon, thumbnail, isMarked, recentKey, isRecent, groupCount, isStashed);
+    return renderOffscreenTargetPill(cfg, letter, bgColor, textColor, locationText, caption, badgeSize, scale, customLabel, icon, thumbnail, isMarked, recentKey, isRecent, groupCount, isStashed, isPinned);
+}
+
+inline QImage renderHudDividerLine(const QSizeF &size, qreal scale, bool isVertical = true)
+{
+    const int w = qMax(1, qRound(size.width() * scale));
+    const int h = qMax(1, qRound(size.height() * scale));
+    QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+
+    QPainter p(&img);
+    p.setRenderHint(QPainter::Antialiasing, true);
+
+    if (isVertical) {
+        const qreal midX = w / 2.0;
+        // Outer soft glow line
+        QPen glowPen(QColor(255, 255, 255, 45), qMax(2.0, 3.5 * scale), Qt::SolidLine, Qt::RoundCap);
+        p.setPen(glowPen);
+        p.drawLine(QPointF(midX, 3.0 * scale), QPointF(midX, h - 3.0 * scale));
+
+        // Core bright line
+        QPen corePen(QColor(255, 255, 255, 180), qMax(1.0, 1.5 * scale), Qt::SolidLine, Qt::RoundCap);
+        p.setPen(corePen);
+        p.drawLine(QPointF(midX, 3.0 * scale), QPointF(midX, h - 3.0 * scale));
+    } else {
+        const qreal midY = h / 2.0;
+        // Outer soft glow line
+        QPen glowPen(QColor(255, 255, 255, 45), qMax(2.0, 3.5 * scale), Qt::SolidLine, Qt::RoundCap);
+        p.setPen(glowPen);
+        p.drawLine(QPointF(3.0 * scale, midY), QPointF(w - 3.0 * scale, midY));
+
+        // Core bright line
+        QPen corePen(QColor(255, 255, 255, 180), qMax(1.0, 1.5 * scale), Qt::SolidLine, Qt::RoundCap);
+        p.setPen(corePen);
+        p.drawLine(QPointF(3.0 * scale, midY), QPointF(w - 3.0 * scale, midY));
+    }
+
+    p.end();
+    return img;
 }
 
 inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
@@ -1410,7 +1461,10 @@ inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
                                              int hudPosition = 0,
                                              qreal margin = 24.0,
                                              qreal gap = 12.0,
-                                             qreal rowGap = -1.0)
+                                             qreal rowGap = -1.0,
+                                             int dividerAfterIndex = -1,
+                                             qreal dividerGap = 28.0,
+                                             QList<QRectF> *outDividerRects = nullptr)
 {
     if (pillSizes.isEmpty()) {
         return {};
@@ -1437,9 +1491,10 @@ inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
 
         for (int i = 0; i < pillSizes.size(); ++i) {
             const QSizeF &sz = pillSizes.at(i);
+            const qreal effectiveGap = (i > 0 && i == dividerAfterIndex + 1) ? dividerGap : gap;
             const qreal neededWidth = currentRow.indices.isEmpty()
                 ? sz.width()
-                : (currentRow.totalWidth + gap + sz.width());
+                : (currentRow.totalWidth + effectiveGap + sz.width());
 
             if (neededWidth <= availWidth || currentRow.indices.isEmpty()) {
                 currentRow.indices.append(i);
@@ -1473,17 +1528,34 @@ inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
             }
         }
 
-        for (const Row &r : rows) {
+        for (int rIdx = 0; rIdx < rows.size(); ++rIdx) {
+            const Row &r = rows.at(rIdx);
             qreal rowStartX = screenRect.left() + (screenRect.width() - r.totalWidth) / 2.0;
             if (rowStartX < screenRect.left() + margin) {
                 rowStartX = screenRect.left() + margin;
             }
             qreal currentX = rowStartX;
-            for (int idx : r.indices) {
+            for (int k = 0; k < r.indices.size(); ++k) {
+                int idx = r.indices.at(k);
                 const QSizeF &sz = pillSizes.at(idx);
                 const qreal itemY = rowY; // Top-aligned so letter badges align in a straight horizontal row
                 result[idx] = QRectF(currentX, itemY, sz.width(), sz.height());
-                currentX += sz.width() + gap;
+                const qreal currentGap = (idx == dividerAfterIndex) ? dividerGap : gap;
+                if (idx == dividerAfterIndex && outDividerRects && (k + 1 < r.indices.size())) {
+                    const qreal divBoxWidth = 14.0;
+                    const qreal divX = currentX + sz.width() + (dividerGap - divBoxWidth) / 2.0;
+                    const qreal divY = rowY + 3.0;
+                    const qreal divH = qMax(16.0, r.maxHeight - 6.0);
+                    outDividerRects->append(QRectF(divX, divY, divBoxWidth, divH));
+                }
+                currentX += sz.width() + currentGap;
+            }
+            if (outDividerRects && r.indices.contains(dividerAfterIndex) && r.indices.last() == dividerAfterIndex && (rIdx + 1 < rows.size())) {
+                const qreal divBoxHeight = 14.0;
+                const qreal divY = rowY + r.maxHeight + (vGap - divBoxHeight) / 2.0;
+                const qreal divW = qMin(r.totalWidth, screenRect.width() - 2.0 * margin);
+                const qreal divX = screenRect.left() + (screenRect.width() - divW) / 2.0;
+                outDividerRects->append(QRectF(divX, divY, divW, divBoxHeight));
             }
             rowY += r.maxHeight + vGap;
         }
@@ -1503,9 +1575,10 @@ inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
 
         for (int i = 0; i < pillSizes.size(); ++i) {
             const QSizeF &sz = pillSizes.at(i);
+            const qreal effectiveGap = (i > 0 && i == dividerAfterIndex + 1) ? dividerGap : gap;
             const qreal neededHeight = currentCol.indices.isEmpty()
                 ? sz.height()
-                : (currentCol.totalHeight + gap + sz.height());
+                : (currentCol.totalHeight + effectiveGap + sz.height());
 
             if (neededHeight <= availHeight || currentCol.indices.isEmpty()) {
                 currentCol.indices.append(i);
@@ -1539,17 +1612,34 @@ inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
             }
         }
 
-        for (const Col &c : cols) {
+        for (int cIdx = 0; cIdx < cols.size(); ++cIdx) {
+            const Col &c = cols.at(cIdx);
             qreal colStartY = screenRect.top() + (screenRect.height() - c.totalHeight) / 2.0;
             if (colStartY < screenRect.top() + margin) {
                 colStartY = screenRect.top() + margin;
             }
             qreal currentY = colStartY;
-            for (int idx : c.indices) {
+            for (int k = 0; k < c.indices.size(); ++k) {
+                int idx = c.indices.at(k);
                 const QSizeF &sz = pillSizes.at(idx);
                 const qreal itemX = colX; // Left-aligned so letter badges align in a straight vertical column
                 result[idx] = QRectF(itemX, currentY, sz.width(), sz.height());
-                currentY += sz.height() + gap;
+                const qreal currentGap = (idx == dividerAfterIndex) ? dividerGap : gap;
+                if (idx == dividerAfterIndex && outDividerRects && (k + 1 < c.indices.size())) {
+                    const qreal divBoxHeight = 14.0;
+                    const qreal divY = currentY + sz.height() + (dividerGap - divBoxHeight) / 2.0;
+                    const qreal divX = colX + 4.0;
+                    const qreal divW = qMax(16.0, c.maxWidth - 8.0);
+                    outDividerRects->append(QRectF(divX, divY, divW, divBoxHeight));
+                }
+                currentY += sz.height() + currentGap;
+            }
+            if (outDividerRects && c.indices.contains(dividerAfterIndex) && c.indices.last() == dividerAfterIndex && (cIdx + 1 < cols.size())) {
+                const qreal divBoxWidth = 14.0;
+                const qreal divX = colX + c.maxWidth + (hGap - divBoxWidth) / 2.0;
+                const qreal divH = qMin(c.totalHeight, screenRect.height() - 2.0 * margin);
+                const qreal divY = screenRect.top() + (screenRect.height() - divH) / 2.0;
+                outDividerRects->append(QRectF(divX, divY, divBoxWidth, divH));
             }
             colX += c.maxWidth + hGap;
         }

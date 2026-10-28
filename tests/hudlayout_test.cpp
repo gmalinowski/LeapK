@@ -152,6 +152,67 @@ void testGroupContainerFrames()
     std::cout << "testGroupContainerFrames PASSED\n";
 }
 
+void testHudDividerLayout()
+{
+    const QRectF screen(0, 0, 1920, 1080);
+    const QList<QSizeF> pills = {
+        QSizeF(120, 36),
+        QSizeF(120, 36),
+        QSizeF(120, 36),
+        QSizeF(120, 36)
+    };
+
+    // 1. Horizontal Bottom layout with divider after index 1
+    QList<QRectF> dividerRects;
+    QList<QRectF> rects = OutlineBadge::computeHudPillPositions(
+        pills, screen, 0, 24.0, 12.0, -1.0, 1, 28.0, &dividerRects);
+    assert(rects.size() == 4);
+    assert(dividerRects.size() == 1);
+
+    // Normal gap between 0 and 1 is 12.0
+    const qreal gap01 = rects[1].left() - rects[0].right();
+    assert(qAbs(gap01 - 12.0) < 0.1);
+
+    // Divider gap between 1 and 2 is 28.0
+    const qreal gap12 = rects[2].left() - rects[1].right();
+    assert(qAbs(gap12 - 28.0) < 0.1);
+
+    // Divider rect is positioned between pill 1 and pill 2
+    assert(dividerRects[0].left() >= rects[1].right() - 0.1);
+    assert(dividerRects[0].right() <= rects[2].left() + 0.1);
+
+    // Render vertical divider image
+    QImage divImg = OutlineBadge::renderHudDividerLine(dividerRects[0].size(), 1.0, true);
+    assert(!divImg.isNull());
+    assert(divImg.width() == qRound(dividerRects[0].width()));
+    assert(divImg.height() == qRound(dividerRects[0].height()));
+
+    // 2. Vertical Left layout with divider after index 1
+    QList<QRectF> vDividers;
+    QList<QRectF> vRects = OutlineBadge::computeHudPillPositions(
+        pills, screen, 2, 24.0, 12.0, -1.0, 1, 28.0, &vDividers);
+    assert(vRects.size() == 4);
+    assert(vDividers.size() == 1);
+    const qreal vGap12 = vRects[2].top() - vRects[1].bottom();
+    assert(qAbs(vGap12 - 28.0) < 0.1);
+
+    // Render horizontal divider image
+    QImage vDivImg = OutlineBadge::renderHudDividerLine(vDividers[0].size(), 1.0, false);
+    assert(!vDivImg.isNull());
+
+    // 3. Render pinned HUD pill
+    OutlineBadge::BadgeConfig cfg;
+    cfg.hudBadgeSize = 28;
+    QImage pinnedPill = OutlineBadge::renderOffscreenTargetPill(
+        cfg, QChar('P'), QColor(241, 196, 15), Qt::black,
+        QStringLiteral("📌 Pinned"), QStringLiteral("Dolphin"),
+        28, 1.0, QString(), QIcon(), QImage(), false, QString(), false, 0, false, true);
+    assert(!pinnedPill.isNull());
+    assert(pinnedPill.width() > 60);
+
+    std::cout << "testHudDividerLayout PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
@@ -161,6 +222,7 @@ int main(int argc, char *argv[])
     testHorizontalRowWrapping();
     testVerticalColumnWrapping();
     testGroupContainerFrames();
+    testHudDividerLayout();
 
     std::cout << "All HUD Layout tests passed successfully!\n";
     return 0;

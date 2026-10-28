@@ -337,6 +337,87 @@ void testPinnedWindowPinAndDropLogic()
     std::cout << "testPinnedWindowPinAndDropLogic PASSED\n";
 }
 
+void testHudPartitioningAndDivider()
+{
+    struct MockTarget {
+        QChar key;
+        QString id;
+        bool isPinned;
+        bool isStashed;
+    };
+
+    auto partitionHudTargets = [](const QList<MockTarget> &targets, bool isStashMode, int &outDividerAfterIndex) {
+        QList<MockTarget> left;
+        QList<MockTarget> right;
+        if (isStashMode) {
+            for (const auto &t : targets) {
+                if (t.isStashed) {
+                    right.append(t);
+                } else {
+                    left.append(t);
+                }
+            }
+        } else {
+            for (const auto &t : targets) {
+                if (t.isPinned) {
+                    left.append(t);
+                } else {
+                    right.append(t);
+                }
+            }
+        }
+        if (!left.isEmpty() && !right.isEmpty()) {
+            outDividerAfterIndex = left.size() - 1;
+        } else {
+            outDividerAfterIndex = -1;
+        }
+        return left + right;
+    };
+
+    // 1. Stash mode: 2 workspace windows + 2 stashed windows
+    QList<MockTarget> stashList = {
+        {QChar('A'), QStringLiteral("winA"), false, true},
+        {QChar('B'), QStringLiteral("winB"), false, false},
+        {QChar('C'), QStringLiteral("winC"), false, true},
+        {QChar('D'), QStringLiteral("winD"), false, false}
+    };
+    int stashDivider = -1;
+    QList<MockTarget> stashPartitioned = partitionHudTargets(stashList, true, stashDivider);
+    assert(stashPartitioned.size() == 4);
+    assert(stashDivider == 1);
+    assert(!stashPartitioned[0].isStashed);
+    assert(!stashPartitioned[1].isStashed);
+    assert(stashPartitioned[2].isStashed);
+    assert(stashPartitioned[3].isStashed);
+
+    // 2. Normal mode: 1 pinned window + 3 regular windows
+    QList<MockTarget> normalList = {
+        {QChar('A'), QStringLiteral("winA"), false, false},
+        {QChar('P'), QStringLiteral("winP"), true, false},
+        {QChar('B'), QStringLiteral("winB"), false, false},
+        {QChar('C'), QStringLiteral("winC"), false, false}
+    };
+    int normalDivider = -1;
+    QList<MockTarget> normalPartitioned = partitionHudTargets(normalList, false, normalDivider);
+    assert(normalPartitioned.size() == 4);
+    assert(normalDivider == 0);
+    assert(normalPartitioned[0].isPinned);
+    assert(!normalPartitioned[1].isPinned);
+    assert(!normalPartitioned[2].isPinned);
+    assert(!normalPartitioned[3].isPinned);
+
+    // 3. Normal mode with no pinned windows -> divider is -1
+    QList<MockTarget> noPinList = {
+        {QChar('A'), QStringLiteral("winA"), false, false},
+        {QChar('B'), QStringLiteral("winB"), false, false}
+    };
+    int noPinDivider = -1;
+    partitionHudTargets(noPinList, false, noPinDivider);
+    assert(noPinDivider == -1);
+
+    std::cout << "testHudPartitioningAndDivider PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
@@ -349,6 +430,7 @@ int main(int argc, char *argv[])
     testSuperJumpDefaultJumpVsPullHere();
     testSuperJumpKeyboardModifierIsolation();
     testPinnedWindowPinAndDropLogic();
+    testHudPartitioningAndDivider();
 
     std::cout << "All Super Jump tests passed successfully!\n";
     return 0;

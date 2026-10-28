@@ -243,7 +243,9 @@ private:
     QList<QRectF> computeHudPillRects(const QList<QPair<QChar, EffectWindow *>> &targets,
                                       const RenderViewport &viewport,
                                       int badgeSize,
-                                      const OutlineBadge::BadgeConfig &cfg) const;
+                                      const OutlineBadge::BadgeConfig &cfg,
+                                      int dividerAfterIndex = -1,
+                                      QList<QRectF> *outDividerRects = nullptr) const;
     EffectWindow *findRecentWindow() const;
     void updateRecentWindowsFromHistory();
     void renderBadge(const RenderTarget &renderTarget,
@@ -261,7 +263,8 @@ private:
     void renderOffscreenJumpTargets(const RenderTarget &renderTarget,
                                    const RenderViewport &viewport,
                                    const QList<QPair<QChar, EffectWindow *>> &targets,
-                                   int badgeSize);
+                                   int badgeSize,
+                                   int dividerAfterIndex = -1);
     QRectF renderHudHintBar(const RenderTarget &renderTarget,
                             const RenderViewport &viewport,
                             const QRectF &pillsBounds = QRectF());

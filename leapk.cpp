@@ -1164,6 +1164,13 @@ QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity, EffectWindow
     const bool isFocus = (w == m_activeWindow);
     const bool isRecentInHistory = (w != nullptr && m_recentWindows.contains(w) && !isFocus);
     const bool isMarked = (w != nullptr && m_markedWindows.contains(w));
+    const bool isPinned = (w != nullptr && m_pinnedWindows.contains(w));
+
+    if (isPinned && !isFocus && !isMarked) {
+        color = QColor(241, 196, 15);
+        color.setAlphaF(qBound(0.1, m_visibilityState.visibilityOpacity, 1.0));
+        return color;
+    }
 
     int rankActive = m_stylePrecedence.indexOf(QStringLiteral("Active"));
     int rankMarked = m_stylePrecedence.indexOf(QStringLiteral("Marked"));
@@ -6114,7 +6121,9 @@ QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
     const QList<QPair<QChar, EffectWindow *>> &targets,
     const RenderViewport &viewport,
     int badgeSize,
-    const OutlineBadge::BadgeConfig &cfg) const
+    const OutlineBadge::BadgeConfig &cfg,
+    int dividerAfterIndex,
+    QList<QRectF> *outDividerRects) const
 {
     if (targets.isEmpty()) {
         return {};
@@ -6146,22 +6155,26 @@ QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
         const bool hasThumb = cfg.hudShowThumbnail && m_thumbnailCache.contains(target);
         const QSize thumbSize = hasThumb ? m_thumbnailCache.value(target).size() : QSize();
         const bool isStashed = isWindowInStash(target);
+        const bool isPinned = isWindowPinned(target);
 
         const QSizeF sz = OutlineBadge::computeHudPillSize(cfg, loc, caption, badgeSize, scale,
                                                            customLabel, hasIcon, hasThumb, thumbSize,
-                                                           recentKey, isRecent, 0, isStashed);
+                                                           recentKey, isRecent, 0, isStashed, isPinned);
         pillSizes.append(sz);
     }
 
     const int hudPos = m_badgePreviewActive ? m_previewBadgeHudPosition : m_badgeHudPosition;
+    const OutlineBadge::BadgeConfig &hudCfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
+    const qreal hudRowGap = (!hudCfg.hudGroupWindows && !m_subLeapActive) ? 40.0 : 12.0;
     const qreal topMargin = (hudPos == 1) ? qRound(58.0 * scale) : 24.0;
-    return OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, topMargin);
+    return OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, topMargin, 12.0, hudRowGap, dividerAfterIndex, 28.0, outDividerRects);
 }
 
 void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &renderTarget,
                                                            const RenderViewport &viewport,
                                                            const QList<QPair<QChar, EffectWindow *>> &targets,
-                                                           int badgeSize)
+                                                           int badgeSize,
+                                                           int dividerAfterIndex)
 {
     if (targets.isEmpty()) {
         return;
@@ -6205,6 +6218,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         const bool isMostRecent = (target == findRecentWindow());
         const QString recentKey = isMostRecent ? (m_badgePreviewActive ? m_previewBadgeConfig.jumpRecentKey : m_jumpRecentKey) : QString();
         const bool isStashed = isWindowInStash(target);
+        const bool isPinned = isWindowPinned(target);
 
         QColor bgCol;
         if (isMarked) {
@@ -6223,7 +6237,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
 
         const QString caption = target->caption();
         QString customLabel = m_markedWindowLabels.value(target);
-        if (isWindowPinned(target)) {
+        if (isPinned) {
             customLabel = customLabel.isEmpty() ? QStringLiteral("📌") : QStringLiteral("📌 %1").arg(customLabel);
         }
 
@@ -6235,7 +6249,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             : QImage();
 
         const QImage img = OutlineBadge::renderOffscreenTargetPill(cfg, letter, bgCol, textCol, loc, caption, badgeSize, scale, customLabel,
-                                                                   icon, thumbnail, isMarked, recentKey, isRecent, groupCount, isStashed);
+                                                                   icon, thumbnail, isMarked, recentKey, isRecent, groupCount, isStashed, isPinned);
         auto uploaded = GLTexture::upload(img);
         if (!uploaded) {
             continue;
@@ -6262,7 +6276,8 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     const OutlineBadge::BadgeConfig &hudCfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
     const qreal hudRowGap = (!hudCfg.hudGroupWindows && !m_subLeapActive) ? 40.0 : 12.0;
     const qreal topMargin = (hudPos == 1) ? qRound(58.0 * scale) : 24.0;
-    const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, topMargin, 12.0, hudRowGap);
+    QList<QRectF> dividerRects;
+    const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, topMargin, 12.0, hudRowGap, dividerAfterIndex, 28.0, &dividerRects);
 
     struct GroupFrameItem {
         std::shared_ptr<GLTexture> texture;
@@ -6436,6 +6451,40 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         item.texture->bind();
         vbo->render(GL_TRIANGLES);
         item.texture->unbind();
+    }
+
+    // 3. Render HUD divider lines between groups
+    for (const QRectF &dRect : dividerRects) {
+        const bool isVert = (dRect.height() >= dRect.width());
+        const QImage divImg = OutlineBadge::renderHudDividerLine(dRect.size(), scale, isVert);
+        auto divTex = GLTexture::upload(divImg);
+        if (!divTex) {
+            continue;
+        }
+        divTex->setFilter(GL_LINEAR);
+        divTex->setWrapMode(GL_CLAMP_TO_EDGE);
+
+        const float x0 = dRect.left() * scale;
+        const float y0 = dRect.top() * scale;
+        const float x1 = dRect.right() * scale;
+        const float y1 = dRect.bottom() * scale;
+
+        const std::array<GLVertex2D, 6> verts = {{
+            {QVector2D(x0, y0), QVector2D(0.0f, 0.0f)},
+            {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+            {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+            {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+            {QVector2D(x1, y1), QVector2D(1.0f, 1.0f)},
+            {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+        }};
+
+        auto vbo = GLVertexBuffer::streamingBuffer();
+        vbo->setVertices(verts);
+
+        shader->setUniform(GLShader::Mat4Uniform::TextureMatrix, divTex->matrix(NormalizedCoordinates));
+        divTex->bind();
+        vbo->render(GL_TRIANGLES);
+        divTex->unbind();
     }
 
     if (scissorWasEnabled) {
@@ -7313,9 +7362,10 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     }
 
     const bool showContinuousBadges = m_outlineEnabled && m_badgeConfig.windowBadgesEnabled && (m_badgeDisplayMode == 1) && !inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked;
-    const bool hasBadgesToDraw = (showContinuousBadges || (m_outlineEnabled && m_jumpMode) || m_badgePreviewActive);
+    const bool hasPinnedToDraw = !m_pinnedWindows.isEmpty() && m_outlineEnabled && !inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked;
+    const bool hasBadgesToDraw = (showContinuousBadges || (m_outlineEnabled && m_jumpMode) || m_badgePreviewActive || hasPinnedToDraw);
 
-    if ((!m_outlineEnabled && !m_badgePreviewActive) || (!drawOutline && !drawDelayed && !hasRecentToDraw && !hasMarkedToDraw && !hasBadgesToDraw)) {
+    if ((!m_outlineEnabled && !m_badgePreviewActive) || (!drawOutline && !drawDelayed && !hasRecentToDraw && !hasMarkedToDraw && !hasPinnedToDraw && !hasBadgesToDraw)) {
 #ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
         return true;
 #else
@@ -7354,6 +7404,29 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
 
             const qreal inactiveOpacity = m_visibilityState.visibilityOpacity;
             renderOutline(renderTarget, viewport, m_outlineCache[marked], deviceRegion, marked, inactiveOpacity);
+        }
+    }
+
+    if (hasPinnedToDraw) {
+        for (EffectWindow *pinned : m_pinnedWindows) {
+            if (!pinned || pinned == w || m_markedWindows.contains(pinned)
+                || !isEligibleOutlineWindow(pinned)
+                || pinned->isDeleted() || pinned->isMinimized()
+                || pinned->isHiddenByShowDesktop() || !pinned->isOnCurrentDesktop()
+                || (m_hideOnFullScreen && pinned->isFullScreen())
+                || isBlockingPopup(pinned)) {
+                continue;
+            }
+
+            const QRectF pinnedGeo = pinned->frameGeometry();
+            const qreal pinnedWidth = std::max<qreal>(1.0, m_width - m_markInactiveWidthReduction);
+            if (!m_outlineCache.contains(pinned) || m_lastGeometry.value(pinned) != pinnedGeo || m_outlineCache.value(pinned).borderWidth != pinnedWidth) {
+                cacheWindowOutline(pinned, pinnedGeo, pinnedWidth);
+                m_lastGeometry[pinned] = pinnedGeo;
+            }
+
+            const qreal inactiveOpacity = m_visibilityState.visibilityOpacity;
+            renderOutline(renderTarget, viewport, m_outlineCache[pinned], deviceRegion, pinned, inactiveOpacity);
         }
     }
 
@@ -7465,6 +7538,60 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         }
     }
 
+    if (!m_jumpMode && !showContinuousBadges && hasPinnedToDraw) {
+        const int badgeH = m_badgeConfig.windowBadgeSize;
+        const QRectF screenRect = viewport.renderRect();
+        for (EffectWindow *target : m_pinnedWindows) {
+            if (!target || target->isDeleted() || !isEligibleTargetWindow(target)
+                || target->isMinimized() || !target->isOnCurrentDesktop()
+                || !target->isVisible()
+                || (m_hideOnFullScreen && target->isFullScreen())) {
+                continue;
+            }
+            const QRectF geo = target->frameGeometry();
+            const QRectF visibleWindowGeo = geo.intersected(screenRect);
+            if (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50) {
+                continue;
+            }
+
+            const bool isMarked = m_markedWindows.contains(target);
+            QColor bgCol = isMarked ? m_markedWindows.value(target) : QColor(241, 196, 15);
+            const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
+            QString customLabel = m_markedWindowLabels.value(target);
+            customLabel = customLabel.isEmpty() ? QStringLiteral("📌") : QStringLiteral("📌 %1").arg(customLabel);
+
+            const qreal badgeW = OutlineBadge::computeBadgeWidth(m_badgeConfig, badgeH, customLabel);
+            QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, badgeW, badgeH, m_badgeMargin);
+            if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
+            if (badgeRect.right() > screenRect.right() - 4.0) badgeRect.moveRight(screenRect.right() - 4.0);
+            if (badgeRect.top() < screenRect.top() + 4.0) badgeRect.moveTop(screenRect.top() + 4.0);
+            if (badgeRect.bottom() > screenRect.bottom() - 4.0) badgeRect.moveBottom(screenRect.bottom() - 4.0);
+
+            if (isBadgeOccluded(target, badgeRect)) {
+                const int altPositions[] = { 4 /* Center */, 1 /* Top */, 0 /* TopLeft */, 2 /* TopRight */, 7 /* Bottom */, 6 /* BottomLeft */, 8 /* BottomRight */, 3 /* Left */, 5 /* Right */ };
+                bool foundVisiblePosition = false;
+                for (int altPos : altPositions) {
+                    if (altPos == m_badgePosition) continue;
+                    QRectF altRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, altPos, badgeW, badgeH, m_badgeMargin);
+                    if (altRect.left() < screenRect.left() + 4.0) altRect.moveLeft(screenRect.left() + 4.0);
+                    if (altRect.right() > screenRect.right() - 4.0) altRect.moveRight(screenRect.right() - 4.0);
+                    if (altRect.top() < screenRect.top() + 4.0) altRect.moveTop(screenRect.top() + 4.0);
+                    if (altRect.bottom() > screenRect.bottom() - 4.0) altRect.moveBottom(screenRect.bottom() - 4.0);
+
+                    if (!isBadgeOccluded(target, altRect)) {
+                        badgeRect = altRect;
+                        foundVisiblePosition = true;
+                        break;
+                    }
+                }
+                if (!foundVisiblePosition) {
+                    continue;
+                }
+            }
+            renderBadge(renderTarget, viewport, badgeRect, QChar(), bgCol, textCol, false, m_badgeConfig.windowBadgeSize, customLabel, target);
+        }
+    }
+
     if (m_jumpMode && !inhibited) {
         const int jumpH = m_badgeConfig.jumpBadgeSize;
         const QRectF screenRect = viewport.renderRect();
@@ -7475,7 +7602,6 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             // In Sub-Leap disambiguation mode, distribute targets mutually exclusively:
             // Visible unobscured windows on current desktop get badges on the windows;
             // covered, minimized, or other-desktop windows appear in the edge HUD.
-            const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled;
             for (const auto &pair : m_subLeapTargets) {
                 EffectWindow *target = pair.second;
                 if (!target || target->isDeleted() || !isEligibleTargetWindow(target)) {
@@ -7486,12 +7612,13 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                     if (target->isOnCurrentDesktop() && !target->isMinimized()) {
                         onscreenTargets.append(pair);
                     }
+                    if (isWindowPinned(target) || m_stashModeActive) {
+                        offscreenTargets.append(pair);
+                    }
                     continue;
                 }
 
-                if (forceHud) {
-                    offscreenTargets.append(pair);
-                }
+                const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(target) || m_stashModeActive;
 
                 const bool onCurrent = target->isOnCurrentDesktop();
                 const bool minimized = target->isMinimized();
@@ -7543,9 +7670,9 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                         repWin = firstWin;
                     }
 
-                    const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled;
+                    const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(repWin) || m_stashModeActive;
                     if (forceHud) {
-                        if (winList.size() > 1 || firstWin != w) {
+                        if (winList.size() > 1 || firstWin != w || isWindowPinned(repWin) || m_stashModeActive) {
                             offscreenTargets.append(qMakePair(letter, repWin));
                         }
                     } else {
@@ -7605,10 +7732,13 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                             if (target->isOnCurrentDesktop() && !target->isMinimized()) {
                                 onscreenTargets.append(qMakePair(directKey, target));
                             }
+                            if (isWindowPinned(target) || m_stashModeActive) {
+                                offscreenTargets.append(qMakePair(directKey, target));
+                            }
                             continue;
                         }
 
-                        const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled;
+                        const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(target) || m_stashModeActive;
                         if (forceHud) {
                             offscreenTargets.append(qMakePair(directKey, target));
                         }
@@ -7640,7 +7770,39 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             }
         }
 
-        QList<QRectF> hudRects = computeHudPillRects(offscreenTargets, viewport, m_badgeConfig.hudBadgeSize, m_badgeConfig);
+        // Partition offscreenTargets into left and right groups with dividing line
+        int dividerAfterIndex = -1;
+        if (!offscreenTargets.isEmpty()) {
+            QList<QPair<QChar, EffectWindow *>> leftTargets;
+            QList<QPair<QChar, EffectWindow *>> rightTargets;
+
+            if (m_stashModeActive) {
+                // In Stash mode: workspace windows on the left, stashed windows on the right
+                for (const auto &pair : offscreenTargets) {
+                    if (isWindowInStash(pair.second)) {
+                        rightTargets.append(pair);
+                    } else {
+                        leftTargets.append(pair);
+                    }
+                }
+            } else {
+                // In Normal and Super Jump mode: pinned windows on the left, regular windows on the right
+                for (const auto &pair : offscreenTargets) {
+                    if (isWindowPinned(pair.second)) {
+                        leftTargets.append(pair);
+                    } else {
+                        rightTargets.append(pair);
+                    }
+                }
+            }
+
+            if (!leftTargets.isEmpty() && !rightTargets.isEmpty()) {
+                dividerAfterIndex = leftTargets.size() - 1;
+            }
+            offscreenTargets = leftTargets + rightTargets;
+        }
+
+        QList<QRectF> hudRects = computeHudPillRects(offscreenTargets, viewport, m_badgeConfig.hudBadgeSize, m_badgeConfig, dividerAfterIndex);
 
         for (const auto &pair : onscreenTargets) {
             const QChar letter = pair.first;
@@ -7704,7 +7866,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                     } else {
                         if (!m_badgeConfig.hudIncludeAll) {
                             offscreenTargets.append(qMakePair(letter, target));
-                            hudRects = computeHudPillRects(offscreenTargets, viewport, m_badgeConfig.hudBadgeSize, m_badgeConfig);
+                            hudRects = computeHudPillRects(offscreenTargets, viewport, m_badgeConfig.hudBadgeSize, m_badgeConfig, dividerAfterIndex);
                         }
                         continue;
                     }
@@ -7714,7 +7876,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         }
 
         if (!offscreenTargets.isEmpty()) {
-            renderOffscreenJumpTargets(renderTarget, viewport, offscreenTargets, m_badgeConfig.hudBadgeSize);
+            renderOffscreenJumpTargets(renderTarget, viewport, offscreenTargets, m_badgeConfig.hudBadgeSize, dividerAfterIndex);
         } else {
             const QRectF hintRect = renderHudHintBar(renderTarget, viewport, QRectF());
             renderHudModeHeader(renderTarget, viewport, QRectF(), hintRect);
