@@ -178,6 +178,15 @@ install(TARGETS leapk-custom-marker
     DESTINATION ${KDE_INSTALL_LIBEXECDIR}
 )
 
+# --- Standalone Workspace Manager helper ---
+add_executable(leapk-workspace-manager workspacemanager.cpp)
+target_link_libraries(leapk-workspace-manager PRIVATE
+    Qt6::Widgets
+)
+install(TARGETS leapk-workspace-manager
+    DESTINATION ${KDE_INSTALL_LIBEXECDIR}
+)
+
 # --- Standalone Tray Companion & Settings GUI ---
 add_executable(leapk-tray
     tray.cpp
@@ -266,6 +275,14 @@ add_custom_target(active-window-outline-colorpicker ALL
     COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-custom-marker active-window-outline-colorpicker
     DEPENDS leapk-custom-marker
 )
+add_custom_target(kleap-workspace-manager ALL
+    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-workspace-manager kleap-workspace-manager
+    DEPENDS leapk-workspace-manager
+)
+add_custom_target(active-window-outline-workspace-manager ALL
+    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-workspace-manager active-window-outline-workspace-manager
+    DEPENDS leapk-workspace-manager
+)
 add_custom_target(leapk-cli ALL
     COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-settings leapk
     COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-settings kleap
@@ -343,6 +360,11 @@ if(OUTLINE_BUILD_TESTS)
     target_include_directories(outline-persistentmark-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(outline-persistentmark-test PRIVATE Qt6::Core Qt6::Gui)
     add_test(NAME outline-persistentmark COMMAND outline-persistentmark-test)
+
+    add_executable(outline-workspace-test tests/workspace_test.cpp)
+    target_include_directories(outline-workspace-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-workspace-test PRIVATE Qt6::Core Qt6::Gui)
+    add_test(NAME outline-workspace COMMAND outline-workspace-test)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)

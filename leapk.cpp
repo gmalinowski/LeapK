@@ -683,6 +683,13 @@ void ActiveWindowOutlineEffect::initShortcuts()
     KGlobalAccel::self()->setGlobalShortcut(markWithColorAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_Space));
     connect(markWithColorAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotMarkWindowWithColor);
 
+    QAction *workspaceManagerAction = new QAction(this);
+    workspaceManagerAction->setObjectName(QStringLiteral("OpenWorkspaceManager"));
+    workspaceManagerAction->setText(QStringLiteral("LeapK: Open Workspace Manager"));
+    KGlobalAccel::self()->setDefaultShortcut(workspaceManagerAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Space));
+    KGlobalAccel::self()->setGlobalShortcut(workspaceManagerAction, QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Space));
+    connect(workspaceManagerAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotOpenWorkspaceManager);
+
     QAction *toggleGroupAction = new QAction(this);
     toggleGroupAction->setObjectName(QStringLiteral("ToggleHudGrouping"));
     toggleGroupAction->setText(QStringLiteral("LeapK: Toggle HUD Window Grouping"));
@@ -927,7 +934,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_markShowLetterBadges = (m_badgeDisplayMode != 2);
     m_badgesAlwaysVisible = (m_badgeDisplayMode == 1);
     m_jumpTargets = qBound(0, config.readEntry("JumpTargets", 0), 3);
-    m_activeHudView = qBound(0, config.readEntry("ActiveHudView", 0), 3);
+    m_activeHudView = config.readEntry("ActiveHudView", 0);
     m_badgeTextureCache.clear();
     m_thumbnailCache.clear();
     m_lastCaptureTimestamp.clear();
@@ -952,6 +959,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     updateAnimationTimer();
 
     m_persistentMarks = LeapKMarks::loadPersistentMarks();
+    refreshWorkspaces();
     for (EffectWindow *w : effects->stackingOrder()) {
         applyPersistentMarksToWindow(w);
     }
@@ -2426,6 +2434,11 @@ void ActiveWindowOutlineEffect::markWindowWithColor()
     slotMarkWindowWithColor();
 }
 
+void ActiveWindowOutlineEffect::openWorkspaceManager()
+{
+    slotOpenWorkspaceManager();
+}
+
 void ActiveWindowOutlineEffect::clearAllMarks()
 {
     m_markedWindows.clear();
@@ -3318,6 +3331,90 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
     dialog->show();
 }
 
+void ActiveWindowOutlineEffect::refreshWorkspaces()
+{
+    m_workspaces = LeapKWorkspace::loadWorkspaces();
+    const int totalViews = qMax(1, 3 + m_workspaces.size());
+    if (m_activeHudView >= totalViews || m_activeHudView < 0) {
+        m_activeHudView = 0;
+    }
+}
+
+void ActiveWindowOutlineEffect::slotOpenWorkspaceManager()
+{
+    EffectWindow *target = effects ? effects->activeWindow() : nullptr;
+    if (!isEligibleOutlineWindow(target)) {
+        target = m_activeWindow;
+    }
+
+    QStringList candidateDirs;
+    candidateDirs << QDir::homePath() + QStringLiteral("/.local/bin");
+#ifdef COLORPICKER_INSTALL_DIR
+    candidateDirs << QStringLiteral(COLORPICKER_INSTALL_DIR);
+#endif
+    candidateDirs << QCoreApplication::applicationDirPath()
+                  << QStringLiteral("/usr/libexec")
+                  << QStringLiteral("/usr/lib/libexec")
+                  << QStringLiteral("/usr/local/bin")
+                  << QStringLiteral("/usr/bin");
+
+    QString wsManagerExe = QStandardPaths::findExecutable(QStringLiteral("leapk-workspace-manager"), candidateDirs);
+    if (wsManagerExe.isEmpty()) {
+        wsManagerExe = QStandardPaths::findExecutable(QStringLiteral("kleap-workspace-manager"), candidateDirs);
+    }
+    if (wsManagerExe.isEmpty()) {
+        wsManagerExe = QStandardPaths::findExecutable(QStringLiteral("active-window-outline-workspace-manager"), candidateDirs);
+    }
+
+    if (wsManagerExe.isEmpty()) {
+        return;
+    }
+
+    refreshWorkspaces();
+
+    const auto desktops = target ? target->desktops() : QList<VirtualDesktop *>();
+    const int desktopNum = (target && !desktops.isEmpty() && !target->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+    const QString desktopName = (target && !desktops.isEmpty() && !target->isOnAllDesktops()) ? desktops.first()->name() : QString();
+    const QString appClass = target ? target->windowClass() : QString();
+    const QString caption = target ? target->caption() : QString();
+
+    QString assignedWsId;
+    for (const auto &ws : m_workspaces) {
+        if (LeapKWorkspace::matchesWorkspace(ws, appClass, caption, desktopNum)) {
+            assignedWsId = ws.id;
+            break;
+        }
+    }
+
+    QStringList args;
+    args << appClass;
+    args << caption;
+    args << QString::number(desktopNum);
+    args << desktopName;
+    args << assignedWsId;
+
+    QProcess *process = new QProcess(this);
+    connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
+            this, [this, process](int exitCode, QProcess::ExitStatus exitStatus) {
+        process->deleteLater();
+        if (exitStatus == QProcess::NormalExit && exitCode == 0) {
+            refreshWorkspaces();
+            if (effects) {
+                effects->addRepaintFull();
+            }
+            if (m_jumpMode) {
+                m_jumpLetterToWindow = assignJumpLetters();
+                m_badgeTextureCache.clear();
+            }
+        }
+    });
+    connect(process, &QProcess::errorOccurred, this, [process]() {
+        process->deleteLater();
+    });
+
+    process->start(wsManagerExe, args);
+}
+
 void ActiveWindowOutlineEffect::slotToggleHudGrouping()
 {
     m_badgeConfig.hudGroupWindows = !m_badgeConfig.hudGroupWindows;
@@ -3337,9 +3434,11 @@ void ActiveWindowOutlineEffect::slotToggleHudGrouping()
 
 void ActiveWindowOutlineEffect::slotCycleHudView(int delta)
 {
-    m_activeHudView = (m_activeHudView + delta) % 4;
+    refreshWorkspaces();
+    const int totalViews = qMax(1, 3 + m_workspaces.size());
+    m_activeHudView = (m_activeHudView + delta) % totalViews;
     if (m_activeHudView < 0) {
-        m_activeHudView += 4;
+        m_activeHudView += totalViews;
     }
     if (effects && effects->config()) {
         KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
@@ -3410,15 +3509,19 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
         const bool isMarked = m_markedWindows.contains(w);
         const bool onCurrent = w->isOnCurrentDesktop();
 
-        if (m_activeHudView == 1) { // View 1: Smart Workspaces / Marked only
-            if (!isMarked) {
+        const auto desktops = w->desktops();
+        const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+
+        if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) { // Workspace view: only windows matching this workspace
+            const auto &ws = m_workspaces.at(m_activeHudView - 1);
+            if (!LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum)) {
                 continue;
             }
-        } else if (m_activeHudView == 2) { // View 2: Schowek (Stash / Minimized only)
+        } else if (m_activeHudView == m_workspaces.size() + 1) { // Schowek (Stash / Minimized only)
             if (!w->isMinimized()) {
                 continue;
             }
-        } else if (m_activeHudView == 3) { // View 3: All windows across all virtual desktops
+        } else if (m_activeHudView == m_workspaces.size() + 2) { // All windows across all virtual desktops
             // include all
         } else { // View 0: Standard configured scope
             if (m_jumpTargets == 3) { // Marked windows only (all desktops)
@@ -5115,9 +5218,28 @@ void ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTarge
     const qreal scale = viewport.scale();
     const QRectF screenRect = viewport.renderRect();
     const bool isPolish = (QLocale().language() == QLocale::Polish);
-    const int hintBarKey = (m_subLeapActive ? 10 : 0) + m_activeHudView + (isPolish ? 100 : 0) + qRound(scale * 1000);
+
+    QString customViewName;
+    QColor customViewColor;
+    if (m_activeHudView == 0) {
+        customViewName = isPolish ? QStringLiteral("Widok: 💻 Standard") : QStringLiteral("View: 💻 Standard");
+        customViewColor = QColor(230, 126, 34); // Orange
+    } else if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
+        const auto &ws = m_workspaces.at(m_activeHudView - 1);
+        customViewName = (isPolish ? QStringLiteral("Widok: 📁 ") : QStringLiteral("View: 📁 ")) + ws.name;
+        customViewColor = ws.color.isValid() ? ws.color : QColor(52, 152, 219);
+    } else if (m_activeHudView == m_workspaces.size() + 1) {
+        customViewName = isPolish ? QStringLiteral("Widok: 📦 Schowek") : QStringLiteral("View: 📦 Stash");
+        customViewColor = QColor(46, 204, 113); // Green
+    } else {
+        customViewName = isPolish ? QStringLiteral("Widok: 🌐 Wszystkie") : QStringLiteral("View: 🌐 All");
+        customViewColor = QColor(155, 89, 182); // Purple
+    }
+
+    const int nameHash = (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) ? (qHash(m_workspaces.at(m_activeHudView - 1).name) % 10000) : 0;
+    const int hintBarKey = (m_subLeapActive ? 100000 : 0) + m_activeHudView * 1000 + (isPolish ? 100 : 0) + nameHash + qRound(scale * 10);
     if (!m_hudHintBarTexture || m_hudHintBarCacheKey != hintBarKey) {
-        const QImage hintImg = OutlineBadge::renderHudActionHintBar(isPolish, scale, m_subLeapActive, m_activeHudView);
+        const QImage hintImg = OutlineBadge::renderHudActionHintBar(isPolish, scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor);
         auto uploaded = GLTexture::upload(hintImg);
         if (uploaded) {
             uploaded->setFilter(GL_LINEAR);

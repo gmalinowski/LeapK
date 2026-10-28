@@ -1587,24 +1587,27 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
     return img;
 }
 
-inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap = false, int activeView = 0)
+inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor())
 {
-    QString viewName;
-    if (isPolish) {
-        switch (activeView) {
-        case 1: viewName = QStringLiteral("Widok: 🏷 Grupy"); break;
-        case 2: viewName = QStringLiteral("Widok: 📦 Schowek"); break;
-        case 3: viewName = QStringLiteral("Widok: 🌐 Wszystkie"); break;
-        default: viewName = QStringLiteral("Widok: 💻 Standard"); break;
-        }
-    } else {
-        switch (activeView) {
-        case 1: viewName = QStringLiteral("View: 🏷 Workspaces"); break;
-        case 2: viewName = QStringLiteral("View: 📦 Stash"); break;
-        case 3: viewName = QStringLiteral("View: 🌐 All"); break;
-        default: viewName = QStringLiteral("View: 💻 Standard"); break;
+    QString viewName = customViewName;
+    if (viewName.isEmpty()) {
+        if (isPolish) {
+            switch (activeView) {
+            case 1: viewName = QStringLiteral("Widok: 🏷 Grupy"); break;
+            case 2: viewName = QStringLiteral("Widok: 📦 Schowek"); break;
+            case 3: viewName = QStringLiteral("Widok: 🌐 Wszystkie"); break;
+            default: viewName = QStringLiteral("Widok: 💻 Standard"); break;
+            }
+        } else {
+            switch (activeView) {
+            case 1: viewName = QStringLiteral("View: 🏷 Workspaces"); break;
+            case 2: viewName = QStringLiteral("View: 📦 Stash"); break;
+            case 3: viewName = QStringLiteral("View: 🌐 All"); break;
+            default: viewName = QStringLiteral("View: 💻 Standard"); break;
+            }
         }
     }
+    const QColor viewColor = customViewColor.isValid() ? customViewColor : QColor(230, 126, 34);
 
     struct Segment {
         QString key;
@@ -1639,7 +1642,7 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
                 {QStringLiteral("[Alt+Litera]"), QStringLiteral("Przyciągnij"), QColor(241, 196, 15)},
                 {QStringLiteral("[Ctrl+Litera]"), QStringLiteral("Schowek (:hide)"), QColor(46, 204, 113)},
                 {QStringLiteral("[Tab]"), QStringLiteral("Grupy"), QColor(155, 89, 182)},
-                {QStringLiteral("[, / .]"), viewName, QColor(230, 126, 34)}
+                {QStringLiteral("[, / .]"), viewName, viewColor}
             };
         } else {
             segments = {
@@ -1648,7 +1651,7 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
                 {QStringLiteral("[Alt+Key]"), QStringLiteral("Pull here"), QColor(241, 196, 15)},
                 {QStringLiteral("[Ctrl+Key]"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
                 {QStringLiteral("[Tab]"), QStringLiteral("Groups"), QColor(155, 89, 182)},
-                {QStringLiteral("[, / .]"), viewName, QColor(230, 126, 34)}
+                {QStringLiteral("[, / .]"), viewName, viewColor}
             };
         }
     }

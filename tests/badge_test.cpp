@@ -962,6 +962,11 @@ void testHudActionHintBar()
         assert(!barEn.isNull());
         assert(barEn.width() > 100);
     }
+
+    // 4. Custom Workspace View
+    QImage barWs = OutlineBadge::renderHudActionHintBar(true, 1.0, false, 1, QStringLiteral("Widok: 📁 Backend"), QColor(52, 152, 219));
+    assert(!barWs.isNull());
+    assert(barWs.width() > 100);
 }
 
 int main(int argc, char *argv[])

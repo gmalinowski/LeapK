@@ -34,6 +34,7 @@
 #include "visibilitystate.h"
 #include "keyboardlayouthelper.h"
 #include "persistentmarkhelper.h"
+#include "workspacehelper.h"
 
 class QFileSystemWatcher;
 
@@ -93,6 +94,7 @@ public Q_SLOTS:
     void triggerJumpMode();
     void toggleWindowMark();
     void markWindowWithColor();
+    void openWorkspaceManager();
     void clearAllMarks();
     void prevRecentWindow();
     void nextRecentWindow();
@@ -170,6 +172,7 @@ private Q_SLOTS:
     void slotToggleAction();
     void slotMarkWindowToggle();
     void slotMarkWindowWithColor();
+    void slotOpenWorkspaceManager();
     void slotToggleHudGrouping();
     void slotCycleHudView(int delta = 1);
     void slotTriggerJumpMode();
@@ -213,6 +216,7 @@ private:
     void setWindowMark(EffectWindow *w, const QColor &color, const QChar &letter = QChar(), const QString &label = QString());
     void applyPersistentMarksToWindow(EffectWindow *w);
     void refreshPersistentMarksForWindows();
+    void refreshWorkspaces();
     QColor generateRandomMarkColor() const;
     QColor detectSmartAccentForWindow(EffectWindow *w) const;
     QChar nextAvailableLetter() const;
@@ -443,6 +447,9 @@ private:
 
     // Persistent Marks (saved across desktop sessions)
     QList<LeapKMarks::PersistentMarkRule> m_persistentMarks;
+
+    // Workspaces (Smart Workspaces / project spaces)
+    QList<LeapKWorkspace::WorkspaceInfo> m_workspaces;
 
     // History Navigation
     bool m_isHistoryNavigating = false;
