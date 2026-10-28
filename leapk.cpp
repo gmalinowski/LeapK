@@ -1424,6 +1424,7 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
     m_markedWindows.remove(w);
     m_markedWindowLetters.remove(w);
     m_markedWindowLabels.remove(w);
+    m_closingWindows.remove(w);
     for (auto it = m_jumpLetterToWindow.begin(); it != m_jumpLetterToWindow.end(); ) {
         if (it.value() == w) {
             it = m_jumpLetterToWindow.erase(it);
@@ -2693,6 +2694,9 @@ void ActiveWindowOutlineEffect::renderBadgePreview(const RenderTarget &renderTar
         if (!isEligibleTargetWindow(w)) {
             continue;
         }
+        if (m_closingWindows.contains(w)) {
+            continue;
+        }
         targetWindows.append(w);
     }
 
@@ -3328,6 +3332,17 @@ void ActiveWindowOutlineEffect::slotToggleHudGrouping()
     }
 }
 
+void ActiveWindowOutlineEffect::slotCycleHudView()
+{
+    m_activeHudView = (m_activeHudView + 1) % 4;
+    if (m_subLeapActive) {
+        exitSubLeapMode();
+    }
+    m_jumpLetterToWindow = assignJumpLetters();
+    m_badgeTextureCache.clear();
+    effects->addRepaintFull();
+}
+
 bool ActiveWindowOutlineEffect::isEligibleTargetWindow(EffectWindow *w) const
 {
     if (effects && effects->isScreenLocked()) {
@@ -3377,27 +3392,42 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
         if (!isEligibleTargetWindow(w)) {
             continue;
         }
+        if (m_closingWindows.contains(w)) {
+            continue;
+        }
 
         const bool isMarked = m_markedWindows.contains(w);
         const bool onCurrent = w->isOnCurrentDesktop();
 
-        if (m_jumpTargets == 3) { // Marked windows only (all desktops)
+        if (m_activeHudView == 1) { // View 1: Smart Workspaces / Marked only
             if (!isMarked) {
                 continue;
             }
-        } else if (m_jumpTargets == 0) { // Current desktop visible + marked all desktops
-            if (!onCurrent && !isMarked) {
+        } else if (m_activeHudView == 2) { // View 2: Schowek (Stash / Minimized only)
+            if (!w->isMinimized()) {
                 continue;
             }
-            if (w->isMinimized() && !isMarked) {
-                continue;
-            }
-        } else if (m_jumpTargets == 1) { // Current desktop all windows (visible & minimized) + marked all desktops
-            if (!onCurrent && !isMarked) {
-                continue;
-            }
-        } else { // 2: All windows across all virtual desktops (visible & minimized)
+        } else if (m_activeHudView == 3) { // View 3: All windows across all virtual desktops
             // include all
+        } else { // View 0: Standard configured scope
+            if (m_jumpTargets == 3) { // Marked windows only (all desktops)
+                if (!isMarked) {
+                    continue;
+                }
+            } else if (m_jumpTargets == 0) { // Current desktop visible + marked all desktops
+                if (!onCurrent && !isMarked) {
+                    continue;
+                }
+                if (w->isMinimized() && !isMarked) {
+                    continue;
+                }
+            } else if (m_jumpTargets == 1) { // Current desktop all windows (visible & minimized) + marked all desktops
+                if (!onCurrent && !isMarked) {
+                    continue;
+                }
+            } else { // 2: All windows across all virtual desktops (visible & minimized)
+                // include all
+            }
         }
 
         candidates.append(w);
@@ -3527,6 +3557,8 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_subLeapWindows.clear();
     m_subLeapLetterToWindow.clear();
     m_subLeapTargets.clear();
+    m_activeHudView = 0;
+    m_closingWindows.clear();
 
     refreshPersistentMarksForWindows();
 
@@ -3566,6 +3598,8 @@ void ActiveWindowOutlineEffect::cancelJumpMode()
     m_subLeapWindows.clear();
     m_subLeapLetterToWindow.clear();
     m_subLeapTargets.clear();
+    m_activeHudView = 0;
+    m_closingWindows.clear();
     m_letterWindowGroups.clear();
     if (m_jumpTimeoutTimer && m_jumpTimeoutTimer->isActive()) {
         m_jumpTimeoutTimer->stop();
@@ -3656,6 +3690,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
+    const Qt::KeyboardModifiers mods = e->modifiers();
+    const bool isShift = (mods & Qt::ShiftModifier);
+    const bool isAlt = (mods & Qt::AltModifier);
+    const bool isCtrl = (mods & Qt::ControlModifier);
+
     // 1. If currently in Sub-Leap disambiguation:
     if (m_subLeapActive) {
         if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace) {
@@ -3663,21 +3702,67 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
-        QString text = e->text().toUpper().trimmed();
-        if (text.isEmpty()) {
-            if (e->key() >= Qt::Key_A && e->key() <= Qt::Key_Z) {
-                text = QChar('A' + (e->key() - Qt::Key_A));
-            } else if (e->key() >= Qt::Key_0 && e->key() <= Qt::Key_9) {
-                text = QChar('0' + (e->key() - Qt::Key_0));
-            }
+        QString text;
+        if (e->key() >= Qt::Key_A && e->key() <= Qt::Key_Z) {
+            text = QChar('A' + (e->key() - Qt::Key_A));
+        } else if (e->key() >= Qt::Key_0 && e->key() <= Qt::Key_9) {
+            text = QChar('0' + (e->key() - Qt::Key_0));
+        } else {
+            text = e->text().toUpper().trimmed();
         }
 
         if (!text.isEmpty()) {
             const QChar keyChar = text.at(0);
             if (m_subLeapLetterToWindow.contains(keyChar)) {
                 EffectWindow *target = m_subLeapLetterToWindow.value(keyChar);
-                cancelJumpMode();
                 if (target && !target->isDeleted()) {
+                    if (isShift) {
+                        // Quick close selected window
+                        target->closeWindow();
+                        m_closingWindows.insert(target);
+                        m_subLeapWindows.removeAll(target);
+                        if (m_subLeapWindows.size() <= 1) {
+                            exitSubLeapMode();
+                            m_jumpLetterToWindow = assignJumpLetters();
+                            m_badgeTextureCache.clear();
+                            if (m_jumpLetterToWindow.isEmpty()) {
+                                cancelJumpMode();
+                            } else {
+                                if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+                                    m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+                                }
+                                effects->addRepaintFull();
+                            }
+                        } else {
+                            enterSubLeapForGroup(m_subLeapBaseKey, m_subLeapWindows);
+                        }
+                        return;
+                    }
+
+                    if (isCtrl) {
+                        // Toggle stash/minimized
+                        target->setMinimized(!target->isMinimized());
+                        m_badgeTextureCache.clear();
+                        if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+                            m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+                        }
+                        effects->addRepaintFull();
+                        return;
+                    }
+
+                    if (isAlt) {
+                        // Pull to current desktop and activate
+                        cancelJumpMode();
+                        effects->windowToDesktops(target, {effects->currentDesktop()});
+                        if (target->isMinimized()) {
+                            target->setMinimized(false);
+                        }
+                        effects->activateWindow(target);
+                        return;
+                    }
+
+                    // Plain letter: normal jump & activate
+                    cancelJumpMode();
                     m_expectedJumpTarget = target;
                     if (m_expectedJumpTargetTimer) {
                         m_expectedJumpTargetTimer->start(1000);
@@ -3692,8 +3777,8 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                         target->setMinimized(false);
                     }
                     effects->activateWindow(target);
+                    return;
                 }
-                return;
             }
         }
 
@@ -3712,6 +3797,12 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
+    if (e->key() == Qt::Key_QuoteLeft || e->key() == Qt::Key_AsciiTilde || e->key() == Qt::Key_F1
+        || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('`') || e->text().at(0) == QLatin1Char('~')))) {
+        slotCycleHudView();
+        return;
+    }
+
     bool isRecentKeyMatch = false;
     const QString rKey = m_jumpRecentKey.trimmed();
     if (rKey.compare(QLatin1String("Space"), Qt::CaseInsensitive) == 0 && e->key() == Qt::Key_Space) {
@@ -3721,8 +3812,8 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         if (!seq.isEmpty()) {
             const QKeyCombination comb = seq[0];
             const int keyOnly = comb.key();
-            const Qt::KeyboardModifiers mods = comb.keyboardModifiers();
-            if (e->key() == keyOnly && (mods == Qt::NoModifier || e->modifiers() == mods)) {
+            const Qt::KeyboardModifiers keyMods = comb.keyboardModifiers();
+            if (e->key() == keyOnly && (keyMods == Qt::NoModifier || e->modifiers() == keyMods)) {
                 isRecentKeyMatch = true;
             }
         }
@@ -3733,18 +3824,18 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         isRecentKeyMatch = true;
     }
 
-    if (isRecentKeyMatch) {
+    if (!isCtrl && !isAlt && isRecentKeyMatch) {
         slotJumpToRecentWindow();
         return;
     }
 
-    QString text = e->text().toUpper().trimmed();
-    if (text.isEmpty()) {
-        if (e->key() >= Qt::Key_A && e->key() <= Qt::Key_Z) {
-            text = QChar('A' + (e->key() - Qt::Key_A));
-        } else if (e->key() >= Qt::Key_0 && e->key() <= Qt::Key_9) {
-            text = QChar('0' + (e->key() - Qt::Key_0));
-        }
+    QString text;
+    if (e->key() >= Qt::Key_A && e->key() <= Qt::Key_Z) {
+        text = QChar('A' + (e->key() - Qt::Key_A));
+    } else if (e->key() >= Qt::Key_0 && e->key() <= Qt::Key_9) {
+        text = QChar('0' + (e->key() - Qt::Key_0));
+    } else {
+        text = e->text().toUpper().trimmed();
     }
 
     if (!text.isEmpty()) {
@@ -3752,15 +3843,103 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
         // Check if keyChar is a group trigger key with multiple windows
         if (m_groupJumpLetters.contains(keyChar) && m_groupJumpLetters.value(keyChar).size() > 1) {
-            enterSubLeapForGroup(keyChar, m_groupJumpLetters.value(keyChar));
+            const auto group = m_groupJumpLetters.value(keyChar);
+            if (isAlt) {
+                // Smart Workspace summon: pull all windows in group to current desktop!
+                cancelJumpMode();
+                VirtualDesktop *currDesktop = effects->currentDesktop();
+                EffectWindow *topWin = nullptr;
+                for (EffectWindow *w : group) {
+                    if (w && !w->isDeleted()) {
+                        effects->windowToDesktops(w, {currDesktop});
+                        if (w->isMinimized()) {
+                            w->setMinimized(false);
+                        }
+                        if (!topWin) {
+                            topWin = w;
+                        }
+                    }
+                }
+                if (topWin) {
+                    effects->activateWindow(topWin);
+                }
+                return;
+            }
+
+            if (isCtrl) {
+                // Toggle stash/minimized for whole group
+                bool anyVisible = false;
+                for (EffectWindow *w : group) {
+                    if (w && !w->isDeleted() && !w->isMinimized()) {
+                        anyVisible = true;
+                        break;
+                    }
+                }
+                for (EffectWindow *w : group) {
+                    if (w && !w->isDeleted()) {
+                        w->setMinimized(anyVisible);
+                    }
+                }
+                m_jumpLetterToWindow = assignJumpLetters();
+                m_badgeTextureCache.clear();
+                if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+                    m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+                }
+                effects->addRepaintFull();
+                return;
+            }
+
+            // Normal or Shift: enter Sub-Leap to disambiguate or pick individual window to close
+            enterSubLeapForGroup(keyChar, group);
             return;
         }
 
         // Check direct jump letter (either single marked window or unique direct letter)
         if (m_jumpLetterToWindow.contains(keyChar)) {
             EffectWindow *target = m_jumpLetterToWindow.value(keyChar);
-            cancelJumpMode();
             if (target && !target->isDeleted()) {
+                if (isShift) {
+                    // Quick close single window
+                    target->closeWindow();
+                    m_closingWindows.insert(target);
+                    m_jumpLetterToWindow = assignJumpLetters();
+                    m_badgeTextureCache.clear();
+                    if (m_jumpLetterToWindow.isEmpty()) {
+                        cancelJumpMode();
+                    } else {
+                        if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+                            m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+                        }
+                        effects->addRepaintFull();
+                    }
+                    return;
+                }
+
+                if (isCtrl) {
+                    // Quick stash toggle
+                    target->setMinimized(!target->isMinimized());
+                    m_jumpLetterToWindow = assignJumpLetters();
+                    m_badgeTextureCache.clear();
+                    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+                        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+                    }
+                    effects->addRepaintFull();
+                    return;
+                }
+
+                if (isAlt) {
+                    // Pull to current desktop and activate
+                    cancelJumpMode();
+                    effects->windowToDesktops(target, {effects->currentDesktop()});
+                    if (target->isMinimized()) {
+                        target->setMinimized(false);
+                    }
+                    effects->activateWindow(target);
+                    return;
+                }
+
+                // Normal jump & activate
+                cancelJumpMode();
                 m_expectedJumpTarget = target;
                 if (m_expectedJumpTargetTimer) {
                     m_expectedJumpTargetTimer->start(1000);
@@ -3775,8 +3954,8 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     target->setMinimized(false);
                 }
                 effects->activateWindow(target);
+                return;
             }
-            return;
         }
     }
 
@@ -4511,10 +4690,10 @@ QString ActiveWindowOutlineEffect::getWindowLocationString(EffectWindow *target)
             loc = isPolish ? QStringLiteral("Pulpit %1").arg(num) : tr("Desktop %1").arg(num);
         }
         if (target->isMinimized()) {
-            loc += isPolish ? QStringLiteral(" (zmin)") : QStringLiteral(" (min)");
+            loc += isPolish ? QStringLiteral(" [📦 Schowek]") : QStringLiteral(" [📦 Stash]");
         }
     } else if (target->isMinimized()) {
-        loc = isPolish ? QStringLiteral("Zminimalizowane") : tr("Minimized");
+        loc = isPolish ? QStringLiteral("📦 Schowek (Ukryte)") : QStringLiteral("📦 Stash (Hidden)");
     } else if (m_badgePreviewActive || target->isVisible()) {
         loc = isPolish ? QStringLiteral("Bieżący pulpit") : QStringLiteral("Current Desktop");
     } else {
@@ -4845,6 +5024,122 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         glEnable(GL_SCISSOR_TEST);
     }
 
+    glBlendFuncSeparate(previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha);
+    if (blendWasEnabled) {
+        glEnable(GL_BLEND);
+    } else {
+        glDisable(GL_BLEND);
+    }
+
+    QRectF allPillsBounds;
+    for (const QRectF &r : rects) {
+        if (allPillsBounds.isEmpty()) {
+            allPillsBounds = r;
+        } else {
+            allPillsBounds = allPillsBounds.united(r);
+        }
+    }
+    for (const GroupFrameItem &gf : groupFrames) {
+        allPillsBounds = allPillsBounds.united(gf.rect);
+    }
+    renderHudHintBar(renderTarget, viewport, allPillsBounds);
+}
+
+void ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTarget,
+                                                 const RenderViewport &viewport,
+                                                 const QRectF &pillsBounds)
+{
+    const qreal scale = viewport.scale();
+    const QRectF screenRect = viewport.renderRect();
+    const bool isPolish = (QLocale().language() == QLocale::Polish);
+    const int hintBarKey = (m_subLeapActive ? 10 : 0) + m_activeHudView + (isPolish ? 100 : 0) + qRound(scale * 1000);
+    if (!m_hudHintBarTexture || m_hudHintBarCacheKey != hintBarKey) {
+        const QImage hintImg = OutlineBadge::renderHudActionHintBar(isPolish, scale, m_subLeapActive, m_activeHudView);
+        auto uploaded = GLTexture::upload(hintImg);
+        if (uploaded) {
+            uploaded->setFilter(GL_LINEAR);
+            uploaded->setWrapMode(GL_CLAMP_TO_EDGE);
+            m_hudHintBarTexture = std::shared_ptr<GLTexture>(uploaded.release());
+            m_hudHintBarCacheKey = hintBarKey;
+        }
+    }
+
+    if (!m_hudHintBarTexture) {
+        return;
+    }
+
+    const qreal hintW = m_hudHintBarTexture->width() / scale;
+    const qreal hintH = m_hudHintBarTexture->height() / scale;
+
+    const int hudPos = m_badgePreviewActive ? m_previewBadgeHudPosition : m_badgeHudPosition;
+    qreal hintY = 0.0;
+    if (pillsBounds.isValid() && !pillsBounds.isEmpty()) {
+        if (hudPos == 1) { // Top HUD: place below pills
+            hintY = pillsBounds.bottom() + 12.0;
+            if (hintY + hintH > screenRect.bottom() - 10.0) {
+                hintY = screenRect.bottom() - hintH - 10.0;
+            }
+        } else { // Bottom (0), Left (2), Right (3): place above pills
+            hintY = pillsBounds.top() - hintH - 12.0;
+            if (hintY < screenRect.top() + 10.0) {
+                hintY = screenRect.top() + 10.0;
+            }
+        }
+    } else {
+        if (hudPos == 1) { // Top HUD
+            hintY = screenRect.top() + 24.0;
+        } else { // Default bottom
+            hintY = screenRect.bottom() - hintH - 24.0;
+        }
+    }
+
+    const qreal hintX = screenRect.center().x() - (hintW / 2.0);
+    const QRectF hintRect(hintX, hintY, hintW, hintH);
+
+    GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
+    GLint previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha;
+    glGetIntegerv(GL_BLEND_SRC_RGB, &previousSrcRgb);
+    glGetIntegerv(GL_BLEND_DST_RGB, &previousDstRgb);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &previousSrcAlpha);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &previousDstAlpha);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+    GLboolean scissorWasEnabled = glIsEnabled(GL_SCISSOR_TEST);
+    glDisable(GL_SCISSOR_TEST);
+
+    ShaderBinder binder(ShaderTrait::MapTexture | ShaderTrait::Modulate | ShaderTrait::TransformColorspace);
+    GLShader *shader = binder.shader();
+    shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix, viewport.projectionMatrix());
+    shader->setColorspaceUniforms(ColorDescription::sRGB, renderTarget.colorDescription(), RenderingIntent::Perceptual);
+    shader->setUniform(GLShader::Vec4Uniform::ModulationConstant, QVector4D(1.0f, 1.0f, 1.0f, 1.0f));
+
+    const float x0 = hintRect.left() * scale;
+    const float y0 = hintRect.top() * scale;
+    const float x1 = hintRect.right() * scale;
+    const float y1 = hintRect.bottom() * scale;
+
+    const std::array<GLVertex2D, 6> verts = {{
+        {QVector2D(x0, y0), QVector2D(0.0f, 0.0f)},
+        {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+        {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+        {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+        {QVector2D(x1, y1), QVector2D(1.0f, 1.0f)},
+        {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+    }};
+
+    auto vbo = GLVertexBuffer::streamingBuffer();
+    vbo->setVertices(verts);
+
+    shader->setUniform(GLShader::Mat4Uniform::TextureMatrix, m_hudHintBarTexture->matrix(NormalizedCoordinates));
+    m_hudHintBarTexture->bind();
+    vbo->render(GL_TRIANGLES);
+    m_hudHintBarTexture->unbind();
+
+    if (scissorWasEnabled) {
+        glEnable(GL_SCISSOR_TEST);
+    }
     glBlendFuncSeparate(previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha);
     if (blendWasEnabled) {
         glEnable(GL_BLEND);
@@ -5698,6 +5993,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
 
         if (!offscreenTargets.isEmpty()) {
             renderOffscreenJumpTargets(renderTarget, viewport, offscreenTargets, m_badgeConfig.hudBadgeSize);
+        } else {
+            renderHudHintBar(renderTarget, viewport, QRectF());
         }
     }
 

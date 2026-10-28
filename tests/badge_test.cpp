@@ -943,6 +943,27 @@ void testHudWindowGroupingAndFrames()
     assert(frameImgHiDpi.height() == 180);
 }
 
+void testHudActionHintBar()
+{
+    // 1. Polish Main Jump Mode Hint Bar
+    QImage barPl = OutlineBadge::renderHudActionHintBar(true, 1.0, false, 0);
+    assert(!barPl.isNull());
+    assert(barPl.width() > 100);
+    assert(barPl.height() >= 20);
+
+    // 2. Polish Sub-Leap Hint Bar
+    QImage barSubPl = OutlineBadge::renderHudActionHintBar(true, 1.0, true, 0);
+    assert(!barSubPl.isNull());
+    assert(barSubPl.width() > 100);
+
+    // 3. English Hint Bar with active views
+    for (int v = 0; v <= 3; ++v) {
+        QImage barEn = OutlineBadge::renderHudActionHintBar(false, 1.25, false, v);
+        assert(!barEn.isNull());
+        assert(barEn.width() > 100);
+    }
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -966,6 +987,7 @@ int main(int argc, char *argv[])
     testHudBadgeOcclusionAvoidance();
     testWindowBadgesEnabledConfig();
     testHudWindowGroupingAndFrames();
+    testHudActionHintBar();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

@@ -1587,4 +1587,143 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
     return img;
 }
 
+inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap = false, int activeView = 0)
+{
+    QString viewName;
+    if (isPolish) {
+        switch (activeView) {
+        case 1: viewName = QStringLiteral("Widok: 🏷 Grupy"); break;
+        case 2: viewName = QStringLiteral("Widok: 📦 Schowek"); break;
+        case 3: viewName = QStringLiteral("Widok: 🌐 Wszystkie"); break;
+        default: viewName = QStringLiteral("Widok: 💻 Standard"); break;
+        }
+    } else {
+        switch (activeView) {
+        case 1: viewName = QStringLiteral("View: 🏷 Workspaces"); break;
+        case 2: viewName = QStringLiteral("View: 📦 Stash"); break;
+        case 3: viewName = QStringLiteral("View: 🌐 All"); break;
+        default: viewName = QStringLiteral("View: 💻 Standard"); break;
+        }
+    }
+
+    struct Segment {
+        QString key;
+        QString label;
+        QColor keyColor;
+    };
+
+    QList<Segment> segments;
+    if (isSubLeap) {
+        if (isPolish) {
+            segments = {
+                {QStringLiteral("[Litera]"), QStringLiteral("Wybierz"), QColor(52, 152, 219)},
+                {QStringLiteral("[Shift+Litera]"), QStringLiteral("Zamknij"), QColor(231, 76, 60)},
+                {QStringLiteral("[Alt+Litera]"), QStringLiteral("Przyciągnij"), QColor(241, 196, 15)},
+                {QStringLiteral("[Ctrl+Litera]"), QStringLiteral("Schowek"), QColor(46, 204, 113)},
+                {QStringLiteral("[Backspace/Esc]"), QStringLiteral("Wstecz"), QColor(149, 165, 166)}
+            };
+        } else {
+            segments = {
+                {QStringLiteral("[Key]"), QStringLiteral("Select"), QColor(52, 152, 219)},
+                {QStringLiteral("[Shift+Key]"), QStringLiteral("Close"), QColor(231, 76, 60)},
+                {QStringLiteral("[Alt+Key]"), QStringLiteral("Pull here"), QColor(241, 196, 15)},
+                {QStringLiteral("[Ctrl+Key]"), QStringLiteral("Stash"), QColor(46, 204, 113)},
+                {QStringLiteral("[Backspace/Esc]"), QStringLiteral("Back"), QColor(149, 165, 166)}
+            };
+        }
+    } else {
+        if (isPolish) {
+            segments = {
+                {QStringLiteral("[Litera]"), QStringLiteral("Skok"), QColor(52, 152, 219)},
+                {QStringLiteral("[Shift+Litera]"), QStringLiteral("Zamknij (:bd)"), QColor(231, 76, 60)},
+                {QStringLiteral("[Alt+Litera]"), QStringLiteral("Przyciągnij"), QColor(241, 196, 15)},
+                {QStringLiteral("[Ctrl+Litera]"), QStringLiteral("Schowek (:hide)"), QColor(46, 204, 113)},
+                {QStringLiteral("[Tab]"), QStringLiteral("Grupy"), QColor(155, 89, 182)},
+                {QStringLiteral("[`]"), viewName, QColor(230, 126, 34)}
+            };
+        } else {
+            segments = {
+                {QStringLiteral("[Key]"), QStringLiteral("Jump"), QColor(52, 152, 219)},
+                {QStringLiteral("[Shift+Key]"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
+                {QStringLiteral("[Alt+Key]"), QStringLiteral("Pull here"), QColor(241, 196, 15)},
+                {QStringLiteral("[Ctrl+Key]"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
+                {QStringLiteral("[Tab]"), QStringLiteral("Groups"), QColor(155, 89, 182)},
+                {QStringLiteral("[`]"), viewName, QColor(230, 126, 34)}
+            };
+        }
+    }
+
+    QFont keyFont(QStringLiteral("sans-serif"));
+    keyFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
+    keyFont.setBold(true);
+    QFontMetrics fmKey(keyFont);
+
+    QFont lblFont(QStringLiteral("sans-serif"));
+    lblFont.setPixelSize(qMax(9, qRound(11.0 * scale)));
+    lblFont.setBold(false);
+    QFontMetrics fmLbl(lblFont);
+
+    const int padX = qRound(14 * scale);
+    const int padY = qRound(5 * scale);
+    const int itemGap = qRound(10 * scale);
+
+    int totalContentW = 0;
+    for (int i = 0; i < segments.size(); ++i) {
+        const auto &s = segments.at(i);
+        int segW = fmKey.horizontalAdvance(s.key) + qRound(4 * scale) + fmLbl.horizontalAdvance(s.label);
+        totalContentW += segW;
+        if (i < segments.size() - 1) {
+            totalContentW += itemGap + fmLbl.horizontalAdvance(QStringLiteral("•")) + itemGap;
+        }
+    }
+
+    const int w = totalContentW + 2 * padX;
+    const int h = qMax(qRound(24 * scale), fmKey.height() + 2 * padY);
+
+    QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+
+    QPainter p(&img);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+
+    const QRectF rect(0.5 * scale, 0.5 * scale, w - 1.0 * scale, h - 1.0 * scale);
+    const qreal radius = h / 2.0;
+
+    // Background capsule with subtle border
+    p.setPen(QPen(QColor(255, 255, 255, 42), 1.0 * scale));
+    p.setBrush(QColor(16, 20, 25, 235));
+    p.drawRoundedRect(rect, radius, radius);
+
+    qreal curX = padX;
+    const qreal baselineY = padY + fmKey.ascent();
+
+    for (int i = 0; i < segments.size(); ++i) {
+        const auto &s = segments.at(i);
+
+        // Draw key
+        p.setFont(keyFont);
+        p.setPen(s.keyColor);
+        p.drawText(QPointF(curX, baselineY), s.key);
+        curX += fmKey.horizontalAdvance(s.key) + qRound(4 * scale);
+
+        // Draw label
+        p.setFont(lblFont);
+        p.setPen(QColor(215, 220, 225));
+        p.drawText(QPointF(curX, baselineY), s.label);
+        curX += fmLbl.horizontalAdvance(s.label);
+
+        // Draw bullet separator
+        if (i < segments.size() - 1) {
+            curX += itemGap;
+            p.setPen(QColor(255, 255, 255, 60));
+            p.drawText(QPointF(curX, baselineY), QStringLiteral("•"));
+            curX += fmLbl.horizontalAdvance(QStringLiteral("•")) + itemGap;
+        }
+    }
+
+    p.end();
+    return img;
+}
+
 } // namespace OutlineBadge

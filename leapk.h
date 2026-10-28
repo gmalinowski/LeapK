@@ -171,6 +171,7 @@ private Q_SLOTS:
     void slotMarkWindowToggle();
     void slotMarkWindowWithColor();
     void slotToggleHudGrouping();
+    void slotCycleHudView();
     void slotTriggerJumpMode();
     void slotJumpToRecentWindow();
     void slotPrevRecentWindow();
@@ -245,6 +246,9 @@ private:
                                    const RenderViewport &viewport,
                                    const QList<QPair<QChar, EffectWindow *>> &targets,
                                    int badgeSize);
+    void renderHudHintBar(const RenderTarget &renderTarget,
+                          const RenderViewport &viewport,
+                          const QRectF &pillsBounds = QRectF());
     void renderBadgePreview(const RenderTarget &renderTarget,
                             const RenderViewport &viewport);
     QImage captureWindowThumbnail(EffectWindow *target,
@@ -425,6 +429,10 @@ private:
     QTimer *m_jumpTimeoutTimer = nullptr;
     QPointer<EffectWindow> m_expectedJumpTarget;
     QTimer *m_expectedJumpTargetTimer = nullptr;
+    int m_activeHudView = 0;
+    QSet<EffectWindow *> m_closingWindows;
+    std::shared_ptr<GLTexture> m_hudHintBarTexture;
+    int m_hudHintBarCacheKey = -1;
 
     // Sub-Leap Disambiguation (multi-instance window disambiguation)
     bool m_subLeapActive = false;
