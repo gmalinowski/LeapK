@@ -971,23 +971,32 @@ void testHudActionHintBar()
 
 void testHudModeHeader()
 {
-    // 1. View Navigation Tabs
+    // 1. View Navigation Tabs (with separated Stash drawer)
     QList<OutlineBadge::HudModeHeaderView> views;
     views.append({QStringLiteral("💻 Standard"), QColor(230, 126, 34), 4, true});
     views.append({QStringLiteral("📁 Backend"), QColor(52, 152, 219), 2, false});
-    views.append({QStringLiteral("📦 Schowek"), QColor(46, 204, 113), 0, false});
     views.append({QStringLiteral("🌐 Wszystkie"), QColor(155, 89, 182), 6, false});
 
-    QImage headerPl = OutlineBadge::renderHudModeHeader(true, 1.0, false, QString(), QColor(), 0, views);
+    QImage headerPl = OutlineBadge::renderHudModeHeader(true, 1.0, false, QString(), QColor(), 0, views, 3, false);
     assert(!headerPl.isNull());
     assert(headerPl.width() > 200);
     assert(headerPl.height() >= 30);
 
-    QImage headerEn = OutlineBadge::renderHudModeHeader(false, 1.5, false, QString(), QColor(), 0, views);
+    QImage headerEn = OutlineBadge::renderHudModeHeader(false, 1.5, false, QString(), QColor(), 0, views, 1, false);
     assert(!headerEn.isNull());
     assert(headerEn.width() > 300);
 
-    // 2. Sub-Leap Mode Header Banner
+    // 2. Stash Mode Header Banner
+    QImage stashPl = OutlineBadge::renderHudModeHeader(true, 1.0, false, QString(), QColor(), 0, {}, 2, true, QStringLiteral("📁 Backend"));
+    assert(!stashPl.isNull());
+    assert(stashPl.width() > 200);
+    assert(stashPl.height() >= 30);
+
+    QImage stashEn = OutlineBadge::renderHudModeHeader(false, 1.25, false, QString(), QColor(), 0, {}, 2, true, QStringLiteral("💻 Standard"));
+    assert(!stashEn.isNull());
+    assert(stashEn.width() > 200);
+
+    // 3. Sub-Leap Mode Header Banner
     QImage subLeapPl = OutlineBadge::renderHudModeHeader(true, 1.0, true, QStringLiteral("Firefox"), QColor(230, 126, 34), 3, {});
     assert(!subLeapPl.isNull());
     assert(subLeapPl.width() > 200);

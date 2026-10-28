@@ -258,6 +258,9 @@ private:
                              const QRectF &pillsBounds = QRectF(),
                              const QRectF &hintBarBounds = QRectF());
     void applyWorkspaceViewIsolation(int hudViewIndex);
+    void enterStashMode();
+    void exitStashMode();
+    void addWindowToWorkspace(EffectWindow *w, int workspaceIndex);
     void renderBadgePreview(const RenderTarget &renderTarget,
                             const RenderViewport &viewport);
     QImage captureWindowThumbnail(EffectWindow *target,
@@ -445,6 +448,8 @@ private:
     std::shared_ptr<GLTexture> m_hudHeaderTexture;
     int m_hudHeaderCacheKey = -1;
     QSet<EffectWindow *> m_workspaceMinimizedWindows;
+    bool m_stashModeActive = false;
+    QSet<EffectWindow *> m_stashedWindows;
 
     // Sub-Leap Disambiguation (multi-instance window disambiguation)
     bool m_subLeapActive = false;

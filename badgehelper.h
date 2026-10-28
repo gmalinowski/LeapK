@@ -1587,7 +1587,7 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
     return img;
 }
 
-inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor())
+inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false)
 {
     QString viewName = customViewName;
     if (viewName.isEmpty()) {
@@ -1616,7 +1616,21 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
     };
 
     QList<Segment> segments;
-    if (isSubLeap) {
+    if (isStashMode) {
+        if (isPolish) {
+            segments = {
+                {QStringLiteral("[Litera]"), QStringLiteral("Dodaj do workspace"), QColor(46, 204, 113)},
+                {QStringLiteral("[Shift+Litera]"), QStringLiteral("Zamknij"), QColor(231, 76, 60)},
+                {QStringLiteral("[Tab / Esc]"), QStringLiteral("Powrót"), QColor(149, 165, 166)}
+            };
+        } else {
+            segments = {
+                {QStringLiteral("[Key]"), QStringLiteral("Add to workspace"), QColor(46, 204, 113)},
+                {QStringLiteral("[Shift+Key]"), QStringLiteral("Close"), QColor(231, 76, 60)},
+                {QStringLiteral("[Tab / Esc]"), QStringLiteral("Back"), QColor(149, 165, 166)}
+            };
+        }
+    } else if (isSubLeap) {
         if (isPolish) {
             segments = {
                 {QStringLiteral("[Litera]"), QStringLiteral("Wybierz"), QColor(52, 152, 219)},
@@ -1641,7 +1655,7 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
                 {QStringLiteral("[Shift+Litera]"), QStringLiteral("Zamknij (:bd)"), QColor(231, 76, 60)},
                 {QStringLiteral("[Alt+Litera]"), QStringLiteral("Przyciągnij"), QColor(241, 196, 15)},
                 {QStringLiteral("[Ctrl+Litera]"), QStringLiteral("Schowek (:hide)"), QColor(46, 204, 113)},
-                {QStringLiteral("[Tab]"), QStringLiteral("Grupy"), QColor(155, 89, 182)},
+                {QStringLiteral("[Tab]"), QStringLiteral("Schowek"), QColor(46, 204, 113)},
                 {QStringLiteral("[, / .]"), viewName, viewColor}
             };
         } else {
@@ -1650,7 +1664,7 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
                 {QStringLiteral("[Shift+Key]"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
                 {QStringLiteral("[Alt+Key]"), QStringLiteral("Pull here"), QColor(241, 196, 15)},
                 {QStringLiteral("[Ctrl+Key]"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
-                {QStringLiteral("[Tab]"), QStringLiteral("Groups"), QColor(155, 89, 182)},
+                {QStringLiteral("[Tab]"), QStringLiteral("Stash"), QColor(46, 204, 113)},
                 {QStringLiteral("[, / .]"), viewName, viewColor}
             };
         }
@@ -1742,7 +1756,10 @@ inline QImage renderHudModeHeader(bool isPolish,
                                   const QString &subLeapTitle,
                                   const QColor &subLeapColor,
                                   int subLeapCount,
-                                  const QList<HudModeHeaderView> &views)
+                                  const QList<HudModeHeaderView> &views,
+                                  int stashCount = -1,
+                                  bool isStashMode = false,
+                                  const QString &targetWorkspaceName = QString())
 {
     if (isSubLeap) {
         const QString leftText = isPolish
@@ -1791,6 +1808,60 @@ inline QImage renderHudModeHeader(bool isPolish,
 
         p.setFont(keyFont);
         p.setPen(QColor(231, 76, 60));
+        const qreal keyX = w - padX - fmKey.horizontalAdvance(rightText);
+        p.drawText(QPointF(keyX, baselineY), rightText);
+
+        p.end();
+        return img;
+    }
+
+    if (isStashMode) {
+        const QString leftText = isPolish
+            ? QStringLiteral("📦 SCHOWEK: Wybierz okno, aby dodać do [%1]").arg(!targetWorkspaceName.isEmpty() ? targetWorkspaceName : QStringLiteral("Workspace"))
+            : QStringLiteral("📦 STASH: Pick window to add to [%1]").arg(!targetWorkspaceName.isEmpty() ? targetWorkspaceName : QStringLiteral("Workspace"));
+        const QString rightText = isPolish
+            ? QStringLiteral("[Tab / Esc: Powrót]")
+            : QStringLiteral("[Tab / Esc: Back]");
+
+        QFont titleFont(QStringLiteral("sans-serif"));
+        titleFont.setPixelSize(qMax(10, qRound(13.0 * scale)));
+        titleFont.setBold(true);
+        QFontMetrics fmTitle(titleFont);
+
+        QFont keyFont(QStringLiteral("sans-serif"));
+        keyFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
+        keyFont.setBold(true);
+        QFontMetrics fmKey(keyFont);
+
+        const int padX = qRound(16 * scale);
+        const int padY = qRound(6 * scale);
+        const int gap = qRound(16 * scale);
+
+        const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + padX;
+        const int h = qMax(qRound(34 * scale), fmTitle.height() + 2 * padY);
+
+        QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
+        img.fill(Qt::transparent);
+
+        QPainter p(&img);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setRenderHint(QPainter::TextAntialiasing, true);
+
+        const QRectF rect(0.5 * scale, 0.5 * scale, w - 1.0 * scale, h - 1.0 * scale);
+        const qreal radius = h / 2.0;
+
+        const QColor accent(46, 204, 113); // Emerald Green
+        p.setPen(QPen(accent, 1.8 * scale));
+        p.setBrush(QColor(14, 24, 18, 245));
+        p.drawRoundedRect(rect, radius, radius);
+
+        const qreal baselineY = padY + fmTitle.ascent();
+        p.setFont(titleFont);
+        p.setPen(QColor(255, 255, 255));
+        p.drawText(QPointF(padX, baselineY), leftText);
+
+        p.setFont(keyFont);
+        p.setPen(QColor(46, 204, 113));
         const qreal keyX = w - padX - fmKey.horizontalAdvance(rightText);
         p.drawText(QPointF(keyX, baselineY), rightText);
 
@@ -1852,7 +1923,20 @@ inline QImage renderHudModeHeader(bool isPolish,
     const int navLeftW = fmNav.horizontalAdvance(navLeft);
     const int navRightW = fmNav.horizontalAdvance(navRight);
 
-    const int totalW = padX + navLeftW + navGap + allTabsW + navGap + navRightW + padX;
+    // Stash Drawer pill on the right (separated from workspaces)
+    const QString stashText = isPolish
+        ? QStringLiteral("📦 Schowek (%1) • Tab").arg(qMax(0, stashCount))
+        : QStringLiteral("📦 Stash (%1) • Tab").arg(qMax(0, stashCount));
+    QFont stashFont(QStringLiteral("sans-serif"));
+    stashFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
+    stashFont.setBold(true);
+    QFontMetrics fmStash(stashFont);
+
+    const int stashTextW = fmStash.horizontalAdvance(stashText);
+    const int stashPillW = stashTextW + 2 * tabPadX;
+    const int stashSectionW = (stashCount >= 0) ? (navGap + qRound(1 * scale) + navGap + stashPillW) : 0;
+
+    const int totalW = padX + navLeftW + navGap + allTabsW + navGap + navRightW + stashSectionW + padX;
 
     QImage img(totalW, headerH, QImage::Format_ARGB32_Premultiplied);
     img.fill(Qt::transparent);
@@ -1910,6 +1994,25 @@ inline QImage renderHudModeHeader(bool isPolish,
     p.setPen(QColor(230, 126, 34));
     const qreal navRightX = curX - tabGap + navGap;
     p.drawText(QPointF(navRightX, navLeftY), navRight);
+
+    // Stash drawer pill separated on the right
+    if (stashCount >= 0) {
+        const qreal sepX = navRightX + navRightW + navGap;
+        p.setPen(QPen(QColor(255, 255, 255, 38), 1.0 * scale));
+        p.drawLine(QPointF(sepX, padY + 3.0 * scale), QPointF(sepX, headerH - padY - 3.0 * scale));
+
+        const qreal stashX = sepX + navGap;
+        const QRectF stashRect(stashX, tabY, stashPillW, tabH);
+        const qreal stashRadius = tabH / 2.0;
+
+        p.setPen(QPen(QColor(46, 204, 113, 150), 1.2 * scale));
+        p.setBrush(QColor(46, 204, 113, 30));
+        p.drawRoundedRect(stashRect, stashRadius, stashRadius);
+
+        p.setFont(stashFont);
+        p.setPen(QColor(46, 204, 113));
+        p.drawText(stashRect, Qt::AlignCenter, stashText);
+    }
 
     p.end();
     return img;

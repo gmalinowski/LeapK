@@ -649,6 +649,7 @@ ActiveWindowOutlineEffect::~ActiveWindowOutlineEffect()
         }
     }
     m_workspaceMinimizedWindows.clear();
+    m_stashedWindows.clear();
     if (m_menuHideTimer) {
         m_menuHideTimer->stop();
     }
@@ -1441,6 +1442,7 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
     m_markedWindowLabels.remove(w);
     m_closingWindows.remove(w);
     m_workspaceMinimizedWindows.remove(w);
+    m_stashedWindows.remove(w);
     for (auto it = m_jumpLetterToWindow.begin(); it != m_jumpLetterToWindow.end(); ) {
         if (it.value() == w) {
             it = m_jumpLetterToWindow.erase(it);
@@ -3456,6 +3458,11 @@ void ActiveWindowOutlineEffect::applyWorkspaceViewIsolation(int hudViewIndex)
                 continue;
             }
 
+            // Stashed windows must always stay hidden in stash!
+            if (m_stashedWindows.contains(w)) {
+                continue;
+            }
+
             const auto desktops = w->desktops();
             const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
             const bool matches = LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum);
@@ -3481,10 +3488,10 @@ void ActiveWindowOutlineEffect::applyWorkspaceViewIsolation(int hudViewIndex)
             effects->activateWindow(topMatchingWindow);
             m_activeWindow = topMatchingWindow;
         }
-    } else if (hudViewIndex == 0 || hudViewIndex == m_workspaces.size() + 2) {
+    } else if (hudViewIndex == 0 || hudViewIndex == m_workspaces.size() + 1) {
         // Standard view (0) or All windows: restore windows minimized by workspace isolation
         for (EffectWindow *w : m_workspaceMinimizedWindows) {
-            if (w && !w->isDeleted() && w->isMinimized()) {
+            if (w && !w->isDeleted() && w->isMinimized() && !m_stashedWindows.contains(w)) {
                 w->setMinimized(false);
             }
         }
@@ -3492,10 +3499,97 @@ void ActiveWindowOutlineEffect::applyWorkspaceViewIsolation(int hudViewIndex)
     }
 }
 
+void ActiveWindowOutlineEffect::enterStashMode()
+{
+    m_stashModeActive = true;
+    m_subLeapActive = false;
+    m_subLeapBaseKey = QChar();
+    m_subLeapWindows.clear();
+    m_subLeapLetterToWindow.clear();
+    m_subLeapTargets.clear();
+
+    m_jumpLetterToWindow = assignJumpLetters();
+    m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+    }
+
+    effects->addRepaintFull();
+}
+
+void ActiveWindowOutlineEffect::exitStashMode()
+{
+    m_stashModeActive = false;
+    m_jumpLetterToWindow = assignJumpLetters();
+    m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+    }
+
+    effects->addRepaintFull();
+}
+
+void ActiveWindowOutlineEffect::addWindowToWorkspace(EffectWindow *w, int workspaceIndex)
+{
+    if (!w || w->isDeleted()) {
+        return;
+    }
+
+    m_stashedWindows.remove(w);
+    m_workspaceMinimizedWindows.remove(w);
+
+    if (workspaceIndex >= 1 && workspaceIndex <= m_workspaces.size()) {
+        auto &ws = m_workspaces[workspaceIndex - 1];
+        const QString appClass = w->windowClass();
+        const QString caption = w->caption();
+
+        const auto desktops = w->desktops();
+        const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+
+        if (!LeapKWorkspace::matchesWorkspace(ws, appClass, caption, dNum)) {
+            LeapKWorkspace::WindowMatchRule newRule;
+            newRule.matchApp = !appClass.isEmpty() ? appClass : caption;
+            newRule.matchCaption = QString();
+            newRule.matchDesktop = 0;
+            ws.rules.append(newRule);
+            LeapKWorkspace::saveWorkspaces(m_workspaces);
+        }
+
+        if (effects) {
+            effects->windowToDesktops(w, {effects->currentDesktop()});
+        }
+    } else if (workspaceIndex == 0) {
+        if (effects) {
+            effects->windowToDesktops(w, {effects->currentDesktop()});
+        }
+    }
+
+    if (w->isMinimized()) {
+        w->setMinimized(false);
+    }
+    if (effects) {
+        effects->activateWindow(w);
+    }
+    m_activeWindow = w;
+}
+
 void ActiveWindowOutlineEffect::slotCycleHudView(int delta)
 {
+    if (m_stashModeActive) {
+        exitStashMode();
+    }
     refreshWorkspaces();
-    const int totalViews = qMax(1, 3 + m_workspaces.size());
+    const int totalViews = qMax(1, 2 + m_workspaces.size());
     m_activeHudView = (m_activeHudView + delta) % totalViews;
     if (m_activeHudView < 0) {
         m_activeHudView += totalViews;
@@ -3584,35 +3678,42 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
         const auto desktops = w->desktops();
         const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
 
-        if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) { // Workspace view: only windows matching this workspace
-            const auto &ws = m_workspaces.at(m_activeHudView - 1);
-            if (!LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum)) {
+        if (m_stashModeActive) { // Stash view: ALL hidden / stashed / minimized windows
+            if (!w->isMinimized() && !m_stashedWindows.contains(w)) {
                 continue;
             }
-        } else if (m_activeHudView == m_workspaces.size() + 1) { // Schowek (Stash / Minimized only)
-            if (!w->isMinimized()) {
+        } else {
+            // In regular workspace views, stashed windows MUST stay hidden!
+            if (m_stashedWindows.contains(w)) {
                 continue;
             }
-        } else if (m_activeHudView == m_workspaces.size() + 2) { // All windows across all virtual desktops
-            // include all
-        } else { // View 0: Standard configured scope
-            if (m_jumpTargets == 3) { // Marked windows only (all desktops)
-                if (!isMarked) {
+
+            if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) { // Workspace view: only windows matching this workspace
+                const auto &ws = m_workspaces.at(m_activeHudView - 1);
+                if (!LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum)) {
                     continue;
                 }
-            } else if (m_jumpTargets == 0) { // Current desktop visible + marked all desktops
-                if (!onCurrent && !isMarked) {
-                    continue;
-                }
-                if (w->isMinimized() && !isMarked) {
-                    continue;
-                }
-            } else if (m_jumpTargets == 1) { // Current desktop all windows (visible & minimized) + marked all desktops
-                if (!onCurrent && !isMarked) {
-                    continue;
-                }
-            } else { // 2: All windows across all virtual desktops (visible & minimized)
+            } else if (m_activeHudView == m_workspaces.size() + 1) { // All windows across all virtual desktops
                 // include all
+            } else { // View 0: Standard configured scope
+                if (m_jumpTargets == 3) { // Marked windows only (all desktops)
+                    if (!isMarked) {
+                        continue;
+                    }
+                } else if (m_jumpTargets == 0) { // Current desktop visible + marked all desktops
+                    if (!onCurrent && !isMarked) {
+                        continue;
+                    }
+                    if (w->isMinimized() && !isMarked) {
+                        continue;
+                    }
+                } else if (m_jumpTargets == 1) { // Current desktop all windows (visible & minimized) + marked all desktops
+                    if (!onCurrent && !isMarked) {
+                        continue;
+                    }
+                } else { // 2: All windows across all virtual desktops (visible & minimized)
+                    // include all
+                }
             }
         }
 
@@ -3739,6 +3840,7 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     }
 
     m_subLeapActive = false;
+    m_stashModeActive = false;
     m_subLeapBaseKey = QChar();
     m_subLeapWindows.clear();
     m_subLeapLetterToWindow.clear();
@@ -3785,6 +3887,7 @@ void ActiveWindowOutlineEffect::cancelJumpMode()
     }
     m_jumpMode = false;
     m_subLeapActive = false;
+    m_stashModeActive = false;
     m_subLeapBaseKey = QChar();
     m_subLeapWindows.clear();
     m_subLeapLetterToWindow.clear();
@@ -3807,6 +3910,7 @@ void ActiveWindowOutlineEffect::cancelJumpMode()
 void ActiveWindowOutlineEffect::exitSubLeapMode()
 {
     m_subLeapActive = false;
+    m_stashModeActive = false;
     m_subLeapBaseKey = QChar();
     m_subLeapWindows.clear();
     m_subLeapLetterToWindow.clear();
@@ -3990,8 +4094,16 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
                     if (isCtrl) {
                         // Toggle stash/minimized
-                        target->setMinimized(!target->isMinimized());
+                        if (!target->isMinimized()) {
+                            m_stashedWindows.insert(target);
+                            target->setMinimized(true);
+                        } else {
+                            m_stashedWindows.remove(target);
+                            target->setMinimized(false);
+                        }
                         m_badgeTextureCache.clear();
+                        m_hudHeaderTexture.reset();
+                        m_hudHeaderCacheKey = -1;
                         if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
                             m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
                         }
@@ -4036,13 +4148,50 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     }
 
     // 2. Main Jump Mode:
+    if (m_stashModeActive) {
+        if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Tab || e->key() == Qt::Key_Backtab) {
+            exitStashMode();
+            return;
+        }
+
+        const QString text = extractKeyChar();
+        if (!text.isEmpty()) {
+            const QChar keyChar = text.at(0);
+            if (m_jumpLetterToWindow.contains(keyChar)) {
+                EffectWindow *target = m_jumpLetterToWindow.value(keyChar);
+                if (target && !target->isDeleted()) {
+                    if (isShift) {
+                        target->closeWindow();
+                        m_stashedWindows.remove(target);
+                        m_jumpLetterToWindow = assignJumpLetters();
+                        m_badgeTextureCache.clear();
+                        m_hudHeaderTexture.reset();
+                        m_hudHeaderCacheKey = -1;
+                        effects->addRepaintFull();
+                        return;
+                    }
+                    addWindowToWorkspace(target, m_activeHudView);
+                    exitStashMode();
+                    cancelJumpMode();
+                    return;
+                }
+            }
+        }
+        return;
+    }
+
     if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
         cancelJumpMode();
         return;
     }
 
     if (e->key() == Qt::Key_Tab || e->key() == Qt::Key_Backtab) {
-        slotToggleHudGrouping();
+        enterStashMode();
+        return;
+    }
+
+    if ((mods & (Qt::AltModifier | Qt::ControlModifier)) && e->key() == Qt::Key_S) {
+        enterStashMode();
         return;
     }
 
@@ -4129,11 +4278,19 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                 }
                 for (EffectWindow *w : group) {
                     if (w && !w->isDeleted()) {
-                        w->setMinimized(anyVisible);
+                        if (anyVisible) {
+                            m_stashedWindows.insert(w);
+                            w->setMinimized(true);
+                        } else {
+                            m_stashedWindows.remove(w);
+                            w->setMinimized(false);
+                        }
                     }
                 }
                 m_jumpLetterToWindow = assignJumpLetters();
                 m_badgeTextureCache.clear();
+                m_hudHeaderTexture.reset();
+                m_hudHeaderCacheKey = -1;
                 if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
                     m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
                 }
@@ -4169,9 +4326,17 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
                 if (isCtrl) {
                     // Quick stash toggle
-                    target->setMinimized(!target->isMinimized());
+                    if (!target->isMinimized()) {
+                        m_stashedWindows.insert(target);
+                        target->setMinimized(true);
+                    } else {
+                        m_stashedWindows.remove(target);
+                        target->setMinimized(false);
+                    }
                     m_jumpLetterToWindow = assignJumpLetters();
                     m_badgeTextureCache.clear();
+                    m_hudHeaderTexture.reset();
+                    m_hudHeaderCacheKey = -1;
                     if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
                         m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
                     }
@@ -4994,7 +5159,8 @@ QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
     }
 
     const int hudPos = m_badgePreviewActive ? m_previewBadgeHudPosition : m_badgeHudPosition;
-    return OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos);
+    const qreal topMargin = (hudPos == 1) ? qRound(58.0 * scale) : 24.0;
+    return OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, topMargin);
 }
 
 void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &renderTarget,
@@ -5096,7 +5262,8 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     const int hudPos = m_badgePreviewActive ? m_previewBadgeHudPosition : m_badgeHudPosition;
     const OutlineBadge::BadgeConfig &hudCfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
     const qreal hudRowGap = (!hudCfg.hudGroupWindows && !m_subLeapActive) ? 40.0 : 12.0;
-    const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, 24.0, 12.0, hudRowGap);
+    const qreal topMargin = (hudPos == 1) ? qRound(58.0 * scale) : 24.0;
+    const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, topMargin, 12.0, hudRowGap);
 
     struct GroupFrameItem {
         std::shared_ptr<GLTexture> texture;
@@ -5308,25 +5475,25 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
 
     QString customViewName;
     QColor customViewColor;
-    if (m_activeHudView == 0) {
+    if (m_stashModeActive) {
+        customViewName = isPolish ? QStringLiteral("Widok: 📦 Schowek") : QStringLiteral("View: 📦 Stash");
+        customViewColor = QColor(46, 204, 113); // Emerald Green
+    } else if (m_activeHudView == 0) {
         customViewName = isPolish ? QStringLiteral("Widok: 💻 Standard") : QStringLiteral("View: 💻 Standard");
         customViewColor = QColor(230, 126, 34); // Orange
     } else if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
         const auto &ws = m_workspaces.at(m_activeHudView - 1);
         customViewName = (isPolish ? QStringLiteral("Widok: 📁 ") : QStringLiteral("View: 📁 ")) + ws.name;
         customViewColor = ws.color.isValid() ? ws.color : QColor(52, 152, 219);
-    } else if (m_activeHudView == m_workspaces.size() + 1) {
-        customViewName = isPolish ? QStringLiteral("Widok: 📦 Schowek") : QStringLiteral("View: 📦 Stash");
-        customViewColor = QColor(46, 204, 113); // Green
     } else {
         customViewName = isPolish ? QStringLiteral("Widok: 🌐 Wszystkie") : QStringLiteral("View: 🌐 All");
         customViewColor = QColor(155, 89, 182); // Purple
     }
 
     const int nameHash = (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) ? (qHash(m_workspaces.at(m_activeHudView - 1).name) % 10000) : 0;
-    const int hintBarKey = (m_subLeapActive ? 100000 : 0) + m_activeHudView * 1000 + (isPolish ? 100 : 0) + nameHash + qRound(scale * 10);
+    const int hintBarKey = (m_subLeapActive ? 100000 : 0) + (m_stashModeActive ? 500000 : 0) + m_activeHudView * 1000 + (isPolish ? 100 : 0) + nameHash + qRound(scale * 10);
     if (!m_hudHintBarTexture || m_hudHintBarCacheKey != hintBarKey) {
-        const QImage hintImg = OutlineBadge::renderHudActionHintBar(isPolish, scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor);
+        const QImage hintImg = OutlineBadge::renderHudActionHintBar(isPolish, scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive);
         auto uploaded = GLTexture::upload(hintImg);
         if (uploaded) {
             uploaded->setFilter(GL_LINEAR);
@@ -5358,8 +5525,8 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
             }
         }
     } else {
-        if (hudPos == 1) { // Top HUD
-            hintY = screenRect.top() + 24.0;
+        if (hudPos == 1) { // Top HUD without pills: place below header
+            hintY = screenRect.top() + qRound(58.0 * scale);
         } else { // Default bottom
             hintY = screenRect.bottom() - hintH - 24.0;
         }
@@ -5436,6 +5603,9 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
 
     QList<OutlineBadge::HudModeHeaderView> viewTabs;
 
+    int stashCount = 0;
+    QString targetWorkspaceName;
+
     if (m_subLeapActive) {
         subLeapCount = m_subLeapWindows.size();
         if (!m_subLeapWindows.isEmpty() && m_subLeapWindows.first()) {
@@ -5453,13 +5623,30 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
     } else {
         const auto windows = effects ? effects->stackingOrder() : QList<EffectWindow *>();
 
-        // 1. Standard count: windows eligible on current desktop (visible or unminimized)
+        for (EffectWindow *w : windows) {
+            if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
+                continue;
+            }
+            if (w->isMinimized() || m_stashedWindows.contains(w)) {
+                stashCount++;
+            }
+        }
+
+        if (m_activeHudView == 0) {
+            targetWorkspaceName = isPolish ? QStringLiteral("💻 Standard") : QStringLiteral("💻 Standard");
+        } else if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
+            targetWorkspaceName = QStringLiteral("📁 ") + m_workspaces.at(m_activeHudView - 1).name;
+        } else {
+            targetWorkspaceName = isPolish ? QStringLiteral("🌐 Wszystkie") : QStringLiteral("🌐 All");
+        }
+
+        // 1. Standard count: windows eligible on current desktop (visible or unminimized, not in stash)
         int standardCount = 0;
         for (EffectWindow *w : windows) {
             if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
                 continue;
             }
-            if (w->isOnCurrentDesktop() && !w->isMinimized()) {
+            if (w->isOnCurrentDesktop() && !w->isMinimized() && !m_stashedWindows.contains(w)) {
                 standardCount++;
             }
         }
@@ -5470,7 +5657,7 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
             m_activeHudView == 0
         });
 
-        // 2. Workspaces
+        // 2. Custom Workspaces (not in stash)
         for (int i = 0; i < m_workspaces.size(); ++i) {
             const auto &ws = m_workspaces.at(i);
             int wsCount = 0;
@@ -5492,36 +5679,21 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
             });
         }
 
-        // 3. Schowek (Stash / Minimized only)
-        int stashCount = 0;
-        for (EffectWindow *w : windows) {
-            if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
-                continue;
-            }
-            if (w->isMinimized()) {
-                stashCount++;
-            }
-        }
-        viewTabs.append({
-            isPolish ? QStringLiteral("📦 Schowek") : QStringLiteral("📦 Stash"),
-            QColor(46, 204, 113),
-            stashCount,
-            m_activeHudView == (m_workspaces.size() + 1)
-        });
-
-        // 4. All windows
+        // 3. All windows (excluding stashed)
         int allCount = 0;
         for (EffectWindow *w : windows) {
             if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
                 continue;
             }
-            allCount++;
+            if (!m_stashedWindows.contains(w)) {
+                allCount++;
+            }
         }
         viewTabs.append({
             isPolish ? QStringLiteral("🌐 Wszystkie") : QStringLiteral("🌐 All"),
             QColor(155, 89, 182),
             allCount,
-            m_activeHudView == (m_workspaces.size() + 2)
+            m_activeHudView == (m_workspaces.size() + 1)
         });
     }
 
@@ -5529,12 +5701,12 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
     for (const auto &vt : viewTabs) {
         countsHash = (countsHash * 31 + vt.windowCount + (vt.isActive ? 1000 : 0)) % 100000;
     }
-    const int headerKey = (m_subLeapActive ? 2000000 : 0) + m_activeHudView * 100000
-        + (isPolish ? 50000 : 0) + countsHash + qRound(scale * 10);
+    const int headerKey = (m_subLeapActive ? 2000000 : 0) + (m_stashModeActive ? 4000000 : 0) + m_activeHudView * 100000
+        + (isPolish ? 50000 : 0) + countsHash + stashCount * 13 + qRound(scale * 10);
 
     if (!m_hudHeaderTexture || m_hudHeaderCacheKey != headerKey) {
         const QImage headerImg = OutlineBadge::renderHudModeHeader(
-            isPolish, scale, m_subLeapActive, subLeapTitle, subLeapColor, subLeapCount, viewTabs);
+            isPolish, scale, m_subLeapActive, subLeapTitle, subLeapColor, subLeapCount, viewTabs, stashCount, m_stashModeActive, targetWorkspaceName);
         if (!headerImg.isNull()) {
             auto uploaded = GLTexture::upload(headerImg);
             if (uploaded) {
