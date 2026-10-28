@@ -756,6 +756,13 @@ void ActiveWindowOutlineEffect::initShortcuts()
     KGlobalAccel::self()->setGlobalShortcut(audioAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_A));
     connect(audioAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotTriggerAudioFilterMode);
 
+    QAction *searchAction = new QAction(this);
+    searchAction->setObjectName(QStringLiteral("JumpToSearchWindow"));
+    searchAction->setText(QStringLiteral("LeapK: Fuzzy Search Windows"));
+    KGlobalAccel::self()->setDefaultShortcut(searchAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_F) << QKeySequence(Qt::META | Qt::Key_Slash));
+    KGlobalAccel::self()->setGlobalShortcut(searchAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_F));
+    connect(searchAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotTriggerSearchMode);
+
     QAction *prevRecentAction = new QAction(this);
     prevRecentAction->setObjectName(QStringLiteral("PrevRecentWindow"));
     prevRecentAction->setText(QStringLiteral("LeapK: Previous Recent Window"));
@@ -3892,6 +3899,132 @@ bool ActiveWindowOutlineEffect::isWorkspacePlayingAudio(int wsIndex) const
     return false;
 }
 
+void ActiveWindowOutlineEffect::slotTriggerSearchMode()
+{
+    if (!m_jumpMode) {
+        m_searchModeActive = true;
+        slotTriggerJumpMode();
+    } else {
+        toggleSearchMode();
+    }
+}
+
+void ActiveWindowOutlineEffect::enterSearchMode()
+{
+    if (m_subLeapActive) {
+        exitSubLeapMode();
+    }
+    if (m_stashModeActive) {
+        exitStashMode();
+    }
+    if (m_superJumpActive) {
+        exitSuperJumpMode();
+    }
+    if (m_audioFilterModeActive) {
+        exitAudioFilterMode();
+    }
+
+    m_searchModeActive = true;
+    m_searchQuery.clear();
+    m_searchSelectedIndex = 0;
+    updateSearchMatches();
+}
+
+void ActiveWindowOutlineEffect::exitSearchMode()
+{
+    if (!m_searchModeActive) {
+        return;
+    }
+    m_searchModeActive = false;
+    m_searchQuery.clear();
+    m_searchMatches.clear();
+    m_searchSelectedIndex = 0;
+    m_jumpLetterToWindow = assignJumpLetters();
+    m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+    }
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::toggleSearchMode()
+{
+    if (m_searchModeActive) {
+        exitSearchMode();
+    } else {
+        enterSearchMode();
+    }
+}
+
+void ActiveWindowOutlineEffect::updateSearchMatches()
+{
+    if (!effects) {
+        return;
+    }
+
+    QList<OutlineFuzzy::SearchCandidate> candidates;
+    const auto windows = effects->stackingOrder();
+
+    for (EffectWindow *w : windows) {
+        if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
+            continue;
+        }
+
+        const bool isStashed = isWindowInStash(w);
+        const int wsIndex = findWorkspaceForWindow(w);
+        const bool onCurrent = w->isOnCurrentDesktop();
+
+        if (m_searchScope == 0) { // Current Workspace
+            if (isStashed || !onCurrent) {
+                continue;
+            }
+        } else if (m_searchScope == 1) { // All Workspaces
+            if (isStashed) {
+                continue;
+            }
+        } else { // 2: All + Stash
+            // Include everything
+        }
+
+        OutlineFuzzy::SearchCandidate cand;
+        cand.windowPtr = w;
+        cand.caption = w->caption();
+        cand.appName = w->windowClass();
+        cand.customLabel = m_markedWindowLabels.value(w);
+        cand.isRecent = (w == findRecentWindow()) || m_recentWindows.contains(w);
+        cand.isPinned = isWindowPinned(w);
+        cand.isPlayingAudio = m_audioTracker.isWindowPlaying(w->pid());
+        cand.workspaceIndex = wsIndex;
+        cand.isStashed = isStashed;
+
+        candidates.append(cand);
+    }
+
+    OutlineFuzzy::rankSearchCandidates(m_searchQuery, candidates);
+    m_searchMatches = candidates;
+    m_searchSelectedIndex = qBound(0, m_searchSelectedIndex, qMax(0, m_searchMatches.size() - 1));
+
+    m_jumpLetterToWindow = assignJumpLetters();
+    m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+    }
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
 void ActiveWindowOutlineEffect::setKdeGlobalShortcutsBlocked(bool blocked)
 {
     if (m_globalShortcutsBlocked == blocked) {
@@ -4384,7 +4517,19 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
         const auto desktops = w->desktops();
         const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
 
-        if (m_audioFilterModeActive) {
+        if (m_searchModeActive) {
+            // Search Mode: only windows matched in m_searchMatches!
+            bool foundInSearch = false;
+            for (const auto &cand : m_searchMatches) {
+                if (cand.windowPtr == w) {
+                    foundInSearch = true;
+                    break;
+                }
+            }
+            if (!foundInSearch) {
+                continue;
+            }
+        } else if (m_audioFilterModeActive) {
             // Audio Filter View: ONLY windows actively playing audio across all workspaces!
             if (!m_audioTracker.isWindowPlaying(w->pid())) {
                 continue;
@@ -4595,7 +4740,13 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
         applyWorkspaceViewIsolation(m_activeHudView);
     }
 
-    m_jumpLetterToWindow = assignJumpLetters();
+    if (m_searchModeActive) {
+        m_searchQuery.clear();
+        m_searchSelectedIndex = 0;
+        updateSearchMatches();
+    } else {
+        m_jumpLetterToWindow = assignJumpLetters();
+    }
 
     if (!effects->grabKeyboard(this)) {
         m_jumpLetterToWindow.clear();
@@ -4636,6 +4787,10 @@ void ActiveWindowOutlineEffect::cancelJumpMode()
     m_stashModeActive = false;
     m_superJumpActive = false;
     m_audioFilterModeActive = false;
+    m_searchModeActive = false;
+    m_searchQuery.clear();
+    m_searchMatches.clear();
+    m_searchSelectedIndex = 0;
     if (m_audioRefreshTimer) {
         m_audioRefreshTimer->stop();
     }
@@ -4951,6 +5106,153 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     }
 
     // 2. Main Jump Mode:
+    if (m_searchModeActive) {
+        if (e->key() == Qt::Key_Escape) {
+            if (!m_searchQuery.isEmpty()) {
+                m_searchQuery.clear();
+                updateSearchMatches();
+            } else {
+                exitSearchMode();
+            }
+            return;
+        }
+
+        if (e->key() == Qt::Key_Tab) {
+            m_searchScope = (m_searchScope + 1) % 3;
+            updateSearchMatches();
+            return;
+        }
+
+        if (e->key() == Qt::Key_Backtab) {
+            m_searchScope = (m_searchScope + 2) % 3;
+            updateSearchMatches();
+            return;
+        }
+
+        if (e->key() == Qt::Key_Up || (isCtrl && e->key() == Qt::Key_P)) {
+            m_searchSelectedIndex = qMax(0, m_searchSelectedIndex - 1);
+            m_badgeTextureCache.clear();
+            if (effects) {
+                effects->addRepaintFull();
+            }
+            return;
+        }
+
+        if (e->key() == Qt::Key_Down || (isCtrl && e->key() == Qt::Key_N)) {
+            m_searchSelectedIndex = qMin(m_searchMatches.size() - 1, m_searchSelectedIndex + 1);
+            m_badgeTextureCache.clear();
+            if (effects) {
+                effects->addRepaintFull();
+            }
+            return;
+        }
+
+        if (e->key() == Qt::Key_PageUp) {
+            m_searchSelectedIndex = qMax(0, m_searchSelectedIndex - 5);
+            m_badgeTextureCache.clear();
+            if (effects) {
+                effects->addRepaintFull();
+            }
+            return;
+        }
+
+        if (e->key() == Qt::Key_PageDown) {
+            m_searchSelectedIndex = qMin(m_searchMatches.size() - 1, m_searchSelectedIndex + 5);
+            m_badgeTextureCache.clear();
+            if (effects) {
+                effects->addRepaintFull();
+            }
+            return;
+        }
+
+        if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
+            if (!m_searchMatches.isEmpty() && m_searchSelectedIndex >= 0 && m_searchSelectedIndex < m_searchMatches.size()) {
+                EffectWindow *target = reinterpret_cast<EffectWindow *>(m_searchMatches.at(m_searchSelectedIndex).windowPtr);
+                if (target && !target->isDeleted()) {
+                    cancelJumpMode();
+                    m_expectedJumpTarget = target;
+                    if (m_expectedJumpTargetTimer) {
+                        m_expectedJumpTargetTimer->start(1000);
+                    }
+                    const int targetWs = findWorkspaceForWindow(target);
+                    if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
+                        m_activeHudView = targetWs;
+                        if (effects && effects->config()) {
+                            KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+                            primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
+                            primaryConfig.sync();
+                        }
+                        applyWorkspaceViewIsolation(m_activeHudView);
+                    }
+                    if (!target->isOnCurrentDesktop()) {
+                        const auto desktops = target->desktops();
+                        if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
+                            effects->setCurrentDesktop(desktops.first());
+                        }
+                    }
+                    m_workspaceMinimizedWindows.remove(target);
+                    m_stashedWindows.remove(target);
+                    if (target->isMinimized()) {
+                        target->setMinimized(false);
+                    }
+                    effects->activateWindow(target);
+                    warpCursorToWindow(target);
+                    return;
+                }
+            }
+            cancelJumpMode();
+            return;
+        }
+
+        if (isAlt) {
+            const QString altChar = extractKeyChar();
+            if (!altChar.isEmpty() && m_jumpLetterToWindow.contains(altChar.at(0))) {
+                EffectWindow *target = m_jumpLetterToWindow.value(altChar.at(0));
+                if (target && !target->isDeleted()) {
+                    cancelJumpMode();
+                    const int targetWs = findWorkspaceForWindow(target);
+                    if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
+                        m_activeHudView = targetWs;
+                        applyWorkspaceViewIsolation(m_activeHudView);
+                    }
+                    if (!target->isOnCurrentDesktop()) {
+                        const auto desktops = target->desktops();
+                        if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
+                            effects->setCurrentDesktop(desktops.first());
+                        }
+                    }
+                    m_workspaceMinimizedWindows.remove(target);
+                    m_stashedWindows.remove(target);
+                    if (target->isMinimized()) {
+                        target->setMinimized(false);
+                    }
+                    effects->activateWindow(target);
+                    warpCursorToWindow(target);
+                    return;
+                }
+            }
+        }
+
+        if (e->key() == Qt::Key_Backspace) {
+            if (!m_searchQuery.isEmpty()) {
+                m_searchQuery.chop(1);
+                updateSearchMatches();
+            } else {
+                exitSearchMode();
+            }
+            return;
+        }
+
+        const QString input = e->text();
+        if (!input.isEmpty() && input.at(0).isPrint()) {
+            m_searchQuery.append(input);
+            updateSearchMatches();
+            return;
+        }
+
+        return;
+    }
+
     if (m_audioFilterModeActive) {
         if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace) {
             exitAudioFilterMode();
@@ -5095,6 +5397,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     if (isMetaOnly && (e->key() == Qt::Key_U || e->key() == Qt::Key_A)) {
         toggleAudioFilterMode();
+        return;
+    }
+
+    if ((e->key() == Qt::Key_Slash) || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char('/')) || (isCtrl && e->key() == Qt::Key_F)) {
+        enterSearchMode();
         return;
     }
 
@@ -6364,7 +6671,8 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     };
     QList<PillItem> pills;
 
-    for (const auto &pair : targets) {
+    for (int i = 0; i < targets.size(); ++i) {
+        const auto &pair = targets.at(i);
         const QChar letter = pair.first;
         EffectWindow *target = pair.second;
         if (!target || target->isDeleted()) {
@@ -6423,8 +6731,9 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             ? captureWindowThumbnail(target, renderTarget, viewport, QSize(cfg.hudThumbnailWidth * 2, cfg.hudThumbnailHeight * 2))
             : QImage();
 
+        const bool isSelected = (m_searchModeActive && i == m_searchSelectedIndex);
         const QImage img = OutlineBadge::renderOffscreenTargetPill(cfg, letter, bgCol, textCol, loc, caption, badgeSize, scale, customLabel,
-                                                                   icon, thumbnail, isMarked, recentKey, isRecent, groupCount, isStashed, isPinned, isPlayingAudio);
+                                                                   icon, thumbnail, isMarked, recentKey, isRecent, groupCount, isStashed, isPinned, isPlayingAudio, isSelected);
         auto uploaded = GLTexture::upload(img);
         if (!uploaded) {
             continue;
@@ -6715,9 +7024,10 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
     const int nameHash = (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) ? (qHash(m_workspaces.at(m_activeHudView - 1).name) % 10000) : 0;
     const int hintBarKey = (m_subLeapActive ? 100000 : 0) + (m_stashModeActive ? 500000 : 0) + (m_superJumpActive ? 700000 : 0)
         + (m_audioFilterModeActive ? 900000 : 0)
+        + (m_searchModeActive ? 1100000 : 0)
         + m_activeHudView * 1000 + nameHash + qRound(scale * 10);
     if (!m_hudHintBarTexture || m_hudHintBarCacheKey != hintBarKey) {
-        const QImage hintImg = OutlineBadge::renderHudActionHintBar(scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive, m_superJumpActive, m_audioFilterModeActive);
+        const QImage hintImg = OutlineBadge::renderHudActionHintBar(scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive, m_superJumpActive, m_audioFilterModeActive, m_searchModeActive);
         auto uploaded = GLTexture::upload(hintImg);
         if (uploaded) {
             uploaded->setFilter(GL_LINEAR);
@@ -6952,11 +7262,13 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
     }
     const int headerKey = (m_subLeapActive ? 2000000 : 0) + (m_stashModeActive ? 4000000 : 0) + (m_superJumpActive ? 6000000 : 0)
         + (m_audioFilterModeActive ? 8000000 : 0)
+        + (m_searchModeActive ? (10000000 + m_searchScope * 100000 + (qHash(m_searchQuery) % 50000) + m_searchMatches.size() * 10) : 0)
         + m_activeHudView * 100000 + countsHash + stashCount * 13 + qRound(scale * 10);
 
     if (!m_hudHeaderTexture || m_hudHeaderCacheKey != headerKey) {
         const QImage headerImg = OutlineBadge::renderHudModeHeader(
-            scale, m_subLeapActive, subLeapTitle, subLeapColor, subLeapCount, viewTabs, stashCount, m_stashModeActive, targetWorkspaceName, m_superJumpActive, m_audioFilterModeActive, m_jumpLetterToWindow.size());
+            scale, m_subLeapActive, subLeapTitle, subLeapColor, subLeapCount, viewTabs, stashCount, m_stashModeActive, targetWorkspaceName, m_superJumpActive, m_audioFilterModeActive, m_jumpLetterToWindow.size(),
+            m_searchModeActive, m_searchQuery, m_searchScope, m_searchMatches.size());
         if (!headerImg.isNull()) {
             auto uploaded = GLTexture::upload(headerImg);
             if (uploaded) {
@@ -7781,7 +8093,19 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         QList<QPair<QChar, EffectWindow *>> offscreenTargets;
         QList<QPair<QChar, EffectWindow *>> onscreenTargets;
 
-        if (m_subLeapActive) {
+        if (m_searchModeActive) {
+            for (const auto &cand : m_searchMatches) {
+                EffectWindow *target = reinterpret_cast<EffectWindow *>(cand.windowPtr);
+                if (!target || target->isDeleted() || !isEligibleTargetWindow(target)) {
+                    continue;
+                }
+                const QChar letter = m_jumpLetterToWindow.key(target);
+                offscreenTargets.append(qMakePair(letter, target));
+                if (target->isOnCurrentDesktop() && !target->isMinimized()) {
+                    onscreenTargets.append(qMakePair(letter, target));
+                }
+            }
+        } else if (m_subLeapActive) {
             // In Sub-Leap disambiguation mode, distribute targets mutually exclusively:
             // Visible unobscured windows on current desktop get badges on the windows;
             // covered, minimized, or other-desktop windows appear in the edge HUD.

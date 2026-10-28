@@ -1166,6 +1166,32 @@ static void testAudioIndicatorRendering()
     assert(!audioModeImg.isNull());
 }
 
+void testSearchModeRendering()
+{
+    // 1. Search Mode Header: empty query
+    const QImage searchEmpty = OutlineBadge::renderHudModeHeader(1.0, false, QString(), QColor(), 0, {}, -1, false, QString(), false, false, 0, true, QString(), 1, 5);
+    assert(!searchEmpty.isNull());
+    assert(searchEmpty.width() > 300);
+    assert(searchEmpty.height() >= 34);
+
+    // 2. Search Mode Header: active query "code", scope 2 (All + Stash), 3 matches
+    const QImage searchQuery = OutlineBadge::renderHudModeHeader(1.25, false, QString(), QColor(), 0, {}, -1, false, QString(), false, false, 0, true, QStringLiteral("code"), 2, 3);
+    assert(!searchQuery.isNull());
+    assert(searchQuery.width() > searchEmpty.width());
+
+    // 3. Search Mode Card Pill with isSelected = true
+    const QImage normalPill = OutlineBadge::renderOffscreenTargetPill('A', QColor(40, 44, 52), QColor(255, 255, 255), QStringLiteral("Desk 1"), QStringLiteral("VS Code"), 28, 1.0, QString(), false, QIcon(), false, QImage(), false, QString(), false, 0, false, false, false, false);
+    const QImage selectedPill = OutlineBadge::renderOffscreenTargetPill('A', QColor(40, 44, 52), QColor(255, 255, 255), QStringLiteral("Desk 1"), QStringLiteral("VS Code"), 28, 1.0, QString(), false, QIcon(), false, QImage(), false, QString(), false, 0, false, false, false, true);
+    assert(!normalPill.isNull());
+    assert(!selectedPill.isNull());
+    assert(normalPill.size() == selectedPill.size());
+
+    // 4. Action Hint Bar in Search Mode
+    const QImage searchHint = OutlineBadge::renderHudActionHintBar(1.0, false, 0, QString(), QColor(), false, false, false, true);
+    assert(!searchHint.isNull());
+    assert(searchHint.width() > 200);
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -1195,6 +1221,7 @@ int main(int argc, char *argv[])
     testPinDotBadgeAspectAndContrast();
     testCursorWarpCalculation();
     testAudioIndicatorRendering();
+    testSearchModeRendering();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

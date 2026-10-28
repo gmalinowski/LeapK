@@ -6,6 +6,7 @@
 #pragma once
 
 #include <QColor>
+#include <QDateTime>
 #include <QFont>
 #include <QFontMetrics>
 #include <QIcon>
@@ -1223,7 +1224,8 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
                                         int groupCount = 0,
                                         bool isStashed = false,
                                         bool isPinned = false,
-                                        bool isPlayingAudio = false)
+                                        bool isPlayingAudio = false,
+                                        bool isSelected = false)
 {
     Q_UNUSED(textColor);
     const int effectivePillBaseH = (badgeSize > 0) ? badgeSize : cfg.hudBadgeSize;
@@ -1508,9 +1510,15 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         }
     }
 
+    if (isSelected) {
+        pillBg = QColor(24, 38, 52);
+        pillBg.setAlphaF(qBound(0.1, (245.0 / 255.0) * (cfg.opacityPercent / 100.0), 1.0));
+        borderColor = QColor(0, 195, 255);
+    }
+
     p.fillPath(bgPath, pillBg);
-    QPen borderPen(borderColor, (isPinned ? 2.0 : 1.5) * scale);
-    if (isStashed) {
+    QPen borderPen(borderColor, (isSelected ? 2.5 : (isPinned ? 2.0 : 1.5)) * scale);
+    if (isStashed && !isSelected) {
         borderPen.setStyle(Qt::CustomDashLine);
         borderPen.setDashPattern({4, 3});
     }
@@ -1759,13 +1767,14 @@ inline QImage renderOffscreenTargetPill(const QChar &letter,
                                         int groupCount = 0,
                                         bool isStashed = false,
                                         bool isPinned = false,
-                                        bool isPlayingAudio = false)
+                                        bool isPlayingAudio = false,
+                                        bool isSelected = false)
 {
     BadgeConfig cfg;
     cfg.hudBadgeSize = badgeSize;
     cfg.showIcon = showIcon;
     cfg.showThumbnail = showThumbnail;
-    return renderOffscreenTargetPill(cfg, letter, bgColor, textColor, locationText, caption, badgeSize, scale, customLabel, icon, thumbnail, isMarked, recentKey, isRecent, groupCount, isStashed, isPinned, isPlayingAudio);
+    return renderOffscreenTargetPill(cfg, letter, bgColor, textColor, locationText, caption, badgeSize, scale, customLabel, icon, thumbnail, isMarked, recentKey, isRecent, groupCount, isStashed, isPinned, isPlayingAudio, isSelected);
 }
 
 inline QImage renderHudDividerLine(const QSizeF &size, qreal scale, bool isVertical = true)
@@ -2095,7 +2104,7 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
     return img;
 }
 
-inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false)
+inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false, bool isSearchMode = false)
 {
     Q_UNUSED(customViewName);
     Q_UNUSED(customViewColor);
@@ -2107,7 +2116,15 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     };
 
     QList<Segment> segments;
-    if (isAudioFilter) {
+    if (isSearchMode) {
+        segments = {
+            {QStringLiteral("Enter"), QStringLiteral("Jump to match"), QColor(0, 195, 255)},
+            {QStringLiteral("↑ / ↓"), QStringLiteral("Select window"), QColor(52, 152, 219)},
+            {QStringLiteral("Tab"), QStringLiteral("Cycle scope"), QColor(241, 196, 15)},
+            {QStringLiteral("Alt+Key"), QStringLiteral("Direct jump"), QColor(155, 89, 182)},
+            {QStringLiteral("Esc"), QStringLiteral("Exit search"), QColor(149, 165, 166)}
+        };
+    } else if (isAudioFilter) {
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Jump to audio window"), QColor(255, 107, 107)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
@@ -2141,6 +2158,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     } else {
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Jump"), QColor(52, 152, 219)},
+            {QStringLiteral("/"), QStringLiteral("Search"), QColor(0, 195, 255)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
             {QStringLiteral("Meta+A"), QStringLiteral("Super Jump"), QColor(0, 195, 255)},
             {QStringLiteral("Meta+U"), QStringLiteral("Audio filter"), QColor(255, 107, 107)},
@@ -2250,8 +2268,144 @@ inline QImage renderHudModeHeader(qreal scale,
                                   const QString &targetWorkspaceName = QString(),
                                   bool isSuperJump = false,
                                   bool isAudioMode = false,
-                                  int audioCount = 0)
+                                  int audioCount = 0,
+                                  bool isSearchMode = false,
+                                  const QString &searchQuery = QString(),
+                                  int searchScope = 1,
+                                  int searchCount = 0)
 {
+    if (isSearchMode) {
+        const QString placeholder = QStringLiteral("Type to search windows...");
+        const QString qText = searchQuery.isEmpty() ? placeholder : searchQuery;
+
+        QFont queryFont(QStringLiteral("sans-serif"));
+        queryFont.setPixelSize(qMax(10, qRound(13.0 * scale)));
+        queryFont.setBold(true);
+        QFontMetrics fmQuery(queryFont);
+
+        QFont scopeFont(QStringLiteral("sans-serif"));
+        scopeFont.setPixelSize(qMax(9, qRound(10.5 * scale)));
+        scopeFont.setBold(true);
+        QFontMetrics fmScope(scopeFont);
+
+        QFont countFont(QStringLiteral("sans-serif"));
+        countFont.setPixelSize(qMax(8, qRound(10.0 * scale)));
+        QFontMetrics fmCount(countFont);
+
+        const QString scopeNames[] = {
+            QStringLiteral("💻 Current WS"),
+            QStringLiteral("🌐 All"),
+            QStringLiteral("📦 All + Stash")
+        };
+
+        const QString countText = QStringLiteral("%1 matches").arg(searchCount);
+        const QString tabHint = QStringLiteral("Tab ↹");
+
+        const int padX = qRound(14 * scale);
+        const int padY = qRound(6 * scale);
+        const int gap = qRound(10 * scale);
+
+        int scopesW = 0;
+        int scopePillWs[3];
+        for (int i = 0; i < 3; ++i) {
+            scopePillWs[i] = fmScope.horizontalAdvance(scopeNames[i]) + qRound(14 * scale);
+            scopesW += scopePillWs[i] + qRound(4 * scale);
+        }
+        scopesW += fmScope.horizontalAdvance(tabHint) + qRound(8 * scale);
+
+        const int minQueryW = qRound(200 * scale);
+        const int queryW = qMax(minQueryW, fmQuery.horizontalAdvance(qText) + qRound(16 * scale));
+        const int countW = fmCount.horizontalAdvance(countText) + qRound(10 * scale);
+
+        const int searchIconW = qRound(18 * scale);
+        const int w = padX + searchIconW + qRound(8 * scale) + queryW + countW + gap + scopesW + padX;
+        const int h = qMax(qRound(36 * scale), fmQuery.height() + 2 * padY);
+
+        QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
+        img.fill(Qt::transparent);
+
+        QPainter p(&img);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setRenderHint(QPainter::TextAntialiasing, true);
+
+        const QRectF rect(0.5 * scale, 0.5 * scale, w - 1.0 * scale, h - 1.0 * scale);
+        const qreal radius = h / 2.0;
+
+        const QColor accent(52, 152, 219); // Crisp Azure Blue
+        p.setPen(QPen(accent, 1.8 * scale));
+        p.setBrush(QColor(16, 20, 28, 245));
+        p.drawRoundedRect(rect, radius, radius);
+
+        qreal currentX = padX;
+        const qreal baselineY = padY + fmQuery.ascent();
+
+        // 1. Search Icon 🔍
+        p.setFont(queryFont);
+        p.setPen(accent);
+        p.drawText(QPointF(currentX, baselineY), QStringLiteral("🔍"));
+        currentX += searchIconW + qRound(8 * scale);
+
+        // 2. Query Text
+        if (searchQuery.isEmpty()) {
+            p.setPen(QColor(150, 155, 170, 160));
+            p.drawText(QPointF(currentX, baselineY), placeholder);
+        } else {
+            p.setPen(QColor(255, 255, 255));
+            p.drawText(QPointF(currentX, baselineY), searchQuery);
+            // Blinking cursor
+            const qint64 msecs = QDateTime::currentMSecsSinceEpoch();
+            if ((msecs / 500) % 2 == 0) {
+                const qreal cursorX = currentX + fmQuery.horizontalAdvance(searchQuery) + 2.0 * scale;
+                p.setPen(QPen(accent, 2.0 * scale));
+                p.drawLine(QPointF(cursorX, padY + 2.0 * scale), QPointF(cursorX, h - padY - 2.0 * scale));
+            }
+        }
+        currentX += queryW;
+
+        // 3. Count Pill
+        p.setFont(countFont);
+        p.setPen(QColor(160, 170, 185, 200));
+        p.drawText(QPointF(currentX, baselineY), countText);
+        currentX += countW + gap;
+
+        // 4. Scope Pills
+        p.setFont(scopeFont);
+        const qreal pillH = qMax(qRound(20 * scale), fmScope.height() + qRound(4 * scale));
+        const qreal pillY = (h - pillH) / 2.0;
+
+        for (int i = 0; i < 3; ++i) {
+            const bool isActive = (searchScope == i);
+            const int pW = scopePillWs[i];
+            const QRectF pRect(currentX, pillY, pW, pillH);
+            const qreal pRadius = pillH / 2.0;
+
+            if (isActive) {
+                QColor scopeColor = (i == 0) ? QColor(52, 152, 219) : (i == 1 ? QColor(155, 89, 182) : QColor(46, 204, 113));
+                p.setPen(Qt::NoPen);
+                p.setBrush(scopeColor);
+                p.drawRoundedRect(pRect, pRadius, pRadius);
+
+                p.setPen(QColor(255, 255, 255));
+            } else {
+                p.setPen(QPen(QColor(100, 110, 125, 120), 1.0 * scale));
+                p.setBrush(QColor(30, 35, 45, 140));
+                p.drawRoundedRect(pRect, pRadius, pRadius);
+
+                p.setPen(QColor(160, 170, 185));
+            }
+
+            p.drawText(pRect, Qt::AlignCenter, scopeNames[i]);
+            currentX += pW + qRound(4 * scale);
+        }
+
+        // 5. Tab Hint
+        p.setPen(QColor(120, 130, 145, 180));
+        p.drawText(QPointF(currentX + 2.0 * scale, baselineY), tabHint);
+
+        p.end();
+        return img;
+    }
+
     if (isAudioMode) {
         const QString leftText = QStringLiteral("🎵 AUDIO: %1 playing windows  •  Press target letter").arg(audioCount);
         const QString rightText = QStringLiteral("Meta+U / Esc : Back");

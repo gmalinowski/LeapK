@@ -13,6 +13,7 @@
 #include "badgehelper.h"
 #include "historyhelper.h"
 #include "audiotracker.h"
+#include "fuzzymatcher.h"
 
 #include <QColor>
 #include <QElapsedTimer>
@@ -181,6 +182,7 @@ private Q_SLOTS:
     void slotCycleHudView(int delta = 1);
     void slotTriggerJumpMode();
     void slotTriggerAudioFilterMode();
+    void slotTriggerSearchMode();
     void slotJumpToRecentWindow();
     void slotPrevRecentWindow();
     void slotNextRecentWindow();
@@ -243,6 +245,10 @@ private:
     void toggleAudioFilterMode();
     void exitAudioFilterMode();
     bool isWorkspacePlayingAudio(int wsIndex) const;
+    void enterSearchMode();
+    void exitSearchMode();
+    void toggleSearchMode();
+    void updateSearchMatches();
     void setKdeGlobalShortcutsBlocked(bool blocked);
     QString getWindowLocationString(EffectWindow *target) const;
     QList<QRectF> computeHudPillRects(const QList<QPair<QChar, EffectWindow *>> &targets,
@@ -482,6 +488,11 @@ private:
     bool m_audioFilterModeActive = false;
     OutlineAudio::AudioTracker m_audioTracker;
     QTimer *m_audioRefreshTimer = nullptr;
+    bool m_searchModeActive = false;
+    QString m_searchQuery;
+    int m_searchScope = 1;
+    int m_searchSelectedIndex = 0;
+    QList<OutlineFuzzy::SearchCandidate> m_searchMatches;
     bool m_globalShortcutsBlocked = false;
 
     // Sub-Leap Disambiguation (multi-instance window disambiguation)
