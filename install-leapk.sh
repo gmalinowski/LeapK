@@ -310,9 +310,10 @@ cp "$project_dir/leapk.svg" "$HOME/.local/share/icons/hicolor/scalable/apps/leap
 # Install/update user binaries in ~/.local/bin if present
 if [[ -d "$HOME/.local/bin" ]]; then
   cp -f "$build_dir/leapk-custom-marker" "$HOME/.local/bin/leapk-custom-marker" 2>/dev/null || true
+  cp -f "$build_dir/leapk-workspace-manager" "$HOME/.local/bin/leapk-workspace-manager" 2>/dev/null || true
   cp -f "$build_dir/leapk-tray" "$HOME/.local/bin/leapk-tray" 2>/dev/null || true
   cp -f "$build_dir/leapk-settings" "$HOME/.local/bin/leapk-settings" 2>/dev/null || true
-  (cd "$HOME/.local/bin" && ln -sf leapk-custom-marker leapk-colorpicker && ln -sf leapk-custom-marker kleap-custom-marker && ln -sf leapk-custom-marker kleap-colorpicker && ln -sf leapk-custom-marker active-window-outline-colorpicker && ln -sf leapk-tray kleap-tray && ln -sf leapk-tray active-window-outline-tray && ln -sf leapk-settings kleap-settings && ln -sf leapk-settings active-window-outline-settings && ln -sf leapk-settings leapk) 2>/dev/null || true
+  (cd "$HOME/.local/bin" && ln -sf leapk-custom-marker leapk-colorpicker && ln -sf leapk-custom-marker kleap-custom-marker && ln -sf leapk-custom-marker kleap-colorpicker && ln -sf leapk-custom-marker active-window-outline-colorpicker && ln -sf leapk-workspace-manager kleap-workspace-manager && ln -sf leapk-workspace-manager active-window-outline-workspace-manager && ln -sf leapk-tray kleap-tray && ln -sf leapk-tray active-window-outline-tray && ln -sf leapk-settings kleap-settings && ln -sf leapk-settings active-window-outline-settings && ln -sf leapk-settings leapk) 2>/dev/null || true
 fi
 
 if command -v update-desktop-database >/dev/null 2>&1; then
@@ -510,6 +511,7 @@ if command -v kreadconfig6 >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/nul
   migrate_shortcut "ToggleActiveWindowOutline" "Meta+Ctrl+O" "LeapK: Toggle Window Highlight"
   migrate_shortcut "MarkActiveWindow" "none" "LeapK: Toggle Mark Window (Quick)"
   migrate_shortcut "MarkActiveWindowWithColor" "Meta+Ctrl+Space" "LeapK: Mark Window with Color Picker"
+  migrate_shortcut "OpenWorkspaceManager" "Meta+Shift+Space" "LeapK: Open Workspace Manager"
   migrate_shortcut "ToggleHudGrouping" "Meta+Ctrl+G" "LeapK: Toggle HUD Window Grouping"
   migrate_shortcut "JumpToWindow" "Meta+Space" "LeapK: Jump to Window"
   migrate_shortcut "RecentWindow" "" "LeapK: Switch to Recent Window"
