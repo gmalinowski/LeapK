@@ -3650,6 +3650,7 @@ void ActiveWindowOutlineEffect::applyWorkspaceViewIsolation(int hudViewIndex)
 void ActiveWindowOutlineEffect::enterStashMode()
 {
     m_stashModeActive = true;
+    m_superJumpActive = false;
     m_subLeapActive = false;
     m_subLeapBaseKey = QChar();
     m_subLeapWindows.clear();
@@ -3687,6 +3688,70 @@ void ActiveWindowOutlineEffect::exitStashMode()
         m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
     }
 
+    effects->addRepaintFull();
+}
+
+int ActiveWindowOutlineEffect::findWorkspaceForWindow(EffectWindow *target) const
+{
+    if (!target || target->isDeleted()) {
+        return 0; // Standard
+    }
+
+    const auto desktops = target->desktops();
+    const int dNum = (!desktops.isEmpty() && !target->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+    const QString appClass = target->windowClass();
+    const QString caption = target->caption();
+
+    for (int i = 0; i < m_workspaces.size(); ++i) {
+        if (LeapKWorkspace::matchesWorkspace(m_workspaces.at(i), appClass, caption, dNum)) {
+            return i + 1; // 1-based workspace index
+        }
+    }
+
+    return 0; // Standard
+}
+
+void ActiveWindowOutlineEffect::toggleSuperJumpMode()
+{
+    if (m_subLeapActive) {
+        exitSubLeapMode();
+    }
+    if (m_stashModeActive) {
+        exitStashMode();
+    }
+
+    m_superJumpActive = !m_superJumpActive;
+    if (m_superJumpActive) {
+        m_superJumpTargetWorkspace = m_activeHudView;
+    }
+
+    m_jumpLetterToWindow = assignJumpLetters();
+    m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+    }
+    effects->addRepaintFull();
+}
+
+void ActiveWindowOutlineEffect::exitSuperJumpMode()
+{
+    if (!m_superJumpActive) {
+        return;
+    }
+    m_superJumpActive = false;
+    m_jumpLetterToWindow = assignJumpLetters();
+    m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+    }
     effects->addRepaintFull();
 }
 
@@ -4166,7 +4231,9 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
         const auto desktops = w->desktops();
         const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
 
-        if (m_stashModeActive) { // Stash view: include both stashed windows and visible workspace windows
+        if (m_superJumpActive) {
+            // Super Jump: all eligible windows across all workspaces and desktops are candidates to pull!
+        } else if (m_stashModeActive) { // Stash view: include both stashed windows and visible workspace windows
             const bool isStashed = isWindowInStash(w);
 
             bool isCurrentWorkspaceVisible = false;
@@ -4347,6 +4414,7 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
 
     m_subLeapActive = false;
     m_stashModeActive = false;
+    m_superJumpActive = false;
     m_subLeapBaseKey = QChar();
     m_subLeapWindows.clear();
     m_subLeapLetterToWindow.clear();
@@ -4397,6 +4465,7 @@ void ActiveWindowOutlineEffect::cancelJumpMode()
     m_jumpMode = false;
     m_subLeapActive = false;
     m_stashModeActive = false;
+    m_superJumpActive = false;
     m_subLeapBaseKey = QChar();
     m_subLeapWindows.clear();
     m_subLeapLetterToWindow.clear();
@@ -4420,6 +4489,7 @@ void ActiveWindowOutlineEffect::exitSubLeapMode()
 {
     m_subLeapActive = false;
     m_stashModeActive = false;
+    m_superJumpActive = false;
     m_subLeapBaseKey = QChar();
     m_subLeapWindows.clear();
     m_subLeapLetterToWindow.clear();
@@ -4511,14 +4581,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     switch (e->key()) {
     case Qt::Key_Shift:
     case Qt::Key_Control:
-    case Qt::Key_Meta:
     case Qt::Key_Alt:
     case Qt::Key_AltGr:
     case Qt::Key_CapsLock:
     case Qt::Key_NumLock:
     case Qt::Key_ScrollLock:
-    case Qt::Key_Super_L:
-    case Qt::Key_Super_R:
     case Qt::Key_Menu:
     case Qt::Key_Hyper_L:
     case Qt::Key_Hyper_R:
@@ -4528,6 +4595,13 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     case Qt::Key_Mode_switch:
         if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
             m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+        }
+        return;
+    case Qt::Key_Meta:
+    case Qt::Key_Super_L:
+    case Qt::Key_Super_R:
+        if (!e->isAutoRepeat()) {
+            toggleSuperJumpMode();
         }
         return;
     default:
@@ -4628,6 +4702,25 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                             target->setMinimized(false);
                         }
                         effects->activateWindow(target);
+                        return;
+                    }
+
+                    if (m_superJumpActive) {
+                        cancelJumpMode();
+                        const int targetWs = m_superJumpTargetWorkspace;
+                        if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
+                            addWindowToWorkspace(target, targetWs);
+                        }
+                        m_workspaceMinimizedWindows.remove(target);
+                        m_stashedWindows.remove(target);
+                        if (target->isMinimized()) {
+                            target->setMinimized(false);
+                        }
+                        effects->windowToDesktops(target, {effects->currentDesktop()});
+                        effects->activateWindow(target);
+                        if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
+                            applyWorkspaceViewIsolation(targetWs);
+                        }
                         return;
                     }
 
@@ -4754,6 +4847,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
+    if (m_superJumpActive && (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace)) {
+        exitSuperJumpMode();
+        return;
+    }
+
     if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
         cancelJumpMode();
         return;
@@ -4840,6 +4938,27 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     }
 
     if (!isCtrl && !isAlt && isRecentKeyMatch) {
+        if (m_superJumpActive) {
+            EffectWindow *target = findRecentWindow();
+            if (target && !target->isDeleted()) {
+                cancelJumpMode();
+                const int targetWs = m_superJumpTargetWorkspace;
+                if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
+                    addWindowToWorkspace(target, targetWs);
+                }
+                m_workspaceMinimizedWindows.remove(target);
+                m_stashedWindows.remove(target);
+                if (target->isMinimized()) {
+                    target->setMinimized(false);
+                }
+                effects->windowToDesktops(target, {effects->currentDesktop()});
+                effects->activateWindow(target);
+                if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
+                    applyWorkspaceViewIsolation(targetWs);
+                }
+            }
+            return;
+        }
         slotJumpToRecentWindow();
         return;
     }
@@ -4962,6 +5081,25 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     return;
                 }
 
+                if (m_superJumpActive) {
+                    cancelJumpMode();
+                    const int targetWs = m_superJumpTargetWorkspace;
+                    if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
+                        addWindowToWorkspace(target, targetWs);
+                    }
+                    m_workspaceMinimizedWindows.remove(target);
+                    m_stashedWindows.remove(target);
+                    if (target->isMinimized()) {
+                        target->setMinimized(false);
+                    }
+                    effects->windowToDesktops(target, {effects->currentDesktop()});
+                    effects->activateWindow(target);
+                    if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
+                        applyWorkspaceViewIsolation(targetWs);
+                    }
+                    return;
+                }
+
                 // Normal jump & activate
                 cancelJumpMode();
                 m_expectedJumpTarget = target;
@@ -5028,12 +5166,25 @@ void ActiveWindowOutlineEffect::slotJumpToRecentWindow()
         m_expectedJumpTargetTimer->start(1000);
     }
 
+    const int targetWs = findWorkspaceForWindow(target);
+    if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
+        m_activeHudView = targetWs;
+        if (effects && effects->config()) {
+            KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+            primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
+            primaryConfig.sync();
+        }
+        applyWorkspaceViewIsolation(m_activeHudView);
+    }
+
     if (!target->isOnCurrentDesktop()) {
         const auto desktops = target->desktops();
         if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
             effects->setCurrentDesktop(desktops.first());
         }
     }
+    m_workspaceMinimizedWindows.remove(target);
+    m_stashedWindows.remove(target);
     if (target->isMinimized()) {
         target->setMinimized(false);
     }
@@ -5726,6 +5877,12 @@ QString ActiveWindowOutlineEffect::getWindowLocationString(EffectWindow *target)
         return QStringLiteral("📦 Stash");
     }
 
+    const int wsIdx = findWorkspaceForWindow(target);
+    QString wsPrefix;
+    if (wsIdx >= 1 && wsIdx <= m_workspaces.size()) {
+        wsPrefix = QStringLiteral("📁 ") + m_workspaces.at(wsIdx - 1).name;
+    }
+
     QString loc;
     if (!target->isOnCurrentDesktop()) {
         const auto desktops = target->desktops();
@@ -5740,6 +5897,12 @@ QString ActiveWindowOutlineEffect::getWindowLocationString(EffectWindow *target)
         loc = QStringLiteral("Current Desktop");
     } else {
         loc = QStringLiteral("Covered");
+    }
+
+    if (!wsPrefix.isEmpty()) {
+        if (m_superJumpActive || m_activeHudView == m_workspaces.size() + 1) {
+            return QStringLiteral("%1 · %2").arg(wsPrefix, loc);
+        }
     }
     return loc;
 }
@@ -6118,9 +6281,9 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
     }
 
     const int nameHash = (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) ? (qHash(m_workspaces.at(m_activeHudView - 1).name) % 10000) : 0;
-    const int hintBarKey = (m_subLeapActive ? 100000 : 0) + (m_stashModeActive ? 500000 : 0) + m_activeHudView * 1000 + (isPolish ? 100 : 0) + nameHash + qRound(scale * 10);
+    const int hintBarKey = (m_subLeapActive ? 100000 : 0) + (m_stashModeActive ? 500000 : 0) + (m_superJumpActive ? 700000 : 0) + m_activeHudView * 1000 + (isPolish ? 100 : 0) + nameHash + qRound(scale * 10);
     if (!m_hudHintBarTexture || m_hudHintBarCacheKey != hintBarKey) {
-        const QImage hintImg = OutlineBadge::renderHudActionHintBar(isPolish, scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive);
+        const QImage hintImg = OutlineBadge::renderHudActionHintBar(isPolish, scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive, m_superJumpActive);
         auto uploaded = GLTexture::upload(hintImg);
         if (uploaded) {
             uploaded->setFilter(GL_LINEAR);
@@ -6334,16 +6497,26 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
         });
     }
 
+    if (m_superJumpActive) {
+        if (m_superJumpTargetWorkspace == 0) {
+            targetWorkspaceName = QStringLiteral("💻 Standard");
+        } else if (m_superJumpTargetWorkspace >= 1 && m_superJumpTargetWorkspace <= m_workspaces.size()) {
+            targetWorkspaceName = QStringLiteral("📁 ") + m_workspaces.at(m_superJumpTargetWorkspace - 1).name;
+        } else {
+            targetWorkspaceName = QStringLiteral("🌐 All");
+        }
+    }
+
     int countsHash = 0;
     for (const auto &vt : viewTabs) {
         countsHash = (countsHash * 31 + vt.windowCount + (vt.isActive ? 1000 : 0)) % 100000;
     }
-    const int headerKey = (m_subLeapActive ? 2000000 : 0) + (m_stashModeActive ? 4000000 : 0) + m_activeHudView * 100000
-        + (isPolish ? 50000 : 0) + countsHash + stashCount * 13 + qRound(scale * 10);
+    const int headerKey = (m_subLeapActive ? 2000000 : 0) + (m_stashModeActive ? 4000000 : 0) + (m_superJumpActive ? 6000000 : 0)
+        + m_activeHudView * 100000 + countsHash + stashCount * 13 + qRound(scale * 10);
 
     if (!m_hudHeaderTexture || m_hudHeaderCacheKey != headerKey) {
         const QImage headerImg = OutlineBadge::renderHudModeHeader(
-            isPolish, scale, m_subLeapActive, subLeapTitle, subLeapColor, subLeapCount, viewTabs, stashCount, m_stashModeActive, targetWorkspaceName);
+            isPolish, scale, m_subLeapActive, subLeapTitle, subLeapColor, subLeapCount, viewTabs, stashCount, m_stashModeActive, targetWorkspaceName, m_superJumpActive);
         if (!headerImg.isNull()) {
             auto uploaded = GLTexture::upload(headerImg);
             if (uploaded) {

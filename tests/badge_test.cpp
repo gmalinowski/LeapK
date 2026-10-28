@@ -967,6 +967,11 @@ void testHudActionHintBar()
     QImage barWs = OutlineBadge::renderHudActionHintBar(true, 1.0, false, 1, QStringLiteral("Widok: 📁 Backend"), QColor(52, 152, 219));
     assert(!barWs.isNull());
     assert(barWs.width() > 100);
+
+    // 5. Super Jump Mode Hint Bar
+    QImage barSuper = OutlineBadge::renderHudActionHintBar(false, 1.0, false, 0, QString(), QColor(), false, true);
+    assert(!barSuper.isNull());
+    assert(barSuper.width() > 100);
 }
 
 void testHudModeHeader()
@@ -1005,6 +1010,12 @@ void testHudModeHeader()
     QImage subLeapEn = OutlineBadge::renderHudModeHeader(false, 1.25, true, QStringLiteral("Alacritty"), QColor(52, 152, 219), 2, {});
     assert(!subLeapEn.isNull());
     assert(subLeapEn.width() > 200);
+
+    // 4. Super Jump Mode Header Banner
+    QImage superJump = OutlineBadge::renderHudModeHeader(false, 1.0, false, QString(), QColor(), 0, {}, -1, false, QStringLiteral("📁 Dev"), true);
+    assert(!superJump.isNull());
+    assert(superJump.width() > 200);
+    assert(superJump.height() >= 30);
 }
 
 void testStashBadgeStyling()

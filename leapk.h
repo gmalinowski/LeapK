@@ -230,6 +230,9 @@ private:
     bool isWindowObscured(EffectWindow *target) const;
     bool isBadgeOccluded(EffectWindow *target, const QRectF &badgeRect, const QList<QRectF> &hudRects = {}) const;
     bool isWindowInStash(EffectWindow *w) const;
+    int findWorkspaceForWindow(EffectWindow *target) const;
+    void toggleSuperJumpMode();
+    void exitSuperJumpMode();
     QString getWindowLocationString(EffectWindow *target) const;
     QList<QRectF> computeHudPillRects(const QList<QPair<QChar, EffectWindow *>> &targets,
                                       const RenderViewport &viewport,
@@ -457,6 +460,8 @@ private:
     QSet<EffectWindow *> m_workspaceMinimizedWindows;
     bool m_stashModeActive = false;
     QSet<EffectWindow *> m_stashedWindows;
+    bool m_superJumpActive = false;
+    int m_superJumpTargetWorkspace = 0;
 
     // Sub-Leap Disambiguation (multi-instance window disambiguation)
     bool m_subLeapActive = false;

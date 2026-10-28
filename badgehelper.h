@@ -1655,7 +1655,7 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
     return img;
 }
 
-inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false)
+inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false)
 {
     Q_UNUSED(isPolish);
     Q_UNUSED(customViewName);
@@ -1668,7 +1668,12 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
     };
 
     QList<Segment> segments;
-    if (isStashMode) {
+    if (isSuperJump) {
+        segments = {
+            {QStringLiteral("Key"), QStringLiteral("Pull to workspace"), QColor(0, 195, 255)},
+            {QStringLiteral("Meta / Esc"), QStringLiteral("Back"), QColor(149, 165, 166)}
+        };
+    } else if (isStashMode) {
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Add to workspace"), QColor(46, 204, 113)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Add to stash"), QColor(46, 204, 113)},
@@ -1687,6 +1692,7 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
     } else {
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Jump"), QColor(52, 152, 219)},
+            {QStringLiteral("Meta"), QStringLiteral("Super Jump"), QColor(0, 195, 255)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pull here"), QColor(241, 196, 15)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
@@ -1790,9 +1796,60 @@ inline QImage renderHudModeHeader(bool isPolish,
                                   const QList<HudModeHeaderView> &views,
                                   int stashCount = -1,
                                   bool isStashMode = false,
-                                  const QString &targetWorkspaceName = QString())
+                                  const QString &targetWorkspaceName = QString(),
+                                  bool isSuperJump = false)
 {
     Q_UNUSED(isPolish);
+    if (isSuperJump) {
+        const QString leftText = QStringLiteral("⚡ SUPER JUMP: Pick any window to pull into [%1]").arg(!targetWorkspaceName.isEmpty() ? targetWorkspaceName : QStringLiteral("Workspace"));
+        const QString rightText = QStringLiteral("Meta / Esc : Back");
+
+        QFont titleFont(QStringLiteral("sans-serif"));
+        titleFont.setPixelSize(qMax(10, qRound(13.0 * scale)));
+        titleFont.setBold(true);
+        QFontMetrics fmTitle(titleFont);
+
+        QFont keyFont(QStringLiteral("sans-serif"));
+        keyFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
+        keyFont.setBold(true);
+        QFontMetrics fmKey(keyFont);
+
+        const int padX = qRound(16 * scale);
+        const int padY = qRound(6 * scale);
+        const int gap = qRound(16 * scale);
+
+        const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + padX;
+        const int h = qMax(qRound(34 * scale), fmTitle.height() + 2 * padY);
+
+        QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
+        img.fill(Qt::transparent);
+
+        QPainter p(&img);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setRenderHint(QPainter::TextAntialiasing, true);
+
+        const QRectF rect(0.5 * scale, 0.5 * scale, w - 1.0 * scale, h - 1.0 * scale);
+        const qreal radius = h / 2.0;
+
+        const QColor accent(0, 195, 255); // Electric Cyan
+        p.setPen(QPen(accent, 1.8 * scale));
+        p.setBrush(QColor(14, 22, 28, 245));
+        p.drawRoundedRect(rect, radius, radius);
+
+        const qreal baselineY = padY + fmTitle.ascent();
+        p.setFont(titleFont);
+        p.setPen(QColor(255, 255, 255));
+        p.drawText(QPointF(padX, baselineY), leftText);
+
+        p.setFont(keyFont);
+        p.setPen(accent);
+        const qreal keyX = w - padX - fmKey.horizontalAdvance(rightText);
+        p.drawText(QPointF(keyX, baselineY), rightText);
+
+        p.end();
+        return img;
+    }
+
     if (isSubLeap) {
         const QString leftText = QStringLiteral("🗂 GROUP DISAMBIGUATION: %1 (%2 windows)  •  Press target letter").arg(subLeapTitle).arg(subLeapCount);
         const QString rightText = QStringLiteral("Backspace / Esc : Back");
