@@ -3944,6 +3944,9 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
         const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
 
         if (m_stashModeActive) { // Stash view: ALL hidden / stashed / minimized windows
+            if (m_workspaceMinimizedWindows.contains(w)) {
+                continue; // Minimized only due to workspace isolation, not in stash!
+            }
             if (!w->isMinimized() && !m_stashedWindows.contains(w)) {
                 continue;
             }
@@ -5919,6 +5922,9 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
             if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
                 continue;
             }
+            if (m_workspaceMinimizedWindows.contains(w)) {
+                continue; // Minimized only due to workspace isolation, not in stash!
+            }
             if (w->isMinimized() || m_stashedWindows.contains(w)) {
                 stashCount++;
             }
@@ -5938,7 +5944,11 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
             if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
                 continue;
             }
-            if (w->isOnCurrentDesktop() && !w->isMinimized() && !m_stashedWindows.contains(w)) {
+            if (m_stashedWindows.contains(w)) {
+                continue;
+            }
+            const bool isUnminimizedOrIsoMinimized = !w->isMinimized() || m_workspaceMinimizedWindows.contains(w);
+            if (w->isOnCurrentDesktop() && isUnminimizedOrIsoMinimized) {
                 standardCount++;
             }
         }
@@ -5955,6 +5965,9 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
             int wsCount = 0;
             for (EffectWindow *w : windows) {
                 if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
+                    continue;
+                }
+                if (m_stashedWindows.contains(w)) {
                     continue;
                 }
                 const auto desktops = w->desktops();
