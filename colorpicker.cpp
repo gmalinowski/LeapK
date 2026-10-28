@@ -339,6 +339,7 @@ public:
     QString matchCaption() const { return (m_groupByApp && !m_matchCaption.isEmpty()) ? m_matchCaption : QString(); }
     bool persistent() const { return m_persistent; }
     int matchDesktop() const { return (m_matchDesktop && m_desktopNum > 0) ? m_desktopNum : 0; }
+    bool reassignLetter() const { return m_reassignLetter; }
 
 protected:
     void showEvent(QShowEvent *event) override
@@ -770,15 +771,16 @@ private:
             m_btnStep0Keep->setText(m_isPolish ? QStringLiteral("Bez litery (Dalej)") : QStringLiteral("No letter (Next)"));
         }
 
-        // Conflict check
+        // Shared letter / Smart Workspace info
         if (m_useLetter && !m_letter.isEmpty() && m_usedLettersMap.contains(m_letter)) {
             const QString existingApp = m_usedLettersMap.value(m_letter).toString();
             if (!existingApp.isEmpty() && existingApp.compare(m_appClass, Qt::CaseInsensitive) != 0) {
                 m_lblStep0Conflict->setText(m_isPolish
-                    ? QStringLiteral("⚠️ Litera '%1' jest już przypisana do: %2.\nZatwierdzenie przeniesie tę literę na bieżące okno (%3).")
-                        .arg(m_letter, existingApp, m_appClass.isEmpty() ? QStringLiteral("bieżące") : m_appClass)
-                    : QStringLiteral("⚠️ Letter '%1' is already assigned to: %2.\nConfirming will reassign it to this window (%3).")
-                        .arg(m_letter, existingApp, m_appClass.isEmpty() ? QStringLiteral("current") : m_appClass));
+                    ? QStringLiteral("🏷️ Litera '%1' jest już przypisana do: %2.\nMożesz połączyć te okna we wspólną grupę roboczą (Smart Workspace).")
+                        .arg(m_letter, existingApp)
+                    : QStringLiteral("🏷️ Letter '%1' is already assigned to: %2.\nYou can join these windows into a shared Smart Workspace.")
+                        .arg(m_letter, existingApp));
+                m_lblStep0Conflict->setStyleSheet(QStringLiteral("color: #3498db; font-size: 13px; font-weight: bold; background: rgba(52, 152, 219, 0.15); border: 1px solid rgba(52, 152, 219, 0.4); border-radius: 8px; padding: 6px 12px;"));
                 m_lblStep0Conflict->show();
                 return;
             }
@@ -1281,8 +1283,9 @@ private:
             const QString existingApp = m_usedLettersMap.value(m_letter).toString();
             if (!existingApp.isEmpty() && existingApp.compare(m_appClass, Qt::CaseInsensitive) != 0) {
                 m_previewConflictWarn->setText(m_isPolish
-                    ? QStringLiteral("⚠️ Zastąpi literę '%1' przypisaną do: %2").arg(m_letter, existingApp)
-                    : QStringLiteral("⚠️ Will reassign letter '%1' from: %2").arg(m_letter, existingApp));
+                    ? QStringLiteral("🏷️ Dołączy do grupy (Smart Workspace) z: %1 (grupa '%2')").arg(existingApp, m_letter)
+                    : QStringLiteral("🏷️ Will join Smart Workspace with: %1 (group '%2')").arg(existingApp, m_letter));
+                m_previewConflictWarn->setStyleSheet(QStringLiteral("color: #3498db; font-size: 12px; font-weight: bold;"));
                 m_previewConflictWarn->show();
             } else {
                 m_previewConflictWarn->hide();
@@ -1566,28 +1569,41 @@ private:
         if (m_useLetter && !m_letter.isEmpty() && m_usedLettersMap.contains(m_letter)) {
             const QString existingApp = m_usedLettersMap.value(m_letter).toString();
             if (!existingApp.isEmpty() && existingApp.compare(m_appClass, Qt::CaseInsensitive) != 0) {
-                const QString targetAppDisp = m_appClass.isEmpty() ? (m_isPolish ? QStringLiteral("bieżącego okna") : QStringLiteral("this window")) : m_appClass;
-                const QMessageBox::StandardButton res = QMessageBox::question(
-                    this,
-                    m_isPolish ? QStringLiteral("Konflikt litery oznaczenia") : tr("Letter Assignment Conflict"),
-                    m_isPolish
-                        ? QStringLiteral("Litera '%1' jest już przypisana do innej aplikacji (%2).\n\nCzy na pewno chcesz odebrać literę '%1' aplikacji %2 i przypisać ją do %3?")
-                            .arg(m_letter, existingApp, targetAppDisp)
-                        : tr("Letter '%1' is already assigned to another application (%2).\n\nDo you want to reassign letter '%1' from %2 to %3?")
-                            .arg(m_letter, existingApp, targetAppDisp),
-                    QMessageBox::Yes | QMessageBox::No,
-                    QMessageBox::Yes
-                );
-                if (res != QMessageBox::Yes) {
+                QMessageBox msgBox(this);
+                msgBox.setWindowTitle(m_isPolish ? QStringLiteral("Wspólna litera oznaczenia") : tr("Shared Mark Letter"));
+                msgBox.setText(m_isPolish
+                    ? QStringLiteral("Litera <b>'%1'</b> jest już przypisana do aplikacji <b>%2</b>.<br><br>Co chcesz zrobić?").arg(m_letter, existingApp)
+                    : tr("Letter <b>'%1'</b> is already assigned to <b>%2</b>.<br><br>What would you like to do?").arg(m_letter, existingApp));
+
+                QPushButton *btnGroup = msgBox.addButton(
+                    m_isPolish ? QStringLiteral("🏷️ Połącz w grupę (Smart Workspace)") : tr("🏷️ Join Group (Smart Workspace)"),
+                    QMessageBox::AcceptRole);
+                QPushButton *btnReassign = msgBox.addButton(
+                    m_isPolish ? QStringLiteral("🔄 Przepisz (tylko to okno)") : tr("🔄 Reassign (this window only)"),
+                    QMessageBox::DestructiveRole);
+                QPushButton *btnCancel = msgBox.addButton(
+                    m_isPolish ? QStringLiteral("Anuluj") : tr("Cancel"),
+                    QMessageBox::RejectRole);
+
+                btnGroup->setStyleSheet(QStringLiteral("background-color: #3498db; color: white; font-weight: bold; padding: 6px 14px; border-radius: 6px;"));
+                btnReassign->setStyleSheet(QStringLiteral("background-color: rgba(231, 76, 60, 0.8); color: white; font-weight: bold; padding: 6px 14px; border-radius: 6px;"));
+                btnCancel->setStyleSheet(QStringLiteral("background-color: rgba(255, 255, 255, 0.15); color: white; padding: 6px 14px; border-radius: 6px;"));
+
+                msgBox.setDefaultButton(btnGroup);
+                msgBox.exec();
+
+                if (msgBox.clickedButton() == btnCancel) {
                     goToStep(0);
                     return;
                 }
+                m_reassignLetter = (msgBox.clickedButton() == btnReassign);
             }
         }
         accept();
     }
 
 private:
+    bool m_reassignLetter = false;
     QColor m_color;
     bool m_useColor;
     QString m_letter;
@@ -1821,6 +1837,7 @@ int main(int argc, char *argv[])
         resp[QStringLiteral("groupByApp")] = finalGroupByApp;
         resp[QStringLiteral("matchCaption")] = finalCaptionPattern;
         resp[QStringLiteral("matchDesktop")] = dlg.matchDesktop();
+        resp[QStringLiteral("reassign")] = dlg.reassignLetter();
 
         std::cout << QJsonDocument(resp).toJson(QJsonDocument::Compact).toStdString() << std::endl;
         return 0;

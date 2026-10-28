@@ -3041,6 +3041,7 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
                     QString matchCaption;
 
                     int matchDesktop = 0;
+                    bool reassign = false;
 
                     if (out.startsWith(QLatin1Char('{'))) {
                         const QJsonDocument doc = QJsonDocument::fromJson(out.toUtf8());
@@ -3080,6 +3081,7 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
                             groupByApp = obj.value(QStringLiteral("groupByApp")).toBool(true);
                             matchCaption = obj.value(QStringLiteral("matchCaption")).toString().trimmed();
                             matchDesktop = obj.value(QStringLiteral("matchDesktop")).toInt(0);
+                            reassign = obj.value(QStringLiteral("reassign")).toBool(false);
                         }
                     } else {
                         // Legacy space-separated fallback
@@ -3120,7 +3122,7 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
 
                     applyMark(picked, pickedLetter, labelStr, useColor, useLetter);
 
-                    if (targetWindow && !pickedLetter.isNull()) {
+                    if (reassign && targetWindow && !pickedLetter.isNull()) {
                         EffectWindow *w = targetWindow.data();
 
                         // Reassign: if any other window belonging to a DIFFERENT application held this letter, release it
