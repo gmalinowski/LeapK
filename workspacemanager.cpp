@@ -62,7 +62,7 @@ public:
     explicit CloseWorkspaceDialog(const QString &wsName, bool isPolish, QWidget *parent = nullptr)
         : QDialog(parent)
         , m_wsName(wsName)
-        , m_isPolish(isPolish)
+        , m_isPolish(false)
         , m_selectedAction(Cancel)
     {
         setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
@@ -256,7 +256,7 @@ class WorkspaceCard : public QFrame
 {
 public:
     WorkspaceCard(int index, const LeapKWorkspace::WorkspaceInfo &info, bool isAssigned, bool isSelected, bool isPolish, QWidget *parent = nullptr)
-        : QFrame(parent), m_index(index), m_info(info), m_isAssigned(isAssigned), m_isSelected(isSelected), m_isPolish(isPolish)
+        : QFrame(parent), m_index(index), m_info(info), m_isAssigned(isAssigned), m_isSelected(isSelected), m_isPolish(false)
     {
         setObjectName(QStringLiteral("wsCard"));
         setCursor(Qt::PointingHandCursor);
@@ -447,7 +447,7 @@ public:
         , m_desktopName(desktopName)
         , m_assignedWsId(assignedWsId)
         , m_workspaces(workspaces)
-        , m_isPolish(QLocale().language() == QLocale::Polish)
+        , m_isPolish(false)
         , m_groupByApp(true)
     {
         setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
@@ -1078,18 +1078,16 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
 
     if (argc > 1 && QString::fromUtf8(argv[1]) == QLatin1String("--prompt-new-workspace")) {
-        const bool isPolish = (QLocale().language() == QLocale::Polish);
+        const bool isPolish = false;
         QList<LeapKWorkspace::WorkspaceInfo> workspaces = LeapKWorkspace::loadWorkspaces();
         const int nextNum = workspaces.size() + 1;
-        const QString defaultName = isPolish
-            ? QStringLiteral("Obszar %1").arg(nextNum)
-            : QStringLiteral("Workspace %1").arg(nextNum);
+        const QString defaultName = QStringLiteral("Workspace %1").arg(nextNum);
 
         bool ok = false;
         const QString name = QInputDialog::getText(
             nullptr,
-            isPolish ? QStringLiteral("Nowy Workspace") : QStringLiteral("New Workspace"),
-            isPolish ? QStringLiteral("Wpisz nazwę dla nowego Workspace:") : QStringLiteral("Enter a name for the new Workspace:"),
+            QStringLiteral("New Workspace"),
+            QStringLiteral("Enter a name for the new Workspace:"),
             QLineEdit::Normal,
             defaultName,
             &ok
@@ -1132,7 +1130,7 @@ int main(int argc, char *argv[])
         }
 
         const auto ws = workspaces.at(foundIdx);
-        const bool isPolish = (QLocale().language() == QLocale::Polish);
+        const bool isPolish = false;
         CloseWorkspaceDialog dlg(ws.name, isPolish);
         if (dlg.exec() == QDialog::Accepted) {
             const auto act = dlg.selectedAction();

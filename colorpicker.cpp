@@ -128,11 +128,12 @@ public:
     PatternFilterDialog(const QString &currentPattern, bool isPolish, QWidget *parent = nullptr)
         : QDialog(parent)
         , m_pattern(currentPattern)
-        , m_isPolish(isPolish)
+        , m_isPolish(false)
     {
+        Q_UNUSED(isPolish);
         setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
         setAttribute(Qt::WA_TranslucentBackground, true);
-        setFixedSize(500, 220);
+        setFixedSize(580, 240);
 
         auto *dialogLayout = new QVBoxLayout(this);
         dialogLayout->setContentsMargins(4, 4, 4, 4);
@@ -149,20 +150,18 @@ public:
         layout->setContentsMargins(20, 18, 20, 18);
         layout->setSpacing(12);
 
-        auto *title = new QLabel(m_isPolish ? QStringLiteral("<b>Zawęź do procesu lub tytułu okna</b>") : QStringLiteral("<b>Narrow to Child Process or Window Title</b>"), card);
+        auto *title = new QLabel(QStringLiteral("<b>Narrow to Child Process or Window Title</b>"), card);
         title->setStyleSheet(QStringLiteral("font-size: 15px; color: #ffffff; border: none; background: transparent;"));
         title->setTextFormat(Qt::RichText);
         layout->addWidget(title);
 
-        auto *desc = new QLabel(m_isPolish
-            ? QStringLiteral("Wpisz fragment tytułu lub nazwę procesu potomnego (np. nvim, ssh, vim, dev, bash):")
-            : QStringLiteral("Enter title substring or child process name (e.g. nvim, ssh, vim, dev, bash):"), card);
+        auto *desc = new QLabel(QStringLiteral("Enter title substring or child process name (e.g. nvim, ssh, vim, dev, bash):"), card);
         desc->setStyleSheet(QStringLiteral("font-size: 12px; color: rgba(255, 255, 255, 0.75); border: none; background: transparent;"));
         desc->setWordWrap(true);
         layout->addWidget(desc);
 
         m_edit = new QLineEdit(m_pattern, card);
-        m_edit->setPlaceholderText(m_isPolish ? QStringLiteral("np. nvim, ssh, bash...") : QStringLiteral("e.g. nvim, ssh, bash..."));
+        m_edit->setPlaceholderText(QStringLiteral("e.g. nvim, ssh, bash..."));
         m_edit->setClearButtonEnabled(true);
         m_edit->setStyleSheet(QStringLiteral(
             "QLineEdit {"
@@ -184,7 +183,7 @@ public:
         btnRow->setSpacing(10);
         btnRow->addStretch(1);
 
-        auto *btnCancel = new QPushButton(m_isPolish ? QStringLiteral("Anuluj (Esc)") : QStringLiteral("Cancel (Esc)"), card);
+        auto *btnCancel = new QPushButton(QStringLiteral("Cancel (Esc)"), card);
         btnCancel->setFocusPolicy(Qt::NoFocus);
         btnCancel->setStyleSheet(QStringLiteral(
             "QPushButton {"
@@ -200,7 +199,7 @@ public:
         connect(btnCancel, &QPushButton::clicked, this, &QDialog::reject);
         btnRow->addWidget(btnCancel);
 
-        auto *btnOk = new QPushButton(m_isPolish ? QStringLiteral("✓ Zastosuj (Enter)") : QStringLiteral("✓ Apply (Enter)"), card);
+        auto *btnOk = new QPushButton(QStringLiteral("✓ Apply (Enter)"), card);
         btnOk->setFocusPolicy(Qt::NoFocus);
         btnOk->setStyleSheet(QStringLiteral(
             "QPushButton {"
@@ -283,7 +282,7 @@ public:
         , m_isAlreadyMarked(isAlreadyMarked)
         , m_markRemoved(false)
         , m_usedLettersMap(usedLettersMap)
-        , m_isPolish(QLocale().language() == QLocale::Polish)
+        , m_isPolish(false)
         , m_currentStep(0)
         , m_seedOffset(QRandomGenerator::global()->bounded(360))
         , m_rerollCount(0)
@@ -317,7 +316,7 @@ public:
         // Frameless translucent HUD window with comfortable dimensions
         setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Dialog);
         setAttribute(Qt::WA_TranslucentBackground, true);
-        setFixedSize(600, 480);
+        setFixedSize(760, 540);
 
         regeneratePalette();
         initUI();
@@ -587,7 +586,7 @@ private:
         lblLogo->setStyleSheet(QStringLiteral("font-size: 18px;"));
         topRow->addWidget(lblLogo);
 
-        const QString appDisp = m_appClass.isEmpty() ? (m_isPolish ? QStringLiteral("Okno bez nazwy") : QStringLiteral("Unnamed Window")) : m_appClass;
+        const QString appDisp = m_appClass.isEmpty() ? QStringLiteral("Unnamed Window") : m_appClass;
         QString captionSnippet = m_windowCaption;
         if (captionSnippet.length() > 44) {
             captionSnippet = captionSnippet.left(41) + QStringLiteral("…");
@@ -613,10 +612,10 @@ private:
         breadRow->setSpacing(6);
 
         const QStringList stepNames = {
-            m_isPolish ? QStringLiteral("1. Litera") : QStringLiteral("1. Letter"),
-            m_isPolish ? QStringLiteral("2. Kolor") : QStringLiteral("2. Color"),
-            m_isPolish ? QStringLiteral("3. Zakres") : QStringLiteral("3. Scope"),
-            m_isPolish ? QStringLiteral("4. Zapis") : QStringLiteral("4. Save")
+            QStringLiteral("1. Letter"),
+            QStringLiteral("2. Color"),
+            QStringLiteral("3. Scope"),
+            QStringLiteral("4. Save")
         };
 
         for (int i = 0; i < 4; ++i) {
@@ -646,17 +645,13 @@ private:
         layout->setContentsMargins(8, 6, 8, 6);
         layout->setSpacing(12);
 
-        auto *lblTitle = new QLabel(m_isPolish ? QStringLiteral("Krok 1: Litera skrótu HUD (Jump Key)") : QStringLiteral("Step 1: HUD Jump Letter"), page);
+        auto *lblTitle = new QLabel(QStringLiteral("Step 1: HUD Jump Letter"), page);
         lblTitle->setStyleSheet(QStringLiteral("font-size: 17px; font-weight: bold; color: #ffffff;"));
         layout->addWidget(lblTitle);
 
-        auto *lblSub = new QLabel(m_isPolish
-            ? (m_isAlreadyMarked
-                ? QStringLiteral("Wciśnij dowolną literę [A-Z] lub cyfrę, albo [Del] aby usunąć obecne oznaczenie.")
-                : QStringLiteral("Wciśnij dowolną literę [A-Z] lub cyfrę. Wybór następuje bezpośrednio z klawiatury."))
-            : (m_isAlreadyMarked
-                ? QStringLiteral("Press any letter [A-Z] or digit on your keyboard, or [Del] to remove current mark.")
-                : QStringLiteral("Press any letter [A-Z] or digit on your keyboard.")), page);
+        auto *lblSub = new QLabel(m_isAlreadyMarked
+            ? QStringLiteral("Press any letter [A-Z] or digit on your keyboard, or [Del] to remove current mark.")
+            : QStringLiteral("Press any letter [A-Z] or digit on your keyboard."), page);
         lblSub->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.75); font-size: 13px;"));
         layout->addWidget(lblSub);
 
@@ -716,7 +711,7 @@ private:
         });
         btnRow->addWidget(m_btnStep0Keep, 1);
 
-        m_btnStep0NoLetter = new QPushButton(m_isPolish ? QStringLiteral("Bez stałej litery (Spacja / 0)") : QStringLiteral("No fixed letter (Space / 0)"), page);
+        m_btnStep0NoLetter = new QPushButton(QStringLiteral("No fixed letter (Space / 0)"), page);
         m_btnStep0NoLetter->setFocusPolicy(Qt::NoFocus);
         m_btnStep0NoLetter->setStyleSheet(QStringLiteral(
             "QPushButton {"
@@ -757,7 +752,7 @@ private:
                 "  font-weight: bold;"
                 "}"
             ).arg(m_color.name(), textCol == Qt::black ? QStringLiteral("#000000") : QStringLiteral("#ffffff")));
-            m_btnStep0Keep->setText(m_isPolish ? QStringLiteral("Użyj litery [%1] (Enter)").arg(m_letter) : QStringLiteral("Use letter [%1] (Enter)").arg(m_letter));
+            m_btnStep0Keep->setText(QStringLiteral("Use letter [%1] (Enter)").arg(m_letter));
         } else {
             m_step0BadgeBox->setText(QStringLiteral("—"));
             m_step0BadgeBox->setStyleSheet(QStringLiteral(
@@ -769,18 +764,15 @@ private:
                 "  font-weight: bold;"
                 "}"
             ));
-            m_btnStep0Keep->setText(m_isPolish ? QStringLiteral("Bez litery (Dalej)") : QStringLiteral("No letter (Next)"));
+            m_btnStep0Keep->setText(QStringLiteral("No letter (Next)"));
         }
 
         // Shared letter / Smart Workspace info
         if (m_useLetter && !m_letter.isEmpty() && m_usedLettersMap.contains(m_letter)) {
             const QString existingApp = m_usedLettersMap.value(m_letter).toString();
             if (!existingApp.isEmpty() && existingApp.compare(m_appClass, Qt::CaseInsensitive) != 0) {
-                m_lblStep0Conflict->setText(m_isPolish
-                    ? QStringLiteral("🏷️ Litera '%1' jest już przypisana do: %2.\nMożesz połączyć te okna we wspólną grupę roboczą (Smart Workspace).")
-                        .arg(m_letter, existingApp)
-                    : QStringLiteral("🏷️ Letter '%1' is already assigned to: %2.\nYou can join these windows into a shared Smart Workspace.")
-                        .arg(m_letter, existingApp));
+                m_lblStep0Conflict->setText(QStringLiteral("🏷️ Letter '%1' is already assigned to: %2.\nYou can join these windows into a shared Smart Workspace.")
+                    .arg(m_letter, existingApp));
                 m_lblStep0Conflict->setStyleSheet(QStringLiteral("color: #3498db; font-size: 13px; font-weight: bold; background: rgba(52, 152, 219, 0.15); border: 1px solid rgba(52, 152, 219, 0.4); border-radius: 8px; padding: 6px 12px;"));
                 m_lblStep0Conflict->show();
                 return;
@@ -795,13 +787,11 @@ private:
         layout->setContentsMargins(8, 6, 8, 6);
         layout->setSpacing(10);
 
-        auto *lblTitle = new QLabel(m_isPolish ? QStringLiteral("Krok 2: Wybierz kolor oznaczenia") : QStringLiteral("Step 2: Choose Mark Color"), page);
+        auto *lblTitle = new QLabel(QStringLiteral("Step 2: Choose Mark Color"), page);
         lblTitle->setStyleSheet(QStringLiteral("font-size: 17px; font-weight: bold; color: #ffffff;"));
         layout->addWidget(lblTitle);
 
-        auto *lblSub = new QLabel(m_isPolish
-            ? QStringLiteral("Wciśnij literę przypisaną do barwy, aby natychmiast przejść do zakresu:")
-            : QStringLiteral("Press any letter key to pick a color and advance instantly:"), page);
+        auto *lblSub = new QLabel(QStringLiteral("Press any letter key to pick a color and advance instantly:"), page);
         lblSub->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.75); font-size: 13px;"));
         layout->addWidget(lblSub);
 
@@ -828,7 +818,7 @@ private:
         auto *ctrlLayout = new QHBoxLayout();
         ctrlLayout->setSpacing(10);
 
-        m_btnReroll = new QPushButton(m_isPolish ? QStringLiteral("🎲 Nowe barwy (R / Spacja)") : QStringLiteral("🎲 New Colors (R / Space)"), page);
+        m_btnReroll = new QPushButton(QStringLiteral("🎲 New Colors (R / Space)"), page);
         m_btnReroll->setFocusPolicy(Qt::NoFocus);
         m_btnReroll->setStyleSheet(QStringLiteral(
             "QPushButton {"
@@ -847,7 +837,7 @@ private:
         });
         ctrlLayout->addWidget(m_btnReroll, 1);
 
-        m_btnCustomColor = new QPushButton(m_isPolish ? QStringLiteral("🎨 Własny kolor (C)") : QStringLiteral("🎨 Custom Color (C)"), page);
+        m_btnCustomColor = new QPushButton(QStringLiteral("🎨 Custom Color (C)"), page);
         m_btnCustomColor->setFocusPolicy(Qt::NoFocus);
         m_btnCustomColor->setStyleSheet(QStringLiteral(
             "QPushButton {"
@@ -865,7 +855,7 @@ private:
         });
         ctrlLayout->addWidget(m_btnCustomColor, 1);
 
-        m_btnNoColor = new QPushButton(m_isPolish ? QStringLiteral("🚫 Bez koloru (X)") : QStringLiteral("🚫 No Color (X)"), page);
+        m_btnNoColor = new QPushButton(QStringLiteral("🚫 No Color (X)"), page);
         m_btnNoColor->setFocusPolicy(Qt::NoFocus);
         m_btnNoColor->setStyleSheet(QStringLiteral(
             "QPushButton {"
@@ -961,7 +951,7 @@ private:
     {
         QColorDialog colDlg(m_color, this);
         colDlg.setOption(QColorDialog::ShowAlphaChannel, true);
-        colDlg.setWindowTitle(m_isPolish ? QStringLiteral("Wybierz własny kolor") : tr("Select Custom Color"));
+        colDlg.setWindowTitle(tr("Select Custom Color"));
         if (colDlg.exec() == QDialog::Accepted) {
             m_color = colDlg.selectedColor();
             m_useColor = true;
@@ -976,17 +966,15 @@ private:
         layout->setContentsMargins(8, 6, 8, 6);
         layout->setSpacing(12);
 
-        auto *lblTitle = new QLabel(m_isPolish ? QStringLiteral("Krok 3: Wybierz zakres reguły") : QStringLiteral("Step 3: Choose Rule Scope"), page);
+        auto *lblTitle = new QLabel(QStringLiteral("Step 3: Choose Rule Scope"), page);
         lblTitle->setStyleSheet(QStringLiteral("font-size: 17px; font-weight: bold; color: #ffffff;"));
         layout->addWidget(lblTitle);
 
-        auto *lblSub = new QLabel(m_isPolish
-            ? QStringLiteral("Wciśnij literę [A], [S] lub [D] na klawiaturze:")
-            : QStringLiteral("Press letter [A], [S], or [D] on your keyboard:"), page);
+        auto *lblSub = new QLabel(QStringLiteral("Press letter [A], [S], or [D] on your keyboard:"), page);
         lblSub->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.75); font-size: 13px;"));
         layout->addWidget(lblSub);
 
-        const QString appDisp = m_appClass.isEmpty() ? (m_isPolish ? QStringLiteral("tej aplikacji") : QStringLiteral("this app")) : m_appClass;
+        const QString appDisp = m_appClass.isEmpty() ? QStringLiteral("this app") : m_appClass;
 
         // Card A: All App (Key: A or 1)
         m_cardAllApp = new MarkerOptionCard(page);
@@ -1003,10 +991,10 @@ private:
 
         auto *c1TextLayout = new QVBoxLayout();
         c1TextLayout->setSpacing(4);
-        auto *c1Title = new QLabel(m_isPolish ? QStringLiteral("<b style='font-size:15px; color:#ffffff;'>Cała aplikacja (%1)</b>").arg(appDisp) : QStringLiteral("<b style='font-size:15px; color:#ffffff;'>All windows of this app (%1)</b>").arg(appDisp), m_cardAllApp);
+        auto *c1Title = new QLabel(QStringLiteral("<b style='font-size:15px; color:#ffffff;'>All windows of this app (%1)</b>").arg(appDisp), m_cardAllApp);
         c1Title->setAttribute(Qt::WA_TransparentForMouseEvents);
         c1Title->setTextFormat(Qt::RichText);
-        auto *c1Desc = new QLabel(m_isPolish ? QStringLiteral("Wszystkie obecne i przyszłe okna tego programu będą miały ten mark.") : QStringLiteral("All current and future windows of this app will share this mark."), m_cardAllApp);
+        auto *c1Desc = new QLabel(QStringLiteral("All current and future windows of this app will share this mark."), m_cardAllApp);
         c1Desc->setAttribute(Qt::WA_TransparentForMouseEvents);
         c1Desc->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.75); font-size: 13px;"));
         c1TextLayout->addWidget(c1Title);
@@ -1029,7 +1017,7 @@ private:
 
         auto *c2TextLayout = new QVBoxLayout();
         c2TextLayout->setSpacing(4);
-        auto *c2Title = new QLabel(m_isPolish ? QStringLiteral("<b style='font-size:15px; color:#ffffff;'>Zawęź do procesu potomnego lub tytułu</b>") : QStringLiteral("<b style='font-size:15px; color:#ffffff;'>Narrow to child process or title</b>"), m_cardCaption);
+        auto *c2Title = new QLabel(QStringLiteral("<b style='font-size:15px; color:#ffffff;'>Narrow to child process or title</b>"), m_cardCaption);
         c2Title->setAttribute(Qt::WA_TransparentForMouseEvents);
         c2Title->setTextFormat(Qt::RichText);
 
@@ -1058,10 +1046,10 @@ private:
 
         auto *c3TextLayout = new QVBoxLayout();
         c3TextLayout->setSpacing(4);
-        auto *c3Title = new QLabel(m_isPolish ? QStringLiteral("<b style='font-size:15px; color:#ffffff;'>Tylko to jedno okno</b>") : QStringLiteral("<b style='font-size:15px; color:#ffffff;'>This window only</b>"), m_cardSingleWindow);
+        auto *c3Title = new QLabel(QStringLiteral("<b style='font-size:15px; color:#ffffff;'>This window only</b>"), m_cardSingleWindow);
         c3Title->setAttribute(Qt::WA_TransparentForMouseEvents);
         c3Title->setTextFormat(Qt::RichText);
-        auto *c3Desc = new QLabel(m_isPolish ? QStringLiteral("Tymczasowe oznaczenie wyłącznie dla tej jednej instancji.") : QStringLiteral("Temporary mark applied only to this specific window instance."), m_cardSingleWindow);
+        auto *c3Desc = new QLabel(QStringLiteral("Temporary mark applied only to this specific window instance."), m_cardSingleWindow);
         c3Desc->setAttribute(Qt::WA_TransparentForMouseEvents);
         c3Desc->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.75); font-size: 13px;"));
         c3TextLayout->addWidget(c3Title);
@@ -1086,13 +1074,9 @@ private:
 
         if (m_lblCardCaptionDesc) {
             if (m_matchCaption.isEmpty()) {
-                m_lblCardCaptionDesc->setText(m_isPolish
-                    ? QStringLiteral("Dopasuj do programu (np. nvim, ssh). <span style='color:#e67e22;'>[Wciśnij S, aby ustawić]</span>")
-                    : QStringLiteral("Match process or title (e.g. nvim, ssh). <span style='color:#e67e22;'>[Press S to set]</span>"));
+                m_lblCardCaptionDesc->setText(QStringLiteral("Match process or title (e.g. nvim, ssh). <span style='color:#e67e22;'>[Press S to set]</span>"));
             } else {
-                m_lblCardCaptionDesc->setText(m_isPolish
-                    ? QStringLiteral("Aktywny filtr: <b style='color:#e67e22;'>\"%1\"</b> &bull; <span style='color:rgba(255,255,255,0.6);'>Wciśnij Enter, aby przejść dalej (lub S aby zmienić)</span>").arg(m_matchCaption.toHtmlEscaped())
-                    : QStringLiteral("Active filter: <b style='color:#e67e22;'>\"%1\"</b> &bull; <span style='color:rgba(255,255,255,0.6);'>Press Enter to proceed (or S to edit)</span>").arg(m_matchCaption.toHtmlEscaped()));
+                m_lblCardCaptionDesc->setText(QStringLiteral("Active filter: <b style='color:#e67e22;'>\"%1\"</b> &bull; <span style='color:rgba(255,255,255,0.6);'>Press Enter to proceed (or S to edit)</span>").arg(m_matchCaption.toHtmlEscaped()));
             }
         }
     }
@@ -1106,7 +1090,7 @@ private:
             goToStep(3);
         } else if (scopeType == 2) { // Process / caption
             // Open clean HUD popup without squeezing cards or trapping focus!
-            PatternFilterDialog dlg(m_matchCaption.isEmpty() ? m_detectedCaption : m_matchCaption, m_isPolish, this);
+            PatternFilterDialog dlg(m_matchCaption.isEmpty() ? m_detectedCaption : m_matchCaption, false, this);
             if (dlg.exec() == QDialog::Accepted) {
                 m_matchCaption = dlg.pattern();
                 m_groupByApp = true;
@@ -1128,7 +1112,7 @@ private:
         layout->setContentsMargins(8, 6, 8, 6);
         layout->setSpacing(12);
 
-        auto *lblTitle = new QLabel(m_isPolish ? QStringLiteral("Krok 4: Podsumowanie i zapis reguły") : QStringLiteral("Step 4: Summary & Save"), page);
+        auto *lblTitle = new QLabel(QStringLiteral("Step 4: Summary & Save"), page);
         lblTitle->setStyleSheet(QStringLiteral("font-size: 17px; font-weight: bold; color: #ffffff;"));
         layout->addWidget(lblTitle);
 
@@ -1177,7 +1161,7 @@ private:
 
         // Label input field
         m_labelEdit = new QLineEdit(m_label, page);
-        m_labelEdit->setPlaceholderText(m_isPolish ? QStringLiteral("🏷 [L] Własna etykieta (np. Backend, Dev, Terminal)...") : QStringLiteral("🏷 [L] Custom label (e.g. Backend, Dev, Terminal)..."));
+        m_labelEdit->setPlaceholderText(QStringLiteral("🏷 [L] Custom label (e.g. Backend, Dev, Terminal)..."));
         m_labelEdit->setClearButtonEnabled(true);
         m_labelEdit->setMaxLength(50);
         m_labelEdit->installEventFilter(this);
@@ -1259,7 +1243,7 @@ private:
             "}"
         ).arg(effectiveBg.name(), textCol == Qt::black ? QStringLiteral("#000000") : QStringLiteral("#ffffff")));
 
-        const QString appDisp = m_appClass.isEmpty() ? (m_isPolish ? QStringLiteral("Bieżące okno") : QStringLiteral("Current Window")) : m_appClass;
+        const QString appDisp = m_appClass.isEmpty() ? QStringLiteral("Current Window") : m_appClass;
         QString titleStr = QStringLiteral("<b style='color:#ffffff; font-size:16px;'>%1</b>").arg(appDisp.toHtmlEscaped());
         if (!m_label.isEmpty()) {
             titleStr += QStringLiteral(" <span style='color: #3498db; font-size:14px; font-weight:bold;'>[%1]</span>").arg(m_label.toHtmlEscaped());
@@ -1268,24 +1252,18 @@ private:
 
         QString scopeDesc;
         if (!m_groupByApp) {
-            scopeDesc = m_isPolish ? QStringLiteral("Zakres: <b style='color:#2ecc71;'>Tylko to jedno okno</b>") : QStringLiteral("Scope: <b style='color:#2ecc71;'>This window only</b>");
+            scopeDesc = QStringLiteral("Scope: <b style='color:#2ecc71;'>This window only</b>");
         } else if (!m_matchCaption.isEmpty()) {
-            scopeDesc = m_isPolish
-                ? QStringLiteral("Zakres: <b style='color:#e67e22;'>Aplikacja %1</b> (filtr: '%2')").arg(appDisp.toHtmlEscaped(), m_matchCaption.toHtmlEscaped())
-                : QStringLiteral("Scope: <b style='color:#e67e22;'>App %1</b> (filter: '%2')").arg(appDisp.toHtmlEscaped(), m_matchCaption.toHtmlEscaped());
+            scopeDesc = QStringLiteral("Scope: <b style='color:#e67e22;'>App %1</b> (filter: '%2')").arg(appDisp.toHtmlEscaped(), m_matchCaption.toHtmlEscaped());
         } else {
-            scopeDesc = m_isPolish
-                ? QStringLiteral("Zakres: <b style='color:#3498db;'>Wszystkie okna aplikacji %1</b>").arg(appDisp.toHtmlEscaped())
-                : QStringLiteral("Scope: <b style='color:#3498db;'>All windows of app %1</b>").arg(appDisp.toHtmlEscaped());
+            scopeDesc = QStringLiteral("Scope: <b style='color:#3498db;'>All windows of app %1</b>").arg(appDisp.toHtmlEscaped());
         }
         m_previewScope->setText(scopeDesc);
 
         if (m_useLetter && !m_letter.isEmpty() && m_usedLettersMap.contains(m_letter)) {
             const QString existingApp = m_usedLettersMap.value(m_letter).toString();
             if (!existingApp.isEmpty() && existingApp.compare(m_appClass, Qt::CaseInsensitive) != 0) {
-                m_previewConflictWarn->setText(m_isPolish
-                    ? QStringLiteral("🏷️ Dołączy do grupy (Smart Workspace) z: %1 (grupa '%2')").arg(existingApp, m_letter)
-                    : QStringLiteral("🏷️ Will join Smart Workspace with: %1 (group '%2')").arg(existingApp, m_letter));
+                m_previewConflictWarn->setText(QStringLiteral("🏷️ Will join Smart Workspace with: %1 (group '%2')").arg(existingApp, m_letter));
                 m_previewConflictWarn->setStyleSheet(QStringLiteral("color: #3498db; font-size: 12px; font-weight: bold;"));
                 m_previewConflictWarn->show();
             } else {
@@ -1300,9 +1278,7 @@ private:
             if (!m_groupByApp) {
                 m_persistent = false;
                 m_btnTogglePersistent->setEnabled(false);
-                m_btnTogglePersistent->setText(m_isPolish
-                    ? QStringLiteral("💾 [P] Zapis na stałe (marks.json):  NIE DOTYCZY (Jedno okno)")
-                    : QStringLiteral("💾 [P] Save permanently (marks.json):  N/A (Single Window)"));
+                m_btnTogglePersistent->setText(QStringLiteral("💾 [P] Permanent rule (marks.json):  N/A (Single Window)"));
                 m_btnTogglePersistent->setStyleSheet(QStringLiteral(
                     "QPushButton {"
                     "  background-color: rgba(255, 255, 255, 0.04);"
@@ -1317,10 +1293,10 @@ private:
             } else {
                 m_btnTogglePersistent->setEnabled(true);
                 const QString statusText = m_persistent
-                    ? (m_isPolish ? QStringLiteral("WŁĄCZONY (pamiętaj po restarcie)") : QStringLiteral("ENABLED (persist across reboots)"))
-                    : (m_isPolish ? QStringLiteral("WYŁĄCZONY (tylko bieżąca sesja)") : QStringLiteral("DISABLED (current session only)"));
+                    ? QStringLiteral("ENABLED (persists across reboots)")
+                    : QStringLiteral("DISABLED (current session only)");
                 const QString tagColor = m_persistent ? QStringLiteral("#2ecc71") : QStringLiteral("#e74c3c");
-                m_btnTogglePersistent->setText(QStringLiteral("💾 [P] Zapis na stałe (marks.json):  %1").arg(statusText));
+                m_btnTogglePersistent->setText(QStringLiteral("💾 [P] Permanent rule (marks.json):  %1").arg(statusText));
                 m_btnTogglePersistent->setStyleSheet(QStringLiteral(
                     "QPushButton {"
                     "  background-color: rgba(255, 255, 255, 0.07);"
@@ -1339,12 +1315,12 @@ private:
 
         // Update High-Contrast Virtual Desktop Toggle Pill
         if (m_btnToggleDesktop && m_desktopNum > 0) {
-            const QString deskLabel = m_desktopName.isEmpty() ? QStringLiteral("Pulpit %1").arg(m_desktopNum) : m_desktopName;
+            const QString deskLabel = m_desktopName.isEmpty() ? QStringLiteral("Desktop %1").arg(m_desktopNum) : m_desktopName;
             const QString statusText = m_matchDesktop
-                ? (m_isPolish ? QStringLiteral("TYLKO TEN PULPIT (%1)").arg(deskLabel) : QStringLiteral("ONLY THIS DESKTOP (%1)").arg(deskLabel))
-                : (m_isPolish ? QStringLiteral("WSZYSTKIE PULPITY") : QStringLiteral("ALL VIRTUAL DESKTOPS"));
+                ? QStringLiteral("ONLY THIS DESKTOP (%1)").arg(deskLabel)
+                : QStringLiteral("ALL VIRTUAL DESKTOPS");
             const QString tagColor = m_matchDesktop ? QStringLiteral("#3498db") : QStringLiteral("rgba(255,255,255,0.25)");
-            m_btnToggleDesktop->setText(QStringLiteral("🖥 [D] Przypisanie pulpitu:  %1").arg(statusText));
+            m_btnToggleDesktop->setText(QStringLiteral("🖥 [D] Virtual desktop constraint:  %1").arg(statusText));
             m_btnToggleDesktop->setStyleSheet(QStringLiteral(
                 "QPushButton {"
                 "  background-color: rgba(255, 255, 255, 0.07);"
@@ -1371,7 +1347,7 @@ private:
         auto *btnRow = new QHBoxLayout();
         btnRow->setSpacing(10);
 
-        m_btnBack = new QPushButton(m_isPolish ? QStringLiteral("❮ Wstecz [Backspace]") : QStringLiteral("❮ Back [Backspace]"), bottomWidget);
+        m_btnBack = new QPushButton(QStringLiteral("❮ Back [Backspace]"), bottomWidget);
         m_btnBack->setFocusPolicy(Qt::NoFocus);
         m_btnBack->setStyleSheet(QStringLiteral(
             "QPushButton {"
@@ -1393,7 +1369,7 @@ private:
         btnRow->addWidget(m_btnBack);
 
         if (m_isAlreadyMarked) {
-            m_btnRemove = new QPushButton(m_isPolish ? QStringLiteral("🗑 Wyczyść [Del]") : QStringLiteral("🗑 Remove [Del]"), bottomWidget);
+            m_btnRemove = new QPushButton(QStringLiteral("🗑 Remove [Del]"), bottomWidget);
             m_btnRemove->setFocusPolicy(Qt::NoFocus);
             m_btnRemove->setStyleSheet(QStringLiteral(
                 "QPushButton {"
@@ -1414,7 +1390,7 @@ private:
             btnRow->addWidget(m_btnRemove);
         }
 
-        auto *btnMgr = new QPushButton(m_isPolish ? QStringLiteral("🏷️ Menedżer markerów…") : QStringLiteral("🏷️ Marker Manager…"), bottomWidget);
+        auto *btnMgr = new QPushButton(QStringLiteral("🏷️ Marker Manager…"), bottomWidget);
         btnMgr->setFocusPolicy(Qt::NoFocus);
         btnMgr->setStyleSheet(QStringLiteral(
             "QPushButton {"
@@ -1434,7 +1410,7 @@ private:
 
         btnRow->addStretch(1);
 
-        m_btnCancel = new QPushButton(m_isPolish ? QStringLiteral("Anuluj (Esc)") : QStringLiteral("Cancel (Esc)"), bottomWidget);
+        m_btnCancel = new QPushButton(QStringLiteral("Cancel (Esc)"), bottomWidget);
         m_btnCancel->setFocusPolicy(Qt::NoFocus);
         m_btnCancel->setStyleSheet(QStringLiteral(
             "QPushButton {"
@@ -1450,7 +1426,7 @@ private:
         connect(m_btnCancel, &QPushButton::clicked, this, &QDialog::reject);
         btnRow->addWidget(m_btnCancel);
 
-        m_btnNext = new QPushButton(m_isPolish ? QStringLiteral("Dalej ❯") : QStringLiteral("Next ❯"), bottomWidget);
+        m_btnNext = new QPushButton(QStringLiteral("Next ❯"), bottomWidget);
         m_btnNext->setFocusPolicy(Qt::NoFocus);
         m_btnNext->setStyleSheet(QStringLiteral(
             "QPushButton {"
@@ -1475,16 +1451,9 @@ private:
         bLayout->addLayout(btnRow);
 
         // Keyboard hint line explicitly indicating shortcuts
-        QString hintText;
-        if (m_isPolish) {
-            hintText = m_isAlreadyMarked
-                ? QStringLiteral("<span style='color: rgba(255,255,255,0.55); font-size: 11px;'>[Enter] Dalej / Zatwierdź   •   [Backspace] Wstecz   •   [Del] Wyczyść oznaczenie   •   [Esc] Anuluj</span>")
-                : QStringLiteral("<span style='color: rgba(255,255,255,0.55); font-size: 11px;'>[Enter] Dalej / Zatwierdź   •   [Backspace] Wstecz (cofa krok)   •   [Esc] Anuluj</span>");
-        } else {
-            hintText = m_isAlreadyMarked
-                ? QStringLiteral("<span style='color: rgba(255,255,255,0.55); font-size: 11px;'>[Enter] Next / Confirm   •   [Backspace] Back   •   [Del] Remove mark   •   [Esc] Cancel</span>")
-                : QStringLiteral("<span style='color: rgba(255,255,255,0.55); font-size: 11px;'>[Enter] Next / Confirm   •   [Backspace] Back (previous step)   •   [Esc] Cancel</span>");
-        }
+        const QString hintText = m_isAlreadyMarked
+            ? QStringLiteral("<span style='color: rgba(255,255,255,0.55); font-size: 11px;'>[Enter] Next / Confirm   •   [Backspace] Back   •   [Del] Remove mark   •   [Esc] Cancel</span>")
+            : QStringLiteral("<span style='color: rgba(255,255,255,0.55); font-size: 11px;'>[Enter] Next / Confirm   •   [Backspace] Back (previous step)   •   [Esc] Cancel</span>");
         auto *lblHint = new QLabel(hintText, bottomWidget);
         lblHint->setTextFormat(Qt::RichText);
         lblHint->setAlignment(Qt::AlignCenter);
@@ -1540,14 +1509,14 @@ private:
         m_btnBack->setEnabled(step > 0);
 
         if (step == 0) {
-            m_btnNext->setText(m_isPolish ? QStringLiteral("Dalej (Kolor) ❯") : QStringLiteral("Next (Color) ❯"));
+            m_btnNext->setText(QStringLiteral("Next (Color) ❯"));
             m_btnNext->setStyleSheet(QStringLiteral(
                 "QPushButton { background-color: #3498db; border-radius: 8px; color: #ffffff; font-weight: bold; font-size: 14px; padding: 8px 20px; }"
                 "QPushButton:hover { background-color: #2980b9; }"
             ));
             setFocus();
         } else if (step == 1) {
-            m_btnNext->setText(m_isPolish ? QStringLiteral("Dalej (Zakres) ❯") : QStringLiteral("Next (Scope) ❯"));
+            m_btnNext->setText(QStringLiteral("Next (Scope) ❯"));
             m_btnNext->setStyleSheet(QStringLiteral(
                 "QPushButton { background-color: #3498db; border-radius: 8px; color: #ffffff; font-weight: bold; font-size: 14px; padding: 8px 20px; }"
                 "QPushButton:hover { background-color: #2980b9; }"
@@ -1556,7 +1525,7 @@ private:
             setFocus();
         } else if (step == 2) {
             updateScopeCardsUI();
-            m_btnNext->setText(m_isPolish ? QStringLiteral("Dalej (Zapis) ❯") : QStringLiteral("Next (Save) ❯"));
+            m_btnNext->setText(QStringLiteral("Next (Save) ❯"));
             m_btnNext->setStyleSheet(QStringLiteral(
                 "QPushButton { background-color: #3498db; border-radius: 8px; color: #ffffff; font-weight: bold; font-size: 14px; padding: 8px 20px; }"
                 "QPushButton:hover { background-color: #2980b9; }"
@@ -1564,7 +1533,7 @@ private:
             setFocus();
         } else if (step == 3) {
             updateStep3Preview();
-            m_btnNext->setText(m_isPolish ? QStringLiteral("✓ Zastosuj oznaczenie") : QStringLiteral("✓ Apply Mark"));
+            m_btnNext->setText(QStringLiteral("✓ Apply Mark"));
             m_btnNext->setStyleSheet(QStringLiteral(
                 "QPushButton {"
                 "  background-color: #2ecc71;"
@@ -1589,19 +1558,17 @@ private:
             const QString existingApp = m_usedLettersMap.value(m_letter).toString();
             if (!existingApp.isEmpty() && existingApp.compare(m_appClass, Qt::CaseInsensitive) != 0) {
                 QMessageBox msgBox(this);
-                msgBox.setWindowTitle(m_isPolish ? QStringLiteral("Wspólna litera oznaczenia") : tr("Shared Mark Letter"));
-                msgBox.setText(m_isPolish
-                    ? QStringLiteral("Litera <b>'%1'</b> jest już przypisana do aplikacji <b>%2</b>.<br><br>Co chcesz zrobić?").arg(m_letter, existingApp)
-                    : tr("Letter <b>'%1'</b> is already assigned to <b>%2</b>.<br><br>What would you like to do?").arg(m_letter, existingApp));
+                msgBox.setWindowTitle(tr("Shared Mark Letter"));
+                msgBox.setText(tr("Letter <b>'%1'</b> is already assigned to <b>%2</b>.<br><br>What would you like to do?").arg(m_letter, existingApp));
 
                 QPushButton *btnGroup = msgBox.addButton(
-                    m_isPolish ? QStringLiteral("🏷️ Połącz w grupę (Smart Workspace)") : tr("🏷️ Join Group (Smart Workspace)"),
+                    tr("🏷️ Join Group (Smart Workspace)"),
                     QMessageBox::AcceptRole);
                 QPushButton *btnReassign = msgBox.addButton(
-                    m_isPolish ? QStringLiteral("🔄 Przepisz (tylko to okno)") : tr("🔄 Reassign (this window only)"),
+                    tr("🔄 Reassign (this window only)"),
                     QMessageBox::DestructiveRole);
                 QPushButton *btnCancel = msgBox.addButton(
-                    m_isPolish ? QStringLiteral("Anuluj") : tr("Cancel"),
+                    tr("Cancel"),
                     QMessageBox::RejectRole);
 
                 btnGroup->setStyleSheet(QStringLiteral("background-color: #3498db; color: white; font-weight: bold; padding: 6px 14px; border-radius: 6px;"));

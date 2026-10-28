@@ -3656,6 +3656,8 @@ void ActiveWindowOutlineEffect::enterStashMode()
     m_subLeapLetterToWindow.clear();
     m_subLeapTargets.clear();
 
+    applyWorkspaceViewIsolation(m_activeHudView);
+
     m_jumpLetterToWindow = assignJumpLetters();
     m_badgeTextureCache.clear();
     m_hudHeaderTexture.reset();
@@ -3673,6 +3675,7 @@ void ActiveWindowOutlineEffect::enterStashMode()
 void ActiveWindowOutlineEffect::exitStashMode()
 {
     m_stashModeActive = false;
+    applyWorkspaceViewIsolation(m_activeHudView);
     m_jumpLetterToWindow = assignJumpLetters();
     m_badgeTextureCache.clear();
     m_hudHeaderTexture.reset();
@@ -3758,11 +3761,10 @@ void ActiveWindowOutlineEffect::createEmptyWorkspace(const QString &suggestedNam
     }
     refreshWorkspaces();
 
-    const bool isPolish = (QLocale().language() == QLocale::Polish);
     const int nextNum = m_workspaces.size() + 1;
     const QString name = !suggestedName.trimmed().isEmpty()
         ? suggestedName.trimmed()
-        : (isPolish ? QStringLiteral("Obszar %1").arg(nextNum) : QStringLiteral("Workspace %1").arg(nextNum));
+        : QStringLiteral("Workspace %1").arg(nextNum);
 
     LeapKWorkspace::createEmptyWorkspace(m_workspaces, name);
 
@@ -4056,6 +4058,10 @@ void ActiveWindowOutlineEffect::slotCycleHudView(int delta)
             primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
             primaryConfig.sync();
         }
+
+        // Apply workspace view isolation so windows from target workspace actually pop in
+        applyWorkspaceViewIsolation(m_activeHudView);
+
         m_jumpLetterToWindow = assignJumpLetters();
         m_badgeTextureCache.clear();
         m_hudHeaderTexture.reset();
@@ -4160,11 +4166,26 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
         const auto desktops = w->desktops();
         const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
 
-        if (m_stashModeActive) { // Stash view: ALL hidden / stashed / minimized windows
-            if (m_workspaceMinimizedWindows.contains(w)) {
-                continue; // Minimized only due to workspace isolation, not in stash!
-            }
+        if (m_stashModeActive) { // Stash view: include both stashed windows and visible workspace windows
+            const bool isStashed = m_stashedWindows.contains(w) || (w->isMinimized() && !m_workspaceMinimizedWindows.contains(w));
+
+            bool isCurrentWorkspaceVisible = false;
             if (!w->isMinimized() && !m_stashedWindows.contains(w)) {
+                if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
+                    const auto &ws = m_workspaces.at(m_activeHudView - 1);
+                    if (LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum)) {
+                        isCurrentWorkspaceVisible = true;
+                    }
+                } else if (m_activeHudView == m_workspaces.size() + 1) {
+                    isCurrentWorkspaceVisible = true;
+                } else {
+                    if (onCurrent || isMarked) {
+                        isCurrentWorkspaceVisible = true;
+                    }
+                }
+            }
+
+            if (!isStashed && !isCurrentWorkspaceVisible) {
                 continue;
             }
         } else {
@@ -4642,6 +4663,12 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
+        if (((mods & Qt::MetaModifier) && e->key() == Qt::Key_S)
+            || ((mods & (Qt::AltModifier | Qt::ControlModifier)) && e->key() == Qt::Key_S)) {
+            exitStashMode();
+            return;
+        }
+
         if (e->key() == Qt::Key_Comma || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char(','))) {
             slotCycleHudView(-1);
             return;
@@ -4663,41 +4690,64 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             if (m_jumpLetterToWindow.contains(keyChar)) {
                 EffectWindow *target = m_jumpLetterToWindow.value(keyChar);
                 if (target && !target->isDeleted()) {
-                    if (isShift) {
-                        target->closeWindow();
-                        m_stashedWindows.remove(target);
+                    if (isCtrl) {
+                        // Shortcut Ctrl + Key adds chosen window to stash
+                        m_stashedWindows.insert(target);
+                        m_workspaceMinimizedWindows.remove(target);
+                        target->setMinimized(true);
+
                         m_jumpLetterToWindow = assignJumpLetters();
                         m_badgeTextureCache.clear();
                         m_hudHeaderTexture.reset();
                         m_hudHeaderCacheKey = -1;
                         m_hudHintBarTexture.reset();
                         m_hudHintBarCacheKey = -1;
-                        if (m_jumpLetterToWindow.isEmpty()) {
-                            exitStashMode();
-                        } else {
-                            if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
-                                m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
-                            }
-                            effects->addRepaintFull();
-                        }
-                        return;
-                    }
-                    addWindowToWorkspace(target, m_activeHudView);
-                    m_jumpLetterToWindow = assignJumpLetters();
-                    m_badgeTextureCache.clear();
-                    m_hudHeaderTexture.reset();
-                    m_hudHeaderCacheKey = -1;
-                    m_hudHintBarTexture.reset();
-                    m_hudHintBarCacheKey = -1;
-                    if (m_jumpLetterToWindow.isEmpty()) {
-                        exitStashMode();
-                    } else {
                         if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
                             m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
                         }
                         effects->addRepaintFull();
+                        return;
                     }
-                    return;
+
+                    if (isShift) {
+                        target->closeWindow();
+                        m_stashedWindows.remove(target);
+                        m_workspaceMinimizedWindows.remove(target);
+                        m_closingWindows.insert(target);
+                        m_jumpLetterToWindow = assignJumpLetters();
+                        m_badgeTextureCache.clear();
+                        m_hudHeaderTexture.reset();
+                        m_hudHeaderCacheKey = -1;
+                        m_hudHintBarTexture.reset();
+                        m_hudHintBarCacheKey = -1;
+                        if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+                            m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+                        }
+                        effects->addRepaintFull();
+                        return;
+                    }
+
+                    if (m_stashedWindows.contains(target) || target->isMinimized()) {
+                        addWindowToWorkspace(target, m_activeHudView);
+                        m_jumpLetterToWindow = assignJumpLetters();
+                        m_badgeTextureCache.clear();
+                        m_hudHeaderTexture.reset();
+                        m_hudHeaderCacheKey = -1;
+                        m_hudHintBarTexture.reset();
+                        m_hudHintBarCacheKey = -1;
+                        if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+                            m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+                        }
+                        effects->addRepaintFull();
+                        return;
+                    } else {
+                        // User pressed letter of a visible window on screen: focus/activate it
+                        cancelJumpMode();
+                        if (effects) {
+                            effects->activateWindow(target);
+                        }
+                        return;
+                    }
                 }
             }
         }
@@ -6028,22 +6078,22 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
 {
     const qreal scale = viewport.scale();
     const QRectF screenRect = viewport.renderRect();
-    const bool isPolish = (QLocale().language() == QLocale::Polish);
+    const bool isPolish = false;
 
     QString customViewName;
     QColor customViewColor;
     if (m_stashModeActive) {
-        customViewName = isPolish ? QStringLiteral("Widok: 📦 Schowek") : QStringLiteral("View: 📦 Stash");
+        customViewName = QStringLiteral("View: 📦 Stash");
         customViewColor = QColor(46, 204, 113); // Emerald Green
     } else if (m_activeHudView == 0) {
-        customViewName = isPolish ? QStringLiteral("Widok: 💻 Standard") : QStringLiteral("View: 💻 Standard");
+        customViewName = QStringLiteral("View: 💻 Standard");
         customViewColor = QColor(230, 126, 34); // Orange
     } else if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
         const auto &ws = m_workspaces.at(m_activeHudView - 1);
-        customViewName = (isPolish ? QStringLiteral("Widok: 📁 ") : QStringLiteral("View: 📁 ")) + ws.name;
+        customViewName = QStringLiteral("View: 📁 ") + ws.name;
         customViewColor = ws.color.isValid() ? ws.color : QColor(52, 152, 219);
     } else {
-        customViewName = isPolish ? QStringLiteral("Widok: 🌐 Wszystkie") : QStringLiteral("View: 🌐 All");
+        customViewName = QStringLiteral("View: 🌐 All");
         customViewColor = QColor(155, 89, 182); // Purple
     }
 
@@ -6196,11 +6246,11 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
         }
 
         if (m_activeHudView == 0) {
-            targetWorkspaceName = isPolish ? QStringLiteral("💻 Standard") : QStringLiteral("💻 Standard");
+            targetWorkspaceName = QStringLiteral("💻 Standard");
         } else if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
             targetWorkspaceName = QStringLiteral("📁 ") + m_workspaces.at(m_activeHudView - 1).name;
         } else {
-            targetWorkspaceName = isPolish ? QStringLiteral("🌐 Wszystkie") : QStringLiteral("🌐 All");
+            targetWorkspaceName = QStringLiteral("🌐 All");
         }
 
         // 1. Standard count: windows eligible on current desktop (visible or unminimized, not in stash)
@@ -6218,7 +6268,7 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
             }
         }
         viewTabs.append({
-            isPolish ? QStringLiteral("💻 Standard") : QStringLiteral("💻 Standard"),
+            QStringLiteral("💻 Standard"),
             QColor(230, 126, 34),
             standardCount,
             m_activeHudView == 0
@@ -6260,7 +6310,7 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
             }
         }
         viewTabs.append({
-            isPolish ? QStringLiteral("🌐 Wszystkie") : QStringLiteral("🌐 All"),
+            QStringLiteral("🌐 All"),
             QColor(155, 89, 182),
             allCount,
             m_activeHudView == (m_workspaces.size() + 1)

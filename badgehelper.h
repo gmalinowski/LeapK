@@ -779,8 +779,7 @@ inline QSizeF computeHudPillSize(const BadgeConfig &cfg,
 
         line1Text = locationText;
         if (isRecent) {
-            const bool isPolish = (QLocale().language() == QLocale::Polish);
-            line1Text += QStringLiteral(" · ") + (isPolish ? QStringLiteral("Ostatnie") : QStringLiteral("Recent"));
+            line1Text += QStringLiteral(" · Recent");
         }
         line2Text = displayCap;
         if (groupCount > 1 && !line2Text.isEmpty()) {
@@ -1002,8 +1001,7 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
 
         line1Text = locationText;
         if (isRecent) {
-            const bool isPolish = (QLocale().language() == QLocale::Polish);
-            line1Text += QStringLiteral(" · ") + (isPolish ? QStringLiteral("Ostatnie") : QStringLiteral("Recent"));
+            line1Text += QStringLiteral(" · Recent");
         }
         line2Text = displayCap;
         if (groupCount > 1 && !line2Text.isEmpty()) {
@@ -1589,6 +1587,7 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
 
 inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false)
 {
+    Q_UNUSED(isPolish);
     Q_UNUSED(customViewName);
     Q_UNUSED(customViewColor);
 
@@ -1600,70 +1599,35 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
 
     QList<Segment> segments;
     if (isStashMode) {
-        if (isPolish) {
-            segments = {
-                {QStringLiteral("[Litera]"), QStringLiteral("Dodaj do wybranego workspace"), QColor(46, 204, 113)},
-                {QStringLiteral("[, / .]"), QStringLiteral("Wybierz workspace"), QColor(52, 152, 219)},
-                {QStringLiteral("[Shift+Litera]"), QStringLiteral("Zamknij (:bd)"), QColor(231, 76, 60)},
-                {QStringLiteral("[Tab / Esc]"), QStringLiteral("Powrót"), QColor(149, 165, 166)}
-            };
-        } else {
-            segments = {
-                {QStringLiteral("[Key]"), QStringLiteral("Add to selected workspace"), QColor(46, 204, 113)},
-                {QStringLiteral("[, / .]"), QStringLiteral("Choose workspace"), QColor(52, 152, 219)},
-                {QStringLiteral("[Shift+Key]"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
-                {QStringLiteral("[Tab / Esc]"), QStringLiteral("Back"), QColor(149, 165, 166)}
-            };
-        }
+        segments = {
+            {QStringLiteral("Key"), QStringLiteral("Add to workspace"), QColor(46, 204, 113)},
+            {QStringLiteral("Ctrl+Key"), QStringLiteral("Add to stash"), QColor(46, 204, 113)},
+            {QStringLiteral(", / ."), QStringLiteral("Switch workspace"), QColor(52, 152, 219)},
+            {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
+            {QStringLiteral("Esc"), QStringLiteral("Back"), QColor(149, 165, 166)}
+        };
     } else if (isSubLeap) {
-        if (isPolish) {
-            segments = {
-                {QStringLiteral("[Litera]"), QStringLiteral("Wybierz"), QColor(52, 152, 219)},
-                {QStringLiteral("[Shift+Litera]"), QStringLiteral("Zamknij"), QColor(231, 76, 60)},
-                {QStringLiteral("[Alt+Litera]"), QStringLiteral("Przyciągnij"), QColor(241, 196, 15)},
-                {QStringLiteral("[Ctrl+Litera]"), QStringLiteral("Schowek"), QColor(46, 204, 113)},
-                {QStringLiteral("[Backspace/Esc]"), QStringLiteral("Wstecz"), QColor(149, 165, 166)}
-            };
-        } else {
-            segments = {
-                {QStringLiteral("[Key]"), QStringLiteral("Select"), QColor(52, 152, 219)},
-                {QStringLiteral("[Shift+Key]"), QStringLiteral("Close"), QColor(231, 76, 60)},
-                {QStringLiteral("[Alt+Key]"), QStringLiteral("Pull here"), QColor(241, 196, 15)},
-                {QStringLiteral("[Ctrl+Key]"), QStringLiteral("Stash"), QColor(46, 204, 113)},
-                {QStringLiteral("[Backspace/Esc]"), QStringLiteral("Back"), QColor(149, 165, 166)}
-            };
-        }
+        segments = {
+            {QStringLiteral("Key"), QStringLiteral("Select"), QColor(52, 152, 219)},
+            {QStringLiteral("Shift+Key"), QStringLiteral("Close"), QColor(231, 76, 60)},
+            {QStringLiteral("Alt+Key"), QStringLiteral("Pull here"), QColor(241, 196, 15)},
+            {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash"), QColor(46, 204, 113)},
+            {QStringLiteral("Backspace / Esc"), QStringLiteral("Back"), QColor(149, 165, 166)}
+        };
     } else {
-        if (isPolish) {
-            segments = {
-                {QStringLiteral("[Litera]"), QStringLiteral("Skok"), QColor(52, 152, 219)},
-                {QStringLiteral("[Shift+Litera]"), QStringLiteral("Zamknij (:bd)"), QColor(231, 76, 60)},
-                {QStringLiteral("[Alt+Litera]"), QStringLiteral("Przyciągnij"), QColor(241, 196, 15)},
-                {QStringLiteral("[Ctrl+Litera]"), QStringLiteral("Schowek (:hide)"), QColor(46, 204, 113)},
-                {QStringLiteral("[Tab]"), QStringLiteral("Grupuj"), QColor(155, 89, 182)},
-                {QStringLiteral("[Meta+S]"), QStringLiteral("Schowek"), QColor(46, 204, 113)},
-                {QStringLiteral("[Meta+M]"), QStringLiteral("Markery"), QColor(155, 89, 182)},
-                {QStringLiteral("[+]"), QStringLiteral("Nowy workspace"), QColor(52, 152, 219)},
-                {QStringLiteral("[, / .]"), QStringLiteral("Przełącz"), QColor(52, 152, 219)}
-            };
-            if (activeView >= 1) {
-                segments.append({QStringLiteral("[_]"), QStringLiteral("Usuń workspace"), QColor(231, 76, 60)});
-            }
-        } else {
-            segments = {
-                {QStringLiteral("[Key]"), QStringLiteral("Jump"), QColor(52, 152, 219)},
-                {QStringLiteral("[Shift+Key]"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
-                {QStringLiteral("[Alt+Key]"), QStringLiteral("Pull here"), QColor(241, 196, 15)},
-                {QStringLiteral("[Ctrl+Key]"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
-                {QStringLiteral("[Tab]"), QStringLiteral("Group"), QColor(155, 89, 182)},
-                {QStringLiteral("[Meta+S]"), QStringLiteral("Stash"), QColor(46, 204, 113)},
-                {QStringLiteral("[Meta+M]"), QStringLiteral("Markers"), QColor(155, 89, 182)},
-                {QStringLiteral("[+]"), QStringLiteral("New workspace"), QColor(52, 152, 219)},
-                {QStringLiteral("[, / .]"), QStringLiteral("Switch"), QColor(52, 152, 219)}
-            };
-            if (activeView >= 1) {
-                segments.append({QStringLiteral("[_]"), QStringLiteral("Delete workspace"), QColor(231, 76, 60)});
-            }
+        segments = {
+            {QStringLiteral("Key"), QStringLiteral("Jump"), QColor(52, 152, 219)},
+            {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
+            {QStringLiteral("Alt+Key"), QStringLiteral("Pull here"), QColor(241, 196, 15)},
+            {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
+            {QStringLiteral("Tab"), QStringLiteral("Group"), QColor(155, 89, 182)},
+            {QStringLiteral("Meta+S"), QStringLiteral("Stash"), QColor(46, 204, 113)},
+            {QStringLiteral("Meta+M"), QStringLiteral("Markers"), QColor(155, 89, 182)},
+            {QStringLiteral("Shift++"), QStringLiteral("New workspace"), QColor(52, 152, 219)},
+            {QStringLiteral(", / ."), QStringLiteral("Switch"), QColor(52, 152, 219)}
+        };
+        if (activeView >= 1) {
+            segments.append({QStringLiteral("_"), QStringLiteral("Delete workspace"), QColor(231, 76, 60)});
         }
     }
 
@@ -1758,13 +1722,10 @@ inline QImage renderHudModeHeader(bool isPolish,
                                   bool isStashMode = false,
                                   const QString &targetWorkspaceName = QString())
 {
+    Q_UNUSED(isPolish);
     if (isSubLeap) {
-        const QString leftText = isPolish
-            ? QStringLiteral("🗂 TRYB GRUPY: %1 (%2 okna)  •  Wybierz docelowe okno").arg(subLeapTitle).arg(subLeapCount)
-            : QStringLiteral("🗂 GROUP DISAMBIGUATION: %1 (%2 windows)  •  Press target letter").arg(subLeapTitle).arg(subLeapCount);
-        const QString rightText = isPolish
-            ? QStringLiteral("[Backspace / Esc: Powrót]")
-            : QStringLiteral("[Backspace / Esc: Back]");
+        const QString leftText = QStringLiteral("🗂 GROUP DISAMBIGUATION: %1 (%2 windows)  •  Press target letter").arg(subLeapTitle).arg(subLeapCount);
+        const QString rightText = QStringLiteral("Backspace / Esc : Back");
 
         QFont titleFont(QStringLiteral("sans-serif"));
         titleFont.setPixelSize(qMax(10, qRound(13.0 * scale)));
@@ -1813,12 +1774,8 @@ inline QImage renderHudModeHeader(bool isPolish,
     }
 
     if (isStashMode) {
-        const QString leftText = isPolish
-            ? QStringLiteral("📦 SCHOWEK: Wybierz okno, aby dodać do [%1]").arg(!targetWorkspaceName.isEmpty() ? targetWorkspaceName : QStringLiteral("Workspace"))
-            : QStringLiteral("📦 STASH: Pick window to add to [%1]").arg(!targetWorkspaceName.isEmpty() ? targetWorkspaceName : QStringLiteral("Workspace"));
-        const QString rightText = isPolish
-            ? QStringLiteral("[, / . : Wybierz workspace]  •  [Esc: Powrót]")
-            : QStringLiteral("[, / . : Choose workspace]  •  [Esc: Back]");
+        const QString leftText = QStringLiteral("📦 STASH: Pick a window to add to [%1]").arg(!targetWorkspaceName.isEmpty() ? targetWorkspaceName : QStringLiteral("Workspace"));
+        const QString rightText = QStringLiteral(", / . : Switch workspace  •  Esc : Back");
 
         QFont titleFont(QStringLiteral("sans-serif"));
         titleFont.setPixelSize(qMax(10, qRound(13.0 * scale)));
@@ -1870,8 +1827,8 @@ inline QImage renderHudModeHeader(bool isPolish,
         return QImage();
     }
 
-    const QString navLeft = QStringLiteral("◂ [,]");
-    const QString navRight = QStringLiteral("[.] ▸");
+    const QString navLeft = QStringLiteral("◂ ,");
+    const QString navRight = QStringLiteral(". ▸");
 
     QFont navFont(QStringLiteral("sans-serif"));
     navFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
@@ -1921,9 +1878,7 @@ inline QImage renderHudModeHeader(bool isPolish,
     const int navRightW = fmNav.horizontalAdvance(navRight);
 
     // Stash Drawer pill on the right (separated from workspaces)
-    const QString stashText = isPolish
-        ? QStringLiteral("📦 Schowek (%1) • Alt+S").arg(qMax(0, stashCount))
-        : QStringLiteral("📦 Stash (%1) • Alt+S").arg(qMax(0, stashCount));
+    const QString stashText = QStringLiteral("📦 Stash (%1) • Meta+S").arg(qMax(0, stashCount));
     QFont stashFont(QStringLiteral("sans-serif"));
     stashFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
     stashFont.setBold(true);
@@ -1932,10 +1887,8 @@ inline QImage renderHudModeHeader(bool isPolish,
     const int stashTextW = fmStash.horizontalAdvance(stashText);
     const int stashPillW = stashTextW + 2 * tabPadX;
 
-    // New Workspace pill [+ Nowy • Ctrl+N]
-    const QString newWsText = isPolish
-        ? QStringLiteral("+ Nowy • Ctrl+N")
-        : QStringLiteral("+ New • Ctrl+N");
+    // New Workspace pill [+ New • Shift++]
+    const QString newWsText = QStringLiteral("+ New • Shift++");
     QFont newWsFont(QStringLiteral("sans-serif"));
     newWsFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
     newWsFont.setBold(true);

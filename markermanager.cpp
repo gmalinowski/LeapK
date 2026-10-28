@@ -81,7 +81,7 @@ public:
         : QDialog(parent)
         , m_rule(initialRule)
         , m_isNew(isNew)
-        , m_isPolish(isPolish)
+        , m_isPolish(false)
         , m_selectedColor(initialRule.color.isValid() ? initialRule.color : QColor(QStringLiteral("#3498db")))
     {
         setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
@@ -629,7 +629,7 @@ public:
         , m_desktopNum(desktopNum)
         , m_desktopName(desktopName)
         , m_openWindows(openWindows)
-        , m_isPolish(QLocale().language() == QLocale::Polish)
+        , m_isPolish(false)
     {
         setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
         setAttribute(Qt::WA_TranslucentBackground, true);
