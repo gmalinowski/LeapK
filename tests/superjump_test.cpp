@@ -163,32 +163,98 @@ void testSuperJumpDefaultJumpVsPullHere()
 void testSuperJumpKeyboardModifierIsolation()
 {
     // Helper replicating LeapK shortcut matching logic
-    auto isSuperJumpToggle = [](Qt::KeyboardModifiers mods, int key) -> bool {
-        return (mods & Qt::MetaModifier) && key == Qt::Key_A;
+    auto evaluateAction = [](Qt::KeyboardModifiers mods, int key) {
+        const bool isShift = (mods & Qt::ShiftModifier);
+        const bool isAlt = (mods & Qt::AltModifier) && !(mods & Qt::ControlModifier);
+        const bool isCtrl = (mods & Qt::ControlModifier) && !(mods & Qt::AltModifier);
+        const bool isMetaOnly = (mods & Qt::MetaModifier) && !isAlt && !isCtrl && !isShift;
+
+        bool triggersSuperJump = false;
+        bool triggersStashMode = false;
+        bool pullsWindow = false;
+        bool stashesWindow = false;
+        bool closesWindow = false;
+
+        if (isMetaOnly && key == Qt::Key_A) {
+            triggersSuperJump = true;
+        } else if (isMetaOnly && key == Qt::Key_S) {
+            triggersStashMode = true;
+        } else if (isAlt) {
+            pullsWindow = true;
+        } else if (isCtrl) {
+            stashesWindow = true;
+        } else if (isShift) {
+            closesWindow = true;
+        }
+
+        return std::make_tuple(triggersSuperJump, triggersStashMode, pullsWindow, stashesWindow, closesWindow);
     };
-    auto isStashWindowAction = [](Qt::KeyboardModifiers mods) -> bool {
-        return (mods & Qt::ControlModifier) && !(mods & Qt::AltModifier);
-    };
-    auto isPullWindowAction = [](Qt::KeyboardModifiers mods) -> bool {
-        return (mods & Qt::AltModifier) && !(mods & Qt::ControlModifier);
-    };
 
-    // 1. Meta+A -> MUST trigger Super Jump
-    assert(isSuperJumpToggle(Qt::MetaModifier, Qt::Key_A) == true);
+    // 1. Meta+A -> Super Jump toggle ONLY
+    {
+        auto [sj, sm, pull, stash, close] = evaluateAction(Qt::MetaModifier, Qt::Key_A);
+        assert(sj == true && sm == false && pull == false && stash == false && close == false);
+    }
 
-    // 2. Ctrl+A -> MUST NOT trigger Super Jump (must trigger Stash window 'A')
-    assert(isSuperJumpToggle(Qt::ControlModifier, Qt::Key_A) == false);
-    assert(isStashWindowAction(Qt::ControlModifier) == true);
+    // 2. Ctrl+A -> Stash window 'A' (NOT Super Jump)
+    {
+        auto [sj, sm, pull, stash, close] = evaluateAction(Qt::ControlModifier, Qt::Key_A);
+        assert(sj == false && sm == false && pull == false && stash == true && close == false);
+    }
 
-    // 3. Alt+A -> MUST NOT trigger Super Jump (must trigger Pull window 'A')
-    assert(isSuperJumpToggle(Qt::AltModifier, Qt::Key_A) == false);
-    assert(isPullWindowAction(Qt::AltModifier) == true);
+    // 3. Alt+A -> Pull window 'A' (NOT Super Jump)
+    {
+        auto [sj, sm, pull, stash, close] = evaluateAction(Qt::AltModifier, Qt::Key_A);
+        assert(sj == false && sm == false && pull == true && stash == false && close == false);
+    }
 
-    // 4. Plain 'A' -> MUST NOT trigger Super Jump (normal jump)
-    assert(isSuperJumpToggle(Qt::NoModifier, Qt::Key_A) == false);
+    // 4. Meta+Alt+A -> Pull window 'A' even if user holds Meta from trigger
+    {
+        auto [sj, sm, pull, stash, close] = evaluateAction(Qt::MetaModifier | Qt::AltModifier, Qt::Key_A);
+        assert(sj == false && sm == false && pull == true && stash == false && close == false);
+    }
 
-    // 5. Shift+A -> MUST NOT trigger Super Jump (close window 'A')
-    assert(isSuperJumpToggle(Qt::ShiftModifier, Qt::Key_A) == false);
+    // 5. Meta+S -> Stash mode toggle ONLY
+    {
+        auto [sj, sm, pull, stash, close] = evaluateAction(Qt::MetaModifier, Qt::Key_S);
+        assert(sj == false && sm == true && pull == false && stash == false && close == false);
+    }
+
+    // 6. Alt+S -> Pull window 'S' (NOT Stash mode!)
+    {
+        auto [sj, sm, pull, stash, close] = evaluateAction(Qt::AltModifier, Qt::Key_S);
+        assert(sj == false && sm == false && pull == true && stash == false && close == false);
+    }
+
+    // 7. Meta+Alt+S -> Pull window 'S' (NOT Stash mode, even if Meta is held!)
+    {
+        auto [sj, sm, pull, stash, close] = evaluateAction(Qt::MetaModifier | Qt::AltModifier, Qt::Key_S);
+        assert(sj == false && sm == false && pull == true && stash == false && close == false);
+    }
+
+    // 8. Ctrl+S -> Stash window 'S' (NOT Stash mode!)
+    {
+        auto [sj, sm, pull, stash, close] = evaluateAction(Qt::ControlModifier, Qt::Key_S);
+        assert(sj == false && sm == false && pull == false && stash == true && close == false);
+    }
+
+    // 9. Meta+Ctrl+S -> Stash window 'S' (even if Meta is held!)
+    {
+        auto [sj, sm, pull, stash, close] = evaluateAction(Qt::MetaModifier | Qt::ControlModifier, Qt::Key_S);
+        assert(sj == false && sm == false && pull == false && stash == true && close == false);
+    }
+
+    // 10. Shift+S -> Close window 'S'
+    {
+        auto [sj, sm, pull, stash, close] = evaluateAction(Qt::ShiftModifier, Qt::Key_S);
+        assert(sj == false && sm == false && pull == false && stash == false && close == true);
+    }
+
+    // 11. Plain 'S' -> Normal Jump
+    {
+        auto [sj, sm, pull, stash, close] = evaluateAction(Qt::NoModifier, Qt::Key_S);
+        assert(sj == false && sm == false && pull == false && stash == false && close == false);
+    }
 
     std::cout << "testSuperJumpKeyboardModifierIsolation PASSED\n";
 }

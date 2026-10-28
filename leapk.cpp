@@ -4627,6 +4627,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     const bool isShift = (mods & Qt::ShiftModifier);
     const bool isAlt = (mods & Qt::AltModifier) && !(mods & Qt::ControlModifier);
     const bool isCtrl = (mods & Qt::ControlModifier) && !(mods & Qt::AltModifier);
+    const bool isMetaOnly = (mods & Qt::MetaModifier) && !isAlt && !isCtrl && !isShift;
 
     auto extractKeyChar = [e, isShift]() -> QString {
         if (e->key() >= Qt::Key_A && e->key() <= Qt::Key_Z) {
@@ -4660,9 +4661,15 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
-        if ((mods & Qt::MetaModifier) && e->key() == Qt::Key_A) {
+        if (isMetaOnly && e->key() == Qt::Key_A) {
             exitSubLeapMode();
             toggleSuperJumpMode();
+            return;
+        }
+
+        if (isMetaOnly && e->key() == Qt::Key_S) {
+            exitSubLeapMode();
+            enterStashMode();
             return;
         }
 
@@ -4781,12 +4788,12 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
-        if ((mods & Qt::MetaModifier) && e->key() == Qt::Key_S) {
+        if (isMetaOnly && e->key() == Qt::Key_S) {
             exitStashMode();
             return;
         }
 
-        if ((mods & Qt::MetaModifier) && e->key() == Qt::Key_A) {
+        if (isMetaOnly && e->key() == Qt::Key_A) {
             exitStashMode();
             toggleSuperJumpMode();
             return;
@@ -4882,7 +4889,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
-    if ((mods & Qt::MetaModifier) && e->key() == Qt::Key_A) {
+    if (isMetaOnly && e->key() == Qt::Key_A) {
         toggleSuperJumpMode();
         return;
     }
@@ -4892,7 +4899,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
-    if ((mods & Qt::MetaModifier) && e->key() == Qt::Key_S) {
+    if (isMetaOnly && e->key() == Qt::Key_S) {
         enterStashMode();
         return;
     }
@@ -4902,12 +4909,12 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
-    if (e->key() == Qt::Key_Tab || ((mods & Qt::MetaModifier) && e->key() == Qt::Key_G)) {
+    if (e->key() == Qt::Key_Tab || (isMetaOnly && e->key() == Qt::Key_G)) {
         slotToggleHudGrouping();
         return;
     }
 
-    if ((mods & Qt::MetaModifier) && e->key() == Qt::Key_M) {
+    if (isMetaOnly && e->key() == Qt::Key_M) {
         cancelJumpMode();
         slotOpenMarkerManager();
         return;
@@ -4933,7 +4940,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char('+'))
         || (e->key() == Qt::Key_Equal && isShift);
 
-    if (isPlus || ((mods & Qt::MetaModifier) && e->key() == Qt::Key_N)) {
+    if (isPlus || (isMetaOnly && e->key() == Qt::Key_N)) {
         slotCreateNewWorkspacePrompt();
         return;
     }
