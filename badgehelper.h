@@ -339,6 +339,45 @@ inline QRectF computeBadgeRect(const QRectF &geo, int position, qreal badgeWidth
     return QRectF(x, y, badgeWidth, badgeHeight);
 }
 
+inline QRectF computeTopBarPinnedBadgeRect(const QRectF &frameGeo, const QRectF &clientGeo, bool hasDec,
+                                          qreal badgeW, qreal badgeH, int altIndex = 0)
+{
+    const bool validDec = hasDec && (clientGeo.top() > frameGeo.top() + 4.0);
+    const qreal titlebarH = validDec ? (clientGeo.top() - frameGeo.top()) : 32.0;
+    const qreal badgeY = frameGeo.top() + std::max<qreal>(2.0, (titlebarH - badgeH) / 2.0);
+
+    qreal badgeX = frameGeo.left();
+
+    switch (altIndex) {
+    case 0: { // Primary: Right side of top bar, before window control buttons (minimize, maximize, close)
+        const qreal rightOffset = validDec ? 115.0 : 55.0;
+        badgeX = frameGeo.right() - rightOffset - badgeW;
+        if (badgeX < frameGeo.left() + 40.0) {
+            badgeX = std::max<qreal>(frameGeo.left() + 8.0, frameGeo.right() - badgeW - 8.0);
+        }
+        break;
+    }
+    case 1: { // Alt 1: Left side of top bar, next to window icon / menu
+        badgeX = frameGeo.left() + (validDec ? 34.0 : 12.0);
+        break;
+    }
+    case 2: { // Alt 2: Far right corner of top bar
+        badgeX = frameGeo.right() - 8.0 - badgeW;
+        break;
+    }
+    case 3: // Alt 3: Center of top bar
+    default: {
+        badgeX = frameGeo.left() + (frameGeo.width() - badgeW) / 2.0;
+        break;
+    }
+    }
+
+    if (frameGeo.width() >= badgeW) {
+        badgeX = std::max(frameGeo.left() + 4.0, std::min(badgeX, frameGeo.right() - badgeW - 4.0));
+    }
+    return QRectF(badgeX, badgeY, badgeW, badgeH);
+}
+
 inline qreal computeBadgeWidth(qreal baseHeight, const QString &customLabel = QString(),
                                bool showIcon = false, bool showThumbnail = false,
                                qreal thumbnailAspect = 1.6, int iconSize = 0,

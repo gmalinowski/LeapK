@@ -1083,6 +1083,18 @@ void testPinDotBadgeAspectAndContrast()
     assert(pinDot.width() == 32);
     assert(pinDot.height() == 32);
     assert(pinDot.width() == pinDot.height());
+
+    // 4. Sleek 16px top-bar pinned badge positioning
+    const QRectF frameGeo(100, 100, 800, 600);
+    const QRectF clientGeo(100, 132, 800, 568); // 32px titlebar
+    const QRectF topBarBadge = OutlineBadge::computeTopBarPinnedBadgeRect(frameGeo, clientGeo, true, 16, 16, 0);
+    assert(topBarBadge.width() == 16);
+    assert(topBarBadge.height() == 16);
+    // Vertically centered inside 32px titlebar: top + (32 - 16)/2 = 108
+    assert(topBarBadge.top() == 108);
+    // Positioned before window buttons on the right: right - 115 - 16 = 900 - 131 = 769
+    assert(topBarBadge.left() == 769);
+    assert(topBarBadge.bottom() <= clientGeo.top()); // Strictly in titlebar, never in client contents!
 }
 
 int main(int argc, char *argv[])

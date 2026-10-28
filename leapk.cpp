@@ -7539,7 +7539,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     }
 
     if (!m_jumpMode && !showContinuousBadges && hasPinnedToDraw) {
-        const int badgeH = m_badgeConfig.windowBadgeSize;
+        const int badgeH = 16;
         const QRectF screenRect = viewport.renderRect();
         for (EffectWindow *target : m_pinnedWindows) {
             if (!target || target->isDeleted() || !isEligibleTargetWindow(target)
@@ -7561,18 +7561,16 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
 
             const qreal badgeW = OutlineBadge::computeBadgeWidth(m_badgeConfig, badgeH, customLabel, QString(), false);
-            QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, badgeW, badgeH, m_badgeMargin);
+            QRectF badgeRect = OutlineBadge::computeTopBarPinnedBadgeRect(geo, target->clientGeometry(), target->hasDecoration(), badgeW, badgeH, 0);
             if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
             if (badgeRect.right() > screenRect.right() - 4.0) badgeRect.moveRight(screenRect.right() - 4.0);
             if (badgeRect.top() < screenRect.top() + 4.0) badgeRect.moveTop(screenRect.top() + 4.0);
             if (badgeRect.bottom() > screenRect.bottom() - 4.0) badgeRect.moveBottom(screenRect.bottom() - 4.0);
 
             if (isBadgeOccluded(target, badgeRect)) {
-                const int altPositions[] = { 4 /* Center */, 1 /* Top */, 0 /* TopLeft */, 2 /* TopRight */, 7 /* Bottom */, 6 /* BottomLeft */, 8 /* BottomRight */, 3 /* Left */, 5 /* Right */ };
                 bool foundVisiblePosition = false;
-                for (int altPos : altPositions) {
-                    if (altPos == m_badgePosition) continue;
-                    QRectF altRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, altPos, badgeW, badgeH, m_badgeMargin);
+                for (int alt = 1; alt <= 3; ++alt) {
+                    QRectF altRect = OutlineBadge::computeTopBarPinnedBadgeRect(geo, target->clientGeometry(), target->hasDecoration(), badgeW, badgeH, alt);
                     if (altRect.left() < screenRect.left() + 4.0) altRect.moveLeft(screenRect.left() + 4.0);
                     if (altRect.right() > screenRect.right() - 4.0) altRect.moveRight(screenRect.right() - 4.0);
                     if (altRect.top() < screenRect.top() + 4.0) altRect.moveTop(screenRect.top() + 4.0);
@@ -7588,7 +7586,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                     continue;
                 }
             }
-            renderBadge(renderTarget, viewport, badgeRect, QChar(), bgCol, textCol, false, m_badgeConfig.windowBadgeSize, customLabel, target);
+            renderBadge(renderTarget, viewport, badgeRect, QChar(), bgCol, textCol, false, badgeH, customLabel, target);
         }
     }
 
