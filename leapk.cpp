@@ -4282,13 +4282,18 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
-    if (e->key() == Qt::Key_Tab || e->key() == Qt::Key_Backtab) {
+    if ((mods & (Qt::AltModifier | Qt::ControlModifier)) && e->key() == Qt::Key_S) {
         enterStashMode();
         return;
     }
 
-    if ((mods & (Qt::AltModifier | Qt::ControlModifier)) && e->key() == Qt::Key_S) {
+    if (e->key() == Qt::Key_Backtab) { // Shift+Tab: open Stash drawer
         enterStashMode();
+        return;
+    }
+
+    if (e->key() == Qt::Key_Tab || ((mods & (Qt::AltModifier | Qt::ControlModifier)) && e->key() == Qt::Key_G)) {
+        slotToggleHudGrouping();
         return;
     }
 
@@ -5617,13 +5622,16 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
 
     const int hudPos = m_badgePreviewActive ? m_previewBadgeHudPosition : m_badgeHudPosition;
     qreal hintY = 0.0;
-    if (pillsBounds.isValid() && !pillsBounds.isEmpty()) {
+    if (hudPos == 2 || hudPos == 3) {
+        // Left (2) and Right (3): Pills are on the side margins, hint bar is pinned below header at top center
+        hintY = screenRect.top() + qRound(58.0 * scale);
+    } else if (pillsBounds.isValid() && !pillsBounds.isEmpty()) {
         if (hudPos == 1) { // Top HUD: place below pills
             hintY = pillsBounds.bottom() + 12.0;
             if (hintY + hintH > screenRect.bottom() - 10.0) {
                 hintY = screenRect.bottom() - hintH - 10.0;
             }
-        } else { // Bottom (0), Left (2), Right (3): place above pills
+        } else { // Bottom (0): place above pills
             hintY = pillsBounds.top() - hintH - 12.0;
             if (hintY < screenRect.top() + 10.0) {
                 hintY = screenRect.top() + 10.0;
@@ -5832,9 +5840,9 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
 
     const int hudPos = m_badgePreviewActive ? m_previewBadgeHudPosition : m_badgeHudPosition;
     qreal headerY = 0.0;
-    if (hudPos == 1) { // Top HUD
+    if (hudPos == 1 || hudPos == 2 || hudPos == 3) { // Top (1), Left (2), Right (3): Header pinned at top center
         headerY = screenRect.top() + 12.0;
-    } else { // Bottom (0), Left (2), Right (3): place above hint bar
+    } else { // Bottom (0): place above hint bar
         if (hintBarBounds.isValid() && !hintBarBounds.isEmpty()) {
             headerY = hintBarBounds.top() - headerH - 8.0;
         } else if (pillsBounds.isValid() && !pillsBounds.isEmpty()) {

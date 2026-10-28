@@ -1655,7 +1655,8 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
                 {QStringLiteral("[Shift+Litera]"), QStringLiteral("Zamknij (:bd)"), QColor(231, 76, 60)},
                 {QStringLiteral("[Alt+Litera]"), QStringLiteral("Przyciągnij"), QColor(241, 196, 15)},
                 {QStringLiteral("[Ctrl+Litera]"), QStringLiteral("Schowek (:hide)"), QColor(46, 204, 113)},
-                {QStringLiteral("[Tab]"), QStringLiteral("Schowek"), QColor(46, 204, 113)},
+                {QStringLiteral("[Tab]"), QStringLiteral("Grupuj"), QColor(155, 89, 182)},
+                {QStringLiteral("[Alt+S]"), QStringLiteral("Schowek"), QColor(46, 204, 113)},
                 {QStringLiteral("[Ctrl+N / +]"), QStringLiteral("Nowy workspace"), QColor(52, 152, 219)},
                 {QStringLiteral("[, / .]"), viewName, viewColor}
             };
@@ -1665,7 +1666,8 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
                 {QStringLiteral("[Shift+Key]"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
                 {QStringLiteral("[Alt+Key]"), QStringLiteral("Pull here"), QColor(241, 196, 15)},
                 {QStringLiteral("[Ctrl+Key]"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
-                {QStringLiteral("[Tab]"), QStringLiteral("Stash"), QColor(46, 204, 113)},
+                {QStringLiteral("[Tab]"), QStringLiteral("Group"), QColor(155, 89, 182)},
+                {QStringLiteral("[Alt+S]"), QStringLiteral("Stash"), QColor(46, 204, 113)},
                 {QStringLiteral("[Ctrl+N / +]"), QStringLiteral("New workspace"), QColor(52, 152, 219)},
                 {QStringLiteral("[, / .]"), viewName, viewColor}
             };
@@ -1927,8 +1929,8 @@ inline QImage renderHudModeHeader(bool isPolish,
 
     // Stash Drawer pill on the right (separated from workspaces)
     const QString stashText = isPolish
-        ? QStringLiteral("📦 Schowek (%1) • Tab").arg(qMax(0, stashCount))
-        : QStringLiteral("📦 Stash (%1) • Tab").arg(qMax(0, stashCount));
+        ? QStringLiteral("📦 Schowek (%1) • Alt+S").arg(qMax(0, stashCount))
+        : QStringLiteral("📦 Stash (%1) • Alt+S").arg(qMax(0, stashCount));
     QFont stashFont(QStringLiteral("sans-serif"));
     stashFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
     stashFont.setBold(true);
