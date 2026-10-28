@@ -187,6 +187,15 @@ install(TARGETS leapk-workspace-manager
     DESTINATION ${KDE_INSTALL_LIBEXECDIR}
 )
 
+# --- Standalone Marker Manager helper ---
+add_executable(leapk-marker-manager markermanager.cpp)
+target_link_libraries(leapk-marker-manager PRIVATE
+    Qt6::Widgets
+)
+install(TARGETS leapk-marker-manager
+    DESTINATION ${KDE_INSTALL_LIBEXECDIR}
+)
+
 # --- Standalone Tray Companion & Settings GUI ---
 add_executable(leapk-tray
     tray.cpp
@@ -282,6 +291,14 @@ add_custom_target(kleap-workspace-manager ALL
 add_custom_target(active-window-outline-workspace-manager ALL
     COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-workspace-manager active-window-outline-workspace-manager
     DEPENDS leapk-workspace-manager
+)
+add_custom_target(kleap-marker-manager ALL
+    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-marker-manager kleap-marker-manager
+    DEPENDS leapk-marker-manager
+)
+add_custom_target(active-window-outline-marker-manager ALL
+    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-marker-manager active-window-outline-marker-manager
+    DEPENDS leapk-marker-manager
 )
 add_custom_target(leapk-cli ALL
     COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-settings leapk

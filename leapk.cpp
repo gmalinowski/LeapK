@@ -697,6 +697,13 @@ void ActiveWindowOutlineEffect::initShortcuts()
     KGlobalAccel::self()->setGlobalShortcut(workspaceManagerAction, QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Space));
     connect(workspaceManagerAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotOpenWorkspaceManager);
 
+    QAction *markerManagerAction = new QAction(this);
+    markerManagerAction->setObjectName(QStringLiteral("OpenMarkerManager"));
+    markerManagerAction->setText(QStringLiteral("LeapK: Open Marker Manager"));
+    KGlobalAccel::self()->setDefaultShortcut(markerManagerAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_M));
+    KGlobalAccel::self()->setGlobalShortcut(markerManagerAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_M));
+    connect(markerManagerAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotOpenMarkerManager);
+
     QAction *toggleGroupAction = new QAction(this);
     toggleGroupAction->setObjectName(QStringLiteral("ToggleHudGrouping"));
     toggleGroupAction->setText(QStringLiteral("LeapK: Toggle HUD Window Grouping"));
@@ -2478,6 +2485,11 @@ void ActiveWindowOutlineEffect::openWorkspaceManager()
     slotOpenWorkspaceManager();
 }
 
+void ActiveWindowOutlineEffect::openMarkerManager()
+{
+    slotOpenMarkerManager();
+}
+
 void ActiveWindowOutlineEffect::clearAllMarks()
 {
     m_markedWindows.clear();
@@ -3465,6 +3477,96 @@ void ActiveWindowOutlineEffect::slotOpenWorkspaceManager()
     });
 
     process->start(wsManagerExe, args);
+}
+
+void ActiveWindowOutlineEffect::slotOpenMarkerManager()
+{
+    EffectWindow *target = effects ? effects->activeWindow() : nullptr;
+    if (!isEligibleOutlineWindow(target)) {
+        target = m_activeWindow;
+    }
+
+    QStringList candidateDirs;
+    candidateDirs << QDir::homePath() + QStringLiteral("/.local/bin");
+#ifdef COLORPICKER_INSTALL_DIR
+    candidateDirs << QStringLiteral(COLORPICKER_INSTALL_DIR);
+#endif
+    candidateDirs << QCoreApplication::applicationDirPath()
+                  << QStringLiteral("/usr/libexec")
+                  << QStringLiteral("/usr/lib/libexec")
+                  << QStringLiteral("/usr/local/bin")
+                  << QStringLiteral("/usr/bin");
+
+    QString markerManagerExe = QStandardPaths::findExecutable(QStringLiteral("leapk-marker-manager"), candidateDirs);
+    if (markerManagerExe.isEmpty()) {
+        markerManagerExe = QStandardPaths::findExecutable(QStringLiteral("kleap-marker-manager"), candidateDirs);
+    }
+    if (markerManagerExe.isEmpty()) {
+        markerManagerExe = QStandardPaths::findExecutable(QStringLiteral("active-window-outline-marker-manager"), candidateDirs);
+    }
+
+    if (markerManagerExe.isEmpty()) {
+        return;
+    }
+
+    const auto desktops = target ? target->desktops() : QList<VirtualDesktop *>();
+    const int desktopNum = (target && !desktops.isEmpty() && !target->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+    const QString desktopName = (target && !desktops.isEmpty() && !target->isOnAllDesktops()) ? desktops.first()->name() : QString();
+    const QString appClass = target ? target->windowClass() : QString();
+    const QString caption = target ? target->caption() : QString();
+
+    QStringList args;
+    if (target && !target->isDeleted()) {
+        args << appClass
+             << caption
+             << QString::number(desktopNum)
+             << desktopName;
+    }
+
+    // Collect all open windows to pass live matching window info
+    QJsonArray openWindowsArr;
+    if (effects) {
+        for (EffectWindow *w : effects->stackingOrder()) {
+            if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher()) {
+                continue;
+            }
+            QJsonObject wObj;
+            wObj[QStringLiteral("app")] = w->windowClass();
+            wObj[QStringLiteral("caption")] = w->caption();
+            const auto wDesktops = w->desktops();
+            const int dNum = (!wDesktops.isEmpty() && !w->isOnAllDesktops()) ? wDesktops.first()->x11DesktopNumber() : 0;
+            wObj[QStringLiteral("desktop")] = dNum;
+            openWindowsArr.append(wObj);
+        }
+    }
+    if (!openWindowsArr.isEmpty()) {
+        args << QStringLiteral("--open-windows") << QString::fromUtf8(QJsonDocument(openWindowsArr).toJson(QJsonDocument::Compact));
+    }
+
+    QPointer<EffectWindow> targetWindow(target);
+    QProcess *process = new QProcess(this);
+    connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
+            this, [this, process, targetWindow](int exitCode, QProcess::ExitStatus exitStatus) {
+        Q_UNUSED(exitCode);
+        Q_UNUSED(exitStatus);
+        Q_UNUSED(targetWindow);
+        process->deleteLater();
+        m_persistentMarks = LeapKMarks::loadPersistentMarks();
+        refreshPersistentMarksForWindows();
+        m_jumpLetterToWindow = assignJumpLetters();
+        m_badgeTextureCache.clear();
+        m_hudHeaderTexture.reset();
+        m_hudHeaderCacheKey = -1;
+        repaintAllOutlines();
+        if (effects) {
+            effects->addRepaintFull();
+        }
+    });
+    connect(process, &QProcess::errorOccurred, this, [process]() {
+        process->deleteLater();
+    });
+
+    process->start(markerManagerExe, args);
 }
 
 void ActiveWindowOutlineEffect::slotToggleHudGrouping()
@@ -4465,6 +4567,12 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     if (e->key() == Qt::Key_Tab || ((mods & (Qt::AltModifier | Qt::ControlModifier)) && e->key() == Qt::Key_G)) {
         slotToggleHudGrouping();
+        return;
+    }
+
+    if ((isCtrl || (mods & Qt::AltModifier)) && e->key() == Qt::Key_M) {
+        cancelJumpMode();
+        slotOpenMarkerManager();
         return;
     }
 

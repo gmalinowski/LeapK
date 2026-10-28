@@ -134,11 +134,63 @@ void testScoreWindowMatch()
     std::cout << "testScoreWindowMatch PASSED\n";
 }
 
+void testDeleteAndUpsertMark()
+{
+    using namespace LeapKMarks;
+
+    QTemporaryDir tempDir;
+    assert(tempDir.isValid());
+    const QString filePath = tempDir.path() + QStringLiteral("/marks.json");
+
+    PersistentMarkRule r1;
+    r1.id = QStringLiteral("rule-1");
+    r1.letter = QChar('A');
+    r1.color = QColor(QStringLiteral("#3498db"));
+    r1.matchApp = QStringLiteral("alacritty");
+
+    QList<PersistentMarkRule> rules;
+    bool ok = upsertPersistentMark(rules, r1, filePath);
+    assert(ok);
+    assert(rules.size() == 1);
+
+    // Update existing rule
+    r1.letter = QChar('B');
+    ok = upsertPersistentMark(rules, r1, filePath);
+    assert(ok);
+    assert(rules.size() == 1);
+    assert(rules.first().letter == QChar('B'));
+
+    // Insert second rule
+    PersistentMarkRule r2;
+    r2.id = QStringLiteral("rule-2");
+    r2.letter = QChar('C');
+    r2.color = QColor(QStringLiteral("#2ecc71"));
+    r2.matchApp = QStringLiteral("firefox");
+    ok = upsertPersistentMark(rules, r2, filePath);
+    assert(ok);
+    assert(rules.size() == 2);
+
+    // Delete first rule
+    bool deleted = deletePersistentMark(rules, QStringLiteral("rule-1"), filePath);
+    assert(deleted);
+    assert(rules.size() == 1);
+    assert(rules.first().id == QStringLiteral("rule-2"));
+
+    // Reload from disk to verify persistence
+    QList<PersistentMarkRule> loaded = loadPersistentMarks(filePath);
+    assert(loaded.size() == 1);
+    assert(loaded.first().id == QStringLiteral("rule-2"));
+    assert(loaded.first().letter == QChar('C'));
+
+    std::cout << "testDeleteAndUpsertMark PASSED\n";
+}
+
 int main()
 {
     testRuleSerialization();
     testSaveAndLoadMarks();
     testScoreWindowMatch();
+    testDeleteAndUpsertMark();
     std::cout << "All persistent mark tests passed successfully!\n";
     return 0;
 }

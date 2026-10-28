@@ -25,6 +25,7 @@
 #include <QPainterPath>
 #include <QScreen>
 #include <QRandomGenerator>
+#include <QProcess>
 #include <cmath>
 #include <functional>
 #include <iostream>
@@ -1412,6 +1413,24 @@ private:
             });
             btnRow->addWidget(m_btnRemove);
         }
+
+        auto *btnMgr = new QPushButton(m_isPolish ? QStringLiteral("🏷️ Menedżer markerów…") : QStringLiteral("🏷️ Marker Manager…"), bottomWidget);
+        btnMgr->setFocusPolicy(Qt::NoFocus);
+        btnMgr->setStyleSheet(QStringLiteral(
+            "QPushButton {"
+            "  background-color: rgba(155, 89, 182, 0.15);"
+            "  border: 1px solid rgba(155, 89, 182, 0.4);"
+            "  border-radius: 8px;"
+            "  color: #d1b2ea;"
+            "  font-size: 12px;"
+            "  padding: 8px 12px;"
+            "}"
+            "QPushButton:hover { background-color: rgba(155, 89, 182, 0.3); color: #ffffff; }"
+        ));
+        connect(btnMgr, &QPushButton::clicked, this, [this]() {
+            QProcess::startDetached(QStringLiteral("leapk-marker-manager"), { m_appClass, m_windowCaption, QString::number(m_desktopNum), m_desktopName });
+        });
+        btnRow->addWidget(btnMgr);
 
         btnRow->addStretch(1);
 

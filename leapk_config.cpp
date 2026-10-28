@@ -2968,6 +2968,13 @@ void ActiveWindowOutlineConfig::initPersistentMarksSection()
     connect(m_ui->btnClearAllPersistentMarks, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::clearAllPersistentMarks);
     connect(m_ui->btnReloadPersistentMarks, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::refreshPersistentMarksTable);
 
+    auto *btnOpenMgr = new QPushButton(isPolish ? QStringLiteral("🏷️ Menedżer markerów…") : tr("🏷️ Marker Manager…"), m_ui->tablePersistentMarks->parentWidget());
+    btnOpenMgr->setToolTip(isPolish ? QStringLiteral("Otwórz pełny graficzny menedżer markerów i grup") : tr("Open the graphical Marker & Group Manager"));
+    connect(btnOpenMgr, &QPushButton::clicked, this, [this]() {
+        QProcess::startDetached(QStringLiteral("leapk-marker-manager"));
+    });
+    m_ui->layoutPersistentMarksButtons->addWidget(btnOpenMgr);
+
     refreshPersistentMarksTable();
 }
 

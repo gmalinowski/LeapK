@@ -1657,6 +1657,7 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
                 {QStringLiteral("[Ctrl+Litera]"), QStringLiteral("Schowek (:hide)"), QColor(46, 204, 113)},
                 {QStringLiteral("[Tab]"), QStringLiteral("Grupuj"), QColor(155, 89, 182)},
                 {QStringLiteral("[Alt+S]"), QStringLiteral("Schowek"), QColor(46, 204, 113)},
+                {QStringLiteral("[Ctrl+M]"), QStringLiteral("Markery"), QColor(155, 89, 182)},
                 {QStringLiteral("[Ctrl+N / +]"), QStringLiteral("Nowy workspace"), QColor(52, 152, 219)},
                 {QStringLiteral("[, / .]"), viewName, viewColor}
             };
@@ -1671,6 +1672,7 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
                 {QStringLiteral("[Ctrl+Key]"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
                 {QStringLiteral("[Tab]"), QStringLiteral("Group"), QColor(155, 89, 182)},
                 {QStringLiteral("[Alt+S]"), QStringLiteral("Stash"), QColor(46, 204, 113)},
+                {QStringLiteral("[Ctrl+M]"), QStringLiteral("Markers"), QColor(155, 89, 182)},
                 {QStringLiteral("[Ctrl+N / +]"), QStringLiteral("New workspace"), QColor(52, 152, 219)},
                 {QStringLiteral("[, / .]"), viewName, viewColor}
             };

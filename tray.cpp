@@ -998,6 +998,18 @@ private:
 
         m_menu->addSeparator();
 
+        m_menu->addAction(m_isPolish ? QStringLiteral("📁 Zarządzanie przestrzeniami (Workspaces)…") : QStringLiteral("📁 Workspace Manager…"),
+                          this, []() {
+            QProcess::startDetached(QStringLiteral("leapk-workspace-manager"));
+        });
+
+        m_menu->addAction(m_isPolish ? QStringLiteral("🏷️ Menedżer markerów i grup…") : QStringLiteral("🏷️ Marker & Group Manager…"),
+                          this, []() {
+            QProcess::startDetached(QStringLiteral("leapk-marker-manager"));
+        });
+
+        m_menu->addSeparator();
+
         // 5. Updates & Settings
         m_menu->addAction(m_isPolish ? QStringLiteral("🔄 Sprawdź czy jest dostępna nowa wersja") : QStringLiteral("🔄 Check for Updates…"),
                           this, &OutlineTray::onCheckForUpdates);

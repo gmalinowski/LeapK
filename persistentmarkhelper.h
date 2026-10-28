@@ -131,6 +131,38 @@ inline bool savePersistentMarks(const QList<PersistentMarkRule> &rules, const QS
     return true;
 }
 
+inline bool deletePersistentMark(QList<PersistentMarkRule> &rules, const QString &id, const QString &filePath = QString())
+{
+    int idx = -1;
+    for (int i = 0; i < rules.size(); ++i) {
+        if (rules.at(i).id == id) {
+            idx = i;
+            break;
+        }
+    }
+    if (idx >= 0) {
+        rules.removeAt(idx);
+        return savePersistentMarks(rules, filePath);
+    }
+    return false;
+}
+
+inline bool upsertPersistentMark(QList<PersistentMarkRule> &rules, const PersistentMarkRule &rule, const QString &filePath = QString())
+{
+    bool updated = false;
+    for (int i = 0; i < rules.size(); ++i) {
+        if (rules.at(i).id == rule.id) {
+            rules[i] = rule;
+            updated = true;
+            break;
+        }
+    }
+    if (!updated) {
+        rules.append(rule);
+    }
+    return savePersistentMarks(rules, filePath);
+}
+
 // Detects names of child processes running under a given process (e.g. nvim/vim running inside a terminal)
 inline QStringList detectProcessTreeNames(pid_t pid, int maxDepth = 2)
 {

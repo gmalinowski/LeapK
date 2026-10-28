@@ -95,6 +95,7 @@ public Q_SLOTS:
     void toggleWindowMark();
     void markWindowWithColor();
     void openWorkspaceManager();
+    void openMarkerManager();
     void clearAllMarks();
     void prevRecentWindow();
     void nextRecentWindow();
@@ -173,6 +174,7 @@ private Q_SLOTS:
     void slotMarkWindowToggle();
     void slotMarkWindowWithColor();
     void slotOpenWorkspaceManager();
+    void slotOpenMarkerManager();
     void slotToggleHudGrouping();
     void slotCycleHudView(int delta = 1);
     void slotTriggerJumpMode();
