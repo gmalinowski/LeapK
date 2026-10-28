@@ -146,12 +146,48 @@ void testWorkspaceMatching()
     std::cout << "testWorkspaceMatching PASSED\n";
 }
 
+void testCreateEmptyWorkspace()
+{
+    using namespace LeapKWorkspace;
+
+    QTemporaryDir tempDir;
+    assert(tempDir.isValid());
+    const QString filePath = tempDir.path() + QStringLiteral("/workspaces.json");
+
+    QList<WorkspaceInfo> list;
+    WorkspaceInfo ws = createEmptyWorkspace(list, QStringLiteral("Clean Project"), filePath);
+
+    assert(list.size() == 1);
+    assert(ws.name == QStringLiteral("Clean Project"));
+    assert(ws.rules.isEmpty());
+    assert(ws.color.isValid());
+
+    // Clean empty workspace must not match any window
+    assert(!matchesWorkspace(ws, QStringLiteral("firefox"), QStringLiteral("Google"), 1));
+    assert(!matchesWorkspace(ws, QStringLiteral("org.kde.konsole"), QStringLiteral("bash"), 1));
+
+    // Reload from file to ensure persistent storage
+    QList<WorkspaceInfo> reloaded = loadWorkspaces(filePath);
+    assert(reloaded.size() == 1);
+    assert(reloaded.first().name == QStringLiteral("Clean Project"));
+    assert(reloaded.first().rules.isEmpty());
+
+    // Creating second workspace without name auto-increments
+    WorkspaceInfo ws2 = createEmptyWorkspace(reloaded, QString(), filePath);
+    assert(reloaded.size() == 2);
+    assert(ws2.name == QStringLiteral("Workspace 2"));
+    assert(ws2.rules.isEmpty());
+
+    std::cout << "testCreateEmptyWorkspace PASSED\n";
+}
+
 int main()
 {
     testRuleSerialization();
     testWorkspaceSerialization();
     testSaveAndLoadWorkspaces();
     testWorkspaceMatching();
+    testCreateEmptyWorkspace();
     std::cout << "All workspace tests passed successfully!\n";
     return 0;
 }

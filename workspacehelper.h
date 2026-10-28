@@ -171,4 +171,33 @@ inline bool matchesWorkspace(const WorkspaceInfo &ws, const QString &appId, cons
     return false;
 }
 
+inline WorkspaceInfo createEmptyWorkspace(QList<WorkspaceInfo> &workspaces, const QString &customName = QString(), const QString &filePath = QString())
+{
+    static const QList<QColor> s_colors = {
+        QColor(52, 152, 219),  // Blue
+        QColor(46, 204, 113),  // Green
+        QColor(155, 89, 182),  // Purple
+        QColor(230, 126, 34),  // Orange
+        QColor(241, 196, 15),  // Yellow
+        QColor(231, 76, 60),   // Red
+        QColor(26, 188, 156)   // Turquoise
+    };
+
+    const int nextNum = workspaces.size() + 1;
+    const QString name = !customName.trimmed().isEmpty()
+        ? customName.trimmed()
+        : QStringLiteral("Workspace %1").arg(nextNum);
+
+    WorkspaceInfo ws;
+    ws.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    ws.name = name;
+    ws.color = s_colors.at(workspaces.size() % s_colors.size());
+    ws.createdAt = QDateTime::currentMSecsSinceEpoch();
+    ws.rules.clear();
+
+    workspaces.append(ws);
+    saveWorkspaces(workspaces, filePath);
+    return ws;
+}
+
 } // namespace LeapKWorkspace

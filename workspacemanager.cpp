@@ -269,24 +269,47 @@ public:
         scrollArea->setWidget(m_cardsContainer);
         mainLayout->addWidget(scrollArea, 1);
 
-        // New Workspace Button Card
-        m_btnNewWs = new QPushButton(m_isPolish ? QStringLiteral("➕ [N] Utwórz nową przestrzeń (Workspace)") : QStringLiteral("➕ [N] Create New Workspace"), this);
+        // New Workspace Button Cards
+        auto *newWsLayout = new QHBoxLayout();
+        newWsLayout->setSpacing(10);
+
+        m_btnNewWs = new QPushButton(m_isPolish ? QStringLiteral("➕ [N] Utwórz z tym oknem") : QStringLiteral("➕ [N] Create with window"), this);
         m_btnNewWs->setStyleSheet(QStringLiteral(
             "QPushButton {"
-            "  background-color: rgba(52, 152, 219, 0.2);"
+            "  background-color: rgba(52, 152, 219, 0.15);"
             "  border: 1.5px dashed #3498db;"
             "  border-radius: 12px;"
             "  color: #3498db;"
             "  font-weight: bold;"
-            "  font-size: 14px;"
+            "  font-size: 13px;"
             "  padding: 10px;"
             "}"
             "QPushButton:hover {"
-            "  background-color: rgba(52, 152, 219, 0.35);"
+            "  background-color: rgba(52, 152, 219, 0.3);"
             "}"
         ));
         connect(m_btnNewWs, &QPushButton::clicked, this, &WorkspaceManagerDialog::onNewWorkspace);
-        mainLayout->addWidget(m_btnNewWs);
+        newWsLayout->addWidget(m_btnNewWs);
+
+        m_btnNewEmptyWs = new QPushButton(m_isPolish ? QStringLiteral("✨ [E] Utwórz pusty Workspace") : QStringLiteral("✨ [E] Create Empty Workspace"), this);
+        m_btnNewEmptyWs->setStyleSheet(QStringLiteral(
+            "QPushButton {"
+            "  background-color: rgba(46, 204, 113, 0.15);"
+            "  border: 1.5px dashed #2ecc71;"
+            "  border-radius: 12px;"
+            "  color: #2ecc71;"
+            "  font-weight: bold;"
+            "  font-size: 13px;"
+            "  padding: 10px;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: rgba(46, 204, 113, 0.3);"
+            "}"
+        ));
+        connect(m_btnNewEmptyWs, &QPushButton::clicked, this, &WorkspaceManagerDialog::onNewEmptyWorkspace);
+        newWsLayout->addWidget(m_btnNewEmptyWs);
+
+        mainLayout->addLayout(newWsLayout);
 
         // Bottom Action Bar
         auto *bottomLayout = new QHBoxLayout();
@@ -367,8 +390,12 @@ protected:
             setScope(false);
             return;
         }
-        if (e->key() == Qt::Key_N) {
+        if (e->key() == Qt::Key_N && !(e->modifiers() & Qt::ControlModifier)) {
             onNewWorkspace();
+            return;
+        }
+        if (e->key() == Qt::Key_E || ((e->modifiers() & Qt::ControlModifier) && e->key() == Qt::Key_N)) {
+            onNewEmptyWorkspace();
             return;
         }
         if (e->key() == Qt::Key_Delete) {
@@ -543,6 +570,30 @@ private:
         rebuildCards();
     }
 
+    void onNewEmptyWorkspace()
+    {
+        bool ok = false;
+        const QString defaultName = m_isPolish
+            ? QStringLiteral("Obszar %1").arg(m_workspaces.size() + 1)
+            : QStringLiteral("Workspace %1").arg(m_workspaces.size() + 1);
+
+        const QString name = QInputDialog::getText(
+            this,
+            m_isPolish ? QStringLiteral("Nowy pusty workspace") : QStringLiteral("New Empty Workspace"),
+            m_isPolish ? QStringLiteral("Wpisz nazwę dla nowego pustego Workspace (np. Backend, Frontend, Docs):") : QStringLiteral("Enter a name for the new empty Workspace:"),
+            QLineEdit::Normal,
+            defaultName,
+            &ok
+        );
+
+        if (!ok || name.trimmed().isEmpty()) {
+            return;
+        }
+
+        LeapKWorkspace::createEmptyWorkspace(m_workspaces, name.trimmed());
+        rebuildCards();
+    }
+
     void onUnassign()
     {
         m_assignedWsId.clear();
@@ -568,12 +619,21 @@ private:
     QWidget *m_cardsContainer = nullptr;
     QVBoxLayout *m_cardsLayout = nullptr;
     QPushButton *m_btnNewWs = nullptr;
+    QPushButton *m_btnNewEmptyWs = nullptr;
     QPushButton *m_btnUnassign = nullptr;
 };
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
+
+    if (argc > 1 && QString::fromUtf8(argv[1]) == QLatin1String("--create-empty")) {
+        QString name = (argc > 2 && argv[2]) ? QString::fromUtf8(argv[2]).trimmed() : QString();
+        QList<LeapKWorkspace::WorkspaceInfo> workspaces = LeapKWorkspace::loadWorkspaces();
+        const auto ws = LeapKWorkspace::createEmptyWorkspace(workspaces, name);
+        std::cout << "Created empty workspace: " << ws.name.toStdString() << " (" << ws.id.toStdString() << ")" << std::endl;
+        return 0;
+    }
 
     QString appClass;
     QString windowCaption;

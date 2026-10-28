@@ -261,6 +261,7 @@ private:
     void enterStashMode();
     void exitStashMode();
     void addWindowToWorkspace(EffectWindow *w, int workspaceIndex);
+    void createEmptyWorkspace(const QString &suggestedName = QString());
     void renderBadgePreview(const RenderTarget &renderTarget,
                             const RenderViewport &viewport);
     QImage captureWindowThumbnail(EffectWindow *target,

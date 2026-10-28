@@ -1293,6 +1293,23 @@ void ActiveWindowOutlineEffect::slotWindowAdded(EffectWindow *w)
     if (m_badgeDisplayMode == 1) {
         effects->addRepaintFull();
     }
+
+    refreshWorkspaces();
+    if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
+        if (isEligibleOutlineWindow(w) && !w->isSkipSwitcher() && w->acceptsFocus()) {
+            if (w->windowClass().isEmpty() && w->caption().isEmpty()) {
+                QPointer<EffectWindow> pw(w);
+                const int currentWsView = m_activeHudView;
+                QTimer::singleShot(60, this, [this, pw, currentWsView]() {
+                    if (pw && !pw->isDeleted() && m_activeHudView == currentWsView && m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
+                        addWindowToWorkspace(pw.data(), currentWsView);
+                    }
+                });
+            } else {
+                addWindowToWorkspace(w, m_activeHudView);
+            }
+        }
+    }
 }
 
 bool ActiveWindowOutlineEffect::isEligibleOutlineWindow(EffectWindow *w) const
@@ -2134,6 +2151,19 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
     EffectWindow *previous = m_activeWindow;
     if (previous == w) {
         return;
+    }
+
+    if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
+        if (isEligibleOutlineWindow(w) && !w->isSkipSwitcher() && w->acceptsFocus()) {
+            const auto &ws = m_workspaces.at(m_activeHudView - 1);
+            const auto desktops = w->desktops();
+            const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+            if (!LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum)
+                && !m_workspaceMinimizedWindows.contains(w)
+                && !m_stashedWindows.contains(w)) {
+                addWindowToWorkspace(w, m_activeHudView);
+            }
+        }
     }
 
     if (m_ambilightEnabled || m_ensurePerimeterContrast) {
@@ -3550,17 +3580,37 @@ void ActiveWindowOutlineEffect::addWindowToWorkspace(EffectWindow *w, int worksp
 
     if (workspaceIndex >= 1 && workspaceIndex <= m_workspaces.size()) {
         auto &ws = m_workspaces[workspaceIndex - 1];
-        const QString appClass = w->windowClass();
-        const QString caption = w->caption();
+        const QString appClass = w->windowClass().trimmed();
+        const QString caption = w->caption().trimmed();
 
         const auto desktops = w->desktops();
         const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
 
         if (!LeapKWorkspace::matchesWorkspace(ws, appClass, caption, dNum)) {
             LeapKWorkspace::WindowMatchRule newRule;
-            newRule.matchApp = !appClass.isEmpty() ? appClass : caption;
-            newRule.matchCaption = QString();
+            if (!appClass.isEmpty()) {
+                newRule.matchApp = appClass;
+            } else if (!caption.isEmpty()) {
+                newRule.matchCaption = caption;
+            } else {
+                return;
+            }
             newRule.matchDesktop = 0;
+
+            // Remove rule matching this app from other workspaces so it belongs exclusively to this workspace
+            for (int i = 0; i < m_workspaces.size(); ++i) {
+                if (i == workspaceIndex - 1) {
+                    continue;
+                }
+                auto &otherWs = m_workspaces[i];
+                for (int r = otherWs.rules.size() - 1; r >= 0; --r) {
+                    const auto &rule = otherWs.rules.at(r);
+                    if (!appClass.isEmpty() && rule.matchApp.compare(appClass, Qt::CaseInsensitive) == 0 && rule.matchCaption.isEmpty()) {
+                        otherWs.rules.removeAt(r);
+                    }
+                }
+            }
+
             ws.rules.append(newRule);
             LeapKWorkspace::saveWorkspaces(m_workspaces);
         }
@@ -3581,6 +3631,53 @@ void ActiveWindowOutlineEffect::addWindowToWorkspace(EffectWindow *w, int worksp
         effects->activateWindow(w);
     }
     m_activeWindow = w;
+}
+
+void ActiveWindowOutlineEffect::createEmptyWorkspace(const QString &suggestedName)
+{
+    if (m_stashModeActive) {
+        exitStashMode();
+    }
+    refreshWorkspaces();
+
+    const bool isPolish = (QLocale().language() == QLocale::Polish);
+    const int nextNum = m_workspaces.size() + 1;
+    const QString name = !suggestedName.trimmed().isEmpty()
+        ? suggestedName.trimmed()
+        : (isPolish ? QStringLiteral("Obszar %1").arg(nextNum) : QStringLiteral("Workspace %1").arg(nextNum));
+
+    LeapKWorkspace::createEmptyWorkspace(m_workspaces, name);
+
+    // Switch active HUD view directly to the new empty workspace
+    // Views: 0 = Standard, 1..N = Workspaces, N+1 = All
+    m_activeHudView = m_workspaces.size();
+
+    if (effects && effects->config()) {
+        KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+        primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
+        primaryConfig.sync();
+    }
+
+    if (m_subLeapActive) {
+        exitSubLeapMode();
+    }
+
+    applyWorkspaceViewIsolation(m_activeHudView);
+
+    m_jumpLetterToWindow = assignJumpLetters();
+    m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+    }
+
+    if (effects) {
+        effects->addRepaintFull();
+    }
 }
 
 void ActiveWindowOutlineEffect::slotCycleHudView(int delta)
@@ -4208,6 +4305,14 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     if (e->key() == Qt::Key_QuoteLeft || e->key() == Qt::Key_AsciiTilde || e->key() == Qt::Key_F1
         || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('`') || e->text().at(0) == QLatin1Char('~')))) {
         slotCycleHudView(1);
+        return;
+    }
+
+    if ((isCtrl && e->key() == Qt::Key_N)
+        || ((mods & Qt::AltModifier) && e->key() == Qt::Key_N)
+        || e->key() == Qt::Key_Plus
+        || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('+') || (e->key() == Qt::Key_Equal && isShift)))) {
+        createEmptyWorkspace();
         return;
     }
 

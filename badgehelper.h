@@ -1656,6 +1656,7 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
                 {QStringLiteral("[Alt+Litera]"), QStringLiteral("Przyciągnij"), QColor(241, 196, 15)},
                 {QStringLiteral("[Ctrl+Litera]"), QStringLiteral("Schowek (:hide)"), QColor(46, 204, 113)},
                 {QStringLiteral("[Tab]"), QStringLiteral("Schowek"), QColor(46, 204, 113)},
+                {QStringLiteral("[Ctrl+N / +]"), QStringLiteral("Nowy workspace"), QColor(52, 152, 219)},
                 {QStringLiteral("[, / .]"), viewName, viewColor}
             };
         } else {
@@ -1665,6 +1666,7 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
                 {QStringLiteral("[Alt+Key]"), QStringLiteral("Pull here"), QColor(241, 196, 15)},
                 {QStringLiteral("[Ctrl+Key]"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
                 {QStringLiteral("[Tab]"), QStringLiteral("Stash"), QColor(46, 204, 113)},
+                {QStringLiteral("[Ctrl+N / +]"), QStringLiteral("New workspace"), QColor(52, 152, 219)},
                 {QStringLiteral("[, / .]"), viewName, viewColor}
             };
         }
@@ -1934,9 +1936,23 @@ inline QImage renderHudModeHeader(bool isPolish,
 
     const int stashTextW = fmStash.horizontalAdvance(stashText);
     const int stashPillW = stashTextW + 2 * tabPadX;
+
+    // New Workspace pill [+ Nowy • Ctrl+N]
+    const QString newWsText = isPolish
+        ? QStringLiteral("+ Nowy • Ctrl+N")
+        : QStringLiteral("+ New • Ctrl+N");
+    QFont newWsFont(QStringLiteral("sans-serif"));
+    newWsFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
+    newWsFont.setBold(true);
+    QFontMetrics fmNewWs(newWsFont);
+
+    const int newWsTextW = fmNewWs.horizontalAdvance(newWsText);
+    const int newWsPillW = newWsTextW + 2 * tabPadX;
+    const int newWsSectionW = navGap + newWsPillW;
+
     const int stashSectionW = (stashCount >= 0) ? (navGap + qRound(1 * scale) + navGap + stashPillW) : 0;
 
-    const int totalW = padX + navLeftW + navGap + allTabsW + navGap + navRightW + stashSectionW + padX;
+    const int totalW = padX + navLeftW + navGap + allTabsW + navGap + navRightW + newWsSectionW + stashSectionW + padX;
 
     QImage img(totalW, headerH, QImage::Format_ARGB32_Premultiplied);
     img.fill(Qt::transparent);
@@ -1995,9 +2011,22 @@ inline QImage renderHudModeHeader(bool isPolish,
     const qreal navRightX = curX - tabGap + navGap;
     p.drawText(QPointF(navRightX, navLeftY), navRight);
 
+    // New Workspace pill [+ Nowy • Ctrl+N]
+    const qreal newWsX = navRightX + navRightW + navGap;
+    const QRectF newWsRect(newWsX, tabY, newWsPillW, tabH);
+    const qreal newWsRadius = tabH / 2.0;
+
+    p.setPen(QPen(QColor(52, 152, 219, 180), 1.2 * scale));
+    p.setBrush(QColor(52, 152, 219, 35));
+    p.drawRoundedRect(newWsRect, newWsRadius, newWsRadius);
+
+    p.setFont(newWsFont);
+    p.setPen(QColor(52, 152, 219));
+    p.drawText(newWsRect, Qt::AlignCenter, newWsText);
+
     // Stash drawer pill separated on the right
     if (stashCount >= 0) {
-        const qreal sepX = navRightX + navRightW + navGap;
+        const qreal sepX = newWsX + newWsPillW + navGap;
         p.setPen(QPen(QColor(255, 255, 255, 38), 1.0 * scale));
         p.drawLine(QPointF(sepX, padY + 3.0 * scale), QPointF(sepX, headerH - padY - 3.0 * scale));
 
