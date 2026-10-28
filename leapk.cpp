@@ -489,7 +489,7 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
     m_audioRefreshTimer = new QTimer(this);
     connect(m_audioRefreshTimer, &QTimer::timeout, this, [this]() {
         if (m_jumpMode) {
-            m_audioTracker.refresh();
+            m_audioTracker.refresh(getKnownWindowsInfo());
             if (m_audioFilterModeActive) {
                 m_jumpLetterToWindow = assignJumpLetters();
             }
@@ -1393,6 +1393,22 @@ bool ActiveWindowOutlineEffect::isEligibleOutlineWindow(EffectWindow *w) const
         return false;
     }
     return true;
+}
+
+QList<QPair<pid_t, QString>> ActiveWindowOutlineEffect::getKnownWindowsInfo() const
+{
+    QList<QPair<pid_t, QString>> list;
+    if (!effects) {
+        return list;
+    }
+    const auto windows = effects->stackingOrder();
+    for (EffectWindow *w : windows) {
+        if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher()) {
+            continue;
+        }
+        list.append({w->pid(), w->caption()});
+    }
+    return list;
 }
 
 bool ActiveWindowOutlineEffect::shouldOutlineWindow(EffectWindow *w) const
@@ -3840,7 +3856,7 @@ void ActiveWindowOutlineEffect::toggleAudioFilterMode()
     }
 
     m_audioFilterModeActive = !m_audioFilterModeActive;
-    m_audioTracker.refresh();
+    m_audioTracker.refresh(getKnownWindowsInfo());
     m_jumpLetterToWindow = assignJumpLetters();
     m_badgeTextureCache.clear();
     m_hudHeaderTexture.reset();
@@ -3889,11 +3905,11 @@ bool ActiveWindowOutlineEffect::isWorkspacePlayingAudio(int wsIndex) const
             continue;
         }
         if (wsIndex >= 1 && wsIndex <= m_workspaces.size()) {
-            if (findWorkspaceForWindow(w) == wsIndex && m_audioTracker.isWindowPlaying(w->pid())) {
+            if (findWorkspaceForWindow(w) == wsIndex && m_audioTracker.isWindowPlaying(w->pid(), w->caption())) {
                 return true;
             }
         } else if (wsIndex == 0) {
-            if (w->isOnCurrentDesktop() && findWorkspaceForWindow(w) == 0 && m_audioTracker.isWindowPlaying(w->pid())) {
+            if (w->isOnCurrentDesktop() && findWorkspaceForWindow(w) == 0 && m_audioTracker.isWindowPlaying(w->pid(), w->caption())) {
                 return true;
             }
         }
@@ -4001,7 +4017,7 @@ void ActiveWindowOutlineEffect::updateSearchMatches()
         cand.customLabel = m_markedWindowLabels.value(w);
         cand.isRecent = (w == findRecentWindow()) || m_recentWindows.contains(w);
         cand.isPinned = isWindowPinned(w);
-        cand.isPlayingAudio = m_audioTracker.isWindowPlaying(w->pid());
+        cand.isPlayingAudio = m_audioTracker.isWindowPlaying(w->pid(), w->caption());
         cand.workspaceIndex = wsIndex;
         cand.isStashed = isStashed;
 
@@ -4533,7 +4549,7 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
             }
         } else if (m_audioFilterModeActive) {
             // Audio Filter View: ONLY windows actively playing audio across all workspaces!
-            if (!m_audioTracker.isWindowPlaying(w->pid())) {
+            if (!m_audioTracker.isWindowPlaying(w->pid(), w->caption())) {
                 continue;
             }
         } else if (m_superJumpActive) {
@@ -4734,7 +4750,7 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     if (effects) {
         m_activeWindow = effects->activeWindow();
     }
-    m_audioTracker.refresh();
+    m_audioTracker.refresh(getKnownWindowsInfo());
     refreshPersistentMarksForWindows();
     refreshWorkspaces();
 
@@ -6357,7 +6373,7 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
 {
     const qreal scale = viewport.scale();
     const bool isStashed = isWindowInStash(target);
-    const bool isPlayingAudio = target ? m_audioTracker.isWindowPlaying(target->pid()) : false;
+    const bool isPlayingAudio = target ? m_audioTracker.isWindowPlaying(target->pid(), target->caption()) : false;
     const quint64 scaleKey = static_cast<quint64>(qRound(scale * 100));
     const quint64 sizeKey = static_cast<quint64>(badgeSize);
     const quint64 labelKey = static_cast<quint64>(qHash(customLabel));
@@ -6644,7 +6660,7 @@ QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
         const QSize thumbSize = hasThumb ? m_thumbnailCache.value(target).size() : QSize();
         const bool isStashed = isWindowInStash(target);
         const bool isPinned = isWindowPinned(target);
-        const bool isPlayingAudio = m_audioTracker.isWindowPlaying(target->pid());
+        const bool isPlayingAudio = m_audioTracker.isWindowPlaying(target->pid(), target->caption());
 
         const QSizeF sz = OutlineBadge::computeHudPillSize(cfg, loc, caption, badgeSize, scale,
                                                            customLabel, hasIcon, hasThumb, thumbSize,
@@ -6709,7 +6725,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         const QString recentKey = isMostRecent ? (m_badgePreviewActive ? m_previewBadgeConfig.jumpRecentKey : m_jumpRecentKey) : QString();
         const bool isStashed = isWindowInStash(target);
         const bool isPinned = isWindowPinned(target);
-        const bool isPlayingAudio = m_audioTracker.isWindowPlaying(target->pid());
+        const bool isPlayingAudio = m_audioTracker.isWindowPlaying(target->pid(), target->caption());
 
         QColor bgCol;
         if (isMarked) {
@@ -8012,7 +8028,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             if (isWindowPinned(target)) {
                 customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
             }
-            const bool isPlayingAudio = target ? m_audioTracker.isWindowPlaying(target->pid()) : false;
+            const bool isPlayingAudio = target ? m_audioTracker.isWindowPlaying(target->pid(), target->caption()) : false;
             const qreal badgeW = OutlineBadge::computeBadgeWidth(m_badgeConfig, badgeH, customLabel, QString(), true, isPlayingAudio);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, badgeW, badgeH, m_badgeMargin);
             if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
@@ -8353,7 +8369,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             if (isWindowPinned(target)) {
                 customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
             }
-            const bool isPlayingAudio = target ? m_audioTracker.isWindowPlaying(target->pid()) : false;
+            const bool isPlayingAudio = target ? m_audioTracker.isWindowPlaying(target->pid(), target->caption()) : false;
             const qreal jumpW = OutlineBadge::computeBadgeWidth(m_badgeConfig, jumpH, customLabel, recentKey, true, isPlayingAudio);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
             if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);

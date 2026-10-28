@@ -77,6 +77,80 @@ static void testAudioTrackerMock()
     assert(!tracker.isWindowPlaying(6666));
 }
 
+static void testDetailedPactlParsing()
+{
+    const QString sample = QStringLiteral(
+        "Sink Input #123\n"
+        "\tCorked: no\n"
+        "\tMute: no\n"
+        "\tProperties:\n"
+        "\t\tapplication.process.id = \"12562\"\n"
+        "\t\tapplication.name = \"Firefox\"\n"
+        "\t\tmedia.name = \"C Programming Full Course for free ⚙️ - YouTube\"\n"
+    );
+
+    const auto streams = OutlineAudio::parsePactlSinkInputsDetailed(sample);
+    assert(streams.size() == 1);
+    assert(streams[0].pid == 12562);
+    assert(streams[0].appName == QStringLiteral("Firefox"));
+    assert(streams[0].title == QStringLiteral("C Programming Full Course for free ⚙️ - YouTube"));
+}
+
+static void testMediaTitleMatching()
+{
+    const QString mediaTitle = QStringLiteral("C Programming Full Course for free ⚙️ - YouTube");
+    const QString winFirefox1 = QStringLiteral("C Programming Full Course for free ⚙️ - YouTube — Mozilla Firefox");
+    const QString winFirefox2 = QStringLiteral("GitHub - kde/kwin: An easy to use, but flexible window manager — Mozilla Firefox");
+    const QString winChromium = QStringLiteral("C Programming Full Course for free ⚙️ - YouTube - Chromium");
+
+    assert(OutlineAudio::mediaTitleMatchesCaption(mediaTitle, winFirefox1));
+    assert(OutlineAudio::mediaTitleMatchesCaption(mediaTitle, winChromium));
+    assert(!OutlineAudio::mediaTitleMatchesCaption(mediaTitle, winFirefox2));
+
+    // Test MPRIS title without YouTube suffix matching YouTube window title
+    const QString mprisTitle = QStringLiteral("C Programming Full Course for free ⚙️");
+    assert(OutlineAudio::mediaTitleMatchesCaption(mprisTitle, winFirefox1));
+    assert(!OutlineAudio::mediaTitleMatchesCaption(mprisTitle, winFirefox2));
+}
+
+static void testMultiWindowDisambiguation()
+{
+    OutlineAudio::AudioTracker tracker;
+
+    // Both windows share the same PID 12562 (standard Firefox multi-window behavior)
+    const pid_t firefoxPid = 12562;
+    const QString winPlaying = QStringLiteral("C Programming Full Course for free ⚙️ - YouTube — Mozilla Firefox");
+    const QString winSilent = QStringLiteral("KWin Scripting Tutorial — Mozilla Firefox");
+
+    QList<QPair<pid_t, QString>> knownWindows = {
+        {firefoxPid, winPlaying},
+        {firefoxPid, winSilent}
+    };
+
+    QList<OutlineAudio::AudioStream> streams = {
+        {firefoxPid, QStringLiteral("C Programming Full Course for free ⚙️ - YouTube"), QStringLiteral("Firefox")}
+    };
+
+    tracker.setMockStreams(streams, knownWindows);
+
+    // The window playing audio MUST return true
+    assert(tracker.isWindowPlaying(firefoxPid, winPlaying));
+
+    // The other window of the same PID MUST return false!
+    assert(!tracker.isWindowPlaying(firefoxPid, winSilent));
+
+    // Fallback: If caption is empty or unknown window, behavior remains safe
+    assert(tracker.isWindowPlaying(firefoxPid, QString()));
+
+    // Fallback: If audio stream title is generic ("playback"), both windows return true
+    QList<OutlineAudio::AudioStream> genericStreams = {
+        {firefoxPid, QStringLiteral("playback"), QStringLiteral("Firefox")}
+    };
+    tracker.setMockStreams(genericStreams, knownWindows);
+    assert(tracker.isWindowPlaying(firefoxPid, winPlaying));
+    assert(tracker.isWindowPlaying(firefoxPid, winSilent));
+}
+
 int main(int argc, char *argv[])
 {
     Q_UNUSED(argc);
@@ -85,6 +159,9 @@ int main(int argc, char *argv[])
     testPactlParsing();
     testPidMatching();
     testAudioTrackerMock();
+    testDetailedPactlParsing();
+    testMediaTitleMatching();
+    testMultiWindowDisambiguation();
 
     std::cout << "All audiotracker tests passed successfully." << std::endl;
     return 0;
