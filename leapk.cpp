@@ -3690,10 +3690,63 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
+    // Ignore standalone modifier keys so holding Shift, Ctrl, Alt, Meta etc.
+    // to perform a modal jump action does NOT dismiss the Jump HUD.
+    switch (e->key()) {
+    case Qt::Key_Shift:
+    case Qt::Key_Control:
+    case Qt::Key_Meta:
+    case Qt::Key_Alt:
+    case Qt::Key_AltGr:
+    case Qt::Key_CapsLock:
+    case Qt::Key_NumLock:
+    case Qt::Key_ScrollLock:
+    case Qt::Key_Super_L:
+    case Qt::Key_Super_R:
+    case Qt::Key_Menu:
+    case Qt::Key_Hyper_L:
+    case Qt::Key_Hyper_R:
+    case Qt::Key_Help:
+    case Qt::Key_Direction_L:
+    case Qt::Key_Direction_R:
+    case Qt::Key_Mode_switch:
+        if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+            m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+        }
+        return;
+    default:
+        break;
+    }
+
     const Qt::KeyboardModifiers mods = e->modifiers();
     const bool isShift = (mods & Qt::ShiftModifier);
-    const bool isAlt = (mods & Qt::AltModifier);
-    const bool isCtrl = (mods & Qt::ControlModifier);
+    const bool isAlt = (mods & Qt::AltModifier) && !(mods & Qt::ControlModifier);
+    const bool isCtrl = (mods & Qt::ControlModifier) && !(mods & Qt::AltModifier);
+
+    auto extractKeyChar = [e, isShift]() -> QString {
+        if (e->key() >= Qt::Key_A && e->key() <= Qt::Key_Z) {
+            return QString(QChar('A' + (e->key() - Qt::Key_A)));
+        }
+        if (e->key() >= Qt::Key_0 && e->key() <= Qt::Key_9) {
+            return QString(QChar('0' + (e->key() - Qt::Key_0)));
+        }
+        if (isShift) {
+            switch (e->key()) {
+            case Qt::Key_Exclam: return QStringLiteral("1");
+            case Qt::Key_At: return QStringLiteral("2");
+            case Qt::Key_NumberSign: return QStringLiteral("3");
+            case Qt::Key_Dollar: return QStringLiteral("4");
+            case Qt::Key_Percent: return QStringLiteral("5");
+            case Qt::Key_AsciiCircum: return QStringLiteral("6");
+            case Qt::Key_Ampersand: return QStringLiteral("7");
+            case Qt::Key_Asterisk: return QStringLiteral("8");
+            case Qt::Key_ParenLeft: return QStringLiteral("9");
+            case Qt::Key_ParenRight: return QStringLiteral("0");
+            default: break;
+            }
+        }
+        return e->text().toUpper().trimmed();
+    };
 
     // 1. If currently in Sub-Leap disambiguation:
     if (m_subLeapActive) {
@@ -3702,14 +3755,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
-        QString text;
-        if (e->key() >= Qt::Key_A && e->key() <= Qt::Key_Z) {
-            text = QChar('A' + (e->key() - Qt::Key_A));
-        } else if (e->key() >= Qt::Key_0 && e->key() <= Qt::Key_9) {
-            text = QChar('0' + (e->key() - Qt::Key_0));
-        } else {
-            text = e->text().toUpper().trimmed();
-        }
+        const QString text = extractKeyChar();
 
         if (!text.isEmpty()) {
             const QChar keyChar = text.at(0);
@@ -3829,14 +3875,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
-    QString text;
-    if (e->key() >= Qt::Key_A && e->key() <= Qt::Key_Z) {
-        text = QChar('A' + (e->key() - Qt::Key_A));
-    } else if (e->key() >= Qt::Key_0 && e->key() <= Qt::Key_9) {
-        text = QChar('0' + (e->key() - Qt::Key_0));
-    } else {
-        text = e->text().toUpper().trimmed();
-    }
+    const QString text = extractKeyChar();
 
     if (!text.isEmpty()) {
         const QChar keyChar = text.at(0);
