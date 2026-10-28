@@ -1655,9 +1655,8 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
     return img;
 }
 
-inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false)
+inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false)
 {
-    Q_UNUSED(isPolish);
     Q_UNUSED(customViewName);
     Q_UNUSED(customViewColor);
 
@@ -1790,8 +1789,7 @@ struct HudModeHeaderView {
     bool isActive = false;
 };
 
-inline QImage renderHudModeHeader(bool isPolish,
-                                  qreal scale,
+inline QImage renderHudModeHeader(qreal scale,
                                   bool isSubLeap,
                                   const QString &subLeapTitle,
                                   const QColor &subLeapColor,
@@ -1802,7 +1800,6 @@ inline QImage renderHudModeHeader(bool isPolish,
                                   const QString &targetWorkspaceName = QString(),
                                   bool isSuperJump = false)
 {
-    Q_UNUSED(isPolish);
     if (isSuperJump) {
         const QString leftText = QStringLiteral("⚡ SUPER JUMP: Pick any window to jump • Alt+Key to pull into [%1]").arg(!targetWorkspaceName.isEmpty() ? targetWorkspaceName : QStringLiteral("Workspace"));
         const QString rightText = QStringLiteral("Meta+A / Esc : Back");

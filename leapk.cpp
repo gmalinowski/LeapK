@@ -6286,7 +6286,6 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
 {
     const qreal scale = viewport.scale();
     const QRectF screenRect = viewport.renderRect();
-    const bool isPolish = false;
 
     QString customViewName;
     QColor customViewColor;
@@ -6306,9 +6305,9 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
     }
 
     const int nameHash = (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) ? (qHash(m_workspaces.at(m_activeHudView - 1).name) % 10000) : 0;
-    const int hintBarKey = (m_subLeapActive ? 100000 : 0) + (m_stashModeActive ? 500000 : 0) + (m_superJumpActive ? 700000 : 0) + m_activeHudView * 1000 + (isPolish ? 100 : 0) + nameHash + qRound(scale * 10);
+    const int hintBarKey = (m_subLeapActive ? 100000 : 0) + (m_stashModeActive ? 500000 : 0) + (m_superJumpActive ? 700000 : 0) + m_activeHudView * 1000 + nameHash + qRound(scale * 10);
     if (!m_hudHintBarTexture || m_hudHintBarCacheKey != hintBarKey) {
-        const QImage hintImg = OutlineBadge::renderHudActionHintBar(isPolish, scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive, m_superJumpActive);
+        const QImage hintImg = OutlineBadge::renderHudActionHintBar(scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive, m_superJumpActive);
         auto uploaded = GLTexture::upload(hintImg);
         if (uploaded) {
             uploaded->setFilter(GL_LINEAR);
@@ -6413,7 +6412,6 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
 {
     const qreal scale = viewport.scale();
     const QRectF screenRect = viewport.renderRect();
-    const bool isPolish = false;
 
     QString subLeapTitle;
     QColor subLeapColor;
@@ -6541,7 +6539,7 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
 
     if (!m_hudHeaderTexture || m_hudHeaderCacheKey != headerKey) {
         const QImage headerImg = OutlineBadge::renderHudModeHeader(
-            isPolish, scale, m_subLeapActive, subLeapTitle, subLeapColor, subLeapCount, viewTabs, stashCount, m_stashModeActive, targetWorkspaceName, m_superJumpActive);
+            scale, m_subLeapActive, subLeapTitle, subLeapColor, subLeapCount, viewTabs, stashCount, m_stashModeActive, targetWorkspaceName, m_superJumpActive);
         if (!headerImg.isNull()) {
             auto uploaded = GLTexture::upload(headerImg);
             if (uploaded) {

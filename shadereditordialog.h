@@ -34,59 +34,59 @@ public:
     explicit ParameterEditDialog(QWidget *parent = nullptr, const LeapKShader::ShaderParameter *initial = nullptr)
         : QDialog(parent)
     {
-        setWindowTitle(initial ? QStringLiteral("Edytuj parametr uniform / Edit Parameter") : QStringLiteral("Dodaj parametr uniform / Add Parameter"));
+        setWindowTitle(initial ? QStringLiteral("Edit Uniform Parameter") : QStringLiteral("Add Uniform Parameter"));
         setMinimumWidth(440);
 
         auto *layout = new QVBoxLayout(this);
         auto *form = new QFormLayout();
 
         m_editId = new QLineEdit(this);
-        m_editId->setPlaceholderText(QStringLiteral("np. speed, intensity, matrixColor"));
-        form->addRow(QStringLiteral("Uniform ID (w GLSL):"), m_editId);
+        m_editId->setPlaceholderText(QStringLiteral("e.g. speed, intensity, matrixColor"));
+        form->addRow(QStringLiteral("Uniform ID (in GLSL):"), m_editId);
 
         m_editName = new QLineEdit(this);
-        m_editName->setPlaceholderText(QStringLiteral("np. Szybkość fali"));
-        form->addRow(QStringLiteral("Nazwa / Etykieta:"), m_editName);
+        m_editName->setPlaceholderText(QStringLiteral("e.g. Wave Speed"));
+        form->addRow(QStringLiteral("Name / Label:"), m_editName);
 
         m_comboType = new QComboBox(this);
-        m_comboType->addItem(QStringLiteral("float (liczba zmiennoprzecinkowa)"), QStringLiteral("float"));
-        m_comboType->addItem(QStringLiteral("int (liczba całkowita)"), QStringLiteral("int"));
-        m_comboType->addItem(QStringLiteral("bool (włącznik / przełącznik)"), QStringLiteral("bool"));
-        m_comboType->addItem(QStringLiteral("color (kolor RGBA)"), QStringLiteral("color"));
-        form->addRow(QStringLiteral("Typ danych:"), m_comboType);
+        m_comboType->addItem(QStringLiteral("float (floating point)"), QStringLiteral("float"));
+        m_comboType->addItem(QStringLiteral("int (integer)"), QStringLiteral("int"));
+        m_comboType->addItem(QStringLiteral("bool (toggle / flag)"), QStringLiteral("bool"));
+        m_comboType->addItem(QStringLiteral("color (RGBA color)"), QStringLiteral("color"));
+        form->addRow(QStringLiteral("Data type:"), m_comboType);
 
         m_spinMin = new QDoubleSpinBox(this);
         m_spinMin->setRange(-100000.0, 100000.0);
         m_spinMin->setDecimals(3);
         m_spinMin->setValue(0.0);
-        form->addRow(QStringLiteral("Wartość minimalna:"), m_spinMin);
+        form->addRow(QStringLiteral("Minimum value:"), m_spinMin);
 
         m_spinMax = new QDoubleSpinBox(this);
         m_spinMax->setRange(-100000.0, 100000.0);
         m_spinMax->setDecimals(3);
         m_spinMax->setValue(1.0);
-        form->addRow(QStringLiteral("Wartość maksymalna:"), m_spinMax);
+        form->addRow(QStringLiteral("Maximum value:"), m_spinMax);
 
         m_spinStep = new QDoubleSpinBox(this);
         m_spinStep->setRange(0.0001, 1000.0);
         m_spinStep->setDecimals(4);
         m_spinStep->setValue(0.05);
-        form->addRow(QStringLiteral("Krok zmiany (Step):"), m_spinStep);
+        form->addRow(QStringLiteral("Step:"), m_spinStep);
 
         m_spinDefault = new QDoubleSpinBox(this);
         m_spinDefault->setRange(-100000.0, 100000.0);
         m_spinDefault->setDecimals(3);
         m_spinDefault->setValue(0.5);
-        form->addRow(QStringLiteral("Wartość domyślna:"), m_spinDefault);
+        form->addRow(QStringLiteral("Default value:"), m_spinDefault);
 
         m_editSuffix = new QLineEdit(this);
-        m_editSuffix->setPlaceholderText(QStringLiteral("np.  Hz, x, %,  px"));
-        form->addRow(QStringLiteral("Jednostka / Przyrostek:"), m_editSuffix);
+        m_editSuffix->setPlaceholderText(QStringLiteral("e.g.  Hz, x, %,  px"));
+        form->addRow(QStringLiteral("Unit / Suffix:"), m_editSuffix);
 
-        m_btnColor = new QPushButton(QStringLiteral("Wybierz domyślny kolor…"), this);
+        m_btnColor = new QPushButton(QStringLiteral("Select default color…"), this);
         m_selectedColor = QColor(QStringLiteral("#00f0ff"));
         updateColorButton();
-        form->addRow(QStringLiteral("Kolor domyślny:"), m_btnColor);
+        form->addRow(QStringLiteral("Default color:"), m_btnColor);
 
         layout->addLayout(form);
 
@@ -109,7 +109,7 @@ public:
         });
 
         connect(m_btnColor, &QPushButton::clicked, this, [this]() {
-            const QColor c = QColorDialog::getColor(m_selectedColor, this, QStringLiteral("Wybierz kolor"));
+            const QColor c = QColorDialog::getColor(m_selectedColor, this, QStringLiteral("Select Color"));
             if (c.isValid()) {
                 m_selectedColor = c;
                 updateColorButton();
@@ -171,12 +171,12 @@ private:
     {
         const QString id = m_editId->text().trimmed();
         if (id.isEmpty()) {
-            QMessageBox::warning(this, QStringLiteral("Błąd walidacji"), QStringLiteral("ID parametru (nazwa uniformu) nie może być puste."));
+            QMessageBox::warning(this, QStringLiteral("Validation Error"), QStringLiteral("Parameter ID (uniform name) cannot be empty."));
             return;
         }
         const QRegularExpression regex(QStringLiteral("^[a-zA-Z_][a-zA-Z0-9_]*$"));
         if (!regex.match(id).hasMatch()) {
-            QMessageBox::warning(this, QStringLiteral("Błąd walidacji"), QStringLiteral("ID parametru musi być prawidłowym identyfikatorem C/GLSL (bez spacji i znaków specjalnych)."));
+            QMessageBox::warning(this, QStringLiteral("Validation Error"), QStringLiteral("Parameter ID must be a valid C/GLSL identifier (no spaces or special characters)."));
             return;
         }
         accept();
@@ -201,8 +201,8 @@ public:
         : QDialog(parent)
     {
         setWindowTitle(initialEffect
-            ? QStringLiteral("Edytor efektu shadera / Shader Effect Editor - %1").arg(initialEffect->name)
-            : QStringLiteral("Nowy efekt shadera GLSL / New Shader Effect"));
+            ? QStringLiteral("Shader Effect Editor - %1").arg(initialEffect->name)
+            : QStringLiteral("New GLSL Shader Effect"));
         resize(780, 640);
 
         auto *mainLayout = new QVBoxLayout(this);
@@ -212,49 +212,49 @@ public:
         auto *tabGeneral = new QWidget(this);
         auto *layoutGeneral = new QVBoxLayout(tabGeneral);
 
-        auto *groupMeta = new QGroupBox(QStringLiteral("Metadane efektu / Metadata"), tabGeneral);
+        auto *groupMeta = new QGroupBox(QStringLiteral("Metadata"), tabGeneral);
         auto *formMeta = new QFormLayout(groupMeta);
 
         m_editName = new QLineEdit(groupMeta);
-        m_editName->setPlaceholderText(QStringLiteral("np. Cyberpunk Grid Scanner"));
-        formMeta->addRow(QStringLiteral("Nazwa efektu:"), m_editName);
+        m_editName->setPlaceholderText(QStringLiteral("e.g. Cyberpunk Grid Scanner"));
+        formMeta->addRow(QStringLiteral("Effect name:"), m_editName);
 
         m_editId = new QLineEdit(groupMeta);
-        m_editId->setPlaceholderText(QStringLiteral("np. cyberpunk_grid"));
-        formMeta->addRow(QStringLiteral("Identyfikator (ID):"), m_editId);
+        m_editId->setPlaceholderText(QStringLiteral("e.g. cyberpunk_grid"));
+        formMeta->addRow(QStringLiteral("Identifier (ID):"), m_editId);
 
         m_comboTarget = new QComboBox(groupMeta);
-        m_comboTarget->addItem(QStringLiteral("Poświata / Aura okna (Glow)"), QStringLiteral("glow"));
-        m_comboTarget->addItem(QStringLiteral("Obramowanie okna (Outline / Border)"), QStringLiteral("outline"));
-        m_comboTarget->addItem(QStringLiteral("Zarówno aura jak i ramka (Both)"), QStringLiteral("both"));
-        formMeta->addRow(QStringLiteral("Cel renderowania:"), m_comboTarget);
+        m_comboTarget->addItem(QStringLiteral("Window Aura / Glow"), QStringLiteral("glow"));
+        m_comboTarget->addItem(QStringLiteral("Window Outline / Border"), QStringLiteral("outline"));
+        m_comboTarget->addItem(QStringLiteral("Both Aura and Outline"), QStringLiteral("both"));
+        formMeta->addRow(QStringLiteral("Rendering target:"), m_comboTarget);
 
         m_editDesc = new QLineEdit(groupMeta);
-        m_editDesc->setPlaceholderText(QStringLiteral("Krótki opis efektu wizualnego..."));
-        formMeta->addRow(QStringLiteral("Opis:"), m_editDesc);
+        m_editDesc->setPlaceholderText(QStringLiteral("Short visual effect description..."));
+        formMeta->addRow(QStringLiteral("Description:"), m_editDesc);
 
         m_editAuthor = new QLineEdit(groupMeta);
-        m_editAuthor->setPlaceholderText(QStringLiteral("Twoje imię lub nick"));
-        formMeta->addRow(QStringLiteral("Autor:"), m_editAuthor);
+        m_editAuthor->setPlaceholderText(QStringLiteral("Your name or handle"));
+        formMeta->addRow(QStringLiteral("Author:"), m_editAuthor);
 
         m_editVersion = new QLineEdit(groupMeta);
         m_editVersion->setText(QStringLiteral("1.0"));
-        formMeta->addRow(QStringLiteral("Wersja:"), m_editVersion);
+        formMeta->addRow(QStringLiteral("Version:"), m_editVersion);
 
         layoutGeneral->addWidget(groupMeta);
 
         // Parameters Table
-        auto *groupParams = new QGroupBox(QStringLiteral("Parametry dynamiczne (Uniforms)"), tabGeneral);
+        auto *groupParams = new QGroupBox(QStringLiteral("Dynamic Parameters (Uniforms)"), tabGeneral);
         auto *layoutParams = new QVBoxLayout(groupParams);
 
         m_tableParams = new QTableWidget(groupParams);
         m_tableParams->setColumnCount(5);
         m_tableParams->setHorizontalHeaderLabels({
-            QStringLiteral("ID uniformu"),
-            QStringLiteral("Nazwa / Etykieta"),
-            QStringLiteral("Typ"),
-            QStringLiteral("Zakres / Szczegóły"),
-            QStringLiteral("Wartość domyślna")
+            QStringLiteral("Uniform ID"),
+            QStringLiteral("Name / Label"),
+            QStringLiteral("Type"),
+            QStringLiteral("Range / Details"),
+            QStringLiteral("Default Value")
         });
         m_tableParams->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
         m_tableParams->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
@@ -263,9 +263,9 @@ public:
         layoutParams->addWidget(m_tableParams);
 
         auto *layoutParamButtons = new QHBoxLayout();
-        m_btnAddParam = new QPushButton(QStringLiteral("➕ Dodaj parametr…"), groupParams);
-        m_btnEditParam = new QPushButton(QStringLiteral("✏️ Edytuj parametr…"), groupParams);
-        m_btnRemoveParam = new QPushButton(QStringLiteral("🗑️ Usuń parametr"), groupParams);
+        m_btnAddParam = new QPushButton(QStringLiteral("➕ Add Parameter…"), groupParams);
+        m_btnEditParam = new QPushButton(QStringLiteral("✏️ Edit Parameter…"), groupParams);
+        m_btnRemoveParam = new QPushButton(QStringLiteral("🗑️ Remove Parameter"), groupParams);
         layoutParamButtons->addWidget(m_btnAddParam);
         layoutParamButtons->addWidget(m_btnEditParam);
         layoutParamButtons->addWidget(m_btnRemoveParam);
@@ -273,20 +273,20 @@ public:
         layoutParams->addLayout(layoutParamButtons);
 
         layoutGeneral->addWidget(groupParams);
-        tabs->addTab(tabGeneral, QStringLiteral("Ogólne i Parametry"));
+        tabs->addTab(tabGeneral, QStringLiteral("General & Parameters"));
 
         // --- TAB 2: GLSL Code ---
         auto *tabGlsl = new QWidget(this);
         auto *layoutGlsl = new QVBoxLayout(tabGlsl);
 
         auto *labelInfo = new QLabel(
-            QStringLiteral("<b>Dostępne wejścia w GLSL:</b><br/>"
-                           "• <code>baseColor</code> (vec4) – bazowy kolor aury/ramki z uwzględnieniem wygaszania narożników i odległości<br/>"
-                           "• <code>pos</code> (vec2) – współrzędne piksela na ekranie (position0)<br/>"
-                           "• <code>box</code> (vec4) – współrzędne i rozmiary okna (box.xy = środek, box.zw = połowa wymiarów)<br/>"
-                           "• <code>dist</code> (float) – odległość od obramowania okna<br/>"
-                           "• <code>time</code> (float) – upływ czasu w sekundach (60 FPS animacja)<br/>"
-                           "• Wszystkie zdefiniowane w zakładce parametrów zmienne (jako <code>uniform float / vec4 / int</code>)"),
+            QStringLiteral("<b>Available GLSL Inputs:</b><br/>"
+                           "• <code>baseColor</code> (vec4) – base aura/outline color with corner fading and distance roll-off<br/>"
+                           "• <code>pos</code> (vec2) – pixel screen coordinates (position0)<br/>"
+                           "• <code>box</code> (vec4) – window coordinates and dimensions (box.xy = center, box.zw = half sizes)<br/>"
+                           "• <code>dist</code> (float) – distance from window border<br/>"
+                           "• <code>time</code> (float) – elapsed time in seconds (60 FPS animation)<br/>"
+                           "• Any defined uniform variables from the Parameters tab (as <code>uniform float / vec4 / int</code>)"),
             tabGlsl
         );
         labelInfo->setStyleSheet(QStringLiteral("background-color: palette(base); border: 1px solid palette(mid); border-radius: 4px; padding: 6px; font-size: 11px;"));
@@ -301,14 +301,14 @@ public:
         layoutGlsl->addWidget(m_editGlsl);
 
         auto *layoutCodeActions = new QHBoxLayout();
-        m_btnValidate = new QPushButton(QStringLiteral("🔍 Waliduj kod GLSL"), tabGlsl);
-        m_btnInsertTemplate = new QPushButton(QStringLiteral("📋 Wstaw szablon startowy"), tabGlsl);
+        m_btnValidate = new QPushButton(QStringLiteral("🔍 Validate GLSL Code"), tabGlsl);
+        m_btnInsertTemplate = new QPushButton(QStringLiteral("📋 Insert Starter Template"), tabGlsl);
         layoutCodeActions->addWidget(m_btnValidate);
         layoutCodeActions->addWidget(m_btnInsertTemplate);
         layoutCodeActions->addStretch();
         layoutGlsl->addLayout(layoutCodeActions);
 
-        tabs->addTab(tabGlsl, QStringLiteral("Kod źródłowy GLSL"));
+        tabs->addTab(tabGlsl, QStringLiteral("GLSL Source Code"));
 
         mainLayout->addWidget(tabs);
 
@@ -387,9 +387,9 @@ private:
             if (p.type == QStringLiteral("float") || p.type == QStringLiteral("int")) {
                 details = QStringLiteral("[%1 - %2, step: %3%4]").arg(p.minValue).arg(p.maxValue).arg(p.step).arg(p.suffix);
             } else if (p.type == QStringLiteral("color")) {
-                details = QStringLiteral("Kolor RGBA");
+                details = QStringLiteral("RGBA Color");
             } else {
-                details = QStringLiteral("Włącz / Wyłącz");
+                details = QStringLiteral("Toggle (On / Off)");
             }
             m_tableParams->setItem(i, 3, new QTableWidgetItem(details));
 
@@ -410,8 +410,8 @@ private:
             const auto p = dlg.getParameter();
             for (const auto &existing : m_parameters) {
                 if (existing.id == p.id) {
-                    QMessageBox::warning(this, QStringLiteral("Duplikat parametru"),
-                                         QStringLiteral("Parametr o identyfikatorze '%1' już istnieje.").arg(p.id));
+                    QMessageBox::warning(this, QStringLiteral("Duplicate Parameter"),
+                                         QStringLiteral("A parameter with identifier '%1' already exists.").arg(p.id));
                     return;
                 }
             }
@@ -431,8 +431,8 @@ private:
             const auto p = dlg.getParameter();
             for (int i = 0; i < m_parameters.size(); ++i) {
                 if (i != row && m_parameters[i].id == p.id) {
-                    QMessageBox::warning(this, QStringLiteral("Duplikat parametru"),
-                                         QStringLiteral("Parametr o identyfikatorze '%1' już istnieje.").arg(p.id));
+                    QMessageBox::warning(this, QStringLiteral("Duplicate Parameter"),
+                                         QStringLiteral("A parameter with identifier '%1' already exists.").arg(p.id));
                     return;
                 }
             }
@@ -454,24 +454,24 @@ private:
     void insertTemplate()
     {
         if (!m_editGlsl->toPlainText().trimmed().isEmpty()) {
-            if (QMessageBox::question(this, QStringLiteral("Wstaw szablon"),
-                                      QStringLiteral("Czy na pewno chcesz zastąpić obecny kod szablonem startowym?"),
+            if (QMessageBox::question(this, QStringLiteral("Insert Template"),
+                                      QStringLiteral("Are you sure you want to replace current code with the starter template?"),
                                       QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
                 return;
             }
         }
         m_editGlsl->setPlainText(QStringLiteral(
-            "// Niestandardowy efekt GLSL\n"
-            "// Dostępne wejścia:\n"
-            "// - vec4 baseColor : kolor bazowy z uwzględnieniem odległości i narożników\n"
-            "// - vec2 pos       : współrzędne piksela (x, y)\n"
-            "// - vec4 box       : outerBox okna (box.xy: środek, box.zw: połowa wymiarów)\n"
-            "// - float dist     : odległość od obramowania okna\n"
-            "// - float time     : czas w sekundach (płynna animacja)\n"
-            "// - zdefiniowane zmienne uniform z zakładki Parametry\n\n"
+            "// Custom GLSL Effect\n"
+            "// Available inputs:\n"
+            "// - vec4 baseColor : base color with distance and corner falloff\n"
+            "// - vec2 pos       : pixel coordinates (x, y)\n"
+            "// - vec4 box       : outerBox of window (box.xy: center, box.zw: half sizes)\n"
+            "// - float dist     : distance to window border\n"
+            "// - float time     : elapsed time in seconds (smooth animation)\n"
+            "// - defined uniform variables from Parameters tab\n\n"
             "vec4 evaluateCustomEffect(vec4 baseColor, vec2 pos, vec4 box, float dist, float time)\n"
             "{\n"
-            "    // Przykład: Płynna dynamiczna fala kolorów wokół okna\n"
+            "    // Example: Smooth dynamic color wave around window\n"
             "    float s = computePerimeterDistance(pos, box, 6.0);\n"
             "    float wave = 0.5 + 0.5 * sin(s * 0.01 - time * 3.0);\n"
             "    vec3 highlight = vec3(0.0, 0.9, 1.0) * wave;\n"
@@ -485,28 +485,28 @@ private:
         QString err;
         const bool valid = LeapKShader::validateShaderCode(m_editGlsl->toPlainText(), m_parameters, &err);
         if (valid) {
-            QMessageBox::information(this, QStringLiteral("Walidacja GLSL"),
-                                     QStringLiteral("✅ Składnia kodu GLSL oraz definicje parametrów są prawidłowe!"));
+            QMessageBox::information(this, QStringLiteral("GLSL Validation"),
+                                     QStringLiteral("✅ GLSL syntax and parameter definitions are valid!"));
         } else {
-            QMessageBox::warning(this, QStringLiteral("Błąd walidacji GLSL"),
-                                 QStringLiteral("⚠️ Wykryto problem w kodzie GLSL:\n\n%1").arg(err));
+            QMessageBox::warning(this, QStringLiteral("GLSL Validation Error"),
+                                 QStringLiteral("⚠️ Problem detected in GLSL code:\n\n%1").arg(err));
         }
     }
 
     void validateAndSave()
     {
         if (m_editName->text().trimmed().isEmpty()) {
-            QMessageBox::warning(this, QStringLiteral("Brak nazwy"), QStringLiteral("Podaj nazwę dla efektu shadera."));
+            QMessageBox::warning(this, QStringLiteral("Missing Name"), QStringLiteral("Please enter a name for the shader effect."));
             return;
         }
         if (m_editId->text().trimmed().isEmpty()) {
-            QMessageBox::warning(this, QStringLiteral("Brak ID"), QStringLiteral("Podaj identyfikator ID dla efektu shadera."));
+            QMessageBox::warning(this, QStringLiteral("Missing ID"), QStringLiteral("Please enter an ID for the shader effect."));
             return;
         }
         QString err;
         if (!LeapKShader::validateShaderCode(m_editGlsl->toPlainText(), m_parameters, &err)) {
-            if (QMessageBox::question(this, QStringLiteral("Ostrzeżenie o składni GLSL"),
-                                      QStringLiteral("Wykryto potencjalny błąd w kodzie GLSL:\n\n%1\n\nCzy mimo to chcesz zapisać efekt?").arg(err),
+            if (QMessageBox::question(this, QStringLiteral("GLSL Syntax Warning"),
+                                      QStringLiteral("Potential issue detected in GLSL code:\n\n%1\n\nDo you want to save anyway?").arg(err),
                                       QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
                 return;
             }

@@ -125,12 +125,10 @@ protected:
 class PatternFilterDialog : public QDialog
 {
 public:
-    PatternFilterDialog(const QString &currentPattern, bool isPolish, QWidget *parent = nullptr)
+    PatternFilterDialog(const QString &currentPattern, QWidget *parent = nullptr)
         : QDialog(parent)
         , m_pattern(currentPattern)
-        , m_isPolish(false)
     {
-        Q_UNUSED(isPolish);
         setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
         setAttribute(Qt::WA_TranslucentBackground, true);
         setFixedSize(580, 240);
@@ -246,7 +244,6 @@ protected:
 
 private:
     QString m_pattern;
-    bool m_isPolish;
     QLineEdit *m_edit;
 };
 
@@ -282,7 +279,6 @@ public:
         , m_isAlreadyMarked(isAlreadyMarked)
         , m_markRemoved(false)
         , m_usedLettersMap(usedLettersMap)
-        , m_isPolish(false)
         , m_currentStep(0)
         , m_seedOffset(QRandomGenerator::global()->bounded(360))
         , m_rerollCount(0)
@@ -1090,7 +1086,7 @@ private:
             goToStep(3);
         } else if (scopeType == 2) { // Process / caption
             // Open clean HUD popup without squeezing cards or trapping focus!
-            PatternFilterDialog dlg(m_matchCaption.isEmpty() ? m_detectedCaption : m_matchCaption, false, this);
+            PatternFilterDialog dlg(m_matchCaption.isEmpty() ? m_detectedCaption : m_matchCaption, this);
             if (dlg.exec() == QDialog::Accepted) {
                 m_matchCaption = dlg.pattern();
                 m_groupByApp = true;
@@ -1607,7 +1603,6 @@ private:
     bool m_isAlreadyMarked;
     bool m_markRemoved;
     QJsonObject m_usedLettersMap;
-    bool m_isPolish;
     int m_currentStep;
     int m_seedOffset;
     int m_rerollCount;

@@ -234,7 +234,6 @@ class OutlineTray : public QObject
 public:
     explicit OutlineTray(QObject *parent = nullptr)
         : QObject(parent)
-        , m_isPolish(QLocale().language() == QLocale::Polish)
     {
         initTray();
         refreshStateFromConfig();
@@ -340,7 +339,7 @@ private slots:
                     }
                 }
                 QJsonObject outSettings;
-                if (LeapK::PresetActivationDialog::selectSettings(nullptr, p, currentSettings, outSettings, m_isPolish)) {
+                if (LeapK::PresetActivationDialog::selectSettings(nullptr, p, currentSettings, outSettings)) {
                     if (outSettings.contains(QStringLiteral("ShaderEffect"))) {
                         LeapKShader::applyShaderBundle(outSettings.value(QStringLiteral("ShaderEffect")).toObject());
                     } else if (!p.shader.isEmpty() && outSettings.contains(QStringLiteral("CustomShaderEnabled"))) {
@@ -358,10 +357,8 @@ private slots:
 
                     const int count = outSettings.size();
                     const QString msg = (count == p.settings.size())
-                        ? (m_isPolish ? QStringLiteral("Aktywowano cały preset:\n%1").arg(presetName)
-                                      : QStringLiteral("Activated full preset:\n%1").arg(presetName))
-                        : (m_isPolish ? QStringLiteral("Zastosowano %1 wybranych opcji z presetu:\n%2").arg(count).arg(presetName)
-                                      : QStringLiteral("Applied %1 selected options from preset:\n%2").arg(count).arg(presetName));
+                        ? QStringLiteral("Activated full preset:\n%1").arg(presetName)
+                        : QStringLiteral("Applied %1 selected options from preset:\n%2").arg(count).arg(presetName);
 
                     m_trayIcon->showMessage(
                         QStringLiteral("LeapK"),
@@ -382,9 +379,7 @@ private slots:
 
         OutlinePreset::PresetInfo p;
         p.name = presetName;
-        p.description = m_isPolish
-            ? QStringLiteral("Zapisano z tacki systemowej (%1)").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")))
-            : QStringLiteral("Saved from system tray (%1)").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")));
+        p.description = QStringLiteral("Saved from system tray (%1)").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")));
         p.isBuiltIn = false;
 
         KConfigGroup group = getKWinGroup();
@@ -402,9 +397,8 @@ private slots:
         QString err;
         if (!OutlinePreset::savePreset(OutlinePreset::defaultPresetsDirectory(), p, &err)) {
             QMessageBox::warning(nullptr,
-                m_isPolish ? QStringLiteral("Błąd zapisu") : QStringLiteral("Save Error"),
-                m_isPolish ? QStringLiteral("Nie udało się zapisać presetu: %1").arg(err)
-                           : QStringLiteral("Failed to save preset: %1").arg(err));
+                QStringLiteral("Save Error"),
+                QStringLiteral("Failed to save preset: %1").arg(err));
             return;
         }
 
@@ -415,8 +409,7 @@ private slots:
 
         m_trayIcon->showMessage(
             QStringLiteral("Active Window Outline"),
-            m_isPolish ? QStringLiteral("Zapisano nowy preset:\n%1").arg(presetName)
-                       : QStringLiteral("Saved new preset:\n%1").arg(presetName),
+            QStringLiteral("Saved new preset:\n%1").arg(presetName),
             QSystemTrayIcon::Information,
             3500
         );
@@ -431,7 +424,7 @@ private slots:
 
         const QString filePath = QFileDialog::getSaveFileName(
             nullptr,
-            m_isPolish ? QStringLiteral("Eksportuj obecny preset do pliku") : QStringLiteral("Export Current Preset to File"),
+            QStringLiteral("Export Current Preset to File"),
             initialPath,
             QStringLiteral("JSON Files (*.json)")
         );
@@ -441,9 +434,7 @@ private slots:
 
         OutlinePreset::PresetInfo p;
         p.name = QStringLiteral("Exported_%1").arg(timestamp);
-        p.description = m_isPolish
-            ? QStringLiteral("Wyeksportowano z ustawień: %1").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")))
-            : QStringLiteral("Exported at: %1").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")));
+        p.description = QStringLiteral("Exported at: %1").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")));
         p.isBuiltIn = false;
 
         KConfigGroup group = getKWinGroup();
@@ -461,9 +452,8 @@ private slots:
         QFile file(filePath);
         if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
             QMessageBox::warning(nullptr,
-                m_isPolish ? QStringLiteral("Błąd eksportu") : QStringLiteral("Export Error"),
-                m_isPolish ? QStringLiteral("Nie można zapisać pliku: %1").arg(file.errorString())
-                       : QStringLiteral("Cannot write to file: %1").arg(file.errorString()));
+                QStringLiteral("Export Error"),
+                QStringLiteral("Cannot write to file: %1").arg(file.errorString()));
             return;
         }
         file.write(OutlinePreset::serializePreset(p));
@@ -471,8 +461,7 @@ private slots:
 
         m_trayIcon->showMessage(
             QStringLiteral("Active Window Outline"),
-            m_isPolish ? QStringLiteral("Preset pomyślnie wyeksportowany!")
-                       : QStringLiteral("Preset exported successfully!"),
+            QStringLiteral("Preset exported successfully!"),
             QSystemTrayIcon::Information,
             3000
         );
@@ -482,7 +471,7 @@ private slots:
     {
         const QString filePath = QFileDialog::getOpenFileName(
             nullptr,
-            m_isPolish ? QStringLiteral("Importuj plik presetu") : QStringLiteral("Import Preset File"),
+            QStringLiteral("Import Preset File"),
             QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
             QStringLiteral("JSON Files (*.json)")
         );
@@ -493,9 +482,8 @@ private slots:
         QFile file(filePath);
         if (!file.open(QIODevice::ReadOnly)) {
             QMessageBox::warning(nullptr,
-                m_isPolish ? QStringLiteral("Błąd importu") : QStringLiteral("Import Error"),
-                m_isPolish ? QStringLiteral("Nie można odczytać pliku: %1").arg(file.errorString())
-                           : QStringLiteral("Cannot read file: %1").arg(file.errorString()));
+                QStringLiteral("Import Error"),
+                QStringLiteral("Cannot read file: %1").arg(file.errorString()));
             return;
         }
 
@@ -503,9 +491,8 @@ private slots:
         QString err;
         if (!OutlinePreset::parsePresetJson(file.readAll(), preset, &err)) {
             QMessageBox::warning(nullptr,
-                m_isPolish ? QStringLiteral("Błąd importu") : QStringLiteral("Import Error"),
-                m_isPolish ? QStringLiteral("Nieprawidłowy format pliku presetu: %1").arg(err)
-                           : QStringLiteral("Invalid preset file format: %1").arg(err));
+                QStringLiteral("Import Error"),
+                QStringLiteral("Invalid preset file format: %1").arg(err));
             return;
         }
 
@@ -516,9 +503,8 @@ private slots:
 
         if (!OutlinePreset::savePreset(OutlinePreset::defaultPresetsDirectory(), preset, &err)) {
             QMessageBox::warning(nullptr,
-                m_isPolish ? QStringLiteral("Błąd importu") : QStringLiteral("Import Error"),
-                m_isPolish ? QStringLiteral("Nie można zapisać presetu: %1").arg(err)
-                           : QStringLiteral("Could not save preset: %1").arg(err));
+                QStringLiteral("Import Error"),
+                QStringLiteral("Could not save preset: %1").arg(err));
             return;
         }
 
@@ -526,8 +512,7 @@ private slots:
 
         m_trayIcon->showMessage(
             QStringLiteral("LeapK"),
-            m_isPolish ? QStringLiteral("Zaimportowano preset:\n%1 (dodano do menu presetów)").arg(preset.name)
-                       : QStringLiteral("Imported preset:\n%1 (added to presets menu)").arg(preset.name),
+            QStringLiteral("Imported preset:\n%1 (added to presets menu)").arg(preset.name),
             QSystemTrayIcon::Information,
             3500
         );
@@ -601,56 +586,35 @@ private slots:
         const QString scPrev = getGlobalShortcutText(QStringLiteral("PrevRecentWindow"), QStringLiteral("Meta+Ctrl+["));
         const QString scNext = getGlobalShortcutText(QStringLiteral("NextRecentWindow"), QStringLiteral("Meta+Ctrl+]"));
 
-        auto formatRow = [this](const QString &sc, const QString &desc) -> QString {
+        auto formatRow = [](const QString &sc, const QString &desc) -> QString {
             const QString dispSc = (sc.isEmpty() || sc.compare(QStringLiteral("none"), Qt::CaseInsensitive) == 0)
-                ? (m_isPolish ? QStringLiteral("<i>(brak skrótu)</i>") : QStringLiteral("<i>(none)</i>"))
+                ? QStringLiteral("<i>(none)</i>")
                 : QStringLiteral("<b><kbd>%1</kbd></b>").arg(sc.toHtmlEscaped());
             return QStringLiteral("<tr><td style='padding: 4px 12px 4px 0;'>%1</td><td>&nbsp;—&nbsp;</td><td style='padding: 4px 0;'>%2</td></tr>")
                 .arg(dispSc, desc);
         };
 
         QString rows;
-        if (m_isPolish) {
-            rows += formatRow(scJump, QStringLiteral("Skocz do okna (Jump Mode z literami)"));
-            rows += formatRow(scJumpRecent, QStringLiteral("Skocz do ostatnio aktywnego okna (recent)"));
-            if (!scRecent.isEmpty() && scRecent.compare(QStringLiteral("none"), Qt::CaseInsensitive) != 0) {
-                rows += formatRow(scRecent, QStringLiteral("Przełącz na ostatnie okno (skrót bezpośredni)"));
-            }
-            rows += formatRow(scMark, QStringLiteral("Szybkie oznaczenie aktywnego okna"));
-            rows += formatRow(scMarkColor, QStringLiteral("Własne oznaczenie okna (kolor, litera, etykieta)"));
-            rows += formatRow(scToggleGroup, QStringLiteral("Przełącz grupowanie okien w HUD (lub klawisz Tab podczas skoku)"));
-            rows += formatRow(scToggle, QStringLiteral("Włącz / Wyłącz aktywny obrys"));
-            rows += formatRow(scPrev, QStringLiteral("Przejdź do poprzedniego okna w historii"));
-            rows += formatRow(scNext, QStringLiteral("Przejdź do następnego okna w historii"));
-        } else {
-            rows += formatRow(scJump, QStringLiteral("Jump to Window (interactive letter jump)"));
-            rows += formatRow(scJumpRecent, QStringLiteral("Jump to last active window (recent)"));
-            if (!scRecent.isEmpty() && scRecent.compare(QStringLiteral("none"), Qt::CaseInsensitive) != 0) {
-                rows += formatRow(scRecent, QStringLiteral("Switch to recent window (direct shortcut)"));
-            }
-            rows += formatRow(scMark, QStringLiteral("Quick mark active window"));
-            rows += formatRow(scMarkColor, QStringLiteral("Custom Mark Window (Color, Letter, Label)"));
-            rows += formatRow(scToggleGroup, QStringLiteral("Toggle HUD Window Grouping (or Tab key during Leap)"));
-            rows += formatRow(scToggle, QStringLiteral("Toggle LeapK window highlight on/off"));
-            rows += formatRow(scPrev, QStringLiteral("Navigate to Previous Window in focus history"));
-            rows += formatRow(scNext, QStringLiteral("Navigate to Next Window in focus history"));
+        rows += formatRow(scJump, QStringLiteral("Jump to Window (interactive letter jump)"));
+        rows += formatRow(scJumpRecent, QStringLiteral("Jump to last active window (recent)"));
+        if (!scRecent.isEmpty() && scRecent.compare(QStringLiteral("none"), Qt::CaseInsensitive) != 0) {
+            rows += formatRow(scRecent, QStringLiteral("Switch to recent window (direct shortcut)"));
         }
+        rows += formatRow(scMark, QStringLiteral("Quick mark active window"));
+        rows += formatRow(scMarkColor, QStringLiteral("Custom Mark Window (Color, Letter, Label)"));
+        rows += formatRow(scToggleGroup, QStringLiteral("Toggle HUD Window Grouping (or Tab key during Leap)"));
+        rows += formatRow(scToggle, QStringLiteral("Toggle LeapK window highlight on/off"));
+        rows += formatRow(scPrev, QStringLiteral("Navigate to Previous Window in focus history"));
+        rows += formatRow(scNext, QStringLiteral("Navigate to Next Window in focus history"));
 
         QMessageBox msgBox(nullptr);
-        msgBox.setWindowTitle(m_isPolish ? QStringLiteral("Skróty klawiszowe — LeapK")
-                                         : QStringLiteral("Keyboard Shortcuts — LeapK"));
+        msgBox.setWindowTitle(QStringLiteral("Keyboard Shortcuts — LeapK"));
         msgBox.setIcon(QMessageBox::Information);
-        const QString text = m_isPolish
-            ? QStringLiteral(
-                "<h3>⌨️ Dostępne skróty klawiszowe (zgodne z systemem):</h3>"
-                "<table cellpadding='2' style='border-collapse: collapse;'>%1</table>"
-                "<p><small>Skróty można w pełni dostosować w <i>Ustawienia systemowe → Skróty → KWin</i>.</small></p>")
-                .arg(rows)
-            : QStringLiteral(
-                "<h3>⌨️ Available Keyboard Shortcuts (System-synchronized):</h3>"
-                "<table cellpadding='2' style='border-collapse: collapse;'>%1</table>"
-                "<p><small>Shortcuts can be customized in <i>System Settings → Shortcuts → KWin</i>.</small></p>")
-                .arg(rows);
+        const QString text = QStringLiteral(
+            "<h3>⌨️ Available Keyboard Shortcuts (System-synchronized):</h3>"
+            "<table cellpadding='2' style='border-collapse: collapse;'>%1</table>"
+            "<p><small>Shortcuts can be customized in <i>System Settings → Shortcuts → KWin</i>.</small></p>")
+            .arg(rows);
         msgBox.setText(text);
         msgBox.exec();
     }
@@ -663,8 +627,7 @@ private slots:
 
         m_trayIcon->showMessage(
             QStringLiteral("LeapK"),
-            m_isPolish ? QStringLiteral("Sprawdzanie dostępności aktualizacji na GitHubie…")
-                       : QStringLiteral("Checking for updates on GitHub…"),
+            QStringLiteral("Checking for updates on GitHub…"),
             QSystemTrayIcon::Information,
             2000
         );
@@ -681,9 +644,8 @@ private slots:
             if (reply->error() != QNetworkReply::NoError) {
                 const QString err = reply->errorString();
                 QMessageBox::warning(nullptr,
-                    m_isPolish ? QStringLiteral("Błąd aktualizacji") : QStringLiteral("Update Check Error"),
-                    m_isPolish ? QStringLiteral("Nie udało się połączyć z GitHubem:\n%1").arg(err)
-                               : QStringLiteral("Failed to connect to GitHub:\n%1").arg(err));
+                    QStringLiteral("Update Check Error"),
+                    QStringLiteral("Failed to connect to GitHub:\n%1").arg(err));
                 return;
             }
 
@@ -692,9 +654,8 @@ private slots:
             const QJsonDocument doc = QJsonDocument::fromJson(responseData, &parseError);
             if (parseError.error != QJsonParseError::NoError || !doc.isArray()) {
                 QMessageBox::warning(nullptr,
-                    m_isPolish ? QStringLiteral("Błąd aktualizacji") : QStringLiteral("Update Check Error"),
-                    m_isPolish ? QStringLiteral("Nieprawidłowa odpowiedź z serwera GitHub.")
-                               : QStringLiteral("Invalid response received from GitHub API."));
+                    QStringLiteral("Update Check Error"),
+                    QStringLiteral("Invalid response received from GitHub API."));
                 return;
             }
 
@@ -702,7 +663,7 @@ private slots:
             if (releases.isEmpty()) {
                 m_trayIcon->showMessage(
                     QStringLiteral("Active Window Outline"),
-                    m_isPolish ? QStringLiteral("Brak wydań na GitHubie.") : QStringLiteral("No releases found on GitHub."),
+                    QStringLiteral("No releases found on GitHub."),
                     QSystemTrayIcon::Information,
                     3000
                 );
@@ -728,11 +689,11 @@ private slots:
             const bool hasUpdate = isDev || (remoteVer > currentVer);
 
             if (!hasUpdate) {
-                LeapK::showUpToDateDialog(nullptr, currentVerStr, htmlUrl, m_isPolish);
+                LeapK::showUpToDateDialog(nullptr, currentVerStr, htmlUrl);
                 return;
             }
 
-            LeapK::showNewVersionDialog(nullptr, tagName, currentVerStr, isPrerelease, htmlUrl, body, m_isPolish);
+            LeapK::showNewVersionDialog(nullptr, tagName, currentVerStr, isPrerelease, htmlUrl, body);
         });
     }
 
@@ -817,28 +778,28 @@ private slots:
         };
 
         if (m_actJump) {
-            m_actJump->setText(formatMenuText(m_isPolish ? QStringLiteral("🔲 Skocz do okna...") : QStringLiteral("🔲 Jump to Window..."), scJump));
+            m_actJump->setText(formatMenuText(QStringLiteral("🔲 Jump to Window..."), scJump));
         }
         if (m_actRecent) {
             const QString recentShortcutDisp = (!scRecent.isEmpty() && scRecent.compare(QStringLiteral("none"), Qt::CaseInsensitive) != 0)
                 ? QStringLiteral("%1 / %2").arg(scJumpRecent, scRecent)
                 : scJumpRecent;
-            m_actRecent->setText(formatMenuText(m_isPolish ? QStringLiteral("🔀 Skocz do ostatniego okna (Recent)") : QStringLiteral("🔀 Jump to Recent Window"), recentShortcutDisp));
+            m_actRecent->setText(formatMenuText(QStringLiteral("🔀 Jump to Recent Window"), recentShortcutDisp));
         }
         if (m_actMark) {
-            m_actMark->setText(formatMenuText(m_isPolish ? QStringLiteral("🏷️ Oznacz / Odznacz okno") : QStringLiteral("🏷️ Mark / Unmark Window"), scMark));
+            m_actMark->setText(formatMenuText(QStringLiteral("🏷️ Mark / Unmark Window"), scMark));
         }
         if (m_actMarkColor) {
-            m_actMarkColor->setText(formatMenuText(m_isPolish ? QStringLiteral("🎨 Własne oznaczenie (kolor, litera, etykieta)...") : QStringLiteral("🎨 Custom Mark (Color, Letter, Label)..."), scMarkColor));
+            m_actMarkColor->setText(formatMenuText(QStringLiteral("🎨 Custom Mark (Color, Letter, Label)..."), scMarkColor));
         }
         if (m_actToggle) {
-            m_actToggle->setText(formatMenuText(m_isPolish ? QStringLiteral("🖼️ Włącz / Wyłącz obrys") : QStringLiteral("🖼️ Toggle Outline"), scToggle));
+            m_actToggle->setText(formatMenuText(QStringLiteral("🖼️ Toggle Outline"), scToggle));
         }
         if (m_actPrev) {
-            m_actPrev->setText(formatMenuText(m_isPolish ? QStringLiteral("⏮️ Poprzednie okno w historii") : QStringLiteral("⏮️ Previous Window"), scPrev));
+            m_actPrev->setText(formatMenuText(QStringLiteral("⏮️ Previous Window"), scPrev));
         }
         if (m_actNext) {
-            m_actNext->setText(formatMenuText(m_isPolish ? QStringLiteral("⏭️ Następne okno w historii") : QStringLiteral("⏭️ Next Window"), scNext));
+            m_actNext->setText(formatMenuText(QStringLiteral("⏭️ Next Window"), scNext));
         }
     }
 
@@ -873,18 +834,14 @@ private slots:
             m_actEnable->setChecked(enabled);
             m_actEnable->blockSignals(wasBlocked);
             m_actEnable->setText(enabled
-                ? (m_isPolish ? QStringLiteral("✔ Obrys okna jest włączony%1").arg(scSuffix)
-                              : QStringLiteral("✔ Outline is Enabled%1").arg(scSuffix))
-                : (m_isPolish ? QStringLiteral("✖ Włącz obrys okna%1").arg(scSuffix)
-                              : QStringLiteral("✖ Enable Outline%1").arg(scSuffix)));
+                ? QStringLiteral("✔ Outline is Enabled%1").arg(scSuffix)
+                : QStringLiteral("✖ Enable Outline%1").arg(scSuffix));
         }
 
         m_trayIcon->setIcon(createTrayIconPixmap(enabled, outlineColor));
         const QString statusText = enabled
-            ? (m_isPolish ? QStringLiteral("LeapK: Włączony\n(Kliknij lewym przyciskiem myszy, aby wyłączyć)")
-                          : QStringLiteral("LeapK: Enabled\n(Click left mouse button to disable)"))
-            : (m_isPolish ? QStringLiteral("LeapK: Wyłączony\n(Kliknij lewym przyciskiem myszy, aby włączyć)")
-                          : QStringLiteral("LeapK: Disabled\n(Click left mouse button to enable)"));
+            ? QStringLiteral("LeapK: Enabled\n(Click left mouse button to disable)")
+            : QStringLiteral("LeapK: Disabled\n(Click left mouse button to enable)");
         m_trayIcon->setToolTip(statusText);
 
         rebuildPresetsMenu();
@@ -960,22 +917,22 @@ private:
         m_menu->addSeparator();
 
         // 2. Primary Toggle
-        m_actEnable = m_menu->addAction(m_isPolish ? QStringLiteral("Włącz obrys okna") : QStringLiteral("Enable Outline"),
+        m_actEnable = m_menu->addAction(QStringLiteral("Enable Outline"),
                                         this, &OutlineTray::onToggleOutline);
         m_actEnable->setCheckable(true);
 
         m_menu->addSeparator();
 
         // 3. Presets Submenu
-        m_menuPresets = m_menu->addMenu(m_isPolish ? QStringLiteral("📁 Presety") : QStringLiteral("📁 Presets"));
+        m_menuPresets = m_menu->addMenu(QStringLiteral("📁 Presets"));
 
         // 3b. Shaders Submenu
-        m_menuShaders = m_menu->addMenu(m_isPolish ? QStringLiteral("✨ Efekty Shaderów (GLSL)") : QStringLiteral("✨ Shader Effects (GLSL)"));
+        m_menuShaders = m_menu->addMenu(QStringLiteral("✨ Shader Effects (GLSL)"));
 
         m_menu->addSeparator();
 
         // 4. Keyboard Shortcuts Submenu
-        m_menuShortcuts = m_menu->addMenu(m_isPolish ? QStringLiteral("⌨️ Skróty klawiszowe") : QStringLiteral("⌨️ Keyboard Shortcuts"));
+        m_menuShortcuts = m_menu->addMenu(QStringLiteral("⌨️ Keyboard Shortcuts"));
         connect(m_menuShortcuts, &QMenu::aboutToShow, this, &OutlineTray::updateShortcutsMenu);
 
         m_actJump = m_menuShortcuts->addAction(QString(), this, &OutlineTray::onTriggerJumpMode);
@@ -989,21 +946,21 @@ private:
         m_menuShortcuts->addSeparator();
 
         m_menuShortcuts->addAction(
-            m_isPolish ? QStringLiteral("🧹 Wyczyść wszystkie oznaczenia") : QStringLiteral("🧹 Clear All Marks"),
+            QStringLiteral("🧹 Clear All Marks"),
             this, &OutlineTray::onClearAllMarks);
 
         m_menuShortcuts->addAction(
-            m_isPolish ? QStringLiteral("📋 Ściąga skrótów klawiszowych...") : QStringLiteral("📋 Shortcuts Cheat Sheet..."),
+            QStringLiteral("📋 Shortcuts Cheat Sheet..."),
             this, &OutlineTray::onShowShortcutsCheatSheet);
 
         m_menu->addSeparator();
 
-        m_menu->addAction(m_isPolish ? QStringLiteral("📁 Zarządzanie przestrzeniami (Workspaces)…") : QStringLiteral("📁 Workspace Manager…"),
+        m_menu->addAction(QStringLiteral("📁 Workspace Manager…"),
                           this, []() {
             QProcess::startDetached(QStringLiteral("leapk-workspace-manager"));
         });
 
-        m_menu->addAction(m_isPolish ? QStringLiteral("🏷️ Menedżer markerów i grup…") : QStringLiteral("🏷️ Marker & Group Manager…"),
+        m_menu->addAction(QStringLiteral("🏷️ Marker & Group Manager…"),
                           this, []() {
             QProcess::startDetached(QStringLiteral("leapk-marker-manager"));
         });
@@ -1011,10 +968,10 @@ private:
         m_menu->addSeparator();
 
         // 5. Updates & Settings
-        m_menu->addAction(m_isPolish ? QStringLiteral("🔄 Sprawdź czy jest dostępna nowa wersja") : QStringLiteral("🔄 Check for Updates…"),
+        m_menu->addAction(QStringLiteral("🔄 Check for Updates…"),
                           this, &OutlineTray::onCheckForUpdates);
 
-        m_menu->addAction(m_isPolish ? QStringLiteral("⚙️ Ustawienia...") : QStringLiteral("⚙️ Settings..."),
+        m_menu->addAction(QStringLiteral("⚙️ Settings..."),
                           this, &OutlineTray::onOpenSettings);
 
         m_trayIcon->setContextMenu(m_menu);
@@ -1055,8 +1012,7 @@ private:
         m_menuPresets->addSeparator();
 
         QMenu *customizeMenu = m_menuPresets->addMenu(
-            m_isPolish ? QStringLiteral("⚙️ Dostosuj i aktywuj preset…")
-                       : QStringLiteral("⚙️ Customize & Apply Preset…")
+            QStringLiteral("⚙️ Customize & Apply Preset…")
         );
         for (const auto &p : presets) {
             const QString name = p.name;
@@ -1069,18 +1025,15 @@ private:
         m_menuPresets->addSeparator();
 
         m_menuPresets->addAction(
-            m_isPolish ? QStringLiteral("💾 Zapisz obecny jako nowy preset (timestamp)")
-                       : QStringLiteral("💾 Save Current as New Preset (Timestamp)"),
+            QStringLiteral("💾 Save Current as New Preset (Timestamp)"),
             this, &OutlineTray::onSaveCurrentPreset);
 
         m_menuPresets->addAction(
-            m_isPolish ? QStringLiteral("📤 Eksportuj obecny preset...")
-                       : QStringLiteral("📤 Export Current Preset..."),
+            QStringLiteral("📤 Export Current Preset..."),
             this, &OutlineTray::onExportPreset);
 
         m_menuPresets->addAction(
-            m_isPolish ? QStringLiteral("📥 Importuj preset...")
-                       : QStringLiteral("📥 Import Preset..."),
+            QStringLiteral("📥 Import Preset..."),
             this, &OutlineTray::onImportPreset);
     }
 
@@ -1096,7 +1049,7 @@ private:
         const QString activeShaderId = group.readEntry(QStringLiteral("ActiveCustomShaderId"), QString());
 
         QAction *actToggle = m_menuShaders->addAction(
-            m_isPolish ? QStringLiteral("Włącz efekt shadera") : QStringLiteral("Enable Custom Shader"),
+            QStringLiteral("Enable Custom Shader"),
             this, [this, shaderEnabled]() {
                 KConfigGroup g = getKWinGroup();
                 g.writeEntry(QStringLiteral("CustomShaderEnabled"), !shaderEnabled);
@@ -1169,7 +1122,6 @@ private:
             SLOT(refreshStateFromConfig()));
     }
 
-    bool m_isPolish;
     QSystemTrayIcon *m_trayIcon = nullptr;
     QMenu *m_menu = nullptr;
     QMenu *m_menuPresets = nullptr;

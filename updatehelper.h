@@ -48,16 +48,14 @@ inline void showNewVersionDialog(QWidget *parent,
                                 const QString &currentVerStr,
                                 bool isPrerelease,
                                 const QString &htmlUrl,
-                                const QString &body,
-                                bool isPolish)
+                                const QString &body)
 {
     const QString installCmd = isPrerelease
         ? QStringLiteral("curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash -s -- --pre")
         : QStringLiteral("curl -sSL https://raw.githubusercontent.com/gmalinowski/leapk/main/install.sh | bash");
 
     QDialog dlg(parent);
-    dlg.setWindowTitle(isPolish ? QStringLiteral("Dostępna jest nowa wersja!")
-                                : QStringLiteral("New Version Available!"));
+    dlg.setWindowTitle(QStringLiteral("New Version Available!"));
     dlg.setWindowIcon(QIcon::fromTheme(QStringLiteral("leapk"),
                                        QIcon(QStringLiteral(":/icons/leapk.svg"))));
     dlg.resize(560, 460);
@@ -69,20 +67,14 @@ inline void showNewVersionDialog(QWidget *parent,
     auto *info = new QLabel(&dlg);
     info->setTextFormat(Qt::RichText);
     info->setWordWrap(true);
-    info->setText(isPolish
-        ? QStringLiteral("<h3>🎉 Dostępna jest nowa wersja: <b>%1</b></h3>"
-                         "<p>Obecnie zainstalowana wersja: <b>v%2</b><br>"
-                         "Najnowsze wydanie na GitHubie: <b>%1</b> %3</p>")
-            .arg(tagName, currentVerStr, isPrerelease ? QStringLiteral("(pre-release)") : QStringLiteral("(stabilne)"))
-        : QStringLiteral("<h3>🎉 A new version is available: <b>%1</b></h3>"
-                         "<p>Currently installed: <b>v%2</b><br>"
-                         "Latest release on GitHub: <b>%1</b> %3</p>")
-            .arg(tagName, currentVerStr, isPrerelease ? QStringLiteral("(pre-release)") : QStringLiteral("(stable)")));
+    info->setText(QStringLiteral("<h3>🎉 A new version is available: <b>%1</b></h3>"
+                                 "<p>Currently installed: <b>v%2</b><br>"
+                                 "Latest release on GitHub: <b>%1</b> %3</p>")
+                    .arg(tagName, currentVerStr, isPrerelease ? QStringLiteral("(pre-release)") : QStringLiteral("(stable)")));
     vbox->addWidget(info);
 
     if (!body.trimmed().isEmpty()) {
-        auto *notesLabel = new QLabel(isPolish ? QStringLiteral("<b>Informacje o wydaniu (Release Notes):</b>")
-                                               : QStringLiteral("<b>Release Notes:</b>"), &dlg);
+        auto *notesLabel = new QLabel(QStringLiteral("<b>Release Notes:</b>"), &dlg);
         vbox->addWidget(notesLabel);
 
         auto *browser = new QTextBrowser(&dlg);
@@ -92,8 +84,7 @@ inline void showNewVersionDialog(QWidget *parent,
         vbox->addWidget(browser);
     }
 
-    auto *cmdLabel = new QLabel(isPolish ? QStringLiteral("Polecenie instalacji / aktualizacji w terminalu:")
-                                         : QStringLiteral("Terminal installation / update command:"), &dlg);
+    auto *cmdLabel = new QLabel(QStringLiteral("Terminal installation / update command:"), &dlg);
     vbox->addWidget(cmdLabel);
 
     auto *cmdBox = new QLineEdit(installCmd, &dlg);
@@ -102,8 +93,7 @@ inline void showNewVersionDialog(QWidget *parent,
 
     auto *btnLayout = new QHBoxLayout();
 
-    auto *btnOpenUrl = new QPushButton(isPolish ? QStringLiteral("🌐 Otwórz stronę wydania")
-                                                : QStringLiteral("🌐 Open Release Page"), &dlg);
+    auto *btnOpenUrl = new QPushButton(QStringLiteral("🌐 Open Release Page"), &dlg);
     btnOpenUrl->setIcon(QIcon::fromTheme(QStringLiteral("internet-web-browser")));
     QObject::connect(btnOpenUrl, &QPushButton::clicked, [htmlUrl]() {
         if (!htmlUrl.isEmpty()) {
@@ -112,18 +102,17 @@ inline void showNewVersionDialog(QWidget *parent,
     });
     btnLayout->addWidget(btnOpenUrl);
 
-    auto *btnCopy = new QPushButton(isPolish ? QStringLiteral("📋 Kopiuj polecenie")
-                                             : QStringLiteral("📋 Copy Command"), &dlg);
+    auto *btnCopy = new QPushButton(QStringLiteral("📋 Copy Command"), &dlg);
     btnCopy->setIcon(QIcon::fromTheme(QStringLiteral("edit-copy")));
-    QObject::connect(btnCopy, &QPushButton::clicked, [installCmd, btnCopy, isPolish]() {
+    QObject::connect(btnCopy, &QPushButton::clicked, [installCmd, btnCopy]() {
         QGuiApplication::clipboard()->setText(installCmd);
-        btnCopy->setText(isPolish ? QStringLiteral("✓ Skopiowano!") : QStringLiteral("✓ Copied!"));
+        btnCopy->setText(QStringLiteral("✓ Copied!"));
     });
     btnLayout->addWidget(btnCopy);
 
     btnLayout->addStretch();
 
-    auto *btnClose = new QPushButton(isPolish ? QStringLiteral("Zamknij") : QStringLiteral("Close"), &dlg);
+    auto *btnClose = new QPushButton(QStringLiteral("Close"), &dlg);
     QObject::connect(btnClose, &QPushButton::clicked, &dlg, &QDialog::accept);
     btnLayout->addWidget(btnClose);
 
@@ -133,12 +122,10 @@ inline void showNewVersionDialog(QWidget *parent,
 
 inline void showUpToDateDialog(QWidget *parent,
                                const QString &currentVerStr,
-                               const QString &htmlUrl,
-                               bool isPolish)
+                               const QString &htmlUrl)
 {
     QDialog dlg(parent);
-    dlg.setWindowTitle(isPolish ? QStringLiteral("LeapK — Aktualizacje")
-                                : QStringLiteral("LeapK — Updates"));
+    dlg.setWindowTitle(QStringLiteral("LeapK — Updates"));
     dlg.setWindowIcon(QIcon::fromTheme(QStringLiteral("leapk"),
                                        QIcon(QStringLiteral(":/icons/leapk.svg"))));
     dlg.resize(480, 190);
@@ -150,18 +137,13 @@ inline void showUpToDateDialog(QWidget *parent,
     auto *lbl = new QLabel(&dlg);
     lbl->setTextFormat(Qt::RichText);
     lbl->setWordWrap(true);
-    lbl->setText(isPolish
-        ? QStringLiteral("<h3>✓ LeapK jest aktualny!</h3>"
-                         "<p>Masz zainstalowaną najnowszą wersję: <b>v%1</b>.</p>")
-            .arg(currentVerStr)
-        : QStringLiteral("<h3>✓ LeapK is up to date!</h3>"
-                         "<p>You have the latest version of LeapK installed: <b>v%1</b>.</p>")
-            .arg(currentVerStr));
+    lbl->setText(QStringLiteral("<h3>✓ LeapK is up to date!</h3>"
+                                "<p>You have the latest version of LeapK installed: <b>v%1</b>.</p>")
+                    .arg(currentVerStr));
     vbox->addWidget(lbl);
 
     auto *btnLayout = new QHBoxLayout();
-    auto *btnOpenUrl = new QPushButton(isPolish ? QStringLiteral("🌐 Otwórz stronę wydania")
-                                                : QStringLiteral("🌐 Open Release Page"), &dlg);
+    auto *btnOpenUrl = new QPushButton(QStringLiteral("🌐 Open Release Page"), &dlg);
     btnOpenUrl->setIcon(QIcon::fromTheme(QStringLiteral("internet-web-browser")));
     QObject::connect(btnOpenUrl, &QPushButton::clicked, [htmlUrl]() {
         const QString urlToOpen = htmlUrl.isEmpty()
@@ -173,7 +155,7 @@ inline void showUpToDateDialog(QWidget *parent,
 
     btnLayout->addStretch();
 
-    auto *btnClose = new QPushButton(isPolish ? QStringLiteral("Zamknij") : QStringLiteral("Close"), &dlg);
+    auto *btnClose = new QPushButton(QStringLiteral("Close"), &dlg);
     QObject::connect(btnClose, &QPushButton::clicked, &dlg, &QDialog::accept);
     btnLayout->addWidget(btnClose);
 

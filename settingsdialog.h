@@ -23,10 +23,8 @@ class SettingsDialog : public QDialog
 public:
     explicit SettingsDialog(QWidget *parent = nullptr)
         : QDialog(parent)
-        , m_isPolish(QLocale().language() == QLocale::Polish)
     {
-        setWindowTitle(m_isPolish ? QStringLiteral("LeapK — Ustawienia")
-                                  : QStringLiteral("LeapK — Settings"));
+        setWindowTitle(QStringLiteral("LeapK — Settings"));
         setWindowIcon(QIcon::fromTheme(QStringLiteral("leapk"),
                                        QIcon(QStringLiteral(":/icons/leapk.svg"))));
         QScreen *screen = QGuiApplication::primaryScreen();
@@ -65,6 +63,5 @@ public:
     }
 
 private:
-    bool m_isPolish = false;
     ActiveWindowOutlineConfig *m_config = nullptr;
 };

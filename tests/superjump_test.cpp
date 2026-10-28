@@ -15,20 +15,20 @@ void testSuperJumpBannerFormatting()
 {
     // 1. Super Jump with named workspace
     QImage superJumpDev = OutlineBadge::renderHudModeHeader(
-        false, 1.0, false, QString(), QColor(), 0, {}, -1, false, QStringLiteral("Backend"), true);
+        1.0, false, QString(), QColor(), 0, {}, -1, false, QStringLiteral("Backend"), true);
     assert(!superJumpDev.isNull());
     assert(superJumpDev.width() > 200);
     assert(superJumpDev.height() >= 30);
 
     // 2. Super Jump with empty workspace name (falls back to "Workspace")
     QImage superJumpDefault = OutlineBadge::renderHudModeHeader(
-        false, 1.0, false, QString(), QColor(), 0, {}, -1, false, QString(), true);
+        1.0, false, QString(), QColor(), 0, {}, -1, false, QString(), true);
     assert(!superJumpDefault.isNull());
     assert(superJumpDefault.width() > 150);
 
     // 3. Super Jump with HiDPI scale (2.0)
     QImage superJumpHiDpi = OutlineBadge::renderHudModeHeader(
-        false, 2.0, false, QString(), QColor(), 0, {}, -1, false, QStringLiteral("Frontend UI"), true);
+        2.0, false, QString(), QColor(), 0, {}, -1, false, QStringLiteral("Frontend UI"), true);
     assert(!superJumpHiDpi.isNull());
     assert(superJumpHiDpi.width() >= superJumpDev.width() * 1.5);
 
@@ -39,13 +39,13 @@ void testStashViewHeaderBanner()
 {
     // 1. Stash mode header banner
     QImage stashBanner = OutlineBadge::renderHudModeHeader(
-        false, 1.0, false, QString(), QColor(), 0, {}, 3, true, QStringLiteral("Frontend"));
+        1.0, false, QString(), QColor(), 0, {}, 3, true, QStringLiteral("Frontend"));
     assert(!stashBanner.isNull());
     assert(stashBanner.width() > 200);
 
     // 2. Stash banner with HiDPI scale
     QImage stashBannerHiDpi = OutlineBadge::renderHudModeHeader(
-        false, 1.5, false, QString(), QColor(), 0, {}, 5, true, QStringLiteral("Docs"));
+        1.5, false, QString(), QColor(), 0, {}, 5, true, QStringLiteral("Docs"));
     assert(!stashBannerHiDpi.isNull());
     assert(stashBannerHiDpi.width() > stashBanner.width());
 

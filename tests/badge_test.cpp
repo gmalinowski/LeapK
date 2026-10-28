@@ -945,31 +945,31 @@ void testHudWindowGroupingAndFrames()
 
 void testHudActionHintBar()
 {
-    // 1. Polish Main Jump Mode Hint Bar
-    QImage barPl = OutlineBadge::renderHudActionHintBar(true, 1.0, false, 0);
-    assert(!barPl.isNull());
-    assert(barPl.width() > 100);
-    assert(barPl.height() >= 20);
+    // 1. Main Jump Mode Hint Bar
+    QImage barDef = OutlineBadge::renderHudActionHintBar(1.0, false, 0);
+    assert(!barDef.isNull());
+    assert(barDef.width() > 100);
+    assert(barDef.height() >= 20);
 
-    // 2. Polish Sub-Leap Hint Bar
-    QImage barSubPl = OutlineBadge::renderHudActionHintBar(true, 1.0, true, 0);
-    assert(!barSubPl.isNull());
-    assert(barSubPl.width() > 100);
+    // 2. Sub-Leap Hint Bar
+    QImage barSub = OutlineBadge::renderHudActionHintBar(1.0, true, 0);
+    assert(!barSub.isNull());
+    assert(barSub.width() > 100);
 
-    // 3. English Hint Bar with active views
+    // 3. Hint Bar with active views
     for (int v = 0; v <= 3; ++v) {
-        QImage barEn = OutlineBadge::renderHudActionHintBar(false, 1.25, false, v);
+        QImage barEn = OutlineBadge::renderHudActionHintBar(1.25, false, v);
         assert(!barEn.isNull());
         assert(barEn.width() > 100);
     }
 
     // 4. Custom Workspace View
-    QImage barWs = OutlineBadge::renderHudActionHintBar(true, 1.0, false, 1, QStringLiteral("Widok: 📁 Backend"), QColor(52, 152, 219));
+    QImage barWs = OutlineBadge::renderHudActionHintBar(1.0, false, 1, QStringLiteral("View: 📁 Backend"), QColor(52, 152, 219));
     assert(!barWs.isNull());
     assert(barWs.width() > 100);
 
     // 5. Super Jump Mode Hint Bar
-    QImage barSuper = OutlineBadge::renderHudActionHintBar(false, 1.0, false, 0, QString(), QColor(), false, true);
+    QImage barSuper = OutlineBadge::renderHudActionHintBar(1.0, false, 0, QString(), QColor(), false, true);
     assert(!barSuper.isNull());
     assert(barSuper.width() > 100);
 }
@@ -980,39 +980,39 @@ void testHudModeHeader()
     QList<OutlineBadge::HudModeHeaderView> views;
     views.append({QStringLiteral("💻 Standard"), QColor(230, 126, 34), 4, true});
     views.append({QStringLiteral("📁 Backend"), QColor(52, 152, 219), 2, false});
-    views.append({QStringLiteral("🌐 Wszystkie"), QColor(155, 89, 182), 6, false});
+    views.append({QStringLiteral("🌐 All"), QColor(155, 89, 182), 6, false});
 
-    QImage headerPl = OutlineBadge::renderHudModeHeader(true, 1.0, false, QString(), QColor(), 0, views, 3, false);
-    assert(!headerPl.isNull());
-    assert(headerPl.width() > 200);
-    assert(headerPl.height() >= 30);
+    QImage header1 = OutlineBadge::renderHudModeHeader(1.0, false, QString(), QColor(), 0, views, 3, false);
+    assert(!header1.isNull());
+    assert(header1.width() > 200);
+    assert(header1.height() >= 30);
 
-    QImage headerEn = OutlineBadge::renderHudModeHeader(false, 1.5, false, QString(), QColor(), 0, views, 1, false);
-    assert(!headerEn.isNull());
-    assert(headerEn.width() > 300);
+    QImage header2 = OutlineBadge::renderHudModeHeader(1.5, false, QString(), QColor(), 0, views, 1, false);
+    assert(!header2.isNull());
+    assert(header2.width() > 300);
 
     // 2. Stash Mode Header Banner
-    QImage stashPl = OutlineBadge::renderHudModeHeader(true, 1.0, false, QString(), QColor(), 0, {}, 2, true, QStringLiteral("📁 Backend"));
-    assert(!stashPl.isNull());
-    assert(stashPl.width() > 200);
-    assert(stashPl.height() >= 30);
+    QImage stash1 = OutlineBadge::renderHudModeHeader(1.0, false, QString(), QColor(), 0, {}, 2, true, QStringLiteral("📁 Backend"));
+    assert(!stash1.isNull());
+    assert(stash1.width() > 200);
+    assert(stash1.height() >= 30);
 
-    QImage stashEn = OutlineBadge::renderHudModeHeader(false, 1.25, false, QString(), QColor(), 0, {}, 2, true, QStringLiteral("💻 Standard"));
-    assert(!stashEn.isNull());
-    assert(stashEn.width() > 200);
+    QImage stash2 = OutlineBadge::renderHudModeHeader(1.25, false, QString(), QColor(), 0, {}, 2, true, QStringLiteral("💻 Standard"));
+    assert(!stash2.isNull());
+    assert(stash2.width() > 200);
 
     // 3. Sub-Leap Mode Header Banner
-    QImage subLeapPl = OutlineBadge::renderHudModeHeader(true, 1.0, true, QStringLiteral("Firefox"), QColor(230, 126, 34), 3, {});
-    assert(!subLeapPl.isNull());
-    assert(subLeapPl.width() > 200);
-    assert(subLeapPl.height() >= 30);
+    QImage subLeap1 = OutlineBadge::renderHudModeHeader(1.0, true, QStringLiteral("Firefox"), QColor(230, 126, 34), 3, {});
+    assert(!subLeap1.isNull());
+    assert(subLeap1.width() > 200);
+    assert(subLeap1.height() >= 30);
 
-    QImage subLeapEn = OutlineBadge::renderHudModeHeader(false, 1.25, true, QStringLiteral("Alacritty"), QColor(52, 152, 219), 2, {});
-    assert(!subLeapEn.isNull());
-    assert(subLeapEn.width() > 200);
+    QImage subLeap2 = OutlineBadge::renderHudModeHeader(1.25, true, QStringLiteral("Alacritty"), QColor(52, 152, 219), 2, {});
+    assert(!subLeap2.isNull());
+    assert(subLeap2.width() > 200);
 
     // 4. Super Jump Mode Header Banner
-    QImage superJump = OutlineBadge::renderHudModeHeader(false, 1.0, false, QString(), QColor(), 0, {}, -1, false, QStringLiteral("📁 Dev"), true);
+    QImage superJump = OutlineBadge::renderHudModeHeader(1.0, false, QString(), QColor(), 0, {}, -1, false, QStringLiteral("📁 Dev"), true);
     assert(!superJump.isNull());
     assert(superJump.width() > 200);
     assert(superJump.height() >= 30);

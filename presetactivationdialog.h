@@ -30,13 +30,11 @@ namespace LeapK
 
 struct PresetSettingItem {
     QString key;
-    QString labelPl;
-    QString labelEn;
+    QString label;
 };
 
 struct PresetCategory {
-    QString titlePl;
-    QString titleEn;
+    QString title;
     QString iconTheme;
     QList<PresetSettingItem> items;
 };
@@ -49,268 +47,249 @@ public:
         return QList<PresetCategory>{
             // 1. Geometry & Border
             {
-                QStringLiteral("📐 Geometria i styl ramki"),
                 QStringLiteral("📐 Geometry & Border Style"),
                 QStringLiteral("draw-rectangle"),
                 {
-                    {QStringLiteral("BorderWidth"), QStringLiteral("Szerokość obrysu"), QStringLiteral("Border Width")},
-                    {QStringLiteral("OutlineGap"), QStringLiteral("Odstęp obrysu od okna"), QStringLiteral("Outline Gap")},
-                    {QStringLiteral("BorderRadius"), QStringLiteral("Zaokrąglenie narożników"), QStringLiteral("Corner Radius")},
-                    {QStringLiteral("FadeCorners"), QStringLiteral("Wygładzanie narożników"), QStringLiteral("Fade Corners")},
-                    {QStringLiteral("DrawInside"), QStringLiteral("Rysuj wewnątrz okna"), QStringLiteral("Draw Inside Window")},
-                    {QStringLiteral("SmoothEdges"), QStringLiteral("Wygładzanie krawędzi (AA)"), QStringLiteral("Smooth Edges")},
-                    {QStringLiteral("GlowEnabled"), QStringLiteral("Efekt poświaty (Glow)"), QStringLiteral("Outer Glow")},
-                    {QStringLiteral("GlowRadius"), QStringLiteral("Promień poświaty"), QStringLiteral("Glow Radius")}
+                    {QStringLiteral("BorderWidth"), QStringLiteral("Border Width")},
+                    {QStringLiteral("OutlineGap"), QStringLiteral("Outline Gap")},
+                    {QStringLiteral("BorderRadius"), QStringLiteral("Corner Radius")},
+                    {QStringLiteral("FadeCorners"), QStringLiteral("Fade Corners")},
+                    {QStringLiteral("DrawInside"), QStringLiteral("Draw Inside Window")},
+                    {QStringLiteral("SmoothEdges"), QStringLiteral("Smooth Edges")},
+                    {QStringLiteral("GlowEnabled"), QStringLiteral("Outer Glow")},
+                    {QStringLiteral("GlowRadius"), QStringLiteral("Glow Radius")}
                 }
             },
             // 2. Colors & Opacity
             {
-                QStringLiteral("🎨 Kolorystyka i przezroczystość"),
                 QStringLiteral("🎨 Colors & Opacity"),
                 QStringLiteral("color-management"),
                 {
-                    {QStringLiteral("UseAccentColor"), QStringLiteral("Użyj koloru akcentu KDE"), QStringLiteral("Use KDE Accent Color")},
-                    {QStringLiteral("CustomColor"), QStringLiteral("Własny kolor obrysu"), QStringLiteral("Custom Outline Color")},
-                    {QStringLiteral("AccentOpacity"), QStringLiteral("Przezroczystość ramki"), QStringLiteral("Outline Opacity")},
-                    {QStringLiteral("EnsurePerimeterContrast"), QStringLiteral("Ochrona kontrastu obrysu"), QStringLiteral("Perimeter Contrast Safeguard")}
+                    {QStringLiteral("UseAccentColor"), QStringLiteral("Use KDE Accent Color")},
+                    {QStringLiteral("CustomColor"), QStringLiteral("Custom Outline Color")},
+                    {QStringLiteral("AccentOpacity"), QStringLiteral("Outline Opacity")},
+                    {QStringLiteral("EnsurePerimeterContrast"), QStringLiteral("Perimeter Contrast Safeguard")}
                 }
             },
             // 3. Dynamic Ambilight
             {
-                QStringLiteral("🌈 Dynamiczny Ambilight (Próbkowanie barw)"),
                 QStringLiteral("🌈 Dynamic Ambilight (Color Sampling)"),
                 QStringLiteral("video-display"),
                 {
-                    {QStringLiteral("AmbilightEnabled"), QStringLiteral("Włącz dynamiczny Ambilight"), QStringLiteral("Enable Ambilight")},
-                    {QStringLiteral("AmbilightMode"), QStringLiteral("Tryb próbkowania kolorów"), QStringLiteral("Color Sampling Mode")},
-                    {QStringLiteral("AmbilightOpacity"), QStringLiteral("Przezroczystość Ambilight"), QStringLiteral("Ambilight Opacity")},
-                    {QStringLiteral("AmbilightFrequency"), QStringLiteral("Częstotliwość próbkowania"), QStringLiteral("Sampling Frequency")},
-                    {QStringLiteral("AmbilightDuration"), QStringLiteral("Czas płynnego przejścia"), QStringLiteral("Transition Duration")},
-                    {QStringLiteral("AmbilightSaturationLeveling"), QStringLiteral("Korekta nasycenia barw"), QStringLiteral("Saturation Leveling")},
-                    {QStringLiteral("AmbilightFallbackStrength"), QStringLiteral("Siła koloru zapasowego"), QStringLiteral("Fallback Strength")},
-                    {QStringLiteral("AmbilightMinBrightness"), QStringLiteral("Minimalna jasność"), QStringLiteral("Minimum Brightness")},
-                    {QStringLiteral("AmbilightMaxBrightness"), QStringLiteral("Maksymalna jasność"), QStringLiteral("Maximum Brightness")},
-                    {QStringLiteral("AmbilightEnsureContrast"), QStringLiteral("Ochrona kontrastu Ambilight"), QStringLiteral("Ambilight Contrast Safeguard")}
+                    {QStringLiteral("AmbilightEnabled"), QStringLiteral("Enable Ambilight")},
+                    {QStringLiteral("AmbilightMode"), QStringLiteral("Color Sampling Mode")},
+                    {QStringLiteral("AmbilightOpacity"), QStringLiteral("Ambilight Opacity")},
+                    {QStringLiteral("AmbilightFrequency"), QStringLiteral("Sampling Frequency")},
+                    {QStringLiteral("AmbilightDuration"), QStringLiteral("Transition Duration")},
+                    {QStringLiteral("AmbilightSaturationLeveling"), QStringLiteral("Saturation Leveling")},
+                    {QStringLiteral("AmbilightFallbackStrength"), QStringLiteral("Fallback Strength")},
+                    {QStringLiteral("AmbilightMinBrightness"), QStringLiteral("Minimum Brightness")},
+                    {QStringLiteral("AmbilightMaxBrightness"), QStringLiteral("Maximum Brightness")},
+                    {QStringLiteral("AmbilightEnsureContrast"), QStringLiteral("Ambilight Contrast Safeguard")}
                 }
             },
             // 4. Shader Effects & Animations
             {
-                QStringLiteral("⚡ Efekty shaderowe i animacje"),
                 QStringLiteral("⚡ Shader Effects & Animations"),
                 QStringLiteral("preferences-desktop-effects"),
                 {
-                    {QStringLiteral("BreatheEnabled"), QStringLiteral("Efekt pulsowania / oddychania"), QStringLiteral("Breathing Pulse")},
-                    {QStringLiteral("BreatheSpeed"), QStringLiteral("Szybkość oddychania"), QStringLiteral("Breathing Speed")},
-                    {QStringLiteral("BreatheIntensity"), QStringLiteral("Głębokość oddychania"), QStringLiteral("Breathing Intensity")},
-                    {QStringLiteral("GlitchEnabled"), QStringLiteral("Efekt zakłóceń (Glitch)"), QStringLiteral("Glitch Effect")},
-                    {QStringLiteral("GlitchSpeed"), QStringLiteral("Szybkość glitcha"), QStringLiteral("Glitch Speed")},
-                    {QStringLiteral("GlitchIntensity"), QStringLiteral("Intensywność glitcha"), QStringLiteral("Glitch Intensity")},
-                    {QStringLiteral("GlitchAnomalyEnabled"), QStringLiteral("Anomalia glitcha"), QStringLiteral("Glitch Anomaly")},
-                    {QStringLiteral("GlitchFrequency"), QStringLiteral("Częstotliwość anomalii glitcha"), QStringLiteral("Anomaly Frequency")},
-                    {QStringLiteral("NeonFlickerEnabled"), QStringLiteral("Migotanie neonu (Neon Flicker)"), QStringLiteral("Neon Flicker")},
-                    {QStringLiteral("NeonFlickerInterval"), QStringLiteral("Odstęp migotania neonu"), QStringLiteral("Neon Flicker Interval")},
-                    {QStringLiteral("NeonFlickerDuration"), QStringLiteral("Czas trwania migotania"), QStringLiteral("Neon Flicker Duration")},
-                    {QStringLiteral("NeonFlickerIntensity"), QStringLiteral("Intensywność migotania"), QStringLiteral("Neon Flicker Intensity")},
-                    {QStringLiteral("FlashEnabled"), QStringLiteral("Efekt błysku (Flash)"), QStringLiteral("Flash Pulse Effect")},
-                    {QStringLiteral("FlashInterval"), QStringLiteral("Odstęp błysku"), QStringLiteral("Flash Interval")},
-                    {QStringLiteral("FlashDuration"), QStringLiteral("Czas trwania błysku"), QStringLiteral("Flash Duration")},
-                    {QStringLiteral("ColorCycleEnabled"), QStringLiteral("Pętla sekwencji barw"), QStringLiteral("Color Cycling")},
-                    {QStringLiteral("ColorTransitionDuration"), QStringLiteral("Czas przejścia barw sekwencji"), QStringLiteral("Cycle Duration")},
-                    {QStringLiteral("ColorCycleOrder"), QStringLiteral("Kolejność sekwencji"), QStringLiteral("Cycle Order")},
-                    {QStringLiteral("ColorCycleEasing"), QStringLiteral("Krzywa animacji sekwencji"), QStringLiteral("Cycle Easing")},
-                    {QStringLiteral("ColorList"), QStringLiteral("Paleta kolorów sekwencji"), QStringLiteral("Color Palette")},
-                    {QStringLiteral("CustomShaderEnabled"), QStringLiteral("Niestandardowy efekt shadera GLSL"), QStringLiteral("Custom GLSL Shader")},
-                    {QStringLiteral("ActiveCustomShaderId"), QStringLiteral("Aktywny shader GLSL"), QStringLiteral("Active Shader ID")},
-                    {QStringLiteral("ShaderEffect"), QStringLiteral("Dołączona definicja i parametry shadera"), QStringLiteral("Bundled Shader & Parameters")}
+                    {QStringLiteral("BreatheEnabled"), QStringLiteral("Breathing Pulse")},
+                    {QStringLiteral("BreatheSpeed"), QStringLiteral("Breathing Speed")},
+                    {QStringLiteral("BreatheIntensity"), QStringLiteral("Breathing Intensity")},
+                    {QStringLiteral("GlitchEnabled"), QStringLiteral("Glitch Effect")},
+                    {QStringLiteral("GlitchSpeed"), QStringLiteral("Glitch Speed")},
+                    {QStringLiteral("GlitchIntensity"), QStringLiteral("Glitch Intensity")},
+                    {QStringLiteral("GlitchAnomalyEnabled"), QStringLiteral("Glitch Anomaly")},
+                    {QStringLiteral("GlitchFrequency"), QStringLiteral("Anomaly Frequency")},
+                    {QStringLiteral("NeonFlickerEnabled"), QStringLiteral("Neon Flicker")},
+                    {QStringLiteral("NeonFlickerInterval"), QStringLiteral("Neon Flicker Interval")},
+                    {QStringLiteral("NeonFlickerDuration"), QStringLiteral("Neon Flicker Duration")},
+                    {QStringLiteral("NeonFlickerIntensity"), QStringLiteral("Neon Flicker Intensity")},
+                    {QStringLiteral("FlashEnabled"), QStringLiteral("Flash Pulse Effect")},
+                    {QStringLiteral("FlashInterval"), QStringLiteral("Flash Interval")},
+                    {QStringLiteral("FlashDuration"), QStringLiteral("Flash Duration")},
+                    {QStringLiteral("ColorCycleEnabled"), QStringLiteral("Color Cycling")},
+                    {QStringLiteral("ColorTransitionDuration"), QStringLiteral("Cycle Duration")},
+                    {QStringLiteral("ColorCycleOrder"), QStringLiteral("Cycle Order")},
+                    {QStringLiteral("ColorCycleEasing"), QStringLiteral("Cycle Easing")},
+                    {QStringLiteral("ColorList"), QStringLiteral("Color Palette")},
+                    {QStringLiteral("CustomShaderEnabled"), QStringLiteral("Custom GLSL Shader")},
+                    {QStringLiteral("ActiveCustomShaderId"), QStringLiteral("Active Shader ID")},
+                    {QStringLiteral("ShaderEffect"), QStringLiteral("Bundled Shader & Parameters")}
                 }
             },
             // 5. Leap Mode & Badges
             {
-                QStringLiteral("🚀 Nawigacja Leap i plakietki"),
                 QStringLiteral("🚀 Leap Mode & Badges"),
                 QStringLiteral("input-keyboard"),
                 {
-                    {QStringLiteral("BadgeDisplayMode"), QStringLiteral("Tryb wyświetlania plakietek"), QStringLiteral("Badge Display Mode")},
-                    {QStringLiteral("JumpTargets"), QStringLiteral("Zasięg celów nawigacji Leap"), QStringLiteral("Jump Targets Scope")},
-                    {QStringLiteral("BadgePosition"), QStringLiteral("Pozycja plakietki na oknie"), QStringLiteral("Window Badge Position")},
-                    {QStringLiteral("BadgeHudPosition"), QStringLiteral("Pozycja paska kart HUD"), QStringLiteral("Screen HUD Position")},
-                    {QStringLiteral("BadgeSize"), QStringLiteral("Rozmiar plakietek literowych"), QStringLiteral("Badge Size")},
-                    {QStringLiteral("BadgeMargin"), QStringLiteral("Margines od krawędzi okna"), QStringLiteral("Badge Margin")},
-                    {QStringLiteral("MarkShowLetterBadges"), QStringLiteral("Pokaż plakietki literowe"), QStringLiteral("Show Letter Badges")},
-                    {QStringLiteral("BadgesAlwaysVisible"), QStringLiteral("Plakietki stale widoczne w tle"), QStringLiteral("Badges Always Visible")},
-                    {QStringLiteral("BadgeShowIcon"), QStringLiteral("Ikona aplikacji w plakietce"), QStringLiteral("Application Icon in Badge")},
-                    {QStringLiteral("BadgeShowThumbnail"), QStringLiteral("Miniaturka podglądu okna w plakietce"), QStringLiteral("Window Thumbnail Preview in Badge")},
-                    {QStringLiteral("BadgeJumpSize"), QStringLiteral("Rozmiar plakietek w trybie skoku (Leap)"), QStringLiteral("Jump Mode Badge Size")},
-                    {QStringLiteral("BadgeHudSize"), QStringLiteral("Wysokość kart paska HUD"), QStringLiteral("HUD Cards Height")},
-                    {QStringLiteral("BadgeIconSize"), QStringLiteral("Wielkość ikony aplikacji w plakietce"), QStringLiteral("Badge Icon Size")},
-                    {QStringLiteral("BadgeThumbnailWidth"), QStringLiteral("Szerokość miniatury okna"), QStringLiteral("Thumbnail Width")},
-                    {QStringLiteral("BadgeThumbnailHeight"), QStringLiteral("Wysokość miniatury okna"), QStringLiteral("Thumbnail Height")},
-                    {QStringLiteral("BadgeCornerRadius"), QStringLiteral("Promień zaokrąglenia narożników"), QStringLiteral("Badge Corner Radius")},
-                    {QStringLiteral("BadgeOpacity"), QStringLiteral("Przezroczystość tła plakietki"), QStringLiteral("Badge Opacity")},
-                    {QStringLiteral("BadgeHudMarkColorMode"), QStringLiteral("Kolor kart HUD dla okien oznaczonych"), QStringLiteral("HUD Card Mark Color Mode")},
-                    {QStringLiteral("BadgeDefaultColor"), QStringLiteral("Domyślny kolor tła plakietki"), QStringLiteral("Badge Default Background Color")},
-                    {QStringLiteral("BadgeLetterColorAuto"), QStringLiteral("Automatyczny kontrast litery skoku"), QStringLiteral("Auto Contrast Jump Letter")},
-                    {QStringLiteral("BadgeLetterColor"), QStringLiteral("Kolor litery skoku"), QStringLiteral("Jump Letter Color")},
-                    {QStringLiteral("BadgeLabelColorAuto"), QStringLiteral("Automatyczny kontrast etykiety okna"), QStringLiteral("Auto Contrast Window Label")},
-                    {QStringLiteral("BadgeLabelUnmarkedColor"), QStringLiteral("Kolor etykiety (nieoznaczone)"), QStringLiteral("Custom Label Color (Unmarked)")},
-                    {QStringLiteral("BadgeCaptionColorAuto"), QStringLiteral("Automatyczny kontrast tytułu w HUD"), QStringLiteral("Auto Contrast HUD Window Caption")},
-                    {QStringLiteral("BadgeCaptionColor"), QStringLiteral("Kolor tytułu okna w HUD"), QStringLiteral("HUD Window Caption Color")},
-                    {QStringLiteral("BadgeLocationColorAuto"), QStringLiteral("Automatyczny kontrast lokalizacji w HUD"), QStringLiteral("Auto Contrast HUD Location")},
-                    {QStringLiteral("BadgeLocationColor"), QStringLiteral("Kolor lokalizacji/pulpitu w HUD"), QStringLiteral("HUD Location Color")},
-                    {QStringLiteral("BadgeLetterFont"), QStringLiteral("Krój czcionki litery skoku"), QStringLiteral("Jump Letter Font")},
-                    {QStringLiteral("BadgeLabelFont"), QStringLiteral("Krój czcionki etykiety okna"), QStringLiteral("Window Label Font")},
-                    {QStringLiteral("BadgeCaptionFont"), QStringLiteral("Krój czcionki tytułu w HUD"), QStringLiteral("HUD Caption Font")},
-                    {QStringLiteral("BadgeLocationFont"), QStringLiteral("Krój czcionki lokalizacji w HUD"), QStringLiteral("HUD Location Font")},
-                    {QStringLiteral("BadgeLetterFontSize"), QStringLiteral("Rozmiar czcionki litery skoku"), QStringLiteral("Jump Letter Font Size")},
-                    {QStringLiteral("BadgeLabelFontSize"), QStringLiteral("Rozmiar czcionki etykiety"), QStringLiteral("Window Label Font Size")},
-                    {QStringLiteral("BadgeCaptionFontSize"), QStringLiteral("Rozmiar czcionki tytułu w HUD"), QStringLiteral("HUD Caption Font Size")},
-                    {QStringLiteral("BadgeLocationFontSize"), QStringLiteral("Rozmiar czcionki lokalizacji w HUD"), QStringLiteral("HUD Location Font Size")},
-                    {QStringLiteral("BadgeLivePreviews"), QStringLiteral("Podgląd na żywo w czasie rzeczywistym"), QStringLiteral("Real-Time Live Previews")},
-                    {QStringLiteral("BadgeHudIncludeAll"), QStringLiteral("Wyświetl wszystkie okna w HUD"), QStringLiteral("Include All Windows in HUD")},
-                    {QStringLiteral("BadgeTimeout"), QStringLiteral("Czas wyświetlania plakietek (timeout)"), QStringLiteral("Badges Display Timeout")},
-                    {QStringLiteral("JumpRecentKey"), QStringLiteral("Klawisz powrotu do ostatniego okna"), QStringLiteral("Jump to Recent Window Key")},
-                    {QStringLiteral("BadgeWindowBadgesEnabled"), QStringLiteral("Wyświetlaj plakietki na oknach"), QStringLiteral("Show Badges on Windows")},
-                    {QStringLiteral("BadgeWindowShowIcon"), QStringLiteral("Ikona aplikacji w plakietce okna"), QStringLiteral("Application Icon in Window Badge")},
-                    {QStringLiteral("BadgeWindowShowThumbnail"), QStringLiteral("Miniatura w plakietce okna"), QStringLiteral("Thumbnail in Window Badge")},
-                    {QStringLiteral("BadgeWindowIconSize"), QStringLiteral("Rozmiar ikony w plakietce okna"), QStringLiteral("Window Badge Icon Size")},
-                    {QStringLiteral("BadgeWindowThumbnailWidth"), QStringLiteral("Szerokość miniatury w plakietce okna"), QStringLiteral("Window Thumbnail Width")},
-                    {QStringLiteral("BadgeWindowThumbnailHeight"), QStringLiteral("Wysokość miniatury w plakietce okna"), QStringLiteral("Window Thumbnail Height")},
-                    {QStringLiteral("BadgeWindowThumbnailSize"), QStringLiteral("Rozmiar bazowy miniatury okna"), QStringLiteral("Window Thumbnail Base Size")},
-                    {QStringLiteral("BadgeWindowLetterFontSize"), QStringLiteral("Rozmiar czcionki litery okna"), QStringLiteral("Window Badge Letter Font Size")},
-                    {QStringLiteral("BadgeWindowLabelFontSize"), QStringLiteral("Rozmiar czcionki etykiety okna"), QStringLiteral("Window Badge Label Font Size")},
-                    {QStringLiteral("BadgeHudShowIcon"), QStringLiteral("Ikona aplikacji w karcie HUD"), QStringLiteral("Application Icon in HUD Card")},
-                    {QStringLiteral("BadgeHudShowThumbnail"), QStringLiteral("Miniatura w karcie HUD"), QStringLiteral("Thumbnail in HUD Card")},
-                    {QStringLiteral("BadgeHudIconSize"), QStringLiteral("Rozmiar ikony w karcie HUD"), QStringLiteral("HUD Card Icon Size")},
-                    {QStringLiteral("BadgeHudThumbnailWidth"), QStringLiteral("Szerokość miniatury w karcie HUD"), QStringLiteral("HUD Thumbnail Width")},
-                    {QStringLiteral("BadgeHudThumbnailHeight"), QStringLiteral("Wysokość miniatury w karcie HUD"), QStringLiteral("HUD Thumbnail Height")},
-                    {QStringLiteral("BadgeHudThumbnailSize"), QStringLiteral("Rozmiar bazowy miniatury HUD"), QStringLiteral("HUD Thumbnail Base Size")},
-                    {QStringLiteral("BadgeHudLetterFontSize"), QStringLiteral("Rozmiar czcionki litery HUD"), QStringLiteral("HUD Card Letter Font Size")},
-                    {QStringLiteral("BadgeHudCaptionFontSize"), QStringLiteral("Rozmiar czcionki tytułu HUD"), QStringLiteral("HUD Card Caption Font Size")},
-                    {QStringLiteral("BadgeHudLocationFontSize"), QStringLiteral("Rozmiar czcionki lokalizacji HUD"), QStringLiteral("HUD Card Location Font Size")}
+                    {QStringLiteral("BadgeDisplayMode"), QStringLiteral("Badge Display Mode")},
+                    {QStringLiteral("JumpTargets"), QStringLiteral("Jump Targets Scope")},
+                    {QStringLiteral("BadgePosition"), QStringLiteral("Window Badge Position")},
+                    {QStringLiteral("BadgeHudPosition"), QStringLiteral("Screen HUD Position")},
+                    {QStringLiteral("BadgeSize"), QStringLiteral("Badge Size")},
+                    {QStringLiteral("BadgeMargin"), QStringLiteral("Badge Margin")},
+                    {QStringLiteral("MarkShowLetterBadges"), QStringLiteral("Show Letter Badges")},
+                    {QStringLiteral("BadgesAlwaysVisible"), QStringLiteral("Badges Always Visible")},
+                    {QStringLiteral("BadgeShowIcon"), QStringLiteral("Application Icon in Badge")},
+                    {QStringLiteral("BadgeShowThumbnail"), QStringLiteral("Window Thumbnail Preview in Badge")},
+                    {QStringLiteral("BadgeJumpSize"), QStringLiteral("Jump Mode Badge Size")},
+                    {QStringLiteral("BadgeHudSize"), QStringLiteral("HUD Cards Height")},
+                    {QStringLiteral("BadgeIconSize"), QStringLiteral("Badge Icon Size")},
+                    {QStringLiteral("BadgeThumbnailWidth"), QStringLiteral("Thumbnail Width")},
+                    {QStringLiteral("BadgeThumbnailHeight"), QStringLiteral("Thumbnail Height")},
+                    {QStringLiteral("BadgeCornerRadius"), QStringLiteral("Badge Corner Radius")},
+                    {QStringLiteral("BadgeOpacity"), QStringLiteral("Badge Opacity")},
+                    {QStringLiteral("BadgeHudMarkColorMode"), QStringLiteral("HUD Card Mark Color Mode")},
+                    {QStringLiteral("BadgeDefaultColor"), QStringLiteral("Badge Default Background Color")},
+                    {QStringLiteral("BadgeLetterColorAuto"), QStringLiteral("Auto Contrast Jump Letter")},
+                    {QStringLiteral("BadgeLetterColor"), QStringLiteral("Jump Letter Color")},
+                    {QStringLiteral("BadgeLabelColorAuto"), QStringLiteral("Auto Contrast Window Label")},
+                    {QStringLiteral("BadgeLabelUnmarkedColor"), QStringLiteral("Custom Label Color (Unmarked)")},
+                    {QStringLiteral("BadgeCaptionColorAuto"), QStringLiteral("Auto Contrast HUD Window Caption")},
+                    {QStringLiteral("BadgeCaptionColor"), QStringLiteral("HUD Window Caption Color")},
+                    {QStringLiteral("BadgeLocationColorAuto"), QStringLiteral("Auto Contrast HUD Location")},
+                    {QStringLiteral("BadgeLocationColor"), QStringLiteral("HUD Location Color")},
+                    {QStringLiteral("BadgeLetterFont"), QStringLiteral("Jump Letter Font")},
+                    {QStringLiteral("BadgeLabelFont"), QStringLiteral("Window Label Font")},
+                    {QStringLiteral("BadgeCaptionFont"), QStringLiteral("HUD Caption Font")},
+                    {QStringLiteral("BadgeLocationFont"), QStringLiteral("HUD Location Font")},
+                    {QStringLiteral("BadgeLetterFontSize"), QStringLiteral("Jump Letter Font Size")},
+                    {QStringLiteral("BadgeLabelFontSize"), QStringLiteral("Window Label Font Size")},
+                    {QStringLiteral("BadgeCaptionFontSize"), QStringLiteral("HUD Caption Font Size")},
+                    {QStringLiteral("BadgeLocationFontSize"), QStringLiteral("HUD Location Font Size")},
+                    {QStringLiteral("BadgeLivePreviews"), QStringLiteral("Real-Time Live Previews")},
+                    {QStringLiteral("BadgeHudIncludeAll"), QStringLiteral("Include All Windows in HUD")},
+                    {QStringLiteral("BadgeTimeout"), QStringLiteral("Badges Display Timeout")},
+                    {QStringLiteral("JumpRecentKey"), QStringLiteral("Jump to Recent Window Key")},
+                    {QStringLiteral("BadgeWindowBadgesEnabled"), QStringLiteral("Show Badges on Windows")},
+                    {QStringLiteral("BadgeWindowShowIcon"), QStringLiteral("Application Icon in Window Badge")},
+                    {QStringLiteral("BadgeWindowShowThumbnail"), QStringLiteral("Thumbnail in Window Badge")},
+                    {QStringLiteral("BadgeWindowIconSize"), QStringLiteral("Window Badge Icon Size")},
+                    {QStringLiteral("BadgeWindowThumbnailWidth"), QStringLiteral("Window Thumbnail Width")},
+                    {QStringLiteral("BadgeWindowThumbnailHeight"), QStringLiteral("Window Thumbnail Height")},
+                    {QStringLiteral("BadgeWindowThumbnailSize"), QStringLiteral("Window Thumbnail Base Size")},
+                    {QStringLiteral("BadgeWindowLetterFontSize"), QStringLiteral("Window Badge Letter Font Size")},
+                    {QStringLiteral("BadgeWindowLabelFontSize"), QStringLiteral("Window Badge Label Font Size")},
+                    {QStringLiteral("BadgeHudShowIcon"), QStringLiteral("Application Icon in HUD Card")},
+                    {QStringLiteral("BadgeHudShowThumbnail"), QStringLiteral("Thumbnail in HUD Card")},
+                    {QStringLiteral("BadgeHudIconSize"), QStringLiteral("HUD Card Icon Size")},
+                    {QStringLiteral("BadgeHudThumbnailWidth"), QStringLiteral("HUD Thumbnail Width")},
+                    {QStringLiteral("BadgeHudThumbnailHeight"), QStringLiteral("HUD Thumbnail Height")},
+                    {QStringLiteral("BadgeHudThumbnailSize"), QStringLiteral("HUD Thumbnail Base Size")},
+                    {QStringLiteral("BadgeHudLetterFontSize"), QStringLiteral("HUD Card Letter Font Size")},
+                    {QStringLiteral("BadgeHudCaptionFontSize"), QStringLiteral("HUD Card Caption Font Size")},
+                    {QStringLiteral("BadgeHudLocationFontSize"), QStringLiteral("HUD Card Location Font Size")}
                 }
             },
             // 6. Window Marks
             {
-                QStringLiteral("🏷️ Oznaczanie okien (Marks)"),
                 QStringLiteral("🏷️ Window Marks"),
                 QStringLiteral("bookmark-new"),
                 {
-                    {QStringLiteral("MarkDefaultColor"), QStringLiteral("Domyślny kolor oznaczenia"), QStringLiteral("Default Mark Color")},
-                    {QStringLiteral("MarkSmartAdaptive"), QStringLiteral("Inteligentna barwa adaptacyjna"), QStringLiteral("Smart Adaptive Color")},
-                    {QStringLiteral("MarkRandomColor"), QStringLiteral("Losowy kolor oznaczenia"), QStringLiteral("Random Mark Color")},
-                    {QStringLiteral("StylePrecedence"), QStringLiteral("Kolejność priorytetów stylów"), QStringLiteral("Style Precedence Order")},
-                    {QStringLiteral("MarkInactiveWidthReduction"), QStringLiteral("Zwężenie ramki nieaktywnych"), QStringLiteral("Inactive Width Reduction")},
-                    {QStringLiteral("MarkInactiveDashed"), QStringLiteral("Przerywana linia nieaktywnych"), QStringLiteral("Dashed Inactive Outline")},
-                    {QStringLiteral("MarkInactiveDashGap"), QStringLiteral("Odstęp myślników nieaktywnych"), QStringLiteral("Inactive Dash Gap")},
-                    {QStringLiteral("MarkInactiveDashSmooth"), QStringLiteral("Wygładzone myślniki nieaktywnych"), QStringLiteral("Smooth Inactive Dashes")}
+                    {QStringLiteral("MarkDefaultColor"), QStringLiteral("Default Mark Color")},
+                    {QStringLiteral("MarkSmartAdaptive"), QStringLiteral("Smart Adaptive Color")},
+                    {QStringLiteral("MarkRandomColor"), QStringLiteral("Random Mark Color")},
+                    {QStringLiteral("StylePrecedence"), QStringLiteral("Style Precedence Order")},
+                    {QStringLiteral("MarkInactiveWidthReduction"), QStringLiteral("Inactive Width Reduction")},
+                    {QStringLiteral("MarkInactiveDashed"), QStringLiteral("Dashed Inactive Outline")},
+                    {QStringLiteral("MarkInactiveDashGap"), QStringLiteral("Inactive Dash Gap")},
+                    {QStringLiteral("MarkInactiveDashSmooth"), QStringLiteral("Smooth Inactive Dashes")}
                 }
             },
             // 7. Focus History & Behavior
             {
-                QStringLiteral("🕒 Historia fokusu i zachowanie"),
                 QStringLiteral("🕒 Focus History & Behavior"),
                 QStringLiteral("preferences-system-windows"),
                 {
-                    {QStringLiteral("HighlightRecentWindow"), QStringLiteral("Podświetlanie poprzednich okien"), QStringLiteral("Highlight Recent Windows")},
-                    {QStringLiteral("RecentWindowsCount"), QStringLiteral("Liczba śledzonych okien"), QStringLiteral("Recent Windows Count")},
-                    {QStringLiteral("RecentWindowColorMode"), QStringLiteral("Tryb koloru historii"), QStringLiteral("Recent Windows Color Mode")},
-                    {QStringLiteral("RecentWindowCustomColor"), QStringLiteral("Własny kolor historii"), QStringLiteral("Custom Recent Color")},
-                    {QStringLiteral("RecentWindowOpacity"), QStringLiteral("Krycie obrysu historii"), QStringLiteral("Recent Window Opacity")},
-                    {QStringLiteral("RecentWindowHueShift"), QStringLiteral("Przesunięcie barwy w historii"), QStringLiteral("Recent Hue Shift")},
-                    {QStringLiteral("RecentWindowSaturation"), QStringLiteral("Nasycenie barwy w historii"), QStringLiteral("Recent Saturation")},
-                    {QStringLiteral("RecentWindowWidthReduction"), QStringLiteral("Zwężenie ramki w historii"), QStringLiteral("Recent Width Reduction")},
-                    {QStringLiteral("RecentWindowDashed"), QStringLiteral("Przerywana ramka w historii"), QStringLiteral("Dashed Recent Outline")},
-                    {QStringLiteral("RecentWindowGapGrowth"), QStringLiteral("Wzrost odstępu w historii"), QStringLiteral("Recent Gap Growth")},
-                    {QStringLiteral("RecentWindowDashSmooth"), QStringLiteral("Wygładzone myślniki w historii"), QStringLiteral("Smooth Recent Dashes")},
-                    {QStringLiteral("FadeDuration"), QStringLiteral("Czas zanikania obrysu"), QStringLiteral("Outline Fade Duration")},
-                    {QStringLiteral("MenuHideDelay"), QStringLiteral("Opóźnienie ukrywania menu"), QStringLiteral("Menu Hide Delay")},
-                    {QStringLiteral("MenuShowDelay"), QStringLiteral("Opóźnienie pokazywania menu"), QStringLiteral("Menu Show Delay")},
-                    {QStringLiteral("WindowHideDelay"), QStringLiteral("Opóźnienie ukrywania okna"), QStringLiteral("Window Hide Delay")},
-                    {QStringLiteral("WindowShowDelay"), QStringLiteral("Opóźnienie pokazywania okna"), QStringLiteral("Window Show Delay")},
-                    {QStringLiteral("HideOnFullScreen"), QStringLiteral("Ukryj na pełnym ekranie"), QStringLiteral("Hide Outline on Full Screen")},
-                    {QStringLiteral("TrayIconEnabled"), QStringLiteral("Ikona w zasobniku systemowym"), QStringLiteral("System Tray Icon")}
+                    {QStringLiteral("HighlightRecentWindow"), QStringLiteral("Highlight Recent Windows")},
+                    {QStringLiteral("RecentWindowsCount"), QStringLiteral("Recent Windows Count")},
+                    {QStringLiteral("RecentWindowColorMode"), QStringLiteral("Recent Windows Color Mode")},
+                    {QStringLiteral("RecentWindowCustomColor"), QStringLiteral("Custom Recent Color")},
+                    {QStringLiteral("RecentWindowOpacity"), QStringLiteral("Recent Window Opacity")},
+                    {QStringLiteral("RecentWindowHueShift"), QStringLiteral("Recent Hue Shift")},
+                    {QStringLiteral("RecentWindowSaturation"), QStringLiteral("Recent Saturation")},
+                    {QStringLiteral("RecentWindowWidthReduction"), QStringLiteral("Recent Width Reduction")},
+                    {QStringLiteral("RecentWindowDashed"), QStringLiteral("Dashed Recent Outline")},
+                    {QStringLiteral("RecentWindowGapGrowth"), QStringLiteral("Recent Gap Growth")},
+                    {QStringLiteral("RecentWindowDashSmooth"), QStringLiteral("Smooth Recent Dashes")},
+                    {QStringLiteral("FadeDuration"), QStringLiteral("Outline Fade Duration")},
+                    {QStringLiteral("MenuHideDelay"), QStringLiteral("Menu Hide Delay")},
+                    {QStringLiteral("MenuShowDelay"), QStringLiteral("Menu Show Delay")},
+                    {QStringLiteral("WindowHideDelay"), QStringLiteral("Window Hide Delay")},
+                    {QStringLiteral("WindowShowDelay"), QStringLiteral("Window Show Delay")},
+                    {QStringLiteral("HideOnFullScreen"), QStringLiteral("Hide Outline on Full Screen")},
+                    {QStringLiteral("TrayIconEnabled"), QStringLiteral("System Tray Icon")}
                 }
             }
         };
     }
 
-    static QString formatValue(const QString &key, const QJsonValue &val, bool isPolish)
+    static QString formatValue(const QString &key, const QJsonValue &val)
     {
         if (val.isBool()) {
-            return val.toBool()
-                ? (isPolish ? QStringLiteral("Włączone") : QStringLiteral("Enabled"))
-                : (isPolish ? QStringLiteral("Wyłączone") : QStringLiteral("Disabled"));
+            return val.toBool() ? QStringLiteral("Enabled") : QStringLiteral("Disabled");
         }
         if (key == QStringLiteral("BadgeDisplayMode")) {
             const int m = val.toInt();
-            if (m == 0) return isPolish ? QStringLiteral("Tylko w trybie skoku (Meta+Space)") : QStringLiteral("Only in Jump Mode");
-            if (m == 1) return isPolish ? QStringLiteral("Zawsze widoczne w tle") : QStringLiteral("Always visible on background");
-            return isPolish ? QStringLiteral("Wyłączone") : QStringLiteral("Disabled");
+            if (m == 0) return QStringLiteral("Only in Jump Mode");
+            if (m == 1) return QStringLiteral("Always visible on background");
+            return QStringLiteral("Disabled");
         }
         if (key == QStringLiteral("JumpTargets")) {
             const int t = val.toInt();
-            if (t == 0) return isPolish ? QStringLiteral("Bieżący pulpit (widoczne) + oznaczone") : QStringLiteral("Current desktop (visible) + marked");
-            if (t == 1) return isPolish ? QStringLiteral("Bieżący pulpit (widoczne i zmin.) + oznaczone") : QStringLiteral("Current desktop (visible & min) + marked");
-            if (t == 2) return isPolish ? QStringLiteral("Wszystkie pulpity (widoczne i zmin.)") : QStringLiteral("All desktops (visible & min)");
-            return isPolish ? QStringLiteral("Tylko oznaczone okna") : QStringLiteral("Marked windows only");
+            if (t == 0) return QStringLiteral("Current desktop (visible) + marked");
+            if (t == 1) return QStringLiteral("Current desktop (visible & min) + marked");
+            if (t == 2) return QStringLiteral("All desktops (visible & min)");
+            return QStringLiteral("Marked windows only");
         }
         if (key == QStringLiteral("BadgeHudPosition")) {
             const int p = val.toInt();
-            if (p == 0) return isPolish ? QStringLiteral("Dół ekranu (Bottom)") : QStringLiteral("Bottom");
-            if (p == 1) return isPolish ? QStringLiteral("Góra ekranu (Top)") : QStringLiteral("Top");
-            if (p == 2) return isPolish ? QStringLiteral("Lewa krawędź (Left)") : QStringLiteral("Left");
-            return isPolish ? QStringLiteral("Prawa krawędź (Right)") : QStringLiteral("Right");
+            if (p == 0) return QStringLiteral("Bottom");
+            if (p == 1) return QStringLiteral("Top");
+            if (p == 2) return QStringLiteral("Left");
+            return QStringLiteral("Right");
         }
         if (key == QStringLiteral("BadgeHudMarkColorMode")) {
             const int mode = val.toInt();
-            if (isPolish) {
-                switch (mode) {
-                case 0: return QStringLiteral("Ciemna karta z ramką i literą znaku");
-                case 1: return QStringLiteral("Pełny kolor znaku");
-                case 2: return QStringLiteral("Zabarwienie kolorem znaku");
-                default: return QString::number(mode);
-                }
-            } else {
-                switch (mode) {
-                case 0: return QStringLiteral("Dark card with mark border & badge");
-                case 1: return QStringLiteral("Full mark color");
-                case 2: return QStringLiteral("Tinted mark color");
-                default: return QString::number(mode);
-                }
+            switch (mode) {
+            case 0: return QStringLiteral("Dark card with mark border & badge");
+            case 1: return QStringLiteral("Full mark color");
+            case 2: return QStringLiteral("Tinted mark color");
+            default: return QString::number(mode);
             }
         }
         if (key == QStringLiteral("BadgeTimeout")) {
             const int t = val.toInt();
-            if (t == 0) return isPolish ? QStringLiteral("Brak limitu (0 s)") : QStringLiteral("Unlimited (0 s)");
+            if (t == 0) return QStringLiteral("Unlimited (0 s)");
             return QStringLiteral("%1 s").arg(t);
         }
         if (key == QStringLiteral("BadgePosition")) {
             const int p = val.toInt();
-            const char *posPl[] = {"Góra-lewo", "Góra", "Góra-prawo", "Lewo", "Środek", "Prawo", "Dół-lewo", "Dół", "Dół-prawo"};
             const char *posEn[] = {"Top-Left", "Top", "Top-Right", "Left", "Center", "Right", "Bottom-Left", "Bottom", "Bottom-Right"};
             if (p >= 0 && p < 9) {
-                return isPolish ? QString::fromUtf8(posPl[p]) : QString::fromUtf8(posEn[p]);
+                return QString::fromUtf8(posEn[p]);
             }
         }
         if (key == QStringLiteral("RecentWindowColorMode")) {
             const int m = val.toInt();
-            if (m == 0) return isPolish ? QStringLiteral("Przyciemniony kolor aktywny") : QStringLiteral("Dimmed active color");
-            if (m == 1) return isPolish ? QStringLiteral("Własny kolor") : QStringLiteral("Custom color");
-            return isPolish ? QStringLiteral("Skala szarości") : QStringLiteral("Grayscale");
+            if (m == 0) return QStringLiteral("Dimmed active color");
+            if (m == 1) return QStringLiteral("Custom color");
+            return QStringLiteral("Grayscale");
         }
         if (key == QStringLiteral("AmbilightMode")) {
             const int m = val.toInt();
-            if (m == 0) return isPolish ? QStringLiteral("Średni kolor (Dominant)") : QStringLiteral("Dominant average");
-            return isPolish ? QStringLiteral("Częściowy obwód (Perimeter)") : QStringLiteral("Perimeter segments");
+            if (m == 0) return QStringLiteral("Dominant average");
+            return QStringLiteral("Perimeter segments");
         }
         if (key.endsWith(QStringLiteral("FontSize"))) {
             const int sz = val.toInt();
-            if (sz == 0) return isPolish ? QStringLiteral("Domyślny (auto)") : QStringLiteral("Default (auto)");
+            if (sz == 0) return QStringLiteral("Default (auto)");
             return QStringLiteral("%1 px").arg(sz);
         }
         if (key.endsWith(QStringLiteral("Font"))) {
             const QString f = val.toString().trimmed();
-            if (f.isEmpty()) return isPolish ? QStringLiteral("Systemowa (domyślna)") : QStringLiteral("System default");
+            if (f.isEmpty()) return QStringLiteral("System default");
             return f;
         }
         if (key.endsWith(QStringLiteral("Width")) || key.endsWith(QStringLiteral("Height")) ||
@@ -352,9 +331,9 @@ public:
                     name = o.value(QStringLiteral("name")).toString();
                 }
                 if (name.isEmpty()) name = o.value(QStringLiteral("id")).toString();
-                return isPolish ? QStringLiteral("Zestaw: %1").arg(name) : QStringLiteral("Bundle: %1").arg(name);
+                return QStringLiteral("Bundle: %1").arg(name);
             }
-            return isPolish ? QStringLiteral("Brak") : QStringLiteral("None");
+            return QStringLiteral("None");
         }
         if (val.isString()) {
             const QString s = val.toString();
@@ -386,13 +365,10 @@ public:
     static bool selectSettings(QWidget *parent,
                                const OutlinePreset::PresetInfo &preset,
                                const QJsonObject &currentSettings,
-                               QJsonObject &outSettingsToApply,
-                               bool isPolish)
+                               QJsonObject &outSettingsToApply)
     {
         QDialog dlg(parent);
-        dlg.setWindowTitle(isPolish
-            ? QStringLiteral("Wybierz elementy do aktywacji z presetu: %1").arg(preset.name)
-            : QStringLiteral("Select Elements to Apply from Preset: %1").arg(preset.name));
+        dlg.setWindowTitle(QStringLiteral("Select Elements to Apply from Preset: %1").arg(preset.name));
         dlg.setWindowIcon(QIcon::fromTheme(QStringLiteral("leapk"), QIcon(QStringLiteral(":/icons/leapk.svg"))));
         dlg.resize(760, 600);
 
@@ -405,25 +381,19 @@ public:
         headerLabel->setTextFormat(Qt::RichText);
         headerLabel->setWordWrap(true);
         const QString desc = preset.description.isEmpty()
-            ? (isPolish ? QStringLiteral("Brak opisu.") : QStringLiteral("No description."))
+            ? QStringLiteral("No description.")
             : preset.description;
-        headerLabel->setText(isPolish
-            ? QStringLiteral("<h3>Preset: <b>%1</b></h3>"
-                             "<p style='color: #888;'>%2</p>"
-                             "<p>Wybierz sekcje lub pojedyncze opcje, które chcesz zastosować. "
-                             "Odznaczone pozycje zachowają Twoje bieżące wartości.</p>")
-                .arg(preset.name, desc)
-            : QStringLiteral("<h3>Preset: <b>%1</b></h3>"
-                             "<p style='color: #888;'>%2</p>"
-                             "<p>Select the categories or individual settings to apply. "
-                             "Unchecked options will keep your current configuration intact.</p>")
-                .arg(preset.name, desc));
+        headerLabel->setText(QStringLiteral("<h3>Preset: <b>%1</b></h3>"
+                                            "<p style='color: #888;'>%2</p>"
+                                            "<p>Select the categories or individual settings to apply. "
+                                            "Unchecked options will keep your current configuration intact.</p>")
+                                .arg(preset.name, desc));
         mainLayout->addWidget(headerLabel);
 
         // Quick toolbar & search filter
         auto *toolsLayout = new QHBoxLayout();
-        auto *btnSelectAll = new QPushButton(isPolish ? QStringLiteral("☑ Zaznacz wszystko") : QStringLiteral("☑ Select All"), &dlg);
-        auto *btnDeselectAll = new QPushButton(isPolish ? QStringLiteral("☐ Odznacz wszystko") : QStringLiteral("☐ Deselect All"), &dlg);
+        auto *btnSelectAll = new QPushButton(QStringLiteral("☑ Select All"), &dlg);
+        auto *btnDeselectAll = new QPushButton(QStringLiteral("☐ Deselect All"), &dlg);
         auto *btnOnlyDiff = new QPushButton(&dlg);
 
         toolsLayout->addWidget(btnSelectAll);
@@ -432,7 +402,7 @@ public:
         toolsLayout->addSpacing(16);
 
         auto *searchBox = new QLineEdit(&dlg);
-        searchBox->setPlaceholderText(isPolish ? QStringLiteral("🔍 Filtruj opcje…") : QStringLiteral("🔍 Filter options…"));
+        searchBox->setPlaceholderText(QStringLiteral("🔍 Filter options…"));
         searchBox->setClearButtonEnabled(true);
         toolsLayout->addWidget(searchBox);
 
@@ -440,9 +410,7 @@ public:
 
         // Options Tree
         auto *tree = new QTreeWidget(&dlg);
-        tree->setHeaderLabels(isPolish
-            ? QStringList{QStringLiteral("Opcja / Kategoria"), QStringLiteral("Wartość w presecie"), QStringLiteral("Obecna wartość")}
-            : QStringList{QStringLiteral("Setting / Category"), QStringLiteral("Preset Value"), QStringLiteral("Current Value")});
+        tree->setHeaderLabels(QStringList{QStringLiteral("Setting / Category"), QStringLiteral("Preset Value"), QStringLiteral("Current Value")});
         tree->setAlternatingRowColors(true);
         tree->header()->setSectionResizeMode(0, QHeaderView::Stretch);
         tree->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
@@ -454,7 +422,7 @@ public:
 
         for (const auto &cat : categories) {
             auto *catItem = new QTreeWidgetItem(tree);
-            catItem->setText(0, isPolish ? cat.titlePl : cat.titleEn);
+            catItem->setText(0, cat.title);
             catItem->setIcon(0, QIcon::fromTheme(cat.iconTheme));
             catItem->setFlags(catItem->flags() | Qt::ItemIsUserCheckable | Qt::ItemIsAutoTristate);
             catItem->setCheckState(0, Qt::Checked);
@@ -465,7 +433,7 @@ public:
 
             for (const auto &it : cat.items) {
                 auto *child = new QTreeWidgetItem(catItem);
-                child->setText(0, isPolish ? it.labelPl : it.labelEn);
+                child->setText(0, it.label);
                 child->setData(0, Qt::UserRole, it.key);
                 child->setFlags(child->flags() | Qt::ItemIsUserCheckable);
                 child->setCheckState(0, Qt::Checked);
@@ -479,16 +447,15 @@ public:
                 }
                 child->setData(0, Qt::UserRole + 1, differs);
 
-                const QString presetStr = formatValue(it.key, presetVal, isPolish);
-                const QString currentStr = formatValue(it.key, currentVal, isPolish);
+                const QString presetStr = formatValue(it.key, presetVal);
+                const QString currentStr = formatValue(it.key, currentVal);
 
                 child->setText(1, presetStr);
                 child->setText(2, currentStr);
 
                 if (differs) {
                     child->setForeground(1, QBrush(QColor(QStringLiteral("#2ecc71"))));
-                    child->setToolTip(1, isPolish ? QStringLiteral("Wartość różni się od Twojej obecnej konfiguracji")
-                                                  : QStringLiteral("Value differs from your current configuration"));
+                    child->setToolTip(1, QStringLiteral("Value differs from your current configuration"));
                 } else {
                     child->setForeground(1, QBrush(QColor(QStringLiteral("#888888"))));
                 }
@@ -496,9 +463,7 @@ public:
             catItem->setExpanded(true);
         }
 
-        btnOnlyDiff->setText(isPolish
-            ? QStringLiteral("⚡ Tylko różnice (%1)").arg(totalDiffCount)
-            : QStringLiteral("⚡ Differences Only (%1)").arg(totalDiffCount));
+        btnOnlyDiff->setText(QStringLiteral("⚡ Differences Only (%1)").arg(totalDiffCount));
 
         // Bottom action layout
         auto *bottomLayout = new QHBoxLayout();
@@ -506,13 +471,13 @@ public:
         bottomLayout->addWidget(lblCount);
         bottomLayout->addStretch();
 
-        auto *btnApplySelected = new QPushButton(isPolish ? QStringLiteral("✓ Zastosuj zaznaczone") : QStringLiteral("✓ Apply Selected"), &dlg);
+        auto *btnApplySelected = new QPushButton(QStringLiteral("✓ Apply Selected"), &dlg);
         btnApplySelected->setIcon(QIcon::fromTheme(QStringLiteral("dialog-ok-apply")));
 
-        auto *btnApplyAll = new QPushButton(isPolish ? QStringLiteral("⚡ Zastosuj całość") : QStringLiteral("⚡ Apply All"), &dlg);
+        auto *btnApplyAll = new QPushButton(QStringLiteral("⚡ Apply All"), &dlg);
         btnApplyAll->setIcon(QIcon::fromTheme(QStringLiteral("dialog-ok")));
 
-        auto *btnCancel = new QPushButton(isPolish ? QStringLiteral("Anuluj") : QStringLiteral("Cancel"), &dlg);
+        auto *btnCancel = new QPushButton(QStringLiteral("Cancel"), &dlg);
         btnCancel->setIcon(QIcon::fromTheme(QStringLiteral("dialog-cancel")));
 
         bottomLayout->addWidget(btnApplySelected);
@@ -534,13 +499,9 @@ public:
                     }
                 }
             }
-            lblCount->setText(isPolish
-                ? QStringLiteral("Wybrano: <b>%1</b> z %2 opcji").arg(checked).arg(total)
-                : QStringLiteral("Selected: <b>%1</b> of %2 options").arg(checked).arg(total));
+            lblCount->setText(QStringLiteral("Selected: <b>%1</b> of %2 options").arg(checked).arg(total));
             btnApplySelected->setEnabled(checked > 0);
-            btnApplySelected->setText(isPolish
-                ? QStringLiteral("✓ Zastosuj zaznaczone (%1)").arg(checked)
-                : QStringLiteral("✓ Apply Selected (%1)").arg(checked));
+            btnApplySelected->setText(QStringLiteral("✓ Apply Selected (%1)").arg(checked));
         };
         updateCountLabel();
 

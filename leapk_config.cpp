@@ -662,49 +662,6 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_ui->label_jumpTargets->setToolTip(tr("Scope of windows included when pressing the Jump to Window shortcut (%1).").arg(shortcutStr));
     m_ui->kcfg_JumpTargets->setToolTip(tr("Scope of windows included when pressing the Jump to Window shortcut (%1).").arg(shortcutStr));
 
-    const bool isPolish = (QLocale().language() == QLocale::Polish);
-    if (isPolish) {
-        m_ui->label_jumpTargets->setText(QStringLiteral("Cele skoku (%1):").arg(shortcutStr));
-        m_ui->label_jumpTargets->setToolTip(QStringLiteral("Zakres okien uwzględnianych po wciśnięciu skrótu Skok do okna (%1).").arg(shortcutStr));
-        m_ui->kcfg_JumpTargets->setToolTip(QStringLiteral("Zakres okien uwzględnianych po wciśnięciu skrótu Skok do okna (%1).").arg(shortcutStr));
-        if (m_ui->kcfg_JumpTargets->count() >= 4) {
-            m_ui->kcfg_JumpTargets->setItemText(0, QStringLiteral("Bieżący pulpit: widoczne okna + oznaczone okna ze wszystkich pulpitów"));
-            m_ui->kcfg_JumpTargets->setItemText(1, QStringLiteral("Bieżący pulpit: wszystkie okna (widoczne i zminimalizowane) + oznaczone"));
-            m_ui->kcfg_JumpTargets->setItemText(2, QStringLiteral("Wszystkie okna na wszystkich pulpitach wirtualnych (widoczne i zminimalizowane)"));
-            m_ui->kcfg_JumpTargets->setItemText(3, QStringLiteral("Tylko oznaczone okna (wszystkie pulpity)"));
-        }
-        m_ui->check_previewWindowBadges->setText(QStringLiteral("Podgląd badges okien na ekranie"));
-        m_ui->check_previewWindowBadges->setToolTip(QStringLiteral("Tymczasowo wyświetla przykładowe badges na wszystkich widocznych oknach, aby podejrzeć zmiany na żywo."));
-        m_ui->kcfg_BadgeWindowBadgesEnabled->setText(QStringLiteral("Wyświetlaj plakietki na oknach"));
-        m_ui->kcfg_BadgeWindowBadgesEnabled->setToolTip(QStringLiteral("Rysuje plakietki z literami skoku bezpośrednio na widocznych oknach. Gdy odznaczone, okna pozostają czyste, a nawigacja odbywa się wyłącznie przez dok HUD."));
-        m_ui->kcfg_BadgeWindowShowIcon->setText(QStringLiteral("Wyświetlaj ikonę aplikacji na plakietce okna"));
-        m_ui->kcfg_BadgeWindowShowIcon->setToolTip(QStringLiteral("Wyświetla ikonę aplikacji obok litery skoku na plakietkach umieszczonych bezpośrednio na oknach."));
-        m_ui->kcfg_BadgeWindowShowThumbnail->setText(QStringLiteral("Wyświetlaj podgląd na żywo na plakietce okna"));
-        m_ui->kcfg_BadgeWindowShowThumbnail->setToolTip(QStringLiteral("Wyświetla miniaturowy podgląd na żywo zawartości okna na plakietce skoku."));
-        m_ui->check_previewHudBadges->setText(QStringLiteral("Podgląd kart HUD na ekranie"));
-        m_ui->check_previewHudBadges->setToolTip(QStringLiteral("Tymczasowo wyświetla wszystkie otwarte okna w HUD na krawędzi ekranu, aby podejrzeć zmiany na żywo."));
-        m_ui->label_badgeTimeout->setText(QStringLiteral("Czas wyświetlania badges:"));
-        m_ui->label_badgeTimeout->setToolTip(QStringLiteral("Czas w sekundach, po którym badges znikają w trybie skoku (0 = bez limitu / stale widoczne, domyślnie: 5 s)."));
-        m_ui->kcfg_BadgeTimeout->setToolTip(QStringLiteral("Czas w sekundach, po którym badges znikają w trybie skoku (0 = bez limitu / stale widoczne, domyślnie: 5 s)."));
-        m_ui->label_jumpRecentKey->setText(QStringLiteral("Klawisz skoku do ostatniego okna (Leap):"));
-        m_ui->label_jumpRecentKey->setToolTip(QStringLiteral("Skrót klawiszowy drugiego poziomu w trybie skoku do natychmiastowego przejścia do ostatnio aktywnego okna (domyślnie: Space)."));
-        m_ui->kcfg_JumpRecentKey->setToolTip(QStringLiteral("Skrót klawiszowy drugiego poziomu w trybie skoku do natychmiastowego przejścia do ostatnio aktywnego okna (domyślnie: Space)."));
-        m_ui->kcfg_BadgeHudIncludeAll->setText(QStringLiteral("Wyświetlaj wszystkie okna w HUD (widoczne, zakryte i na innych pulpitach)"));
-        m_ui->kcfg_BadgeHudIncludeAll->setToolTip(QStringLiteral("Zawsze wyświetla karty w HUD dla wszystkich otwartych okien, niezależnie czy są widoczne na bieżącym ekranie, czy zakryte."));
-        m_ui->kcfg_BadgeHudGroupWindows->setText(QStringLiteral("Grupuj okna tej samej aplikacji w jedną kartę z licznikiem"));
-        m_ui->kcfg_BadgeHudGroupWindows->setToolTip(QStringLiteral("Gdy zaznaczone, wiele okien tej samej aplikacji jest zwijanych w jedną kartę HUD z licznikiem (wciśnięcie litery rozwija je w podpoziomie Sub-Leap). Gdy odznaczone, wszystkie okna wyświetlają się od razu z osobnymi literami i wspólną ramką grupy."));
-        m_ui->label_badgeHudGroupBorderWidth->setText(QStringLiteral("Grubość ramki grupy:"));
-        m_ui->kcfg_BadgeHudGroupBorderWidth->setToolTip(QStringLiteral("Grubość linii obramowania otaczającego grupę okien w HUD (domyślnie: 2.0 px)."));
-        m_ui->label_badgeHudGroupFontSize->setText(QStringLiteral("Rozmiar czcionki etykiety grupy:"));
-        m_ui->kcfg_BadgeHudGroupFontSize->setToolTip(QStringLiteral("Rozmiar czcionki dla etykiety grupy i litery skrótu (0 = Auto)."));
-        m_ui->label_badgeHudGroupCornerRadius->setText(QStringLiteral("Zaokrąglenie rogów ramki grupy:"));
-        m_ui->kcfg_BadgeHudGroupCornerRadius->setToolTip(QStringLiteral("Promień zaokrąglenia rogów ramki kontenera grupy w HUD (domyślnie: 8 px)."));
-        m_ui->kcfg_BadgeHudGroupShaderEnabled->setText(QStringLiteral("Zezwalaj na animacje i shadery na ramce grupy okien"));
-        m_ui->kcfg_BadgeHudGroupShaderEnabled->setToolTip(QStringLiteral("Włącza efekty oddychania (breathe), migotania (flicker) i shadery na kontenerze grupy podczas skoku."));
-        m_ui->kcfg_BadgeLivePreviews->setText(QStringLiteral("Podgląd okien na żywo (płynne odświeżanie miniatur w czasie rzeczywistym)"));
-        m_ui->kcfg_BadgeLivePreviews->setToolTip(QStringLiteral("Płynnie odświeża miniatury okien w czasie rzeczywistym (np. wideo, animacje), gdy widoczne są karty okien lub HUD."));
-    }
-
     connect(m_ui->btnPrecedenceUp, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::movePrecedenceUp);
     connect(m_ui->btnPrecedenceDown, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::movePrecedenceDown);
     connect(m_ui->btnPrecedenceReset, &QPushButton::clicked, this, [this] {
@@ -1063,66 +1020,9 @@ void ActiveWindowOutlineConfig::updatePresetSelector()
 
 void ActiveWindowOutlineConfig::showAmbilightHelpDialog()
 {
-    const bool isPolish = (QLocale().language() == QLocale::Polish);
+    const QString title = QStringLiteral("Ambilight Parameters & Presets Guide");
 
-    const QString title = isPolish
-        ? QStringLiteral("Przewodnik po parametrach i profilach Ambilight")
-        : QStringLiteral("Ambilight Parameters & Presets Guide");
-
-    const QString html = isPolish ? QStringLiteral(R"raw(
-<!DOCTYPE html>
-<html>
-<head>
-<style>
-  body { font-size: 10pt; line-height: 1.45; }
-  h3 { margin-top: 0px; margin-bottom: 8px; color: palette(highlight); }
-  h4 { margin-top: 14px; margin-bottom: 6px; }
-  p { margin: 6px 0; }
-  ul { margin-top: 4px; margin-bottom: 8px; padding-left: 22px; }
-  li { margin-bottom: 6px; }
-  hr { border: 0; height: 1px; background: rgba(128, 128, 128, 0.35); margin: 12px 0; }
-  b { font-weight: bold; }
-  i { font-style: italic; }
-</style>
-</head>
-<body>
-<h3>Ambilight &ndash; Adaptacyjny kolor ramki okna</h3>
-<p>Funkcja <b>Ambilight</b> w czasie rzeczywistym analizuje kolorystykę zawartości aktywnego okna i płynnie animuje barwę ramki, dopasowując ją do aktualnie wyświetlanej treści.</p>
-
-<hr>
-<h4>Gotowe profile (Presety)</h4>
-<ul>
-  <li><b>Zrównoważony / Domyślny (Balanced):</b> Rekomendowany do codziennego użytku na pulpicie. Używa inteligentnego trybu <i>Smart Adaptive</i> z częstotliwością 1.5&nbsp;Hz, płynnym przejściem 0.5&nbsp;s i natychmiastową reakcją.</li>
-  <li><b>Jaskrawy i dynamiczny (Vivid &amp; Dynamic):</b> Zwiększona częstotliwość 3.0&nbsp;Hz, agresywne śledzenie akcentów w oknie, szybkie przejście 0.25&nbsp;s i mocniejsze nasycenie barw. Idealny do gier, dynamicznych stron i teledysków.</li>
-  <li><b>Subtelny i stonowany (Subtle &amp; Calm):</b> Uśrednione barwy całego okna, stonowane nasycenie, obniżona przezroczystość (75%), spokojna częstotliwość (1.0&nbsp;Hz) i bardzo długie, łagodne przenikanie barw (1.0&nbsp;s).</li>
-  <li><b>Oszczędzanie baterii (Eco):</b> Zoptymalizowany pod kątem pracy na baterii w laptopach. Próbkowanie raz na 2 sekundy (0.5&nbsp;Hz) z płynnym przejściem 1.0&nbsp;s. Zmiana kart i stron WWW wyzwala natychmiastowe odświeżenie barwy bez czekania.</li>
-  <li><b>Wysoki kontrast (High Contrast):</b> Maksymalna czytelność i odcięcie obrysu. Częstotliwość 2.0&nbsp;Hz, przejście 0.4&nbsp;s, silne odróżnienie fallbacku (90%) i wysoka saturacja gwarantują, że ramka zawsze wyraźnie odetnie się od tła okna.</li>
-  <li><b>True Ambilight (Film / Wideo):</b> Stworzony specjalnie do oglądania filmów, wideo i streamów w oknie. Błyskawiczne próbkowanie 6.0&nbsp;Hz (co 166&nbsp;ms) z płynnym, szybkim przejściem 0.15&nbsp;s natychmiast dopasowuje barwę ramki do zmian ujęć w wideo bez zauważalnego opóźnienia i bez męczącego stroboskopu. Wykorzystuje addytywne uśrednianie barw (<i>Balanced average</i>), ignorując czarne pasy kinowe i odzwierciedlając ogólne światło sceny, z poszerzoną dynamiką jasności (15&ndash;90%).</li>
-  <li><b>Własny (Custom):</b> Wybiera się automatycznie, gdy ręcznie zmodyfikujesz którykolwiek z suwaków.</li>
-</ul>
-
-<hr>
-<h4>Szczegółowe wyjaśnienie parametrów</h4>
-<ul>
-  <li><b>Tryb wykrywania (Detection mode):</b>
-    <ul>
-      <li><i>Smart Adaptive (Hybrydowy):</i> Domyślny i najbardziej zaawansowany tryb. Analizuje jednocześnie kolor dominujący oraz średnią całego okna. Jeśli kolor dominujący zlewa się z tłem okna (np. jednolicie ciemne lub jasne okno programu), ramka automatycznie podbija kontrast i nasycenie, aby pozostać czytelna.</li>
-      <li><i>Dominant accent:</i> Agresywnie blokuje się na najbardziej nasyconym, żywym kolorze w oknie (np. czerwony pasek YouTube, logo programu, miniaturka), stosując 15% histerezę chroniącą przed drganiem barw.</li>
-      <li><i>Balanced average:</i> Miesza addytywnie barwy wszystkich elementów okna w jeden spokojny, spójny odcień kompozytowy.</li>
-    </ul>
-  </li>
-  <li><b>Przezroczystość (Opacity):</b> Poziom krycia ramki Ambilight (0% to całkowita niewidoczność, 100% to pełne, jednolite krycie).</li>
-  <li><b>Częstotliwość próbkowania (Sampling frequency):</b> Jak często (w hercach, czyli ile razy na sekundę) analizowane są barwy okna. Wartość 1.5&nbsp;Hz jest optymalna do pracy na pulpicie i stron WWW, a wyższe wartości (np. 3.0&ndash;6.0&nbsp;Hz) zapewniają błyskawiczną reakcję na filmy i dynamiczne wideo bez zauważalnego opóźnienia. Nawigacja po stronach WWW i przełączanie zakładek wyzwalają odświeżenie natychmiast.</li>
-  <li><b>Czas przejścia (Transition duration):</b> Czas trwania animacji (w sekundach) przy płynnym przenikaniu starego koloru ramki w nowo wykryty kolor.</li>
-  <li><b>Wygładzenie saturacji (Saturation leveling):</b> Inteligentna normalizacja nasycenia barwy. Łagodnie desaturuje/uspokaja zbyt krzykliwe neony, a blade i pastelowe kolory podciąga w stronę wybranego poziomu docelowego. Czyste szarości i czerń pozostają neutralne.</li>
-  <li><b>Odróżnienie fallbacku (Fallback distinction):</b> <i>(Dostępne tylko w trybie Smart Adaptive)</i> Decyduje, jak mocno ramka ma zmodyfikować swój kolor i odskoczyć od tła okna, gdy dominujący kolor zlewa się ze średnią okna (0% = subtelnie/brak zmiany, 100% = mocny kontrast i wyskok barwy).</li>
-  <li><b>Minimalna jasność (Minimum brightness):</b> Zabezpieczenie przed zbyt ciemną ramką na czarnych oknach i ciemnych motywach (nie pozwala jasności ramki spaść poniżej tego progu).</li>
-  <li><b>Maksymalna jasność (Maximum brightness):</b> Zabezpieczenie przed oślepiającą bielą ramki na bardzo jasnych stronach internetowych i dokumentach (nie pozwala jasności ramki przekroczyć tego progu).</li>
-  <li><b>Zapewnij kontrast krawędzi (Ensure perimeter contrast):</b> Analizuje obwód i krawędzie okna (m.in. pasek tytułowy/karty i obramowanie) w miejscu, gdzie faktycznie rysowany jest obrys. Jeśli tło pod ramką jest ciemne lub okno ma jednolity kolor (np. zielone okno przy zielonej ramce), algorytm dynamicznie koryguje jasność i saturację ramki, gwarantując jej stałą widoczność i odcięcie od krawędzi okna.</li>
-</ul>
-</body>
-</html>
-)raw") : QStringLiteral(R"raw(
+    const QString html = QStringLiteral(R"raw(
 <!DOCTYPE html>
 <html>
 <head>
@@ -1392,37 +1292,31 @@ void ActiveWindowOutlineConfig::checkForUpdates()
 
         const bool isDev = currentVer.isNull();
         const bool hasUpdate = isDev || (remoteVer > currentVer);
-        const bool isPolish = QLocale().language() == QLocale::Polish;
 
         if (!hasUpdate) {
-            m_ui->label_updateStatus->setText(isPolish
-                ? QStringLiteral("✓ Wtyczka jest aktualna (v%1)").arg(currentVerStr)
-                : QStringLiteral("✓ Up to date (v%1)").arg(currentVerStr));
+            m_ui->label_updateStatus->setText(QStringLiteral("✓ Up to date (v%1)").arg(currentVerStr));
             m_ui->label_updateStatus->setStyleSheet(QStringLiteral("color: #2ecc71; font-weight: bold;"));
 
-            LeapK::showUpToDateDialog(widget(), currentVerStr, htmlUrl, isPolish);
+            LeapK::showUpToDateDialog(widget(), currentVerStr, htmlUrl);
             return;
         }
 
         // New version available!
-        m_ui->label_updateStatus->setText(isPolish
-            ? QStringLiteral("⬆ Dostępna nowa wersja: %1!").arg(tagName)
-            : QStringLiteral("⬆ New version: %1!").arg(tagName));
+        m_ui->label_updateStatus->setText(QStringLiteral("⬆ New version: %1!").arg(tagName));
         m_ui->label_updateStatus->setStyleSheet(QStringLiteral("color: #3daee9; font-weight: bold;"));
 
-        LeapK::showNewVersionDialog(widget(), tagName, currentVerStr, isPrerelease, htmlUrl, body, isPolish);
+        LeapK::showNewVersionDialog(widget(), tagName, currentVerStr, isPrerelease, htmlUrl, body);
     });
 }
 
 void ActiveWindowOutlineConfig::initPresetsTab()
 {
     m_ui->tablePresets->setColumnCount(4);
-    const bool isPolish = (QLocale().language() == QLocale::Polish);
     m_ui->tablePresets->setHorizontalHeaderLabels({
-        isPolish ? QStringLiteral("Nazwa presetu") : QStringLiteral("Preset Name"),
-        isPolish ? QStringLiteral("Opis") : QStringLiteral("Description"),
-        isPolish ? QStringLiteral("Typ") : QStringLiteral("Type"),
-        isPolish ? QStringLiteral("Eksport") : QStringLiteral("Export")
+        QStringLiteral("Preset Name"),
+        QStringLiteral("Description"),
+        QStringLiteral("Type"),
+        QStringLiteral("Export")
     });
     m_ui->tablePresets->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     m_ui->tablePresets->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
@@ -1433,32 +1327,20 @@ void ActiveWindowOutlineConfig::initPresetsTab()
     m_ui->tablePresets->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_ui->tablePresets->verticalHeader()->setVisible(false);
 
-    if (isPolish) {
-        m_ui->btnActivatePreset->setText(QStringLiteral("Aktywuj preset…"));
-        m_ui->btnNewPreset->setText(QStringLiteral("Zapisz obecne jako preset…"));
-        m_ui->btnNewPreset->setToolTip(QStringLiteral("Zapisz bieżące ustawienia kompozytora jako nowy preset"));
-        m_ui->btnEditPreset->setText(QStringLiteral("Edytuj…"));
-        m_ui->btnEditPreset->setToolTip(QStringLiteral("Edytuj nazwę i opis wybranego presetu"));
-        m_ui->btnDuplicatePreset->setText(QStringLiteral("Duplikuj…"));
-        m_ui->btnDeletePreset->setText(QStringLiteral("Usuń"));
-        m_ui->btnImportPreset->setText(QStringLiteral("Importuj preset…"));
-        m_ui->btnExportPreset->setText(QStringLiteral("Eksportuj preset…"));
-    }
-
     m_ui->tablePresets->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(m_ui->tablePresets, &QTableWidget::customContextMenuRequested, this, [this, isPolish](const QPoint &pos) {
+    connect(m_ui->tablePresets, &QTableWidget::customContextMenuRequested, this, [this](const QPoint &pos) {
         const int row = m_ui->tablePresets->rowAt(pos.y());
         if (row < 0) return;
         m_ui->tablePresets->selectRow(row);
 
         QMenu menu(widget());
-        QAction *actActivate = menu.addAction(QIcon::fromTheme(QStringLiteral("dialog-ok")), isPolish ? QStringLiteral("Aktywuj preset…") : QStringLiteral("Activate Preset…"));
+        QAction *actActivate = menu.addAction(QIcon::fromTheme(QStringLiteral("dialog-ok")), QStringLiteral("Activate Preset…"));
         menu.addSeparator();
-        QAction *actEdit = menu.addAction(QIcon::fromTheme(QStringLiteral("document-edit")), isPolish ? QStringLiteral("Edytuj nazwę i opis…") : QStringLiteral("Edit Name & Description…"));
-        QAction *actDuplicate = menu.addAction(QIcon::fromTheme(QStringLiteral("edit-copy")), isPolish ? QStringLiteral("Duplikuj…") : QStringLiteral("Duplicate…"));
-        QAction *actDelete = menu.addAction(QIcon::fromTheme(QStringLiteral("edit-delete")), isPolish ? QStringLiteral("Usuń") : QStringLiteral("Delete"));
+        QAction *actEdit = menu.addAction(QIcon::fromTheme(QStringLiteral("document-edit")), QStringLiteral("Edit Name & Description…"));
+        QAction *actDuplicate = menu.addAction(QIcon::fromTheme(QStringLiteral("edit-copy")), QStringLiteral("Duplicate…"));
+        QAction *actDelete = menu.addAction(QIcon::fromTheme(QStringLiteral("edit-delete")), QStringLiteral("Delete"));
         menu.addSeparator();
-        QAction *actExport = menu.addAction(QIcon::fromTheme(QStringLiteral("document-export")), isPolish ? QStringLiteral("Eksportuj…") : QStringLiteral("Export…"));
+        QAction *actExport = menu.addAction(QIcon::fromTheme(QStringLiteral("document-export")), QStringLiteral("Export…"));
 
         connect(actActivate, &QAction::triggered, this, &ActiveWindowOutlineConfig::activateSelectedPreset);
         connect(actEdit, &QAction::triggered, this, &ActiveWindowOutlineConfig::editSelectedPreset);
@@ -1478,7 +1360,6 @@ void ActiveWindowOutlineConfig::refreshPresetsTable()
     const QList<OutlinePreset::PresetInfo> presets = OutlinePreset::loadPresets(presetsDir);
 
     m_ui->tablePresets->setRowCount(0);
-    const bool isPolish = (QLocale().language() == QLocale::Polish);
 
     for (int row = 0; row < presets.size(); ++row) {
         const auto &p = presets[row];
@@ -1499,18 +1380,13 @@ void ActiveWindowOutlineConfig::refreshPresetsTable()
         item1->setToolTip(p.description);
         m_ui->tablePresets->setItem(row, 1, item1);
 
-        QString typeStr;
-        if (p.isBuiltIn) {
-            typeStr = isPolish ? QStringLiteral("Wbudowany") : QStringLiteral("Built-in");
-        } else {
-            typeStr = isPolish ? QStringLiteral("Własny") : QStringLiteral("User");
-        }
+        QString typeStr = p.isBuiltIn ? QStringLiteral("Built-in") : QStringLiteral("User");
         auto *item2 = new QTableWidgetItem(typeStr);
         item2->setTextAlignment(Qt::AlignCenter);
         m_ui->tablePresets->setItem(row, 2, item2);
 
-        QPushButton *btnExport = new QPushButton(QIcon::fromTheme(QStringLiteral("document-export")), isPolish ? QStringLiteral("Eksportuj") : QStringLiteral("Export"));
-        btnExport->setToolTip(isPolish ? QStringLiteral("Eksportuj preset do pliku JSON") : QStringLiteral("Export preset to JSON file"));
+        QPushButton *btnExport = new QPushButton(QIcon::fromTheme(QStringLiteral("document-export")), QStringLiteral("Export"));
+        btnExport->setToolTip(QStringLiteral("Export preset to JSON file"));
         connect(btnExport, &QPushButton::clicked, this, [this, name = p.name]() {
             exportPresetByName(name);
         });
@@ -1982,21 +1858,16 @@ void ActiveWindowOutlineConfig::activateSelectedPreset()
 
     OutlinePreset::PresetInfo p;
     if (OutlinePreset::parsePresetJson(f.readAll(), p)) {
-        const bool isPolish = (QLocale().language() == QLocale::Polish);
         const QJsonObject currentSettings = collectCurrentSettings();
         QJsonObject settingsToApply;
 
-        if (LeapK::PresetActivationDialog::selectSettings(widget(), p, currentSettings, settingsToApply, isPolish)) {
+        if (LeapK::PresetActivationDialog::selectSettings(widget(), p, currentSettings, settingsToApply)) {
             applySettings(settingsToApply);
             const int count = settingsToApply.size();
             if (count == p.settings.size()) {
-                m_ui->labelPresetStatus->setText(isPolish
-                    ? QStringLiteral("✅ Aktywowano cały preset: %1").arg(presetName)
-                    : QStringLiteral("✅ Activated full preset: %1").arg(presetName));
+                m_ui->labelPresetStatus->setText(QStringLiteral("✅ Activated full preset: %1").arg(presetName));
             } else {
-                m_ui->labelPresetStatus->setText(isPolish
-                    ? QStringLiteral("✅ Zastosowano %1 wybranych opcji z presetu: %2").arg(count).arg(presetName)
-                    : QStringLiteral("✅ Applied %1 selected settings from preset: %2").arg(count).arg(presetName));
+                m_ui->labelPresetStatus->setText(QStringLiteral("✅ Applied %1 selected settings from preset: %2").arg(count).arg(presetName));
             }
             m_ui->labelPresetStatus->setStyleSheet(QStringLiteral("color: #2ecc71; font-weight: bold;"));
             markAsChanged();
@@ -2006,8 +1877,7 @@ void ActiveWindowOutlineConfig::activateSelectedPreset()
 
 void ActiveWindowOutlineConfig::createNewPreset()
 {
-    const bool isPolish = (QLocale().language() == QLocale::Polish);
-    const QString title = isPolish ? QStringLiteral("Zapisz obecne jako preset") : QStringLiteral("Save Current as Preset");
+    const QString title = QStringLiteral("Save Current as Preset");
 
     QDialog dlg(widget());
     dlg.setWindowTitle(title);
@@ -2021,18 +1891,14 @@ void ActiveWindowOutlineConfig::createNewPreset()
     auto *nameEdit = new QLineEdit(QStringLiteral("My Preset"), &dlg);
     nameEdit->selectAll();
     auto *descEdit = new QTextEdit(&dlg);
-    descEdit->setPlaceholderText(isPolish ? QStringLiteral("Opcjonalny opis presetu…") : QStringLiteral("Optional preset description…"));
+    descEdit->setPlaceholderText(QStringLiteral("Optional preset description…"));
     descEdit->setMaximumHeight(80);
 
-    formLayout->addRow(isPolish ? QStringLiteral("Nazwa presetu:") : QStringLiteral("Preset Name:"), nameEdit);
-    formLayout->addRow(isPolish ? QStringLiteral("Opis:") : QStringLiteral("Description:"), descEdit);
+    formLayout->addRow(QStringLiteral("Preset Name:"), nameEdit);
+    formLayout->addRow(QStringLiteral("Description:"), descEdit);
     vbox->addLayout(formLayout);
 
     auto *btnBox = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, &dlg);
-    if (isPolish) {
-        btnBox->button(QDialogButtonBox::Save)->setText(QStringLiteral("Zapisz"));
-        btnBox->button(QDialogButtonBox::Cancel)->setText(QStringLiteral("Anuluj"));
-    }
     QObject::connect(btnBox, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
     QObject::connect(btnBox, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
     vbox->addWidget(btnBox);
@@ -2052,7 +1918,7 @@ void ActiveWindowOutlineConfig::createNewPreset()
     OutlinePreset::PresetInfo p;
     p.name = trimmedName;
     p.description = trimmedDesc.isEmpty()
-        ? (isPolish ? QStringLiteral("Własny preset użytkownika") : QStringLiteral("User custom preset"))
+        ? QStringLiteral("User custom preset")
         : trimmedDesc;
     p.isBuiltIn = false;
     p.settings = collectCurrentSettings();
@@ -2076,9 +1942,7 @@ void ActiveWindowOutlineConfig::createNewPreset()
         }
     }
 
-    m_ui->labelPresetStatus->setText(isPolish
-        ? QStringLiteral("✅ Pomyślnie zapisano preset: %1").arg(trimmedName)
-        : QStringLiteral("✅ Preset successfully saved: %1").arg(trimmedName));
+    m_ui->labelPresetStatus->setText(QStringLiteral("✅ Preset successfully saved: %1").arg(trimmedName));
     m_ui->labelPresetStatus->setStyleSheet(QStringLiteral("color: #2ecc71; font-weight: bold;"));
 }
 
@@ -2102,8 +1966,7 @@ void ActiveWindowOutlineConfig::editSelectedPreset()
     }
     f.close();
 
-    const bool isPolish = (QLocale().language() == QLocale::Polish);
-    const QString title = isPolish ? QStringLiteral("Edytuj preset") : QStringLiteral("Edit Preset");
+    const QString title = QStringLiteral("Edit Preset");
 
     QDialog dlg(widget());
     dlg.setWindowTitle(title);
@@ -2119,24 +1982,18 @@ void ActiveWindowOutlineConfig::editSelectedPreset()
     descEdit->setPlainText(p.description);
     descEdit->setMaximumHeight(80);
 
-    formLayout->addRow(isPolish ? QStringLiteral("Nazwa presetu:") : QStringLiteral("Preset Name:"), nameEdit);
-    formLayout->addRow(isPolish ? QStringLiteral("Opis:") : QStringLiteral("Description:"), descEdit);
+    formLayout->addRow(QStringLiteral("Preset Name:"), nameEdit);
+    formLayout->addRow(QStringLiteral("Description:"), descEdit);
     vbox->addLayout(formLayout);
 
     if (isBuiltIn) {
-        auto *noteLabel = new QLabel(isPolish
-            ? QStringLiteral("<i>ℹ️ Ten preset jest wbudowany. Zapisanie zmian utworzy Twój własny preset.</i>")
-            : QStringLiteral("<i>ℹ️ This is a built-in preset. Saving changes will create a custom user preset.</i>"), &dlg);
+        auto *noteLabel = new QLabel(QStringLiteral("<i>ℹ️ This is a built-in preset. Saving changes will create a custom user preset.</i>"), &dlg);
         noteLabel->setWordWrap(true);
         noteLabel->setStyleSheet(QStringLiteral("color: #3daee9;"));
         vbox->addWidget(noteLabel);
     }
 
     auto *btnBox = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, &dlg);
-    if (isPolish) {
-        btnBox->button(QDialogButtonBox::Save)->setText(QStringLiteral("Zapisz zmiany"));
-        btnBox->button(QDialogButtonBox::Cancel)->setText(QStringLiteral("Anuluj"));
-    }
     QObject::connect(btnBox, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
     QObject::connect(btnBox, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
     vbox->addWidget(btnBox);
@@ -2147,9 +2004,7 @@ void ActiveWindowOutlineConfig::editSelectedPreset()
 
     const QString newName = nameEdit->text().trimmed();
     if (newName.isEmpty()) {
-        QMessageBox::warning(widget(), title,
-            isPolish ? QStringLiteral("Nazwa presetu nie może być pusta.")
-                     : QStringLiteral("Preset name cannot be empty."));
+        QMessageBox::warning(widget(), title, QStringLiteral("Preset name cannot be empty."));
         return;
     }
 
@@ -2181,9 +2036,7 @@ void ActiveWindowOutlineConfig::editSelectedPreset()
         }
     }
 
-    m_ui->labelPresetStatus->setText(isPolish
-        ? QStringLiteral("✅ Zaktualizowano preset: %1").arg(newName)
-        : QStringLiteral("✅ Updated preset: %1").arg(newName));
+    m_ui->labelPresetStatus->setText(QStringLiteral("✅ Updated preset: %1").arg(newName));
     m_ui->labelPresetStatus->setStyleSheet(QStringLiteral("color: #2ecc71; font-weight: bold;"));
 }
 
@@ -2195,9 +2048,8 @@ void ActiveWindowOutlineConfig::duplicateSelectedPreset()
     const QString originalName = m_ui->tablePresets->item(row, 0)->data(Qt::UserRole).toString();
     const QString filePath = m_ui->tablePresets->item(row, 0)->data(Qt::UserRole + 1).toString();
 
-    const bool isPolish = (QLocale().language() == QLocale::Polish);
-    const QString title = isPolish ? QStringLiteral("Duplikuj preset") : QStringLiteral("Duplicate Preset");
-    const QString label = isPolish ? QStringLiteral("Podaj nazwę dla duplikatu:") : QStringLiteral("Enter name for duplicate:");
+    const QString title = QStringLiteral("Duplicate Preset");
+    const QString label = QStringLiteral("Enter name for duplicate:");
 
     bool ok = false;
     const QString newName = QInputDialog::getText(widget(), title, label, QLineEdit::Normal, originalName + QStringLiteral(" Copy"), &ok);
@@ -2235,21 +2087,18 @@ void ActiveWindowOutlineConfig::deleteSelectedPreset()
     const QString filePath = m_ui->tablePresets->item(row, 0)->data(Qt::UserRole + 1).toString();
     const bool isBuiltIn = m_ui->tablePresets->item(row, 0)->data(Qt::UserRole + 2).toBool();
 
-    const bool isPolish = (QLocale().language() == QLocale::Polish);
-    const QString title = isPolish ? QStringLiteral("Usuń preset") : QStringLiteral("Delete Preset");
+    const QString title = QStringLiteral("Delete Preset");
 
     if (isBuiltIn) {
         const auto reply = QMessageBox::question(widget(), title,
-            isPolish ? QStringLiteral("Preset '%1' jest presetem wbudowanym. Usunięcie go spowoduje przywrócenie wartości domyślnych przy kolejnym uruchomieniu. Czy na pewno chcesz go usunąć?").arg(name)
-                     : QStringLiteral("Preset '%1' is a built-in preset. Deleting it will restore its defaults on restart. Are you sure?").arg(name),
+            QStringLiteral("Preset '%1' is a built-in preset. Deleting it will restore its defaults on restart. Are you sure?").arg(name),
             QMessageBox::Yes | QMessageBox::No);
         if (reply != QMessageBox::Yes) {
             return;
         }
     } else {
         const auto reply = QMessageBox::question(widget(), title,
-            isPolish ? QStringLiteral("Czy na pewno chcesz usunąć preset '%1'?").arg(name)
-                     : QStringLiteral("Are you sure you want to delete preset '%1'?").arg(name),
+            QStringLiteral("Are you sure you want to delete preset '%1'?").arg(name),
             QMessageBox::Yes | QMessageBox::No);
         if (reply != QMessageBox::Yes) {
             return;
@@ -2273,10 +2122,9 @@ void ActiveWindowOutlineConfig::exportPresetByName(const QString &presetName)
     }
 
     const QByteArray data = f.readAll();
-    const bool isPolish = (QLocale().language() == QLocale::Polish);
-    const QString title = isPolish ? QStringLiteral("Eksportuj preset") : QStringLiteral("Export Preset");
+    const QString title = QStringLiteral("Export Preset");
     const QString defaultPath = QDir::homePath() + QStringLiteral("/") + safeName + QStringLiteral(".json");
-    const QString filter = isPolish ? QStringLiteral("Pliki presetów JSON (*.json);;Wszystkie pliki (*)") : QStringLiteral("JSON Preset Files (*.json);;All Files (*)");
+    const QString filter = QStringLiteral("JSON Preset Files (*.json);;All Files (*)");
 
     const QString targetPath = QFileDialog::getSaveFileName(widget(), title, defaultPath, filter);
     if (targetPath.isEmpty()) {
@@ -2288,8 +2136,7 @@ void ActiveWindowOutlineConfig::exportPresetByName(const QString &presetName)
         out.write(data);
         out.close();
         QMessageBox::information(widget(), title,
-            isPolish ? QStringLiteral("Preset '%1' został pomyślnie wyeksportowany do:\n%2").arg(presetName, targetPath)
-                     : QStringLiteral("Preset '%1' successfully exported to:\n%2").arg(presetName, targetPath));
+            QStringLiteral("Preset '%1' successfully exported to:\n%2").arg(presetName, targetPath));
     }
 }
 
@@ -2303,9 +2150,8 @@ void ActiveWindowOutlineConfig::exportSelectedPreset()
 
 void ActiveWindowOutlineConfig::importPreset()
 {
-    const bool isPolish = (QLocale().language() == QLocale::Polish);
-    const QString title = isPolish ? QStringLiteral("Importuj preset") : QStringLiteral("Import Preset");
-    const QString filter = isPolish ? QStringLiteral("Pliki presetów JSON (*.json);;Wszystkie pliki (*)") : QStringLiteral("JSON Preset Files (*.json);;All Files (*)");
+    const QString title = QStringLiteral("Import Preset");
+    const QString filter = QStringLiteral("JSON Preset Files (*.json);;All Files (*)");
 
     const QString filePath = QFileDialog::getOpenFileName(widget(), title, QDir::homePath(), filter);
     if (filePath.isEmpty()) {
@@ -2315,8 +2161,7 @@ void ActiveWindowOutlineConfig::importPreset()
     QFile f(filePath);
     if (!f.open(QIODevice::ReadOnly)) {
         QMessageBox::warning(widget(), title,
-            isPolish ? QStringLiteral("Nie udało się otworzyć pliku: %1").arg(f.errorString())
-                     : QStringLiteral("Could not open file: %1").arg(f.errorString()));
+            QStringLiteral("Could not open file: %1").arg(f.errorString()));
         return;
     }
 
@@ -2324,8 +2169,7 @@ void ActiveWindowOutlineConfig::importPreset()
     QString err;
     if (!OutlinePreset::parsePresetJson(f.readAll(), p, &err)) {
         QMessageBox::warning(widget(), title,
-            isPolish ? QStringLiteral("Nieprawidłowy plik presetu:\n%1").arg(err)
-                     : QStringLiteral("Invalid preset file:\n%1").arg(err));
+            QStringLiteral("Invalid preset file:\n%1").arg(err));
         return;
     }
 
@@ -2347,8 +2191,7 @@ void ActiveWindowOutlineConfig::importPreset()
     }
 
     QMessageBox::information(widget(), title,
-        isPolish ? QStringLiteral("Preset '%1' został zaimportowany i dodany do listy presetów.").arg(p.name)
-                 : QStringLiteral("Preset '%1' was successfully imported and added to the preset list.").arg(p.name));
+        QStringLiteral("Preset '%1' was successfully imported and added to the preset list.").arg(p.name));
 }
 
 void ActiveWindowOutlineConfig::save()
@@ -2489,13 +2332,13 @@ void ActiveWindowOutlineConfig::initShadersSection()
 
         QMenu menu(widget());
         menu.addAction(isActive ? QIcon::fromTheme(QStringLiteral("dialog-cancel")) : QIcon::fromTheme(QStringLiteral("dialog-ok")),
-                       isActive ? QStringLiteral("Wyłącz ten efekt") : QStringLiteral("Ustaw jako aktywny"),
+                       isActive ? QStringLiteral("Disable this effect") : QStringLiteral("Set as active"),
                        this, &ActiveWindowOutlineConfig::toggleSelectedShader);
         menu.addSeparator();
-        menu.addAction(QIcon::fromTheme(QStringLiteral("document-edit")), QStringLiteral("Edytuj efekt…"), this, &ActiveWindowOutlineConfig::editSelectedShader);
-        menu.addAction(QIcon::fromTheme(QStringLiteral("document-export")), QStringLiteral("Eksportuj efekt…"), this, &ActiveWindowOutlineConfig::exportSelectedShader);
+        menu.addAction(QIcon::fromTheme(QStringLiteral("document-edit")), QStringLiteral("Edit Effect…"), this, &ActiveWindowOutlineConfig::editSelectedShader);
+        menu.addAction(QIcon::fromTheme(QStringLiteral("document-export")), QStringLiteral("Export Effect…"), this, &ActiveWindowOutlineConfig::exportSelectedShader);
         menu.addSeparator();
-        menu.addAction(QIcon::fromTheme(QStringLiteral("edit-delete")), QStringLiteral("Usuń efekt"), this, &ActiveWindowOutlineConfig::deleteSelectedShader);
+        menu.addAction(QIcon::fromTheme(QStringLiteral("edit-delete")), QStringLiteral("Delete Effect"), this, &ActiveWindowOutlineConfig::deleteSelectedShader);
         menu.exec(m_ui->tableShaders->viewport()->mapToGlobal(pos));
     });
 
@@ -2508,7 +2351,7 @@ void ActiveWindowOutlineConfig::initShadersSection()
             const QString id = m_shaders[row].id;
             const bool globalEnabled = m_ui->kcfg_CustomShaderEnabled->isChecked();
             const bool isCurActive = globalEnabled && (id == m_activeShaderId);
-            m_ui->btnToggleShader->setText(isCurActive ? QStringLiteral("Wyłącz ten efekt") : QStringLiteral("Włącz ten efekt"));
+            m_ui->btnToggleShader->setText(isCurActive ? QStringLiteral("Disable this effect") : QStringLiteral("Enable this effect"));
             m_ui->btnToggleShader->setIcon(isCurActive ? QIcon::fromTheme(QStringLiteral("dialog-cancel"))
                                                        : QIcon::fromTheme(QStringLiteral("dialog-ok")));
             updateShaderParametersUIFor(id);
@@ -2591,10 +2434,10 @@ void ActiveWindowOutlineConfig::refreshShadersTable()
         }
         statusItem->setCheckState(isActive ? Qt::Checked : Qt::Unchecked);
         statusItem->setText(QString());
-        statusItem->setToolTip(isActive ? QStringLiteral("Efekt jest aktywny. Kliknij, aby wyłączyć.")
-                                        : QStringLiteral("Kliknij, aby włączyć ten efekt."));
+        statusItem->setToolTip(isActive ? QStringLiteral("Effect is active. Click to disable.")
+                                        : QStringLiteral("Click to activate this effect."));
 
-        // Col 1: Nazwa / Name
+        // Col 1: Name
         auto *nameItem = m_ui->tableShaders->item(i, 1);
         if (!nameItem) {
             nameItem = new QTableWidgetItem(effect.name);
@@ -2611,14 +2454,14 @@ void ActiveWindowOutlineConfig::refreshShadersTable()
         nf.setBold(isActive);
         nameItem->setFont(nf);
 
-        // Col 2: Cel / Target
+        // Col 2: Target
         QString targetStr = effect.target;
         if (effect.target == QStringLiteral("glow")) {
-            targetStr = QStringLiteral("Aura (Glow)");
+            targetStr = QStringLiteral("Glow");
         } else if (effect.target == QStringLiteral("outline")) {
-            targetStr = QStringLiteral("Ramka (Outline)");
+            targetStr = QStringLiteral("Outline");
         } else if (effect.target == QStringLiteral("both")) {
-            targetStr = QStringLiteral("Aura + Ramka");
+            targetStr = QStringLiteral("Glow + Outline");
         }
         auto *targetItem = m_ui->tableShaders->item(i, 2);
         if (!targetItem) {
@@ -2628,7 +2471,7 @@ void ActiveWindowOutlineConfig::refreshShadersTable()
             targetItem->setText(targetStr);
         }
 
-        // Col 3: Autor
+        // Col 3: Author
         auto *authorItem = m_ui->tableShaders->item(i, 3);
         if (!authorItem) {
             authorItem = new QTableWidgetItem(effect.author);
@@ -2637,7 +2480,7 @@ void ActiveWindowOutlineConfig::refreshShadersTable()
             authorItem->setText(effect.author);
         }
 
-        // Col 4: Wersja
+        // Col 4: Version
         auto *versionItem = m_ui->tableShaders->item(i, 4);
         if (!versionItem) {
             versionItem = new QTableWidgetItem(effect.version);
@@ -2646,7 +2489,7 @@ void ActiveWindowOutlineConfig::refreshShadersTable()
             versionItem->setText(effect.version);
         }
 
-        // Col 5: Opis / Description
+        // Col 5: Description
         auto *descItem = m_ui->tableShaders->item(i, 5);
         if (!descItem) {
             descItem = new QTableWidgetItem(effect.description);
@@ -2674,11 +2517,11 @@ void ActiveWindowOutlineConfig::refreshShadersTable()
     if (curRow >= 0 && curRow < m_shaders.size()) {
         currentId = m_shaders[curRow].id;
         const bool isCurActive = globalEnabled && (currentId == m_activeShaderId);
-        m_ui->btnToggleShader->setText(isCurActive ? QStringLiteral("Wyłącz ten efekt") : QStringLiteral("Włącz ten efekt"));
+        m_ui->btnToggleShader->setText(isCurActive ? QStringLiteral("Disable this effect") : QStringLiteral("Enable this effect"));
         m_ui->btnToggleShader->setIcon(isCurActive ? QIcon::fromTheme(QStringLiteral("dialog-cancel"))
                                                    : QIcon::fromTheme(QStringLiteral("dialog-ok")));
     } else {
-        m_ui->btnToggleShader->setText(QStringLiteral("Włącz / Wyłącz efekt"));
+        m_ui->btnToggleShader->setText(QStringLiteral("Enable / Disable Effect"));
     }
 
     updateShaderParametersUIFor(currentId.isEmpty() ? m_activeShaderId : currentId);
@@ -2707,8 +2550,8 @@ void ActiveWindowOutlineConfig::updateShaderParametersUIFor(const QString &id)
         effectIdx = 0;
     }
     if (effectIdx < 0) {
-        m_ui->groupActiveShaderParams->setTitle(QStringLiteral("Parametry efektu"));
-        auto *lbl = new QLabel(QStringLiteral("Wybierz efekt shadera z listy powyżej."), m_ui->groupActiveShaderParams);
+        m_ui->groupActiveShaderParams->setTitle(QStringLiteral("Effect Parameters"));
+        auto *lbl = new QLabel(QStringLiteral("Select a shader effect from the list above."), m_ui->groupActiveShaderParams);
         m_ui->formLayoutShaderParams->addRow(lbl);
         return;
     }
@@ -2717,8 +2560,8 @@ void ActiveWindowOutlineConfig::updateShaderParametersUIFor(const QString &id)
     const bool isGlobalOn = m_ui->kcfg_CustomShaderEnabled->isChecked();
     const bool isActive = isGlobalOn && (effect.id == m_activeShaderId);
 
-    m_ui->groupActiveShaderParams->setTitle(QStringLiteral("Parametry efektu: %1 (%2)")
-        .arg(effect.name, isActive ? QStringLiteral("Aktywny") : QStringLiteral("Nieaktywny")));
+    m_ui->groupActiveShaderParams->setTitle(QStringLiteral("Effect Parameters: %1 (%2)")
+        .arg(effect.name, isActive ? QStringLiteral("Active") : QStringLiteral("Inactive")));
 
     // If the displayed effect hasn't changed, do not rebuild widgets!
     if (!idChanged) {
@@ -2738,7 +2581,7 @@ void ActiveWindowOutlineConfig::updateShaderParametersUIFor(const QString &id)
     }
 
     if (effect.parameters.isEmpty()) {
-        auto *lbl = new QLabel(QStringLiteral("Ten efekt shadera nie posiada konfigurowalnych parametrów."), m_ui->groupActiveShaderParams);
+        auto *lbl = new QLabel(QStringLiteral("This shader effect has no configurable parameters."), m_ui->groupActiveShaderParams);
         lbl->setStyleSheet(QStringLiteral("color: palette(placeholder-text); font-style: italic;"));
         m_ui->formLayoutShaderParams->addRow(lbl);
         m_ui->groupActiveShaderParams->setMinimumHeight(0);
@@ -2789,7 +2632,7 @@ void ActiveWindowOutlineConfig::updateShaderParametersUIFor(const QString &id)
             btn->setStyleSheet(QStringLiteral("background-color: %1; color: %2; font-weight: bold; border-radius: 4px; padding: 4px;")
                 .arg(initialColor.name(), (initialColor.lightness() > 128) ? QStringLiteral("#000000") : QStringLiteral("#ffffff")));
             connect(btn, &QPushButton::clicked, this, [&param, btn, this]() {
-                const QColor c = QColorDialog::getColor(QColor(param.colorCurrent), btn, QStringLiteral("Wybierz kolor"));
+                const QColor c = QColorDialog::getColor(QColor(param.colorCurrent), btn, QStringLiteral("Select Color"));
                 if (c.isValid()) {
                     param.colorCurrent = c.name();
                     btn->setText(c.name());
@@ -2862,12 +2705,12 @@ void ActiveWindowOutlineConfig::deleteSelectedShader()
     }
     const auto &effect = m_shaders[row];
     if (effect.isBuiltIn) {
-        QMessageBox::warning(widget(), QStringLiteral("Ochrona efektu wbudowanego"),
-                             QStringLiteral("Efekty wbudowane LeapK nie mogą być usunięte z dysku."));
+        QMessageBox::warning(widget(), QStringLiteral("Protected Built-in Effect"),
+                             QStringLiteral("Built-in LeapK effects cannot be deleted from disk."));
         return;
     }
-    if (QMessageBox::question(widget(), QStringLiteral("Usuwanie efektu"),
-                              QStringLiteral("Czy na pewno chcesz usunąć efekt shadera '%1'?").arg(effect.name),
+    if (QMessageBox::question(widget(), QStringLiteral("Delete Effect"),
+                              QStringLiteral("Are you sure you want to delete shader effect '%1'?").arg(effect.name),
                               QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
         return;
     }
@@ -2889,19 +2732,19 @@ void ActiveWindowOutlineConfig::exportSelectedShader()
     const QString suggestedName = effect.id + QStringLiteral(".leapk-shader");
     const QString destPath = QFileDialog::getSaveFileName(
         widget(),
-        QStringLiteral("Eksportuj efekt shadera / Export Shader Effect"),
+        QStringLiteral("Export Shader Effect"),
         QDir::homePath() + QStringLiteral("/") + suggestedName,
-        QStringLiteral("Efekty shaderów (*.leapk-shader *.json);;Wszystkie pliki (*)")
+        QStringLiteral("Shader Effects (*.leapk-shader *.json);;All Files (*)")
     );
     if (destPath.isEmpty()) {
         return;
     }
     if (LeapKShader::saveShaderEffectToFile(effect, destPath)) {
-        QMessageBox::information(widget(), QStringLiteral("Eksport zakończony"),
-                                 QStringLiteral("Efekt shadera '%1' został pomyślnie wyeksportowany do pliku:\n%2").arg(effect.name, destPath));
+        QMessageBox::information(widget(), QStringLiteral("Export Complete"),
+                                 QStringLiteral("Shader effect '%1' successfully exported to file:\n%2").arg(effect.name, destPath));
     } else {
-        QMessageBox::critical(widget(), QStringLiteral("Błąd zapisu"),
-                              QStringLiteral("Nie udało się zapisać pliku shadera w podanej lokalizacji."));
+        QMessageBox::critical(widget(), QStringLiteral("Save Error"),
+                              QStringLiteral("Failed to save shader file to specified path."));
     }
 }
 
@@ -2909,9 +2752,9 @@ void ActiveWindowOutlineConfig::importShader()
 {
     const QString srcPath = QFileDialog::getOpenFileName(
         widget(),
-        QStringLiteral("Importuj efekt shadera / Import Shader Effect"),
+        QStringLiteral("Import Shader Effect"),
         QDir::homePath(),
-        QStringLiteral("Efekty shaderów (*.leapk-shader *.json);;Wszystkie pliki (*)")
+        QStringLiteral("Shader Effects (*.leapk-shader *.json);;All Files (*)")
     );
     if (srcPath.isEmpty()) {
         return;
@@ -2920,8 +2763,8 @@ void ActiveWindowOutlineConfig::importShader()
     LeapKShader::CustomShaderEffect effect;
     QString err;
     if (!LeapKShader::loadShaderEffectFromFile(srcPath, effect, &err)) {
-        QMessageBox::critical(widget(), QStringLiteral("Błąd importu"),
-                              QStringLiteral("Nie udało się zaimportować pliku shadera:\n%1").arg(err));
+        QMessageBox::critical(widget(), QStringLiteral("Import Error"),
+                              QStringLiteral("Failed to import shader file:\n%1").arg(err));
         return;
     }
 
@@ -2931,31 +2774,21 @@ void ActiveWindowOutlineConfig::importShader()
     LeapKShader::saveShaderEffectToFile(effect, destPath);
 
     refreshShadersTable();
-    QMessageBox::information(widget(), QStringLiteral("Import zakończony"),
-                             QStringLiteral("Efekt shadera '%1' został pomyślnie zaimportowany i dodany do listy.").arg(effect.name));
+    QMessageBox::information(widget(), QStringLiteral("Import Complete"),
+                             QStringLiteral("Shader effect '%1' was successfully imported and added to the list.").arg(effect.name));
 }
 
 void ActiveWindowOutlineConfig::initPersistentMarksSection()
 {
-    const bool isPolish = (QLocale().language() == QLocale::Polish);
-    if (isPolish) {
-        m_ui->groupPersistentMarks->setTitle(QStringLiteral("Stałe reguły i oznaczenia okien"));
-        m_ui->label_persistentMarksDescription->setText(QStringLiteral(
-            "Reguły zapisane trwale w ~/.config/leapk/marks.json. Okna pasujące do aplikacji, podciągu tytułu, procesu potomnego lub pulpitu otrzymują automatycznie przypisane litery, obramowania i klawisze skoku."));
-        m_ui->btnDeletePersistentMark->setText(QStringLiteral("Usuń regułę"));
-        m_ui->btnClearAllPersistentMarks->setText(QStringLiteral("Wyczyść wszystkie"));
-        m_ui->btnReloadPersistentMarks->setText(QStringLiteral("Wczytaj ponownie"));
-    }
-
     auto *table = m_ui->tablePersistentMarks;
     table->setColumnCount(6);
     table->setHorizontalHeaderLabels({
-        isPolish ? QStringLiteral("Litera") : tr("Letter"),
-        isPolish ? QStringLiteral("Kolor") : tr("Color"),
-        isPolish ? QStringLiteral("Etykieta") : tr("Label"),
-        isPolish ? QStringLiteral("Aplikacja (Klasa)") : tr("Application (Class)"),
-        isPolish ? QStringLiteral("Wzorzec tytułu / Procesu") : tr("Title / Process Pattern"),
-        isPolish ? QStringLiteral("Pulpit") : tr("Desktop")
+        tr("Letter"),
+        tr("Color"),
+        tr("Label"),
+        tr("Application (Class)"),
+        tr("Title / Process Pattern"),
+        tr("Desktop")
     });
     table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
@@ -2968,8 +2801,8 @@ void ActiveWindowOutlineConfig::initPersistentMarksSection()
     connect(m_ui->btnClearAllPersistentMarks, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::clearAllPersistentMarks);
     connect(m_ui->btnReloadPersistentMarks, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::refreshPersistentMarksTable);
 
-    auto *btnOpenMgr = new QPushButton(isPolish ? QStringLiteral("🏷️ Menedżer markerów…") : tr("🏷️ Marker Manager…"), m_ui->tablePersistentMarks->parentWidget());
-    btnOpenMgr->setToolTip(isPolish ? QStringLiteral("Otwórz pełny graficzny menedżer markerów i grup") : tr("Open the graphical Marker & Group Manager"));
+    auto *btnOpenMgr = new QPushButton(tr("🏷️ Marker Manager…"), m_ui->tablePersistentMarks->parentWidget());
+    btnOpenMgr->setToolTip(tr("Open the graphical Marker & Group Manager"));
     connect(btnOpenMgr, &QPushButton::clicked, this, [this]() {
         QProcess::startDetached(QStringLiteral("leapk-marker-manager"));
     });
@@ -2980,7 +2813,6 @@ void ActiveWindowOutlineConfig::initPersistentMarksSection()
 
 void ActiveWindowOutlineConfig::refreshPersistentMarksTable()
 {
-    const bool isPolish = (QLocale().language() == QLocale::Polish);
     m_persistentMarks = LeapKMarks::loadPersistentMarks();
 
     auto *table = m_ui->tablePersistentMarks;
@@ -3012,15 +2844,15 @@ void ActiveWindowOutlineConfig::refreshPersistentMarksTable()
         table->setItem(i, 3, itemApp);
 
         // Caption / Process
-        auto *itemCaption = new QTableWidgetItem(rule.matchCaption.isEmpty() ? (isPolish ? QStringLiteral("(dowolny)") : tr("(any)")) : rule.matchCaption);
+        auto *itemCaption = new QTableWidgetItem(rule.matchCaption.isEmpty() ? tr("(any)") : rule.matchCaption);
         table->setItem(i, 4, itemCaption);
 
         // Desktop
         QString deskStr;
         if (rule.matchDesktop > 0) {
-            deskStr = isPolish ? QStringLiteral("Pulpit %1").arg(rule.matchDesktop) : tr("Desktop %1").arg(rule.matchDesktop);
+            deskStr = tr("Desktop %1").arg(rule.matchDesktop);
         } else {
-            deskStr = isPolish ? QStringLiteral("Wszystkie") : tr("All");
+            deskStr = tr("All");
         }
         auto *itemDesk = new QTableWidgetItem(deskStr);
         itemDesk->setTextAlignment(Qt::AlignCenter);
@@ -3051,11 +2883,10 @@ void ActiveWindowOutlineConfig::deleteSelectedPersistentMark()
 
 void ActiveWindowOutlineConfig::clearAllPersistentMarks()
 {
-    const bool isPolish = (QLocale().language() == QLocale::Polish);
     auto res = QMessageBox::question(
         widget(),
-        isPolish ? QStringLiteral("Usuwanie reguł") : tr("Clear Rules"),
-        isPolish ? QStringLiteral("Czy na pewno chcesz usunąć wszystkie trwale zapisane reguły oznaczeń?") : tr("Are you sure you want to delete all persistent mark rules?"),
+        tr("Clear Rules"),
+        tr("Are you sure you want to delete all persistent mark rules?"),
         QMessageBox::Yes | QMessageBox::No
     );
     if (res != QMessageBox::Yes) {

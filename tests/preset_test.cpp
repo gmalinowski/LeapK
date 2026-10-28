@@ -233,7 +233,7 @@ void testPresetActivationCategories()
     assert(dialogKeys.size() == defaults.size() + 1);
 
     // Test formatting helper
-    assert(!LeapK::PresetActivationDialog::formatValue(QStringLiteral("BorderWidth"), 4, true).isEmpty());
+    assert(!LeapK::PresetActivationDialog::formatValue(QStringLiteral("BorderWidth"), 4).isEmpty());
     assert(LeapK::PresetActivationDialog::areValuesEqual(4, 4));
     assert(!LeapK::PresetActivationDialog::areValuesEqual(4, 5));
     assert(LeapK::PresetActivationDialog::areValuesEqual(true, true));
@@ -391,31 +391,27 @@ void testPresetFormatValueAndAreValuesEqual()
     assert(PresetActivationDialog::areValuesEqual(QStringLiteral("Alpha"), QStringLiteral("Alpha")));
     assert(!PresetActivationDialog::areValuesEqual(QStringLiteral("Alpha"), QStringLiteral("Beta")));
 
-    // Test formatValue (Polish & English)
-    assert(PresetActivationDialog::formatValue(QStringLiteral("BorderWidth"), 3, true) == QStringLiteral("3 px"));
-    assert(PresetActivationDialog::formatValue(QStringLiteral("BorderWidth"), 3, false) == QStringLiteral("3 px"));
+    // Test formatValue
+    assert(PresetActivationDialog::formatValue(QStringLiteral("BorderWidth"), 3) == QStringLiteral("3 px"));
 
-    assert(PresetActivationDialog::formatValue(QStringLiteral("FadeDuration"), 250, true) == QStringLiteral("250 ms"));
-    assert(PresetActivationDialog::formatValue(QStringLiteral("FadeDuration"), 250, false) == QStringLiteral("250 ms"));
+    assert(PresetActivationDialog::formatValue(QStringLiteral("FadeDuration"), 250) == QStringLiteral("250 ms"));
 
-    assert(PresetActivationDialog::formatValue(QStringLiteral("BreatheSpeed"), 0.5, true) == QStringLiteral("0.50 Hz"));
-    assert(PresetActivationDialog::formatValue(QStringLiteral("GlitchSpeed"), 1.5, true) == QStringLiteral("1.50x"));
-    assert(PresetActivationDialog::formatValue(QStringLiteral("NeonFlickerInterval"), 4.0, true) == QStringLiteral("4.00 s"));
-    assert(PresetActivationDialog::formatValue(QStringLiteral("NeonFlickerIntensity"), 30, true) == QStringLiteral("30%"));
+    assert(PresetActivationDialog::formatValue(QStringLiteral("BreatheSpeed"), 0.5) == QStringLiteral("0.50 Hz"));
+    assert(PresetActivationDialog::formatValue(QStringLiteral("GlitchSpeed"), 1.5) == QStringLiteral("1.50x"));
+    assert(PresetActivationDialog::formatValue(QStringLiteral("NeonFlickerInterval"), 4.0) == QStringLiteral("4.00 s"));
+    assert(PresetActivationDialog::formatValue(QStringLiteral("NeonFlickerIntensity"), 30) == QStringLiteral("30%"));
 
     // Enums
-    assert(!PresetActivationDialog::formatValue(QStringLiteral("BadgeDisplayMode"), 0, true).isEmpty());
-    assert(!PresetActivationDialog::formatValue(QStringLiteral("BadgeDisplayMode"), 1, true).isEmpty());
-    assert(!PresetActivationDialog::formatValue(QStringLiteral("BadgeDisplayMode"), 2, true).isEmpty());
-    assert(!PresetActivationDialog::formatValue(QStringLiteral("BadgePosition"), 1, true).isEmpty());
-    assert(!PresetActivationDialog::formatValue(QStringLiteral("JumpTargets"), 0, true).isEmpty());
-    assert(!PresetActivationDialog::formatValue(QStringLiteral("JumpTargets"), 1, false).isEmpty());
+    assert(!PresetActivationDialog::formatValue(QStringLiteral("BadgeDisplayMode"), 0).isEmpty());
+    assert(!PresetActivationDialog::formatValue(QStringLiteral("BadgeDisplayMode"), 1).isEmpty());
+    assert(!PresetActivationDialog::formatValue(QStringLiteral("BadgeDisplayMode"), 2).isEmpty());
+    assert(!PresetActivationDialog::formatValue(QStringLiteral("BadgePosition"), 1).isEmpty());
+    assert(!PresetActivationDialog::formatValue(QStringLiteral("JumpTargets"), 0).isEmpty());
+    assert(!PresetActivationDialog::formatValue(QStringLiteral("JumpTargets"), 1).isEmpty());
 
     // Booleans
-    assert(PresetActivationDialog::formatValue(QStringLiteral("GlowEnabled"), true, true) == QStringLiteral("Włączone"));
-    assert(PresetActivationDialog::formatValue(QStringLiteral("GlowEnabled"), false, true) == QStringLiteral("Wyłączone"));
-    assert(PresetActivationDialog::formatValue(QStringLiteral("GlowEnabled"), true, false) == QStringLiteral("Enabled"));
-    assert(PresetActivationDialog::formatValue(QStringLiteral("GlowEnabled"), false, false) == QStringLiteral("Disabled"));
+    assert(PresetActivationDialog::formatValue(QStringLiteral("GlowEnabled"), true) == QStringLiteral("Enabled"));
+    assert(PresetActivationDialog::formatValue(QStringLiteral("GlowEnabled"), false) == QStringLiteral("Disabled"));
 }
 
 void testAllBuiltInPresetsConsistency()
@@ -529,7 +525,7 @@ void testPresetWithEmbeddedShader()
     assert(qFuzzyCompare(localShaders[0].parameters[0].currentValue, 1.45));
 
     // 7. Verify PresetActivationDialog formatting and equality
-    assert(!LeapK::PresetActivationDialog::formatValue(QStringLiteral("ShaderEffect"), parsed.shader, true).isEmpty());
+    assert(!LeapK::PresetActivationDialog::formatValue(QStringLiteral("ShaderEffect"), parsed.shader).isEmpty());
     assert(LeapK::PresetActivationDialog::areValuesEqual(parsed.shader, parsed.shader));
 }
 

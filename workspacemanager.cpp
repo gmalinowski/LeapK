@@ -59,10 +59,9 @@ public:
         MoveToStash
     };
 
-    explicit CloseWorkspaceDialog(const QString &wsName, bool isPolish = false, QWidget *parent = nullptr)
+    explicit CloseWorkspaceDialog(const QString &wsName, QWidget *parent = nullptr)
         : QDialog(parent)
         , m_wsName(wsName)
-        , m_isPolish(isPolish)
         , m_selectedAction(Cancel)
     {
         setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
@@ -80,16 +79,14 @@ public:
         layout->setSpacing(12);
 
         // Header
-        auto *lblTitle = new QLabel(m_isPolish
-            ? QStringLiteral("🗑 Zamknij przestrzeń: <b style='color:#e74c3c;'>%1</b>").arg(wsName.toHtmlEscaped())
-            : QStringLiteral("🗑 Close Workspace: <b style='color:#e74c3c;'>%1</b>").arg(wsName.toHtmlEscaped()), this);
+        auto *lblTitle = new QLabel(
+            QStringLiteral("🗑 Close Workspace: <b style='color:#e74c3c;'>%1</b>").arg(wsName.toHtmlEscaped()), this);
         lblTitle->setTextFormat(Qt::RichText);
         lblTitle->setStyleSheet(QStringLiteral("font-size: 17px; color: #ffffff;"));
         layout->addWidget(lblTitle);
 
-        auto *lblPrompt = new QLabel(m_isPolish
-            ? QStringLiteral("Wybierz, co chcesz zrobić z oknami należącymi do tego workspace:")
-            : QStringLiteral("Choose what you want to do with the windows in this workspace:"), this);
+        auto *lblPrompt = new QLabel(
+            QStringLiteral("Choose what you want to do with the windows in this workspace:"), this);
         lblPrompt->setStyleSheet(QStringLiteral("font-size: 13px; color: rgba(255,255,255,0.75);"));
         layout->addWidget(lblPrompt);
 
@@ -98,8 +95,8 @@ public:
         // Option 1: Close all windows
         auto *btnClose = createOptionButton(
             QStringLiteral("[1]"),
-            m_isPolish ? QStringLiteral("Zamknij wszystkie okna") : QStringLiteral("Close all windows"),
-            m_isPolish ? QStringLiteral("Zamyka aplikacje i procesy powiązane z tym obszarem") : QStringLiteral("Terminates applications and windows in this workspace"),
+            QStringLiteral("Close all windows"),
+            QStringLiteral("Terminates applications and windows in this workspace"),
             QColor(231, 76, 60),
             [this]() { choose(CloseWindows); }
         );
@@ -108,8 +105,8 @@ public:
         // Option 2: Move to Standard (keep open)
         auto *btnStd = createOptionButton(
             QStringLiteral("[2]"),
-            m_isPolish ? QStringLiteral("Przenieś do Standard (pozostaw otwarte)") : QStringLiteral("Move to Standard (keep open)"),
-            m_isPolish ? QStringLiteral("Okna pozostaną otwarte i widoczne na bieżącym pulpicie") : QStringLiteral("Windows stay open and visible on desktop"),
+            QStringLiteral("Move to Standard (keep open)"),
+            QStringLiteral("Windows stay open and visible on desktop"),
             QColor(52, 152, 219),
             [this]() { choose(MoveToStandard); }
         );
@@ -118,8 +115,8 @@ public:
         // Option 3: Move to Stash
         auto *btnStash = createOptionButton(
             QStringLiteral("[3]"),
-            m_isPolish ? QStringLiteral("Przenieś do Schowka (Stash)") : QStringLiteral("Move to Stash"),
-            m_isPolish ? QStringLiteral("Okna zostaną ukryte w Schowku do późniejszego użycia") : QStringLiteral("Windows are hidden in Stash for later retrieval"),
+            QStringLiteral("Move to Stash"),
+            QStringLiteral("Windows are hidden in Stash for later retrieval"),
             QColor(46, 204, 113),
             [this]() { choose(MoveToStash); }
         );
@@ -130,7 +127,7 @@ public:
         // Cancel button
         auto *bottomLayout = new QHBoxLayout();
         bottomLayout->addStretch(1);
-        auto *btnCancel = new QPushButton(m_isPolish ? QStringLiteral("Anuluj [Esc]") : QStringLiteral("Cancel [Esc]"), this);
+        auto *btnCancel = new QPushButton(QStringLiteral("Cancel [Esc]"), this);
         btnCancel->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background-color: rgba(255, 255, 255, 0.1);"
@@ -246,7 +243,6 @@ private:
     }
 
     QString m_wsName;
-    bool m_isPolish;
     Action m_selectedAction;
     QPoint m_dragPos;
     bool m_isDragging = false;
@@ -255,8 +251,8 @@ private:
 class WorkspaceCard : public QFrame
 {
 public:
-    WorkspaceCard(int index, const LeapKWorkspace::WorkspaceInfo &info, bool isAssigned, bool isSelected, bool isPolish, QWidget *parent = nullptr)
-        : QFrame(parent), m_index(index), m_info(info), m_isAssigned(isAssigned), m_isSelected(isSelected), m_isPolish(false)
+    WorkspaceCard(int index, const LeapKWorkspace::WorkspaceInfo &info, bool isAssigned, bool isSelected, QWidget *parent = nullptr)
+        : QFrame(parent), m_index(index), m_info(info), m_isAssigned(isAssigned), m_isSelected(isSelected)
     {
         setObjectName(QStringLiteral("wsCard"));
         setCursor(Qt::PointingHandCursor);
@@ -288,9 +284,7 @@ public:
         lblName->setTextFormat(Qt::RichText);
         vbox->addWidget(lblName);
 
-        const QString ruleDesc = isPolish
-            ? QStringLiteral("Reguły: %1 • Utworzono: %2").arg(info.rules.size()).arg(QDateTime::fromMSecsSinceEpoch(info.createdAt).toString(QStringLiteral("yyyy-MM-dd")))
-            : QStringLiteral("Rules: %1 • Created: %2").arg(info.rules.size()).arg(QDateTime::fromMSecsSinceEpoch(info.createdAt).toString(QStringLiteral("yyyy-MM-dd")));
+        const QString ruleDesc = QStringLiteral("Rules: %1 • Created: %2").arg(info.rules.size()).arg(QDateTime::fromMSecsSinceEpoch(info.createdAt).toString(QStringLiteral("yyyy-MM-dd")));
         auto *lblDesc = new QLabel(ruleDesc, this);
         lblDesc->setStyleSheet(QStringLiteral("font-size: 12px; color: rgba(255, 255, 255, 0.6); border: none; background: transparent;"));
         vbox->addWidget(lblDesc);
@@ -309,8 +303,8 @@ public:
         m_btnDelete->setFixedSize((index < 9) ? 58 : 36, 28);
         m_btnDelete->setCursor(Qt::PointingHandCursor);
         const QString delTip = (index < 9)
-            ? (m_isPolish ? QStringLiteral("Zamknij / Usuń ten workspace [Shift+%1]").arg(index + 1) : QStringLiteral("Close / Delete this workspace [Shift+%1]").arg(index + 1))
-            : (m_isPolish ? QStringLiteral("Zamknij / Usuń ten workspace [Shift+Del]") : QStringLiteral("Close / Delete this workspace [Shift+Del]"));
+            ? QStringLiteral("Close / Delete this workspace [Shift+%1]").arg(index + 1)
+            : QStringLiteral("Close / Delete this workspace [Shift+Del]");
         m_btnDelete->setToolTip(delTip);
         m_btnDelete->setStyleSheet(QStringLiteral(
             "QPushButton {"
@@ -408,12 +402,12 @@ private:
     void updateStatusBadge()
     {
         if (m_isAssigned) {
-            m_lblStatus->setText(m_isPolish ? QStringLiteral("✓ Przypisane") : QStringLiteral("✓ Assigned"));
+            m_lblStatus->setText(QStringLiteral("✓ Assigned"));
             m_lblStatus->setStyleSheet(QStringLiteral(
                 "background-color: #2ecc71; color: #ffffff; font-weight: bold; font-size: 12px; border-radius: 6px; padding: 4px 10px;"
             ));
         } else {
-            m_lblStatus->setText(m_isPolish ? QStringLiteral("+ Dołącz") : QStringLiteral("+ Assign"));
+            m_lblStatus->setText(QStringLiteral("+ Assign"));
             m_lblStatus->setStyleSheet(QStringLiteral(
                 "background-color: rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.7); font-size: 12px; border-radius: 6px; padding: 4px 8px;"
             ));
@@ -424,7 +418,6 @@ private:
     LeapKWorkspace::WorkspaceInfo m_info;
     bool m_isAssigned;
     bool m_isSelected = false;
-    bool m_isPolish;
     QLabel *m_lblKey = nullptr;
     QLabel *m_lblStatus = nullptr;
     QPushButton *m_btnDelete = nullptr;
@@ -447,7 +440,6 @@ public:
         , m_desktopName(desktopName)
         , m_assignedWsId(assignedWsId)
         , m_workspaces(workspaces)
-        , m_isPolish(false)
         , m_groupByApp(true)
     {
         setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
@@ -479,14 +471,11 @@ public:
         auto *headerLayout = new QVBoxLayout();
         headerLayout->setSpacing(4);
 
-        auto *lblTitle = new QLabel(m_isPolish ? QStringLiteral("📁 Zarządzanie Przestrzeniami (Workspaces)") : QStringLiteral("📁 Workspace Manager"), this);
+        auto *lblTitle = new QLabel(QStringLiteral("📁 Workspace Manager"), this);
         lblTitle->setStyleSheet(QStringLiteral("font-size: 18px; font-weight: bold; color: #ffffff;"));
         headerLayout->addWidget(lblTitle);
 
-        const QString subText = m_isPolish
-            ? QStringLiteral("Bieżące okno: <b style='color:#3498db;'>%1</b> &bull; <span style='color:rgba(255,255,255,0.7);'>%2</span>")
-                .arg(m_appClass.isEmpty() ? QStringLiteral("Brak klasy") : m_appClass.toHtmlEscaped(), m_windowCaption.left(35).toHtmlEscaped())
-            : QStringLiteral("Current window: <b style='color:#3498db;'>%1</b> &bull; <span style='color:rgba(255,255,255,0.7);'>%2</span>")
+        const QString subText = QStringLiteral("Current window: <b style='color:#3498db;'>%1</b> &bull; <span style='color:rgba(255,255,255,0.7);'>%2</span>")
                 .arg(m_appClass.isEmpty() ? QStringLiteral("Unknown") : m_appClass.toHtmlEscaped(), m_windowCaption.left(35).toHtmlEscaped());
         auto *lblSub = new QLabel(subText, this);
         lblSub->setTextFormat(Qt::RichText);
@@ -497,17 +486,17 @@ public:
         // Scope Switcher Capsule (All App vs Single Window)
         auto *scopeLayout = new QHBoxLayout();
         scopeLayout->setSpacing(10);
-        auto *lblScopeTitle = new QLabel(m_isPolish ? QStringLiteral("Zakres reguły:") : QStringLiteral("Rule Scope:"), this);
+        auto *lblScopeTitle = new QLabel(QStringLiteral("Rule Scope:"), this);
         lblScopeTitle->setStyleSheet(QStringLiteral("color: rgba(255, 255, 255, 0.7); font-size: 13px; font-weight: bold;"));
         scopeLayout->addWidget(lblScopeTitle);
 
-        m_btnScopeApp = new QPushButton(m_isPolish ? QStringLiteral("[A] Cała aplikacja") : QStringLiteral("[A] Entire App"), this);
+        m_btnScopeApp = new QPushButton(QStringLiteral("[A] Entire App"), this);
         m_btnScopeApp->setCheckable(true);
         m_btnScopeApp->setChecked(m_groupByApp);
         connect(m_btnScopeApp, &QPushButton::clicked, this, [this]() { setScope(true); });
         scopeLayout->addWidget(m_btnScopeApp);
 
-        m_btnScopeSingle = new QPushButton(m_isPolish ? QStringLiteral("[D] Tylko to okno") : QStringLiteral("[D] Single Window"), this);
+        m_btnScopeSingle = new QPushButton(QStringLiteral("[D] Single Window"), this);
         m_btnScopeSingle->setCheckable(true);
         m_btnScopeSingle->setChecked(!m_groupByApp);
         connect(m_btnScopeSingle, &QPushButton::clicked, this, [this]() { setScope(false); });
@@ -541,7 +530,7 @@ public:
         auto *newWsLayout = new QHBoxLayout();
         newWsLayout->setSpacing(10);
 
-        m_btnNewWs = new QPushButton(m_isPolish ? QStringLiteral("➕ [N] Utwórz z tym oknem") : QStringLiteral("➕ [N] Create with window"), this);
+        m_btnNewWs = new QPushButton(QStringLiteral("➕ [N] Create with window"), this);
         m_btnNewWs->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background-color: rgba(52, 152, 219, 0.15);"
@@ -559,7 +548,7 @@ public:
         connect(m_btnNewWs, &QPushButton::clicked, this, &WorkspaceManagerDialog::onNewWorkspace);
         newWsLayout->addWidget(m_btnNewWs);
 
-        m_btnNewEmptyWs = new QPushButton(m_isPolish ? QStringLiteral("✨ [E] Utwórz pusty Workspace") : QStringLiteral("✨ [E] Create Empty Workspace"), this);
+        m_btnNewEmptyWs = new QPushButton(QStringLiteral("✨ [E] Create Empty Workspace"), this);
         m_btnNewEmptyWs->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background-color: rgba(46, 204, 113, 0.15);"
@@ -583,7 +572,7 @@ public:
         auto *bottomLayout = new QHBoxLayout();
         bottomLayout->setSpacing(10);
 
-        m_btnUnassign = new QPushButton(m_isPolish ? QStringLiteral("🗑 Odepnij [Del]") : QStringLiteral("🗑 Unassign [Del]"), this);
+        m_btnUnassign = new QPushButton(QStringLiteral("🗑 Unassign [Del]"), this);
         m_btnUnassign->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background-color: rgba(231, 76, 60, 0.12);"
@@ -600,7 +589,7 @@ public:
         connect(m_btnUnassign, &QPushButton::clicked, this, &WorkspaceManagerDialog::onUnassign);
         bottomLayout->addWidget(m_btnUnassign);
 
-        m_btnDeleteWs = new QPushButton(m_isPolish ? QStringLiteral("❌ Usuń workspace [Shift+Del]") : QStringLiteral("❌ Delete workspace [Shift+Del]"), this);
+        m_btnDeleteWs = new QPushButton(QStringLiteral("❌ Delete workspace [Shift+Del]"), this);
         m_btnDeleteWs->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background-color: rgba(231, 76, 60, 0.15);"
@@ -618,7 +607,7 @@ public:
         bottomLayout->addWidget(m_btnDeleteWs);
         bottomLayout->addStretch(1);
 
-        auto *btnCancel = new QPushButton(m_isPolish ? QStringLiteral("Anuluj [Esc]") : QStringLiteral("Cancel [Esc]"), this);
+        auto *btnCancel = new QPushButton(QStringLiteral("Cancel [Esc]"), this);
         btnCancel->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background-color: rgba(255, 255, 255, 0.1);"
@@ -633,7 +622,7 @@ public:
         connect(btnCancel, &QPushButton::clicked, this, &QDialog::reject);
         bottomLayout->addWidget(btnCancel);
 
-        auto *btnSave = new QPushButton(m_isPolish ? QStringLiteral("Gotowe [Enter]") : QStringLiteral("Done [Enter]"), this);
+        auto *btnSave = new QPushButton(QStringLiteral("Done [Enter]"), this);
         btnSave->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background-color: #2ecc71;"
@@ -823,7 +812,7 @@ private:
             const auto &ws = m_workspaces.at(i);
             const bool isAssigned = (ws.id == m_assignedWsId);
             const bool isSelected = (i == m_selectedCardIndex);
-            auto *card = new WorkspaceCard(i, ws, isAssigned, isSelected, m_isPolish, m_cardsContainer);
+            auto *card = new WorkspaceCard(i, ws, isAssigned, isSelected, m_cardsContainer);
             card->onClicked = [this](int idx) {
                 m_selectedCardIndex = idx;
                 updateCardSelection();
@@ -902,7 +891,7 @@ private:
             return;
         }
         const auto ws = m_workspaces.at(idx);
-        CloseWorkspaceDialog dlg(ws.name, m_isPolish, this);
+        CloseWorkspaceDialog dlg(ws.name, this);
         if (dlg.exec() == QDialog::Accepted) {
             const auto act = dlg.selectedAction();
             QString actStr = QStringLiteral("standard");
@@ -957,8 +946,8 @@ private:
         bool ok = false;
         const QString name = QInputDialog::getText(
             this,
-            m_isPolish ? QStringLiteral("Nowa przestrzeń robocza") : QStringLiteral("New Workspace"),
-            m_isPolish ? QStringLiteral("Wpisz nazwę dla nowego Workspace (np. Backend, Frontend, Docs):") : QStringLiteral("Enter a name for the new Workspace:"),
+            QStringLiteral("New Workspace"),
+            QStringLiteral("Enter a name for the new Workspace:"),
             QLineEdit::Normal,
             QString(),
             &ok
@@ -995,14 +984,12 @@ private:
     void onNewEmptyWorkspace()
     {
         bool ok = false;
-        const QString defaultName = m_isPolish
-            ? QStringLiteral("Obszar %1").arg(m_workspaces.size() + 1)
-            : QStringLiteral("Workspace %1").arg(m_workspaces.size() + 1);
+        const QString defaultName = QStringLiteral("Workspace %1").arg(m_workspaces.size() + 1);
 
         const QString name = QInputDialog::getText(
             this,
-            m_isPolish ? QStringLiteral("Nowy pusty workspace") : QStringLiteral("New Empty Workspace"),
-            m_isPolish ? QStringLiteral("Wpisz nazwę dla nowego pustego Workspace (np. Backend, Frontend, Docs):") : QStringLiteral("Enter a name for the new empty Workspace:"),
+            QStringLiteral("New Empty Workspace"),
+            QStringLiteral("Enter a name for the new empty Workspace:"),
             QLineEdit::Normal,
             defaultName,
             &ok
@@ -1029,7 +1016,6 @@ private:
     QString m_desktopName;
     QString m_assignedWsId;
     QList<LeapKWorkspace::WorkspaceInfo> m_workspaces;
-    bool m_isPolish;
     bool m_groupByApp;
 
     QPoint m_dragPos;
@@ -1106,8 +1092,7 @@ int main(int argc, char *argv[])
         }
 
         const auto ws = workspaces.at(foundIdx);
-        const bool isPolish = false;
-        CloseWorkspaceDialog dlg(ws.name, isPolish);
+        CloseWorkspaceDialog dlg(ws.name);
         if (dlg.exec() == QDialog::Accepted) {
             const auto act = dlg.selectedAction();
             QString actStr = QStringLiteral("standard");
