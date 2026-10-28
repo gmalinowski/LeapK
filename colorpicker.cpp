@@ -328,7 +328,13 @@ public:
     QString letter() const { return m_letter; }
     bool useColor() const { return m_useColor; }
     QColor color() const { return m_color; }
-    QString label() const { return m_label; }
+    QString label() const
+    {
+        if (m_labelEdit) {
+            return m_labelEdit->text().trimmed();
+        }
+        return m_label;
+    }
     bool groupByApp() const { return m_groupByApp; }
     QString matchCaption() const { return (m_groupByApp && !m_matchCaption.isEmpty()) ? m_matchCaption : QString(); }
     bool persistent() const { return m_persistent; }
@@ -400,6 +406,15 @@ protected:
         if (event->key() == Qt::Key_Escape) {
             reject();
             return;
+        }
+
+        // Global Delete handler to remove existing mark across steps (unless currently editing label)
+        if (m_isAlreadyMarked && event->key() == Qt::Key_Delete) {
+            if (m_currentStep != 3 || !m_labelEdit || !m_labelEdit->hasFocus()) {
+                m_markRemoved = true;
+                accept();
+                return;
+            }
         }
 
         switch (m_currentStep) {
@@ -579,8 +594,13 @@ private:
             captionSnippet = QStringLiteral("—");
         }
 
-        auto *lblContext = new QLabel(QStringLiteral("<span style='font-size:15px; font-weight:bold; color:#ffffff;'>Custom Marker: %1</span> <span style='font-size:13px; color:rgba(255,255,255,0.65);'>• %2</span>")
-                                          .arg(appDisp.toHtmlEscaped(), captionSnippet.toHtmlEscaped()), headerWidget);
+        QString headerTitle = QStringLiteral("<span style='font-size:15px; font-weight:bold; color:#ffffff;'>Custom Marker: %1</span>").arg(appDisp.toHtmlEscaped());
+        if (!m_label.isEmpty()) {
+            headerTitle += QStringLiteral(" <span style='font-size:13px; color:#3498db; font-weight:bold;'>[%1]</span>").arg(m_label.toHtmlEscaped());
+        }
+        headerTitle += QStringLiteral(" <span style='font-size:13px; color:rgba(255,255,255,0.65);'>• %1</span>").arg(captionSnippet.toHtmlEscaped());
+
+        auto *lblContext = new QLabel(headerTitle, headerWidget);
         lblContext->setTextFormat(Qt::RichText);
         topRow->addWidget(lblContext, 1);
 
@@ -629,8 +649,12 @@ private:
         layout->addWidget(lblTitle);
 
         auto *lblSub = new QLabel(m_isPolish
-            ? QStringLiteral("Wciśnij dowolną literę [A-Z] lub cyfrę. Wybór następuje bezpośrednio z klawiatury.")
-            : QStringLiteral("Press any letter [A-Z] or digit on your keyboard."), page);
+            ? (m_isAlreadyMarked
+                ? QStringLiteral("Wciśnij dowolną literę [A-Z] lub cyfrę, albo [Del] aby usunąć obecne oznaczenie.")
+                : QStringLiteral("Wciśnij dowolną literę [A-Z] lub cyfrę. Wybór następuje bezpośrednio z klawiatury."))
+            : (m_isAlreadyMarked
+                ? QStringLiteral("Press any letter [A-Z] or digit on your keyboard, or [Del] to remove current mark.")
+                : QStringLiteral("Press any letter [A-Z] or digit on your keyboard.")), page);
         lblSub->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.75); font-size: 13px;"));
         layout->addWidget(lblSub);
 
@@ -1365,7 +1389,7 @@ private:
         btnRow->addWidget(m_btnBack);
 
         if (m_isAlreadyMarked) {
-            m_btnRemove = new QPushButton(m_isPolish ? QStringLiteral("🗑 Wyczyść") : QStringLiteral("🗑 Remove"), bottomWidget);
+            m_btnRemove = new QPushButton(m_isPolish ? QStringLiteral("🗑 Wyczyść [Del]") : QStringLiteral("🗑 Remove [Del]"), bottomWidget);
             m_btnRemove->setFocusPolicy(Qt::NoFocus);
             m_btnRemove->setStyleSheet(QStringLiteral(
                 "QPushButton {"
@@ -1428,10 +1452,18 @@ private:
 
         bLayout->addLayout(btnRow);
 
-        // Keyboard hint line explicitly indicating Backspace goes back
-        auto *lblHint = new QLabel(m_isPolish
-            ? QStringLiteral("<span style='color: rgba(255,255,255,0.55); font-size: 11px;'>[Enter] Dalej / Zatwierdź   •   [Backspace] Wstecz (cofa krok)   •   [Esc] Anuluj</span>")
-            : QStringLiteral("<span style='color: rgba(255,255,255,0.55); font-size: 11px;'>[Enter] Next / Confirm   •   [Backspace] Back (previous step)   •   [Esc] Cancel</span>"), bottomWidget);
+        // Keyboard hint line explicitly indicating shortcuts
+        QString hintText;
+        if (m_isPolish) {
+            hintText = m_isAlreadyMarked
+                ? QStringLiteral("<span style='color: rgba(255,255,255,0.55); font-size: 11px;'>[Enter] Dalej / Zatwierdź   •   [Backspace] Wstecz   •   [Del] Wyczyść oznaczenie   •   [Esc] Anuluj</span>")
+                : QStringLiteral("<span style='color: rgba(255,255,255,0.55); font-size: 11px;'>[Enter] Dalej / Zatwierdź   •   [Backspace] Wstecz (cofa krok)   •   [Esc] Anuluj</span>");
+        } else {
+            hintText = m_isAlreadyMarked
+                ? QStringLiteral("<span style='color: rgba(255,255,255,0.55); font-size: 11px;'>[Enter] Next / Confirm   •   [Backspace] Back   •   [Del] Remove mark   •   [Esc] Cancel</span>")
+                : QStringLiteral("<span style='color: rgba(255,255,255,0.55); font-size: 11px;'>[Enter] Next / Confirm   •   [Backspace] Back (previous step)   •   [Esc] Cancel</span>");
+        }
+        auto *lblHint = new QLabel(hintText, bottomWidget);
         lblHint->setTextFormat(Qt::RichText);
         lblHint->setAlignment(Qt::AlignCenter);
         bLayout->addWidget(lblHint);
@@ -1528,6 +1560,9 @@ private:
 
     void tryFinishMark()
     {
+        if (m_labelEdit) {
+            m_label = m_labelEdit->text().trimmed();
+        }
         if (m_useLetter && !m_letter.isEmpty() && m_usedLettersMap.contains(m_letter)) {
             const QString existingApp = m_usedLettersMap.value(m_letter).toString();
             if (!existingApp.isEmpty() && existingApp.compare(m_appClass, Qt::CaseInsensitive) != 0) {
