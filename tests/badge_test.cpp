@@ -1049,6 +1049,42 @@ void testStashBadgeStyling()
     assert(badgeNormal.size() == badgeStashed.size());
 }
 
+void testPinDotBadgeAspectAndContrast()
+{
+    using OutlineBadge::BadgeConfig;
+    using OutlineBadge::computeBadgeWidth;
+    using OutlineBadge::renderBadgeImage;
+    using OutlineBadge::renderPinDotBadgeImage;
+
+    BadgeConfig cfg;
+
+    // 1. Standalone pin indicator (outside jump mode: hasLetter = false)
+    const qreal standaloneW = computeBadgeWidth(cfg, 28, QStringLiteral("●"), QString(), false);
+    assert(standaloneW == 28.0);
+
+    const QImage standaloneBadge = renderBadgeImage(cfg, QChar(), QColor(241, 196, 15), Qt::white, false, 28, 1.0, QStringLiteral("●"));
+    assert(!standaloneBadge.isNull());
+    assert(standaloneBadge.width() == 28);
+    assert(standaloneBadge.height() == 28);
+    assert(standaloneBadge.width() == standaloneBadge.height()); // Exact 1:1 square, no stretching!
+
+    // 2. Jump mode badge for pinned window (hasLetter = true, letter = 'A', customLabel = "●")
+    const qreal jumpW = computeBadgeWidth(cfg, 28, QStringLiteral("●"), QString(), true);
+    assert(jumpW > 28.0); // Has both letter and dot
+
+    const QImage jumpBadge = renderBadgeImage(cfg, QLatin1Char('A'), QColor(241, 196, 15), Qt::white, true, 28, 1.0, QStringLiteral("●"));
+    assert(!jumpBadge.isNull());
+    assert(jumpBadge.width() == qRound(jumpW));
+    assert(jumpBadge.height() == 28);
+
+    // 3. Pin dot badge image directly
+    const QImage pinDot = renderPinDotBadgeImage(32, 1.0);
+    assert(!pinDot.isNull());
+    assert(pinDot.width() == 32);
+    assert(pinDot.height() == 32);
+    assert(pinDot.width() == pinDot.height());
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -1075,6 +1111,7 @@ int main(int argc, char *argv[])
     testHudActionHintBar();
     testHudModeHeader();
     testStashBadgeStyling();
+    testPinDotBadgeAspectAndContrast();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

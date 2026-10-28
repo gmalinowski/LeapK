@@ -2842,7 +2842,7 @@ void ActiveWindowOutlineEffect::renderBadgePreview(const RenderTarget &renderTar
         if (isWindowPinned(target)) {
             customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
         }
-            const qreal badgeW = OutlineBadge::computeBadgeWidth(m_previewBadgeConfig, badgeH, customLabel, recentKey);
+            const qreal badgeW = OutlineBadge::computeBadgeWidth(m_previewBadgeConfig, badgeH, customLabel, recentKey, true);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_previewBadgePosition, badgeW, badgeH, m_previewBadgeConfig.margin);
             if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
             if (badgeRect.right() > screenRect.right() - 4.0) badgeRect.moveRight(screenRect.right() - 4.0);
@@ -6148,8 +6148,8 @@ QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
         const QString loc = getWindowLocationString(target);
         const QString caption = target->caption();
         QString customLabel = m_markedWindowLabels.value(target);
-        if (isWindowPinned(target)) {
-            customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
+        if (isWindowPinned(target) && !customLabel.isEmpty()) {
+            customLabel = QStringLiteral("● %1").arg(customLabel);
         }
         const bool hasIcon = cfg.hudShowIcon && !target->icon().isNull();
         const bool hasThumb = cfg.hudShowThumbnail && m_thumbnailCache.contains(target);
@@ -6237,8 +6237,8 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
 
         const QString caption = target->caption();
         QString customLabel = m_markedWindowLabels.value(target);
-        if (isPinned) {
-            customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
+        if (isPinned && !customLabel.isEmpty()) {
+            customLabel = QStringLiteral("● %1").arg(customLabel);
         }
 
         const bool showIconOnHud = cfg.hudShowIcon;
@@ -7506,7 +7506,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         if (isWindowPinned(target)) {
             customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
         }
-            const qreal badgeW = OutlineBadge::computeBadgeWidth(m_badgeConfig, badgeH, customLabel);
+            const qreal badgeW = OutlineBadge::computeBadgeWidth(m_badgeConfig, badgeH, customLabel, QString(), true);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, badgeW, badgeH, m_badgeMargin);
             if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
             if (badgeRect.right() > screenRect.right() - 4.0) badgeRect.moveRight(screenRect.right() - 4.0);
@@ -7555,12 +7555,12 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             }
 
             const bool isMarked = m_markedWindows.contains(target);
-            QColor bgCol = isMarked ? m_markedWindows.value(target) : QColor(241, 196, 15);
-            const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
+            QColor bgCol = isMarked ? m_markedWindows.value(target) : QColor();
+            const QColor textCol = OutlineBadge::contrastingTextColor(bgCol.isValid() ? bgCol : QColor(255, 185, 0));
             QString customLabel = m_markedWindowLabels.value(target);
             customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
 
-            const qreal badgeW = OutlineBadge::computeBadgeWidth(m_badgeConfig, badgeH, customLabel);
+            const qreal badgeW = OutlineBadge::computeBadgeWidth(m_badgeConfig, badgeH, customLabel, QString(), false);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, badgeW, badgeH, m_badgeMargin);
             if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
             if (badgeRect.right() > screenRect.right() - 4.0) badgeRect.moveRight(screenRect.right() - 4.0);
@@ -7836,7 +7836,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         if (isWindowPinned(target)) {
             customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
         }
-            const qreal jumpW = OutlineBadge::computeBadgeWidth(m_badgeConfig, jumpH, customLabel, recentKey);
+            const qreal jumpW = OutlineBadge::computeBadgeWidth(m_badgeConfig, jumpH, customLabel, recentKey, true);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
             if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
             if (badgeRect.right() > screenRect.right() - 4.0) badgeRect.moveRight(screenRect.right() - 4.0);

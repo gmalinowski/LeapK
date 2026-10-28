@@ -347,12 +347,15 @@ inline qreal computeBadgeWidth(qreal baseHeight, const QString &customLabel = QS
                                int thumbHeight = 0,
                                const QString &recentKey = QString(),
                                int letterFontSize = 0,
-                               const QString &letterFontFamily = QString())
+                               const QString &letterFontFamily = QString(),
+                               bool hasLetter = true)
 {
-    if (customLabel == QStringLiteral("●") && !showIcon && !showThumbnail && recentKey.trimmed().isEmpty()) {
+    const QString cleanLabel = customLabel.trimmed();
+    if (!hasLetter && cleanLabel == QStringLiteral("●")) {
         return baseHeight;
     }
-    const qreal baseW = qRound(baseHeight * 1.35);
+
+    const qreal baseW = hasLetter ? qRound(baseHeight * 1.35) : 0.0;
     qreal totalW = baseW;
 
     if (!recentKey.trimmed().isEmpty()) {
@@ -381,9 +384,30 @@ inline qreal computeBadgeWidth(qreal baseHeight, const QString &customLabel = QS
         totalW += effThumbW + 10.0;
     }
 
-    const QString cleanLabel = customLabel.trimmed();
     if (cleanLabel.isEmpty()) {
         return totalW;
+    }
+
+    if (cleanLabel.startsWith(QStringLiteral("●"))) {
+        const qreal dotR = qMax(5.0, (baseHeight - 4.0) * 0.32);
+        const qreal dotSectionW = (dotR + 2.8) * 2.0 + 12.0;
+        const QString restLabel = cleanLabel.mid(1).trimmed();
+        if (restLabel.isEmpty()) {
+            return totalW + dotSectionW;
+        }
+
+        const QString family = labelFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : labelFontFamily.trimmed();
+        QFont labelFont(family);
+        labelFont.setPixelSize((labelFontSize > 0) ? labelFontSize : qMax(8, qRound(baseHeight * 0.44)));
+        labelFont.setBold(true);
+        QFontMetrics fm(labelFont);
+
+        QString displayRest = restLabel;
+        const int maxLabelW = 160;
+        if (fm.horizontalAdvance(displayRest) > maxLabelW) {
+            displayRest = fm.elidedText(displayRest, Qt::ElideRight, maxLabelW);
+        }
+        return totalW + dotSectionW + fm.horizontalAdvance(displayRest) + 6.0;
     }
 
     const QString family = labelFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : labelFontFamily.trimmed();
@@ -402,10 +426,10 @@ inline qreal computeBadgeWidth(qreal baseHeight, const QString &customLabel = QS
     return totalW + labelW + 18.0;
 }
 
-inline qreal computeBadgeWidth(const BadgeConfig &cfg, qreal baseHeight, const QString &customLabel = QString(), const QString &recentKey = QString())
+inline qreal computeBadgeWidth(const BadgeConfig &cfg, qreal baseHeight, const QString &customLabel = QString(), const QString &recentKey = QString(), bool hasLetter = true)
 {
-    const bool showI = cfg.windowShowIcon || cfg.showIcon;
-    const bool showT = cfg.windowShowThumbnail || cfg.showThumbnail;
+    const bool showI = hasLetter && (cfg.windowShowIcon || cfg.showIcon);
+    const bool showT = hasLetter && (cfg.windowShowThumbnail || cfg.showThumbnail);
     const int iconSz = (cfg.windowIconSize > 0) ? cfg.windowIconSize : cfg.iconSize;
     const int thumbW = (cfg.windowThumbnailWidth > 0) ? cfg.windowThumbnailWidth : cfg.thumbnailWidth;
     const int thumbH = (cfg.windowThumbnailHeight > 0) ? cfg.windowThumbnailHeight : cfg.thumbnailHeight;
@@ -413,40 +437,49 @@ inline qreal computeBadgeWidth(const BadgeConfig &cfg, qreal baseHeight, const Q
     const int letterSz = (cfg.windowLetterFontSize > 0) ? cfg.windowLetterFontSize : cfg.letterFontSize;
     return computeBadgeWidth(baseHeight, customLabel, showI, showT,
                              1.6, iconSz, thumbW, labelSz, cfg.labelFontFamily,
-                             thumbH, recentKey, letterSz, cfg.letterFontFamily);
+                             thumbH, recentKey, letterSz, cfg.letterFontFamily, hasLetter);
 }
 
-inline void drawHighContrastPinDot(QPainter &p, const QPointF &center, qreal radius, qreal scale)
+inline void drawHighContrastPinDot(QPainter &p, const QPointF &center, qreal radius, qreal scale, const QColor &customCore = QColor())
 {
     p.save();
     p.setRenderHint(QPainter::Antialiasing, true);
 
-    // 1. Soft drop shadow for elevation
+    const qreal r = radius;
+
+    // 1. Soft elevation drop shadow for depth
     p.setPen(Qt::NoPen);
-    p.setBrush(QColor(0, 0, 0, 130));
-    p.drawEllipse(center + QPointF(0, 1.2 * scale), radius + 1.0 * scale, radius + 1.0 * scale);
+    p.setBrush(QColor(0, 0, 0, 160));
+    p.drawEllipse(center + QPointF(0, 1.2 * scale), r + 2.0 * scale, r + 2.0 * scale);
 
-    // 2. High-contrast dark perimeter ring (ensures contrast against light/white backgrounds)
-    p.setBrush(QColor(15, 17, 20, 240));
-    p.drawEllipse(center, radius + 1.5 * scale, radius + 1.5 * scale);
+    // 2. Outer luminous halo/ring (guarantees clear distinction on pitch-black / dark backgrounds)
+    p.setBrush(QColor(255, 255, 255, 220));
+    p.drawEllipse(center, r + 2.5 * scale, r + 2.5 * scale);
 
-    // 3. Vibrant amber-gold core (ensures contrast against dark/black backgrounds)
-    p.setBrush(QColor(241, 196, 15));
-    p.drawEllipse(center, radius, radius);
+    // 3. Thick obsidian-black perimeter ring (guarantees high contrast > 15:1 against light/white backgrounds)
+    p.setBrush(QColor(10, 12, 16, 255));
+    p.drawEllipse(center, r + 1.5 * scale, r + 1.5 * scale);
 
-    // 4. Inner bright specular highlight/pip (adds depth and extra luminance)
-    p.setBrush(QColor(255, 255, 255, 190));
-    p.drawEllipse(center - QPointF(radius * 0.28, radius * 0.28), radius * 0.35, radius * 0.35);
+    // 4. Vibrant jewel-like core with radial gradient
+    const QColor baseCore = customCore.isValid() ? customCore : QColor(255, 185, 0); // Vivid Amber Gold
+    QRadialGradient grad(center - QPointF(r * 0.25, r * 0.25), r * 1.25);
+    grad.setColorAt(0.0, QColor(255, 225, 90));
+    grad.setColorAt(0.6, baseCore);
+    grad.setColorAt(1.0, baseCore.darker(130));
+    p.setBrush(grad);
+    p.drawEllipse(center, r, r);
+
+    // 5. Specular highlight pip for crisp luminance
+    p.setBrush(QColor(255, 255, 255, 240));
+    p.drawEllipse(center - QPointF(r * 0.30, r * 0.30), r * 0.35, r * 0.35);
 
     p.restore();
 }
 
-inline QImage renderPinDotBadgeImage(qreal diameter, qreal scale, const QColor &coreColor = QColor(241, 196, 15))
+inline QImage renderPinDotBadgeImage(qreal baseSize, qreal scale, const QColor &coreColor = QColor())
 {
-    const int d = qMax(12, qRound(diameter * scale));
-    const int pad = qMax(2, qRound(3.0 * scale));
-    const int w = d + 2 * pad;
-    const int h = d + 2 * pad;
+    const int w = qMax(1, qRound(baseSize * scale));
+    const int h = w;
 
     QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
     img.fill(Qt::transparent);
@@ -455,25 +488,9 @@ inline QImage renderPinDotBadgeImage(qreal diameter, qreal scale, const QColor &
     p.setRenderHint(QPainter::Antialiasing, true);
 
     const QPointF center(w / 2.0, h / 2.0);
-    const qreal r = (d / 2.0) - 1.0 * scale;
+    const qreal r = qMax(4.0 * scale, (w / 2.0) - 3.5 * scale);
 
-    // 1. Soft drop shadow
-    p.setPen(Qt::NoPen);
-    p.setBrush(QColor(0, 0, 0, 130));
-    p.drawEllipse(center + QPointF(0, 1.5 * scale), r + 1.0 * scale, r + 1.0 * scale);
-
-    // 2. High-contrast dark perimeter ring
-    p.setBrush(QColor(15, 17, 20, 240));
-    p.drawEllipse(center, r + 1.5 * scale, r + 1.5 * scale);
-
-    // 3. Vibrant amber-gold core
-    const QColor effectiveCore = coreColor.isValid() ? coreColor : QColor(241, 196, 15);
-    p.setBrush(effectiveCore);
-    p.drawEllipse(center, r, r);
-
-    // 4. Inner bright specular highlight/pip
-    p.setBrush(QColor(255, 255, 255, 190));
-    p.drawEllipse(center - QPointF(r * 0.28, r * 0.28), r * 0.35, r * 0.35);
+    drawHighContrastPinDot(p, center, r, scale, coreColor);
 
     p.end();
     return img;
@@ -514,7 +531,8 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
 
     const bool hasThumb = (cfg.windowShowThumbnail || cfg.showThumbnail) && !thumbnail.isNull();
 
-    if (letter.isNull() && cleanLabel == QStringLiteral("●") && !hasIcon && !hasThumb && !hasRecentKey) {
+    const bool hasLetter = !letter.isNull();
+    if (!hasLetter && cleanLabel == QStringLiteral("●")) {
         return renderPinDotBadgeImage(effectiveBaseHeight, scale, bgColor);
     }
     const int effWinThumbSize = (cfg.windowThumbnailSize > 0) ? cfg.windowThumbnailSize : cfg.thumbnailSize;
@@ -547,14 +565,31 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
 
     QString displayLabel = cleanLabel;
     int labelTextWidth = 0;
+    int labelSectionW = 0;
     if (hasLabel) {
-        const int maxLabelW = qRound(160 * scale);
-        if (fmLabel.horizontalAdvance(displayLabel) > maxLabelW) {
-            displayLabel = fmLabel.elidedText(displayLabel, Qt::ElideRight, maxLabelW);
+        if (cleanLabel.startsWith(QStringLiteral("●"))) {
+            const qreal unscaledDotR = qMax(5.0, (effectiveBaseHeight - 4.0) * 0.32);
+            const qreal dotSectionW = (unscaledDotR + 2.8) * 2.0 + 12.0;
+            const QString restLabel = cleanLabel.mid(1).trimmed();
+            if (restLabel.isEmpty()) {
+                labelSectionW = qRound(dotSectionW);
+            } else {
+                const int maxLabelW = qRound(160 * scale);
+                QString displayRest = restLabel;
+                if (fmLabel.horizontalAdvance(displayRest) > maxLabelW) {
+                    displayRest = fmLabel.elidedText(displayRest, Qt::ElideRight, maxLabelW);
+                }
+                labelSectionW = qRound(dotSectionW + (fmLabel.horizontalAdvance(displayRest) / scale) + 6.0);
+            }
+        } else {
+            const int maxLabelW = qRound(160 * scale);
+            if (fmLabel.horizontalAdvance(displayLabel) > maxLabelW) {
+                displayLabel = fmLabel.elidedText(displayLabel, Qt::ElideRight, maxLabelW);
+            }
+            labelTextWidth = fmLabel.horizontalAdvance(displayLabel);
+            labelSectionW = qRound((labelTextWidth + 18 * scale) / scale);
         }
-        labelTextWidth = fmLabel.horizontalAdvance(displayLabel);
     }
-    const int labelSectionW = hasLabel ? qRound((labelTextWidth + 18 * scale) / scale) : 0;
 
     const QString letterFam = cfg.letterFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.letterFontFamily.trimmed();
     QFont font(letterFam);
@@ -574,7 +609,7 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
         recentSectionW = qRound((rTextW + 12.0 * scale) / scale);
     }
 
-    const int effectiveLetterWidth = qRound(effectiveBaseHeight * 1.35);
+    const int effectiveLetterWidth = hasLetter ? qRound(effectiveBaseHeight * 1.35) : 0;
     const int effectiveBaseWidth = effectiveLetterWidth + recentSectionW + iconSectionW + thumbSectionW + labelSectionW;
 
     const int w = qMax(1, qRound(effectiveBaseWidth * scale));
@@ -658,10 +693,12 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
         qreal currentX = margin;
 
         // 1. Letter & optional recent key
-        const qreal letterW = qRound(effectiveLetterWidth * scale);
-        const QRectF letterRect(currentX, margin, letterW - margin, h - 2 * margin);
-        p.drawText(letterRect, Qt::AlignCenter, QString(letter.toUpper()));
-        currentX += letterW;
+        if (hasLetter) {
+            const qreal letterW = qRound(effectiveLetterWidth * scale);
+            const QRectF letterRect(currentX, margin, letterW - margin, h - 2 * margin);
+            p.drawText(letterRect, Qt::AlignCenter, QString(letter.toUpper()));
+            currentX += letterW;
+        }
 
         if (hasRecentKey) {
             const qreal sepRecentX = currentX - 1.0 * scale;
@@ -727,16 +764,20 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
 
         // 4. Label
         if (hasLabel) {
-            const qreal sepLabelX = currentX - 1.0 * scale;
-            p.setPen(QPen(sepCol, 1.2 * scale));
-            p.drawLine(QPointF(sepLabelX, margin + 4.0 * scale), QPointF(sepLabelX, h - margin - 4.0 * scale));
-            currentX += 6.0 * scale;
+            if (currentX > margin + 1.0 * scale) {
+                const qreal sepLabelX = currentX - 1.0 * scale;
+                p.setPen(QPen(sepCol, 1.2 * scale));
+                p.drawLine(QPointF(sepLabelX, margin + 4.0 * scale), QPointF(sepLabelX, h - margin - 4.0 * scale));
+                currentX += 6.0 * scale;
+            } else {
+                currentX += 4.0 * scale;
+            }
 
             if (cleanLabel.startsWith(QStringLiteral("●"))) {
-                const qreal dotR = qMax(3.0 * scale, (h - 2 * margin) * 0.22);
-                const QPointF dotCenter(currentX + dotR + 1.0 * scale, h / 2.0);
+                const qreal dotR = qMax(5.0 * scale, (h - 2 * margin) * 0.32);
+                const QPointF dotCenter(currentX + dotR + 3.0 * scale, h / 2.0);
                 drawHighContrastPinDot(p, dotCenter, dotR, scale);
-                currentX += (dotR + 1.5 * scale) * 2.0 + 4.0 * scale;
+                currentX += (dotR + 2.8 * scale) * 2.0 + 8.0 * scale;
 
                 const QString restLabel = cleanLabel.mid(1).trimmed();
                 if (!restLabel.isEmpty()) {
@@ -887,7 +928,13 @@ inline QSizeF computeHudPillSize(const BadgeConfig &cfg,
             line2Text = fmLine2.elidedText(line2Text, Qt::ElideRight, qRound(240 * scale));
         }
 
-        const int w1 = fmLine1.horizontalAdvance(line1Text);
+        int w1 = fmLine1.horizontalAdvance(line1Text);
+        if (isPinned && line1Text.startsWith(QStringLiteral("●"))) {
+            const QString pinnedLabel = line1Text.mid(1).trimmed();
+            const qreal dotR = qMax(5.0 * scale, fmLine1.xHeight() * 0.75);
+            const int dotOffset = qRound((dotR + 2.8 * scale) * 2.0 + 6.0 * scale);
+            w1 = fmLine1.horizontalAdvance(pinnedLabel) + dotOffset;
+        }
         const int w2 = fmLine2.horizontalAdvance(line2Text);
         textWidth = qMax(w1, w2);
     } else {
@@ -907,7 +954,13 @@ inline QSizeF computeHudPillSize(const BadgeConfig &cfg,
             line1Text += QStringLiteral(" (%1)").arg(groupCount);
         }
 
-        const int locWidth = fmLoc.horizontalAdvance(line1Text);
+        int locWidth = fmLoc.horizontalAdvance(line1Text);
+        if (isPinned && line1Text.startsWith(QStringLiteral("●"))) {
+            const QString pinnedLabel = line1Text.mid(1).trimmed();
+            const qreal dotR = qMax(5.0 * scale, fmLoc.xHeight() * 0.75);
+            const int dotOffset = qRound((dotR + 2.8 * scale) * 2.0 + 6.0 * scale);
+            locWidth = fmLoc.horizontalAdvance(pinnedLabel) + dotOffset;
+        }
         const int capWidth = line2Text.isEmpty() ? 0 : fmCap.horizontalAdvance(line2Text);
         textWidth = qMax(locWidth, capWidth);
     }
@@ -1113,7 +1166,13 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
             line2Text = fmLine2.elidedText(line2Text, Qt::ElideRight, qRound(240 * scale));
         }
 
-        const int w1 = fmLine1.horizontalAdvance(line1Text);
+        int w1 = fmLine1.horizontalAdvance(line1Text);
+        if (isPinned && line1Text.startsWith(QStringLiteral("●"))) {
+            const QString pinnedLabel = line1Text.mid(1).trimmed();
+            const qreal dotR = qMax(5.0 * scale, fmLine1.xHeight() * 0.75);
+            const int dotOffset = qRound((dotR + 2.8 * scale) * 2.0 + 6.0 * scale);
+            w1 = fmLine1.horizontalAdvance(pinnedLabel) + dotOffset;
+        }
         const int w2 = fmLine2.horizontalAdvance(line2Text);
         textWidth = qMax(w1, w2);
     } else {
@@ -1133,7 +1192,13 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
             line1Text += QStringLiteral(" (%1)").arg(groupCount);
         }
 
-        const int locWidth = fmLoc.horizontalAdvance(line1Text);
+        int locWidth = fmLoc.horizontalAdvance(line1Text);
+        if (isPinned && line1Text.startsWith(QStringLiteral("●"))) {
+            const QString pinnedLabel = line1Text.mid(1).trimmed();
+            const qreal dotR = qMax(5.0 * scale, fmLoc.xHeight() * 0.75);
+            const int dotOffset = qRound((dotR + 2.8 * scale) * 2.0 + 6.0 * scale);
+            locWidth = fmLoc.horizontalAdvance(pinnedLabel) + dotOffset;
+        }
         const int capWidth = line2Text.isEmpty() ? 0 : fmCap.horizontalAdvance(line2Text);
         textWidth = qMax(locWidth, capWidth);
     }
@@ -1466,14 +1531,14 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     if (isPinned && line1Text.startsWith(QStringLiteral("●"))) {
         const QString pinnedLabel = line1Text.mid(1).trimmed();
         QFontMetrics fm1(line1Font);
-        const qreal dotR = qMax(3.0 * scale, fm1.xHeight() * 0.50);
+        const qreal dotR = qMax(5.0 * scale, fm1.xHeight() * 0.75);
         const qreal dotY = line2Text.isEmpty()
             ? ((isTopOrBottom && hasThumb) ? padY + textLineHeight / 2.0 : textCenterY)
             : qRound(textCenterY - fm1.height() * 0.45);
-        const QPointF dotCenter(textLeft + dotR + 1.0 * scale, dotY);
+        const QPointF dotCenter(textLeft + dotR + 2.0 * scale, dotY);
         drawHighContrastPinDot(p, dotCenter, dotR, scale);
 
-        const int dotOffset = qRound((dotR + 1.5 * scale) * 2.0 + 5.0 * scale);
+        const int dotOffset = qRound((dotR + 2.8 * scale) * 2.0 + 6.0 * scale);
         if (line2Text.isEmpty()) {
             const QRectF locRect(textLeft + dotOffset, (isTopOrBottom && hasThumb) ? padY : 0, textWidth - dotOffset, textLineHeight);
             p.setFont(line1Font);
