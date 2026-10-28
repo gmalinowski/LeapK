@@ -229,6 +229,7 @@ private:
     void exitSubLeapMode();
     bool isWindowObscured(EffectWindow *target) const;
     bool isBadgeOccluded(EffectWindow *target, const QRectF &badgeRect, const QList<QRectF> &hudRects = {}) const;
+    bool isWindowInStash(EffectWindow *w) const;
     QString getWindowLocationString(EffectWindow *target) const;
     QList<QRectF> computeHudPillRects(const QList<QPair<QChar, EffectWindow *>> &targets,
                                       const RenderViewport &viewport,

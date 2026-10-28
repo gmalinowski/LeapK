@@ -1007,6 +1007,37 @@ void testHudModeHeader()
     assert(subLeapEn.width() > 200);
 }
 
+void testStashBadgeStyling()
+{
+    OutlineBadge::BadgeConfig cfg;
+    cfg.hudBadgeSize = 32;
+
+    const QColor vibrantOrange(230, 126, 34);
+
+    // 1. Normal vs Stashed offscreen HUD pill
+    const QImage pillNormal = OutlineBadge::renderOffscreenTargetPill(cfg, QChar('S'), vibrantOrange, Qt::white,
+                                                                      QStringLiteral("Desktop 1"), QStringLiteral("Konsole"),
+                                                                      32, 1.0, QString(), QIcon(), QImage(), true, QString(), false, 0, false);
+    assert(!pillNormal.isNull());
+
+    const QImage pillStashed = OutlineBadge::renderOffscreenTargetPill(cfg, QChar('S'), vibrantOrange, Qt::white,
+                                                                       QStringLiteral("📦 Stash"), QStringLiteral("Konsole"),
+                                                                       32, 1.0, QString(), QIcon(), QImage(), true, QString(), false, 0, true);
+    assert(!pillStashed.isNull());
+
+    // 2. Normal vs Stashed window badge
+    const QImage badgeNormal = OutlineBadge::renderBadgeImage(cfg, QChar('K'), vibrantOrange, Qt::white, false, 28, 1.0,
+                                                              QString(), QIcon(), QImage(), QString(), false, false);
+    assert(!badgeNormal.isNull());
+
+    const QImage badgeStashed = OutlineBadge::renderBadgeImage(cfg, QChar('K'), vibrantOrange, Qt::white, false, 28, 1.0,
+                                                               QString(), QIcon(), QImage(), QString(), false, true);
+    assert(!badgeStashed.isNull());
+
+    // Verify dimensions match
+    assert(badgeNormal.size() == badgeStashed.size());
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -1032,6 +1063,7 @@ int main(int argc, char *argv[])
     testHudWindowGroupingAndFrames();
     testHudActionHintBar();
     testHudModeHeader();
+    testStashBadgeStyling();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

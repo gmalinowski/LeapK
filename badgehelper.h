@@ -424,7 +424,8 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
                                const QIcon &icon = QIcon(),
                                const QImage &thumbnail = QImage(),
                                const QString &recentKey = QString(),
-                               bool isRecent = false)
+                               bool isRecent = false,
+                               bool isStashed = false)
 {
     Q_UNUSED(isRecent);
     const int effectiveBaseHeight = (baseSize > 0)
@@ -530,7 +531,14 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
 
     // Background color with opacity
     QColor effectiveBg = bgColor.isValid() ? bgColor : cfg.defaultBgColor;
-    effectiveBg.setAlphaF(qBound(0.1, effectiveBg.alphaF() * (cfg.opacityPercent / 100.0), 1.0));
+    if (isStashed) {
+        int h, s, v, a;
+        effectiveBg.getHsv(&h, &s, &v, &a);
+        effectiveBg = QColor::fromHsv(h, qRound(s * 0.35), qRound(v * 0.85), a);
+        effectiveBg.setAlphaF(qBound(0.1, effectiveBg.alphaF() * (cfg.opacityPercent / 100.0) * 0.82, 1.0));
+    } else {
+        effectiveBg.setAlphaF(qBound(0.1, effectiveBg.alphaF() * (cfg.opacityPercent / 100.0), 1.0));
+    }
 
     // Contrasting text color & border
     const QColor autoTextColor = contrastingTextColor(effectiveBg);
@@ -549,7 +557,12 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
             borderColor = isJumpMode ? QColor(255, 255, 255, 230) : QColor(255, 255, 255, 170);
         }
     }
-    p.setPen(QPen(borderColor, isJumpMode ? (2.0 * scale) : (1.2 * scale)));
+    QPen borderPen(borderColor, isJumpMode ? (2.0 * scale) : (1.2 * scale));
+    if (isStashed) {
+        borderPen.setStyle(Qt::CustomDashLine);
+        borderPen.setDashPattern({3, 2});
+    }
+    p.setPen(borderPen);
     p.drawRoundedRect(rect, radius, radius);
 
     const QColor sepCol = isLightBg ? QColor(0, 0, 0, 70) : QColor(255, 255, 255, 90);
@@ -624,10 +637,18 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
             thumbPath.addRoundedRect(thumbRect, thumbRadius, thumbRadius);
             p.save();
             p.setClipPath(thumbPath);
+            if (isStashed) {
+                p.setOpacity(0.65);
+            }
             p.drawImage(thumbRect, thumbnail);
             p.restore();
 
-            p.setPen(QPen(isLightBg ? QColor(0, 0, 0, 70) : QColor(255, 255, 255, 90), 1.0 * scale));
+            QPen tPen(isLightBg ? QColor(0, 0, 0, 70) : QColor(255, 255, 255, 90), 1.0 * scale);
+            if (isStashed) {
+                tPen.setStyle(Qt::CustomDashLine);
+                tPen.setDashPattern({3, 2});
+            }
+            p.setPen(tPen);
             p.setBrush(Qt::NoBrush);
             p.drawRoundedRect(thumbRect, thumbRadius, thumbRadius);
 
@@ -664,7 +685,8 @@ inline QImage renderBadgeImage(const QChar &letter, const QColor &bgColor, const
                                bool isJumpMode = false, int baseSize = 28, qreal scale = 1.0,
                                const QString &customLabel = QString(),
                                bool showIcon = false, const QIcon &icon = QIcon(),
-                               bool showThumbnail = false, const QImage &thumbnail = QImage())
+                               bool showThumbnail = false, const QImage &thumbnail = QImage(),
+                               bool isStashed = false)
 {
     BadgeConfig cfg;
     cfg.windowBadgeSize = baseSize;
@@ -672,7 +694,7 @@ inline QImage renderBadgeImage(const QChar &letter, const QColor &bgColor, const
     cfg.showIcon = showIcon;
     cfg.showThumbnail = showThumbnail;
     const int effectiveSize = isJumpMode ? cfg.jumpBadgeSize : baseSize;
-    return renderBadgeImage(cfg, letter, bgColor, textColor, isJumpMode, effectiveSize, scale, customLabel, icon, thumbnail);
+    return renderBadgeImage(cfg, letter, bgColor, textColor, isJumpMode, effectiveSize, scale, customLabel, icon, thumbnail, QString(), false, isStashed);
 }
 
 inline QSizeF computeHudPillSize(const BadgeConfig &cfg,
@@ -686,8 +708,10 @@ inline QSizeF computeHudPillSize(const BadgeConfig &cfg,
                                  const QSize &thumbSize = QSize(),
                                  const QString &recentKey = QString(),
                                  bool isRecent = false,
-                                 int groupCount = 0)
+                                 int groupCount = 0,
+                                 bool isStashed = false)
 {
+    Q_UNUSED(isStashed);
     const int effectivePillBaseH = (badgeSize > 0) ? badgeSize : cfg.hudBadgeSize;
 
     const int effectiveIconSize = (cfg.hudIconSize > 0) ? cfg.hudIconSize : 24;
@@ -882,13 +906,14 @@ inline QSizeF computeHudPillSize(const QString &locationText,
                                  const QSize &thumbSize = QSize(),
                                  const QString &recentKey = QString(),
                                  bool isRecent = false,
-                                 int groupCount = 0)
+                                 int groupCount = 0,
+                                 bool isStashed = false)
 {
     BadgeConfig cfg;
     cfg.hudBadgeSize = badgeSize;
     cfg.hudShowIcon = hasIcon;
     cfg.hudShowThumbnail = hasThumb;
-    return computeHudPillSize(cfg, locationText, caption, badgeSize, scale, customLabel, hasIcon, hasThumb, thumbSize, recentKey, isRecent, groupCount);
+    return computeHudPillSize(cfg, locationText, caption, badgeSize, scale, customLabel, hasIcon, hasThumb, thumbSize, recentKey, isRecent, groupCount, isStashed);
 }
 
 inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
@@ -905,7 +930,8 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
                                         bool isMarked = false,
                                         const QString &recentKey = QString(),
                                         bool isRecent = false,
-                                        int groupCount = 0)
+                                        int groupCount = 0,
+                                        bool isStashed = false)
 {
     Q_UNUSED(textColor);
     const int effectivePillBaseH = (badgeSize > 0) ? badgeSize : cfg.hudBadgeSize;
@@ -1118,8 +1144,15 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     QColor pureMarkColor = rawMarkColor;
     pureMarkColor.setAlpha(255); // Solid, vibrant, undimmed 100% mark color
 
+    if (isStashed) {
+        int h, s, v, a;
+        pureMarkColor.getHsv(&h, &s, &v, &a);
+        // Decrease saturation significantly to 35% and value to 82% for an archived/shelved feel
+        pureMarkColor = QColor::fromHsv(h, qRound(s * 0.35), qRound(v * 0.82), a);
+    }
+
     QColor pillBg(22, 25, 29);
-    pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0), 1.0));
+    pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0) * (isStashed ? 0.78 : 1.0), 1.0));
 
     QColor borderColor;
     QColor badgeBg;
@@ -1127,7 +1160,7 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     if (effectivelyMarked) {
         if (cfg.hudMarkColorMode == 1) { // 1 = Full mark color
             pillBg = pureMarkColor;
-            pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0), 1.0));
+            pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0) * (isStashed ? 0.78 : 1.0), 1.0));
             const bool isLight = (perceivedLuminance(pillBg) > 0.53);
             borderColor = isLight ? QColor(0, 0, 0, 160) : QColor(255, 255, 255, 180);
             badgeBg = pureMarkColor;
@@ -1138,27 +1171,37 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
                 darkBase.greenF() * 0.45 + pureMarkColor.greenF() * 0.55,
                 darkBase.blueF() * 0.45 + pureMarkColor.blueF() * 0.55
             );
-            pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0), 1.0));
+            pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0) * (isStashed ? 0.78 : 1.0), 1.0));
             borderColor = pureMarkColor;
-            borderColor.setAlpha(220);
+            borderColor.setAlpha(isStashed ? 180 : 220);
             badgeBg = pureMarkColor;
         } else { // 0 = Dark card with mark border & badge (Recommended default)
             pillBg = QColor(22, 25, 29);
-            pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0), 1.0));
+            pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0) * (isStashed ? 0.78 : 1.0), 1.0));
             borderColor = pureMarkColor;
-            borderColor.setAlpha(245);
+            borderColor.setAlpha(isStashed ? 200 : 245);
             badgeBg = pureMarkColor;
         }
     } else {
         pillBg = QColor(22, 25, 29);
-        pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0), 1.0));
-        borderColor = QColor(255, 255, 255, 45);
-        badgeBg = cfg.defaultBgColor;
-        badgeBg.setAlpha(255);
+        pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0) * (isStashed ? 0.78 : 1.0), 1.0));
+        if (isStashed) {
+            badgeBg = QColor(48, 54, 62);
+            borderColor = QColor(140, 150, 165, 130);
+        } else {
+            borderColor = QColor(255, 255, 255, 45);
+            badgeBg = cfg.defaultBgColor;
+            badgeBg.setAlpha(255);
+        }
     }
 
     p.fillPath(bgPath, pillBg);
-    p.setPen(QPen(borderColor, 1.5 * scale));
+    QPen borderPen(borderColor, 1.5 * scale);
+    if (isStashed) {
+        borderPen.setStyle(Qt::CustomDashLine);
+        borderPen.setDashPattern({4, 3});
+    }
+    p.setPen(borderPen);
     p.drawPath(bgPath);
 
     const QColor pillAutoText = contrastingTextColor(pillBg);
@@ -1179,11 +1222,21 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         // Pure undimmed badge: no dark stroke dimming the bright mark color.
         // For dark badges sitting on a dark card, draw a subtle light stroke to preserve edge definition.
         if (!isLightBadge) {
-            p.setPen(QPen(QColor(255, 255, 255, 75), 1.0 * scale));
+            QPen bPen(isStashed ? QColor(255, 255, 255, 90) : QColor(255, 255, 255, 75), 1.0 * scale);
+            if (isStashed) {
+                bPen.setStyle(Qt::CustomDashLine);
+                bPen.setDashPattern({3, 2});
+            }
+            p.setPen(bPen);
             p.drawPath(bPath);
         }
     } else {
-        p.setPen(QPen(QColor(255, 255, 255, 45), 1.0 * scale));
+        QPen bPen(isStashed ? QColor(255, 255, 255, 80) : QColor(255, 255, 255, 45), 1.0 * scale);
+        if (isStashed) {
+            bPen.setStyle(Qt::CustomDashLine);
+            bPen.setDashPattern({3, 2});
+        }
+        p.setPen(bPen);
         p.drawPath(bPath);
     }
 
@@ -1243,9 +1296,17 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         tPath.addRoundedRect(thumbRect, thumbRadius, thumbRadius);
         p.save();
         p.setClipPath(tPath);
+        if (isStashed) {
+            p.setOpacity(0.65);
+        }
         p.drawImage(thumbRect, thumbnail);
         p.restore();
-        p.setPen(QPen(isLightPill ? QColor(0, 0, 0, 80) : QColor(255, 255, 255, 80), 1.0 * scale));
+        QPen tPen(isLightPill ? QColor(0, 0, 0, 80) : QColor(255, 255, 255, 80), 1.0 * scale);
+        if (isStashed) {
+            tPen.setStyle(Qt::CustomDashLine);
+            tPen.setDashPattern({3, 2});
+        }
+        p.setPen(tPen);
         p.setBrush(Qt::NoBrush);
         p.drawRoundedRect(thumbRect, thumbRadius, thumbRadius);
     } else {
@@ -1266,9 +1327,17 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
             tPath.addRoundedRect(thumbRect, thumbRadius, thumbRadius);
             p.save();
             p.setClipPath(tPath);
+            if (isStashed) {
+                p.setOpacity(0.65);
+            }
             p.drawImage(thumbRect, thumbnail);
             p.restore();
-            p.setPen(QPen(isLightPill ? QColor(0, 0, 0, 80) : QColor(255, 255, 255, 80), 1.0 * scale));
+            QPen tPen(isLightPill ? QColor(0, 0, 0, 80) : QColor(255, 255, 255, 80), 1.0 * scale);
+            if (isStashed) {
+                tPen.setStyle(Qt::CustomDashLine);
+                tPen.setDashPattern({3, 2});
+            }
+            p.setPen(tPen);
             p.setBrush(Qt::NoBrush);
             p.drawRoundedRect(thumbRect, thumbRadius, thumbRadius);
             curX += thumbW;
@@ -1326,13 +1395,14 @@ inline QImage renderOffscreenTargetPill(const QChar &letter,
                                         bool isMarked = false,
                                         const QString &recentKey = QString(),
                                         bool isRecent = false,
-                                        int groupCount = 0)
+                                        int groupCount = 0,
+                                        bool isStashed = false)
 {
     BadgeConfig cfg;
     cfg.hudBadgeSize = badgeSize;
     cfg.showIcon = showIcon;
     cfg.showThumbnail = showThumbnail;
-    return renderOffscreenTargetPill(cfg, letter, bgColor, textColor, locationText, caption, badgeSize, scale, customLabel, icon, thumbnail, isMarked, recentKey, isRecent, groupCount);
+    return renderOffscreenTargetPill(cfg, letter, bgColor, textColor, locationText, caption, badgeSize, scale, customLabel, icon, thumbnail, isMarked, recentKey, isRecent, groupCount, isStashed);
 }
 
 inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,

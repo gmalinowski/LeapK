@@ -4167,10 +4167,10 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
         const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
 
         if (m_stashModeActive) { // Stash view: include both stashed windows and visible workspace windows
-            const bool isStashed = m_stashedWindows.contains(w) || (w->isMinimized() && !m_workspaceMinimizedWindows.contains(w));
+            const bool isStashed = isWindowInStash(w);
 
             bool isCurrentWorkspaceVisible = false;
-            if (!w->isMinimized() && !m_stashedWindows.contains(w)) {
+            if (!isStashed) {
                 if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
                     const auto &ws = m_workspaces.at(m_activeHudView - 1);
                     if (LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum)) {
@@ -4190,7 +4190,7 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
             }
         } else {
             // In regular workspace views, stashed windows MUST stay hidden!
-            if (m_stashedWindows.contains(w)) {
+            if (isWindowInStash(w)) {
                 continue;
             }
 
@@ -4727,7 +4727,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                         return;
                     }
 
-                    if (m_stashedWindows.contains(target) || target->isMinimized()) {
+                    if (isWindowInStash(target)) {
                         addWindowToWorkspace(target, m_activeHudView);
                         m_jumpLetterToWindow = assignJumpLetters();
                         m_badgeTextureCache.clear();
@@ -5597,13 +5597,15 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
                                            bool isRecent)
 {
     const qreal scale = viewport.scale();
+    const bool isStashed = isWindowInStash(target);
     const quint64 scaleKey = static_cast<quint64>(qRound(scale * 100));
     const quint64 sizeKey = static_cast<quint64>(badgeSize);
     const quint64 labelKey = static_cast<quint64>(qHash(customLabel));
     const quint64 rKeyHash = static_cast<quint64>(qHash(recentKey));
     const quint64 windowKey = target ? static_cast<quint64>(qHash(target->internalId())) : 0;
     const quint64 previewKey = m_badgePreviewActive ? 0x8000 : 0;
-    const quint64 flagsKey = (m_badgeShowIcon ? 0x1000 : 0) | (m_badgeShowThumbnail ? 0x2000 : 0) | (isRecent ? 0x4000 : 0) | (isJumpMode ? 1 : 0) | previewKey;
+    const quint64 stashedKey = isStashed ? 0x10000 : 0;
+    const quint64 flagsKey = (m_badgeShowIcon ? 0x1000 : 0) | (m_badgeShowThumbnail ? 0x2000 : 0) | (isRecent ? 0x4000 : 0) | (isJumpMode ? 1 : 0) | previewKey | stashedKey;
     const quint64 key = (static_cast<quint64>(letter.unicode()) << 48)
         ^ (static_cast<quint64>(bgColor.rgba()) << 16)
         ^ (static_cast<quint64>(textColor.rgba()))
@@ -5634,7 +5636,7 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
             : QImage();
 
         const QImage img = OutlineBadge::renderBadgeImage(cfg, letter, bgColor, textColor, isJumpMode, badgeSize, scale, customLabel,
-                                                          icon, thumbnail, recentKey, isRecent);
+                                                          icon, thumbnail, recentKey, isRecent, isStashed);
         auto uploaded = GLTexture::upload(img);
         if (!uploaded) {
             return;
@@ -5697,13 +5699,34 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
     }
 }
 
+bool ActiveWindowOutlineEffect::isWindowInStash(EffectWindow *w) const
+{
+    if (!w || w->isDeleted()) {
+        return false;
+    }
+    if (m_workspaceMinimizedWindows.contains(w)) {
+        return false; // Minimized purely due to workspace isolation, not in stash!
+    }
+    return m_stashedWindows.contains(w) || w->isMinimized();
+}
+
 QString ActiveWindowOutlineEffect::getWindowLocationString(EffectWindow *target) const
 {
     if (!target) {
         return QString();
     }
+    if (isWindowInStash(target)) {
+        if (!target->isOnCurrentDesktop() && !target->isOnAllDesktops()) {
+            const auto desktops = target->desktops();
+            const QString dName = (!desktops.isEmpty() && !desktops.first()->name().isEmpty())
+                ? desktops.first()->name()
+                : (desktops.isEmpty() ? QString() : QStringLiteral("Desktop %1").arg(desktops.first()->x11DesktopNumber()));
+            return dName.isEmpty() ? QStringLiteral("📦 Stash") : QStringLiteral("📦 Stash · %1").arg(dName);
+        }
+        return QStringLiteral("📦 Stash");
+    }
+
     QString loc;
-    const bool isPolish = (QLocale().language() == QLocale::Polish);
     if (!target->isOnCurrentDesktop()) {
         const auto desktops = target->desktops();
         if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
@@ -5711,17 +5734,12 @@ QString ActiveWindowOutlineEffect::getWindowLocationString(EffectWindow *target)
         }
         if (loc.isEmpty()) {
             const uint num = desktops.isEmpty() ? 0 : desktops.first()->x11DesktopNumber();
-            loc = isPolish ? QStringLiteral("Pulpit %1").arg(num) : tr("Desktop %1").arg(num);
+            loc = QStringLiteral("Desktop %1").arg(num);
         }
-        if (target->isMinimized()) {
-            loc += isPolish ? QStringLiteral(" [📦 Schowek]") : QStringLiteral(" [📦 Stash]");
-        }
-    } else if (target->isMinimized()) {
-        loc = isPolish ? QStringLiteral("📦 Schowek (Ukryte)") : QStringLiteral("📦 Stash (Hidden)");
     } else if (m_badgePreviewActive || target->isVisible()) {
-        loc = isPolish ? QStringLiteral("Bieżący pulpit") : QStringLiteral("Current Desktop");
+        loc = QStringLiteral("Current Desktop");
     } else {
-        loc = isPolish ? QStringLiteral("Schowane") : tr("Covered");
+        loc = QStringLiteral("Covered");
     }
     return loc;
 }
@@ -5758,10 +5776,11 @@ QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
         const bool hasIcon = cfg.hudShowIcon && !target->icon().isNull();
         const bool hasThumb = cfg.hudShowThumbnail && m_thumbnailCache.contains(target);
         const QSize thumbSize = hasThumb ? m_thumbnailCache.value(target).size() : QSize();
+        const bool isStashed = isWindowInStash(target);
 
         const QSizeF sz = OutlineBadge::computeHudPillSize(cfg, loc, caption, badgeSize, scale,
                                                            customLabel, hasIcon, hasThumb, thumbSize,
-                                                           recentKey, isRecent);
+                                                           recentKey, isRecent, 0, isStashed);
         pillSizes.append(sz);
     }
 
@@ -5816,6 +5835,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         const bool isRecent = (target == findRecentWindow()) || m_recentWindows.contains(target);
         const bool isMostRecent = (target == findRecentWindow());
         const QString recentKey = isMostRecent ? (m_badgePreviewActive ? m_previewBadgeConfig.jumpRecentKey : m_jumpRecentKey) : QString();
+        const bool isStashed = isWindowInStash(target);
 
         QColor bgCol;
         if (isMarked) {
@@ -5843,7 +5863,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             : QImage();
 
         const QImage img = OutlineBadge::renderOffscreenTargetPill(cfg, letter, bgCol, textCol, loc, caption, badgeSize, scale, customLabel,
-                                                                   icon, thumbnail, isMarked, recentKey, isRecent, groupCount);
+                                                                   icon, thumbnail, isMarked, recentKey, isRecent, groupCount, isStashed);
         auto uploaded = GLTexture::upload(img);
         if (!uploaded) {
             continue;
@@ -6205,7 +6225,7 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
 {
     const qreal scale = viewport.scale();
     const QRectF screenRect = viewport.renderRect();
-    const bool isPolish = (QLocale().language() == QLocale::Polish);
+    const bool isPolish = false;
 
     QString subLeapTitle;
     QColor subLeapColor;
@@ -6237,10 +6257,7 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
             if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
                 continue;
             }
-            if (m_workspaceMinimizedWindows.contains(w)) {
-                continue; // Minimized only due to workspace isolation, not in stash!
-            }
-            if (w->isMinimized() || m_stashedWindows.contains(w)) {
+            if (isWindowInStash(w)) {
                 stashCount++;
             }
         }
@@ -6259,7 +6276,7 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
             if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
                 continue;
             }
-            if (m_stashedWindows.contains(w)) {
+            if (isWindowInStash(w)) {
                 continue;
             }
             const bool isUnminimizedOrIsoMinimized = !w->isMinimized() || m_workspaceMinimizedWindows.contains(w);
@@ -6282,7 +6299,7 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
                 if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
                     continue;
                 }
-                if (m_stashedWindows.contains(w)) {
+                if (isWindowInStash(w)) {
                     continue;
                 }
                 const auto desktops = w->desktops();
@@ -6305,7 +6322,7 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
             if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
                 continue;
             }
-            if (!m_stashedWindows.contains(w)) {
+            if (!isWindowInStash(w)) {
                 allCount++;
             }
         }
