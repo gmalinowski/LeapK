@@ -59,10 +59,10 @@ public:
         MoveToStash
     };
 
-    explicit CloseWorkspaceDialog(const QString &wsName, bool isPolish, QWidget *parent = nullptr)
+    explicit CloseWorkspaceDialog(const QString &wsName, bool isPolish = false, QWidget *parent = nullptr)
         : QDialog(parent)
         , m_wsName(wsName)
-        , m_isPolish(false)
+        , m_isPolish(isPolish)
         , m_selectedAction(Cancel)
     {
         setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
@@ -949,30 +949,7 @@ private:
 
     void applyRulesToWorkspaces()
     {
-        // Remove current window from all workspace rules
-        for (auto &ws : m_workspaces) {
-            for (int i = ws.rules.size() - 1; i >= 0; --i) {
-                const auto &r = ws.rules.at(i);
-                if (r.matchApp.compare(m_appClass, Qt::CaseInsensitive) == 0) {
-                    ws.rules.removeAt(i);
-                }
-            }
-        }
-
-        // If assigned, add rule to selected workspace
-        if (!m_assignedWsId.isEmpty()) {
-            for (auto &ws : m_workspaces) {
-                if (ws.id == m_assignedWsId) {
-                    LeapKWorkspace::WindowMatchRule r;
-                    r.matchApp = m_appClass;
-                    if (!m_groupByApp) {
-                        r.matchCaption = m_windowCaption;
-                    }
-                    ws.rules.append(r);
-                    break;
-                }
-            }
-        }
+        LeapKWorkspace::reassignWindowToWorkspace(m_workspaces, m_assignedWsId, m_appClass, m_windowCaption, m_groupByApp, 0);
     }
 
     void onNewWorkspace()
@@ -1078,7 +1055,6 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
 
     if (argc > 1 && QString::fromUtf8(argv[1]) == QLatin1String("--prompt-new-workspace")) {
-        const bool isPolish = false;
         QList<LeapKWorkspace::WorkspaceInfo> workspaces = LeapKWorkspace::loadWorkspaces();
         const int nextNum = workspaces.size() + 1;
         const QString defaultName = QStringLiteral("Workspace %1").arg(nextNum);

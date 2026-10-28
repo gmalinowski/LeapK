@@ -3702,13 +3702,7 @@ int ActiveWindowOutlineEffect::findWorkspaceForWindow(EffectWindow *target) cons
     const QString appClass = target->windowClass();
     const QString caption = target->caption();
 
-    for (int i = 0; i < m_workspaces.size(); ++i) {
-        if (LeapKWorkspace::matchesWorkspace(m_workspaces.at(i), appClass, caption, dNum)) {
-            return i + 1; // 1-based workspace index
-        }
-    }
-
-    return 0; // Standard
+    return LeapKWorkspace::findWorkspaceIndexForWindow(m_workspaces, appClass, caption, dNum);
 }
 
 void ActiveWindowOutlineEffect::toggleSuperJumpMode()

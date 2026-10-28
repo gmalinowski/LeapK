@@ -212,4 +212,70 @@ inline bool deleteWorkspace(QList<WorkspaceInfo> &workspaces, const QString &wsI
     return false;
 }
 
+inline int findWorkspaceIndexForWindow(const QList<WorkspaceInfo> &workspaces, const QString &appId, const QString &caption, int desktop = 0)
+{
+    for (int i = 0; i < workspaces.size(); ++i) {
+        if (matchesWorkspace(workspaces.at(i), appId, caption, desktop)) {
+            return i + 1; // 1-based index (0 = standard / none)
+        }
+    }
+    return 0;
+}
+
+inline const WorkspaceInfo* findWorkspaceForWindow(const QList<WorkspaceInfo> &workspaces, const QString &appId, const QString &caption, int desktop = 0)
+{
+    const int idx = findWorkspaceIndexForWindow(workspaces, appId, caption, desktop);
+    if (idx >= 1 && idx <= workspaces.size()) {
+        return &workspaces.at(idx - 1);
+    }
+    return nullptr;
+}
+
+inline int removeWindowFromAllWorkspaces(QList<WorkspaceInfo> &workspaces, const QString &appId, const QString &caption = QString(), const QString &filePath = QString())
+{
+    int removedCount = 0;
+    const QString cleanApp = appId.trimmed().toLower();
+    for (auto &ws : workspaces) {
+        for (int i = ws.rules.size() - 1; i >= 0; --i) {
+            const auto &r = ws.rules.at(i);
+            if (r.matchApp.trimmed().toLower() == cleanApp) {
+                if (caption.isEmpty() || r.matchCaption.isEmpty() || caption.contains(r.matchCaption, Qt::CaseInsensitive)) {
+                    ws.rules.removeAt(i);
+                    ++removedCount;
+                }
+            }
+        }
+    }
+    if (removedCount > 0 && !filePath.isEmpty()) {
+        saveWorkspaces(workspaces, filePath);
+    }
+    return removedCount;
+}
+
+inline bool reassignWindowToWorkspace(QList<WorkspaceInfo> &workspaces, const QString &targetWsId, const QString &appId, const QString &caption = QString(), bool groupByApp = true, int desktop = 0, const QString &filePath = QString())
+{
+    removeWindowFromAllWorkspaces(workspaces, appId, groupByApp ? QString() : caption);
+    if (!targetWsId.isEmpty()) {
+        for (auto &ws : workspaces) {
+            if (ws.id == targetWsId) {
+                WindowMatchRule r;
+                r.matchApp = appId.trimmed();
+                if (!groupByApp) {
+                    r.matchCaption = caption.trimmed();
+                }
+                r.matchDesktop = desktop;
+                ws.rules.append(r);
+                if (!filePath.isEmpty()) {
+                    saveWorkspaces(workspaces, filePath);
+                }
+                return true;
+            }
+        }
+    }
+    if (!filePath.isEmpty()) {
+        saveWorkspaces(workspaces, filePath);
+    }
+    return false;
+}
+
 } // namespace LeapKWorkspace

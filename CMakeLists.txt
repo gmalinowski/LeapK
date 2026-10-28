@@ -383,6 +383,36 @@ if(OUTLINE_BUILD_TESTS)
     target_link_libraries(outline-workspace-test PRIVATE Qt6::Core Qt6::Gui)
     add_test(NAME outline-workspace COMMAND outline-workspace-test)
 
+    add_executable(outline-superjump-test tests/superjump_test.cpp)
+    target_include_directories(outline-superjump-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-superjump-test PRIVATE Qt6::Core Qt6::Gui)
+    add_test(NAME outline-superjump COMMAND outline-superjump-test)
+
+    add_executable(outline-hud-layout-test tests/hudlayout_test.cpp)
+    target_include_directories(outline-hud-layout-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-hud-layout-test PRIVATE Qt6::Core Qt6::Gui)
+    add_test(NAME outline-hud-layout COMMAND outline-hud-layout-test)
+
+    add_executable(outline-workspace-rules-test tests/workspacerules_test.cpp)
+    target_include_directories(outline-workspace-rules-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-workspace-rules-test PRIVATE Qt6::Core Qt6::Gui)
+    add_test(NAME outline-workspace-rules COMMAND outline-workspace-rules-test)
+
+    add_executable(outline-spatial-keyboard-test tests/spatialkeyboard_test.cpp)
+    target_include_directories(outline-spatial-keyboard-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-spatial-keyboard-test PRIVATE Qt6::Core)
+    add_test(NAME outline-spatial-keyboard COMMAND outline-spatial-keyboard-test)
+
+    add_executable(outline-mark-scoring-test tests/markscoring_test.cpp)
+    target_include_directories(outline-mark-scoring-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-mark-scoring-test PRIVATE Qt6::Core Qt6::Gui)
+    add_test(NAME outline-mark-scoring COMMAND outline-mark-scoring-test)
+
+    add_executable(outline-cli-test tests/cli_test.cpp)
+    target_include_directories(outline-cli-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-cli-test PRIVATE Qt6::Core Qt6::Gui)
+    add_test(NAME outline-cli COMMAND outline-cli-test)
+
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
         add_test(NAME outline-config-sync COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/configsync_test.py)
