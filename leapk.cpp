@@ -994,6 +994,8 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_badgesAlwaysVisible = (m_badgeDisplayMode == 1);
     m_jumpTargets = qBound(0, config.readEntry("JumpTargets", 0), 3);
     m_cursorWarpMode = qBound(0, config.readEntry("CursorWarpMode", 0), 2);
+    m_soundFeedbackEnabled = config.readEntry("SoundFeedbackEnabled", false);
+    m_soundFeedbackVolume = qBound(0, config.readEntry("SoundFeedbackVolume", 30), 100);
     m_activeHudView = config.readEntry("ActiveHudView", 0);
     m_badgeTextureCache.clear();
     m_thumbnailCache.clear();
@@ -4754,6 +4756,9 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     }
 
     m_jumpMode = true;
+    if (m_soundFeedbackEnabled) {
+        OutlineSound::playSound(OutlineSound::SoundEffect::EnterJump, m_soundFeedbackVolume);
+    }
     if (m_audioRefreshTimer) {
         m_audioRefreshTimer->start(1500);
     }
@@ -5772,6 +5777,9 @@ void ActiveWindowOutlineEffect::slotJumpToRecentWindow()
 
 void ActiveWindowOutlineEffect::warpCursorToWindow(EffectWindow *target)
 {
+    if (m_soundFeedbackEnabled && target) {
+        OutlineSound::playSound(OutlineSound::SoundEffect::LandWindow, m_soundFeedbackVolume);
+    }
     if (m_cursorWarpMode == 0 || !target) {
         return;
     }

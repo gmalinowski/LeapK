@@ -323,6 +323,8 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemString(QStringLiteral("BadgeLocationFont"), *new QString, QString());
     m_configSkeleton->addItemInt(QStringLiteral("JumpTargets"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("CursorWarpMode"), *new int, 0);
+    m_configSkeleton->addItemBool(QStringLiteral("SoundFeedbackEnabled"), *new bool, false);
+    m_configSkeleton->addItemInt(QStringLiteral("SoundFeedbackVolume"), *new int, 30);
 
     // Tab 2: Color Cycling
     m_configSkeleton->addItemBool(QStringLiteral("ColorCycleEnabled"), *new bool, false);
@@ -796,6 +798,10 @@ void ActiveWindowOutlineConfig::updateMarkWindowUI()
     m_ui->kcfg_JumpTargets->setEnabled(badgesEnabled);
     m_ui->label_cursorWarpMode->setEnabled(badgesEnabled);
     m_ui->kcfg_CursorWarpMode->setEnabled(badgesEnabled);
+    m_ui->label_soundFeedbackEnabled->setEnabled(badgesEnabled);
+    m_ui->kcfg_SoundFeedbackEnabled->setEnabled(badgesEnabled);
+    m_ui->label_soundFeedbackVolume->setEnabled(badgesEnabled && m_ui->kcfg_SoundFeedbackEnabled->isChecked());
+    m_ui->kcfg_SoundFeedbackVolume->setEnabled(badgesEnabled && m_ui->kcfg_SoundFeedbackEnabled->isChecked());
 
     m_ui->groupWindowBadges->setEnabled(badgesEnabled);
     m_ui->check_previewWindowBadges->setEnabled(windowBadgesEnabled);
@@ -1500,6 +1506,8 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("BadgeHudLocationFontSize")] = m_ui->kcfg_BadgeHudLocationFontSize->value();
     s[QStringLiteral("JumpTargets")] = m_ui->kcfg_JumpTargets->currentIndex();
     s[QStringLiteral("CursorWarpMode")] = m_ui->kcfg_CursorWarpMode->currentIndex();
+    s[QStringLiteral("SoundFeedbackEnabled")] = m_ui->kcfg_SoundFeedbackEnabled->isChecked();
+    s[QStringLiteral("SoundFeedbackVolume")] = m_ui->kcfg_SoundFeedbackVolume->value();
     s[QStringLiteral("BadgeJumpSize")] = m_ui->kcfg_BadgeJumpSize->value();
     s[QStringLiteral("BadgeHudSize")] = m_ui->kcfg_BadgeHudSize->value();
     s[QStringLiteral("BadgeIconSize")] = m_ui->kcfg_BadgeWindowIconSize->value();
@@ -1698,6 +1706,8 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
     if (s.contains(QStringLiteral("BadgeHudLocationFontSize"))) m_ui->kcfg_BadgeHudLocationFontSize->setValue(s[QStringLiteral("BadgeHudLocationFontSize")].toInt());
     if (s.contains(QStringLiteral("JumpTargets"))) m_ui->kcfg_JumpTargets->setCurrentIndex(s[QStringLiteral("JumpTargets")].toInt());
     if (s.contains(QStringLiteral("CursorWarpMode"))) m_ui->kcfg_CursorWarpMode->setCurrentIndex(s[QStringLiteral("CursorWarpMode")].toInt());
+    if (s.contains(QStringLiteral("SoundFeedbackEnabled"))) m_ui->kcfg_SoundFeedbackEnabled->setChecked(s[QStringLiteral("SoundFeedbackEnabled")].toBool());
+    if (s.contains(QStringLiteral("SoundFeedbackVolume"))) m_ui->kcfg_SoundFeedbackVolume->setValue(s[QStringLiteral("SoundFeedbackVolume")].toInt());
     if (s.contains(QStringLiteral("BadgeJumpSize"))) m_ui->kcfg_BadgeJumpSize->setValue(s[QStringLiteral("BadgeJumpSize")].toInt());
     if (s.contains(QStringLiteral("BadgeHudSize"))) m_ui->kcfg_BadgeHudSize->setValue(s[QStringLiteral("BadgeHudSize")].toInt());
     if (s.contains(QStringLiteral("BadgeIconSize"))) {

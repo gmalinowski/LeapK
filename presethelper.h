@@ -141,6 +141,8 @@ inline QJsonObject getDefaultSettings()
     s[QStringLiteral("BadgeLivePreviews")] = false;
     s[QStringLiteral("JumpTargets")] = 0;
     s[QStringLiteral("CursorWarpMode")] = 0;
+    s[QStringLiteral("SoundFeedbackEnabled")] = false;
+    s[QStringLiteral("SoundFeedbackVolume")] = 30;
 
     // Color Cycling
     s[QStringLiteral("ColorCycleEnabled")] = false;

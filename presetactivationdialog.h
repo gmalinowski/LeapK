@@ -126,6 +126,8 @@ public:
                     {QStringLiteral("BadgeDisplayMode"), QStringLiteral("Badge Display Mode")},
                     {QStringLiteral("JumpTargets"), QStringLiteral("Jump Targets Scope")},
                     {QStringLiteral("CursorWarpMode"), QStringLiteral("Cursor Warp After Jump")},
+                    {QStringLiteral("SoundFeedbackEnabled"), QStringLiteral("Audio Feedback on Jump")},
+                    {QStringLiteral("SoundFeedbackVolume"), QStringLiteral("Audio Feedback Volume")},
                     {QStringLiteral("BadgePosition"), QStringLiteral("Window Badge Position")},
                     {QStringLiteral("BadgeHudPosition"), QStringLiteral("Screen HUD Position")},
                     {QStringLiteral("BadgeSize"), QStringLiteral("Badge Size")},

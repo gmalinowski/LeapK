@@ -423,6 +423,11 @@ if(OUTLINE_BUILD_TESTS)
     target_link_libraries(outline-fuzzymatcher-test PRIVATE Qt6::Core)
     add_test(NAME outline-fuzzymatcher COMMAND outline-fuzzymatcher-test)
 
+    add_executable(outline-soundhelper-test tests/soundhelper_test.cpp)
+    target_include_directories(outline-soundhelper-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-soundhelper-test PRIVATE Qt6::Core)
+    add_test(NAME outline-soundhelper COMMAND outline-soundhelper-test)
+
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
         add_test(NAME outline-config-sync COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/configsync_test.py)

@@ -263,6 +263,14 @@
             <min>0</min>
             <max>2</max>
         </entry>
+        <entry name="SoundFeedbackEnabled" type="Bool">
+            <default>false</default>
+        </entry>
+        <entry name="SoundFeedbackVolume" type="Int">
+            <default>30</default>
+            <min>0</min>
+            <max>100</max>
+        </entry>
         <entry name="BadgeHudPosition" type="Int">
             <default>0</default>
             <min>0</min>

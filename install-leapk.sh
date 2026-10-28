@@ -482,6 +482,8 @@ set_default BadgeCaptionFontSize 0
 set_default BadgeLocationFontSize 0
 set_default JumpTargets 0
 set_default CursorWarpMode 0
+set_default SoundFeedbackEnabled false
+set_default SoundFeedbackVolume 30
 
 if command -v kreadconfig6 >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/null 2>&1; then
   migrate_shortcut() {
