@@ -486,6 +486,22 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
     m_historyCommitTimer->setSingleShot(true);
     connect(m_historyCommitTimer, &QTimer::timeout, this, &ActiveWindowOutlineEffect::slotCommitHistoryNavigation);
 
+    m_audioRefreshTimer = new QTimer(this);
+    connect(m_audioRefreshTimer, &QTimer::timeout, this, [this]() {
+        if (m_jumpMode) {
+            m_audioTracker.refresh();
+            if (m_audioFilterModeActive) {
+                m_jumpLetterToWindow = assignJumpLetters();
+            }
+            m_badgeTextureCache.clear();
+            m_hudHeaderTexture.reset();
+            m_hudHeaderCacheKey = -1;
+            if (effects) {
+                effects->addRepaintFull();
+            }
+        }
+    });
+
     reconfigure(ReconfigureAll);
 
     // Some third-party effect KCMs are not reliably reconfigured by KWin's
@@ -732,6 +748,13 @@ void ActiveWindowOutlineEffect::initShortcuts()
     KGlobalAccel::self()->setDefaultShortcut(jumpAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::Key_Space));
     KGlobalAccel::self()->setGlobalShortcut(jumpAction, QKeySequence(Qt::META | Qt::Key_Space));
     connect(jumpAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotTriggerJumpMode);
+
+    QAction *audioAction = new QAction(this);
+    audioAction->setObjectName(QStringLiteral("JumpToAudioWindow"));
+    audioAction->setText(QStringLiteral("LeapK: Jump to Audio Window"));
+    KGlobalAccel::self()->setDefaultShortcut(audioAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_A));
+    KGlobalAccel::self()->setGlobalShortcut(audioAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_A));
+    connect(audioAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotTriggerAudioFilterMode);
 
     QAction *prevRecentAction = new QAction(this);
     prevRecentAction->setObjectName(QStringLiteral("PrevRecentWindow"));
@@ -3785,6 +3808,90 @@ void ActiveWindowOutlineEffect::exitSuperJumpMode()
     effects->addRepaintFull();
 }
 
+void ActiveWindowOutlineEffect::slotTriggerAudioFilterMode()
+{
+    if (!m_jumpMode) {
+        m_audioFilterModeActive = true;
+        slotTriggerJumpMode();
+    } else {
+        toggleAudioFilterMode();
+    }
+}
+
+void ActiveWindowOutlineEffect::toggleAudioFilterMode()
+{
+    if (m_subLeapActive) {
+        exitSubLeapMode();
+    }
+    if (m_stashModeActive) {
+        exitStashMode();
+    }
+    if (m_superJumpActive) {
+        exitSuperJumpMode();
+    }
+
+    m_audioFilterModeActive = !m_audioFilterModeActive;
+    m_audioTracker.refresh();
+    m_jumpLetterToWindow = assignJumpLetters();
+    m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+    }
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::exitAudioFilterMode()
+{
+    if (!m_audioFilterModeActive) {
+        return;
+    }
+    m_audioFilterModeActive = false;
+    m_jumpLetterToWindow = assignJumpLetters();
+    m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+    }
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+bool ActiveWindowOutlineEffect::isWorkspacePlayingAudio(int wsIndex) const
+{
+    if (!effects) {
+        return false;
+    }
+    const auto windows = effects->stackingOrder();
+    for (EffectWindow *w : windows) {
+        if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
+            continue;
+        }
+        if (isWindowInStash(w)) {
+            continue;
+        }
+        if (wsIndex >= 1 && wsIndex <= m_workspaces.size()) {
+            if (findWorkspaceForWindow(w) == wsIndex && m_audioTracker.isWindowPlaying(w->pid())) {
+                return true;
+            }
+        } else if (wsIndex == 0) {
+            if (w->isOnCurrentDesktop() && findWorkspaceForWindow(w) == 0 && m_audioTracker.isWindowPlaying(w->pid())) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 void ActiveWindowOutlineEffect::setKdeGlobalShortcutsBlocked(bool blocked)
 {
     if (m_globalShortcutsBlocked == blocked) {
@@ -4277,7 +4384,12 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
         const auto desktops = w->desktops();
         const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
 
-        if (m_superJumpActive) {
+        if (m_audioFilterModeActive) {
+            // Audio Filter View: ONLY windows actively playing audio across all workspaces!
+            if (!m_audioTracker.isWindowPlaying(w->pid())) {
+                continue;
+            }
+        } else if (m_superJumpActive) {
             // Super Jump: all eligible windows across all workspaces and desktops, excluding Stash!
             if (isWindowInStash(w)) {
                 continue;
@@ -4475,6 +4587,7 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     if (effects) {
         m_activeWindow = effects->activeWindow();
     }
+    m_audioTracker.refresh();
     refreshPersistentMarksForWindows();
     refreshWorkspaces();
 
@@ -4490,6 +4603,9 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     }
 
     m_jumpMode = true;
+    if (m_audioRefreshTimer) {
+        m_audioRefreshTimer->start(1500);
+    }
     setKdeGlobalShortcutsBlocked(true);
     updateAnimationTimer();
     m_badgeTextureCache.clear();
@@ -4519,6 +4635,10 @@ void ActiveWindowOutlineEffect::cancelJumpMode()
     m_subLeapActive = false;
     m_stashModeActive = false;
     m_superJumpActive = false;
+    m_audioFilterModeActive = false;
+    if (m_audioRefreshTimer) {
+        m_audioRefreshTimer->stop();
+    }
     m_subLeapBaseKey = QChar();
     m_subLeapWindows.clear();
     m_subLeapLetterToWindow.clear();
@@ -4831,6 +4951,18 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     }
 
     // 2. Main Jump Mode:
+    if (m_audioFilterModeActive) {
+        if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace) {
+            exitAudioFilterMode();
+            return;
+        }
+
+        if (isMetaOnly && (e->key() == Qt::Key_U || e->key() == Qt::Key_A)) {
+            exitAudioFilterMode();
+            return;
+        }
+    }
+
     if (m_stashModeActive) {
         if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace) {
             exitStashMode();
@@ -4958,6 +5090,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     if (isMetaOnly && e->key() == Qt::Key_S) {
         enterStashMode();
+        return;
+    }
+
+    if (isMetaOnly && (e->key() == Qt::Key_U || e->key() == Qt::Key_A)) {
+        toggleAudioFilterMode();
         return;
     }
 
@@ -5905,6 +6042,7 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
 {
     const qreal scale = viewport.scale();
     const bool isStashed = isWindowInStash(target);
+    const bool isPlayingAudio = target ? m_audioTracker.isWindowPlaying(target->pid()) : false;
     const quint64 scaleKey = static_cast<quint64>(qRound(scale * 100));
     const quint64 sizeKey = static_cast<quint64>(badgeSize);
     const quint64 labelKey = static_cast<quint64>(qHash(customLabel));
@@ -5912,7 +6050,8 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
     const quint64 windowKey = target ? static_cast<quint64>(qHash(target->internalId())) : 0;
     const quint64 previewKey = m_badgePreviewActive ? 0x8000 : 0;
     const quint64 stashedKey = isStashed ? 0x10000 : 0;
-    const quint64 flagsKey = (m_badgeShowIcon ? 0x1000 : 0) | (m_badgeShowThumbnail ? 0x2000 : 0) | (isRecent ? 0x4000 : 0) | (isJumpMode ? 1 : 0) | previewKey | stashedKey;
+    const quint64 audioKey = isPlayingAudio ? 0x20000 : 0;
+    const quint64 flagsKey = (m_badgeShowIcon ? 0x1000 : 0) | (m_badgeShowThumbnail ? 0x2000 : 0) | (isRecent ? 0x4000 : 0) | (isJumpMode ? 1 : 0) | previewKey | stashedKey | audioKey;
     const quint64 key = (static_cast<quint64>(letter.unicode()) << 48)
         ^ (static_cast<quint64>(bgColor.rgba()) << 16)
         ^ (static_cast<quint64>(textColor.rgba()))
@@ -5943,7 +6082,7 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
             : QImage();
 
         const QImage img = OutlineBadge::renderBadgeImage(cfg, letter, bgColor, textColor, isJumpMode, badgeSize, scale, customLabel,
-                                                          icon, thumbnail, recentKey, isRecent, isStashed);
+                                                          icon, thumbnail, recentKey, isRecent, isStashed, isPlayingAudio);
         auto uploaded = GLTexture::upload(img);
         if (!uploaded) {
             return;
@@ -6190,10 +6329,11 @@ QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
         const QSize thumbSize = hasThumb ? m_thumbnailCache.value(target).size() : QSize();
         const bool isStashed = isWindowInStash(target);
         const bool isPinned = isWindowPinned(target);
+        const bool isPlayingAudio = m_audioTracker.isWindowPlaying(target->pid());
 
         const QSizeF sz = OutlineBadge::computeHudPillSize(cfg, loc, caption, badgeSize, scale,
                                                            customLabel, hasIcon, hasThumb, thumbSize,
-                                                           recentKey, isRecent, 0, isStashed, isPinned);
+                                                           recentKey, isRecent, 0, isStashed, isPinned, isPlayingAudio);
         pillSizes.append(sz);
     }
 
@@ -6253,6 +6393,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         const QString recentKey = isMostRecent ? (m_badgePreviewActive ? m_previewBadgeConfig.jumpRecentKey : m_jumpRecentKey) : QString();
         const bool isStashed = isWindowInStash(target);
         const bool isPinned = isWindowPinned(target);
+        const bool isPlayingAudio = m_audioTracker.isWindowPlaying(target->pid());
 
         QColor bgCol;
         if (isMarked) {
@@ -6283,7 +6424,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             : QImage();
 
         const QImage img = OutlineBadge::renderOffscreenTargetPill(cfg, letter, bgCol, textCol, loc, caption, badgeSize, scale, customLabel,
-                                                                   icon, thumbnail, isMarked, recentKey, isRecent, groupCount, isStashed, isPinned);
+                                                                   icon, thumbnail, isMarked, recentKey, isRecent, groupCount, isStashed, isPinned, isPlayingAudio);
         auto uploaded = GLTexture::upload(img);
         if (!uploaded) {
             continue;
@@ -6572,9 +6713,11 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
     }
 
     const int nameHash = (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) ? (qHash(m_workspaces.at(m_activeHudView - 1).name) % 10000) : 0;
-    const int hintBarKey = (m_subLeapActive ? 100000 : 0) + (m_stashModeActive ? 500000 : 0) + (m_superJumpActive ? 700000 : 0) + m_activeHudView * 1000 + nameHash + qRound(scale * 10);
+    const int hintBarKey = (m_subLeapActive ? 100000 : 0) + (m_stashModeActive ? 500000 : 0) + (m_superJumpActive ? 700000 : 0)
+        + (m_audioFilterModeActive ? 900000 : 0)
+        + m_activeHudView * 1000 + nameHash + qRound(scale * 10);
     if (!m_hudHintBarTexture || m_hudHintBarCacheKey != hintBarKey) {
-        const QImage hintImg = OutlineBadge::renderHudActionHintBar(scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive, m_superJumpActive);
+        const QImage hintImg = OutlineBadge::renderHudActionHintBar(scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive, m_superJumpActive, m_audioFilterModeActive);
         auto uploaded = GLTexture::upload(hintImg);
         if (uploaded) {
             uploaded->setFilter(GL_LINEAR);
@@ -6737,11 +6880,13 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
                 standardCount++;
             }
         }
+        const bool standardAudio = isWorkspacePlayingAudio(0);
         viewTabs.append({
             QStringLiteral("💻 Standard"),
             QColor(230, 126, 34),
             standardCount,
-            m_activeHudView == 0
+            m_activeHudView == 0,
+            standardAudio
         });
 
         // 2. Custom Workspaces (not in stash)
@@ -6761,11 +6906,13 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
                     wsCount++;
                 }
             }
+            const bool wsAudio = isWorkspacePlayingAudio(i + 1);
             viewTabs.append({
                 QStringLiteral("📁 ") + ws.name,
                 ws.color.isValid() ? ws.color : QColor(52, 152, 219),
                 wsCount,
-                m_activeHudView == (i + 1)
+                m_activeHudView == (i + 1),
+                wsAudio
             });
         }
 
@@ -6779,11 +6926,13 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
                 allCount++;
             }
         }
+        const bool allAudio = m_audioTracker.hasPlayingAudio();
         viewTabs.append({
             QStringLiteral("🌐 All"),
             QColor(155, 89, 182),
             allCount,
-            m_activeHudView == (m_workspaces.size() + 1)
+            m_activeHudView == (m_workspaces.size() + 1),
+            allAudio
         });
     }
 
@@ -6799,14 +6948,15 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
 
     int countsHash = 0;
     for (const auto &vt : viewTabs) {
-        countsHash = (countsHash * 31 + vt.windowCount + (vt.isActive ? 1000 : 0)) % 100000;
+        countsHash = (countsHash * 31 + vt.windowCount + (vt.isActive ? 1000 : 0) + (vt.isPlayingAudio ? 500 : 0)) % 100000;
     }
     const int headerKey = (m_subLeapActive ? 2000000 : 0) + (m_stashModeActive ? 4000000 : 0) + (m_superJumpActive ? 6000000 : 0)
+        + (m_audioFilterModeActive ? 8000000 : 0)
         + m_activeHudView * 100000 + countsHash + stashCount * 13 + qRound(scale * 10);
 
     if (!m_hudHeaderTexture || m_hudHeaderCacheKey != headerKey) {
         const QImage headerImg = OutlineBadge::renderHudModeHeader(
-            scale, m_subLeapActive, subLeapTitle, subLeapColor, subLeapCount, viewTabs, stashCount, m_stashModeActive, targetWorkspaceName, m_superJumpActive);
+            scale, m_subLeapActive, subLeapTitle, subLeapColor, subLeapCount, viewTabs, stashCount, m_stashModeActive, targetWorkspaceName, m_superJumpActive, m_audioFilterModeActive, m_jumpLetterToWindow.size());
         if (!headerImg.isNull()) {
             auto uploaded = GLTexture::upload(headerImg);
             if (uploaded) {
@@ -7537,10 +7687,11 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             }
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
             QString customLabel = m_markedWindowLabels.value(target);
-        if (isWindowPinned(target)) {
-            customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
-        }
-            const qreal badgeW = OutlineBadge::computeBadgeWidth(m_badgeConfig, badgeH, customLabel, QString(), true);
+            if (isWindowPinned(target)) {
+                customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
+            }
+            const bool isPlayingAudio = target ? m_audioTracker.isWindowPlaying(target->pid()) : false;
+            const qreal badgeW = OutlineBadge::computeBadgeWidth(m_badgeConfig, badgeH, customLabel, QString(), true, isPlayingAudio);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, badgeW, badgeH, m_badgeMargin);
             if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
             if (badgeRect.right() > screenRect.right() - 4.0) badgeRect.moveRight(screenRect.right() - 4.0);
@@ -7865,10 +8016,11 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             }
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
             QString customLabel = m_markedWindowLabels.value(target);
-        if (isWindowPinned(target)) {
-            customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
-        }
-            const qreal jumpW = OutlineBadge::computeBadgeWidth(m_badgeConfig, jumpH, customLabel, recentKey, true);
+            if (isWindowPinned(target)) {
+                customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
+            }
+            const bool isPlayingAudio = target ? m_audioTracker.isWindowPlaying(target->pid()) : false;
+            const qreal jumpW = OutlineBadge::computeBadgeWidth(m_badgeConfig, jumpH, customLabel, recentKey, true, isPlayingAudio);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
             if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
             if (badgeRect.right() > screenRect.right() - 4.0) badgeRect.moveRight(screenRect.right() - 4.0);

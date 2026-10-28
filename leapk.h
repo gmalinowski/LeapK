@@ -12,6 +12,7 @@
 #include <opengl/glvertexbuffer.h>
 #include "badgehelper.h"
 #include "historyhelper.h"
+#include "audiotracker.h"
 
 #include <QColor>
 #include <QElapsedTimer>
@@ -179,6 +180,7 @@ private Q_SLOTS:
     void slotTogglePinActiveWindow();
     void slotCycleHudView(int delta = 1);
     void slotTriggerJumpMode();
+    void slotTriggerAudioFilterMode();
     void slotJumpToRecentWindow();
     void slotPrevRecentWindow();
     void slotNextRecentWindow();
@@ -238,6 +240,9 @@ private:
     int findWorkspaceForWindow(EffectWindow *target) const;
     void toggleSuperJumpMode();
     void exitSuperJumpMode();
+    void toggleAudioFilterMode();
+    void exitAudioFilterMode();
+    bool isWorkspacePlayingAudio(int wsIndex) const;
     void setKdeGlobalShortcutsBlocked(bool blocked);
     QString getWindowLocationString(EffectWindow *target) const;
     QList<QRectF> computeHudPillRects(const QList<QPair<QChar, EffectWindow *>> &targets,
@@ -474,6 +479,9 @@ private:
     QSet<EffectWindow *> m_pinnedWindows;
     bool m_superJumpActive = false;
     int m_superJumpTargetWorkspace = 0;
+    bool m_audioFilterModeActive = false;
+    OutlineAudio::AudioTracker m_audioTracker;
+    QTimer *m_audioRefreshTimer = nullptr;
     bool m_globalShortcutsBlocked = false;
 
     // Sub-Leap Disambiguation (multi-instance window disambiguation)

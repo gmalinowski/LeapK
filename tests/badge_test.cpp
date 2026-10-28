@@ -1133,6 +1133,39 @@ static void testCursorWarpCalculation()
     assert(OutlineBadge::computeCursorWarpPos(2, QRectF(), QRectF(), false).isNull());
 }
 
+static void testAudioIndicatorRendering()
+{
+    // 1. computeBadgeWidth with audio expands width
+    const qreal baseW = OutlineBadge::computeBadgeWidth(28.0, QString(), false, false, 1.6, 0, 0, 0, QString(), 0, QString(), 0, QString(), true, false);
+    const qreal audioW = OutlineBadge::computeBadgeWidth(28.0, QString(), false, false, 1.6, 0, 0, 0, QString(), 0, QString(), 0, QString(), true, true);
+    assert(audioW > baseW);
+
+    // 2. renderBadgeImage with isPlayingAudio
+    const QImage badgeImg = OutlineBadge::renderBadgeImage('A', QColor(40, 44, 52), QColor(255, 255, 255), true, 28, 1.0, QString(), false, QIcon(), false, QImage(), false, true);
+    assert(!badgeImg.isNull());
+    assert(badgeImg.width() >= qRound(audioW));
+
+    // 3. computeHudPillSize with audio expands width
+    const QSizeF pillNormal = OutlineBadge::computeHudPillSize(QStringLiteral("Desk 1"), QStringLiteral("Firefox"), 28, 1.0, QString(), false, false, QSize(), QString(), false, 0, false, false, false);
+    const QSizeF pillAudio = OutlineBadge::computeHudPillSize(QStringLiteral("Desk 1"), QStringLiteral("Firefox"), 28, 1.0, QString(), false, false, QSize(), QString(), false, 0, false, false, true);
+    assert(pillAudio.width() > pillNormal.width());
+
+    // 4. renderOffscreenTargetPill with isPlayingAudio
+    const QImage pillImg = OutlineBadge::renderOffscreenTargetPill('F', QColor(40, 44, 52), QColor(255, 255, 255), QStringLiteral("Desk 1"), QStringLiteral("Firefox - YouTube"), 28, 1.0, QString(), false, QIcon(), false, QImage(), false, QString(), false, 0, false, false, true);
+    assert(!pillImg.isNull());
+
+    // 5. renderHudModeHeader with workspace tab playing audio
+    QList<OutlineBadge::HudModeHeaderView> views;
+    views.append({QStringLiteral("Main"), QColor(52, 152, 219), 3, true, false});
+    views.append({QStringLiteral("Music"), QColor(46, 204, 113), 2, false, true}); // Audio playing!
+    const QImage headerImg = OutlineBadge::renderHudModeHeader(1.0, false, QString(), QColor(), 0, views);
+    assert(!headerImg.isNull());
+
+    // 6. renderHudModeHeader in Audio Filter Mode
+    const QImage audioModeImg = OutlineBadge::renderHudModeHeader(1.0, false, QString(), QColor(), 0, views, -1, false, QString(), false, true, 2);
+    assert(!audioModeImg.isNull());
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -1161,6 +1194,7 @@ int main(int argc, char *argv[])
     testStashBadgeStyling();
     testPinDotBadgeAspectAndContrast();
     testCursorWarpCalculation();
+    testAudioIndicatorRendering();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

@@ -71,7 +71,7 @@ target_link_libraries(leapk PRIVATE
 )
 # Identify the loaded library, including uncommitted test builds.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    leapk.cpp leapk.h popupfilter.h cursoroverlay.h visibilitystate.h ambilightalgorithm.h keyboardlayouthelper.h persistentmarkhelper.h)
+    leapk.cpp leapk.h popupfilter.h cursoroverlay.h visibilitystate.h ambilightalgorithm.h keyboardlayouthelper.h persistentmarkhelper.h audiotracker.h)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk.cpp" OUTLINE_CPP_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk.h" OUTLINE_HEADER_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/popupfilter.h" OUTLINE_POPUP_HASH)
@@ -412,6 +412,11 @@ if(OUTLINE_BUILD_TESTS)
     target_include_directories(outline-cli-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(outline-cli-test PRIVATE Qt6::Core Qt6::Gui)
     add_test(NAME outline-cli COMMAND outline-cli-test)
+
+    add_executable(outline-audiotracker-test tests/audiotracker_test.cpp)
+    target_include_directories(outline-audiotracker-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-audiotracker-test PRIVATE Qt6::Core Qt6::DBus)
+    add_test(NAME outline-audiotracker COMMAND outline-audiotracker-test)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)

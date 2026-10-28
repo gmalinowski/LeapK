@@ -412,15 +412,20 @@ inline qreal computeBadgeWidth(qreal baseHeight, const QString &customLabel = QS
                                const QString &recentKey = QString(),
                                int letterFontSize = 0,
                                const QString &letterFontFamily = QString(),
-                               bool hasLetter = true)
+                               bool hasLetter = true,
+                               bool isPlayingAudio = false)
 {
     const QString cleanLabel = customLabel.trimmed();
-    if (!hasLetter && cleanLabel == QStringLiteral("●")) {
+    if (!hasLetter && cleanLabel == QStringLiteral("●") && !isPlayingAudio) {
         return baseHeight;
     }
 
     const qreal baseW = hasLetter ? qRound(baseHeight * 1.35) : 0.0;
     qreal totalW = baseW;
+
+    if (isPlayingAudio) {
+        totalW += qRound(baseHeight * 0.75);
+    }
 
     if (!recentKey.trimmed().isEmpty()) {
         const QString rKey = recentKey.trimmed();
@@ -490,7 +495,7 @@ inline qreal computeBadgeWidth(qreal baseHeight, const QString &customLabel = QS
     return totalW + labelW + 18.0;
 }
 
-inline qreal computeBadgeWidth(const BadgeConfig &cfg, qreal baseHeight, const QString &customLabel = QString(), const QString &recentKey = QString(), bool hasLetter = true)
+inline qreal computeBadgeWidth(const BadgeConfig &cfg, qreal baseHeight, const QString &customLabel = QString(), const QString &recentKey = QString(), bool hasLetter = true, bool isPlayingAudio = false)
 {
     const bool showI = hasLetter && (cfg.windowShowIcon || cfg.showIcon);
     const bool showT = hasLetter && (cfg.windowShowThumbnail || cfg.showThumbnail);
@@ -501,7 +506,7 @@ inline qreal computeBadgeWidth(const BadgeConfig &cfg, qreal baseHeight, const Q
     const int letterSz = (cfg.windowLetterFontSize > 0) ? cfg.windowLetterFontSize : cfg.letterFontSize;
     return computeBadgeWidth(baseHeight, customLabel, showI, showT,
                              1.6, iconSz, thumbW, labelSz, cfg.labelFontFamily,
-                             thumbH, recentKey, letterSz, cfg.letterFontFamily, hasLetter);
+                             thumbH, recentKey, letterSz, cfg.letterFontFamily, hasLetter, isPlayingAudio);
 }
 
 inline void drawHighContrastPinDot(QPainter &p, const QPointF &center, qreal radius, qreal scale, const QColor &customCore = QColor())
@@ -560,6 +565,57 @@ inline QImage renderPinDotBadgeImage(qreal baseSize, qreal scale, const QColor &
     return img;
 }
 
+inline void drawAudioSpeaker(QPainter &p, const QRectF &rect, const QColor &color)
+{
+    p.save();
+    p.setRenderHint(QPainter::Antialiasing, true);
+
+    const qreal w = rect.width();
+    const qreal h = rect.height();
+    const qreal x = rect.x();
+    const qreal y = rect.y();
+
+    // Speaker body: box + cone
+    QPainterPath body;
+    const qreal boxW = w * 0.28;
+    const qreal boxH = h * 0.44;
+    const qreal boxX = x + w * 0.08;
+    const qreal boxY = y + (h - boxH) / 2.0;
+    body.addRect(boxX, boxY, boxW, boxH);
+
+    const qreal coneX = boxX + boxW;
+    const qreal coneMouthX = x + w * 0.60;
+    const qreal coneTopY = y + h * 0.16;
+    const qreal coneBottomY = y + h * 0.84;
+
+    QPolygonF conePoly;
+    conePoly << QPointF(coneX, boxY)
+             << QPointF(coneMouthX, coneTopY)
+             << QPointF(coneMouthX, coneBottomY)
+             << QPointF(coneX, boxY + boxH);
+    body.addPolygon(conePoly);
+
+    p.setPen(Qt::NoPen);
+    p.setBrush(color);
+    p.drawPath(body.simplified());
+
+    // Sound waves (arcs) on the right
+    p.setBrush(Qt::NoBrush);
+    QPen wavePen(color, qMax(1.2, w * 0.09));
+    wavePen.setCapStyle(Qt::RoundCap);
+    p.setPen(wavePen);
+
+    // Inner wave
+    const QRectF innerWaveRect(x + w * 0.42, y + h * 0.28, w * 0.34, h * 0.44);
+    p.drawArc(innerWaveRect, -45 * 16, 90 * 16);
+
+    // Outer wave
+    const QRectF outerWaveRect(x + w * 0.52, y + h * 0.15, w * 0.42, h * 0.70);
+    p.drawArc(outerWaveRect, -50 * 16, 100 * 16);
+
+    p.restore();
+}
+
 inline QImage renderBadgeImage(const BadgeConfig &cfg,
                                const QChar &letter,
                                const QColor &bgColor,
@@ -572,7 +628,8 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
                                const QImage &thumbnail = QImage(),
                                const QString &recentKey = QString(),
                                bool isRecent = false,
-                               bool isStashed = false)
+                               bool isStashed = false,
+                               bool isPlayingAudio = false)
 {
     Q_UNUSED(isRecent);
     const int effectiveBaseHeight = (baseSize > 0)
@@ -673,8 +730,9 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
         recentSectionW = qRound((rTextW + 12.0 * scale) / scale);
     }
 
+    const int audioSectionW = isPlayingAudio ? qRound(effectiveBaseHeight * 0.70) : 0;
     const int effectiveLetterWidth = hasLetter ? qRound(effectiveBaseHeight * 1.35) : 0;
-    const int effectiveBaseWidth = effectiveLetterWidth + recentSectionW + iconSectionW + thumbSectionW + labelSectionW;
+    const int effectiveBaseWidth = effectiveLetterWidth + recentSectionW + iconSectionW + thumbSectionW + labelSectionW + audioSectionW;
 
     const int w = qMax(1, qRound(effectiveBaseWidth * scale));
     const int h = qMax(1, qRound(effectiveBaseHeight * scale));
@@ -750,7 +808,7 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
     }
     p.setPen(effLetterColor);
 
-    const bool hasExtra = hasIcon || hasThumb || hasLabel || hasRecentKey;
+    const bool hasExtra = hasIcon || hasThumb || hasLabel || hasRecentKey || isPlayingAudio;
     if (!hasExtra) {
         p.drawText(rect, Qt::AlignCenter, QString(letter.toUpper()));
     } else {
@@ -873,6 +931,18 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
                 p.drawText(labelRect, Qt::AlignVCenter | Qt::AlignLeft, displayLabel);
             }
         }
+
+        if (isPlayingAudio) {
+            const qreal sepSpX = currentX - 1.0 * scale;
+            p.setPen(QPen(sepCol, 1.2 * scale));
+            p.drawLine(QPointF(sepSpX, margin + 4.0 * scale), QPointF(sepSpX, h - margin - 4.0 * scale));
+            currentX += 4.0 * scale;
+
+            const qreal spDim = (h - 2 * margin) * 0.65;
+            const QRectF spRect(currentX, (h - spDim) / 2.0, spDim, spDim);
+            drawAudioSpeaker(p, spRect, QColor(241, 196, 15));
+            currentX += spDim + 4.0 * scale;
+        }
     }
 
     p.end();
@@ -884,7 +954,8 @@ inline QImage renderBadgeImage(const QChar &letter, const QColor &bgColor, const
                                const QString &customLabel = QString(),
                                bool showIcon = false, const QIcon &icon = QIcon(),
                                bool showThumbnail = false, const QImage &thumbnail = QImage(),
-                               bool isStashed = false)
+                               bool isStashed = false,
+                               bool isPlayingAudio = false)
 {
     BadgeConfig cfg;
     cfg.windowBadgeSize = baseSize;
@@ -892,7 +963,7 @@ inline QImage renderBadgeImage(const QChar &letter, const QColor &bgColor, const
     cfg.showIcon = showIcon;
     cfg.showThumbnail = showThumbnail;
     const int effectiveSize = isJumpMode ? cfg.jumpBadgeSize : baseSize;
-    return renderBadgeImage(cfg, letter, bgColor, textColor, isJumpMode, effectiveSize, scale, customLabel, icon, thumbnail, QString(), false, isStashed);
+    return renderBadgeImage(cfg, letter, bgColor, textColor, isJumpMode, effectiveSize, scale, customLabel, icon, thumbnail, QString(), false, isStashed, isPlayingAudio);
 }
 
 inline QSizeF computeHudPillSize(const BadgeConfig &cfg,
@@ -908,7 +979,8 @@ inline QSizeF computeHudPillSize(const BadgeConfig &cfg,
                                  bool isRecent = false,
                                  int groupCount = 0,
                                  bool isStashed = false,
-                                 bool isPinned = false)
+                                 bool isPinned = false,
+                                 bool isPlayingAudio = false)
 {
     Q_UNUSED(isStashed);
     Q_UNUSED(isPinned);
@@ -1029,6 +1101,10 @@ inline QSizeF computeHudPillSize(const BadgeConfig &cfg,
         textWidth = qMax(locWidth, capWidth);
     }
 
+    if (isPlayingAudio) {
+        textWidth += qRound(18.0 * scale);
+    }
+
     const QString letterFam = cfg.letterFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.letterFontFamily.trimmed();
     QFont letterFont(letterFam);
     const int effectiveLetterFontSize = (cfg.hudLetterFontSize > 0) ? cfg.hudLetterFontSize : cfg.letterFontSize;
@@ -1120,13 +1196,14 @@ inline QSizeF computeHudPillSize(const QString &locationText,
                                  bool isRecent = false,
                                  int groupCount = 0,
                                  bool isStashed = false,
-                                 bool isPinned = false)
+                                 bool isPinned = false,
+                                 bool isPlayingAudio = false)
 {
     BadgeConfig cfg;
     cfg.hudBadgeSize = badgeSize;
     cfg.hudShowIcon = hasIcon;
     cfg.hudShowThumbnail = hasThumb;
-    return computeHudPillSize(cfg, locationText, caption, badgeSize, scale, customLabel, hasIcon, hasThumb, thumbSize, recentKey, isRecent, groupCount, isStashed, isPinned);
+    return computeHudPillSize(cfg, locationText, caption, badgeSize, scale, customLabel, hasIcon, hasThumb, thumbSize, recentKey, isRecent, groupCount, isStashed, isPinned, isPlayingAudio);
 }
 
 inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
@@ -1145,7 +1222,8 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
                                         bool isRecent = false,
                                         int groupCount = 0,
                                         bool isStashed = false,
-                                        bool isPinned = false)
+                                        bool isPinned = false,
+                                        bool isPlayingAudio = false)
 {
     Q_UNUSED(textColor);
     const int effectivePillBaseH = (badgeSize > 0) ? badgeSize : cfg.hudBadgeSize;
@@ -1265,6 +1343,10 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         }
         const int capWidth = line2Text.isEmpty() ? 0 : fmCap.horizontalAdvance(line2Text);
         textWidth = qMax(locWidth, capWidth);
+    }
+
+    if (isPlayingAudio) {
+        textWidth += qRound(18.0 * scale);
     }
 
     const QString letterFam = cfg.letterFontFamily.trimmed().isEmpty() ? QStringLiteral("sans-serif") : cfg.letterFontFamily.trimmed();
@@ -1641,6 +1723,22 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         p.drawText(r2, Qt::AlignLeft | Qt::AlignVCenter, line2Text);
     }
 
+    if (isPlayingAudio) {
+        QFontMetrics fm1(line1Font);
+        const QString l1Display = (isPinned && line1Text.startsWith(QStringLiteral("●"))) ? line1Text.mid(1).trimmed() : line1Text;
+        const int l1W = fm1.horizontalAdvance(l1Display);
+        const int dotOffset = (isPinned && line1Text.startsWith(QStringLiteral("●")))
+            ? qRound((qMax(5.0 * scale, fm1.xHeight() * 0.75) + 2.8 * scale) * 2.0 + 6.0 * scale)
+            : 0;
+        const qreal spDim = qMax(12.0 * scale, fm1.xHeight() * 1.5);
+        const qreal spX = textLeft + dotOffset + l1W + 6.0 * scale;
+        const qreal spY = line2Text.isEmpty()
+            ? ((isTopOrBottom && hasThumb) ? padY + (textLineHeight - spDim) / 2.0 : (pillH - spDim) / 2.0)
+            : qRound(textCenterY - fm1.height() * 0.95 + (fm1.height() - spDim) / 2.0);
+        const QRectF spRect(spX, spY, spDim, spDim);
+        drawAudioSpeaker(p, spRect, QColor(241, 196, 15));
+    }
+
     p.end();
     return img;
 }
@@ -1660,13 +1758,14 @@ inline QImage renderOffscreenTargetPill(const QChar &letter,
                                         bool isRecent = false,
                                         int groupCount = 0,
                                         bool isStashed = false,
-                                        bool isPinned = false)
+                                        bool isPinned = false,
+                                        bool isPlayingAudio = false)
 {
     BadgeConfig cfg;
     cfg.hudBadgeSize = badgeSize;
     cfg.showIcon = showIcon;
     cfg.showThumbnail = showThumbnail;
-    return renderOffscreenTargetPill(cfg, letter, bgColor, textColor, locationText, caption, badgeSize, scale, customLabel, icon, thumbnail, isMarked, recentKey, isRecent, groupCount, isStashed, isPinned);
+    return renderOffscreenTargetPill(cfg, letter, bgColor, textColor, locationText, caption, badgeSize, scale, customLabel, icon, thumbnail, isMarked, recentKey, isRecent, groupCount, isStashed, isPinned, isPlayingAudio);
 }
 
 inline QImage renderHudDividerLine(const QSizeF &size, qreal scale, bool isVertical = true)
@@ -1996,7 +2095,7 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
     return img;
 }
 
-inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false)
+inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false)
 {
     Q_UNUSED(customViewName);
     Q_UNUSED(customViewColor);
@@ -2008,7 +2107,14 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     };
 
     QList<Segment> segments;
-    if (isSuperJump) {
+    if (isAudioFilter) {
+        segments = {
+            {QStringLiteral("Key"), QStringLiteral("Jump to audio window"), QColor(255, 107, 107)},
+            {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
+            {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
+            {QStringLiteral("Meta+U / Esc"), QStringLiteral("Exit audio filter"), QColor(149, 165, 166)}
+        };
+    } else if (isSuperJump) {
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Jump to workspace"), QColor(0, 195, 255)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pull / Drop here"), QColor(241, 196, 15)},
@@ -2037,6 +2143,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Key"), QStringLiteral("Jump"), QColor(52, 152, 219)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
             {QStringLiteral("Meta+A"), QStringLiteral("Super Jump"), QColor(0, 195, 255)},
+            {QStringLiteral("Meta+U"), QStringLiteral("Audio filter"), QColor(255, 107, 107)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
             {QStringLiteral("Tab"), QStringLiteral("Group"), QColor(155, 89, 182)},
@@ -2129,6 +2236,7 @@ struct HudModeHeaderView {
     QColor color;
     int windowCount = 0;
     bool isActive = false;
+    bool isPlayingAudio = false;
 };
 
 inline QImage renderHudModeHeader(qreal scale,
@@ -2140,8 +2248,60 @@ inline QImage renderHudModeHeader(qreal scale,
                                   int stashCount = -1,
                                   bool isStashMode = false,
                                   const QString &targetWorkspaceName = QString(),
-                                  bool isSuperJump = false)
+                                  bool isSuperJump = false,
+                                  bool isAudioMode = false,
+                                  int audioCount = 0)
 {
+    if (isAudioMode) {
+        const QString leftText = QStringLiteral("🎵 AUDIO: %1 playing windows  •  Press target letter").arg(audioCount);
+        const QString rightText = QStringLiteral("Meta+U / Esc : Back");
+
+        QFont titleFont(QStringLiteral("sans-serif"));
+        titleFont.setPixelSize(qMax(10, qRound(13.0 * scale)));
+        titleFont.setBold(true);
+        QFontMetrics fmTitle(titleFont);
+
+        QFont keyFont(QStringLiteral("sans-serif"));
+        keyFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
+        keyFont.setBold(true);
+        QFontMetrics fmKey(keyFont);
+
+        const int padX = qRound(16 * scale);
+        const int padY = qRound(6 * scale);
+        const int gap = qRound(16 * scale);
+
+        const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + padX;
+        const int h = qMax(qRound(34 * scale), fmTitle.height() + 2 * padY);
+
+        QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
+        img.fill(Qt::transparent);
+
+        QPainter p(&img);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setRenderHint(QPainter::TextAntialiasing, true);
+
+        const QRectF rect(0.5 * scale, 0.5 * scale, w - 1.0 * scale, h - 1.0 * scale);
+        const qreal radius = h / 2.0;
+
+        const QColor accent(241, 196, 15);
+        p.setPen(QPen(accent, 1.8 * scale));
+        p.setBrush(QColor(16, 20, 26, 245));
+        p.drawRoundedRect(rect, radius, radius);
+
+        const qreal baselineY = padY + fmTitle.ascent();
+        p.setFont(titleFont);
+        p.setPen(QColor(255, 255, 255));
+        p.drawText(QPointF(padX, baselineY), leftText);
+
+        p.setFont(keyFont);
+        p.setPen(accent);
+        const qreal keyX = w - padX - fmKey.horizontalAdvance(rightText);
+        p.drawText(QPointF(keyX, baselineY), rightText);
+
+        p.end();
+        return img;
+    }
+
     if (isSuperJump) {
         const QString leftText = QStringLiteral("⚡ SUPER JUMP: Pick any window to jump • Alt+Key to pull into [%1]").arg(!targetWorkspaceName.isEmpty() ? targetWorkspaceName : QStringLiteral("Workspace"));
         const QString rightText = QStringLiteral("Meta+A / Esc : Back");
@@ -2328,6 +2488,7 @@ inline QImage renderHudModeHeader(qreal scale,
         int width;
         bool isActive;
         QColor color;
+        bool isPlayingAudio;
     };
 
     QList<TabRenderInfo> tabInfos;
@@ -2336,9 +2497,10 @@ inline QImage renderHudModeHeader(qreal scale,
     int allTabsW = 0;
     for (const auto &v : views) {
         const QString text = QStringLiteral("%1 (%2)").arg(v.name).arg(v.windowCount);
-        const int textW = v.isActive ? fmActive.horizontalAdvance(text) : fmInactive.horizontalAdvance(text);
+        const int speakerExtra = v.isPlayingAudio ? qRound(16 * scale) : 0;
+        const int textW = (v.isActive ? fmActive.horizontalAdvance(text) : fmInactive.horizontalAdvance(text)) + speakerExtra;
         const int tabW = textW + 2 * tabPadX;
-        tabInfos.append({text, tabW, v.isActive, v.color});
+        tabInfos.append({text, tabW, v.isActive, v.color, v.isPlayingAudio});
         allTabsW += tabW;
     }
     allTabsW += (views.size() - 1) * tabGap;
@@ -2405,18 +2567,31 @@ inline QImage renderHudModeHeader(qreal scale,
             p.setPen(QPen(col, 1.8 * scale));
             p.setBrush(QColor(col.red(), col.green(), col.blue(), 55));
             p.drawRoundedRect(tabRect, tabRadius, tabRadius);
-
-            p.setFont(activeFont);
-            p.setPen(QColor(255, 255, 255));
-            p.drawText(tabRect, Qt::AlignCenter, tab.text);
         } else {
             p.setPen(QPen(QColor(255, 255, 255, 24), 1.0 * scale));
             p.setBrush(QColor(255, 255, 255, 12));
             p.drawRoundedRect(tabRect, tabRadius, tabRadius);
+        }
 
-            p.setFont(inactiveFont);
-            p.setPen(QColor(190, 195, 205, 175));
-            p.drawText(tabRect, Qt::AlignCenter, tab.text);
+        const QFont &font = tab.isActive ? activeFont : inactiveFont;
+        const QFontMetrics &fm = tab.isActive ? fmActive : fmInactive;
+        const int rawTextW = fm.horizontalAdvance(tab.text);
+        const int speakerIconDim = tab.isPlayingAudio ? qRound(12.0 * scale) : 0;
+        const int speakerGap = tab.isPlayingAudio ? qRound(4.0 * scale) : 0;
+        const int totalContentW = rawTextW + (tab.isPlayingAudio ? (speakerGap + speakerIconDim) : 0);
+        const qreal textLeft = tabRect.left() + (tabRect.width() - totalContentW) / 2.0;
+        const qreal baselineY = tabRect.top() + (tabRect.height() - fm.height()) / 2.0 + fm.ascent();
+
+        p.setFont(font);
+        p.setPen(tab.isActive ? QColor(255, 255, 255) : QColor(190, 195, 205, 175));
+        p.drawText(QPointF(textLeft, baselineY), tab.text);
+
+        if (tab.isPlayingAudio) {
+            const QRectF speakerRect(textLeft + rawTextW + speakerGap,
+                                     tabRect.top() + (tabRect.height() - speakerIconDim) / 2.0,
+                                     speakerIconDim, speakerIconDim);
+            const QColor speakerColor = tab.isActive ? QColor(255, 255, 255) : QColor(241, 196, 15);
+            drawAudioSpeaker(p, speakerRect, speakerColor);
         }
 
         curX += tab.width + tabGap;
