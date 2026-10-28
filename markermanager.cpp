@@ -77,11 +77,11 @@ protected:
 class EditMarkerRuleDialog : public QDialog
 {
 public:
-    EditMarkerRuleDialog(const LeapKMarks::PersistentMarkRule &initialRule, bool isNew, bool isPolish, QWidget *parent = nullptr)
+    EditMarkerRuleDialog(const LeapKMarks::PersistentMarkRule &initialRule, bool isNew, bool isPolish = false, QWidget *parent = nullptr)
         : QDialog(parent)
         , m_rule(initialRule)
         , m_isNew(isNew)
-        , m_isPolish(false)
+        , m_isPolish(isPolish)
         , m_selectedColor(initialRule.color.isValid() ? initialRule.color : QColor(QStringLiteral("#3498db")))
     {
         setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
