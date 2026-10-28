@@ -171,7 +171,7 @@ private Q_SLOTS:
     void slotMarkWindowToggle();
     void slotMarkWindowWithColor();
     void slotToggleHudGrouping();
-    void slotCycleHudView();
+    void slotCycleHudView(int delta = 1);
     void slotTriggerJumpMode();
     void slotJumpToRecentWindow();
     void slotPrevRecentWindow();

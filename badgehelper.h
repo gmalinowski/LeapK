@@ -1639,7 +1639,7 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
                 {QStringLiteral("[Alt+Litera]"), QStringLiteral("Przyciągnij"), QColor(241, 196, 15)},
                 {QStringLiteral("[Ctrl+Litera]"), QStringLiteral("Schowek (:hide)"), QColor(46, 204, 113)},
                 {QStringLiteral("[Tab]"), QStringLiteral("Grupy"), QColor(155, 89, 182)},
-                {QStringLiteral("[`]"), viewName, QColor(230, 126, 34)}
+                {QStringLiteral("[, / .]"), viewName, QColor(230, 126, 34)}
             };
         } else {
             segments = {
@@ -1648,7 +1648,7 @@ inline QImage renderHudActionHintBar(bool isPolish, qreal scale, bool isSubLeap 
                 {QStringLiteral("[Alt+Key]"), QStringLiteral("Pull here"), QColor(241, 196, 15)},
                 {QStringLiteral("[Ctrl+Key]"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
                 {QStringLiteral("[Tab]"), QStringLiteral("Groups"), QColor(155, 89, 182)},
-                {QStringLiteral("[`]"), viewName, QColor(230, 126, 34)}
+                {QStringLiteral("[, / .]"), viewName, QColor(230, 126, 34)}
             };
         }
     }

@@ -927,6 +927,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_markShowLetterBadges = (m_badgeDisplayMode != 2);
     m_badgesAlwaysVisible = (m_badgeDisplayMode == 1);
     m_jumpTargets = qBound(0, config.readEntry("JumpTargets", 0), 3);
+    m_activeHudView = qBound(0, config.readEntry("ActiveHudView", 0), 3);
     m_badgeTextureCache.clear();
     m_thumbnailCache.clear();
     m_lastCaptureTimestamp.clear();
@@ -3334,9 +3335,17 @@ void ActiveWindowOutlineEffect::slotToggleHudGrouping()
     }
 }
 
-void ActiveWindowOutlineEffect::slotCycleHudView()
+void ActiveWindowOutlineEffect::slotCycleHudView(int delta)
 {
-    m_activeHudView = (m_activeHudView + 1) % 4;
+    m_activeHudView = (m_activeHudView + delta) % 4;
+    if (m_activeHudView < 0) {
+        m_activeHudView += 4;
+    }
+    if (effects && effects->config()) {
+        KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+        primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
+        primaryConfig.sync();
+    }
     if (m_subLeapActive) {
         exitSubLeapMode();
     }
@@ -3559,7 +3568,6 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_subLeapWindows.clear();
     m_subLeapLetterToWindow.clear();
     m_subLeapTargets.clear();
-    m_activeHudView = 0;
     m_closingWindows.clear();
 
     refreshPersistentMarksForWindows();
@@ -3600,7 +3608,6 @@ void ActiveWindowOutlineEffect::cancelJumpMode()
     m_subLeapWindows.clear();
     m_subLeapLetterToWindow.clear();
     m_subLeapTargets.clear();
-    m_activeHudView = 0;
     m_closingWindows.clear();
     m_letterWindowGroups.clear();
     if (m_jumpTimeoutTimer && m_jumpTimeoutTimer->isActive()) {
@@ -3690,6 +3697,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     }
     if (e->type() != QEvent::KeyPress) {
         return;
+    }
+
+    // Reset timeout countdown on EVERY keypress in HUD!
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
     }
 
     // Ignore standalone modifier keys so holding Shift, Ctrl, Alt, Meta etc.
@@ -3845,9 +3857,19 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
+    if (e->key() == Qt::Key_Comma || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char(','))) {
+        slotCycleHudView(-1);
+        return;
+    }
+
+    if (e->key() == Qt::Key_Period || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char('.'))) {
+        slotCycleHudView(1);
+        return;
+    }
+
     if (e->key() == Qt::Key_QuoteLeft || e->key() == Qt::Key_AsciiTilde || e->key() == Qt::Key_F1
         || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('`') || e->text().at(0) == QLatin1Char('~')))) {
-        slotCycleHudView();
+        slotCycleHudView(1);
         return;
     }
 
