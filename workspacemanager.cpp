@@ -160,7 +160,7 @@ protected:
             choose(CloseWindows);
             return;
         }
-        if (e->key() == Qt::Key_2) {
+        if (e->key() == Qt::Key_2 || e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
             choose(MoveToStandard);
             return;
         }
@@ -255,8 +255,8 @@ private:
 class WorkspaceCard : public QFrame
 {
 public:
-    WorkspaceCard(int index, const LeapKWorkspace::WorkspaceInfo &info, bool isAssigned, bool isPolish, QWidget *parent = nullptr)
-        : QFrame(parent), m_index(index), m_info(info), m_isAssigned(isAssigned), m_isPolish(isPolish)
+    WorkspaceCard(int index, const LeapKWorkspace::WorkspaceInfo &info, bool isAssigned, bool isSelected, bool isPolish, QWidget *parent = nullptr)
+        : QFrame(parent), m_index(index), m_info(info), m_isAssigned(isAssigned), m_isSelected(isSelected), m_isPolish(isPolish)
     {
         setObjectName(QStringLiteral("wsCard"));
         setCursor(Qt::PointingHandCursor);
@@ -301,16 +301,23 @@ public:
         updateStatusBadge();
         layout->addWidget(m_lblStatus);
 
-        // Delete / Close Workspace button
-        m_btnDelete = new QPushButton(QStringLiteral("🗑"), this);
-        m_btnDelete->setFixedSize(32, 28);
+        // Delete / Close Workspace button with keyboard shortcut hint
+        const QString deleteBtnText = (index < 9)
+            ? QStringLiteral("🗑 ⇧%1").arg(index + 1)
+            : QStringLiteral("🗑");
+        m_btnDelete = new QPushButton(deleteBtnText, this);
+        m_btnDelete->setFixedSize((index < 9) ? 58 : 36, 28);
         m_btnDelete->setCursor(Qt::PointingHandCursor);
-        m_btnDelete->setToolTip(m_isPolish ? QStringLiteral("Zamknij / Usuń ten workspace") : QStringLiteral("Close / Delete this workspace"));
+        const QString delTip = (index < 9)
+            ? (m_isPolish ? QStringLiteral("Zamknij / Usuń ten workspace [Shift+%1]").arg(index + 1) : QStringLiteral("Close / Delete this workspace [Shift+%1]").arg(index + 1))
+            : (m_isPolish ? QStringLiteral("Zamknij / Usuń ten workspace [Shift+Del]") : QStringLiteral("Close / Delete this workspace [Shift+Del]"));
+        m_btnDelete->setToolTip(delTip);
         m_btnDelete->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background-color: rgba(231, 76, 60, 0.15);"
             "  color: #e74c3c;"
-            "  font-size: 13px;"
+            "  font-size: 12px;"
+            "  font-weight: bold;"
             "  border: 1px solid rgba(231, 76, 60, 0.35);"
             "  border-radius: 6px;"
             "}"
@@ -334,7 +341,14 @@ public:
         updateStatusBadge();
     }
 
+    void setSelected(bool selected)
+    {
+        m_isSelected = selected;
+        updateStyle();
+    }
+
     bool isAssigned() const { return m_isAssigned; }
+    bool isSelected() const { return m_isSelected; }
     LeapKWorkspace::WorkspaceInfo info() const { return m_info; }
     int index() const { return m_index; }
 
@@ -354,28 +368,40 @@ private:
     void updateStyle()
     {
         if (m_isAssigned) {
+            const QString border = m_isSelected
+                ? QStringLiteral("2px solid #2ecc71")
+                : QStringLiteral("1.5px solid #2ecc71");
+            const QString bg = m_isSelected
+                ? QStringLiteral("rgba(46, 204, 113, 0.32)")
+                : QStringLiteral("rgba(46, 204, 113, 0.22)");
             setStyleSheet(QStringLiteral(
                 "QFrame#wsCard {"
-                "  background-color: rgba(46, 204, 113, 0.22);"
-                "  border: 1.5px solid #2ecc71;"
+                "  background-color: %1;"
+                "  border: %2;"
                 "  border-radius: 12px;"
                 "}"
                 "QFrame#wsCard:hover {"
-                "  background-color: rgba(46, 204, 113, 0.32);"
+                "  background-color: rgba(46, 204, 113, 0.36);"
                 "}"
-            ));
+            ).arg(bg, border));
         } else {
+            const QString border = m_isSelected
+                ? QStringLiteral("2px solid #3498db")
+                : QStringLiteral("1px solid rgba(255, 255, 255, 0.15)");
+            const QString bg = m_isSelected
+                ? QStringLiteral("rgba(52, 152, 219, 0.22)")
+                : QStringLiteral("rgba(255, 255, 255, 0.06)");
             setStyleSheet(QStringLiteral(
                 "QFrame#wsCard {"
-                "  background-color: rgba(255, 255, 255, 0.06);"
-                "  border: 1px solid rgba(255, 255, 255, 0.15);"
+                "  background-color: %1;"
+                "  border: %2;"
                 "  border-radius: 12px;"
                 "}"
                 "QFrame#wsCard:hover {"
-                "  background-color: rgba(255, 255, 255, 0.12);"
-                "  border-color: rgba(255, 255, 255, 0.35);"
+                "  background-color: rgba(255, 255, 255, 0.14);"
+                "  border-color: rgba(255, 255, 255, 0.4);"
                 "}"
-            ));
+            ).arg(bg, border));
         }
     }
 
@@ -397,6 +423,7 @@ private:
     int m_index;
     LeapKWorkspace::WorkspaceInfo m_info;
     bool m_isAssigned;
+    bool m_isSelected = false;
     bool m_isPolish;
     QLabel *m_lblKey = nullptr;
     QLabel *m_lblStatus = nullptr;
@@ -425,7 +452,18 @@ public:
     {
         setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
         setAttribute(Qt::WA_TranslucentBackground, true);
-        resize(560, 520);
+        resize(580, 530);
+
+        m_selectedCardIndex = -1;
+        for (int i = 0; i < m_workspaces.size(); ++i) {
+            if (m_workspaces.at(i).id == m_assignedWsId) {
+                m_selectedCardIndex = i;
+                break;
+            }
+        }
+        if (m_selectedCardIndex < 0 && !m_workspaces.isEmpty()) {
+            m_selectedCardIndex = 0;
+        }
 
         auto *rootLayout = new QVBoxLayout(this);
         rootLayout->setContentsMargins(0, 0, 0, 0);
@@ -480,24 +518,24 @@ public:
         mainLayout->addLayout(scopeLayout);
 
         // Scroll area with workspace cards
-        auto *scrollArea = new QScrollArea(this);
-        scrollArea->setWidgetResizable(true);
-        scrollArea->setStyleSheet(QStringLiteral(
+        m_scrollArea = new QScrollArea(this);
+        m_scrollArea->setWidgetResizable(true);
+        m_scrollArea->setStyleSheet(QStringLiteral(
             "QScrollArea { border: none; background: transparent; }"
             "QScrollBar:vertical { width: 8px; background: transparent; }"
             "QScrollBar::handle:vertical { background: rgba(255,255,255,0.2); border-radius: 4px; }"
             "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }"
         ));
 
-        m_cardsContainer = new QWidget(scrollArea);
+        m_cardsContainer = new QWidget(m_scrollArea);
         m_cardsContainer->setStyleSheet(QStringLiteral("background: transparent;"));
         m_cardsLayout = new QVBoxLayout(m_cardsContainer);
         m_cardsLayout->setContentsMargins(0, 0, 0, 0);
         m_cardsLayout->setSpacing(8);
 
         rebuildCards();
-        scrollArea->setWidget(m_cardsContainer);
-        mainLayout->addWidget(scrollArea, 1);
+        m_scrollArea->setWidget(m_cardsContainer);
+        mainLayout->addWidget(m_scrollArea, 1);
 
         // New Workspace Button Cards
         auto *newWsLayout = new QHBoxLayout();
@@ -545,22 +583,39 @@ public:
         auto *bottomLayout = new QHBoxLayout();
         bottomLayout->setSpacing(10);
 
-        m_btnUnassign = new QPushButton(m_isPolish ? QStringLiteral("🗑 Odepnij z workspace [Del]") : QStringLiteral("🗑 Unassign [Del]"), this);
+        m_btnUnassign = new QPushButton(m_isPolish ? QStringLiteral("🗑 Odepnij [Del]") : QStringLiteral("🗑 Unassign [Del]"), this);
         m_btnUnassign->setStyleSheet(QStringLiteral(
+            "QPushButton {"
+            "  background-color: rgba(231, 76, 60, 0.12);"
+            "  border: 1px solid rgba(231, 76, 60, 0.35);"
+            "  border-radius: 8px;"
+            "  color: #e74c3c;"
+            "  font-weight: bold;"
+            "  padding: 8px 14px;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: rgba(231, 76, 60, 0.25);"
+            "}"
+        ));
+        connect(m_btnUnassign, &QPushButton::clicked, this, &WorkspaceManagerDialog::onUnassign);
+        bottomLayout->addWidget(m_btnUnassign);
+
+        m_btnDeleteWs = new QPushButton(m_isPolish ? QStringLiteral("❌ Usuń workspace [Shift+Del]") : QStringLiteral("❌ Delete workspace [Shift+Del]"), this);
+        m_btnDeleteWs->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background-color: rgba(231, 76, 60, 0.15);"
             "  border: 1px solid rgba(231, 76, 60, 0.4);"
             "  border-radius: 8px;"
             "  color: #e74c3c;"
             "  font-weight: bold;"
-            "  padding: 8px 16px;"
+            "  padding: 8px 14px;"
             "}"
             "QPushButton:hover {"
             "  background-color: rgba(231, 76, 60, 0.3);"
             "}"
         ));
-        connect(m_btnUnassign, &QPushButton::clicked, this, &WorkspaceManagerDialog::onUnassign);
-        bottomLayout->addWidget(m_btnUnassign);
+        connect(m_btnDeleteWs, &QPushButton::clicked, this, &WorkspaceManagerDialog::deleteSelectedOrAssignedWorkspace);
+        bottomLayout->addWidget(m_btnDeleteWs);
         bottomLayout->addStretch(1);
 
         auto *btnCancel = new QPushButton(m_isPolish ? QStringLiteral("Anuluj [Esc]") : QStringLiteral("Cancel [Esc]"), this);
@@ -618,6 +673,10 @@ protected:
             return;
         }
         if (e->key() == Qt::Key_D) {
+            if (e->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier)) {
+                deleteSelectedOrAssignedWorkspace();
+                return;
+            }
             setScope(false);
             return;
         }
@@ -629,18 +688,69 @@ protected:
             onNewEmptyWorkspace();
             return;
         }
+        if (e->key() == Qt::Key_X) {
+            deleteSelectedOrAssignedWorkspace();
+            return;
+        }
+        if (e->key() == Qt::Key_Down || e->key() == Qt::Key_J) {
+            selectNextCard();
+            return;
+        }
+        if (e->key() == Qt::Key_Up || e->key() == Qt::Key_K) {
+            selectPrevCard();
+            return;
+        }
+        if (e->key() == Qt::Key_Space) {
+            if (m_selectedCardIndex >= 0 && m_selectedCardIndex < m_workspaces.size()) {
+                toggleWorkspaceAssignment(m_selectedCardIndex);
+                return;
+            }
+        }
         if (e->key() == Qt::Key_Delete) {
+            if (e->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier)) {
+                deleteSelectedOrAssignedWorkspace();
+                return;
+            }
             onUnassign();
             return;
         }
 
-        // 1..9 shortcuts to select workspace
+        // 1..9 shortcuts to select workspace or Shift+1..9 to delete workspace
+        int targetWsIdx = -1;
+        bool isDeleteAction = false;
+
         if (e->key() >= Qt::Key_1 && e->key() <= Qt::Key_9) {
-            const int idx = (e->key() - Qt::Key_1);
-            if (idx >= 0 && idx < m_workspaces.size()) {
-                toggleWorkspaceAssignment(idx);
-                return;
+            targetWsIdx = (e->key() - Qt::Key_1);
+            if (e->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier | Qt::AltModifier)) {
+                isDeleteAction = true;
             }
+        } else if (e->key() == Qt::Key_Exclam)     { targetWsIdx = 0; isDeleteAction = true; }
+        else if (e->key() == Qt::Key_At)         { targetWsIdx = 1; isDeleteAction = true; }
+        else if (e->key() == Qt::Key_NumberSign) { targetWsIdx = 2; isDeleteAction = true; }
+        else if (e->key() == Qt::Key_Dollar)     { targetWsIdx = 3; isDeleteAction = true; }
+        else if (e->key() == Qt::Key_Percent)    { targetWsIdx = 4; isDeleteAction = true; }
+        else if (e->key() == Qt::Key_AsciiCircum){ targetWsIdx = 5; isDeleteAction = true; }
+        else if (e->key() == Qt::Key_Ampersand)  { targetWsIdx = 6; isDeleteAction = true; }
+        else if (e->key() == Qt::Key_Asterisk)   { targetWsIdx = 7; isDeleteAction = true; }
+        else if (e->key() == Qt::Key_ParenLeft)  { targetWsIdx = 8; isDeleteAction = true; }
+        else if (!e->text().isEmpty()) {
+            const QString shiftedNums = QStringLiteral("!@#$%^&*(");
+            const int symIdx = shiftedNums.indexOf(e->text().at(0));
+            if (symIdx >= 0) {
+                targetWsIdx = symIdx;
+                isDeleteAction = true;
+            }
+        }
+
+        if (targetWsIdx >= 0 && targetWsIdx < m_workspaces.size()) {
+            m_selectedCardIndex = targetWsIdx;
+            updateCardSelection();
+            if (isDeleteAction) {
+                closeWorkspace(targetWsIdx);
+            } else {
+                toggleWorkspaceAssignment(targetWsIdx);
+            }
+            return;
         }
 
         QDialog::keyPressEvent(e);
@@ -695,26 +805,95 @@ private:
     void rebuildCards()
     {
         // Clear old cards
+        m_cards.clear();
         QLayoutItem *item;
         while ((item = m_cardsLayout->takeAt(0)) != nullptr) {
             delete item->widget();
             delete item;
         }
 
+        if (m_selectedCardIndex >= m_workspaces.size()) {
+            m_selectedCardIndex = m_workspaces.size() - 1;
+        }
+        if (m_selectedCardIndex < 0 && !m_workspaces.isEmpty()) {
+            m_selectedCardIndex = 0;
+        }
+
         for (int i = 0; i < m_workspaces.size(); ++i) {
             const auto &ws = m_workspaces.at(i);
             const bool isAssigned = (ws.id == m_assignedWsId);
-            auto *card = new WorkspaceCard(i, ws, isAssigned, m_isPolish, m_cardsContainer);
+            const bool isSelected = (i == m_selectedCardIndex);
+            auto *card = new WorkspaceCard(i, ws, isAssigned, isSelected, m_isPolish, m_cardsContainer);
             card->onClicked = [this](int idx) {
+                m_selectedCardIndex = idx;
+                updateCardSelection();
                 toggleWorkspaceAssignment(idx);
             };
             card->onDeleteClicked = [this](int idx) {
+                m_selectedCardIndex = idx;
+                updateCardSelection();
                 closeWorkspace(idx);
             };
+            m_cards.append(card);
             m_cardsLayout->addWidget(card);
         }
 
         m_cardsLayout->addStretch(1);
+    }
+
+    void updateCardSelection()
+    {
+        for (auto *card : m_cards) {
+            if (card) {
+                card->setSelected(card->index() == m_selectedCardIndex);
+            }
+        }
+    }
+
+    void selectNextCard()
+    {
+        if (m_workspaces.isEmpty()) return;
+        m_selectedCardIndex = (m_selectedCardIndex + 1) % m_workspaces.size();
+        updateCardSelection();
+        ensureSelectedVisible();
+    }
+
+    void selectPrevCard()
+    {
+        if (m_workspaces.isEmpty()) return;
+        m_selectedCardIndex = (m_selectedCardIndex - 1 + m_workspaces.size()) % m_workspaces.size();
+        updateCardSelection();
+        ensureSelectedVisible();
+    }
+
+    void ensureSelectedVisible()
+    {
+        if (m_selectedCardIndex >= 0 && m_selectedCardIndex < m_cards.size() && m_scrollArea) {
+            auto *card = m_cards.at(m_selectedCardIndex);
+            if (card) {
+                m_scrollArea->ensureWidgetVisible(card);
+            }
+        }
+    }
+
+    void deleteSelectedOrAssignedWorkspace()
+    {
+        if (m_selectedCardIndex >= 0 && m_selectedCardIndex < m_workspaces.size()) {
+            closeWorkspace(m_selectedCardIndex);
+            return;
+        }
+        if (!m_assignedWsId.isEmpty()) {
+            for (int i = 0; i < m_workspaces.size(); ++i) {
+                if (m_workspaces.at(i).id == m_assignedWsId) {
+                    closeWorkspace(i);
+                    return;
+                }
+            }
+        }
+        if (m_workspaces.size() == 1) {
+            closeWorkspace(0);
+            return;
+        }
     }
 
     void closeWorkspace(int idx)
@@ -887,6 +1066,10 @@ private:
     QPushButton *m_btnNewWs = nullptr;
     QPushButton *m_btnNewEmptyWs = nullptr;
     QPushButton *m_btnUnassign = nullptr;
+    QPushButton *m_btnDeleteWs = nullptr;
+    QScrollArea *m_scrollArea = nullptr;
+    int m_selectedCardIndex = -1;
+    QList<WorkspaceCard *> m_cards;
     QJsonArray m_deletedWorkspaces;
 };
 
