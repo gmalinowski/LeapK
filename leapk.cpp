@@ -56,6 +56,7 @@
 #include <QAction>
 #include <QRandomGenerator>
 #include <QDBusConnection>
+#include <QDBusMessage>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include "presethelper.h"
@@ -623,6 +624,9 @@ ActiveWindowOutlineEffect::~ActiveWindowOutlineEffect()
     QDBusConnection::sessionBus().unregisterObject(QStringLiteral("/ActiveWindowOutline"));
     if (m_jumpMode) {
         cancelJumpMode();
+    }
+    if (m_globalShortcutsBlocked) {
+        setKdeGlobalShortcutsBlocked(false);
     }
     if (m_jumpTimeoutTimer) {
         m_jumpTimeoutTimer->stop();
@@ -3749,6 +3753,22 @@ void ActiveWindowOutlineEffect::exitSuperJumpMode()
     effects->addRepaintFull();
 }
 
+void ActiveWindowOutlineEffect::setKdeGlobalShortcutsBlocked(bool blocked)
+{
+    if (m_globalShortcutsBlocked == blocked) {
+        return;
+    }
+    m_globalShortcutsBlocked = blocked;
+    QDBusMessage msg = QDBusMessage::createMethodCall(
+        QStringLiteral("org.kde.kglobalaccel"),
+        QStringLiteral("/kglobalaccel"),
+        QStringLiteral("org.kde.KGlobalAccel"),
+        QStringLiteral("blockGlobalShortcuts")
+    );
+    msg << blocked;
+    QDBusConnection::sessionBus().send(msg);
+}
+
 void ActiveWindowOutlineEffect::addWindowToWorkspace(EffectWindow *w, int workspaceIndex)
 {
     if (!w || w->isDeleted()) {
@@ -4436,6 +4456,7 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     }
 
     m_jumpMode = true;
+    setKdeGlobalShortcutsBlocked(true);
     updateAnimationTimer();
     m_badgeTextureCache.clear();
     m_hudHintBarTexture.reset();
@@ -4460,6 +4481,7 @@ void ActiveWindowOutlineEffect::cancelJumpMode()
         return;
     }
     m_jumpMode = false;
+    setKdeGlobalShortcutsBlocked(false);
     m_subLeapActive = false;
     m_stashModeActive = false;
     m_superJumpActive = false;
@@ -4638,8 +4660,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
-        if (((mods & Qt::MetaModifier) && e->key() == Qt::Key_A)
-            || ((mods & (Qt::AltModifier | Qt::ControlModifier)) && e->key() == Qt::Key_A)) {
+        if ((mods & Qt::MetaModifier) && e->key() == Qt::Key_A) {
             exitSubLeapMode();
             toggleSuperJumpMode();
             return;
@@ -4760,14 +4781,12 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
-        if (((mods & Qt::MetaModifier) && e->key() == Qt::Key_S)
-            || ((mods & (Qt::AltModifier | Qt::ControlModifier)) && e->key() == Qt::Key_S)) {
+        if ((mods & Qt::MetaModifier) && e->key() == Qt::Key_S) {
             exitStashMode();
             return;
         }
 
-        if (((mods & Qt::MetaModifier) && e->key() == Qt::Key_A)
-            || ((mods & (Qt::AltModifier | Qt::ControlModifier)) && e->key() == Qt::Key_A)) {
+        if ((mods & Qt::MetaModifier) && e->key() == Qt::Key_A) {
             exitStashMode();
             toggleSuperJumpMode();
             return;
@@ -4863,8 +4882,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
-    if (((mods & Qt::MetaModifier) && e->key() == Qt::Key_A)
-        || ((mods & (Qt::AltModifier | Qt::ControlModifier)) && e->key() == Qt::Key_A)) {
+    if ((mods & Qt::MetaModifier) && e->key() == Qt::Key_A) {
         toggleSuperJumpMode();
         return;
     }
@@ -4874,8 +4892,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
-    if (((mods & Qt::MetaModifier) && e->key() == Qt::Key_S)
-        || ((mods & (Qt::AltModifier | Qt::ControlModifier)) && e->key() == Qt::Key_S)) {
+    if ((mods & Qt::MetaModifier) && e->key() == Qt::Key_S) {
         enterStashMode();
         return;
     }
@@ -4885,13 +4902,12 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
-    if (e->key() == Qt::Key_Tab || ((mods & (Qt::AltModifier | Qt::ControlModifier)) && e->key() == Qt::Key_G)) {
+    if (e->key() == Qt::Key_Tab || ((mods & Qt::MetaModifier) && e->key() == Qt::Key_G)) {
         slotToggleHudGrouping();
         return;
     }
 
-    if (((mods & Qt::MetaModifier) && e->key() == Qt::Key_M)
-        || ((isCtrl || (mods & Qt::AltModifier)) && e->key() == Qt::Key_M)) {
+    if ((mods & Qt::MetaModifier) && e->key() == Qt::Key_M) {
         cancelJumpMode();
         slotOpenMarkerManager();
         return;
@@ -4917,7 +4933,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char('+'))
         || (e->key() == Qt::Key_Equal && isShift);
 
-    if (isPlus || (isCtrl && e->key() == Qt::Key_N) || ((mods & Qt::AltModifier) && e->key() == Qt::Key_N)) {
+    if (isPlus || ((mods & Qt::MetaModifier) && e->key() == Qt::Key_N)) {
         slotCreateNewWorkspacePrompt();
         return;
     }

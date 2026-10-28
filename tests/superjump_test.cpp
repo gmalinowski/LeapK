@@ -160,6 +160,39 @@ void testSuperJumpDefaultJumpVsPullHere()
     std::cout << "testSuperJumpDefaultJumpVsPullHere PASSED\n";
 }
 
+void testSuperJumpKeyboardModifierIsolation()
+{
+    // Helper replicating LeapK shortcut matching logic
+    auto isSuperJumpToggle = [](Qt::KeyboardModifiers mods, int key) -> bool {
+        return (mods & Qt::MetaModifier) && key == Qt::Key_A;
+    };
+    auto isStashWindowAction = [](Qt::KeyboardModifiers mods) -> bool {
+        return (mods & Qt::ControlModifier) && !(mods & Qt::AltModifier);
+    };
+    auto isPullWindowAction = [](Qt::KeyboardModifiers mods) -> bool {
+        return (mods & Qt::AltModifier) && !(mods & Qt::ControlModifier);
+    };
+
+    // 1. Meta+A -> MUST trigger Super Jump
+    assert(isSuperJumpToggle(Qt::MetaModifier, Qt::Key_A) == true);
+
+    // 2. Ctrl+A -> MUST NOT trigger Super Jump (must trigger Stash window 'A')
+    assert(isSuperJumpToggle(Qt::ControlModifier, Qt::Key_A) == false);
+    assert(isStashWindowAction(Qt::ControlModifier) == true);
+
+    // 3. Alt+A -> MUST NOT trigger Super Jump (must trigger Pull window 'A')
+    assert(isSuperJumpToggle(Qt::AltModifier, Qt::Key_A) == false);
+    assert(isPullWindowAction(Qt::AltModifier) == true);
+
+    // 4. Plain 'A' -> MUST NOT trigger Super Jump (normal jump)
+    assert(isSuperJumpToggle(Qt::NoModifier, Qt::Key_A) == false);
+
+    // 5. Shift+A -> MUST NOT trigger Super Jump (close window 'A')
+    assert(isSuperJumpToggle(Qt::ShiftModifier, Qt::Key_A) == false);
+
+    std::cout << "testSuperJumpKeyboardModifierIsolation PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
@@ -170,6 +203,7 @@ int main(int argc, char *argv[])
     testStashedBadgeDesaturationAndDashing();
     testCrossWorkspacePullLogic();
     testSuperJumpDefaultJumpVsPullHere();
+    testSuperJumpKeyboardModifierIsolation();
 
     std::cout << "All Super Jump tests passed successfully!\n";
     return 0;

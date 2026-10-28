@@ -233,6 +233,7 @@ private:
     int findWorkspaceForWindow(EffectWindow *target) const;
     void toggleSuperJumpMode();
     void exitSuperJumpMode();
+    void setKdeGlobalShortcutsBlocked(bool blocked);
     QString getWindowLocationString(EffectWindow *target) const;
     QList<QRectF> computeHudPillRects(const QList<QPair<QChar, EffectWindow *>> &targets,
                                       const RenderViewport &viewport,
@@ -462,6 +463,7 @@ private:
     QSet<EffectWindow *> m_stashedWindows;
     bool m_superJumpActive = false;
     int m_superJumpTargetWorkspace = 0;
+    bool m_globalShortcutsBlocked = false;
 
     // Sub-Leap Disambiguation (multi-instance window disambiguation)
     bool m_subLeapActive = false;
