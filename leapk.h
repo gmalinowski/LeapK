@@ -52,6 +52,7 @@ using OutlineColor::ColorStop;
 class SceneView;
 class GLFramebuffer;
 class GLTexture;
+class VirtualDesktop;
 
 #ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
 using OutlineRegion = QRegion;
@@ -248,6 +249,7 @@ private:
     bool isBadgeOccluded(EffectWindow *target, const QRectF &badgeRect, const QList<QRectF> &hudRects = {}) const;
     bool isWindowInStash(EffectWindow *w) const;
     bool isWindowPinned(EffectWindow *w) const;
+    void playThemedSound(OutlineSound::SoundEffect effect);
     void pinWindow(EffectWindow *w);
     void unpinWindow(EffectWindow *w, int targetWorkspace = 0);
     void toggleWindowPin(EffectWindow *w);
@@ -475,6 +477,7 @@ private:
     int m_cursorWarpMode = 0; // 0 = Disabled, 1 = Center of Window, 2 = Top-Left Titlebar
     bool m_soundFeedbackEnabled = false;
     int m_soundFeedbackVolume = 30;
+    VirtualDesktop *m_lastDesktop = nullptr;
     bool m_badgeHudGroupWindows = true;
     qreal m_badgeHudGroupBorderWidth = 2.0;
     int m_badgeHudGroupFontSize = 0;

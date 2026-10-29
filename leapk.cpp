@@ -405,6 +405,7 @@ KWIN_EFFECT_FACTORY_SUPPORTED(ActiveWindowOutlineEffect, "metadata.json",
 
 ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
 {
+    m_lastDesktop = effects ? effects->currentDesktop() : nullptr;
     m_animationTimer = new QTimer(this);
     m_animationTimer->setInterval(16);
     connect(m_animationTimer, &QTimer::timeout,
@@ -586,6 +587,11 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
             this, &ActiveWindowOutlineEffect::repaintAllOutlines);
     connect(effects, &EffectsHandler::desktopChanged,
             this, [this]() {
+                VirtualDesktop *cur = effects ? effects->currentDesktop() : nullptr;
+                if (m_lastDesktop && cur && m_lastDesktop != cur) {
+                    playThemedSound(OutlineSound::SoundEffect::SwitchWorkspace);
+                }
+                m_lastDesktop = cur;
                 repaintAllOutlines();
             });
     connect(effects, &EffectsHandler::screenLockingChanged,
@@ -4505,6 +4511,7 @@ void ActiveWindowOutlineEffect::slotCloseActiveWorkspace()
 
 void ActiveWindowOutlineEffect::slotCycleHudView(int delta)
 {
+    playThemedSound(OutlineSound::SoundEffect::NavTab);
     if (m_stashModeActive) {
         refreshWorkspaces();
         const int totalViews = qMax(1, 2 + m_workspaces.size());
@@ -4872,7 +4879,7 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_mouseIntercepting = true;
 #endif
     if (m_soundFeedbackEnabled) {
-        OutlineSound::playSound(OutlineSound::SoundEffect::EnterJump, m_soundFeedbackVolume);
+        playThemedSound(OutlineSound::SoundEffect::EnterJump);
     }
     if (m_audioRefreshTimer) {
         m_audioRefreshTimer->start(1500);
@@ -4919,6 +4926,7 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
         return;
     }
     m_jumpMode = false;
+    playThemedSound(OutlineSound::SoundEffect::Dismiss);
 #ifdef ACTIVE_WINDOW_OUTLINE_HAS_WINDOW_INPUT_MOUSE_EVENT
     if (m_mouseIntercepting) {
         effects->stopMouseInterception(this);
@@ -5290,6 +5298,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                             m_stashedWindows.remove(target);
                             target->setMinimized(false);
                         }
+                        playThemedSound(OutlineSound::SoundEffect::Stash);
                         m_badgeTextureCache.clear();
                         m_hudHeaderTexture.reset();
                         m_hudHeaderCacheKey = -1;
@@ -5574,6 +5583,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                         m_stashedWindows.insert(target);
                         m_workspaceMinimizedWindows.remove(target);
                         target->setMinimized(true);
+                        playThemedSound(OutlineSound::SoundEffect::Stash);
 
                         m_jumpLetterToWindow = assignJumpLetters();
                         m_badgeTextureCache.clear();
@@ -6034,10 +6044,36 @@ void ActiveWindowOutlineEffect::slotJumpToRecentWindow(int keyToRelease)
     warpCursorToWindow(target);
 }
 
+void ActiveWindowOutlineEffect::playThemedSound(OutlineSound::SoundEffect effect)
+{
+    if (!m_soundFeedbackEnabled || m_soundFeedbackVolume <= 0) {
+        return;
+    }
+    const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
+    const QString profStr = theme.resolveVar(QStringLiteral("$soundProfile")).isEmpty()
+        ? theme.sound.profile
+        : theme.resolveVar(QStringLiteral("$soundProfile"));
+    const OutlineSound::SoundProfile profile = OutlineSound::profileFromString(profStr);
+    const double volFactor = theme.resolveDouble(QStringLiteral("$soundVolume"), theme.sound.volume > 0.0 ? theme.sound.volume : 1.0);
+    const int effectiveVol = qBound(0, qRound(m_soundFeedbackVolume * volFactor), 100);
+
+    QString customFile;
+    switch (effect) {
+    case OutlineSound::SoundEffect::EnterJump: customFile = theme.sound.enterSound; break;
+    case OutlineSound::SoundEffect::LandWindow: customFile = theme.sound.landSound; break;
+    case OutlineSound::SoundEffect::SwitchWorkspace: customFile = theme.sound.workspaceSound; break;
+    case OutlineSound::SoundEffect::NavTab: customFile = theme.sound.navSound; break;
+    case OutlineSound::SoundEffect::Dismiss: customFile = theme.sound.dismissSound; break;
+    case OutlineSound::SoundEffect::Stash: customFile = theme.sound.stashSound; break;
+    }
+
+    OutlineSound::playSound(effect, effectiveVol, profile, customFile);
+}
+
 void ActiveWindowOutlineEffect::warpCursorToWindow(EffectWindow *target)
 {
     if (m_soundFeedbackEnabled && target) {
-        OutlineSound::playSound(OutlineSound::SoundEffect::LandWindow, m_soundFeedbackVolume);
+        playThemedSound(OutlineSound::SoundEffect::LandWindow);
     }
     if (m_cursorWarpMode == 0 || !target) {
         return;

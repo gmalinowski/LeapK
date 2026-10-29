@@ -271,11 +271,44 @@ static void testThemeDiscoveryAndLookup()
     assert(fallback.id == QStringLiteral("default-breeze"));
 }
 
+static void testSoundThemeSettings()
+{
+    SoundTheme st;
+    assert(st.enabled == true);
+    assert(std::abs(st.volume - 1.0) < 0.001);
+    assert(st.profile == QStringLiteral("crisp_click"));
+    assert(st.enterSound.isEmpty());
+
+    st.enabled = true;
+    st.volume = 0.8;
+    st.profile = QStringLiteral("soft_pop");
+    st.workspaceSound = QStringLiteral("/path/to/sound.wav");
+
+    const QJsonObject json = st.toJson();
+    const SoundTheme parsed = SoundTheme::fromJson(json);
+    assert(parsed.enabled == true);
+    assert(std::abs(parsed.volume - 0.8) < 0.001);
+    assert(parsed.profile == QStringLiteral("soft_pop"));
+    assert(parsed.workspaceSound == QStringLiteral("/path/to/sound.wav"));
+
+    // Check profiles across builtins
+    const auto builtins = builtInThemes();
+    assert(builtins[0].sound.profile == QStringLiteral("crisp_click"));
+    assert(builtins[1].sound.profile == QStringLiteral("scifi_blip"));
+    assert(builtins[2].sound.profile == QStringLiteral("mechanical"));
+    assert(builtins[3].sound.profile == QStringLiteral("soft_pop"));
+
+    // Test parameter resolution
+    assert(builtins[1].resolveVar(QStringLiteral("$soundProfile")) == QStringLiteral("scifi_blip"));
+    assert(std::abs(builtins[1].resolveDouble(QStringLiteral("$soundVolume"), 1.0) - 1.0) < 0.001);
+}
+
 int main(int, char **)
 {
     testThemeParameter();
     testBuiltInThemes();
     testAudioThemeSettings();
+    testSoundThemeSettings();
     testHudNavThemeSettings();
     testVariableResolutionAndOverrides();
     testSerializationAndParsing();

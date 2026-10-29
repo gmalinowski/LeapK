@@ -424,6 +424,48 @@ struct HudNavTheme {
     }
 };
 
+struct SoundTheme {
+    bool enabled = true;
+    double volume = 1.0;
+    QString profile = QStringLiteral("crisp_click"); // "crisp_click", "soft_pop", "scifi_blip", "mechanical"
+    QString enterSound;
+    QString landSound;
+    QString workspaceSound;
+    QString navSound;
+    QString dismissSound;
+    QString stashSound;
+
+    QJsonObject toJson() const
+    {
+        QJsonObject o;
+        o[QStringLiteral("enabled")] = enabled;
+        o[QStringLiteral("volume")] = volume;
+        o[QStringLiteral("profile")] = profile;
+        if (!enterSound.isEmpty()) o[QStringLiteral("enterSound")] = enterSound;
+        if (!landSound.isEmpty()) o[QStringLiteral("landSound")] = landSound;
+        if (!workspaceSound.isEmpty()) o[QStringLiteral("workspaceSound")] = workspaceSound;
+        if (!navSound.isEmpty()) o[QStringLiteral("navSound")] = navSound;
+        if (!dismissSound.isEmpty()) o[QStringLiteral("dismissSound")] = dismissSound;
+        if (!stashSound.isEmpty()) o[QStringLiteral("stashSound")] = stashSound;
+        return o;
+    }
+
+    static SoundTheme fromJson(const QJsonObject &o)
+    {
+        SoundTheme s;
+        s.enabled = o.value(QStringLiteral("enabled")).toBool(s.enabled);
+        s.volume = o.value(QStringLiteral("volume")).toDouble(s.volume);
+        s.profile = o.value(QStringLiteral("profile")).toString(s.profile);
+        s.enterSound = o.value(QStringLiteral("enterSound")).toString(s.enterSound);
+        s.landSound = o.value(QStringLiteral("landSound")).toString(s.landSound);
+        s.workspaceSound = o.value(QStringLiteral("workspaceSound")).toString(s.workspaceSound);
+        s.navSound = o.value(QStringLiteral("navSound")).toString(s.navSound);
+        s.dismissSound = o.value(QStringLiteral("dismissSound")).toString(s.dismissSound);
+        s.stashSound = o.value(QStringLiteral("stashSound")).toString(s.stashSound);
+        return s;
+    }
+};
+
 // ============================================================================
 // 3. Complete LeapK Theme Structure
 // ============================================================================
@@ -446,6 +488,7 @@ struct Theme {
     SearchHeaderTheme searchHeader;
     HintsBarTheme hintsBar;
     HudNavTheme hudNav;
+    SoundTheme sound;
 
     // Helper: resolves a value that may reference a parameter ($id) or token
     QString resolveVar(const QString &val) const
@@ -579,6 +622,7 @@ struct Theme {
         comps[QStringLiteral("searchHeader")] = searchHeader.toJson();
         comps[QStringLiteral("hintsBar")] = hintsBar.toJson();
         comps[QStringLiteral("hudNav")] = hudNav.toJson();
+        comps[QStringLiteral("sound")] = sound.toJson();
         root[QStringLiteral("components")] = comps;
 
         return root;
@@ -624,6 +668,9 @@ struct Theme {
         }
         if (comps.contains(QStringLiteral("hudNav"))) {
             t.hudNav = HudNavTheme::fromJson(comps.value(QStringLiteral("hudNav")).toObject());
+        }
+        if (comps.contains(QStringLiteral("sound"))) {
+            t.sound = SoundTheme::fromJson(comps.value(QStringLiteral("sound")).toObject());
         }
 
         return t;
@@ -702,6 +749,29 @@ inline QList<Theme> builtInThemes()
         pAudioIntensity.currentValue = 1.0;
         pAudioIntensity.suffix = QStringLiteral("x");
         t.parameters.append(pAudioIntensity);
+
+        ThemeParameter pSoundProf;
+        pSoundProf.id = QStringLiteral("soundProfile");
+        pSoundProf.name = QStringLiteral("Sound Feedback Profile");
+        pSoundProf.type = QStringLiteral("enum");
+        pSoundProf.enumOptions = {QStringLiteral("crisp_click"), QStringLiteral("soft_pop"), QStringLiteral("scifi_blip"), QStringLiteral("mechanical")};
+        pSoundProf.enumDefault = QStringLiteral("crisp_click");
+        pSoundProf.enumCurrent = pSoundProf.enumDefault;
+        t.parameters.append(pSoundProf);
+
+        ThemeParameter pSoundVol;
+        pSoundVol.id = QStringLiteral("soundVolume");
+        pSoundVol.name = QStringLiteral("Theme Sound Volume");
+        pSoundVol.type = QStringLiteral("float");
+        pSoundVol.minValue = 0.0;
+        pSoundVol.maxValue = 1.0;
+        pSoundVol.step = 0.05;
+        pSoundVol.defaultValue = 1.0;
+        pSoundVol.currentValue = 1.0;
+        pSoundVol.suffix = QStringLiteral("%");
+        t.parameters.append(pSoundVol);
+
+        t.sound.profile = QStringLiteral("crisp_click");
 
         t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#16191d");
         t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#1e2227");
@@ -825,6 +895,29 @@ inline QList<Theme> builtInThemes()
         pAudioIntensity.suffix = QStringLiteral("x");
         t.parameters.append(pAudioIntensity);
 
+        ThemeParameter pSoundProf;
+        pSoundProf.id = QStringLiteral("soundProfile");
+        pSoundProf.name = QStringLiteral("Sound Feedback Profile");
+        pSoundProf.type = QStringLiteral("enum");
+        pSoundProf.enumOptions = {QStringLiteral("crisp_click"), QStringLiteral("soft_pop"), QStringLiteral("scifi_blip"), QStringLiteral("mechanical")};
+        pSoundProf.enumDefault = QStringLiteral("scifi_blip");
+        pSoundProf.enumCurrent = pSoundProf.enumDefault;
+        t.parameters.append(pSoundProf);
+
+        ThemeParameter pSoundVol;
+        pSoundVol.id = QStringLiteral("soundVolume");
+        pSoundVol.name = QStringLiteral("Theme Sound Volume");
+        pSoundVol.type = QStringLiteral("float");
+        pSoundVol.minValue = 0.0;
+        pSoundVol.maxValue = 1.0;
+        pSoundVol.step = 0.05;
+        pSoundVol.defaultValue = 1.0;
+        pSoundVol.currentValue = 1.0;
+        pSoundVol.suffix = QStringLiteral("%");
+        t.parameters.append(pSoundVol);
+
+        t.sound.profile = QStringLiteral("scifi_blip");
+
         t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#0a0618");
         t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#160d33");
         t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#261456");
@@ -932,6 +1025,29 @@ inline QList<Theme> builtInThemes()
         pAudioIntensity.suffix = QStringLiteral("x");
         t.parameters.append(pAudioIntensity);
 
+        ThemeParameter pSoundProf;
+        pSoundProf.id = QStringLiteral("soundProfile");
+        pSoundProf.name = QStringLiteral("Sound Feedback Profile");
+        pSoundProf.type = QStringLiteral("enum");
+        pSoundProf.enumOptions = {QStringLiteral("crisp_click"), QStringLiteral("soft_pop"), QStringLiteral("scifi_blip"), QStringLiteral("mechanical")};
+        pSoundProf.enumDefault = QStringLiteral("mechanical");
+        pSoundProf.enumCurrent = pSoundProf.enumDefault;
+        t.parameters.append(pSoundProf);
+
+        ThemeParameter pSoundVol;
+        pSoundVol.id = QStringLiteral("soundVolume");
+        pSoundVol.name = QStringLiteral("Theme Sound Volume");
+        pSoundVol.type = QStringLiteral("float");
+        pSoundVol.minValue = 0.0;
+        pSoundVol.maxValue = 1.0;
+        pSoundVol.step = 0.05;
+        pSoundVol.defaultValue = 1.0;
+        pSoundVol.currentValue = 1.0;
+        pSoundVol.suffix = QStringLiteral("%");
+        t.parameters.append(pSoundVol);
+
+        t.sound.profile = QStringLiteral("mechanical");
+
         t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#031006");
         t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#08200d");
         t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#103d19");
@@ -1033,6 +1149,29 @@ inline QList<Theme> builtInThemes()
         pAudioIntensity.currentValue = 1.0;
         pAudioIntensity.suffix = QStringLiteral("x");
         t.parameters.append(pAudioIntensity);
+
+        ThemeParameter pSoundProf;
+        pSoundProf.id = QStringLiteral("soundProfile");
+        pSoundProf.name = QStringLiteral("Sound Feedback Profile");
+        pSoundProf.type = QStringLiteral("enum");
+        pSoundProf.enumOptions = {QStringLiteral("crisp_click"), QStringLiteral("soft_pop"), QStringLiteral("scifi_blip"), QStringLiteral("mechanical")};
+        pSoundProf.enumDefault = QStringLiteral("soft_pop");
+        pSoundProf.enumCurrent = pSoundProf.enumDefault;
+        t.parameters.append(pSoundProf);
+
+        ThemeParameter pSoundVol;
+        pSoundVol.id = QStringLiteral("soundVolume");
+        pSoundVol.name = QStringLiteral("Theme Sound Volume");
+        pSoundVol.type = QStringLiteral("float");
+        pSoundVol.minValue = 0.0;
+        pSoundVol.maxValue = 1.0;
+        pSoundVol.step = 0.05;
+        pSoundVol.defaultValue = 1.0;
+        pSoundVol.currentValue = 1.0;
+        pSoundVol.suffix = QStringLiteral("%");
+        t.parameters.append(pSoundVol);
+
+        t.sound.profile = QStringLiteral("soft_pop");
 
         t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#e5e9f0");
         t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#ffffff");

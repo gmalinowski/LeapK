@@ -57,12 +57,58 @@ void testSoundFilesExistAndPlayer()
     std::cout << "[PASS] testSoundFilesExistAndPlayer passed." << std::endl;
 }
 
+void testProfilesAndNewEffects()
+{
+    std::cout << "[TEST] Running testProfilesAndNewEffects..." << std::endl;
+
+    const OutlineSound::SoundEffect effects[] = {
+        OutlineSound::SoundEffect::EnterJump,
+        OutlineSound::SoundEffect::LandWindow,
+        OutlineSound::SoundEffect::SwitchWorkspace,
+        OutlineSound::SoundEffect::NavTab,
+        OutlineSound::SoundEffect::Dismiss,
+        OutlineSound::SoundEffect::Stash
+    };
+
+    const OutlineSound::SoundProfile profiles[] = {
+        OutlineSound::SoundProfile::CrispClick,
+        OutlineSound::SoundProfile::SoftPop,
+        OutlineSound::SoundProfile::SciFiBlip,
+        OutlineSound::SoundProfile::Mechanical
+    };
+
+    for (auto p : profiles) {
+        for (auto e : effects) {
+            QByteArray pcm = OutlineSound::generatePcmData(e, p, 50);
+            assert(!pcm.isEmpty());
+            assert(pcm.size() % 2 == 0);
+
+            QByteArray wav = OutlineSound::generateWavData(e, p);
+            assert(wav.size() > 44);
+            assert(wav.startsWith("RIFF"));
+
+            const QString path = OutlineSound::soundFilePath(e, p);
+            assert(!path.isEmpty());
+
+            OutlineSound::playSound(e, 30, p);
+        }
+    }
+
+    assert(OutlineSound::profileFromString(QStringLiteral("soft_pop")) == OutlineSound::SoundProfile::SoftPop);
+    assert(OutlineSound::profileFromString(QStringLiteral("scifi_blip")) == OutlineSound::SoundProfile::SciFiBlip);
+    assert(OutlineSound::profileFromString(QStringLiteral("mechanical")) == OutlineSound::SoundProfile::Mechanical);
+    assert(OutlineSound::profileFromString(QStringLiteral("crisp_click")) == OutlineSound::SoundProfile::CrispClick);
+
+    std::cout << "[PASS] testProfilesAndNewEffects passed." << std::endl;
+}
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
 
     testWavGeneration();
     testSoundFilesExistAndPlayer();
+    testProfilesAndNewEffects();
 
     std::cout << "\nALL SOUND HELPER TESTS PASSED (100%)\n" << std::endl;
     return 0;
