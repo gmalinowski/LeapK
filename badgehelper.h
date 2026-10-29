@@ -838,25 +838,33 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
 
     const qreal margin = 2.0 * scale;
     const QRectF rect(margin, margin, w - 2 * margin, h - 2 * margin);
-    const qreal radius = (cfg.cornerRadius == 0) ? 0.0 : qMax(1.0, cfg.cornerRadius * scale);
+    const QString &badgeShape = cfg.activeTheme.windowBadge.shape;
+    const int badgeChamfer = cfg.activeTheme.resolveInt(QString::number(cfg.activeTheme.windowBadge.chamferSize), 5);
+    const qreal radius = (badgeShape == QStringLiteral("sharp"))
+        ? 0.0
+        : ((cfg.activeTheme.windowBadge.cornerRadius > 0)
+            ? (cfg.activeTheme.windowBadge.cornerRadius * scale)
+            : ((cfg.cornerRadius == 0) ? 0.0 : qMax(1.0, cfg.cornerRadius * scale)));
 
     // Drop shadow (rendered outside the pill so translucent pills remain vibrant)
     QPainterPath pillPath;
-    pillPath.addRoundedRect(rect, radius, radius);
+    addThemedShapePath(pillPath, rect, badgeShape, radius, badgeChamfer * scale);
     QPainterPath shadowPath;
-    shadowPath.addRoundedRect(rect.translated(0, 2.0 * scale), radius, radius);
+    addThemedShapePath(shadowPath, rect.translated(0, 2.0 * scale), badgeShape, radius, badgeChamfer * scale);
     p.setPen(Qt::NoPen);
     p.fillPath(shadowPath.subtracted(pillPath), QColor(0, 0, 0, isJumpMode ? 150 : 100));
 
     // Background color with opacity
-    QColor effectiveBg = bgColor.isValid() ? bgColor : cfg.defaultBgColor;
+    const QColor themeBgNormal = cfg.activeTheme.resolveColor(cfg.activeTheme.windowBadge.bgNormal, cfg.activeTheme.resolveColor(QStringLiteral("$bgCard"), cfg.defaultBgColor));
+    const double themeOpacity = (cfg.activeTheme.hudContainer.bgOpacity > 0.05) ? cfg.activeTheme.hudContainer.bgOpacity : (cfg.opacityPercent / 100.0);
+    QColor effectiveBg = (bgColor.isValid() && bgColor != cfg.defaultBgColor) ? bgColor : themeBgNormal;
     if (isStashed) {
         int h, s, v, a;
         effectiveBg.getHsv(&h, &s, &v, &a);
         effectiveBg = QColor::fromHsv(h, qRound(s * 0.35), qRound(v * 0.85), a);
-        effectiveBg.setAlphaF(qBound(0.1, effectiveBg.alphaF() * (cfg.opacityPercent / 100.0) * 0.82, 1.0));
+        effectiveBg.setAlphaF(qBound(0.1, effectiveBg.alphaF() * themeOpacity * 0.82, 1.0));
     } else {
-        effectiveBg.setAlphaF(qBound(0.1, effectiveBg.alphaF() * (cfg.opacityPercent / 100.0), 1.0));
+        effectiveBg.setAlphaF(qBound(0.1, effectiveBg.alphaF() * themeOpacity, 1.0));
     }
 
     // Contrasting text color & border
@@ -867,7 +875,10 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
     // Background pill
     p.setBrush(effectiveBg);
     QColor borderColor;
-    if (isLightBg) {
+    const QColor themeBorder = cfg.activeTheme.resolveColor(cfg.activeTheme.windowBadge.borderColor);
+    if (themeBorder.isValid()) {
+        borderColor = isJumpMode ? cfg.activeTheme.resolveColor(QStringLiteral("$accentColor"), themeBorder) : themeBorder;
+    } else if (isLightBg) {
         borderColor = isJumpMode ? QColor(0, 0, 0, 180) : QColor(0, 0, 0, 120);
     } else {
         if (!cfg.letterColorAuto && cfg.letterColor.isValid() && contrastRatio(effectiveBg, cfg.letterColor) >= 2.5) {
@@ -882,7 +893,7 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
         borderPen.setDashPattern({3, 2});
     }
     p.setPen(borderPen);
-    p.drawRoundedRect(rect, radius, radius);
+    drawThemedShape(p, rect, badgeShape, radius, badgeChamfer * scale);
 
     const QColor sepCol = isLightBg ? QColor(0, 0, 0, 70) : QColor(255, 255, 255, 90);
 
@@ -1038,7 +1049,8 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
             const qreal spX = currentX + (audioAreaW - spDim) / 2.0;
             const qreal spY = margin + (innerH - spDim) / 2.0;
             const QRectF spRect(spX, spY, spDim, spDim);
-            drawAudioSpeaker(p, spRect, QColor(241, 196, 15), effectiveBg);
+            const QColor themeAudioColor = cfg.activeTheme.resolveColor(QStringLiteral("$audioColor"), QColor(241, 196, 15));
+            drawAudioSpeaker(p, spRect, themeAudioColor, effectiveBg);
             currentX += audioAreaW;
         }
     }
@@ -1534,15 +1546,21 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     p.setRenderHint(QPainter::TextAntialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
 
-    const qreal cornerRadius = (cfg.cornerRadius == 0) ? 0.0 : qMax(1.0, cfg.cornerRadius * 1.3 * scale);
+    const QString &cardShape = cfg.activeTheme.hudCard.shape;
+    const int cardChamfer = cfg.activeTheme.resolveInt(QString::number(cfg.activeTheme.hudCard.chamferSize), 6);
+    const qreal cornerRadius = (cardShape == QStringLiteral("sharp"))
+        ? 0.0
+        : ((cfg.activeTheme.hudCard.cornerRadius > 0)
+            ? (cfg.activeTheme.hudCard.cornerRadius * 1.3 * scale)
+            : ((cfg.cornerRadius == 0) ? 0.0 : qMax(1.0, cfg.cornerRadius * 1.3 * scale)));
     const QRectF pillRect(0.5, 0.5, pillW - 1.0, pillH - 1.0);
     QPainterPath bgPath;
-    bgPath.addRoundedRect(pillRect, cornerRadius, cornerRadius);
+    addThemedShapePath(bgPath, pillRect, cardShape, cornerRadius, cardChamfer * scale);
 
     // Drop shadow (rendered outside the card so translucent cards remain vibrant)
     const QRectF shadowRect(1.0, 2.0 * scale, pillW - 2.0, pillH - 2.0);
     QPainterPath shadowPath;
-    shadowPath.addRoundedRect(shadowRect, cornerRadius, cornerRadius);
+    addThemedShapePath(shadowPath, shadowRect, cardShape, cornerRadius, cardChamfer * scale);
     p.setPen(Qt::NoPen);
     p.fillPath(shadowPath.subtracted(bgPath), QColor(0, 0, 0, 140));
 
@@ -1558,59 +1576,64 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         pureMarkColor = QColor::fromHsv(h, qRound(s * 0.35), qRound(v * 0.82), a);
     }
 
-    QColor pillBg(22, 25, 29);
-    pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0) * (isStashed ? 0.78 : 1.0), 1.0));
+    const QColor themeBgNormal = cfg.activeTheme.resolveColor(cfg.activeTheme.hudCard.bgNormal, cfg.activeTheme.resolveColor(QStringLiteral("$bgCard"), QColor(22, 25, 29)));
+    const QColor themeBgActive = cfg.activeTheme.resolveColor(cfg.activeTheme.hudCard.bgActive, cfg.activeTheme.resolveColor(QStringLiteral("$bgCardActive"), QColor(24, 38, 52)));
+    const QColor themeBorderNormal = cfg.activeTheme.resolveColor(cfg.activeTheme.hudCard.borderNormal, cfg.activeTheme.resolveColor(QStringLiteral("$borderNormal"), QColor(255, 255, 255, 45)));
+    const QColor themeBorderActive = cfg.activeTheme.resolveColor(cfg.activeTheme.hudCard.borderActive, cfg.activeTheme.resolveColor(QStringLiteral("$borderColor"), QColor(0, 195, 255)));
+    const double themeOpacity = (cfg.activeTheme.hudContainer.bgOpacity > 0.05) ? cfg.activeTheme.hudContainer.bgOpacity : (cfg.opacityPercent / 100.0);
 
-    QColor borderColor;
+    QColor pillBg = themeBgNormal;
+    pillBg.setAlphaF(qBound(0.1, themeBgNormal.alphaF() * themeOpacity * (isStashed ? 0.78 : 1.0), 1.0));
+
+    QColor borderColor = themeBorderNormal;
     QColor badgeBg;
 
     if (effectivelyMarked) {
         if (cfg.hudMarkColorMode == 1) { // 1 = Full mark color
             pillBg = pureMarkColor;
-            pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0) * (isStashed ? 0.78 : 1.0), 1.0));
+            pillBg.setAlphaF(qBound(0.1, themeOpacity * (isStashed ? 0.78 : 1.0), 1.0));
             const bool isLight = (perceivedLuminance(pillBg) > 0.53);
             borderColor = isLight ? QColor(0, 0, 0, 160) : QColor(255, 255, 255, 180);
             badgeBg = pureMarkColor;
         } else if (cfg.hudMarkColorMode == 2) { // 2 = Tinted mark color
-            const QColor darkBase(22, 25, 29);
             pillBg = QColor::fromRgbF(
-                darkBase.redF() * 0.45 + pureMarkColor.redF() * 0.55,
-                darkBase.greenF() * 0.45 + pureMarkColor.greenF() * 0.55,
-                darkBase.blueF() * 0.45 + pureMarkColor.blueF() * 0.55
+                themeBgNormal.redF() * 0.45 + pureMarkColor.redF() * 0.55,
+                themeBgNormal.greenF() * 0.45 + pureMarkColor.greenF() * 0.55,
+                themeBgNormal.blueF() * 0.45 + pureMarkColor.blueF() * 0.55
             );
-            pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0) * (isStashed ? 0.78 : 1.0), 1.0));
+            pillBg.setAlphaF(qBound(0.1, themeOpacity * (isStashed ? 0.78 : 1.0), 1.0));
             borderColor = pureMarkColor;
             borderColor.setAlpha(isStashed ? 180 : 220);
             badgeBg = pureMarkColor;
         } else { // 0 = Dark card with mark border & badge (Recommended default)
-            pillBg = QColor(22, 25, 29);
-            pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0) * (isStashed ? 0.78 : 1.0), 1.0));
+            pillBg = themeBgNormal;
+            pillBg.setAlphaF(qBound(0.1, themeBgNormal.alphaF() * themeOpacity * (isStashed ? 0.78 : 1.0), 1.0));
             borderColor = pureMarkColor;
             borderColor.setAlpha(isStashed ? 200 : 245);
             badgeBg = pureMarkColor;
         }
     } else if (isPinned) {
         pillBg = QColor(36, 32, 22);
-        pillBg.setAlphaF(qBound(0.1, (240.0 / 255.0) * (cfg.opacityPercent / 100.0), 1.0));
+        pillBg.setAlphaF(qBound(0.1, (240.0 / 255.0) * themeOpacity, 1.0));
         borderColor = QColor(241, 196, 15, 230);
         badgeBg = QColor(241, 196, 15);
     } else {
-        pillBg = QColor(22, 25, 29);
-        pillBg.setAlphaF(qBound(0.1, (235.0 / 255.0) * (cfg.opacityPercent / 100.0) * (isStashed ? 0.78 : 1.0), 1.0));
+        pillBg = themeBgNormal;
+        pillBg.setAlphaF(qBound(0.1, themeBgNormal.alphaF() * themeOpacity * (isStashed ? 0.78 : 1.0), 1.0));
         if (isStashed) {
             badgeBg = QColor(48, 54, 62);
             borderColor = QColor(140, 150, 165, 130);
         } else {
-            borderColor = QColor(255, 255, 255, 45);
-            badgeBg = cfg.defaultBgColor;
+            borderColor = themeBorderNormal;
+            badgeBg = cfg.activeTheme.resolveColor(cfg.activeTheme.windowBadge.bgNormal, themeBgNormal);
             badgeBg.setAlpha(255);
         }
     }
 
     if (isSelected) {
-        pillBg = QColor(24, 38, 52);
-        pillBg.setAlphaF(qBound(0.1, (245.0 / 255.0) * (cfg.opacityPercent / 100.0), 1.0));
-        borderColor = QColor(0, 195, 255);
+        pillBg = themeBgActive;
+        pillBg.setAlphaF(qBound(0.1, themeBgActive.alphaF() * themeOpacity, 1.0));
+        borderColor = themeBorderActive;
     }
 
     p.fillPath(bgPath, pillBg);
@@ -1631,9 +1654,15 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     const QRectF badgeRect = (isTopOrBottom && hasThumb)
         ? QRectF(padX, padY + (headerH - badgeDim) / 2.0, badgeW, badgeDim)
         : QRectF(padX, (pillH - badgeDim) / 2.0, badgeW, badgeDim);
-    const qreal innerRadius = (cfg.cornerRadius == 0) ? 0.0 : qMax(1.0, cfg.cornerRadius * scale);
+    const QString &badgeShape = cfg.activeTheme.windowBadge.shape;
+    const int innerChamfer = cfg.activeTheme.resolveInt(QString::number(cfg.activeTheme.windowBadge.chamferSize), 4);
+    const qreal innerRadius = (badgeShape == QStringLiteral("sharp"))
+        ? 0.0
+        : ((cfg.activeTheme.windowBadge.cornerRadius > 0)
+            ? (cfg.activeTheme.windowBadge.cornerRadius * scale)
+            : ((cfg.cornerRadius == 0) ? 0.0 : qMax(1.0, cfg.cornerRadius * scale)));
     QPainterPath bPath;
-    bPath.addRoundedRect(badgeRect, innerRadius, innerRadius);
+    addThemedShapePath(bPath, badgeRect, badgeShape, innerRadius, innerChamfer * scale);
     p.fillPath(bPath, badgeBg);
 
     if (effectivelyMarked) {
@@ -1649,7 +1678,11 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
             p.drawPath(bPath);
         }
     } else {
-        QPen bPen(isStashed ? QColor(255, 255, 255, 80) : (isPinned ? QColor(0, 0, 0, 75) : QColor(255, 255, 255, 45)), 1.0 * scale);
+        QColor innerBorder = cfg.activeTheme.resolveColor(cfg.activeTheme.windowBadge.borderColor);
+        if (!innerBorder.isValid()) {
+            innerBorder = isLightBadge ? QColor(0, 0, 0, 140) : (isPinned ? QColor(0, 0, 0, 75) : QColor(255, 255, 255, 45));
+        }
+        QPen bPen(isStashed ? QColor(255, 255, 255, 80) : innerBorder, 1.0 * scale);
         if (isStashed) {
             bPen.setStyle(Qt::CustomDashLine);
             bPen.setDashPattern({3, 2});
@@ -1841,7 +1874,8 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
             ? ((isTopOrBottom && hasThumb) ? padY + (textLineHeight - spDim) / 2.0 : (pillH - spDim) / 2.0)
             : qRound(textCenterY - fm1.height() * 0.95 + (fm1.height() - spDim) / 2.0);
         const QRectF spRect(spX, spY, spDim, spDim);
-        drawAudioSpeaker(p, spRect, QColor(241, 196, 15), pillBg);
+        const QColor themeAudioColor = cfg.activeTheme.resolveColor(QStringLiteral("$audioColor"), QColor(241, 196, 15));
+        drawAudioSpeaker(p, spRect, themeAudioColor, pillBg);
     }
 
     p.end();
@@ -2365,6 +2399,10 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     p.setBrush(bgC);
     drawThemedShape(p, rect, theme.hudContainer.shape, radius, theme.hudContainer.chamferSize * scale);
 
+    const bool isLightBg = (perceivedLuminance(bgC) > 0.53);
+    const QColor defaultLabelCol = isLightBg ? QColor(76, 86, 106) : QColor(215, 220, 225);
+    const QColor sepCol = isLightBg ? QColor(76, 86, 106, 140) : QColor(255, 255, 255, 60);
+
     for (int lineIdx = 0; lineIdx < lines.size(); ++lineIdx) {
         const auto &line = lines.at(lineIdx);
         const int lW = lineContentWidths.at(lineIdx);
@@ -2377,20 +2415,24 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
 
             // Draw key
             p.setFont(keyFont);
-            p.setPen(s.keyColor);
+            QColor effKeyColor = s.keyColor;
+            if (isLightBg && contrastRatio(bgC, effKeyColor) < 3.0) {
+                effKeyColor = theme.resolveColor(theme.hintsBar.keyColor, QColor(46, 52, 64));
+            }
+            p.setPen(effKeyColor);
             p.drawText(QPointF(curX, baselineY), kText);
             curX += fmKey.horizontalAdvance(kText) + qRound(4 * scale);
 
             // Draw label
             p.setFont(lblFont);
-            p.setPen(theme.resolveColor(theme.hintsBar.labelColor, QColor(215, 220, 225)));
+            p.setPen(theme.resolveColor(theme.hintsBar.labelColor, defaultLabelCol));
             p.drawText(QPointF(curX, baselineY), s.label);
             curX += fmLbl.horizontalAdvance(s.label);
 
             // Draw separator
             if (i < line.size() - 1) {
                 curX += itemGap;
-                p.setPen(QColor(255, 255, 255, 60));
+                p.setPen(sepCol);
                 p.drawText(QPointF(curX, baselineY), sepStr);
                 curX += fmLbl.horizontalAdvance(sepStr) + itemGap;
             }
@@ -2597,14 +2639,16 @@ inline QImage renderHudModeHeader(qreal scale,
         const QRectF rect(0.5 * scale, 0.5 * scale, w - 1.0 * scale, h - 1.0 * scale);
         const qreal radius = h / 2.0;
 
-        const QColor accent(241, 196, 15);
+        const QColor accent = theme.resolveColor(QStringLiteral("$audioColor"), QColor(241, 196, 15));
+        const QColor bgC = theme.resolveColor(QStringLiteral("$bgSurface"), QColor(16, 20, 26, 245));
+        const bool isLightBg = (perceivedLuminance(bgC) > 0.53);
         p.setPen(QPen(accent, 1.8 * scale));
-        p.setBrush(QColor(16, 20, 26, 245));
-        p.drawRoundedRect(rect, radius, radius);
+        p.setBrush(bgC);
+        drawThemedShape(p, rect, theme.hudContainer.shape, radius, theme.hudContainer.chamferSize * scale);
 
         const qreal baselineY = padY + fmTitle.ascent();
         p.setFont(titleFont);
-        p.setPen(QColor(255, 255, 255));
+        p.setPen(isLightBg ? QColor(46, 52, 64) : QColor(255, 255, 255));
         p.drawText(QPointF(padX, baselineY), leftText);
 
         p.setFont(keyFont);
@@ -2647,14 +2691,16 @@ inline QImage renderHudModeHeader(qreal scale,
         const QRectF rect(0.5 * scale, 0.5 * scale, w - 1.0 * scale, h - 1.0 * scale);
         const qreal radius = h / 2.0;
 
-        const QColor accent(0, 195, 255); // Electric Cyan
+        const QColor accent = theme.resolveColor(QStringLiteral("$accentColor"), QColor(0, 195, 255));
+        const QColor bgC = theme.resolveColor(QStringLiteral("$bgSurface"), QColor(14, 22, 28, 245));
+        const bool isLightBg = (perceivedLuminance(bgC) > 0.53);
         p.setPen(QPen(accent, 1.8 * scale));
-        p.setBrush(QColor(14, 22, 28, 245));
-        p.drawRoundedRect(rect, radius, radius);
+        p.setBrush(bgC);
+        drawThemedShape(p, rect, theme.hudContainer.shape, radius, theme.hudContainer.chamferSize * scale);
 
         const qreal baselineY = padY + fmTitle.ascent();
         p.setFont(titleFont);
-        p.setPen(QColor(255, 255, 255));
+        p.setPen(isLightBg ? QColor(46, 52, 64) : QColor(255, 255, 255));
         p.drawText(QPointF(padX, baselineY), leftText);
 
         p.setFont(keyFont);
@@ -2697,14 +2743,16 @@ inline QImage renderHudModeHeader(qreal scale,
         const QRectF rect(0.5 * scale, 0.5 * scale, w - 1.0 * scale, h - 1.0 * scale);
         const qreal radius = h / 2.0;
 
-        const QColor accent = subLeapColor.isValid() ? subLeapColor : QColor(155, 89, 182);
+        const QColor accent = subLeapColor.isValid() ? subLeapColor : theme.resolveColor(QStringLiteral("$accentColor"), QColor(155, 89, 182));
+        const QColor bgC = theme.resolveColor(QStringLiteral("$bgSurface"), QColor(16, 20, 26, 245));
+        const bool isLightBg = (perceivedLuminance(bgC) > 0.53);
         p.setPen(QPen(accent, 1.8 * scale));
-        p.setBrush(QColor(16, 20, 26, 245));
-        p.drawRoundedRect(rect, radius, radius);
+        p.setBrush(bgC);
+        drawThemedShape(p, rect, theme.hudContainer.shape, radius, theme.hudContainer.chamferSize * scale);
 
         const qreal baselineY = padY + fmTitle.ascent();
         p.setFont(titleFont);
-        p.setPen(QColor(255, 255, 255));
+        p.setPen(isLightBg ? QColor(46, 52, 64) : QColor(255, 255, 255));
         p.drawText(QPointF(padX, baselineY), leftText);
 
         p.setFont(keyFont);
@@ -2748,13 +2796,15 @@ inline QImage renderHudModeHeader(qreal scale,
         const qreal radius = h / 2.0;
 
         const QColor accent(46, 204, 113); // Emerald Green
+        const QColor bgC = theme.resolveColor(QStringLiteral("$bgSurface"), QColor(14, 24, 18, 245));
+        const bool isLightBg = (perceivedLuminance(bgC) > 0.53);
         p.setPen(QPen(accent, 1.8 * scale));
-        p.setBrush(QColor(14, 24, 18, 245));
-        p.drawRoundedRect(rect, radius, radius);
+        p.setBrush(bgC);
+        drawThemedShape(p, rect, theme.hudContainer.shape, radius, theme.hudContainer.chamferSize * scale);
 
         const qreal baselineY = padY + fmTitle.ascent();
         p.setFont(titleFont);
-        p.setPen(QColor(255, 255, 255));
+        p.setPen(isLightBg ? QColor(46, 52, 64) : QColor(255, 255, 255));
         p.drawText(QPointF(padX, baselineY), leftText);
 
         p.setFont(keyFont);
@@ -2860,6 +2910,7 @@ inline QImage renderHudModeHeader(qreal scale,
 
     const QColor borderC = theme.resolveColor(theme.hudContainer.borderColor, QColor(255, 255, 255, 38));
     const QColor bgC = theme.resolveColor(QStringLiteral("$bgSurface"), QColor(14, 18, 24, 242));
+    const bool isLightBg = (perceivedLuminance(bgC) > 0.53);
     p.setPen(QPen(borderC, 1.0 * scale));
     p.setBrush(bgC);
     drawThemedShape(p, outerRect, theme.hudContainer.shape, outerRadius, theme.hudContainer.chamferSize * scale);
@@ -2884,8 +2935,8 @@ inline QImage renderHudModeHeader(qreal scale,
             p.setBrush(QColor(col.red(), col.green(), col.blue(), 55));
             p.drawRoundedRect(tabRect, tabRadius, tabRadius);
         } else {
-            p.setPen(QPen(QColor(255, 255, 255, 24), 1.0 * scale));
-            p.setBrush(QColor(255, 255, 255, 12));
+            p.setPen(QPen(isLightBg ? QColor(0, 0, 0, 35) : QColor(255, 255, 255, 24), 1.0 * scale));
+            p.setBrush(isLightBg ? QColor(0, 0, 0, 15) : QColor(255, 255, 255, 12));
             p.drawRoundedRect(tabRect, tabRadius, tabRadius);
         }
 
@@ -2899,15 +2950,16 @@ inline QImage renderHudModeHeader(qreal scale,
         const qreal baselineY = tabRect.top() + (tabRect.height() - fm.height()) / 2.0 + fm.ascent();
 
         p.setFont(font);
-        p.setPen(tab.isActive ? QColor(255, 255, 255) : QColor(190, 195, 205, 175));
+        p.setPen(tab.isActive ? (isLightBg ? QColor(20, 25, 35) : QColor(255, 255, 255)) : (isLightBg ? QColor(76, 86, 106) : QColor(190, 195, 205, 175)));
         p.drawText(QPointF(textLeft, baselineY), tab.text);
 
         if (tab.isPlayingAudio) {
             const QRectF speakerRect(textLeft + rawTextW + speakerGap,
                                      tabRect.top() + (tabRect.height() - speakerIconDim) / 2.0,
                                      speakerIconDim, speakerIconDim);
-            const QColor tabBg = tab.isActive ? (tab.color.isValid() ? tab.color : QColor(52, 152, 219)) : QColor(25, 30, 38);
-            const QColor speakerDefault = tab.isActive ? QColor(255, 255, 255) : QColor(241, 196, 15);
+            const QColor tabBg = tab.isActive ? (tab.color.isValid() ? tab.color : QColor(52, 152, 219)) : (isLightBg ? QColor(230, 235, 242) : QColor(25, 30, 38));
+            const QColor themeAudio = theme.resolveColor(QStringLiteral("$audioColor"), QColor(241, 196, 15));
+            const QColor speakerDefault = tab.isActive ? (isLightBg ? QColor(20, 25, 35) : QColor(255, 255, 255)) : themeAudio;
             drawAudioSpeaker(p, speakerRect, speakerDefault, tabBg);
         }
 

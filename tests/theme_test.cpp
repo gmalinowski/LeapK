@@ -60,7 +60,7 @@ static void testBuiltInThemes()
     assert(breeze.isBuiltIn);
     assert(!breeze.parameters.isEmpty());
     assert(breeze.hudContainer.shape == QStringLiteral("rounded_rect"));
-    assert(breeze.windowBadge.shape == QStringLiteral("pill"));
+    assert(breeze.windowBadge.shape == QStringLiteral("rounded_rect"));
 
     // 2. Cyberpunk Neon
     const Theme cyber = builtins[1];

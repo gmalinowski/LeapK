@@ -124,6 +124,7 @@ struct WindowBadgeTheme {
     int chamferSize = 6;
     double borderWidth = 1.0;
     QString borderColor = QStringLiteral("$borderNormal");
+    QString bgNormal = QStringLiteral("$bgCard");
     bool shadowEnabled = true;
     QString shadowColor = QStringLiteral("#00000066");
     double shadowRadius = 4.0;
@@ -136,6 +137,7 @@ struct WindowBadgeTheme {
         o[QStringLiteral("chamferSize")] = chamferSize;
         o[QStringLiteral("borderWidth")] = borderWidth;
         o[QStringLiteral("borderColor")] = borderColor;
+        o[QStringLiteral("bgNormal")] = bgNormal;
         o[QStringLiteral("shadowEnabled")] = shadowEnabled;
         o[QStringLiteral("shadowColor")] = shadowColor;
         o[QStringLiteral("shadowRadius")] = shadowRadius;
@@ -150,6 +152,7 @@ struct WindowBadgeTheme {
         w.chamferSize = o.value(QStringLiteral("chamferSize")).toInt(w.chamferSize);
         w.borderWidth = o.value(QStringLiteral("borderWidth")).toDouble(w.borderWidth);
         w.borderColor = o.value(QStringLiteral("borderColor")).toString(w.borderColor);
+        w.bgNormal = o.value(QStringLiteral("bgNormal")).toString(w.bgNormal);
         w.shadowEnabled = o.value(QStringLiteral("shadowEnabled")).toBool(w.shadowEnabled);
         w.shadowColor = o.value(QStringLiteral("shadowColor")).toString(w.shadowColor);
         w.shadowRadius = o.value(QStringLiteral("shadowRadius")).toDouble(w.shadowRadius);
@@ -550,7 +553,7 @@ inline QList<Theme> builtInThemes()
         pAccent.id = QStringLiteral("accentColor");
         pAccent.name = QStringLiteral("Accent Color");
         pAccent.type = QStringLiteral("color");
-        pAccent.colorDefault = QStringLiteral("#3498db");
+        pAccent.colorDefault = QStringLiteral("#3daee9");
         pAccent.colorCurrent = pAccent.colorDefault;
         t.parameters.append(pAccent);
 
@@ -573,25 +576,46 @@ inline QList<Theme> builtInThemes()
         pRadius.minValue = 2.0;
         pRadius.maxValue = 24.0;
         pRadius.step = 1.0;
-        pRadius.defaultValue = 8.0;
-        pRadius.currentValue = 8.0;
+        pRadius.defaultValue = 6.0;
+        pRadius.currentValue = 6.0;
         pRadius.suffix = QStringLiteral(" px");
         t.parameters.append(pRadius);
 
-        t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#1e2227");
-        t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#262b33");
-        t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#2f3640");
-        t.tokens[QStringLiteral("borderColor")] = QStringLiteral("#3a404a");
-        t.tokens[QStringLiteral("borderNormal")] = QStringLiteral("#4b5360");
+        t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#14171a");
+        t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#181b1f");
+        t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#22272e");
+        t.tokens[QStringLiteral("textPrimary")] = QStringLiteral("#eff0f1");
+        t.tokens[QStringLiteral("textSecondary")] = QStringLiteral("#bdc3c7");
+        t.tokens[QStringLiteral("borderColor")] = QStringLiteral("$accentColor");
+        t.tokens[QStringLiteral("borderNormal")] = QStringLiteral("#3a404a");
         t.tokens[QStringLiteral("audioColor")] = QStringLiteral("#f1c40f");
 
+        t.hudContainer.shape = QStringLiteral("rounded_rect");
         t.hudContainer.cornerRadius = 8;
+        t.hudContainer.borderWidth = 1.2;
         t.hudContainer.borderColor = QStringLiteral("$borderColor");
         t.hudContainer.bgOpacity = 0.92;
+
+        t.hudCard.shape = QStringLiteral("rounded_rect");
         t.hudCard.cornerRadius = 6;
+        t.hudCard.bgNormal = QStringLiteral("$bgCard");
+        t.hudCard.bgActive = QStringLiteral("$bgCardActive");
+        t.hudCard.borderNormal = QStringLiteral("$borderNormal");
         t.hudCard.borderActive = QStringLiteral("$accentColor");
-        t.windowBadge.shape = QStringLiteral("pill");
+        t.hudCard.audioIndicatorColor = QStringLiteral("$audioColor");
+
+        t.windowBadge.shape = QStringLiteral("rounded_rect");
+        t.windowBadge.cornerRadius = 6;
+        t.windowBadge.bgNormal = QStringLiteral("$bgCard");
+        t.windowBadge.borderColor = QStringLiteral("$borderNormal");
+
+        t.searchHeader.promptPrefix = QStringLiteral("Search: ");
+        t.searchHeader.cursorStyle = QStringLiteral("bar");
         t.hintsBar.keycapStyle = QStringLiteral("retro_keycap");
+        t.hintsBar.separator = QStringLiteral(" • ");
+        t.hintsBar.keyColor = QStringLiteral("$accentColor");
+        t.hintsBar.keyBgColor = QStringLiteral("#2e3440");
+        t.hintsBar.labelColor = QStringLiteral("$textSecondary");
 
         list.append(t);
     }
@@ -628,8 +652,8 @@ inline QList<Theme> builtInThemes()
         pGlow.minValue = 4.0;
         pGlow.maxValue = 24.0;
         pGlow.step = 2.0;
-        pGlow.defaultValue = 10.0;
-        pGlow.currentValue = 10.0;
+        pGlow.defaultValue = 12.0;
+        pGlow.currentValue = 12.0;
         pGlow.suffix = QStringLiteral(" px");
         t.parameters.append(pGlow);
 
@@ -645,35 +669,45 @@ inline QList<Theme> builtInThemes()
         pCut.suffix = QStringLiteral(" px");
         t.parameters.append(pCut);
 
-        t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#0b0e14");
-        t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#121720");
-        t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#1b2230");
+        t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#050811");
+        t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#090e1a");
+        t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#0e182e");
+        t.tokens[QStringLiteral("textPrimary")] = QStringLiteral("#ffffff");
+        t.tokens[QStringLiteral("textSecondary")] = QStringLiteral("#00f0ff");
         t.tokens[QStringLiteral("borderColor")] = QStringLiteral("$neonCyan");
-        t.tokens[QStringLiteral("borderNormal")] = QStringLiteral("#243044");
+        t.tokens[QStringLiteral("borderNormal")] = QStringLiteral("#162840");
         t.tokens[QStringLiteral("audioColor")] = QStringLiteral("$neonPink");
 
         t.hudContainer.shape = QStringLiteral("chamfered");
         t.hudContainer.chamferSize = 8;
-        t.hudContainer.borderWidth = 1.8;
+        t.hudContainer.borderWidth = 2.0;
         t.hudContainer.borderColor = QStringLiteral("$neonCyan");
         t.hudContainer.glowEnabled = true;
         t.hudContainer.glowColor = QStringLiteral("$neonCyan");
-        t.hudContainer.glowRadius = 10.0;
+        t.hudContainer.glowRadius = 12.0;
+        t.hudContainer.bgOpacity = 0.95;
 
         t.hudCard.shape = QStringLiteral("chamfered");
         t.hudCard.chamferSize = 6;
+        t.hudCard.bgNormal = QStringLiteral("$bgCard");
+        t.hudCard.bgActive = QStringLiteral("$bgCardActive");
+        t.hudCard.borderNormal = QStringLiteral("$borderNormal");
         t.hudCard.borderActive = QStringLiteral("$neonCyan");
         t.hudCard.activeGlow = true;
         t.hudCard.audioIndicatorColor = QStringLiteral("$neonPink");
 
         t.windowBadge.shape = QStringLiteral("chamfered");
         t.windowBadge.chamferSize = 5;
+        t.windowBadge.bgNormal = QStringLiteral("$bgCard");
         t.windowBadge.borderColor = QStringLiteral("$neonCyan");
 
         t.searchHeader.promptPrefix = QStringLiteral("❯ ");
         t.searchHeader.cursorStyle = QStringLiteral("block_blink");
         t.hintsBar.keycapStyle = QStringLiteral("neon_outline");
+        t.hintsBar.separator = QStringLiteral(" // ");
         t.hintsBar.keyColor = QStringLiteral("$neonCyan");
+        t.hintsBar.keyBgColor = QStringLiteral("#0e182e");
+        t.hintsBar.labelColor = QStringLiteral("#8ab4f8");
 
         list.append(t);
     }
@@ -703,32 +737,41 @@ inline QList<Theme> builtInThemes()
         pWireframe.currentValue = 1.0;
         t.parameters.append(pWireframe);
 
-        t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#050805");
-        t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#0d140d");
-        t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#162216");
+        t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#000000");
+        t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#020803");
+        t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#071f0a");
+        t.tokens[QStringLiteral("textPrimary")] = QStringLiteral("#00ff66");
+        t.tokens[QStringLiteral("textSecondary")] = QStringLiteral("#00aa44");
         t.tokens[QStringLiteral("borderColor")] = QStringLiteral("$phosphorColor");
-        t.tokens[QStringLiteral("borderNormal")] = QStringLiteral("#1b331b");
-        t.tokens[QStringLiteral("audioColor")] = QStringLiteral("#ffb000");
+        t.tokens[QStringLiteral("borderNormal")] = QStringLiteral("#005522");
+        t.tokens[QStringLiteral("audioColor")] = QStringLiteral("#00ff66");
 
         t.hudContainer.shape = QStringLiteral("sharp");
         t.hudContainer.cornerRadius = 0;
         t.hudContainer.borderWidth = 1.5;
         t.hudContainer.borderColor = QStringLiteral("$phosphorColor");
+        t.hudContainer.bgOpacity = 0.96;
 
         t.hudCard.shape = QStringLiteral("sharp");
         t.hudCard.cornerRadius = 0;
+        t.hudCard.bgNormal = QStringLiteral("$bgCard");
+        t.hudCard.bgActive = QStringLiteral("$bgCardActive");
+        t.hudCard.borderNormal = QStringLiteral("$borderNormal");
         t.hudCard.borderActive = QStringLiteral("$phosphorColor");
-        t.hudCard.borderNormal = QStringLiteral("#1b331b");
+        t.hudCard.audioIndicatorColor = QStringLiteral("$audioColor");
 
         t.windowBadge.shape = QStringLiteral("sharp");
         t.windowBadge.cornerRadius = 0;
+        t.windowBadge.bgNormal = QStringLiteral("$bgCard");
         t.windowBadge.borderColor = QStringLiteral("$phosphorColor");
 
         t.searchHeader.promptPrefix = QStringLiteral("> ");
         t.searchHeader.cursorStyle = QStringLiteral("block_blink");
         t.hintsBar.keycapStyle = QStringLiteral("bracket");
+        t.hintsBar.separator = QStringLiteral(" | ");
         t.hintsBar.keyColor = QStringLiteral("$phosphorColor");
-        t.hintsBar.separator = QStringLiteral("  ");
+        t.hintsBar.keyBgColor = QStringLiteral("#000000");
+        t.hintsBar.labelColor = QStringLiteral("#00aa44");
 
         list.append(t);
     }
@@ -737,8 +780,8 @@ inline QList<Theme> builtInThemes()
     {
         Theme t;
         t.id = QStringLiteral("nordic-frost");
-        t.name = QStringLiteral("Nordic Frost Glass");
-        t.description = QStringLiteral("Ultra-minimal frosted glass aesthetic with fluid pill shapes, Nordic pastel palette, and soft shadows.");
+        t.name = QStringLiteral("Nordic Frost Glass (Light)");
+        t.description = QStringLiteral("Airy light frosted-glass aesthetic with translucent snow cards, dark arctic charcoal text, and fluid pill capsules.");
         t.author = QStringLiteral("LeapK Core Team");
         t.isBuiltIn = true;
 
@@ -746,7 +789,7 @@ inline QList<Theme> builtInThemes()
         pFrost.id = QStringLiteral("frostColor");
         pFrost.name = QStringLiteral("Frost Pastel Accent");
         pFrost.type = QStringLiteral("color");
-        pFrost.colorDefault = QStringLiteral("#88c0d0");
+        pFrost.colorDefault = QStringLiteral("#5e81ac");
         pFrost.colorCurrent = pFrost.colorDefault;
         t.parameters.append(pFrost);
 
@@ -757,34 +800,45 @@ inline QList<Theme> builtInThemes()
         pOpacity.minValue = 0.3;
         pOpacity.maxValue = 0.95;
         pOpacity.step = 0.05;
-        pOpacity.defaultValue = 0.78;
-        pOpacity.currentValue = 0.78;
+        pOpacity.defaultValue = 0.88;
+        pOpacity.currentValue = 0.88;
         pOpacity.suffix = QStringLiteral("%");
         t.parameters.append(pOpacity);
 
-        t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#242933");
-        t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#2e3440");
-        t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#3b4252");
-        t.tokens[QStringLiteral("borderColor")] = QStringLiteral("#4c566a");
-        t.tokens[QStringLiteral("borderNormal")] = QStringLiteral("#434c5e");
-        t.tokens[QStringLiteral("audioColor")] = QStringLiteral("#ebcb8b");
+        t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#d8dee9");
+        t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#f4f6f9");
+        t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#ffffff");
+        t.tokens[QStringLiteral("textPrimary")] = QStringLiteral("#2e3440");
+        t.tokens[QStringLiteral("textSecondary")] = QStringLiteral("#4c566a");
+        t.tokens[QStringLiteral("borderColor")] = QStringLiteral("$frostColor");
+        t.tokens[QStringLiteral("borderNormal")] = QStringLiteral("#c5cbd5");
+        t.tokens[QStringLiteral("audioColor")] = QStringLiteral("#d08770");
 
         t.hudContainer.shape = QStringLiteral("pill");
-        t.hudContainer.cornerRadius = 20;
-        t.hudContainer.bgOpacity = 0.78;
+        t.hudContainer.cornerRadius = 18;
+        t.hudContainer.borderWidth = 1.5;
+        t.hudContainer.bgOpacity = 0.88;
         t.hudContainer.borderColor = QStringLiteral("$frostColor");
 
         t.hudCard.shape = QStringLiteral("pill");
         t.hudCard.cornerRadius = 14;
+        t.hudCard.bgNormal = QStringLiteral("$bgCard");
+        t.hudCard.bgActive = QStringLiteral("$bgCardActive");
+        t.hudCard.borderNormal = QStringLiteral("$borderNormal");
         t.hudCard.borderActive = QStringLiteral("$frostColor");
+        t.hudCard.audioIndicatorColor = QStringLiteral("$audioColor");
 
         t.windowBadge.shape = QStringLiteral("pill");
         t.windowBadge.cornerRadius = 12;
+        t.windowBadge.bgNormal = QStringLiteral("$bgCard");
+        t.windowBadge.borderColor = QStringLiteral("$frostColor");
 
         t.searchHeader.promptPrefix = QStringLiteral("❄ ");
         t.hintsBar.keycapStyle = QStringLiteral("pill");
-        t.hintsBar.keyColor = QStringLiteral("#2e3440");
-        t.hintsBar.keyBgColor = QStringLiteral("$frostColor");
+        t.hintsBar.separator = QStringLiteral(" • ");
+        t.hintsBar.keyColor = QStringLiteral("$frostColor");
+        t.hintsBar.keyBgColor = QStringLiteral("#e5e9f0");
+        t.hintsBar.labelColor = QStringLiteral("$textSecondary");
 
         list.append(t);
     }

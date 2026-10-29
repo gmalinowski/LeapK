@@ -617,9 +617,6 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->kcfg_BadgeSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeMargin, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeJumpSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
-    connect(m_ui->kcfg_BadgeCornerRadius, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
-    connect(m_ui->kcfg_BadgeOpacity, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
-    connect(m_ui->kcfg_BadgeHudMarkColorMode, qOverload<int>(&QComboBox::currentIndexChanged), this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeWindowBadgesEnabled, &QCheckBox::toggled, this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeWindowShowIcon, &QCheckBox::toggled, this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeWindowShowThumbnail, &QCheckBox::toggled, this, onBadgeSettingChanged);
@@ -637,7 +634,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->kcfg_BadgeHudLocationFontSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeHudNavFontSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeHudHintsFontSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
-    connect(m_ui->kcfg_BadgeDefaultColor, &KColorButton::changed, this, onBadgeSettingChanged);
+
     connect(m_ui->kcfg_BadgeLetterColorAuto, &QCheckBox::toggled, this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeLetterColor, &KColorButton::changed, this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeLabelColorAuto, &QCheckBox::toggled, this, onBadgeSettingChanged);
@@ -815,7 +812,7 @@ void ActiveWindowOutlineConfig::updateMarkWindowUI()
     m_ui->kcfg_BadgeWindowShowIcon->setEnabled(windowBadgesEnabled);
     m_ui->kcfg_BadgeWindowShowThumbnail->setEnabled(windowBadgesEnabled);
     m_ui->groupHudBadges->setEnabled(badgesEnabled);
-    m_ui->groupBadgeAppearance->setEnabled(badgesEnabled);
+
     m_ui->groupBadgeTypography->setEnabled(badgesEnabled);
 
     const bool showWindowIcon = windowBadgesEnabled && m_ui->kcfg_BadgeWindowShowIcon->isChecked();
@@ -1215,10 +1212,7 @@ void ActiveWindowOutlineConfig::defaults()
     m_ui->kcfg_BadgeHudLocationFontSize->setValue(0);
     m_ui->kcfg_BadgeHudNavFontSize->setValue(0);
     m_ui->kcfg_BadgeHudHintsFontSize->setValue(0);
-    m_ui->kcfg_BadgeCornerRadius->setValue(6);
-    m_ui->kcfg_BadgeOpacity->setValue(92);
-    m_ui->kcfg_BadgeHudMarkColorMode->setCurrentIndex(0);
-    m_ui->kcfg_BadgeDefaultColor->setColor(QColor(QStringLiteral("#232629")));
+
     m_ui->kcfg_BadgeLetterColorAuto->setChecked(true);
     m_ui->kcfg_BadgeLetterColor->setColor(QColor(QStringLiteral("#ffffff")));
     m_ui->kcfg_BadgeLabelColorAuto->setChecked(true);
@@ -1541,10 +1535,7 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("BadgeIconSize")] = m_ui->kcfg_BadgeWindowIconSize->value();
     s[QStringLiteral("BadgeThumbnailWidth")] = winThumbSize;
     s[QStringLiteral("BadgeThumbnailHeight")] = winThumbSize;
-    s[QStringLiteral("BadgeCornerRadius")] = m_ui->kcfg_BadgeCornerRadius->value();
-    s[QStringLiteral("BadgeOpacity")] = m_ui->kcfg_BadgeOpacity->value();
-    s[QStringLiteral("BadgeHudMarkColorMode")] = m_ui->kcfg_BadgeHudMarkColorMode->currentIndex();
-    s[QStringLiteral("BadgeDefaultColor")] = m_ui->kcfg_BadgeDefaultColor->color().name(QColor::HexRgb);
+
     s[QStringLiteral("BadgeLetterColorAuto")] = m_ui->kcfg_BadgeLetterColorAuto->isChecked();
     s[QStringLiteral("BadgeLetterColor")] = m_ui->kcfg_BadgeLetterColor->color().name(QColor::HexRgb);
     s[QStringLiteral("BadgeLabelColorAuto")] = m_ui->kcfg_BadgeLabelColorAuto->isChecked();
@@ -1750,10 +1741,7 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
         m_ui->kcfg_BadgeWindowThumbnailSize->setValue(tw);
         m_ui->kcfg_BadgeHudThumbnailSize->setValue(tw);
     }
-    if (s.contains(QStringLiteral("BadgeCornerRadius"))) m_ui->kcfg_BadgeCornerRadius->setValue(s[QStringLiteral("BadgeCornerRadius")].toInt());
-    if (s.contains(QStringLiteral("BadgeOpacity"))) m_ui->kcfg_BadgeOpacity->setValue(s[QStringLiteral("BadgeOpacity")].toInt());
-    if (s.contains(QStringLiteral("BadgeHudMarkColorMode"))) m_ui->kcfg_BadgeHudMarkColorMode->setCurrentIndex(s[QStringLiteral("BadgeHudMarkColorMode")].toInt());
-    if (s.contains(QStringLiteral("BadgeDefaultColor"))) m_ui->kcfg_BadgeDefaultColor->setColor(QColor(s[QStringLiteral("BadgeDefaultColor")].toString()));
+
     if (s.contains(QStringLiteral("BadgeLetterColorAuto"))) m_ui->kcfg_BadgeLetterColorAuto->setChecked(s[QStringLiteral("BadgeLetterColorAuto")].toBool());
     if (s.contains(QStringLiteral("BadgeLetterColor"))) m_ui->kcfg_BadgeLetterColor->setColor(QColor(s[QStringLiteral("BadgeLetterColor")].toString()));
     if (s.contains(QStringLiteral("BadgeLabelColorAuto"))) m_ui->kcfg_BadgeLabelColorAuto->setChecked(s[QStringLiteral("BadgeLabelColorAuto")].toBool());
