@@ -2988,6 +2988,9 @@ void ActiveWindowOutlineEffect::renderBadgePreview(const RenderTarget &renderTar
     // 2. Render HUD Badges if enabled
     if (m_previewShowHud && !hudTargets.isEmpty()) {
         renderOffscreenJumpTargets(renderTarget, viewport, hudTargets, m_previewBadgeConfig.hudBadgeSize);
+    } else if (m_previewShowHud) {
+        const QRectF hintRect = renderHudHintBar(renderTarget, viewport, QRectF());
+        renderHudModeHeader(renderTarget, viewport, QRectF(), hintRect);
     }
 }
 
@@ -6767,7 +6770,8 @@ QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
     const int hudPos = m_badgePreviewActive ? m_previewBadgeHudPosition : m_badgeHudPosition;
     const OutlineBadge::BadgeConfig &hudCfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
     const qreal hudRowGap = (!hudCfg.hudGroupWindows && !m_subLeapActive) ? 40.0 : 12.0;
-    const qreal topMargin = (hudPos == 1) ? qRound(58.0 * scale) : 24.0;
+    const qreal headerH = ensureHudHeaderTexture(scale).height();
+    const qreal topMargin = (hudPos == 1) ? qMax(24.0, 12.0 + headerH + 12.0) : 24.0;
     return OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, topMargin, 12.0, hudRowGap, dividerAfterIndex, 28.0, outDividerRects);
 }
 
@@ -6879,7 +6883,8 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     const int hudPos = m_badgePreviewActive ? m_previewBadgeHudPosition : m_badgeHudPosition;
     const OutlineBadge::BadgeConfig &hudCfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
     const qreal hudRowGap = (!hudCfg.hudGroupWindows && !m_subLeapActive) ? 40.0 : 12.0;
-    const qreal topMargin = (hudPos == 1) ? qRound(58.0 * scale) : 24.0;
+    const qreal headerH = ensureHudHeaderTexture(scale).height();
+    const qreal topMargin = (hudPos == 1) ? qMax(24.0, 12.0 + headerH + 12.0) : 24.0;
     QList<QRectF> dividerRects;
     const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, topMargin, 12.0, hudRowGap, dividerAfterIndex, 28.0, &dividerRects);
 
@@ -7190,11 +7195,15 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
     const qreal hintW = m_hudHintBarTexture->width() / scale;
     const qreal hintH = m_hudHintBarTexture->height() / scale;
 
+    const QSizeF headerSz = ensureHudHeaderTexture(scale);
+    const qreal headerH = headerSz.height() > 0.0 ? headerSz.height() : 44.0;
+    const qreal headerBottom = screenRect.top() + 12.0 + headerH;
+
     const int hudPos = m_badgePreviewActive ? m_previewBadgeHudPosition : m_badgeHudPosition;
     qreal hintY = 0.0;
     if (hudPos == 2 || hudPos == 3) {
         // Left (2) and Right (3): Pills are on the side margins, hint bar is pinned below header at top center
-        hintY = screenRect.top() + qRound(58.0 * scale);
+        hintY = headerBottom + 12.0;
     } else if (pillsBounds.isValid() && !pillsBounds.isEmpty()) {
         if (hudPos == 1) { // Top HUD: place below pills
             hintY = pillsBounds.bottom() + 12.0;
@@ -7209,7 +7218,7 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
         }
     } else {
         if (hudPos == 1) { // Top HUD without pills: place below header
-            hintY = screenRect.top() + qRound(58.0 * scale);
+            hintY = headerBottom + 12.0;
         } else { // Default bottom
             hintY = screenRect.bottom() - hintH - 24.0;
         }
@@ -7271,14 +7280,8 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
     return hintRect;
 }
 
-void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTarget,
-                                                   const RenderViewport &viewport,
-                                                   const QRectF &pillsBounds,
-                                                   const QRectF &hintBarBounds)
+QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
 {
-    const qreal scale = viewport.scale();
-    const QRectF screenRect = viewport.renderRect();
-
     QString subLeapTitle;
     QColor subLeapColor;
     int subLeapCount = 0;
@@ -7431,11 +7434,27 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
     }
 
     if (!m_hudHeaderTexture) {
-        return;
+        return QSizeF(0, 0);
     }
 
-    const qreal headerW = m_hudHeaderTexture->width() / scale;
-    const qreal headerH = m_hudHeaderTexture->height() / scale;
+    return QSizeF(m_hudHeaderTexture->width() / scale, m_hudHeaderTexture->height() / scale);
+}
+
+QRectF ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTarget,
+                                                     const RenderViewport &viewport,
+                                                     const QRectF &pillsBounds,
+                                                     const QRectF &hintBarBounds)
+{
+    const qreal scale = viewport.scale();
+    const QRectF screenRect = viewport.renderRect();
+
+    const QSizeF hSize = ensureHudHeaderTexture(scale);
+    if (!m_hudHeaderTexture || hSize.isEmpty()) {
+        return QRectF();
+    }
+
+    const qreal headerW = hSize.width();
+    const qreal headerH = hSize.height();
 
     const int hudPos = m_badgePreviewActive ? m_previewBadgeHudPosition : m_badgeHudPosition;
     qreal headerY = 0.0;
@@ -7447,7 +7466,7 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
         } else if (pillsBounds.isValid() && !pillsBounds.isEmpty()) {
             headerY = pillsBounds.top() - headerH - 8.0;
         } else {
-            headerY = screenRect.bottom() - headerH - 64.0;
+            headerY = screenRect.bottom() - headerH - 24.0;
         }
         if (headerY < screenRect.top() + 10.0) {
             headerY = screenRect.top() + 10.0;
@@ -7507,6 +7526,7 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
     } else {
         glDisable(GL_BLEND);
     }
+    return headerRect;
 }
 
 void ActiveWindowOutlineEffect::slotWindowMinimizedChanged(EffectWindow *w)

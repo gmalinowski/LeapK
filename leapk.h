@@ -283,10 +283,11 @@ private:
     QRectF renderHudHintBar(const RenderTarget &renderTarget,
                             const RenderViewport &viewport,
                             const QRectF &pillsBounds = QRectF());
-    void renderHudModeHeader(const RenderTarget &renderTarget,
-                             const RenderViewport &viewport,
-                             const QRectF &pillsBounds = QRectF(),
-                             const QRectF &hintBarBounds = QRectF());
+    QSizeF ensureHudHeaderTexture(qreal scale) const;
+    QRectF renderHudModeHeader(const RenderTarget &renderTarget,
+                              const RenderViewport &viewport,
+                              const QRectF &pillsBounds = QRectF(),
+                              const QRectF &hintBarBounds = QRectF());
     void applyWorkspaceViewIsolation(int hudViewIndex);
     void enterStashMode();
     void exitStashMode();
@@ -485,8 +486,8 @@ private:
     QSet<EffectWindow *> m_closingWindows;
     std::shared_ptr<GLTexture> m_hudHintBarTexture;
     int m_hudHintBarCacheKey = -1;
-    std::shared_ptr<GLTexture> m_hudHeaderTexture;
-    int m_hudHeaderCacheKey = -1;
+    mutable std::shared_ptr<GLTexture> m_hudHeaderTexture;
+    mutable int m_hudHeaderCacheKey = -1;
     QSet<EffectWindow *> m_workspaceMinimizedWindows;
     bool m_stashModeActive = false;
     QSet<EffectWindow *> m_stashedWindows;

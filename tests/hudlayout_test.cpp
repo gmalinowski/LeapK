@@ -219,6 +219,53 @@ void testHudDividerLayout()
     std::cout << "testHudDividerLayout PASSED\n";
 }
 
+void testEmptyHudHeaderAndHintBarSeparation()
+{
+    // Test that when HUD has 0 pills, header and hint bar have strict positive separation (no overlap)
+    const qreal scale = 1.0;
+    const QRectF screenRect(0, 0, 1920, 1080);
+
+    QList<OutlineBadge::HudModeHeaderView> views;
+    views.append({QStringLiteral("Main"), QColor(52, 152, 219), 0, true, false});
+
+    // 1. Standard navigation font size
+    QImage headerImg1 = OutlineBadge::renderHudModeHeader(scale, false, QString(), QColor(), 0, views, 0, false, QString(), false, false, 0, false, QString(), 1, 0, 44, 0);
+    assert(!headerImg1.isNull());
+    const qreal headerH1 = headerImg1.height() / scale;
+    const qreal headerBottom1 = screenRect.top() + 12.0 + headerH1;
+
+    QImage hintImg1 = OutlineBadge::renderHudActionHintBar(scale, false, 0, QString(), QColor(), false, false, false, false, 1050.0, 0);
+    assert(!hintImg1.isNull());
+    const qreal hintH1 = hintImg1.height() / scale;
+
+    const qreal hintY1 = headerBottom1 + 12.0;
+    const QRectF headerRect1(screenRect.center().x() - headerImg1.width() / 2.0, screenRect.top() + 12.0, headerImg1.width(), headerH1);
+    const QRectF hintRect1(screenRect.center().x() - hintImg1.width() / 2.0, hintY1, hintImg1.width(), hintH1);
+
+    // Assert strictly no vertical intersection
+    assert(!headerRect1.intersects(hintRect1));
+    assert(hintRect1.top() - headerRect1.bottom() >= 12.0);
+
+    // 2. Large fonts (navFontSize = 18, hintsFontSize = 18)
+    QImage headerImgLarge = OutlineBadge::renderHudModeHeader(scale, false, QString(), QColor(), 0, views, 0, false, QString(), false, false, 0, false, QString(), 1, 0, 44, 18);
+    assert(!headerImgLarge.isNull());
+    const qreal headerHLarge = headerImgLarge.height() / scale;
+    const qreal headerBottomLarge = screenRect.top() + 12.0 + headerHLarge;
+
+    QImage hintImgLarge = OutlineBadge::renderHudActionHintBar(scale, false, 0, QString(), QColor(), false, false, false, false, 1350.0, 18);
+    assert(!hintImgLarge.isNull());
+    const qreal hintHLarge = hintImgLarge.height() / scale;
+
+    const qreal hintYLarge = headerBottomLarge + 12.0;
+    const QRectF headerRectLarge(screenRect.center().x() - headerImgLarge.width() / 2.0, screenRect.top() + 12.0, headerImgLarge.width(), headerHLarge);
+    const QRectF hintRectLarge(screenRect.center().x() - hintImgLarge.width() / 2.0, hintYLarge, hintImgLarge.width(), hintHLarge);
+
+    assert(!headerRectLarge.intersects(hintRectLarge));
+    assert(hintRectLarge.top() - headerRectLarge.bottom() >= 12.0);
+
+    std::cout << "testEmptyHudHeaderAndHintBarSeparation PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
@@ -229,6 +276,7 @@ int main(int argc, char *argv[])
     testVerticalColumnWrapping();
     testGroupContainerFrames();
     testHudDividerLayout();
+    testEmptyHudHeaderAndHintBarSeparation();
 
     std::cout << "All HUD Layout tests passed successfully!\n";
     return 0;
