@@ -712,6 +712,9 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     // Persistent Marks section
     initPersistentMarksSection();
 
+    // Themes section
+    initThemesTab();
+
     load();
 }
 
@@ -1166,6 +1169,18 @@ void ActiveWindowOutlineConfig::load()
     m_activeShaderId = group.readEntry(QStringLiteral("ActiveCustomShaderId"), QString());
     m_ui->kcfg_ActiveCustomShaderId->setText(m_activeShaderId);
     refreshShadersTable();
+
+    m_activeThemeId = group.readEntry(QStringLiteral("ActiveThemeId"), QStringLiteral("default-breeze"));
+    const QString themeParamsStr = group.readEntry(QStringLiteral("ActiveThemeParams"), QString());
+    if (!themeParamsStr.isEmpty()) {
+        m_themeUserOverrides = QJsonDocument::fromJson(themeParamsStr.toUtf8()).object();
+    } else {
+        m_themeUserOverrides = QJsonObject();
+    }
+    m_currentDisplayedThemeId.clear();
+    refreshThemesTable();
+    updateThemeParametersUI();
+
     setNeedsSave(false);
 }
 
@@ -1242,6 +1257,11 @@ void ActiveWindowOutlineConfig::defaults()
     m_ui->kcfg_TrayIconEnabled->setChecked(true);
     updateRecentWindowUI();
     updateMarkWindowUI();
+    m_activeThemeId = QStringLiteral("default-breeze");
+    m_themeUserOverrides = QJsonObject();
+    m_currentDisplayedThemeId.clear();
+    refreshThemesTable();
+    updateThemeParametersUI();
     markAsChanged();
 }
 
@@ -2264,6 +2284,9 @@ void ActiveWindowOutlineConfig::save()
     group.deleteEntry(QStringLiteral("BadgeShowIcon"));
     group.deleteEntry(QStringLiteral("BadgeShowThumbnail"));
     saveShaderParameterValues();
+    saveThemeParameterValues();
+    group.writeEntry(QStringLiteral("ActiveThemeId"), m_activeThemeId);
+    group.writeEntry(QStringLiteral("ActiveThemeParams"), QString::fromUtf8(QJsonDocument(m_themeUserOverrides).toJson(QJsonDocument::Compact)));
     const bool customOn = m_ui->kcfg_CustomShaderEnabled->isChecked();
     group.writeEntry(QStringLiteral("CustomShaderEnabled"), customOn);
     group.writeEntry(QStringLiteral("ActiveCustomShaderId"), m_activeShaderId);
@@ -2932,6 +2955,304 @@ void ActiveWindowOutlineConfig::clearAllPersistentMarks()
     );
     msg << QStringLiteral("leapk");
     QDBusConnection::sessionBus().send(msg);
+}
+
+void ActiveWindowOutlineConfig::initThemesTab()
+{
+    m_ui->tableThemes->setColumnCount(5);
+    m_ui->tableThemes->setHorizontalHeaderLabels({
+        QStringLiteral("Status"),
+        QStringLiteral("Theme Name"),
+        QStringLiteral("Author"),
+        QStringLiteral("Version"),
+        QStringLiteral("Description")
+    });
+    m_ui->tableThemes->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    m_ui->tableThemes->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    m_ui->tableThemes->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    m_ui->tableThemes->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    m_ui->tableThemes->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Stretch);
+    m_ui->tableThemes->verticalHeader()->setVisible(false);
+    m_ui->tableThemes->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_ui->tableThemes->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_ui->tableThemes->setEditTriggers(QAbstractItemView::NoEditTriggers);
+
+    connect(m_ui->btnApplyTheme, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::applySelectedTheme);
+    connect(m_ui->btnImportTheme, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::importTheme);
+    connect(m_ui->btnExportTheme, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::exportSelectedTheme);
+    connect(m_ui->btnResetThemeParams, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::resetThemeParameters);
+
+    connect(m_ui->tableThemes, &QTableWidget::itemSelectionChanged, this, &ActiveWindowOutlineConfig::updateThemeParametersUI);
+    connect(m_ui->tableThemes, &QTableWidget::cellDoubleClicked, this, [this](int, int) {
+        applySelectedTheme();
+    });
+
+    refreshThemesTable();
+}
+
+void ActiveWindowOutlineConfig::refreshThemesTable()
+{
+    m_themes = LeapKTheme::discoverAllThemes();
+    if (m_activeThemeId.isEmpty()) {
+        m_activeThemeId = QStringLiteral("default-breeze");
+    }
+
+    m_ui->tableThemes->setRowCount(0);
+    int activeRow = 0;
+
+    for (int r = 0; r < m_themes.size(); ++r) {
+        auto &theme = m_themes[r];
+        if (theme.id == m_activeThemeId && !m_themeUserOverrides.isEmpty()) {
+            theme.applyParameterValues(m_themeUserOverrides);
+        }
+
+        m_ui->tableThemes->insertRow(r);
+        const bool isActive = (theme.id == m_activeThemeId);
+        if (isActive) {
+            activeRow = r;
+        }
+
+        auto *itemStatus = new QTableWidgetItem(isActive ? QStringLiteral("● Active") : QStringLiteral("○ Inactive"));
+        if (isActive) {
+            itemStatus->setForeground(QColor(46, 204, 113));
+            QFont f = itemStatus->font();
+            f.setBold(true);
+            itemStatus->setFont(f);
+        } else {
+            itemStatus->setForeground(QColor(127, 140, 141));
+        }
+
+        auto *itemName = new QTableWidgetItem(theme.name);
+        auto *itemAuthor = new QTableWidgetItem(theme.author);
+        auto *itemVer = new QTableWidgetItem(theme.version + (theme.isBuiltIn ? QStringLiteral(" (Built-in)") : QStringLiteral(" (Custom)")));
+        auto *itemDesc = new QTableWidgetItem(theme.description);
+
+        m_ui->tableThemes->setItem(r, 0, itemStatus);
+        m_ui->tableThemes->setItem(r, 1, itemName);
+        m_ui->tableThemes->setItem(r, 2, itemAuthor);
+        m_ui->tableThemes->setItem(r, 3, itemVer);
+        m_ui->tableThemes->setItem(r, 4, itemDesc);
+    }
+
+    if (m_ui->tableThemes->rowCount() > 0) {
+        m_ui->tableThemes->selectRow(activeRow);
+    }
+}
+
+void ActiveWindowOutlineConfig::applySelectedTheme()
+{
+    const int r = m_ui->tableThemes->currentRow();
+    if (r < 0 || r >= m_themes.size()) {
+        return;
+    }
+    m_activeThemeId = m_themes[r].id;
+    m_currentDisplayedThemeId.clear();
+    refreshThemesTable();
+    updateThemeParametersUI();
+    markAsChanged();
+}
+
+void ActiveWindowOutlineConfig::updateThemeParametersUI()
+{
+    const int r = m_ui->tableThemes->currentRow();
+    if (r >= 0 && r < m_themes.size()) {
+        updateThemeParametersUIFor(m_themes[r].id);
+    } else {
+        updateThemeParametersUIFor(m_activeThemeId);
+    }
+}
+
+void ActiveWindowOutlineConfig::updateThemeParametersUIFor(const QString &id)
+{
+    if (m_currentDisplayedThemeId == id && !m_currentDisplayedThemeId.isEmpty()) {
+        return;
+    }
+    m_currentDisplayedThemeId = id;
+
+    int themeIdx = -1;
+    for (int i = 0; i < m_themes.size(); ++i) {
+        if (m_themes[i].id == id) {
+            themeIdx = i;
+            break;
+        }
+    }
+    if (themeIdx < 0 && !m_themes.isEmpty()) {
+        themeIdx = 0;
+    }
+    if (themeIdx < 0) {
+        return;
+    }
+
+    auto &theme = m_themes[themeIdx];
+    const bool isActive = (theme.id == m_activeThemeId);
+    m_ui->groupActiveThemeParams->setTitle(QStringLiteral("Theme Customizer & Tweaks: %1 (%2)")
+        .arg(theme.name, isActive ? QStringLiteral("Active") : QStringLiteral("Selected")));
+
+    // Clear layout
+    QLayoutItem *item;
+    while ((item = m_ui->formLayoutThemeParams->takeAt(0)) != nullptr) {
+        delete item->widget();
+        delete item;
+    }
+
+    if (theme.parameters.isEmpty()) {
+        auto *lbl = new QLabel(QStringLiteral("This visual theme does not expose any custom tweakable parameters."), m_ui->groupActiveThemeParams);
+        lbl->setStyleSheet(QStringLiteral("color: palette(placeholder-text); font-style: italic;"));
+        m_ui->formLayoutThemeParams->addRow(lbl);
+        return;
+    }
+
+    for (int pIdx = 0; pIdx < theme.parameters.size(); ++pIdx) {
+        auto &param = theme.parameters[pIdx];
+        if (param.type == QStringLiteral("float")) {
+            auto *spin = new QDoubleSpinBox(m_ui->groupActiveThemeParams);
+            spin->setRange(param.minValue, param.maxValue);
+            spin->setSingleStep(param.step);
+            spin->setDecimals(2);
+            spin->setValue(param.currentValue);
+            if (!param.suffix.isEmpty()) {
+                spin->setSuffix(param.suffix);
+            }
+            connect(spin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [&param, this](double val) {
+                param.currentValue = val;
+                markAsChanged();
+            });
+            m_ui->formLayoutThemeParams->addRow(param.name + QStringLiteral(":"), spin);
+        } else if (param.type == QStringLiteral("int")) {
+            auto *spin = new QSpinBox(m_ui->groupActiveThemeParams);
+            spin->setRange(qRound(param.minValue), qRound(param.maxValue));
+            spin->setSingleStep(qMax(1, qRound(param.step)));
+            spin->setValue(qRound(param.currentValue));
+            if (!param.suffix.isEmpty()) {
+                spin->setSuffix(param.suffix);
+            }
+            connect(spin, QOverload<int>::of(&QSpinBox::valueChanged), this, [&param, this](int val) {
+                param.currentValue = val;
+                markAsChanged();
+            });
+            m_ui->formLayoutThemeParams->addRow(param.name + QStringLiteral(":"), spin);
+        } else if (param.type == QStringLiteral("bool")) {
+            auto *cb = new QCheckBox(param.name, m_ui->groupActiveThemeParams);
+            cb->setChecked(param.currentValue > 0.5);
+            connect(cb, &QCheckBox::toggled, this, [&param, this](bool checked) {
+                param.currentValue = checked ? 1.0 : 0.0;
+                markAsChanged();
+            });
+            m_ui->formLayoutThemeParams->addRow(QString(), cb);
+        } else if (param.type == QStringLiteral("color")) {
+            auto *btn = new KColorButton(m_ui->groupActiveThemeParams);
+            btn->setColor(QColor(param.colorCurrent));
+            connect(btn, &KColorButton::changed, this, [&param, this](const QColor &col) {
+                param.colorCurrent = col.name(QColor::HexRgb);
+                markAsChanged();
+            });
+            m_ui->formLayoutThemeParams->addRow(param.name + QStringLiteral(":"), btn);
+        } else if (param.type == QStringLiteral("enum")) {
+            auto *combo = new QComboBox(m_ui->groupActiveThemeParams);
+            combo->addItems(param.enumOptions);
+            const int idx = param.enumOptions.indexOf(param.enumCurrent.isEmpty() ? param.enumDefault : param.enumCurrent);
+            if (idx >= 0) {
+                combo->setCurrentIndex(idx);
+            }
+            connect(combo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [&param, combo, this](int) {
+                param.enumCurrent = combo->currentText();
+                markAsChanged();
+            });
+            m_ui->formLayoutThemeParams->addRow(param.name + QStringLiteral(":"), combo);
+        }
+    }
+}
+
+void ActiveWindowOutlineConfig::saveThemeParameterValues()
+{
+    for (const auto &theme : m_themes) {
+        if (theme.id == m_activeThemeId) {
+            m_themeUserOverrides = theme.exportParameterValues();
+            break;
+        }
+    }
+}
+
+void ActiveWindowOutlineConfig::resetThemeParameters()
+{
+    const int r = m_ui->tableThemes->currentRow();
+    if (r < 0 || r >= m_themes.size()) {
+        return;
+    }
+    auto &theme = m_themes[r];
+    for (auto &p : theme.parameters) {
+        p.currentValue = p.defaultValue;
+        p.colorCurrent = p.colorDefault;
+        p.enumCurrent = p.enumDefault;
+    }
+    if (theme.id == m_activeThemeId) {
+        m_themeUserOverrides = QJsonObject();
+    }
+    m_currentDisplayedThemeId.clear();
+    updateThemeParametersUIFor(theme.id);
+    markAsChanged();
+}
+
+void ActiveWindowOutlineConfig::importTheme()
+{
+    const QString filePath = QFileDialog::getOpenFileName(
+        widget(),
+        QStringLiteral("Import LeapK Theme"),
+        QString(),
+        QStringLiteral("LeapK Themes (*.leapk-theme *.json);;All Files (*)")
+    );
+    if (filePath.isEmpty()) {
+        return;
+    }
+
+    LeapKTheme::Theme imported;
+    QString err;
+    if (!LeapKTheme::loadThemeFromFile(filePath, imported, &err)) {
+        QMessageBox::critical(widget(), QStringLiteral("Import Error"),
+            QStringLiteral("Failed to parse theme file:\n%1").arg(err));
+        return;
+    }
+
+    const QString destDir = LeapKTheme::defaultThemesDirectory();
+    QDir().mkpath(destDir);
+    const QString destFile = destDir + QStringLiteral("/") + QFileInfo(filePath).fileName();
+    if (!LeapKTheme::saveThemeToFile(imported, destFile)) {
+        QMessageBox::critical(widget(), QStringLiteral("Save Error"),
+            QStringLiteral("Could not save imported theme to:\n%1").arg(destFile));
+        return;
+    }
+
+    refreshThemesTable();
+    QMessageBox::information(widget(), QStringLiteral("Theme Imported"),
+        QStringLiteral("Theme '%1' was successfully imported!").arg(imported.name));
+}
+
+void ActiveWindowOutlineConfig::exportSelectedTheme()
+{
+    const int r = m_ui->tableThemes->currentRow();
+    if (r < 0 || r >= m_themes.size()) {
+        return;
+    }
+    const auto &theme = m_themes[r];
+
+    const QString filePath = QFileDialog::getSaveFileName(
+        widget(),
+        QStringLiteral("Export LeapK Theme"),
+        QDir::homePath() + QStringLiteral("/%1.leapk-theme").arg(theme.id),
+        QStringLiteral("LeapK Themes (*.leapk-theme);;JSON Files (*.json)")
+    );
+    if (filePath.isEmpty()) {
+        return;
+    }
+
+    if (!LeapKTheme::saveThemeToFile(theme, filePath)) {
+        QMessageBox::critical(widget(), QStringLiteral("Export Error"),
+            QStringLiteral("Could not write theme to file:\n%1").arg(filePath));
+        return;
+    }
+
+    QMessageBox::information(widget(), QStringLiteral("Theme Exported"),
+        QStringLiteral("Theme '%1' exported successfully to:\n%2").arg(theme.name, filePath));
 }
 
 #include "leapk_config.moc"

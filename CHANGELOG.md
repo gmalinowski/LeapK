@@ -7,6 +7,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.6.0-beta5] - 2026-10-29
 
 ### Added
+- **Declarative Visual Theme Engine (`themehelper.h`, `.leapk-theme`)**:
+  - Complete architectural separation of **Presets** (behavior/shortcuts), **Shaders** (GLSL perimeter effects), and **Themes** (complete visual aesthetic).
+  - Component-level declarative styling for Window Badges, HUD Dock Containers, Window Cards, Search Header, and Action Hints Bar.
+  - Supports versatile geometric shapes: `pill`, `rounded_rect`, `sharp`, `chamfered` (45° cut sci-fi corners), and `circle`.
+  - Four built-in visual themes:
+    - **Breeze Dark (Default)**: Modern, balanced KDE Plasma 6 aesthetic with rounded pill badges.
+    - **Cyberpunk Neon**: Sci-fi HUD with chamfered cut corners, cyan/magenta neon glow, and terminal prompt `❯`.
+    - **Retro Matrix Terminal**: Sharp phosphor green CRT aesthetic with bracketed keycaps `[A]` and wireframe cards.
+    - **Nordic Frost Glass**: Minimalist frosted glass aesthetic with fluid pill shapes, soft shadows, and pastel palette.
+  - Variable token resolution allowing theme components to reference dynamic parameters (e.g. `$accentColor`, `$neonCyan`, `$phosphorColor`).
+  - Import and Export of standalone `.leapk-theme` and JSON packages to `~/.local/share/kwin-active-window-outline/themes/`.
+- **Dynamic Theme Customizer & Tweaks Tab in Settings (`tabThemes`)**:
+  - Dedicated Themes management tab with theme status table, double-click activation, import, and export.
+  - Automatically generates native Qt configuration widgets (`KColorButton`, `QSpinBox`, `QDoubleSpinBox`, `QCheckBox`, `QComboBox`) for any parameters exposed by the theme author (`ThemeParameter`).
+  - Keeps the main settings panel clean and uncluttered while giving theme authors unlimited customization power.
 - **HUD Action Hints Bar Toggle Shortcut (`?`)**:
   - Pressing `?` while HUD jump mode is active toggles the bottom action hints bar on or off in real time.
   - Automatically persists the user's preference to `kwinrc` (`BadgeHudShowHints`).

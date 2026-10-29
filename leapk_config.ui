@@ -3430,7 +3430,133 @@
       </layout>
      </widget>
 
-     <!-- TAB 7: About & Maintenance -->
+     <!-- TAB 7: Themes -->
+     <widget class="QWidget" name="tabThemes">
+      <attribute name="title">
+       <string>Themes</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayoutThemes">
+       <item>
+        <widget class="QGroupBox" name="groupThemesList">
+         <property name="title">
+          <string>LeapK Visual Themes</string>
+         </property>
+         <layout class="QVBoxLayout" name="layoutGroupThemes">
+          <item>
+           <widget class="QLabel" name="labelThemesHelp">
+            <property name="text">
+             <string>Themes control the entire aesthetic of LeapK: shapes, glassmorphism, HUD cards, headers, borders, keycaps, and colors. Select a theme or import custom .leapk-theme packages.</string>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="layoutThemeActions">
+            <item>
+             <widget class="QPushButton" name="btnApplyTheme">
+              <property name="text">
+               <string>Apply Theme</string>
+              </property>
+              <property name="icon">
+               <iconset theme="dialog-ok"/>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnImportTheme">
+              <property name="text">
+               <string>Import Theme…</string>
+              </property>
+              <property name="icon">
+               <iconset theme="document-import"/>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnExportTheme">
+              <property name="text">
+               <string>Export Theme…</string>
+              </property>
+              <property name="icon">
+               <iconset theme="document-export"/>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnResetThemeParams">
+              <property name="text">
+               <string>Reset Theme Tweaks</string>
+              </property>
+              <property name="icon">
+               <iconset theme="edit-undo"/>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="spacerThemeActions">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QTableWidget" name="tableThemes">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>160</height>
+             </size>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="groupActiveThemeParams">
+         <property name="title">
+          <string>Theme Customizer &amp; Tweaks</string>
+         </property>
+         <layout class="QFormLayout" name="formLayoutThemeParams">
+          <property name="fieldGrowthPolicy">
+           <enum>QFormLayout::ExpandingFieldsGrow</enum>
+          </property>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <spacer name="spacerThemesBottom">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+
+     <!-- TAB 8: About & Maintenance -->
      <widget class="QWidget" name="tabAbout">
       <attribute name="title">
        <string>About</string>

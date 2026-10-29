@@ -11,6 +11,7 @@
 #include <QJsonObject>
 #include "customshaderhelper.h"
 #include "persistentmarkhelper.h"
+#include "themehelper.h"
 
 namespace Ui
 {
@@ -84,6 +85,16 @@ private:
     void deleteSelectedPersistentMark();
     void clearAllPersistentMarks();
 
+    void initThemesTab();
+    void refreshThemesTable();
+    void applySelectedTheme();
+    void importTheme();
+    void exportSelectedTheme();
+    void resetThemeParameters();
+    void updateThemeParametersUI();
+    void updateThemeParametersUIFor(const QString &id);
+    void saveThemeParameterValues();
+
     Ui::ActiveWindowOutlineConfigForm *m_ui;
     KConfigSkeleton *m_configSkeleton = nullptr;
     QNetworkAccessManager *m_networkManager = nullptr;
@@ -93,4 +104,8 @@ private:
     QList<LeapKShader::CustomShaderEffect> m_shaders;
     QString m_activeShaderId;
     QList<LeapKMarks::PersistentMarkRule> m_persistentMarks;
+    QString m_activeThemeId;
+    QString m_currentDisplayedThemeId;
+    QList<LeapKTheme::Theme> m_themes;
+    QJsonObject m_themeUserOverrides;
 };

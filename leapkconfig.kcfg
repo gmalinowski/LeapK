@@ -597,5 +597,11 @@
         <entry name="ActiveCustomShaderId" type="String">
             <default></default>
         </entry>
+        <entry name="ActiveThemeId" type="String">
+            <default>default-breeze</default>
+        </entry>
+        <entry name="ActiveThemeParams" type="String">
+            <default></default>
+        </entry>
     </group>
 </kcfg>

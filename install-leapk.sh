@@ -395,6 +395,8 @@ set_default FlashInterval 4.0
 set_default FlashDuration 0.15
 set_default CustomShaderEnabled false
 set_default ActiveCustomShaderId ""
+set_default ActiveThemeId "default-breeze"
+set_default ActiveThemeParams ""
 set_default FadeDuration 200
 set_default MenuHideDelay 500
 set_default MenuShowDelay 500

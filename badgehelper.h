@@ -23,6 +23,7 @@
 #include <QSet>
 #include <algorithm>
 #include "ambilightalgorithm.h"
+#include "themehelper.h"
 
 namespace OutlineBadge
 {
@@ -83,6 +84,11 @@ struct BadgeConfig {
     int badgeTimeout = 5;
     QString jumpRecentKey = QStringLiteral("Space");
     bool livePreviews = false;
+
+    // Theming Engine
+    QString activeThemeId = QStringLiteral("default-breeze");
+    QString activeThemeParamsJson;
+    LeapKTheme::Theme activeTheme = LeapKTheme::builtInThemes().first();
 
     // Appearance
     QColor defaultBgColor = QColor(35, 38, 41, 235);
@@ -190,6 +196,49 @@ inline QChar findNextAvailableLetter(const QList<QChar> &usedLetters)
         }
     }
     return QLatin1Char('?');
+}
+
+inline void addThemedShapePath(QPainterPath &path, const QRectF &rect, const QString &shape, int cornerRadius, int chamferSize = 6)
+{
+    if (shape == QStringLiteral("chamfered")) {
+        const qreal c = qBound(2.0, (qreal)chamferSize, qMin(rect.width() / 2.0, rect.height() / 2.0));
+        path.moveTo(rect.left() + c, rect.top());
+        path.lineTo(rect.right() - c, rect.top());
+        path.lineTo(rect.right(), rect.top() + c);
+        path.lineTo(rect.right(), rect.bottom() - c);
+        path.lineTo(rect.right() - c, rect.bottom());
+        path.lineTo(rect.left() + c, rect.bottom());
+        path.lineTo(rect.left(), rect.bottom() - c);
+        path.lineTo(rect.left(), rect.top() + c);
+        path.closeSubpath();
+    } else if (shape == QStringLiteral("sharp")) {
+        path.addRect(rect);
+    } else if (shape == QStringLiteral("pill")) {
+        const qreal r = rect.height() / 2.0;
+        path.addRoundedRect(rect, r, r);
+    } else if (shape == QStringLiteral("circle")) {
+        path.addEllipse(rect);
+    } else {
+        path.addRoundedRect(rect, cornerRadius, cornerRadius);
+    }
+}
+
+inline void drawThemedShape(QPainter &p, const QRectF &rect, const QString &shape, int cornerRadius, int chamferSize = 6)
+{
+    if (shape == QStringLiteral("sharp")) {
+        p.drawRect(rect);
+    } else if (shape == QStringLiteral("pill")) {
+        const qreal r = rect.height() / 2.0;
+        p.drawRoundedRect(rect, r, r);
+    } else if (shape == QStringLiteral("circle")) {
+        p.drawEllipse(rect);
+    } else if (shape == QStringLiteral("chamfered")) {
+        QPainterPath path;
+        addThemedShapePath(path, rect, shape, cornerRadius, chamferSize);
+        p.drawPath(path);
+    } else {
+        p.drawRoundedRect(rect, cornerRadius, cornerRadius);
+    }
 }
 
 inline bool isColorTooClose(const QColor &c1, const QColor &c2, qreal minHueDelta = 35.0, qreal minRgbDistance = 65.0)
@@ -2152,7 +2201,7 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
     return img;
 }
 
-inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false, bool isSearchMode = false, qreal maxAllowedWidth = 0.0, int hintsFontSize = 0)
+inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false, bool isSearchMode = false, qreal maxAllowedWidth = 0.0, int hintsFontSize = 0, const LeapKTheme::Theme &theme = LeapKTheme::Theme())
 {
     Q_UNUSED(customViewName);
     Q_UNUSED(customViewColor);
@@ -2244,7 +2293,12 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     const int padX = qRound(16 * scale);
     const int padY = qRound(6 * scale);
     const int itemGap = qRound(8 * scale);
-    const int bulletW = itemGap + fmLbl.horizontalAdvance(QStringLiteral("•")) + itemGap;
+    const bool isBracket = (theme.hintsBar.keycapStyle == QStringLiteral("bracket"));
+    auto formatKey = [&](const QString &k) {
+        return isBracket ? QStringLiteral("[%1]").arg(k) : k;
+    };
+    const QString sepStr = theme.hintsBar.separator.isEmpty() ? QStringLiteral("•") : theme.hintsBar.separator;
+    const int bulletW = itemGap + fmLbl.horizontalAdvance(sepStr) + itemGap;
 
     const int maxContentW = qMax(qRound(250 * scale), qRound(maxW - 2 * padX));
 
@@ -2254,7 +2308,8 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     int curLineWidth = 0;
 
     for (const auto &s : segments) {
-        const int segW = fmKey.horizontalAdvance(s.key) + qRound(4 * scale) + fmLbl.horizontalAdvance(s.label);
+        const QString kText = formatKey(s.key);
+        const int segW = fmKey.horizontalAdvance(kText) + qRound(4 * scale) + fmLbl.horizontalAdvance(s.label);
         const int neededW = (curLine.isEmpty() ? 0 : bulletW) + segW;
         if (!curLine.isEmpty() && curLineWidth + neededW > maxContentW) {
             lines.append(curLine);
@@ -2303,10 +2358,12 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     const QRectF rect(0.5 * scale, 0.5 * scale, w - 1.0 * scale, h - 1.0 * scale);
     const qreal radius = (lines.size() == 1) ? (h / 2.0) : qRound(12 * scale);
 
-    // Background capsule with subtle border
-    p.setPen(QPen(QColor(255, 255, 255, 42), 1.0 * scale));
-    p.setBrush(QColor(16, 20, 25, 235));
-    p.drawRoundedRect(rect, radius, radius);
+    // Background container using theme
+    const QColor borderC = theme.resolveColor(theme.hudContainer.borderColor, QColor(255, 255, 255, 42));
+    const QColor bgC = theme.resolveColor(QStringLiteral("$bgSurface"), QColor(16, 20, 25, 235));
+    p.setPen(QPen(borderC, 1.0 * scale));
+    p.setBrush(bgC);
+    drawThemedShape(p, rect, theme.hudContainer.shape, radius, theme.hudContainer.chamferSize * scale);
 
     for (int lineIdx = 0; lineIdx < lines.size(); ++lineIdx) {
         const auto &line = lines.at(lineIdx);
@@ -2316,25 +2373,26 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
 
         for (int i = 0; i < line.size(); ++i) {
             const auto &s = line.at(i);
+            const QString kText = formatKey(s.key);
 
             // Draw key
             p.setFont(keyFont);
             p.setPen(s.keyColor);
-            p.drawText(QPointF(curX, baselineY), s.key);
-            curX += fmKey.horizontalAdvance(s.key) + qRound(4 * scale);
+            p.drawText(QPointF(curX, baselineY), kText);
+            curX += fmKey.horizontalAdvance(kText) + qRound(4 * scale);
 
             // Draw label
             p.setFont(lblFont);
-            p.setPen(QColor(215, 220, 225));
+            p.setPen(theme.resolveColor(theme.hintsBar.labelColor, QColor(215, 220, 225)));
             p.drawText(QPointF(curX, baselineY), s.label);
             curX += fmLbl.horizontalAdvance(s.label);
 
-            // Draw bullet separator
+            // Draw separator
             if (i < line.size() - 1) {
                 curX += itemGap;
                 p.setPen(QColor(255, 255, 255, 60));
-                p.drawText(QPointF(curX, baselineY), QStringLiteral("•"));
-                curX += fmLbl.horizontalAdvance(QStringLiteral("•")) + itemGap;
+                p.drawText(QPointF(curX, baselineY), sepStr);
+                curX += fmLbl.horizontalAdvance(sepStr) + itemGap;
             }
         }
     }
@@ -2368,7 +2426,8 @@ inline QImage renderHudModeHeader(qreal scale,
                                   int searchScope = 1,
                                   int searchCount = 0,
                                   int hudSize = 44,
-                                  int navFontSize = 0)
+                                  int navFontSize = 0,
+                                  const LeapKTheme::Theme &theme = LeapKTheme::Theme())
 {
     const int baseHeaderH = (navFontSize > 0)
         ? qMax(32, qRound(navFontSize * 2.8))
@@ -2417,7 +2476,8 @@ inline QImage renderHudModeHeader(qreal scale,
         const int queryW = qMax(minQueryW, fmQuery.horizontalAdvance(qText) + qRound(16 * scale));
         const int countW = fmCount.horizontalAdvance(countText) + qRound(10 * scale);
 
-        const int searchIconW = qRound(18 * scale);
+        const QString promptIcon = theme.searchHeader.promptPrefix.isEmpty() ? QStringLiteral("🔍") : theme.searchHeader.promptPrefix;
+        const int searchIconW = qMax(qRound(18 * scale), fmQuery.horizontalAdvance(promptIcon));
         const int w = padX + searchIconW + qRound(8 * scale) + queryW + countW + gap + scopesW + padX;
         const int h = qMax(qRound(baseHeaderH * scale), fmQuery.height() + 2 * padY);
 
@@ -2431,18 +2491,18 @@ inline QImage renderHudModeHeader(qreal scale,
         const QRectF rect(0.5 * scale, 0.5 * scale, w - 1.0 * scale, h - 1.0 * scale);
         const qreal radius = h / 2.0;
 
-        const QColor accent(52, 152, 219); // Crisp Azure Blue
+        const QColor accent = theme.resolveColor(QStringLiteral("$accentColor"), QColor(52, 152, 219));
         p.setPen(QPen(accent, 1.8 * scale));
-        p.setBrush(QColor(16, 20, 28, 245));
-        p.drawRoundedRect(rect, radius, radius);
+        p.setBrush(theme.resolveColor(QStringLiteral("$bgSurface"), QColor(16, 20, 28, 245)));
+        drawThemedShape(p, rect, theme.hudContainer.shape, radius, theme.hudContainer.chamferSize * scale);
 
         qreal currentX = padX;
         const qreal baselineY = padY + fmQuery.ascent();
 
-        // 1. Search Icon 🔍
+        // 1. Search Icon / Prompt
         p.setFont(queryFont);
         p.setPen(accent);
-        p.drawText(QPointF(currentX, baselineY), QStringLiteral("🔍"));
+        p.drawText(QPointF(currentX, baselineY), promptIcon);
         currentX += searchIconW + qRound(8 * scale);
 
         // 2. Query Text
@@ -2794,13 +2854,15 @@ inline QImage renderHudModeHeader(qreal scale,
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
 
-    // Outer background capsule
+    // Outer background container using theme
     const QRectF outerRect(0.5 * scale, 0.5 * scale, totalW - 1.0 * scale, headerH - 1.0 * scale);
     const qreal outerRadius = headerH / 2.0;
 
-    p.setPen(QPen(QColor(255, 255, 255, 38), 1.0 * scale));
-    p.setBrush(QColor(14, 18, 24, 242));
-    p.drawRoundedRect(outerRect, outerRadius, outerRadius);
+    const QColor borderC = theme.resolveColor(theme.hudContainer.borderColor, QColor(255, 255, 255, 38));
+    const QColor bgC = theme.resolveColor(QStringLiteral("$bgSurface"), QColor(14, 18, 24, 242));
+    p.setPen(QPen(borderC, 1.0 * scale));
+    p.setBrush(bgC);
+    drawThemedShape(p, outerRect, theme.hudContainer.shape, outerRadius, theme.hudContainer.chamferSize * scale);
 
     // Navigation Left ◂ [,]
     p.setFont(navFont);

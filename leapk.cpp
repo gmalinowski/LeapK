@@ -965,6 +965,14 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_jumpRecentKey = config.readEntry("JumpRecentKey", QStringLiteral("Space"));
     m_badgeConfig.jumpRecentKey = m_jumpRecentKey;
 
+    m_badgeConfig.activeThemeId = config.readEntry("ActiveThemeId", QStringLiteral("default-breeze"));
+    m_badgeConfig.activeThemeParamsJson = config.readEntry("ActiveThemeParams", QString());
+    QJsonObject themeOverrides;
+    if (!m_badgeConfig.activeThemeParamsJson.isEmpty()) {
+        themeOverrides = QJsonDocument::fromJson(m_badgeConfig.activeThemeParamsJson.toUtf8()).object();
+    }
+    m_badgeConfig.activeTheme = LeapKTheme::findThemeById(m_badgeConfig.activeThemeId, themeOverrides);
+
     m_badgeConfig.iconSize = m_badgeConfig.windowIconSize;
     m_badgeConfig.thumbnailSize = m_badgeConfig.windowThumbnailSize;
     m_badgeConfig.thumbnailWidth = m_badgeConfig.windowThumbnailWidth;
@@ -2716,6 +2724,10 @@ static void parseBadgeConfigFromJson(OutlineBadge::BadgeConfig &cfg, int &badgeP
     }
     if (obj.contains(QStringLiteral("BadgeHudMarkColorMode"))) {
         cfg.hudMarkColorMode = qBound(0, obj.value(QStringLiteral("BadgeHudMarkColorMode")).toInt(0), 2);
+    }
+    if (obj.contains(QStringLiteral("ActiveThemeId"))) {
+        cfg.activeThemeId = obj.value(QStringLiteral("ActiveThemeId")).toString(QStringLiteral("default-breeze"));
+        cfg.activeTheme = LeapKTheme::findThemeById(cfg.activeThemeId);
     }
 
     if (obj.contains(QStringLiteral("BadgeDefaultColor"))) {
@@ -7091,15 +7103,17 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
     }
 
     const int hintsFontSize = m_badgePreviewActive ? m_previewBadgeConfig.hudHintsFontSize : m_badgeConfig.hudHintsFontSize;
+    const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
+    const int themeHash = qHash(theme.id) % 10000;
     const qreal maxHintBarWidth = qMin(qreal(screenRect.width() - 80.0), 1050.0) * scale;
     const int nameHash = (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) ? (qHash(m_workspaces.at(m_activeHudView - 1).name) % 10000) : 0;
     const int hintBarKey = (m_subLeapActive ? 100000 : 0) + (m_stashModeActive ? 500000 : 0) + (m_superJumpActive ? 700000 : 0)
         + (m_audioFilterModeActive ? 900000 : 0)
         + (m_searchModeActive ? 1100000 : 0)
         + m_activeHudView * 1000 + nameHash + qRound(scale * 10) + (qRound(maxHintBarWidth) % 5000)
-        + hintsFontSize * 19;
+        + hintsFontSize * 19 + themeHash;
     if (!m_hudHintBarTexture || m_hudHintBarCacheKey != hintBarKey) {
-        const QImage hintImg = OutlineBadge::renderHudActionHintBar(scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive, m_superJumpActive, m_audioFilterModeActive, m_searchModeActive, maxHintBarWidth, hintsFontSize);
+        const QImage hintImg = OutlineBadge::renderHudActionHintBar(scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive, m_superJumpActive, m_audioFilterModeActive, m_searchModeActive, maxHintBarWidth, hintsFontSize, theme);
         auto uploaded = GLTexture::upload(hintImg);
         if (uploaded) {
             uploaded->setFilter(GL_LINEAR);
@@ -7334,15 +7348,17 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
     }
     const int hudSize = m_badgePreviewActive ? m_previewBadgeConfig.hudBadgeSize : m_badgeConfig.hudBadgeSize;
     const int navFontSize = m_badgePreviewActive ? m_previewBadgeConfig.hudNavFontSize : m_badgeConfig.hudNavFontSize;
+    const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
+    const int themeHash = qHash(theme.id) % 10000;
     const int headerKey = (m_subLeapActive ? 2000000 : 0) + (m_stashModeActive ? 4000000 : 0) + (m_superJumpActive ? 6000000 : 0)
         + (m_audioFilterModeActive ? 8000000 : 0)
         + (m_searchModeActive ? (10000000 + m_searchScope * 100000 + (qHash(m_searchQuery) % 50000) + m_searchMatches.size() * 10) : 0)
-        + m_activeHudView * 100000 + countsHash + stashCount * 13 + qRound(scale * 10) + hudSize * 7 + navFontSize * 17;
+        + m_activeHudView * 100000 + countsHash + stashCount * 13 + qRound(scale * 10) + hudSize * 7 + navFontSize * 17 + themeHash;
 
     if (!m_hudHeaderTexture || m_hudHeaderCacheKey != headerKey) {
         const QImage headerImg = OutlineBadge::renderHudModeHeader(
             scale, m_subLeapActive, subLeapTitle, subLeapColor, subLeapCount, viewTabs, stashCount, m_stashModeActive, targetWorkspaceName, m_superJumpActive, m_audioFilterModeActive, m_jumpLetterToWindow.size(),
-            m_searchModeActive, m_searchQuery, m_searchScope, m_searchMatches.size(), hudSize, navFontSize);
+            m_searchModeActive, m_searchQuery, m_searchScope, m_searchMatches.size(), hudSize, navFontSize, theme);
         if (!headerImg.isNull()) {
             auto uploaded = GLTexture::upload(headerImg);
             if (uploaded) {
