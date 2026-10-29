@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta5] - 2026-10-29
+
+### Added
+- **HUD Action Hints Bar Toggle Shortcut (`?`)**:
+  - Pressing `?` while HUD jump mode is active toggles the bottom action hints bar on or off in real time.
+  - Automatically persists the user's preference to `kwinrc` (`BadgeHudShowHints`).
+  - Added dedicated hint segment `[?] Hints` to the action bar.
+  - Configurable in LeapK Settings (`kcfg_BadgeHudShowHints`).
+- **Independent HUD Font Size Controls (`BadgeHudNavFontSize`, `BadgeHudHintsFontSize`)**:
+  - Replaced ambiguous HUD size slider with dedicated typography controls:
+    - **HUD Navigation Font Size**: scales workspace tabs, query titles, scope pills, and badge counters.
+    - **HUD Hints Font Size**: scales action hint keycaps and description labels.
+  - Both settings support auto-scaling (`0` / `Auto`) or custom pixel sizing.
+- **Dynamic WCAG Contrast for Audio Speaker Indicator**:
+  - Vector speaker icon dynamically calculates WCAG luminance contrast against the underlying card/tab/badge background.
+  - On light, bright, or yellow backgrounds (where standard yellow fails contrast), automatically adapts to a high-contrast dark amber or deep contrast color.
+  - Added a subtle backing halo ensuring razor-sharp icon visibility on any wallpaper or background surface.
+
 ## [1.6.0-beta4] - 2026-10-28
 
 ### Added

@@ -978,6 +978,11 @@ void testHudActionHintBar()
     assert(!barWrapped.isNull());
     assert(barWrapped.width() <= 520);
     assert(barWrapped.height() > barDef.height());
+
+    // 7. Custom hints font size
+    QImage barCustomFont = OutlineBadge::renderHudActionHintBar(1.0, false, 0, QString(), QColor(), false, false, false, false, 0.0, 16);
+    assert(!barCustomFont.isNull());
+    assert(barCustomFont.height() > barDef.height());
 }
 
 void testHudModeHeader()
@@ -1022,6 +1027,11 @@ void testHudModeHeader()
     assert(!superJump.isNull());
     assert(superJump.width() > 200);
     assert(superJump.height() >= 30);
+
+    // 5. Custom nav font size
+    QImage headerCustomNav = OutlineBadge::renderHudModeHeader(1.0, false, QString(), QColor(), 0, views, 3, false, QString(), false, false, 0, false, QString(), 1, 0, 44, 18);
+    assert(!headerCustomNav.isNull());
+    assert(headerCustomNav.height() > header1.height());
 }
 
 void testStashBadgeStyling()
@@ -1170,6 +1180,21 @@ static void testAudioIndicatorRendering()
     // 6. renderHudModeHeader in Audio Filter Mode
     const QImage audioModeImg = OutlineBadge::renderHudModeHeader(1.0, false, QString(), QColor(), 0, views, -1, false, QString(), false, true, 2);
     assert(!audioModeImg.isNull());
+
+    // 7. dynamicAudioSpeakerColor contrast adaptation
+    const QColor darkBg(35, 38, 41);
+    const QColor darkResult = OutlineBadge::dynamicAudioSpeakerColor(darkBg);
+    assert(darkResult == QColor(241, 196, 15)); // default yellow on dark background preserves good contrast
+
+    const QColor whiteBg(255, 255, 255);
+    const QColor whiteResult = OutlineBadge::dynamicAudioSpeakerColor(whiteBg);
+    assert(whiteResult != QColor(241, 196, 15)); // yellow contrast on white is poor (< 1.5)
+    assert(OutlineBadge::contrastRatio(whiteResult, whiteBg) >= 4.5); // adapts to high-contrast dark color
+
+    const QColor yellowBg(241, 196, 15);
+    const QColor yellowResult = OutlineBadge::dynamicAudioSpeakerColor(yellowBg);
+    assert(yellowResult != yellowBg);
+    assert(OutlineBadge::contrastRatio(yellowResult, yellowBg) >= 4.5);
 }
 
 void testSearchModeRendering()

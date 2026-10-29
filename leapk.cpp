@@ -939,6 +939,12 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_badgeConfig.hudLetterFontSize = qBound(0, config.readEntry("BadgeHudLetterFontSize", 0), 200);
     m_badgeConfig.hudCaptionFontSize = qBound(0, config.readEntry("BadgeHudCaptionFontSize", 0), 200);
     m_badgeConfig.hudLocationFontSize = qBound(0, config.readEntry("BadgeHudLocationFontSize", 0), 200);
+    m_badgeHudNavFontSize = qBound(0, config.readEntry("BadgeHudNavFontSize", 0), 200);
+    m_badgeConfig.hudNavFontSize = m_badgeHudNavFontSize;
+    m_badgeHudHintsFontSize = qBound(0, config.readEntry("BadgeHudHintsFontSize", 0), 200);
+    m_badgeConfig.hudHintsFontSize = m_badgeHudHintsFontSize;
+    m_badgeHudShowHints = config.readEntry("BadgeHudShowHints", true);
+    m_badgeConfig.hudShowHints = m_badgeHudShowHints;
 
     m_badgeHudIncludeAll = config.readEntry("BadgeHudIncludeAll", false);
     m_badgeConfig.hudIncludeAll = m_badgeHudIncludeAll;
@@ -2687,6 +2693,15 @@ static void parseBadgeConfigFromJson(OutlineBadge::BadgeConfig &cfg, int &badgeP
     if (obj.contains(QStringLiteral("BadgeHudLocationFontSize"))) {
         cfg.hudLocationFontSize = qBound(0, obj.value(QStringLiteral("BadgeHudLocationFontSize")).toInt(0), 200);
     }
+    if (obj.contains(QStringLiteral("BadgeHudNavFontSize"))) {
+        cfg.hudNavFontSize = qBound(0, obj.value(QStringLiteral("BadgeHudNavFontSize")).toInt(0), 200);
+    }
+    if (obj.contains(QStringLiteral("BadgeHudHintsFontSize"))) {
+        cfg.hudHintsFontSize = qBound(0, obj.value(QStringLiteral("BadgeHudHintsFontSize")).toInt(0), 200);
+    }
+    if (obj.contains(QStringLiteral("BadgeHudShowHints"))) {
+        cfg.hudShowHints = obj.value(QStringLiteral("BadgeHudShowHints")).toBool(true);
+    }
     if (obj.contains(QStringLiteral("BadgeHudIncludeAll"))) {
         cfg.hudIncludeAll = obj.value(QStringLiteral("BadgeHudIncludeAll")).toBool(false);
     }
@@ -3660,6 +3675,24 @@ void ActiveWindowOutlineEffect::slotToggleHudGrouping()
         }
         m_jumpLetterToWindow = assignJumpLetters();
         m_badgeTextureCache.clear();
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::slotToggleHudHints()
+{
+    m_badgeConfig.hudShowHints = !m_badgeConfig.hudShowHints;
+    m_badgeHudShowHints = m_badgeConfig.hudShowHints;
+
+    if (effects && effects->config()) {
+        KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+        primaryConfig.writeEntry("BadgeHudShowHints", m_badgeConfig.hudShowHints);
+        primaryConfig.sync();
+    }
+
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    if (effects) {
         effects->addRepaintFull();
     }
 }
@@ -5274,6 +5307,13 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
+    const bool isQuestionMark = (e->key() == Qt::Key_Question)
+        || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char('?'));
+    if (isQuestionMark) {
+        slotToggleHudHints();
+        return;
+    }
+
     if (m_audioFilterModeActive) {
         if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace) {
             exitAudioFilterMode();
@@ -5421,7 +5461,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
-    if ((e->key() == Qt::Key_Slash) || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char('/')) || (isCtrl && e->key() == Qt::Key_F)) {
+    if (!isShift && ((e->key() == Qt::Key_Slash) || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char('/')) || (isCtrl && e->key() == Qt::Key_F))) {
         enterSearchMode();
         return;
     }
@@ -7025,6 +7065,11 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
                                                   const RenderViewport &viewport,
                                                   const QRectF &pillsBounds)
 {
+    const bool showHints = m_badgePreviewActive ? m_previewBadgeConfig.hudShowHints : m_badgeConfig.hudShowHints;
+    if (!showHints) {
+        return QRectF();
+    }
+
     const qreal scale = viewport.scale();
     const QRectF screenRect = viewport.renderRect();
 
@@ -7045,14 +7090,16 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
         customViewColor = QColor(155, 89, 182); // Purple
     }
 
+    const int hintsFontSize = m_badgePreviewActive ? m_previewBadgeConfig.hudHintsFontSize : m_badgeConfig.hudHintsFontSize;
     const qreal maxHintBarWidth = qMin(qreal(screenRect.width() - 80.0), 1050.0) * scale;
     const int nameHash = (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) ? (qHash(m_workspaces.at(m_activeHudView - 1).name) % 10000) : 0;
     const int hintBarKey = (m_subLeapActive ? 100000 : 0) + (m_stashModeActive ? 500000 : 0) + (m_superJumpActive ? 700000 : 0)
         + (m_audioFilterModeActive ? 900000 : 0)
         + (m_searchModeActive ? 1100000 : 0)
-        + m_activeHudView * 1000 + nameHash + qRound(scale * 10) + (qRound(maxHintBarWidth) % 5000);
+        + m_activeHudView * 1000 + nameHash + qRound(scale * 10) + (qRound(maxHintBarWidth) % 5000)
+        + hintsFontSize * 19;
     if (!m_hudHintBarTexture || m_hudHintBarCacheKey != hintBarKey) {
-        const QImage hintImg = OutlineBadge::renderHudActionHintBar(scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive, m_superJumpActive, m_audioFilterModeActive, m_searchModeActive, maxHintBarWidth);
+        const QImage hintImg = OutlineBadge::renderHudActionHintBar(scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive, m_superJumpActive, m_audioFilterModeActive, m_searchModeActive, maxHintBarWidth, hintsFontSize);
         auto uploaded = GLTexture::upload(hintImg);
         if (uploaded) {
             uploaded->setFilter(GL_LINEAR);
@@ -7286,15 +7333,16 @@ void ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTa
         countsHash = (countsHash * 31 + vt.windowCount + (vt.isActive ? 1000 : 0) + (vt.isPlayingAudio ? 500 : 0)) % 100000;
     }
     const int hudSize = m_badgePreviewActive ? m_previewBadgeConfig.hudBadgeSize : m_badgeConfig.hudBadgeSize;
+    const int navFontSize = m_badgePreviewActive ? m_previewBadgeConfig.hudNavFontSize : m_badgeConfig.hudNavFontSize;
     const int headerKey = (m_subLeapActive ? 2000000 : 0) + (m_stashModeActive ? 4000000 : 0) + (m_superJumpActive ? 6000000 : 0)
         + (m_audioFilterModeActive ? 8000000 : 0)
         + (m_searchModeActive ? (10000000 + m_searchScope * 100000 + (qHash(m_searchQuery) % 50000) + m_searchMatches.size() * 10) : 0)
-        + m_activeHudView * 100000 + countsHash + stashCount * 13 + qRound(scale * 10) + hudSize * 7;
+        + m_activeHudView * 100000 + countsHash + stashCount * 13 + qRound(scale * 10) + hudSize * 7 + navFontSize * 17;
 
     if (!m_hudHeaderTexture || m_hudHeaderCacheKey != headerKey) {
         const QImage headerImg = OutlineBadge::renderHudModeHeader(
             scale, m_subLeapActive, subLeapTitle, subLeapColor, subLeapCount, viewTabs, stashCount, m_stashModeActive, targetWorkspaceName, m_superJumpActive, m_audioFilterModeActive, m_jumpLetterToWindow.size(),
-            m_searchModeActive, m_searchQuery, m_searchScope, m_searchMatches.size(), hudSize);
+            m_searchModeActive, m_searchQuery, m_searchScope, m_searchMatches.size(), hudSize, navFontSize);
         if (!headerImg.isNull()) {
             auto uploaded = GLTexture::upload(headerImg);
             if (uploaded) {

@@ -386,6 +386,19 @@
             <min>0</min>
             <max>200</max>
         </entry>
+        <entry name="BadgeHudNavFontSize" type="Int">
+            <default>0</default>
+            <min>0</min>
+            <max>200</max>
+        </entry>
+        <entry name="BadgeHudHintsFontSize" type="Int">
+            <default>0</default>
+            <min>0</min>
+            <max>200</max>
+        </entry>
+        <entry name="BadgeHudShowHints" type="Bool">
+            <default>true</default>
+        </entry>
         <entry name="BadgeJumpSize" type="Int">
             <default>34</default>
             <min>16</min>

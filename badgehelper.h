@@ -71,6 +71,9 @@ struct BadgeConfig {
     int hudLetterFontSize = 0; // 0 = auto
     int hudCaptionFontSize = 0; // 0 = auto
     int hudLocationFontSize = 0; // 0 = auto
+    int hudNavFontSize = 0; // 0 = auto
+    int hudHintsFontSize = 0; // 0 = auto
+    bool hudShowHints = true;
     bool hudIncludeAll = false;
     bool hudGroupWindows = true;
     qreal hudGroupBorderWidth = 2.0;
@@ -147,6 +150,29 @@ inline qreal contrastRatio(const QColor &c1, const QColor &c2)
     const qreal lighter = qMax(l1, l2);
     const qreal darker = qMin(l1, l2);
     return (lighter + 0.05) / (darker + 0.05);
+}
+
+inline QColor dynamicAudioSpeakerColor(const QColor &bgColor, const QColor &defaultColor = QColor(241, 196, 15))
+{
+    if (!bgColor.isValid() || bgColor.alpha() < 30) {
+        return defaultColor;
+    }
+
+    // 1. If default yellow has adequate contrast (>= 3.0:1), use it
+    if (contrastRatio(defaultColor, bgColor) >= 3.0) {
+        return defaultColor;
+    }
+
+    // 2. Try dark amber / burnt orange to preserve warm audio tone on light backgrounds
+    const QColor darkAmber(170, 85, 0);
+    if (contrastRatio(darkAmber, bgColor) >= 3.2) {
+        return darkAmber;
+    }
+
+    // 3. Fallback to maximum contrast between deep dark slate and pure white
+    const QColor deepDark(18, 22, 28);
+    const QColor brightWhite(255, 255, 255);
+    return (contrastRatio(deepDark, bgColor) >= contrastRatio(brightWhite, bgColor)) ? deepDark : brightWhite;
 }
 
 inline QChar findNextAvailableLetter(const QList<QChar> &usedLetters)
@@ -566,10 +592,12 @@ inline QImage renderPinDotBadgeImage(qreal baseSize, qreal scale, const QColor &
     return img;
 }
 
-inline void drawAudioSpeaker(QPainter &p, const QRectF &rect, const QColor &color)
+inline void drawAudioSpeaker(QPainter &p, const QRectF &rect, const QColor &color = QColor(241, 196, 15), const QColor &bgColor = QColor())
 {
     p.save();
     p.setRenderHint(QPainter::Antialiasing, true);
+
+    const QColor effColor = bgColor.isValid() ? dynamicAudioSpeakerColor(bgColor, color) : color;
 
     const qreal w = rect.width();
     const qreal h = rect.height();
@@ -596,22 +624,36 @@ inline void drawAudioSpeaker(QPainter &p, const QRectF &rect, const QColor &colo
              << QPointF(coneX, boxY + boxH);
     body.addPolygon(conePoly);
 
-    p.setPen(Qt::NoPen);
-    p.setBrush(color);
+    // Subtle halo backing for crisp definition on light, yellow, or patterned surfaces
+    const bool isLightEffColor = (perceivedLuminance(effColor) > 0.45);
+    const QColor haloColor = isLightEffColor ? QColor(0, 0, 0, 95) : QColor(255, 255, 255, 80);
+
+    const QRectF innerWaveRect(x + w * 0.38, y + h * 0.28, w * 0.28, h * 0.44);
+    const QRectF outerWaveRect(x + w * 0.46, y + h * 0.16, w * 0.38, h * 0.68);
+    const qreal wavePenWidth = qMax(1.2, w * 0.08);
+
+    // Halo pass
+    p.setBrush(Qt::NoBrush);
+    QPen haloPen(haloColor, wavePenWidth + 1.2);
+    haloPen.setCapStyle(Qt::RoundCap);
+    p.setPen(haloPen);
+    p.drawArc(innerWaveRect, -45 * 16, 90 * 16);
+    p.drawArc(outerWaveRect, -48 * 16, 96 * 16);
+
+    p.setPen(QPen(haloColor, 0.8));
+    p.setBrush(effColor);
     p.drawPath(body.simplified());
 
-    // Sound waves (arcs) on the right
+    // Foreground sound waves (arcs) on the right
     p.setBrush(Qt::NoBrush);
-    QPen wavePen(color, qMax(1.2, w * 0.08));
+    QPen wavePen(effColor, wavePenWidth);
     wavePen.setCapStyle(Qt::RoundCap);
     p.setPen(wavePen);
 
     // Inner wave
-    const QRectF innerWaveRect(x + w * 0.38, y + h * 0.28, w * 0.28, h * 0.44);
     p.drawArc(innerWaveRect, -45 * 16, 90 * 16);
 
     // Outer wave
-    const QRectF outerWaveRect(x + w * 0.46, y + h * 0.16, w * 0.38, h * 0.68);
     p.drawArc(outerWaveRect, -48 * 16, 96 * 16);
 
     p.restore();
@@ -947,7 +989,7 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
             const qreal spX = currentX + (audioAreaW - spDim) / 2.0;
             const qreal spY = margin + (innerH - spDim) / 2.0;
             const QRectF spRect(spX, spY, spDim, spDim);
-            drawAudioSpeaker(p, spRect, QColor(241, 196, 15));
+            drawAudioSpeaker(p, spRect, QColor(241, 196, 15), effectiveBg);
             currentX += audioAreaW;
         }
     }
@@ -1750,7 +1792,7 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
             ? ((isTopOrBottom && hasThumb) ? padY + (textLineHeight - spDim) / 2.0 : (pillH - spDim) / 2.0)
             : qRound(textCenterY - fm1.height() * 0.95 + (fm1.height() - spDim) / 2.0);
         const QRectF spRect(spX, spY, spDim, spDim);
-        drawAudioSpeaker(p, spRect, QColor(241, 196, 15));
+        drawAudioSpeaker(p, spRect, QColor(241, 196, 15), pillBg);
     }
 
     p.end();
@@ -2110,7 +2152,7 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
     return img;
 }
 
-inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false, bool isSearchMode = false, qreal maxAllowedWidth = 0.0)
+inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false, bool isSearchMode = false, qreal maxAllowedWidth = 0.0, int hintsFontSize = 0)
 {
     Q_UNUSED(customViewName);
     Q_UNUSED(customViewColor);
@@ -2133,6 +2175,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     } else if (isAudioFilter) {
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Jump to audio window"), QColor(255, 107, 107)},
+            {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
             {QStringLiteral("Meta+U / Esc"), QStringLiteral("Exit audio filter"), QColor(149, 165, 166)}
@@ -2140,6 +2183,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     } else if (isSuperJump) {
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Jump to workspace"), QColor(0, 195, 255)},
+            {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pull / Drop here"), QColor(241, 196, 15)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
@@ -2148,6 +2192,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     } else if (isStashMode) {
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Add to workspace"), QColor(46, 204, 113)},
+            {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Add to stash"), QColor(46, 204, 113)},
             {QStringLiteral(", / ."), QStringLiteral("Switch workspace"), QColor(52, 152, 219)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
@@ -2156,6 +2201,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     } else if (isSubLeap) {
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Select"), QColor(52, 152, 219)},
+            {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close"), QColor(231, 76, 60)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash"), QColor(46, 204, 113)},
@@ -2165,6 +2211,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Jump"), QColor(52, 152, 219)},
             {QStringLiteral("/"), QStringLiteral("Search"), QColor(0, 195, 255)},
+            {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
             {QStringLiteral("Meta+A"), QStringLiteral("Super Jump"), QColor(0, 195, 255)},
             {QStringLiteral("Meta+U"), QStringLiteral("Audio filter"), QColor(255, 107, 107)},
@@ -2185,12 +2232,12 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     const qreal maxW = (maxAllowedWidth > 0.0) ? maxAllowedWidth : (1050.0 * scale);
 
     QFont keyFont(QStringLiteral("sans-serif"));
-    keyFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
+    keyFont.setPixelSize((hintsFontSize > 0) ? qRound(hintsFontSize * scale) : qMax(9, qRound(11.5 * scale)));
     keyFont.setBold(true);
     QFontMetrics fmKey(keyFont);
 
     QFont lblFont(QStringLiteral("sans-serif"));
-    lblFont.setPixelSize(qMax(9, qRound(11.0 * scale)));
+    lblFont.setPixelSize((hintsFontSize > 0) ? qMax(8, qRound((hintsFontSize - 0.5) * scale)) : qMax(9, qRound(11.0 * scale)));
     lblFont.setBold(false);
     QFontMetrics fmLbl(lblFont);
 
@@ -2320,26 +2367,29 @@ inline QImage renderHudModeHeader(qreal scale,
                                   const QString &searchQuery = QString(),
                                   int searchScope = 1,
                                   int searchCount = 0,
-                                  int hudSize = 44)
+                                  int hudSize = 44,
+                                  int navFontSize = 0)
 {
-    const int baseHeaderH = qBound(32, qRound(hudSize * 0.88), 64);
+    const int baseHeaderH = (navFontSize > 0)
+        ? qMax(32, qRound(navFontSize * 2.8))
+        : qBound(32, qRound(hudSize * 0.88), 64);
 
     if (isSearchMode) {
         const QString placeholder = QStringLiteral("Type to search windows...");
         const QString qText = searchQuery.isEmpty() ? placeholder : searchQuery;
 
         QFont queryFont(QStringLiteral("sans-serif"));
-        queryFont.setPixelSize(qMax(10, qRound(13.0 * scale)));
+        queryFont.setPixelSize((navFontSize > 0) ? qRound(navFontSize * scale) : qMax(10, qRound(13.0 * scale)));
         queryFont.setBold(true);
         QFontMetrics fmQuery(queryFont);
 
         QFont scopeFont(QStringLiteral("sans-serif"));
-        scopeFont.setPixelSize(qMax(9, qRound(10.5 * scale)));
+        scopeFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 2.0) * scale)) : qMax(9, qRound(10.5 * scale)));
         scopeFont.setBold(true);
         QFontMetrics fmScope(scopeFont);
 
         QFont countFont(QStringLiteral("sans-serif"));
-        countFont.setPixelSize(qMax(8, qRound(10.0 * scale)));
+        countFont.setPixelSize((navFontSize > 0) ? qMax(8, qRound((navFontSize - 2.5) * scale)) : qMax(8, qRound(10.0 * scale)));
         QFontMetrics fmCount(countFont);
 
         const QString scopeNames[] = {
@@ -2461,12 +2511,12 @@ inline QImage renderHudModeHeader(qreal scale,
         const QString rightText = QStringLiteral("Meta+U / Esc : Back");
 
         QFont titleFont(QStringLiteral("sans-serif"));
-        titleFont.setPixelSize(qMax(10, qRound(13.0 * scale)));
+        titleFont.setPixelSize((navFontSize > 0) ? qRound(navFontSize * scale) : qMax(10, qRound(13.0 * scale)));
         titleFont.setBold(true);
         QFontMetrics fmTitle(titleFont);
 
         QFont keyFont(QStringLiteral("sans-serif"));
-        keyFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
+        keyFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.5) * scale)) : qMax(9, qRound(11.5 * scale)));
         keyFont.setBold(true);
         QFontMetrics fmKey(keyFont);
 
@@ -2511,12 +2561,12 @@ inline QImage renderHudModeHeader(qreal scale,
         const QString rightText = QStringLiteral("Meta+A / Esc : Back");
 
         QFont titleFont(QStringLiteral("sans-serif"));
-        titleFont.setPixelSize(qMax(10, qRound(13.0 * scale)));
+        titleFont.setPixelSize((navFontSize > 0) ? qRound(navFontSize * scale) : qMax(10, qRound(13.0 * scale)));
         titleFont.setBold(true);
         QFontMetrics fmTitle(titleFont);
 
         QFont keyFont(QStringLiteral("sans-serif"));
-        keyFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
+        keyFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.5) * scale)) : qMax(9, qRound(11.5 * scale)));
         keyFont.setBold(true);
         QFontMetrics fmKey(keyFont);
 
@@ -2561,12 +2611,12 @@ inline QImage renderHudModeHeader(qreal scale,
         const QString rightText = QStringLiteral("Backspace / Esc : Back");
 
         QFont titleFont(QStringLiteral("sans-serif"));
-        titleFont.setPixelSize(qMax(10, qRound(13.0 * scale)));
+        titleFont.setPixelSize((navFontSize > 0) ? qRound(navFontSize * scale) : qMax(10, qRound(13.0 * scale)));
         titleFont.setBold(true);
         QFontMetrics fmTitle(titleFont);
 
         QFont keyFont(QStringLiteral("sans-serif"));
-        keyFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
+        keyFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.5) * scale)) : qMax(9, qRound(11.5 * scale)));
         keyFont.setBold(true);
         QFontMetrics fmKey(keyFont);
 
@@ -2611,12 +2661,12 @@ inline QImage renderHudModeHeader(qreal scale,
         const QString rightText = QStringLiteral(", / . : Switch workspace  •  Esc : Back");
 
         QFont titleFont(QStringLiteral("sans-serif"));
-        titleFont.setPixelSize(qMax(10, qRound(13.0 * scale)));
+        titleFont.setPixelSize((navFontSize > 0) ? qRound(navFontSize * scale) : qMax(10, qRound(13.0 * scale)));
         titleFont.setBold(true);
         QFontMetrics fmTitle(titleFont);
 
         QFont keyFont(QStringLiteral("sans-serif"));
-        keyFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
+        keyFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.5) * scale)) : qMax(9, qRound(11.5 * scale)));
         keyFont.setBold(true);
         QFontMetrics fmKey(keyFont);
 
@@ -2664,17 +2714,17 @@ inline QImage renderHudModeHeader(qreal scale,
     const QString navRight = QStringLiteral(". ▸");
 
     QFont navFont(QStringLiteral("sans-serif"));
-    navFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
+    navFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.0) * scale)) : qMax(9, qRound(11.5 * scale)));
     navFont.setBold(true);
     QFontMetrics fmNav(navFont);
 
     QFont activeFont(QStringLiteral("sans-serif"));
-    activeFont.setPixelSize(qMax(10, qRound(12.5 * scale)));
+    activeFont.setPixelSize((navFontSize > 0) ? qRound(navFontSize * scale) : qMax(10, qRound(12.5 * scale)));
     activeFont.setBold(true);
     QFontMetrics fmActive(activeFont);
 
     QFont inactiveFont(QStringLiteral("sans-serif"));
-    inactiveFont.setPixelSize(qMax(9, qRound(12.0 * scale)));
+    inactiveFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 0.5) * scale)) : qMax(9, qRound(12.0 * scale)));
     inactiveFont.setBold(false);
     QFontMetrics fmInactive(inactiveFont);
 
@@ -2715,7 +2765,7 @@ inline QImage renderHudModeHeader(qreal scale,
     // Stash Drawer pill on the right (separated from workspaces)
     const QString stashText = QStringLiteral("📦 Stash (%1) • Meta+S").arg(qMax(0, stashCount));
     QFont stashFont(QStringLiteral("sans-serif"));
-    stashFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
+    stashFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.0) * scale)) : qMax(9, qRound(11.5 * scale)));
     stashFont.setBold(true);
     QFontMetrics fmStash(stashFont);
 
@@ -2725,7 +2775,7 @@ inline QImage renderHudModeHeader(qreal scale,
     // New Workspace pill [+ New • Shift++]
     const QString newWsText = QStringLiteral("+ New • Shift++");
     QFont newWsFont(QStringLiteral("sans-serif"));
-    newWsFont.setPixelSize(qMax(9, qRound(11.5 * scale)));
+    newWsFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.0) * scale)) : qMax(9, qRound(11.5 * scale)));
     newWsFont.setBold(true);
     QFontMetrics fmNewWs(newWsFont);
 
@@ -2794,8 +2844,9 @@ inline QImage renderHudModeHeader(qreal scale,
             const QRectF speakerRect(textLeft + rawTextW + speakerGap,
                                      tabRect.top() + (tabRect.height() - speakerIconDim) / 2.0,
                                      speakerIconDim, speakerIconDim);
-            const QColor speakerColor = tab.isActive ? QColor(255, 255, 255) : QColor(241, 196, 15);
-            drawAudioSpeaker(p, speakerRect, speakerColor);
+            const QColor tabBg = tab.isActive ? (tab.color.isValid() ? tab.color : QColor(52, 152, 219)) : QColor(25, 30, 38);
+            const QColor speakerDefault = tab.isActive ? QColor(255, 255, 255) : QColor(241, 196, 15);
+            drawAudioSpeaker(p, speakerRect, speakerDefault, tabBg);
         }
 
         curX += tab.width + tabGap;

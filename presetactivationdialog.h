@@ -182,7 +182,10 @@ public:
                     {QStringLiteral("BadgeHudThumbnailSize"), QStringLiteral("HUD Thumbnail Base Size")},
                     {QStringLiteral("BadgeHudLetterFontSize"), QStringLiteral("HUD Card Letter Font Size")},
                     {QStringLiteral("BadgeHudCaptionFontSize"), QStringLiteral("HUD Card Caption Font Size")},
-                    {QStringLiteral("BadgeHudLocationFontSize"), QStringLiteral("HUD Card Location Font Size")}
+                    {QStringLiteral("BadgeHudLocationFontSize"), QStringLiteral("HUD Card Location Font Size")},
+                    {QStringLiteral("BadgeHudNavFontSize"), QStringLiteral("HUD Navigation Font Size")},
+                    {QStringLiteral("BadgeHudHintsFontSize"), QStringLiteral("HUD Action Hints Font Size")},
+                    {QStringLiteral("BadgeHudShowHints"), QStringLiteral("Show HUD Action Hints Bar")}
                 }
             },
             // 6. Window Marks

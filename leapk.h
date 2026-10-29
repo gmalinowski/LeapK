@@ -179,6 +179,7 @@ private Q_SLOTS:
     void slotOpenWorkspaceManager();
     void slotOpenMarkerManager();
     void slotToggleHudGrouping();
+    void slotToggleHudHints();
     void slotTogglePinActiveWindow();
     void slotCycleHudView(int delta = 1);
     void slotTriggerJumpMode();
@@ -469,6 +470,9 @@ private:
     int m_badgeHudGroupFontSize = 0;
     int m_badgeHudGroupCornerRadius = 8;
     bool m_badgeHudGroupShaderEnabled = true;
+    bool m_badgeHudShowHints = true;
+    int m_badgeHudNavFontSize = 0;
+    int m_badgeHudHintsFontSize = 0;
     QMap<QChar, EffectWindow *> m_jumpLetterToWindow;
     mutable QMap<QChar, QList<EffectWindow *>> m_letterWindowGroups;
     mutable QMap<QChar, QList<EffectWindow *>> m_groupJumpLetters;

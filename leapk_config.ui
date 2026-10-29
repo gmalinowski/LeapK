@@ -2413,32 +2413,16 @@
                 </property>
                </widget>
               </item>
-              <item row="5" column="0">
-               <widget class="QLabel" name="label_badgeHudSize">
+              <item row="5" column="0" colspan="2">
+               <widget class="QCheckBox" name="kcfg_BadgeHudShowHints">
                 <property name="text">
-                 <string>HUD size / card height:</string>
+                 <string>Show keyboard action hints bar in HUD (? to toggle)</string>
+                </property>
+                <property name="checked">
+                 <bool>true</bool>
                 </property>
                 <property name="toolTip">
-                 <string>Overall size and proportional height of hint cards, workspace header, and hint bars at the screen edge HUD (default: 44 px).</string>
-                </property>
-               </widget>
-              </item>
-              <item row="5" column="1">
-               <widget class="QSpinBox" name="kcfg_BadgeHudSize">
-                <property name="minimum">
-                 <number>24</number>
-                </property>
-                <property name="maximum">
-                 <number>500</number>
-                </property>
-                <property name="singleStep">
-                 <number>2</number>
-                </property>
-                <property name="value">
-                 <number>44</number>
-                </property>
-                <property name="suffix">
-                 <string> px</string>
+                 <string>Displays the keyboard shortcut hint bar at the screen edge. Press '?' anytime in HUD to toggle.</string>
                 </property>
                </widget>
               </item>
@@ -2587,7 +2571,65 @@
                 </property>
                </widget>
               </item>
-               <item row="11" column="0">
+              <item row="11" column="0">
+               <widget class="QLabel" name="label_badgeHudNavFontSize">
+                <property name="text">
+                 <string>HUD navigation font size:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Font size for the workspace navigation bar tabs and header text in HUD (0 = Auto).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="11" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeHudNavFontSize">
+                <property name="minimum">
+                 <number>0</number>
+                </property>
+                <property name="maximum">
+                 <number>200</number>
+                </property>
+                <property name="specialValueText">
+                 <string>Auto</string>
+                </property>
+                <property name="value">
+                 <number>0</number>
+                </property>
+                <property name="suffix">
+                 <string> px</string>
+                </property>
+               </widget>
+              </item>
+              <item row="12" column="0">
+               <widget class="QLabel" name="label_badgeHudHintsFontSize">
+                <property name="text">
+                 <string>HUD hints font size:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Font size for keyboard action hints in the HUD hint bar (0 = Auto).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="12" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeHudHintsFontSize">
+                <property name="minimum">
+                 <number>0</number>
+                </property>
+                <property name="maximum">
+                 <number>200</number>
+                </property>
+                <property name="specialValueText">
+                 <string>Auto</string>
+                </property>
+                <property name="value">
+                 <number>0</number>
+                </property>
+                <property name="suffix">
+                 <string> px</string>
+                </property>
+               </widget>
+              </item>
+               <item row="13" column="0">
                 <widget class="QLabel" name="label_badgeHudGroupBorderWidth">
                  <property name="text">
                   <string>Group frame border width:</string>
@@ -2597,7 +2639,7 @@
                  </property>
                 </widget>
                </item>
-               <item row="11" column="1">
+               <item row="13" column="1">
                 <widget class="QDoubleSpinBox" name="kcfg_BadgeHudGroupBorderWidth">
                  <property name="minimum">
                   <double>0.500000000000000</double>
@@ -2616,7 +2658,7 @@
                  </property>
                 </widget>
                </item>
-               <item row="12" column="0">
+               <item row="14" column="0">
                 <widget class="QLabel" name="label_badgeHudGroupFontSize">
                  <property name="text">
                   <string>Group frame font size:</string>
@@ -2626,7 +2668,7 @@
                  </property>
                 </widget>
                </item>
-               <item row="12" column="1">
+               <item row="14" column="1">
                 <widget class="QSpinBox" name="kcfg_BadgeHudGroupFontSize">
                  <property name="minimum">
                   <number>0</number>
@@ -2645,7 +2687,7 @@
                  </property>
                 </widget>
                </item>
-               <item row="13" column="0">
+               <item row="15" column="0">
                 <widget class="QLabel" name="label_badgeHudGroupCornerRadius">
                  <property name="text">
                   <string>Group frame corner radius:</string>
@@ -2655,7 +2697,7 @@
                  </property>
                 </widget>
                </item>
-               <item row="13" column="1">
+               <item row="15" column="1">
                 <widget class="QSpinBox" name="kcfg_BadgeHudGroupCornerRadius">
                  <property name="minimum">
                   <number>0</number>
@@ -2671,7 +2713,7 @@
                  </property>
                 </widget>
                </item>
-               <item row="14" column="0" colspan="2">
+               <item row="16" column="0" colspan="2">
                 <widget class="QCheckBox" name="kcfg_BadgeHudGroupShaderEnabled">
                  <property name="text">
                   <string>Apply animations &amp; shaders to group container frames</string>
