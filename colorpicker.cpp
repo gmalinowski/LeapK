@@ -336,6 +336,7 @@ public:
     bool persistent() const { return m_persistent; }
     int matchDesktop() const { return (m_matchDesktop && m_desktopNum > 0) ? m_desktopNum : 0; }
     bool reassignLetter() const { return m_reassignLetter; }
+    QString appClass() const { return m_appClass; }
 
 protected:
     void showEvent(QShowEvent *event) override
@@ -1819,6 +1820,7 @@ int main(int argc, char *argv[])
         resp[QStringLiteral("matchCaption")] = finalCaptionPattern;
         resp[QStringLiteral("matchDesktop")] = dlg.matchDesktop();
         resp[QStringLiteral("reassign")] = dlg.reassignLetter();
+        resp[QStringLiteral("appClass")] = dlg.appClass();
 
         std::cout << QJsonDocument(resp).toJson(QJsonDocument::Compact).toStdString() << std::endl;
         return 0;

@@ -213,9 +213,13 @@ add_executable(leapk-marker-manager markermanager.cpp)
 target_link_libraries(leapk-marker-manager PRIVATE
     Qt6::Widgets
     Qt6::Svg
+    Qt6::DBus
 )
 install(TARGETS leapk-marker-manager
     DESTINATION ${KDE_INSTALL_LIBEXECDIR}
+)
+install(TARGETS leapk-marker-manager
+    DESTINATION ${KDE_INSTALL_BINDIR}
 )
 
 # --- Standalone Tray Companion & Settings GUI ---
@@ -268,7 +272,7 @@ target_compile_definitions(leapk-settings PRIVATE
 install(TARGETS leapk-tray leapk-settings
     DESTINATION ${KDE_INSTALL_BINDIR}
 )
-install(PROGRAMS leapk-tray.desktop leapk-settings.desktop
+install(PROGRAMS leapk-tray.desktop leapk-settings.desktop leapk-marker-manager.desktop
     DESTINATION ${KDE_INSTALL_APPDIR}
 )
 install(FILES leapk.svg

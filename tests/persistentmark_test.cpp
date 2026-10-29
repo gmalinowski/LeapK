@@ -185,12 +185,98 @@ void testDeleteAndUpsertMark()
     std::cout << "testDeleteAndUpsertMark PASSED\n";
 }
 
+void testReopenedWindowMatching()
+{
+    using namespace LeapKMarks;
+
+    QTemporaryDir tempDir;
+    assert(tempDir.isValid());
+    const QString filePath = tempDir.path() + QStringLiteral("/marks.json");
+
+    PersistentMarkRule rule;
+    rule.id = QStringLiteral("rule-ff");
+    rule.letter = QChar('F');
+    rule.color = QColor(QStringLiteral("#e74c3c"));
+    rule.matchApp = QStringLiteral("firefox");
+    rule.enabled = true;
+
+    QList<PersistentMarkRule> rules = { rule };
+    bool saved = savePersistentMarks(rules, filePath);
+    assert(saved);
+
+    // Initial window open: match found
+    const auto *m1 = findBestMatchingRule(rules, QStringLiteral("firefox"), QStringLiteral("Start Page - Mozilla Firefox"), 1);
+    assert(m1 != nullptr);
+    assert(m1->letter == QChar('F'));
+    assert(m1->color == QColor(QStringLiteral("#e74c3c")));
+
+    // Window closed (rule persists on disk)
+    QList<PersistentMarkRule> reloadedRules = loadPersistentMarks(filePath);
+    assert(!reloadedRules.isEmpty());
+
+    // Window reopened: match found again
+    const auto *m2 = findBestMatchingRule(reloadedRules, QStringLiteral("firefox"), QStringLiteral("YouTube - Mozilla Firefox"), 1);
+    assert(m2 != nullptr);
+    assert(m2->letter == QChar('F'));
+    assert(m2->color == QColor(QStringLiteral("#e74c3c")));
+
+    std::cout << "testReopenedWindowMatching PASSED\n";
+}
+
+void testPersistenceUpdateWithoutDuplicates()
+{
+    using namespace LeapKMarks;
+
+    QTemporaryDir tempDir;
+    assert(tempDir.isValid());
+    const QString filePath = tempDir.path() + QStringLiteral("/marks.json");
+
+    QList<PersistentMarkRule> rules;
+
+    // First assign letter D to dolphin
+    PersistentMarkRule r1;
+    r1.id = QStringLiteral("rule-dolphin");
+    r1.letter = QChar('D');
+    r1.color = QColor(QStringLiteral("#3498db"));
+    r1.matchApp = QStringLiteral("org.kde.dolphin");
+    r1.matchCaption = QString();
+    r1.matchDesktop = 0;
+    r1.enabled = true;
+    rules.append(r1);
+    savePersistentMarks(rules, filePath);
+
+    // Now update dolphin to letter E with different color
+    bool updated = false;
+    for (auto &r : rules) {
+        if (r.matchApp.compare(QStringLiteral("org.kde.dolphin"), Qt::CaseInsensitive) == 0
+            && r.matchCaption.isEmpty()
+            && r.matchDesktop == 0) {
+            r.letter = QChar('E');
+            r.color = QColor(QStringLiteral("#2ecc71"));
+            updated = true;
+            break;
+        }
+    }
+    assert(updated);
+    savePersistentMarks(rules, filePath);
+
+    // Verify file on disk has exactly 1 rule with letter E
+    QList<PersistentMarkRule> loaded = loadPersistentMarks(filePath);
+    assert(loaded.size() == 1);
+    assert(loaded.first().letter == QChar('E'));
+    assert(loaded.first().color == QColor(QStringLiteral("#2ecc71")));
+
+    std::cout << "testPersistenceUpdateWithoutDuplicates PASSED\n";
+}
+
 int main()
 {
     testRuleSerialization();
     testSaveAndLoadMarks();
     testScoreWindowMatch();
     testDeleteAndUpsertMark();
+    testReopenedWindowMatching();
+    testPersistenceUpdateWithoutDuplicates();
     std::cout << "All persistent mark tests passed successfully!\n";
     return 0;
 }

@@ -28,6 +28,8 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <QDateTime>
+#include <QDBusMessage>
+#include <QDBusConnection>
 #include <iostream>
 
 struct OpenWindowInfo {
@@ -799,6 +801,14 @@ private:
     void saveRules()
     {
         LeapKMarks::savePersistentMarks(m_rules);
+        QDBusMessage msg = QDBusMessage::createMethodCall(
+            QStringLiteral("org.kde.KWin"),
+            QStringLiteral("/Effects"),
+            QStringLiteral("org.kde.kwin.Effects"),
+            QStringLiteral("reconfigureEffect")
+        );
+        msg << QStringLiteral("leapk");
+        QDBusConnection::sessionBus().send(msg);
     }
 
     int countMatchesForRule(const LeapKMarks::PersistentMarkRule &rule, QStringList *matchingTitles = nullptr) const
@@ -997,6 +1007,14 @@ int main(int argc, char *argv[])
         auto rules = LeapKMarks::loadPersistentMarks();
         bool ok = LeapKMarks::deletePersistentMark(rules, delId);
         if (ok) {
+            QDBusMessage msg = QDBusMessage::createMethodCall(
+                QStringLiteral("org.kde.KWin"),
+                QStringLiteral("/Effects"),
+                QStringLiteral("org.kde.kwin.Effects"),
+                QStringLiteral("reconfigureEffect")
+            );
+            msg << QStringLiteral("leapk");
+            QDBusConnection::sessionBus().send(msg);
             std::cout << "Deleted rule: " << delId.toStdString() << std::endl;
             return 0;
         } else {

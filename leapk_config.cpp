@@ -2821,33 +2821,20 @@ void ActiveWindowOutlineConfig::importShader()
 
 void ActiveWindowOutlineConfig::initPersistentMarksSection()
 {
-    auto *table = m_ui->tablePersistentMarks;
-    table->setColumnCount(6);
-    table->setHorizontalHeaderLabels({
-        tr("Letter"),
-        tr("Color"),
-        tr("Label"),
-        tr("Application (Class)"),
-        tr("Title / Process Pattern"),
-        tr("Desktop")
+    connect(m_ui->btnOpenMarkerManager, &QPushButton::clicked, this, [this]() {
+        QStringList candidateDirs;
+        candidateDirs << QDir::homePath() + QStringLiteral("/.local/bin");
+        candidateDirs << QCoreApplication::applicationDirPath()
+                      << QStringLiteral("/usr/libexec")
+                      << QStringLiteral("/usr/lib/libexec")
+                      << QStringLiteral("/usr/local/bin")
+                      << QStringLiteral("/usr/bin");
+        QString exe = QStandardPaths::findExecutable(QStringLiteral("leapk-marker-manager"), candidateDirs);
+        if (exe.isEmpty()) {
+            exe = QStringLiteral("leapk-marker-manager");
+        }
+        QProcess::startDetached(exe, {});
     });
-    table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
-    table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
-    table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
-    table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Stretch);
-    table->horizontalHeader()->setSectionResizeMode(5, QHeaderView::ResizeToContents);
-
-    connect(m_ui->btnDeletePersistentMark, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::deleteSelectedPersistentMark);
-    connect(m_ui->btnClearAllPersistentMarks, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::clearAllPersistentMarks);
-    connect(m_ui->btnReloadPersistentMarks, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::refreshPersistentMarksTable);
-
-    auto *btnOpenMgr = new QPushButton(tr("🏷️ Marker Manager…"), m_ui->tablePersistentMarks->parentWidget());
-    btnOpenMgr->setToolTip(tr("Open the graphical Marker & Group Manager"));
-    connect(btnOpenMgr, &QPushButton::clicked, this, [this]() {
-        QProcess::startDetached(QStringLiteral("leapk-marker-manager"));
-    });
-    m_ui->layoutPersistentMarksButtons->addWidget(btnOpenMgr);
 
     refreshPersistentMarksTable();
 }
@@ -2855,96 +2842,15 @@ void ActiveWindowOutlineConfig::initPersistentMarksSection()
 void ActiveWindowOutlineConfig::refreshPersistentMarksTable()
 {
     m_persistentMarks = LeapKMarks::loadPersistentMarks();
-
-    auto *table = m_ui->tablePersistentMarks;
-    table->setRowCount(m_persistentMarks.size());
-
-    for (int i = 0; i < m_persistentMarks.size(); ++i) {
-        const auto &rule = m_persistentMarks.at(i);
-
-        // Letter
-        auto *itemLetter = new QTableWidgetItem(rule.letter.isNull() ? QStringLiteral("-") : QString(rule.letter));
-        itemLetter->setTextAlignment(Qt::AlignCenter);
-        QFont f = itemLetter->font();
-        f.setBold(true);
-        itemLetter->setFont(f);
-        table->setItem(i, 0, itemLetter);
-
-        // Color
-        QPixmap pix(16, 16);
-        pix.fill(rule.color.isValid() ? rule.color : Qt::transparent);
-        auto *itemColor = new QTableWidgetItem(QIcon(pix), rule.color.isValid() ? rule.color.name(QColor::HexArgb) : QStringLiteral("-"));
-        table->setItem(i, 1, itemColor);
-
-        // Label
-        auto *itemLabel = new QTableWidgetItem(rule.label.isEmpty() ? QStringLiteral("-") : rule.label);
-        table->setItem(i, 2, itemLabel);
-
-        // App
-        auto *itemApp = new QTableWidgetItem(rule.matchApp);
-        table->setItem(i, 3, itemApp);
-
-        // Caption / Process
-        auto *itemCaption = new QTableWidgetItem(rule.matchCaption.isEmpty() ? tr("(any)") : rule.matchCaption);
-        table->setItem(i, 4, itemCaption);
-
-        // Desktop
-        QString deskStr;
-        if (rule.matchDesktop > 0) {
-            deskStr = tr("Desktop %1").arg(rule.matchDesktop);
+    if (m_ui->label_persistentMarksStatus) {
+        if (m_persistentMarks.isEmpty()) {
+            m_ui->label_persistentMarksStatus->setText(tr("No persistent rules configured."));
         } else {
-            deskStr = tr("All");
+            m_ui->label_persistentMarksStatus->setText(
+                tr("%n persistent rule(s) configured.", nullptr, m_persistentMarks.size())
+            );
         }
-        auto *itemDesk = new QTableWidgetItem(deskStr);
-        itemDesk->setTextAlignment(Qt::AlignCenter);
-        table->setItem(i, 5, itemDesk);
     }
-}
-
-void ActiveWindowOutlineConfig::deleteSelectedPersistentMark()
-{
-    auto *table = m_ui->tablePersistentMarks;
-    const int row = table->currentRow();
-    if (row < 0 || row >= m_persistentMarks.size()) {
-        return;
-    }
-    m_persistentMarks.removeAt(row);
-    LeapKMarks::savePersistentMarks(m_persistentMarks);
-    refreshPersistentMarksTable();
-
-    QDBusMessage msg = QDBusMessage::createMethodCall(
-        QStringLiteral("org.kde.KWin"),
-        QStringLiteral("/KWin"),
-        QStringLiteral("org.kde.KWin"),
-        QStringLiteral("reconfigureEffect")
-    );
-    msg << QStringLiteral("leapk");
-    QDBusConnection::sessionBus().send(msg);
-}
-
-void ActiveWindowOutlineConfig::clearAllPersistentMarks()
-{
-    auto res = QMessageBox::question(
-        widget(),
-        tr("Clear Rules"),
-        tr("Are you sure you want to delete all persistent mark rules?"),
-        QMessageBox::Yes | QMessageBox::No
-    );
-    if (res != QMessageBox::Yes) {
-        return;
-    }
-    m_persistentMarks.clear();
-    LeapKMarks::savePersistentMarks(m_persistentMarks);
-    refreshPersistentMarksTable();
-
-    QDBusMessage msg = QDBusMessage::createMethodCall(
-        QStringLiteral("org.kde.KWin"),
-        QStringLiteral("/KWin"),
-        QStringLiteral("org.kde.KWin"),
-        QStringLiteral("reconfigureEffect")
-    );
-    msg << QStringLiteral("leapk");
-    QDBusConnection::sessionBus().send(msg);
 }
 
 void ActiveWindowOutlineConfig::initThemesTab()

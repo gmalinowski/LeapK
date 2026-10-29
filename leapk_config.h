@@ -82,8 +82,6 @@ private:
 
     void initPersistentMarksSection();
     void refreshPersistentMarksTable();
-    void deleteSelectedPersistentMark();
-    void clearAllPersistentMarks();
 
     void initThemesTab();
     void refreshThemesTable();

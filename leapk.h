@@ -346,6 +346,8 @@ private:
     QFileSystemWatcher *m_configWatcher = nullptr;
     QTimer *m_configReloadTimer = nullptr;
     QString m_configPath;
+    QFileSystemWatcher *m_marksWatcher = nullptr;
+    QTimer *m_marksReloadTimer = nullptr;
 
     // Config - Geometry & Base
     bool m_useAccentColor = true;

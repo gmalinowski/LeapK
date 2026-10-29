@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta12] - 2026-10-29
+
+### Fixed
+- **Persistent Window Markers Not Saving & Window Reopen Restoration**:
+  - Resolved critical issue where persistent mark creation was mistakenly nested inside the letter collision `reassign` check in `slotMarkWindowWithColor()`. Persistent marks now reliably write to `~/.config/leapk/marks.json` on all assignments.
+  - Added `m_marksWatcher` (`QFileSystemWatcher`) and D-Bus synchronization so external edits in Marker Manager or CLI immediately reload and reflect in running KWin instances without requiring logout.
+  - Added delayed re-check and initial frame geometry change detection in `applyPersistentMarksToWindow()` to handle Wayland compositors that populate `app_id` asynchronously after surface mapping.
+  - Fixed duplicate rule generation when re-assigning or changing letters for an existing application mark rule.
+
+### Changed
+- **Streamlined Settings UI for Persistent Marks**:
+  - Removed redundant embedded table and rule management buttons (`tablePersistentMarks`, delete, clear all, reload) from LeapK Settings (`tabBehavior`).
+  - Added dedicated launcher card with real-time rule count and a button to open the full standalone LeapK Marker & Group Manager (`leapk-marker-manager`).
+  - Added `leapk-marker-manager.desktop` launcher for KDE Application Launcher and KRunner integration.
+
 ## [1.6.0-beta5] - 2026-10-29
 
 ### Added

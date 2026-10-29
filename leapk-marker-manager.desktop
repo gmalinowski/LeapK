@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=LeapK Marker & Group Manager
+Name[pl]=Menedżer znaczników i grup LeapK
+GenericName=Window Marker & Group Manager
+GenericName[pl]=Menedżer znaczników i grup okien
+Comment=Manage persistent markers, letters, and window groups for LeapK
+Comment[pl]=Zarządzaj trwałymi znacznikami, literami i grupami okien LeapK
+Exec=leapk-marker-manager
+Icon=preferences-system-windows
+Categories=Settings;DesktopSettings;Qt;KDE;Utility;
+StartupNotify=true

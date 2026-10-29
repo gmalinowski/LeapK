@@ -1725,13 +1725,13 @@
        <item>
         <widget class="QGroupBox" name="groupPersistentMarks">
          <property name="title">
-          <string>Persistent Marks &amp; Rules</string>
+          <string>Persistent Marks &amp; Application Groups</string>
          </property>
          <layout class="QVBoxLayout" name="verticalLayoutPersistentMarks">
           <item>
            <widget class="QLabel" name="label_persistentMarksDescription">
             <property name="text">
-             <string>Persistent rules saved in ~/.config/leapk/marks.json. Windows matching the application, title substring, process, or desktop are automatically marked with letter badges and jump keys.</string>
+             <string>Persistent window markers, letters, and application group rules are managed in the dedicated Marker &amp; Group Manager window. Rules are saved in ~/.config/leapk/marks.json.</string>
             </property>
             <property name="wordWrap">
              <bool>true</bool>
@@ -1739,40 +1739,11 @@
            </widget>
           </item>
           <item>
-           <widget class="QTableWidget" name="tablePersistentMarks">
-            <property name="selectionBehavior">
-             <enum>QAbstractItemView::SelectRows</enum>
-            </property>
-            <property name="selectionMode">
-             <enum>QAbstractItemView::SingleSelection</enum>
-            </property>
-            <property name="editTriggers">
-             <enum>QAbstractItemView::NoEditTriggers</enum>
-            </property>
-            <property name="minimumHeight">
-             <number>150</number>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <layout class="QHBoxLayout" name="layoutPersistentMarksButtons">
+           <layout class="QHBoxLayout" name="layoutPersistentMarksAction">
             <item>
-             <widget class="QPushButton" name="btnDeletePersistentMark">
+             <widget class="QLabel" name="label_persistentMarksStatus">
               <property name="text">
-               <string>Delete Rule</string>
-              </property>
-              <property name="toolTip">
-               <string>Deletes the selected persistent mark rule from marks.json.</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btnClearAllPersistentMarks">
-              <property name="text">
-               <string>Clear All Rules</string>
-              </property>
-              <property name="toolTip">
-               <string>Deletes all saved mark rules.</string>
+               <string>Rules configured: 0</string>
               </property>
              </widget>
             </item>
@@ -1790,12 +1761,12 @@
              </spacer>
             </item>
             <item>
-             <widget class="QPushButton" name="btnReloadPersistentMarks">
+             <widget class="QPushButton" name="btnOpenMarkerManager">
               <property name="text">
-               <string>Reload Rules</string>
+               <string>🏷️ Open Marker &amp; Group Manager…</string>
               </property>
               <property name="toolTip">
-               <string>Reloads rules from ~/.config/leapk/marks.json.</string>
+               <string>Opens the dedicated LeapK Marker &amp; Group Manager window to manage, create, and edit window markers.</string>
               </property>
              </widget>
             </item>

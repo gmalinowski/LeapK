@@ -305,6 +305,7 @@ rm -f "$HOME/.local/share/applications/kleap-settings.desktop" \
 mkdir -p "$HOME/.local/share/applications" "$HOME/.local/share/icons/hicolor/scalable/apps"
 cp "$project_dir/leapk-settings.desktop" "$HOME/.local/share/applications/"
 cp "$project_dir/leapk-tray.desktop" "$HOME/.local/share/applications/"
+cp "$project_dir/leapk-marker-manager.desktop" "$HOME/.local/share/applications/"
 cp "$project_dir/leapk.svg" "$HOME/.local/share/icons/hicolor/scalable/apps/leapk.svg"
 
 # Install/update user binaries in ~/.local/bin if present

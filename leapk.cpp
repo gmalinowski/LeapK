@@ -556,6 +556,47 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
         }
     });
 
+    const QString marksDir = LeapKMarks::defaultMarksDirectory();
+    const QString marksPath = LeapKMarks::defaultMarksFilePath();
+    m_marksWatcher = new QFileSystemWatcher(this);
+    if (QFileInfo::exists(marksPath)) {
+        m_marksWatcher->addPath(marksPath);
+    }
+    if (QDir(marksDir).exists()) {
+        m_marksWatcher->addPath(marksDir);
+    }
+
+    m_marksReloadTimer = new QTimer(this);
+    m_marksReloadTimer->setSingleShot(true);
+    m_marksReloadTimer->setInterval(150);
+
+    const auto scheduleMarksReload = [this] {
+        m_marksReloadTimer->start();
+    };
+    connect(m_marksWatcher, &QFileSystemWatcher::fileChanged,
+            this, scheduleMarksReload);
+    connect(m_marksWatcher, &QFileSystemWatcher::directoryChanged,
+            this, scheduleMarksReload);
+    connect(m_marksReloadTimer, &QTimer::timeout, this, [this, marksDir, marksPath] {
+        if (QFileInfo::exists(marksPath) && !m_marksWatcher->files().contains(marksPath)) {
+            m_marksWatcher->addPath(marksPath);
+        }
+        m_persistentMarks = LeapKMarks::loadPersistentMarks();
+        refreshPersistentMarksForWindows();
+        if (effects) {
+            effects->addRepaintFull();
+        }
+    });
+
+    connect(m_marksWatcher, &QFileSystemWatcher::fileChanged,
+            this, [this, marksDir, marksPath] {
+        if (!m_marksWatcher->files().contains(marksPath)) {
+            if (QDir(marksDir).exists() && !m_marksWatcher->directories().contains(marksDir)) {
+                m_marksWatcher->addPath(marksDir);
+            }
+        }
+    });
+
     m_activeWindow = effects->activeWindow();
     const auto windows = effects->stackingOrder();
     for (EffectWindow *w : windows) {
@@ -1356,6 +1397,14 @@ void ActiveWindowOutlineEffect::applyPersistentMarksToWindow(EffectWindow *w)
     const auto *rule = LeapKMarks::findBestMatchingRule(m_persistentMarks, w->windowClass(), w->caption(), desktopNum, w->pid());
     if (rule) {
         setWindowMark(w, rule->color, rule->letter, rule->label);
+    } else if (w->windowClass().isEmpty()) {
+        // Wayland app_id may not be set when the window is first added; re-check after brief delay
+        QPointer<EffectWindow> pw(w);
+        QTimer::singleShot(100, this, [this, pw]() {
+            if (pw && !pw->isDeleted() && !m_markedWindows.contains(pw.data())) {
+                applyPersistentMarksToWindow(pw.data());
+            }
+        });
     }
 }
 
@@ -2468,6 +2517,10 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
 void ActiveWindowOutlineEffect::slotWindowFrameGeometryChanged(EffectWindow *w,
                                                             const QRectF &oldGeometry)
 {
+    if (w && !m_markedWindows.contains(w) && !m_persistentMarks.isEmpty()) {
+        applyPersistentMarksToWindow(w);
+    }
+
     if (m_activeWindow && w != m_activeWindow) {
         const QRectF activeGeo = expandedGeometryFor(m_activeWindow);
         if (oldGeometry.intersects(activeGeo) || w->frameGeometry().intersects(activeGeo)) {
@@ -3254,6 +3307,7 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
                     QString colorStr;
                     QString letterStr;
                     QString labelStr;
+                    QString targetAppClass;
                     bool persist = true;
                     bool groupByApp = true;
                     QString matchCaption;
@@ -3300,6 +3354,7 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
                             matchCaption = obj.value(QStringLiteral("matchCaption")).toString().trimmed();
                             matchDesktop = obj.value(QStringLiteral("matchDesktop")).toInt(0);
                             reassign = obj.value(QStringLiteral("reassign")).toBool(false);
+                            targetAppClass = obj.value(QStringLiteral("appClass")).toString().trimmed();
                         }
                     } else {
                         // Legacy space-separated fallback
@@ -3340,15 +3395,18 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
 
                     applyMark(picked, pickedLetter, labelStr, useColor, useLetter);
 
-                    if (reassign && targetWindow && !pickedLetter.isNull()) {
-                        EffectWindow *w = targetWindow.data();
+                    EffectWindow *w = targetWindow ? targetWindow.data() : nullptr;
+                    const QString appClass = !targetAppClass.isEmpty()
+                        ? targetAppClass
+                        : (w ? w->windowClass() : QString());
 
+                    if (reassign && !pickedLetter.isNull() && !appClass.isEmpty()) {
                         // Reassign: if any other window belonging to a DIFFERENT application held this letter, release it
                         if (effects) {
                             for (auto it = m_markedWindowLetters.begin(); it != m_markedWindowLetters.end(); ) {
                                 EffectWindow *other = it.key();
                                 if (other && other != w && it.value() == pickedLetter) {
-                                    if (other->windowClass().compare(w->windowClass(), Qt::CaseInsensitive) != 0) {
+                                    if (other->windowClass().compare(appClass, Qt::CaseInsensitive) != 0) {
                                         it = m_markedWindowLetters.erase(it);
                                         effects->addRepaint(expandedGeometryFor(other));
                                         continue;
@@ -3361,60 +3419,63 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
                         // Also clean up any persistent mark rule for a different app that claimed this letter
                         for (int i = m_persistentMarks.size() - 1; i >= 0; --i) {
                             const auto &r = m_persistentMarks.at(i);
-                            if (r.letter == pickedLetter && r.matchApp.compare(w->windowClass(), Qt::CaseInsensitive) != 0) {
+                            if (r.letter == pickedLetter && r.matchApp.compare(appClass, Qt::CaseInsensitive) != 0) {
                                 m_persistentMarks.removeAt(i);
                             }
                         }
+                    }
 
-                        if (groupByApp) {
-                            // Apply mark to all open windows of this application matching matchCaption
-                            if (effects) {
-                                const auto allWindows = effects->stackingOrder();
-                                for (EffectWindow *other : allWindows) {
-                                    if (other && other != w && isEligibleTargetWindow(other)) {
-                                        if (other->windowClass().compare(w->windowClass(), Qt::CaseInsensitive) == 0) {
-                                            if (matchCaption.isEmpty() || other->caption().contains(matchCaption, Qt::CaseInsensitive)) {
-                                                setWindowMark(other, picked.isValid() ? picked : m_markDefaultColor, pickedLetter, labelStr);
-                                            }
-                                        }
+                    const QColor effectiveMarkColor = w
+                        ? m_markedWindows.value(w, picked.isValid() ? picked : m_markDefaultColor)
+                        : (picked.isValid() ? picked : m_markDefaultColor);
+
+                    if (groupByApp && effects && !appClass.isEmpty()) {
+                        // Apply mark to all open windows of this application matching matchCaption
+                        const auto allWindows = effects->stackingOrder();
+                        for (EffectWindow *other : allWindows) {
+                            if (other && other != w && isEligibleTargetWindow(other)) {
+                                if (other->windowClass().compare(appClass, Qt::CaseInsensitive) == 0) {
+                                    if (matchCaption.isEmpty() || other->caption().contains(matchCaption, Qt::CaseInsensitive)) {
+                                        setWindowMark(other, effectiveMarkColor, pickedLetter, labelStr);
                                     }
                                 }
                             }
                         }
+                    }
 
-                        if (persist) {
-                            LeapKMarks::PersistentMarkRule rule;
-                            rule.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-                            rule.letter = pickedLetter;
-                            rule.color = picked.isValid() ? picked : m_markDefaultColor;
-                            rule.label = labelStr;
-                            rule.matchApp = w->windowClass();
-                            rule.matchCaption = matchCaption;
-                            rule.matchDesktop = matchDesktop;
-                            rule.enabled = true;
-                            rule.createdAt = QDateTime::currentMSecsSinceEpoch();
+                    if (persist && (!appClass.isEmpty() || !matchCaption.isEmpty())) {
+                        LeapKMarks::PersistentMarkRule rule;
+                        rule.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+                        rule.letter = pickedLetter;
+                        rule.color = effectiveMarkColor;
+                        rule.label = labelStr;
+                        rule.matchApp = appClass;
+                        rule.matchCaption = matchCaption;
+                        rule.matchDesktop = matchDesktop;
+                        rule.enabled = true;
+                        rule.createdAt = QDateTime::currentMSecsSinceEpoch();
 
-                            bool updated = false;
-                            for (auto &r : m_persistentMarks) {
-                                if (r.matchApp.compare(rule.matchApp, Qt::CaseInsensitive) == 0
-                                    && r.matchCaption.compare(rule.matchCaption, Qt::CaseInsensitive) == 0
-                                    && r.matchDesktop == rule.matchDesktop
-                                    && r.letter == rule.letter) {
-                                    r.color = rule.color;
-                                    r.label = rule.label;
-                                    updated = true;
-                                    break;
-                                }
+                        bool updated = false;
+                        for (auto &r : m_persistentMarks) {
+                            if (r.matchApp.compare(rule.matchApp, Qt::CaseInsensitive) == 0
+                                && r.matchCaption.compare(rule.matchCaption, Qt::CaseInsensitive) == 0
+                                && r.matchDesktop == rule.matchDesktop) {
+                                r.letter = rule.letter;
+                                r.color = rule.color;
+                                r.label = rule.label;
+                                r.enabled = true;
+                                updated = true;
+                                break;
                             }
-                            if (!updated) {
-                                m_persistentMarks.append(rule);
-                            }
-                            LeapKMarks::savePersistentMarks(m_persistentMarks);
                         }
+                        if (!updated) {
+                            m_persistentMarks.append(rule);
+                        }
+                        LeapKMarks::savePersistentMarks(m_persistentMarks);
+                    }
 
-                        if (effects) {
-                            effects->addRepaintFull();
-                        }
+                    if (effects) {
+                        effects->addRepaintFull();
                     }
                 }
             }
