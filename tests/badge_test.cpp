@@ -1394,6 +1394,87 @@ void testPillThumbnailClippingAndThemes()
     assert(termBg.green() > termBg.red() && termBg.green() > termBg.blue());
 }
 
+void testSubLeapTargetDistribution()
+{
+    using OutlineBadge::BadgeConfig;
+    using OutlineBadge::SubLeapCandidate;
+    using OutlineBadge::classifySubLeapTarget;
+
+    // 1. Group disambiguation with hudIncludeAll = true and hudGroupWindows = true (The user's configuration)
+    BadgeConfig cfg;
+    cfg.hudIncludeAll = true;
+    cfg.hudGroupWindows = true;
+    cfg.windowBadgesEnabled = true;
+
+    // Window 1: Top/active terminal (unobscured)
+    SubLeapCandidate win1;
+    win1.letter = 'T';
+    win1.isOnCurrentDesktop = true;
+    win1.isMinimized = false;
+    win1.isObscured = false;
+    win1.isActiveWindow = true;
+
+    // Window 2: Middle terminal (obscured behind active)
+    SubLeapCandidate win2;
+    win2.letter = 'R';
+    win2.isOnCurrentDesktop = true;
+    win2.isMinimized = false;
+    win2.isObscured = true;
+    win2.isActiveWindow = false;
+
+    // Window 3: Bottom terminal (obscured behind others)
+    SubLeapCandidate win3;
+    win3.letter = 'Y';
+    win3.isOnCurrentDesktop = true;
+    win3.isMinimized = false;
+    win3.isObscured = true;
+    win3.isActiveWindow = false;
+
+    auto res1 = classifySubLeapTarget(win1, cfg);
+    auto res2 = classifySubLeapTarget(win2, cfg);
+    auto res3 = classifySubLeapTarget(win3, cfg);
+
+    // All 3 terminals MUST be included in the HUD!
+    assert(res1.addToHud);
+    assert(res2.addToHud);
+    assert(res3.addToHud);
+
+    // Visible window gets on-screen badge; obscured windows do not
+    assert(res1.addToOnscreen);
+    assert(!res2.addToOnscreen);
+    assert(!res3.addToOnscreen);
+
+    // 2. Disambiguation with minimized and cross-desktop instances
+    SubLeapCandidate winMin;
+    winMin.letter = 'M';
+    winMin.isMinimized = true;
+
+    SubLeapCandidate winOtherDesk;
+    winOtherDesk.letter = 'O';
+    winOtherDesk.isOnCurrentDesktop = false;
+
+    auto resMin = classifySubLeapTarget(winMin, cfg);
+    auto resOther = classifySubLeapTarget(winOtherDesk, cfg);
+    assert(resMin.addToHud);
+    assert(!resMin.addToOnscreen);
+    assert(resOther.addToHud);
+    assert(!resOther.addToOnscreen);
+
+    // 3. Window badges disabled entirely
+    BadgeConfig cfgNoWindowBadges;
+    cfgNoWindowBadges.windowBadgesEnabled = false;
+    auto resNoBadges = classifySubLeapTarget(win1, cfgNoWindowBadges);
+    assert(resNoBadges.addToHud);
+    assert(!resNoBadges.addToOnscreen);
+
+    // 4. Stash mode active
+    BadgeConfig cfgDefault;
+    cfgDefault.hudIncludeAll = false;
+    cfgDefault.hudGroupWindows = false;
+    auto resStash = classifySubLeapTarget(win1, cfgDefault, true);
+    assert(resStash.addToHud);
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -1425,6 +1506,7 @@ int main(int argc, char *argv[])
     testAudioIndicatorRendering();
     testSearchModeRendering();
     testPillThumbnailClippingAndThemes();
+    testSubLeapTargetDistribution();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

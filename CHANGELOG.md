@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta13] - 2026-10-29
+
+### Fixed
+- **Group Disambiguation (Sub-Leap) Letter & Card Display Bug**:
+  - Resolved critical issue where pressing a group letter key (e.g. `T` for 3 terminal instances) entered "group disambiguation" mode but displayed zero HUD cards or selection letters.
+  - Corrected inverted `!forceHud` condition in `m_subLeapActive` target classification where `BadgeHudIncludeAll=true` mistakenly caused obscured, minimized, or covered group instances to be dropped.
+  - Implemented unified, robust candidate classification (`OutlineBadge::classifySubLeapTarget`) guaranteeing all disambiguation candidates are displayed in the HUD dock (when `hudIncludeAll` or `hudGroupWindows` is active), while visible unobscured windows on the current desktop also receive on-screen badges.
+  - Suppressed redundant group instance counter `(N)` on individual candidate cards during group disambiguation.
+  - Added comprehensive automated test suite `testSubLeapTargetDistribution` to verify 100% inclusion of all candidate windows in disambiguation mode.
+
 ## [1.6.0-beta12] - 2026-10-29
 
 ### Fixed

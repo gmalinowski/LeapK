@@ -7069,7 +7069,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
 
         int groupCount = 0;
-        if (cfg.hudGroupWindows && m_groupJumpLetters.contains(letter)) {
+        if (!m_subLeapActive && cfg.hudGroupWindows && m_groupJumpLetters.contains(letter)) {
             groupCount = m_groupJumpLetters.value(letter).size();
         }
 
@@ -8585,47 +8585,33 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 }
             }
         } else if (m_subLeapActive) {
-            // In Sub-Leap disambiguation mode, distribute targets mutually exclusively:
-            // Visible unobscured windows on current desktop get badges on the windows;
-            // covered, minimized, or other-desktop windows appear in the edge HUD.
+            // In Sub-Leap disambiguation mode:
+            // When hudIncludeAll, hudGroupWindows, or window badges are disabled, all disambiguation targets
+            // appear as cards in the HUD dock.
+            // Any window that is obscured, minimized, off-desktop, pinned, or stashed also appears in the HUD.
+            // Additionally, any window visible unobscured on the current desktop receives an on-screen badge.
             for (const auto &pair : m_subLeapTargets) {
                 EffectWindow *target = pair.second;
                 if (!target || target->isDeleted() || !isEligibleTargetWindow(target)) {
                     continue;
                 }
 
-                if (target == w) {
-                    if (target->isOnCurrentDesktop() && !target->isMinimized()) {
-                        onscreenTargets.append(pair);
-                    }
-                    if (isWindowPinned(target) || m_stashModeActive) {
-                        offscreenTargets.append(pair);
-                    }
-                    continue;
-                }
-
-                const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(target) || m_stashModeActive;
-
-                const bool onCurrent = target->isOnCurrentDesktop();
-                const bool minimized = target->isMinimized();
-
-                if (!onCurrent || minimized) {
-                    if (!forceHud) {
-                        offscreenTargets.append(pair);
-                    }
-                    continue;
-                }
-
+                OutlineBadge::SubLeapCandidate cand;
+                cand.letter = pair.first;
+                cand.isOnCurrentDesktop = target->isOnCurrentDesktop();
+                cand.isMinimized = target->isMinimized();
                 const QRectF geo = target->frameGeometry();
                 const QRectF visibleWindowGeo = geo.intersected(screenRect);
-                if (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50 || isWindowObscured(target)) {
-                    if (!forceHud) {
-                        offscreenTargets.append(pair);
-                    }
-                    continue;
-                }
+                cand.isTinyOrOffscreen = (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50);
+                cand.isObscured = isWindowObscured(target);
+                cand.isPinned = isWindowPinned(target);
+                cand.isActiveWindow = (target == w);
 
-                if (m_badgeConfig.windowBadgesEnabled) {
+                const auto dist = OutlineBadge::classifySubLeapTarget(cand, m_badgeConfig, m_stashModeActive);
+                if (dist.addToHud) {
+                    offscreenTargets.append(pair);
+                }
+                if (dist.addToOnscreen) {
                     onscreenTargets.append(pair);
                 }
             }
@@ -8852,8 +8838,11 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                         badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
                     } else {
                         if (!m_badgeConfig.hudIncludeAll) {
-                            offscreenTargets.append(qMakePair(letter, target));
-                            hudRects = computeHudPillRects(offscreenTargets, viewport, m_badgeConfig.hudBadgeSize, m_badgeConfig, dividerAfterIndex);
+                            const auto pair = qMakePair(letter, target);
+                            if (!offscreenTargets.contains(pair)) {
+                                offscreenTargets.append(pair);
+                                hudRects = computeHudPillRects(offscreenTargets, viewport, m_badgeConfig.hudBadgeSize, m_badgeConfig, dividerAfterIndex);
+                            }
                         }
                         continue;
                     }

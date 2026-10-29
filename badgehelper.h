@@ -130,6 +130,34 @@ struct BadgeConfig {
     int thumbnailHeight = 32;
 };
 
+struct SubLeapCandidate {
+    QChar letter;
+    bool isOnCurrentDesktop = true;
+    bool isMinimized = false;
+    bool isObscured = false;
+    bool isTinyOrOffscreen = false;
+    bool isPinned = false;
+    bool isActiveWindow = false;
+};
+
+struct TargetDistributionResult {
+    bool addToHud = false;
+    bool addToOnscreen = false;
+};
+
+inline TargetDistributionResult classifySubLeapTarget(const SubLeapCandidate &cand, const BadgeConfig &cfg, bool isStashModeActive = false)
+{
+    const bool forceHud = cfg.hudIncludeAll || cfg.hudGroupWindows || !cfg.windowBadgesEnabled || isStashModeActive;
+
+    const bool isVisibleOnscreen = cand.isOnCurrentDesktop && !cand.isMinimized && !cand.isTinyOrOffscreen && (!cand.isObscured || cand.isActiveWindow);
+
+    TargetDistributionResult res;
+    res.addToHud = forceHud || !isVisibleOnscreen || cand.isPinned;
+    res.addToOnscreen = cfg.windowBadgesEnabled && cand.isOnCurrentDesktop && !cand.isMinimized && !cand.isTinyOrOffscreen && (cand.isActiveWindow || !cand.isObscured);
+
+    return res;
+}
+
 inline const QString &preferredLetterPool()
 {
     static const QString pool = QStringLiteral("ASDFJKLQWERTYUIOPZXCVBNM123456789");
