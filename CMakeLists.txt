@@ -48,7 +48,7 @@ list(APPEND CMAKE_AUTOMOC_MACRO_NAMES
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Widgets Quick Network)
+find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Widgets Quick Network Svg)
 find_package(KF6 REQUIRED COMPONENTS CoreAddons Config ConfigWidgets KCMUtils GlobalAccel)
 find_package(${KWIN_PACKAGE} REQUIRED)
 
@@ -68,6 +68,7 @@ target_link_libraries(leapk PRIVATE
     KF6::GlobalAccel
     Qt6::Widgets
     Qt6::DBus
+    Qt6::Svg
 )
 # Identify the loaded library, including uncommitted test builds.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
@@ -160,6 +161,7 @@ target_link_libraries(kwin_leapk_config PRIVATE
     Qt6::DBus
     Qt6::Widgets
     Qt6::Network
+    Qt6::Svg
     KF6::CoreAddons
     KF6::ConfigWidgets
     KF6::KCMUtils
@@ -173,6 +175,7 @@ target_compile_definitions(kwin_leapk_config PRIVATE
 add_executable(leapk-custom-marker colorpicker.cpp)
 target_link_libraries(leapk-custom-marker PRIVATE
     Qt6::Widgets
+    Qt6::Svg
 )
 install(TARGETS leapk-custom-marker
     DESTINATION ${KDE_INSTALL_LIBEXECDIR}
@@ -182,6 +185,7 @@ install(TARGETS leapk-custom-marker
 add_executable(leapk-workspace-manager workspacemanager.cpp)
 target_link_libraries(leapk-workspace-manager PRIVATE
     Qt6::Widgets
+    Qt6::Svg
 )
 install(TARGETS leapk-workspace-manager
     DESTINATION ${KDE_INSTALL_LIBEXECDIR}
@@ -191,6 +195,7 @@ install(TARGETS leapk-workspace-manager
 add_executable(leapk-marker-manager markermanager.cpp)
 target_link_libraries(leapk-marker-manager PRIVATE
     Qt6::Widgets
+    Qt6::Svg
 )
 install(TARGETS leapk-marker-manager
     DESTINATION ${KDE_INSTALL_LIBEXECDIR}
@@ -209,6 +214,7 @@ target_link_libraries(leapk-tray PRIVATE
     Qt6::Widgets
     Qt6::DBus
     Qt6::Network
+    Qt6::Svg
     KF6::CoreAddons
     KF6::ConfigCore
     KF6::ConfigWidgets
@@ -231,6 +237,7 @@ target_link_libraries(leapk-settings PRIVATE
     Qt6::Widgets
     Qt6::DBus
     Qt6::Network
+    Qt6::Svg
     KF6::CoreAddons
     KF6::ConfigCore
     KF6::ConfigWidgets
@@ -350,7 +357,7 @@ if(OUTLINE_BUILD_TESTS)
 
     add_executable(outline-badge-test tests/badge_test.cpp)
     target_include_directories(outline-badge-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-    target_link_libraries(outline-badge-test PRIVATE Qt6::Core Qt6::Gui)
+    target_link_libraries(outline-badge-test PRIVATE Qt6::Core Qt6::Gui Qt6::Svg)
     add_test(NAME outline-badge COMMAND outline-badge-test)
 
     add_executable(outline-history-test tests/history_test.cpp)
@@ -385,12 +392,12 @@ if(OUTLINE_BUILD_TESTS)
 
     add_executable(outline-superjump-test tests/superjump_test.cpp)
     target_include_directories(outline-superjump-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-    target_link_libraries(outline-superjump-test PRIVATE Qt6::Core Qt6::Gui)
+    target_link_libraries(outline-superjump-test PRIVATE Qt6::Core Qt6::Gui Qt6::Svg)
     add_test(NAME outline-superjump COMMAND outline-superjump-test)
 
     add_executable(outline-hud-layout-test tests/hudlayout_test.cpp)
     target_include_directories(outline-hud-layout-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-    target_link_libraries(outline-hud-layout-test PRIVATE Qt6::Core Qt6::Gui)
+    target_link_libraries(outline-hud-layout-test PRIVATE Qt6::Core Qt6::Gui Qt6::Svg)
     add_test(NAME outline-hud-layout COMMAND outline-hud-layout-test)
 
     add_executable(outline-workspace-rules-test tests/workspacerules_test.cpp)
@@ -430,7 +437,7 @@ if(OUTLINE_BUILD_TESTS)
 
     add_executable(outline-theme-test tests/theme_test.cpp)
     target_include_directories(outline-theme-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-    target_link_libraries(outline-theme-test PRIVATE Qt6::Core Qt6::Gui)
+    target_link_libraries(outline-theme-test PRIVATE Qt6::Core Qt6::Gui Qt6::Svg)
     add_test(NAME outline-theme COMMAND outline-theme-test)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)

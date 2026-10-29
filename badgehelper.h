@@ -18,6 +18,7 @@
 #include <QRandomGenerator>
 #include <QRectF>
 #include <QSizeF>
+#include <QSvgRenderer>
 #include <QString>
 #include <QStringList>
 #include <QSet>
@@ -2584,12 +2585,65 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     return img;
 }
 
+inline bool isNavGraphicIcon(const QString &spec)
+{
+    if (spec.isEmpty()) {
+        return false;
+    }
+    const QString trimmed = spec.trimmed();
+    return trimmed.startsWith(QLatin1String("<svg"), Qt::CaseInsensitive)
+        || trimmed.startsWith(QLatin1String("<?xml"), Qt::CaseInsensitive)
+        || trimmed.endsWith(QLatin1String(".svg"), Qt::CaseInsensitive)
+        || trimmed.endsWith(QLatin1String(".png"), Qt::CaseInsensitive)
+        || trimmed.startsWith(QLatin1String("theme:"), Qt::CaseInsensitive)
+        || trimmed.startsWith(QLatin1String("system:"), Qt::CaseInsensitive)
+        || trimmed.startsWith(QLatin1String("qicon:"), Qt::CaseInsensitive)
+        || trimmed.startsWith(QLatin1String(":/"))
+        || (trimmed.startsWith(QLatin1Char('/')) && (trimmed.endsWith(QLatin1String(".svg")) || trimmed.endsWith(QLatin1String(".png"))));
+}
+
+inline void renderNavGraphicIcon(QPainter &p, const QRectF &rect, const QString &spec)
+{
+    const QString trimmed = spec.trimmed();
+    if (trimmed.startsWith(QLatin1String("<svg"), Qt::CaseInsensitive)
+        || trimmed.startsWith(QLatin1String("<?xml"), Qt::CaseInsensitive)) {
+        QSvgRenderer renderer(trimmed.toUtf8());
+        if (renderer.isValid()) {
+            renderer.render(&p, rect);
+            return;
+        }
+    } else if (trimmed.startsWith(QLatin1String("theme:")) || trimmed.startsWith(QLatin1String("system:")) || trimmed.startsWith(QLatin1String("qicon:"))) {
+        const int colonIdx = trimmed.indexOf(QLatin1Char(':'));
+        const QString iconName = trimmed.mid(colonIdx + 1).trimmed();
+        QIcon ic = QIcon::fromTheme(iconName);
+        if (!ic.isNull()) {
+            ic.paint(&p, rect.toRect());
+            return;
+        }
+    } else if (trimmed.endsWith(QLatin1String(".svg"), Qt::CaseInsensitive)) {
+        QSvgRenderer renderer(trimmed);
+        if (renderer.isValid()) {
+            renderer.render(&p, rect);
+            return;
+        }
+    }
+    QIcon ic(trimmed);
+    if (!ic.isNull()) {
+        ic.paint(&p, rect.toRect());
+    }
+}
+
 struct HudModeHeaderView {
     QString name;
     QColor color;
     int windowCount = 0;
     bool isActive = false;
     bool isPlayingAudio = false;
+    QString icon;
+
+    HudModeHeaderView() = default;
+    HudModeHeaderView(const QString &n, const QColor &c, int wc = 0, bool active = false, bool audio = false, const QString &ic = QString())
+        : name(n), color(c), windowCount(wc), isActive(active), isPlayingAudio(audio), icon(ic) {}
 };
 
 inline QImage renderHudModeHeader(qreal scale,
@@ -2635,9 +2689,9 @@ inline QImage renderHudModeHeader(qreal scale,
         QFontMetrics fmCount(countFont);
 
         const QString scopeNames[] = {
-            QStringLiteral("💻 Current WS"),
-            QStringLiteral("🌐 All"),
-            QStringLiteral("📦 All + Stash")
+            theme.hudNav.standardIcon.isEmpty() ? QStringLiteral("Current WS") : (theme.hudNav.standardIcon + QStringLiteral(" Current WS")),
+            theme.hudNav.allIcon.isEmpty() ? QStringLiteral("All") : (theme.hudNav.allIcon + QStringLiteral(" All")),
+            theme.hudNav.stashIcon.isEmpty() ? QStringLiteral("All + Stash") : (theme.hudNav.stashIcon + QStringLiteral(" All + Stash"))
         };
 
         const QString countText = QStringLiteral("%1 matches").arg(searchCount);
@@ -2936,7 +2990,10 @@ inline QImage renderHudModeHeader(qreal scale,
     }
 
     if (isStashMode) {
-        const QString leftText = QStringLiteral("📦 STASH: Pick a window to add to [%1]").arg(!targetWorkspaceName.isEmpty() ? targetWorkspaceName : QStringLiteral("Workspace"));
+        const QString stashPrefix = theme.hudNav.stashIcon.isEmpty()
+            ? QStringLiteral("STASH")
+            : (theme.hudNav.stashIcon + QStringLiteral(" STASH"));
+        const QString leftText = QStringLiteral("%1: Pick a window to add to [%2]").arg(stashPrefix, !targetWorkspaceName.isEmpty() ? targetWorkspaceName : QStringLiteral("Workspace"));
         const QString rightText = QStringLiteral(", / . : Switch workspace  •  Esc : Back");
 
         QFont titleFont(QStringLiteral("sans-serif"));
@@ -2998,8 +3055,8 @@ inline QImage renderHudModeHeader(qreal scale,
         return QImage();
     }
 
-    const QString navLeft = QStringLiteral("◂ ,");
-    const QString navRight = QStringLiteral(". ▸");
+    const QString navLeft = theme.hudNav.arrowLeft.isEmpty() ? QStringLiteral("◂ ,") : theme.hudNav.arrowLeft;
+    const QString navRight = theme.hudNav.arrowRight.isEmpty() ? QStringLiteral(". ▸") : theme.hudNav.arrowRight;
 
     QFont navFont(QStringLiteral("sans-serif"));
     navFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.0) * scale)) : qMax(9, qRound(11.5 * scale)));
@@ -3025,26 +3082,79 @@ inline QImage renderHudModeHeader(qreal scale,
     const int tabH = headerH - 2 * padY;
     const int padX = qMax(qRound(14 * scale), qRound(headerH * 0.36));
 
+    const qreal headerAudioScale = qBound(0.7, theme.hudCard.audioIndicatorScale > 0.0 ? theme.hudCard.audioIndicatorScale : 1.0, 3.0);
+    const qreal headerIconScale = qBound(0.6, theme.hudNav.iconScale > 0.0 ? theme.hudNav.iconScale : 1.0, 2.5);
+
+    auto extractIconAndCleanName = [&](const QString &fullName, const QString &explicitIcon, int tabIndex, int totalTabs) -> QPair<QString, QString> {
+        if (!explicitIcon.isEmpty()) {
+            return {explicitIcon, fullName};
+        }
+        if (fullName.startsWith(QStringLiteral("💻 "))) {
+            return {theme.hudNav.standardIcon, fullName.mid(3)};
+        }
+        if (fullName.startsWith(QStringLiteral("📁 "))) {
+            return {theme.hudNav.workspaceIcon, fullName.mid(3)};
+        }
+        if (fullName.startsWith(QStringLiteral("🌐 "))) {
+            return {theme.hudNav.allIcon, fullName.mid(3)};
+        }
+        if (fullName.startsWith(QStringLiteral("📦 "))) {
+            return {theme.hudNav.stashIcon, fullName.mid(3)};
+        }
+        if (tabIndex == 0) {
+            return {theme.hudNav.standardIcon, fullName};
+        }
+        if (totalTabs > 1 && tabIndex == totalTabs - 1) {
+            return {theme.hudNav.allIcon, fullName};
+        }
+        return {theme.hudNav.workspaceIcon, fullName};
+    };
+
     struct TabRenderInfo {
         QString text;
+        QString icon;
+        bool isGraphicIcon;
+        int iconDim;
+        int iconGap;
         int width;
         bool isActive;
         QColor color;
         bool isPlayingAudio;
     };
 
-    const qreal headerAudioScale = qBound(0.7, theme.hudCard.audioIndicatorScale > 0.0 ? theme.hudCard.audioIndicatorScale : 1.0, 3.0);
-
     QList<TabRenderInfo> tabInfos;
     tabInfos.reserve(views.size());
 
     int allTabsW = 0;
-    for (const auto &v : views) {
-        const QString text = QStringLiteral("%1 (%2)").arg(v.name).arg(v.windowCount);
+    for (int i = 0; i < views.size(); ++i) {
+        const auto &v = views.at(i);
+        const auto pair = extractIconAndCleanName(v.name, v.icon, i, views.size());
+        const QString tabIcon = pair.first;
+        const QString cleanName = pair.second;
+        const bool isGraphic = isNavGraphicIcon(tabIcon);
+
+        QString displayText;
+        int graphicDim = 0;
+        int graphicGap = 0;
+
+        if (isGraphic) {
+            displayText = QStringLiteral("%1 (%2)").arg(cleanName).arg(v.windowCount);
+            graphicDim = qRound(15.0 * scale * headerIconScale);
+            graphicGap = qRound(6.0 * scale);
+        } else {
+            if (!tabIcon.isEmpty()) {
+                displayText = QStringLiteral("%1 %2 (%3)").arg(tabIcon, cleanName).arg(v.windowCount);
+            } else {
+                displayText = QStringLiteral("%1 (%2)").arg(cleanName).arg(v.windowCount);
+            }
+        }
+
         const int speakerExtra = v.isPlayingAudio ? qRound(22.0 * scale * headerAudioScale) : 0;
-        const int textW = (v.isActive ? fmActive.horizontalAdvance(text) : fmInactive.horizontalAdvance(text)) + speakerExtra;
-        const int tabW = textW + 2 * tabPadX;
-        tabInfos.append({text, tabW, v.isActive, v.color, v.isPlayingAudio});
+        const int graphicExtra = isGraphic ? (graphicDim + graphicGap) : 0;
+        const int rawTextW = v.isActive ? fmActive.horizontalAdvance(displayText) : fmInactive.horizontalAdvance(displayText);
+        const int tabW = graphicExtra + rawTextW + speakerExtra + 2 * tabPadX;
+
+        tabInfos.append({displayText, tabIcon, isGraphic, graphicDim, graphicGap, tabW, v.isActive, v.color, v.isPlayingAudio});
         allTabsW += tabW;
     }
     allTabsW += (views.size() - 1) * tabGap;
@@ -3053,24 +3163,58 @@ inline QImage renderHudModeHeader(qreal scale,
     const int navRightW = fmNav.horizontalAdvance(navRight);
 
     // Stash Drawer pill on the right (separated from workspaces)
-    const QString stashText = QStringLiteral("📦 Stash (%1) • Meta+S").arg(qMax(0, stashCount));
+    const QString stashIcon = theme.hudNav.stashIcon;
+    const bool isStashGraphic = isNavGraphicIcon(stashIcon);
+    const QString stashLabel = theme.hudNav.stashText.isEmpty() ? QStringLiteral("Stash") : theme.hudNav.stashText;
     QFont stashFont(QStringLiteral("sans-serif"));
     stashFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.0) * scale)) : qMax(9, qRound(11.5 * scale)));
     stashFont.setBold(true);
     QFontMetrics fmStash(stashFont);
 
-    const int stashTextW = fmStash.horizontalAdvance(stashText);
-    const int stashPillW = stashTextW + 2 * tabPadX;
+    QString stashDisplayText;
+    int stashGraphicDim = 0;
+    int stashGraphicGap = 0;
+    if (isStashGraphic) {
+        stashDisplayText = QStringLiteral("%1 (%2) • Meta+S").arg(stashLabel).arg(qMax(0, stashCount));
+        stashGraphicDim = qRound(15.0 * scale * headerIconScale);
+        stashGraphicGap = qRound(6.0 * scale);
+    } else {
+        if (!stashIcon.isEmpty()) {
+            stashDisplayText = QStringLiteral("%1 %2 (%3) • Meta+S").arg(stashIcon, stashLabel).arg(qMax(0, stashCount));
+        } else {
+            stashDisplayText = QStringLiteral("%1 (%2) • Meta+S").arg(stashLabel).arg(qMax(0, stashCount));
+        }
+    }
+    const int stashTextW = fmStash.horizontalAdvance(stashDisplayText);
+    const int stashGraphicExtra = isStashGraphic ? (stashGraphicDim + stashGraphicGap) : 0;
+    const int stashPillW = stashGraphicExtra + stashTextW + 2 * tabPadX;
 
     // New Workspace pill [+ New • Shift++]
-    const QString newWsText = QStringLiteral("+ New • Shift++");
+    const QString newWsIcon = theme.hudNav.newWsIcon;
+    const bool isNewWsGraphic = isNavGraphicIcon(newWsIcon);
+    const QString newWsLabel = theme.hudNav.newWsText.isEmpty() ? QStringLiteral("New") : theme.hudNav.newWsText;
     QFont newWsFont(QStringLiteral("sans-serif"));
     newWsFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.0) * scale)) : qMax(9, qRound(11.5 * scale)));
     newWsFont.setBold(true);
     QFontMetrics fmNewWs(newWsFont);
 
-    const int newWsTextW = fmNewWs.horizontalAdvance(newWsText);
-    const int newWsPillW = newWsTextW + 2 * tabPadX;
+    QString newWsDisplayText;
+    int newWsGraphicDim = 0;
+    int newWsGraphicGap = 0;
+    if (isNewWsGraphic) {
+        newWsDisplayText = QStringLiteral("%1 • Shift++").arg(newWsLabel);
+        newWsGraphicDim = qRound(15.0 * scale * headerIconScale);
+        newWsGraphicGap = qRound(6.0 * scale);
+    } else {
+        if (!newWsIcon.isEmpty()) {
+            newWsDisplayText = QStringLiteral("%1 %2 • Shift++").arg(newWsIcon, newWsLabel);
+        } else {
+            newWsDisplayText = QStringLiteral("%1 • Shift++").arg(newWsLabel);
+        }
+    }
+    const int newWsTextW = fmNewWs.horizontalAdvance(newWsDisplayText);
+    const int newWsGraphicExtra = isNewWsGraphic ? (newWsGraphicDim + newWsGraphicGap) : 0;
+    const int newWsPillW = newWsGraphicExtra + newWsTextW + 2 * tabPadX;
     const int newWsSectionW = navGap + newWsPillW;
 
     const int stashSectionW = (stashCount >= 0) ? (navGap + qRound(1 * scale) + navGap + stashPillW) : 0;
@@ -3108,23 +3252,30 @@ inline QImage renderHudModeHeader(qreal scale,
     const qreal navLeftY = (headerH - fmNav.height()) / 2.0 + fmNav.ascent();
     p.drawText(QPointF(padX, navLeftY), navLeft);
 
+    // Shape attributes for tabs
+    const qreal tabRadius = (theme.hudNav.tabShape == QStringLiteral("sharp"))
+        ? 0.0
+        : (tabH / 2.0);
+    const int tabChamferPx = (theme.hudNav.tabShape == QStringLiteral("chamfered"))
+        ? qMax(2, qRound(theme.hudNav.tabChamferSize * scale))
+        : 0;
+
     // Draw tabs
     qreal curX = padX + navLeftW + navGap;
     const qreal tabY = padY;
 
     for (const auto &tab : tabInfos) {
         const QRectF tabRect(curX, tabY, tab.width, tabH);
-        const qreal tabRadius = tabH / 2.0;
 
         if (tab.isActive) {
             const QColor col = tab.color.isValid() ? tab.color : QColor(52, 152, 219);
             p.setPen(QPen(col, 1.8 * scale));
             p.setBrush(QColor(col.red(), col.green(), col.blue(), 55));
-            p.drawRoundedRect(tabRect, tabRadius, tabRadius);
+            drawThemedShape(p, tabRect, theme.hudNav.tabShape, tabRadius, tabChamferPx);
         } else {
             p.setPen(QPen(isLightBg ? QColor(0, 0, 0, 35) : QColor(255, 255, 255, 24), 1.0 * scale));
             p.setBrush(isLightBg ? QColor(0, 0, 0, 15) : QColor(255, 255, 255, 12));
-            p.drawRoundedRect(tabRect, tabRadius, tabRadius);
+            drawThemedShape(p, tabRect, theme.hudNav.tabShape, tabRadius, tabChamferPx);
         }
 
         const QFont &font = tab.isActive ? activeFont : inactiveFont;
@@ -3132,16 +3283,25 @@ inline QImage renderHudModeHeader(qreal scale,
         const int rawTextW = fm.horizontalAdvance(tab.text);
         const int speakerIconDim = tab.isPlayingAudio ? qRound(16.0 * scale * headerAudioScale) : 0;
         const int speakerGap = tab.isPlayingAudio ? qRound(5.0 * scale) : 0;
-        const int totalContentW = rawTextW + (tab.isPlayingAudio ? (speakerGap + speakerIconDim) : 0);
-        const qreal textLeft = tabRect.left() + (tabRect.width() - totalContentW) / 2.0;
-        const qreal baselineY = tabRect.top() + (tabRect.height() - fm.height()) / 2.0 + fm.ascent();
+        const int graphicExtra = tab.isGraphicIcon ? (tab.iconDim + tab.iconGap) : 0;
+        const int totalContentW = graphicExtra + rawTextW + (tab.isPlayingAudio ? (speakerGap + speakerIconDim) : 0);
+        qreal contentX = tabRect.left() + (tabRect.width() - totalContentW) / 2.0;
 
+        if (tab.isGraphicIcon) {
+            const qreal iconY = tabRect.top() + (tabRect.height() - tab.iconDim) / 2.0;
+            const QRectF iconRect(contentX, iconY, tab.iconDim, tab.iconDim);
+            renderNavGraphicIcon(p, iconRect, tab.icon);
+            contentX += tab.iconDim + tab.iconGap;
+        }
+
+        const qreal baselineY = tabRect.top() + (tabRect.height() - fm.height()) / 2.0 + fm.ascent();
         p.setFont(font);
         p.setPen(tab.isActive ? (isLightBg ? QColor(20, 25, 35) : QColor(255, 255, 255)) : (isLightBg ? QColor(76, 86, 106) : QColor(190, 195, 205, 175)));
-        p.drawText(QPointF(textLeft, baselineY), tab.text);
+        p.drawText(QPointF(contentX, baselineY), tab.text);
+        contentX += rawTextW;
 
         if (tab.isPlayingAudio) {
-            const QRectF speakerRect(textLeft + rawTextW + speakerGap,
+            const QRectF speakerRect(contentX + speakerGap,
                                      tabRect.top() + (tabRect.height() - speakerIconDim) / 2.0,
                                      speakerIconDim, speakerIconDim);
             const QColor tabBg = tab.isActive ? (tab.color.isValid() ? tab.color : QColor(52, 152, 219)) : (isLightBg ? QColor(230, 235, 242) : QColor(25, 30, 38));
@@ -3159,18 +3319,27 @@ inline QImage renderHudModeHeader(qreal scale,
     const qreal navRightX = curX - tabGap + navGap;
     p.drawText(QPointF(navRightX, navLeftY), navRight);
 
-    // New Workspace pill [+ Nowy • Ctrl+N]
+    // New Workspace pill [+ New • Shift++]
     const qreal newWsX = navRightX + navRightW + navGap;
     const QRectF newWsRect(newWsX, tabY, newWsPillW, tabH);
-    const qreal newWsRadius = tabH / 2.0;
+    const qreal newWsRadius = (theme.hudNav.tabShape == QStringLiteral("sharp")) ? 0.0 : (tabH / 2.0);
+    const int newWsChamferPx = (theme.hudNav.tabShape == QStringLiteral("chamfered")) ? qMax(2, qRound(theme.hudNav.tabChamferSize * scale)) : 0;
 
     p.setPen(QPen(QColor(52, 152, 219, 180), 1.2 * scale));
     p.setBrush(QColor(52, 152, 219, 35));
-    p.drawRoundedRect(newWsRect, newWsRadius, newWsRadius);
+    drawThemedShape(p, newWsRect, theme.hudNav.tabShape, newWsRadius, newWsChamferPx);
 
+    qreal newWsContentX = newWsRect.left() + (newWsRect.width() - (newWsGraphicExtra + newWsTextW)) / 2.0;
+    if (isNewWsGraphic) {
+        const qreal iconY = newWsRect.top() + (newWsRect.height() - newWsGraphicDim) / 2.0;
+        const QRectF iconRect(newWsContentX, iconY, newWsGraphicDim, newWsGraphicDim);
+        renderNavGraphicIcon(p, iconRect, newWsIcon);
+        newWsContentX += newWsGraphicDim + newWsGraphicGap;
+    }
+    const qreal newWsBaselineY = newWsRect.top() + (newWsRect.height() - fmNewWs.height()) / 2.0 + fmNewWs.ascent();
     p.setFont(newWsFont);
     p.setPen(QColor(52, 152, 219));
-    p.drawText(newWsRect, Qt::AlignCenter, newWsText);
+    p.drawText(QPointF(newWsContentX, newWsBaselineY), newWsDisplayText);
 
     // Stash drawer pill separated on the right
     if (stashCount >= 0) {
@@ -3180,15 +3349,24 @@ inline QImage renderHudModeHeader(qreal scale,
 
         const qreal stashX = sepX + navGap;
         const QRectF stashRect(stashX, tabY, stashPillW, tabH);
-        const qreal stashRadius = tabH / 2.0;
+        const qreal stashRadius = (theme.hudNav.tabShape == QStringLiteral("sharp")) ? 0.0 : (tabH / 2.0);
+        const int stashChamferPx = (theme.hudNav.tabShape == QStringLiteral("chamfered")) ? qMax(2, qRound(theme.hudNav.tabChamferSize * scale)) : 0;
 
         p.setPen(QPen(QColor(46, 204, 113, 150), 1.2 * scale));
         p.setBrush(QColor(46, 204, 113, 30));
-        p.drawRoundedRect(stashRect, stashRadius, stashRadius);
+        drawThemedShape(p, stashRect, theme.hudNav.tabShape, stashRadius, stashChamferPx);
 
+        qreal stashContentX = stashRect.left() + (stashRect.width() - (stashGraphicExtra + stashTextW)) / 2.0;
+        if (isStashGraphic) {
+            const qreal iconY = stashRect.top() + (stashRect.height() - stashGraphicDim) / 2.0;
+            const QRectF iconRect(stashContentX, iconY, stashGraphicDim, stashGraphicDim);
+            renderNavGraphicIcon(p, iconRect, stashIcon);
+            stashContentX += stashGraphicDim + stashGraphicGap;
+        }
+        const qreal stashBaselineY = stashRect.top() + (stashRect.height() - fmStash.height()) / 2.0 + fmStash.ascent();
         p.setFont(stashFont);
         p.setPen(QColor(46, 204, 113));
-        p.drawText(stashRect, Qt::AlignCenter, stashText);
+        p.drawText(QPointF(stashContentX, stashBaselineY), stashDisplayText);
     }
 
     p.end();

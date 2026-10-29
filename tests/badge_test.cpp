@@ -1063,6 +1063,39 @@ void testHudModeHeader()
     QImage headerCustomNav = OutlineBadge::renderHudModeHeader(1.0, false, QString(), QColor(), 0, views, 3, false, QString(), false, false, 0, false, QString(), 1, 0, 44, 18);
     assert(!headerCustomNav.isNull());
     assert(headerCustomNav.height() > header1.height());
+
+    // 6. Themed Navigation Icons & Shapes
+    const auto themes = LeapKTheme::builtInThemes();
+    const auto cyberTheme = themes[1]; // Cyberpunk
+    const auto matrixTheme = themes[2]; // Matrix Retro
+    const auto nordicTheme = themes[3]; // Nordic Frost
+
+    QImage cyberHeader = OutlineBadge::renderHudModeHeader(1.0, false, QString(), QColor(), 0, views, 2, false, QString(), false, false, 0, false, QString(), 1, 0, 44, 13, cyberTheme);
+    assert(!cyberHeader.isNull());
+    assert(cyberHeader.width() > 200);
+
+    QImage matrixHeader = OutlineBadge::renderHudModeHeader(1.0, false, QString(), QColor(), 0, views, 2, false, QString(), false, false, 0, false, QString(), 1, 0, 44, 13, matrixTheme);
+    assert(!matrixHeader.isNull());
+
+    QImage nordicHeader = OutlineBadge::renderHudModeHeader(1.0, false, QString(), QColor(), 0, views, 2, false, QString(), false, false, 0, false, QString(), 1, 0, 44, 13, nordicTheme);
+    assert(!nordicHeader.isNull());
+
+    // 7. Graphic SVG icon detection and tab rendering
+    const QString sampleSvg = QStringLiteral("<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"10\" fill=\"#00ffff\"/></svg>");
+    assert(OutlineBadge::isNavGraphicIcon(sampleSvg));
+    assert(OutlineBadge::isNavGraphicIcon(QStringLiteral("theme:folder")));
+    assert(OutlineBadge::isNavGraphicIcon(QStringLiteral("system:preferences-system-windows")));
+    assert(OutlineBadge::isNavGraphicIcon(QStringLiteral("/usr/share/icons/test.svg")));
+    assert(!OutlineBadge::isNavGraphicIcon(QStringLiteral("⚡")));
+    assert(!OutlineBadge::isNavGraphicIcon(QStringLiteral("[SYS]")));
+
+    QList<OutlineBadge::HudModeHeaderView> svgViews;
+    svgViews.append({QStringLiteral("Standard"), QColor(230, 126, 34), 3, true, false, sampleSvg});
+    svgViews.append({QStringLiteral("Code"), QColor(52, 152, 219), 5, false, false, QStringLiteral("theme:folder")});
+
+    QImage svgHeader = OutlineBadge::renderHudModeHeader(1.0, false, QString(), QColor(), 0, svgViews, 1, false);
+    assert(!svgHeader.isNull());
+    assert(svgHeader.width() > 150);
 }
 
 void testStashBadgeStyling()

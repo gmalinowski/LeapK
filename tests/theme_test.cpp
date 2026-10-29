@@ -61,6 +61,8 @@ static void testBuiltInThemes()
     assert(!breeze.parameters.isEmpty());
     assert(breeze.hudContainer.shape == QStringLiteral("rounded_rect"));
     assert(breeze.windowBadge.shape == QStringLiteral("rounded_rect"));
+    assert(breeze.hudNav.standardIcon == QStringLiteral("💻"));
+    assert(breeze.hudNav.tabShape == QStringLiteral("pill"));
 
     // 2. Cyberpunk Neon
     const Theme cyber = builtins[1];
@@ -73,12 +75,22 @@ static void testBuiltInThemes()
     assert(cyber.hudCard.audioIndicatorScale > 1.2);
     assert(cyber.windowBadge.audioIndicatorStyle == QStringLiteral("soundwave_pulse"));
     assert(cyber.windowBadge.audioPulseBadge);
+    assert(cyber.hudNav.standardIcon == QStringLiteral("⚡"));
+    assert(cyber.hudNav.workspaceIcon == QStringLiteral("◈"));
+    assert(cyber.hudNav.allIcon == QStringLiteral("⬡"));
+    assert(cyber.hudNav.stashIcon == QStringLiteral("💾"));
+    assert(cyber.hudNav.tabShape == QStringLiteral("chamfered"));
 
     // 3. Retro Terminal
     const Theme term = builtins[2];
     assert(term.id == QStringLiteral("retro-terminal"));
     assert(term.hudContainer.shape == QStringLiteral("sharp"));
     assert(term.hintsBar.keycapStyle == QStringLiteral("bracket"));
+    assert(term.hudNav.standardIcon == QStringLiteral("[SYS]"));
+    assert(term.hudNav.workspaceIcon == QStringLiteral("[DIR]"));
+    assert(term.hudNav.allIcon == QStringLiteral("[NET]"));
+    assert(term.hudNav.stashIcon == QStringLiteral("[MEM]"));
+    assert(term.hudNav.tabShape == QStringLiteral("sharp"));
 
     // 4. Nordic Frost
     const Theme nordic = builtins[3];
@@ -87,6 +99,45 @@ static void testBuiltInThemes()
     assert(nordic.hintsBar.keycapStyle == QStringLiteral("pill"));
     assert(nordic.windowBadge.audioIndicatorScale > 1.1);
     assert(nordic.windowBadge.audioPulseBadge);
+    assert(nordic.hudNav.standardIcon == QStringLiteral("❄"));
+    assert(nordic.hudNav.workspaceIcon == QStringLiteral("◇"));
+    assert(nordic.hudNav.allIcon == QStringLiteral("○"));
+    assert(nordic.hudNav.stashIcon == QStringLiteral("📥"));
+    assert(nordic.hudNav.tabShape == QStringLiteral("pill"));
+}
+
+static void testHudNavThemeSettings()
+{
+    HudNavTheme hnt;
+    assert(hnt.standardIcon == QStringLiteral("💻"));
+    assert(hnt.tabShape == QStringLiteral("pill"));
+    assert(std::abs(hnt.iconScale - 1.0) < 0.001);
+
+    // Test JSON roundtrip
+    hnt.standardIcon = QStringLiteral("⚡");
+    hnt.workspaceIcon = QStringLiteral("◈");
+    hnt.allIcon = QStringLiteral("⬡");
+    hnt.stashIcon = QStringLiteral("💾");
+    hnt.newWsIcon = QStringLiteral("＋");
+    hnt.arrowLeft = QStringLiteral("« ,");
+    hnt.arrowRight = QStringLiteral(". »");
+    hnt.tabShape = QStringLiteral("chamfered");
+    hnt.tabChamferSize = 7;
+    hnt.iconScale = 1.35;
+
+    const QJsonObject json = hnt.toJson();
+    const HudNavTheme parsed = HudNavTheme::fromJson(json);
+
+    assert(parsed.standardIcon == QStringLiteral("⚡"));
+    assert(parsed.workspaceIcon == QStringLiteral("◈"));
+    assert(parsed.allIcon == QStringLiteral("⬡"));
+    assert(parsed.stashIcon == QStringLiteral("💾"));
+    assert(parsed.newWsIcon == QStringLiteral("＋"));
+    assert(parsed.arrowLeft == QStringLiteral("« ,"));
+    assert(parsed.arrowRight == QStringLiteral(". »"));
+    assert(parsed.tabShape == QStringLiteral("chamfered"));
+    assert(parsed.tabChamferSize == 7);
+    assert(std::abs(parsed.iconScale - 1.35) < 0.001);
 }
 
 static void testAudioThemeSettings()
@@ -206,6 +257,7 @@ int main(int, char **)
     testThemeParameter();
     testBuiltInThemes();
     testAudioThemeSettings();
+    testHudNavThemeSettings();
     testVariableResolutionAndOverrides();
     testSerializationAndParsing();
     testThemeDiscoveryAndLookup();

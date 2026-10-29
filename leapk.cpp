@@ -6675,15 +6675,19 @@ QString ActiveWindowOutlineEffect::getWindowLocationString(EffectWindow *target)
     if (!target) {
         return QString();
     }
+    const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
     if (isWindowInStash(target)) {
+        const QString stashIcon = theme.hudNav.stashIcon;
+        const QString stashLabel = theme.hudNav.stashText.isEmpty() ? QStringLiteral("Stash") : theme.hudNav.stashText;
+        const QString stashPrefix = stashIcon.isEmpty() ? stashLabel : (stashIcon + QLatin1Char(' ') + stashLabel);
         if (!target->isOnCurrentDesktop() && !target->isOnAllDesktops()) {
             const auto desktops = target->desktops();
             const QString dName = (!desktops.isEmpty() && !desktops.first()->name().isEmpty())
                 ? desktops.first()->name()
                 : (desktops.isEmpty() ? QString() : QStringLiteral("Desktop %1").arg(desktops.first()->x11DesktopNumber()));
-            return dName.isEmpty() ? QStringLiteral("📦 Stash") : QStringLiteral("📦 Stash · %1").arg(dName);
+            return dName.isEmpty() ? stashPrefix : QStringLiteral("%1 · %2").arg(stashPrefix, dName);
         }
-        return QStringLiteral("📦 Stash");
+        return stashPrefix;
     }
 
     if (isWindowPinned(target)) {
@@ -6693,7 +6697,9 @@ QString ActiveWindowOutlineEffect::getWindowLocationString(EffectWindow *target)
     const int wsIdx = findWorkspaceForWindow(target);
     QString wsPrefix;
     if (wsIdx >= 1 && wsIdx <= m_workspaces.size()) {
-        wsPrefix = QStringLiteral("📁 ") + m_workspaces.at(wsIdx - 1).name;
+        const auto &ws = m_workspaces.at(wsIdx - 1);
+        const QString wsIcon = theme.hudNav.workspaceIcon;
+        wsPrefix = (wsIcon.isEmpty() ? QString() : (wsIcon + QLatin1Char(' '))) + ws.name;
     }
 
     QString loc;
@@ -7147,25 +7153,32 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
     const qreal scale = viewport.scale();
     const QRectF screenRect = viewport.renderRect();
 
+    const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
     QString customViewName;
     QColor customViewColor;
     if (m_stashModeActive) {
-        customViewName = QStringLiteral("View: 📦 Stash");
+        const QString stashIcon = theme.hudNav.stashIcon;
+        const QString stashTxt = theme.hudNav.stashText.isEmpty() ? QStringLiteral("Stash") : theme.hudNav.stashText;
+        customViewName = QStringLiteral("View: ") + (stashIcon.isEmpty() ? stashTxt : (stashIcon + QLatin1Char(' ') + stashTxt));
         customViewColor = QColor(46, 204, 113); // Emerald Green
     } else if (m_activeHudView == 0) {
-        customViewName = QStringLiteral("View: 💻 Standard");
+        const QString stdIcon = theme.hudNav.standardIcon;
+        const QString stdTxt = theme.hudNav.standardText.isEmpty() ? QStringLiteral("Standard") : theme.hudNav.standardText;
+        customViewName = QStringLiteral("View: ") + (stdIcon.isEmpty() ? stdTxt : (stdIcon + QLatin1Char(' ') + stdTxt));
         customViewColor = QColor(230, 126, 34); // Orange
     } else if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
         const auto &ws = m_workspaces.at(m_activeHudView - 1);
-        customViewName = QStringLiteral("View: 📁 ") + ws.name;
+        const QString wsIcon = theme.hudNav.workspaceIcon;
+        customViewName = QStringLiteral("View: ") + (wsIcon.isEmpty() ? ws.name : (wsIcon + QLatin1Char(' ') + ws.name));
         customViewColor = ws.color.isValid() ? ws.color : QColor(52, 152, 219);
     } else {
-        customViewName = QStringLiteral("View: 🌐 All");
+        const QString allIcon = theme.hudNav.allIcon;
+        const QString allTxt = theme.hudNav.allText.isEmpty() ? QStringLiteral("All") : theme.hudNav.allText;
+        customViewName = QStringLiteral("View: ") + (allIcon.isEmpty() ? allTxt : (allIcon + QLatin1Char(' ') + allTxt));
         customViewColor = QColor(155, 89, 182); // Purple
     }
 
     const int hintsFontSize = m_badgePreviewActive ? m_previewBadgeConfig.hudHintsFontSize : m_badgeConfig.hudHintsFontSize;
-    const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
     const int themeHash = qHash(theme.id) % 10000;
     const qreal maxAllowedForFont = (hintsFontSize > 12)
         ? qMin(qreal(screenRect.width() - 80.0), qreal(1050.0 + (hintsFontSize - 12) * 50.0))
@@ -7282,6 +7295,8 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
 
 QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
 {
+    const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
+
     QString subLeapTitle;
     QColor subLeapColor;
     int subLeapCount = 0;
@@ -7317,13 +7332,23 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
             }
         }
 
-        if (m_activeHudView == 0) {
-            targetWorkspaceName = QStringLiteral("💻 Standard");
-        } else if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
-            targetWorkspaceName = QStringLiteral("📁 ") + m_workspaces.at(m_activeHudView - 1).name;
-        } else {
-            targetWorkspaceName = QStringLiteral("🌐 All");
-        }
+        auto formatWsName = [&](int wsIdx) -> QString {
+            if (wsIdx == 0) {
+                const QString icon = theme.hudNav.standardIcon;
+                const QString txt = theme.hudNav.standardText.isEmpty() ? QStringLiteral("Standard") : theme.hudNav.standardText;
+                return icon.isEmpty() ? txt : (icon + QLatin1Char(' ') + txt);
+            } else if (wsIdx >= 1 && wsIdx <= m_workspaces.size()) {
+                const auto &ws = m_workspaces.at(wsIdx - 1);
+                const QString icon = theme.hudNav.workspaceIcon;
+                return icon.isEmpty() ? ws.name : (icon + QLatin1Char(' ') + ws.name);
+            } else {
+                const QString icon = theme.hudNav.allIcon;
+                const QString txt = theme.hudNav.allText.isEmpty() ? QStringLiteral("All") : theme.hudNav.allText;
+                return icon.isEmpty() ? txt : (icon + QLatin1Char(' ') + txt);
+            }
+        };
+
+        targetWorkspaceName = formatWsName(m_activeHudView);
 
         // 1. Standard count: windows eligible on current desktop (visible or unminimized, not in stash)
         int standardCount = 0;
@@ -7341,11 +7366,12 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
         }
         const bool standardAudio = isWorkspacePlayingAudio(0);
         viewTabs.append({
-            QStringLiteral("💻 Standard"),
+            theme.hudNav.standardText.isEmpty() ? QStringLiteral("Standard") : theme.hudNav.standardText,
             QColor(230, 126, 34),
             standardCount,
             m_activeHudView == 0,
-            standardAudio
+            standardAudio,
+            theme.hudNav.standardIcon
         });
 
         // 2. Custom Workspaces (not in stash)
@@ -7367,11 +7393,12 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
             }
             const bool wsAudio = isWorkspacePlayingAudio(i + 1);
             viewTabs.append({
-                QStringLiteral("📁 ") + ws.name,
+                ws.name,
                 ws.color.isValid() ? ws.color : QColor(52, 152, 219),
                 wsCount,
                 m_activeHudView == (i + 1),
-                wsAudio
+                wsAudio,
+                theme.hudNav.workspaceIcon
             });
         }
 
@@ -7387,21 +7414,28 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
         }
         const bool allAudio = m_audioTracker.hasPlayingAudio();
         viewTabs.append({
-            QStringLiteral("🌐 All"),
+            theme.hudNav.allText.isEmpty() ? QStringLiteral("All") : theme.hudNav.allText,
             QColor(155, 89, 182),
             allCount,
             m_activeHudView == (m_workspaces.size() + 1),
-            allAudio
+            allAudio,
+            theme.hudNav.allIcon
         });
     }
 
     if (m_superJumpActive) {
         if (m_superJumpTargetWorkspace == 0) {
-            targetWorkspaceName = QStringLiteral("💻 Standard");
+            const QString icon = theme.hudNav.standardIcon;
+            const QString txt = theme.hudNav.standardText.isEmpty() ? QStringLiteral("Standard") : theme.hudNav.standardText;
+            targetWorkspaceName = icon.isEmpty() ? txt : (icon + QLatin1Char(' ') + txt);
         } else if (m_superJumpTargetWorkspace >= 1 && m_superJumpTargetWorkspace <= m_workspaces.size()) {
-            targetWorkspaceName = QStringLiteral("📁 ") + m_workspaces.at(m_superJumpTargetWorkspace - 1).name;
+            const auto &ws = m_workspaces.at(m_superJumpTargetWorkspace - 1);
+            const QString icon = theme.hudNav.workspaceIcon;
+            targetWorkspaceName = icon.isEmpty() ? ws.name : (icon + QLatin1Char(' ') + ws.name);
         } else {
-            targetWorkspaceName = QStringLiteral("🌐 All");
+            const QString icon = theme.hudNav.allIcon;
+            const QString txt = theme.hudNav.allText.isEmpty() ? QStringLiteral("All") : theme.hudNav.allText;
+            targetWorkspaceName = icon.isEmpty() ? txt : (icon + QLatin1Char(' ') + txt);
         }
     }
 
@@ -7411,7 +7445,6 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
     }
     const int hudSize = m_badgePreviewActive ? m_previewBadgeConfig.hudBadgeSize : m_badgeConfig.hudBadgeSize;
     const int navFontSize = m_badgePreviewActive ? m_previewBadgeConfig.hudNavFontSize : m_badgeConfig.hudNavFontSize;
-    const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
     const int themeHash = qHash(theme.id) % 10000;
     const int headerKey = (m_subLeapActive ? 2000000 : 0) + (m_stashModeActive ? 4000000 : 0) + (m_superJumpActive ? 6000000 : 0)
         + (m_audioFilterModeActive ? 8000000 : 0)

@@ -349,6 +349,69 @@ struct HintsBarTheme {
     }
 };
 
+struct HudNavTheme {
+    QString style = QStringLiteral("capsule_tabs");      // "capsule_tabs", "retro_tabs", "minimal", "dock_tiles"
+    QString standardIcon = QStringLiteral("💻");
+    QString workspaceIcon = QStringLiteral("📁");
+    QString allIcon = QStringLiteral("🌐");
+    QString stashIcon = QStringLiteral("📦");
+    QString newWsIcon = QStringLiteral("+");
+    QString arrowLeft = QStringLiteral("◂ ,");
+    QString arrowRight = QStringLiteral(". ▸");
+    QString standardText = QStringLiteral("Standard");
+    QString allText = QStringLiteral("All");
+    QString stashText = QStringLiteral("Stash");
+    QString newWsText = QStringLiteral("New");
+    QString tabShape = QStringLiteral("pill");          // "pill", "rounded_rect", "chamfered", "sharp"
+    int tabCornerRadius = 12;
+    int tabChamferSize = 6;
+    double iconScale = 1.0;
+
+    QJsonObject toJson() const
+    {
+        QJsonObject o;
+        o[QStringLiteral("style")] = style;
+        o[QStringLiteral("standardIcon")] = standardIcon;
+        o[QStringLiteral("workspaceIcon")] = workspaceIcon;
+        o[QStringLiteral("allIcon")] = allIcon;
+        o[QStringLiteral("stashIcon")] = stashIcon;
+        o[QStringLiteral("newWsIcon")] = newWsIcon;
+        o[QStringLiteral("arrowLeft")] = arrowLeft;
+        o[QStringLiteral("arrowRight")] = arrowRight;
+        o[QStringLiteral("standardText")] = standardText;
+        o[QStringLiteral("allText")] = allText;
+        o[QStringLiteral("stashText")] = stashText;
+        o[QStringLiteral("newWsText")] = newWsText;
+        o[QStringLiteral("tabShape")] = tabShape;
+        o[QStringLiteral("tabCornerRadius")] = tabCornerRadius;
+        o[QStringLiteral("tabChamferSize")] = tabChamferSize;
+        o[QStringLiteral("iconScale")] = iconScale;
+        return o;
+    }
+
+    static HudNavTheme fromJson(const QJsonObject &o)
+    {
+        HudNavTheme n;
+        n.style = o.value(QStringLiteral("style")).toString(n.style);
+        n.standardIcon = o.value(QStringLiteral("standardIcon")).toString(n.standardIcon);
+        n.workspaceIcon = o.value(QStringLiteral("workspaceIcon")).toString(n.workspaceIcon);
+        n.allIcon = o.value(QStringLiteral("allIcon")).toString(n.allIcon);
+        n.stashIcon = o.value(QStringLiteral("stashIcon")).toString(n.stashIcon);
+        n.newWsIcon = o.value(QStringLiteral("newWsIcon")).toString(n.newWsIcon);
+        n.arrowLeft = o.value(QStringLiteral("arrowLeft")).toString(n.arrowLeft);
+        n.arrowRight = o.value(QStringLiteral("arrowRight")).toString(n.arrowRight);
+        n.standardText = o.value(QStringLiteral("standardText")).toString(n.standardText);
+        n.allText = o.value(QStringLiteral("allText")).toString(n.allText);
+        n.stashText = o.value(QStringLiteral("stashText")).toString(n.stashText);
+        n.newWsText = o.value(QStringLiteral("newWsText")).toString(n.newWsText);
+        n.tabShape = o.value(QStringLiteral("tabShape")).toString(n.tabShape);
+        n.tabCornerRadius = o.value(QStringLiteral("tabCornerRadius")).toInt(n.tabCornerRadius);
+        n.tabChamferSize = o.value(QStringLiteral("tabChamferSize")).toInt(n.tabChamferSize);
+        n.iconScale = o.value(QStringLiteral("iconScale")).toDouble(n.iconScale);
+        return n;
+    }
+};
+
 // ============================================================================
 // 3. Complete LeapK Theme Structure
 // ============================================================================
@@ -370,6 +433,7 @@ struct Theme {
     HudCardTheme hudCard;
     SearchHeaderTheme searchHeader;
     HintsBarTheme hintsBar;
+    HudNavTheme hudNav;
 
     // Helper: resolves a value that may reference a parameter ($id) or token
     QString resolveVar(const QString &val) const
@@ -502,6 +566,7 @@ struct Theme {
         comps[QStringLiteral("hudCard")] = hudCard.toJson();
         comps[QStringLiteral("searchHeader")] = searchHeader.toJson();
         comps[QStringLiteral("hintsBar")] = hintsBar.toJson();
+        comps[QStringLiteral("hudNav")] = hudNav.toJson();
         root[QStringLiteral("components")] = comps;
 
         return root;
@@ -544,6 +609,9 @@ struct Theme {
         }
         if (comps.contains(QStringLiteral("hintsBar"))) {
             t.hintsBar = HintsBarTheme::fromJson(comps.value(QStringLiteral("hintsBar")).toObject());
+        }
+        if (comps.contains(QStringLiteral("hudNav"))) {
+            t.hudNav = HudNavTheme::fromJson(comps.value(QStringLiteral("hudNav")).toObject());
         }
 
         return t;
@@ -634,6 +702,16 @@ inline QList<Theme> builtInThemes()
         t.hintsBar.keyColor = QStringLiteral("$accentColor");
         t.hintsBar.keyBgColor = QStringLiteral("#2e3440");
         t.hintsBar.labelColor = QStringLiteral("$textSecondary");
+
+        t.hudNav.standardIcon = QStringLiteral("💻");
+        t.hudNav.workspaceIcon = QStringLiteral("📁");
+        t.hudNav.allIcon = QStringLiteral("🌐");
+        t.hudNav.stashIcon = QStringLiteral("📦");
+        t.hudNav.newWsIcon = QStringLiteral("+");
+        t.hudNav.arrowLeft = QStringLiteral("◂ ,");
+        t.hudNav.arrowRight = QStringLiteral(". ▸");
+        t.hudNav.tabShape = QStringLiteral("pill");
+        t.hudNav.tabCornerRadius = 12;
 
         list.append(t);
     }
@@ -732,6 +810,16 @@ inline QList<Theme> builtInThemes()
         t.hintsBar.keyBgColor = QStringLiteral("#0e182e");
         t.hintsBar.labelColor = QStringLiteral("#8ab4f8");
 
+        t.hudNav.standardIcon = QStringLiteral("⚡");
+        t.hudNav.workspaceIcon = QStringLiteral("◈");
+        t.hudNav.allIcon = QStringLiteral("⬡");
+        t.hudNav.stashIcon = QStringLiteral("💾");
+        t.hudNav.newWsIcon = QStringLiteral("＋");
+        t.hudNav.arrowLeft = QStringLiteral("« ,");
+        t.hudNav.arrowRight = QStringLiteral(". »");
+        t.hudNav.tabShape = QStringLiteral("chamfered");
+        t.hudNav.tabChamferSize = 5;
+
         list.append(t);
     }
 
@@ -795,6 +883,16 @@ inline QList<Theme> builtInThemes()
         t.hintsBar.keyColor = QStringLiteral("$phosphorColor");
         t.hintsBar.keyBgColor = QStringLiteral("#000000");
         t.hintsBar.labelColor = QStringLiteral("#00aa44");
+
+        t.hudNav.standardIcon = QStringLiteral("[SYS]");
+        t.hudNav.workspaceIcon = QStringLiteral("[DIR]");
+        t.hudNav.allIcon = QStringLiteral("[NET]");
+        t.hudNav.stashIcon = QStringLiteral("[MEM]");
+        t.hudNav.newWsIcon = QStringLiteral("[+]");
+        t.hudNav.arrowLeft = QStringLiteral("< ,");
+        t.hudNav.arrowRight = QStringLiteral(". >");
+        t.hudNav.tabShape = QStringLiteral("sharp");
+        t.hudNav.tabCornerRadius = 0;
 
         list.append(t);
     }
@@ -865,6 +963,16 @@ inline QList<Theme> builtInThemes()
         t.hintsBar.keyColor = QStringLiteral("$frostColor");
         t.hintsBar.keyBgColor = QStringLiteral("#e5e9f0");
         t.hintsBar.labelColor = QStringLiteral("$textSecondary");
+
+        t.hudNav.standardIcon = QStringLiteral("❄");
+        t.hudNav.workspaceIcon = QStringLiteral("◇");
+        t.hudNav.allIcon = QStringLiteral("○");
+        t.hudNav.stashIcon = QStringLiteral("📥");
+        t.hudNav.newWsIcon = QStringLiteral("+");
+        t.hudNav.arrowLeft = QStringLiteral("‹ ,");
+        t.hudNav.arrowRight = QStringLiteral(". ›");
+        t.hudNav.tabShape = QStringLiteral("pill");
+        t.hudNav.tabCornerRadius = 14;
 
         list.append(t);
     }
