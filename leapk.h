@@ -192,6 +192,7 @@ private Q_SLOTS:
     void slotTriggerAudioFilterMode();
     void slotTriggerSearchMode();
     void slotJumpToRecentWindow();
+    void slotJumpToRecentWindow(int keyToRelease);
     void slotPrevRecentWindow();
     void slotNextRecentWindow();
     void slotCommitHistoryNavigation();
@@ -239,6 +240,8 @@ private:
     bool isEligibleTargetWindow(EffectWindow *w) const;
     QMap<QChar, EffectWindow *> assignJumpLetters() const;
     void cancelJumpMode();
+    void cancelJumpMode(int keyToRelease);
+    void finishKeyboardGrab();
     void enterSubLeapForGroup(QChar keyChar, const QList<EffectWindow *> &group);
     void exitSubLeapMode();
     bool isWindowObscured(EffectWindow *target) const;
@@ -510,6 +513,9 @@ private:
     QList<OutlineFuzzy::SearchCandidate> m_searchMatches;
     bool m_globalShortcutsBlocked = false;
     bool m_mouseIntercepting = false;
+    bool m_keyboardGrabActive = false;
+    int m_releaseKeyToConsume = 0;
+    QTimer *m_keyReleaseSafetyTimer = nullptr;
     mutable QRectF m_hudCloseButtonLocalRect;
     QRectF m_hudCloseButtonScreenRect;
     QRectF m_hudHeaderScreenRect;

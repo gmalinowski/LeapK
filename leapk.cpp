@@ -475,7 +475,9 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
 
     m_jumpTimeoutTimer = new QTimer(this);
     m_jumpTimeoutTimer->setSingleShot(true);
-    connect(m_jumpTimeoutTimer, &QTimer::timeout, this, &ActiveWindowOutlineEffect::cancelJumpMode);
+    connect(m_jumpTimeoutTimer, &QTimer::timeout, this, [this]() {
+        cancelJumpMode();
+    });
 
     m_expectedJumpTargetTimer = new QTimer(this);
     m_expectedJumpTargetTimer->setSingleShot(true);
@@ -645,6 +647,7 @@ ActiveWindowOutlineEffect::~ActiveWindowOutlineEffect()
     QDBusConnection::sessionBus().unregisterObject(QStringLiteral("/LeapK"));
     QDBusConnection::sessionBus().unregisterObject(QStringLiteral("/KLeap"));
     QDBusConnection::sessionBus().unregisterObject(QStringLiteral("/ActiveWindowOutline"));
+    finishKeyboardGrab();
     if (m_jumpMode) {
         cancelJumpMode();
     }
@@ -4805,6 +4808,10 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
 
 void ActiveWindowOutlineEffect::slotTriggerJumpMode()
 {
+    if (m_releaseKeyToConsume != 0) {
+        finishKeyboardGrab();
+    }
+
     if (effects && effects->isScreenLocked()) {
         return;
     }
@@ -4813,7 +4820,7 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     }
 
     if (m_jumpMode) {
-        slotJumpToRecentWindow();
+        slotJumpToRecentWindow(Qt::Key_Space);
         return;
     }
 
@@ -4849,6 +4856,7 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
         m_jumpLetterToWindow.clear();
         return;
     }
+    m_keyboardGrabActive = true;
 
     m_jumpMode = true;
 #ifdef ACTIVE_WINDOW_OUTLINE_HAS_WINDOW_INPUT_MOUSE_EVENT
@@ -4880,7 +4888,24 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     effects->addRepaintFull();
 }
 
+void ActiveWindowOutlineEffect::finishKeyboardGrab()
+{
+    if (m_keyReleaseSafetyTimer && m_keyReleaseSafetyTimer->isActive()) {
+        m_keyReleaseSafetyTimer->stop();
+    }
+    m_releaseKeyToConsume = 0;
+    if (m_keyboardGrabActive) {
+        effects->ungrabKeyboard();
+        m_keyboardGrabActive = false;
+    }
+}
+
 void ActiveWindowOutlineEffect::cancelJumpMode()
+{
+    cancelJumpMode(0);
+}
+
+void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
 {
     if (!m_jumpMode) {
         return;
@@ -4923,7 +4948,19 @@ void ActiveWindowOutlineEffect::cancelJumpMode()
     m_hudHintBarCacheKey = -1;
     m_hudHeaderTexture.reset();
     m_hudHeaderCacheKey = -1;
-    effects->ungrabKeyboard();
+
+    if (keyToRelease != 0 && m_keyboardGrabActive) {
+        m_releaseKeyToConsume = keyToRelease;
+        if (!m_keyReleaseSafetyTimer) {
+            m_keyReleaseSafetyTimer = new QTimer(this);
+            m_keyReleaseSafetyTimer->setSingleShot(true);
+            connect(m_keyReleaseSafetyTimer, &QTimer::timeout, this, &ActiveWindowOutlineEffect::finishKeyboardGrab);
+        }
+        m_keyReleaseSafetyTimer->start(180);
+    } else {
+        finishKeyboardGrab();
+    }
+
     updateAnimationTimer();
     effects->addRepaintFull();
 }
@@ -5087,6 +5124,20 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
 
 void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 {
+    if (m_releaseKeyToConsume != 0) {
+        if (e->type() == QEvent::KeyRelease) {
+            if (m_releaseKeyToConsume == -1 || e->key() == m_releaseKeyToConsume || e->key() == Qt::Key_Space) {
+                finishKeyboardGrab();
+                return;
+            }
+            return;
+        } else if (e->type() == QEvent::KeyPress) {
+            finishKeyboardGrab();
+            return;
+        }
+        return;
+    }
+
     if (!m_jumpMode) {
         return;
     }
@@ -5137,7 +5188,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     const bool isCloseHudKey = (e->key() == Qt::Key_Escape)
         || (isCtrl && (e->key() == Qt::Key_C || e->key() == Qt::Key_BracketRight));
     if (isCloseHudKey) {
-        cancelJumpMode();
+        cancelJumpMode(e->key());
         return;
     }
 
@@ -5243,7 +5294,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
                     if (isAlt) {
                         // Pin / Pull / Drop
-                        cancelJumpMode();
+                        cancelJumpMode(e->key());
                         if (m_pinnedWindows.contains(target)) {
                             unpinWindow(target, m_activeHudView);
                         } else if (findWorkspaceForWindow(target) == m_activeHudView && target->isOnCurrentDesktop()) {
@@ -5271,7 +5322,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     }
 
                     // Plain letter: normal jump & activate (switches workspace if window is in another workspace)
-                    cancelJumpMode();
+                    cancelJumpMode(e->key());
                     m_expectedJumpTarget = target;
                     if (m_expectedJumpTargetTimer) {
                         m_expectedJumpTargetTimer->start(1000);
@@ -5362,7 +5413,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             if (!m_searchMatches.isEmpty() && m_searchSelectedIndex >= 0 && m_searchSelectedIndex < m_searchMatches.size()) {
                 EffectWindow *target = reinterpret_cast<EffectWindow *>(m_searchMatches.at(m_searchSelectedIndex).windowPtr);
                 if (target && !target->isDeleted()) {
-                    cancelJumpMode();
+                    cancelJumpMode(e->key());
                     m_expectedJumpTarget = target;
                     if (m_expectedJumpTargetTimer) {
                         m_expectedJumpTargetTimer->start(1000);
@@ -5393,7 +5444,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     return;
                 }
             }
-            cancelJumpMode();
+            cancelJumpMode(e->key());
             return;
         }
 
@@ -5402,7 +5453,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             if (!altChar.isEmpty() && m_jumpLetterToWindow.contains(altChar.at(0))) {
                 EffectWindow *target = m_jumpLetterToWindow.value(altChar.at(0));
                 if (target && !target->isDeleted()) {
-                    cancelJumpMode();
+                    cancelJumpMode(e->key());
                     const int targetWs = findWorkspaceForWindow(target);
                     if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
                         m_activeHudView = targetWs;
@@ -5586,7 +5637,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     }
 
     if (e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
-        cancelJumpMode();
+        cancelJumpMode(e->key());
         return;
     }
 
@@ -5688,7 +5739,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         if (isAlt) {
             EffectWindow *target = findRecentWindow();
             if (target && !target->isDeleted()) {
-                cancelJumpMode();
+                cancelJumpMode(e->key());
                 if (m_pinnedWindows.contains(target)) {
                     unpinWindow(target, m_activeHudView);
                 } else if (findWorkspaceForWindow(target) == m_activeHudView && target->isOnCurrentDesktop()) {
@@ -5715,7 +5766,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             }
             return;
         }
-        slotJumpToRecentWindow();
+        slotJumpToRecentWindow(e->key());
         return;
     }
 
@@ -5729,7 +5780,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             const auto group = m_groupJumpLetters.value(keyChar);
             if (isAlt) {
                 // Smart Workspace summon: pull all windows in group to current desktop!
-                cancelJumpMode();
+                cancelJumpMode(e->key());
                 VirtualDesktop *currDesktop = effects->currentDesktop();
                 EffectWindow *topWin = nullptr;
                 for (EffectWindow *w : group) {
@@ -5801,7 +5852,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     m_jumpLetterToWindow = assignJumpLetters();
                     m_badgeTextureCache.clear();
                     if (m_jumpLetterToWindow.isEmpty()) {
-                        cancelJumpMode();
+                        cancelJumpMode(e->key());
                     } else {
                         if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
                             m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
@@ -5833,7 +5884,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
                 if (isAlt) {
                     // Pin / Pull / Drop
-                    cancelJumpMode();
+                    cancelJumpMode(e->key());
                     if (m_pinnedWindows.contains(target)) {
                         // Drop pinned window into current workspace
                         unpinWindow(target, m_activeHudView);
@@ -5864,7 +5915,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                 }
 
                 // Normal jump & activate: switch to the window's workspace and desktop!
-                cancelJumpMode();
+                cancelJumpMode(e->key());
                 m_expectedJumpTarget = target;
                 if (m_expectedJumpTargetTimer) {
                     m_expectedJumpTargetTimer->start(1000);
@@ -5899,7 +5950,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         }
     }
 
-    cancelJumpMode();
+    cancelJumpMode(e->key());
 }
 
 EffectWindow *ActiveWindowOutlineEffect::findRecentWindow() const
@@ -5925,8 +5976,13 @@ EffectWindow *ActiveWindowOutlineEffect::findRecentWindow() const
 
 void ActiveWindowOutlineEffect::slotJumpToRecentWindow()
 {
+    slotJumpToRecentWindow(0);
+}
+
+void ActiveWindowOutlineEffect::slotJumpToRecentWindow(int keyToRelease)
+{
     if (m_jumpMode) {
-        cancelJumpMode();
+        cancelJumpMode(keyToRelease != 0 ? keyToRelease : Qt::Key_Space);
     }
 
     m_isHistoryNavigating = false;
