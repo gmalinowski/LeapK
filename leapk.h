@@ -158,6 +158,7 @@ public:
     bool isActive() const override;
     QString debug(const QString &parameter) const override;
     void grabbedKeyboardEvent(QKeyEvent *e) override;
+    void windowInputMouseEvent(QEvent *e) override;
 
     static bool supported();
 
@@ -503,6 +504,11 @@ private:
     int m_searchSelectedIndex = 0;
     QList<OutlineFuzzy::SearchCandidate> m_searchMatches;
     bool m_globalShortcutsBlocked = false;
+    bool m_mouseIntercepting = false;
+    mutable QRectF m_hudCloseButtonLocalRect;
+    QRectF m_hudCloseButtonScreenRect;
+    QRectF m_hudHeaderScreenRect;
+    QList<QPair<QRectF, EffectWindow *>> m_hudTargetPillRects;
 
     // Sub-Leap Disambiguation (multi-instance window disambiguation)
     bool m_subLeapActive = false;

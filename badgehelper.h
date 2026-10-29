@@ -2356,7 +2356,8 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("↑ / ↓"), QStringLiteral("Select window"), QColor(52, 152, 219)},
             {QStringLiteral("Tab"), QStringLiteral("Cycle scope"), QColor(241, 196, 15)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Direct jump"), QColor(155, 89, 182)},
-            {QStringLiteral("Esc"), QStringLiteral("Exit search"), QColor(149, 165, 166)}
+            {QStringLiteral("Backspace"), QStringLiteral("Delete / Exit"), QColor(149, 165, 166)},
+            {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
         };
     } else if (isAudioFilter) {
         segments = {
@@ -2364,7 +2365,8 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
-            {QStringLiteral("Meta+U / Esc"), QStringLiteral("Exit audio filter"), QColor(149, 165, 166)}
+            {QStringLiteral("Backspace"), QStringLiteral("Back"), QColor(149, 165, 166)},
+            {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
         };
     } else if (isSuperJump) {
         segments = {
@@ -2373,7 +2375,8 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Alt+Key"), QStringLiteral("Pull / Drop here"), QColor(241, 196, 15)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
-            {QStringLiteral("Meta+A / Esc"), QStringLiteral("Back"), QColor(149, 165, 166)}
+            {QStringLiteral("Backspace"), QStringLiteral("Back"), QColor(149, 165, 166)},
+            {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
         };
     } else if (isStashMode) {
         segments = {
@@ -2382,7 +2385,8 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Add to stash"), QColor(46, 204, 113)},
             {QStringLiteral(", / ."), QStringLiteral("Switch workspace"), QColor(52, 152, 219)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
-            {QStringLiteral("Esc"), QStringLiteral("Back"), QColor(149, 165, 166)}
+            {QStringLiteral("Backspace"), QStringLiteral("Back"), QColor(149, 165, 166)},
+            {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
         };
     } else if (isSubLeap) {
         segments = {
@@ -2391,7 +2395,8 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close"), QColor(231, 76, 60)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash"), QColor(46, 204, 113)},
-            {QStringLiteral("Backspace / Esc"), QStringLiteral("Back"), QColor(149, 165, 166)}
+            {QStringLiteral("Backspace"), QStringLiteral("Back"), QColor(149, 165, 166)},
+            {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
         };
     } else {
         segments = {
@@ -2408,7 +2413,8 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Meta+P"), QStringLiteral("Pin active"), QColor(241, 196, 15)},
             {QStringLiteral("Meta+M"), QStringLiteral("Markers"), QColor(155, 89, 182)},
             {QStringLiteral("Shift++"), QStringLiteral("New workspace"), QColor(52, 152, 219)},
-            {QStringLiteral(", / ."), QStringLiteral("Switch"), QColor(52, 152, 219)}
+            {QStringLiteral(", / ."), QStringLiteral("Switch"), QColor(52, 152, 219)},
+            {QStringLiteral("Esc / ⌫"), QStringLiteral("Close"), QColor(231, 76, 60)}
         };
         if (activeView >= 1) {
             segments.append({QStringLiteral("_"), QStringLiteral("Delete workspace"), QColor(231, 76, 60)});
@@ -2664,8 +2670,12 @@ inline QImage renderHudModeHeader(qreal scale,
                                   int searchCount = 0,
                                   int hudSize = 44,
                                   int navFontSize = 0,
-                                  const LeapKTheme::Theme &theme = LeapKTheme::Theme())
+                                  const LeapKTheme::Theme &theme = LeapKTheme::Theme(),
+                                  QRectF *outCloseButtonLocalRect = nullptr)
 {
+    if (outCloseButtonLocalRect) {
+        *outCloseButtonLocalRect = QRectF();
+    }
     const int baseHeaderH = (navFontSize > 0)
         ? qMax(32, qRound(navFontSize * 2.8))
         : qBound(32, qRound(hudSize * 0.88), 64);
@@ -2716,7 +2726,17 @@ inline QImage renderHudModeHeader(qreal scale,
         const int searchIconW = qMax(qRound(18 * scale), fmQuery.horizontalAdvance(promptIcon));
         const int h = qMax(qRound(baseHeaderH * scale), fmQuery.height() + 2 * padY);
         const int padX = qMax(qRound(16 * scale), qRound(h * 0.44));
-        const int w = padX + searchIconW + qRound(8 * scale) + queryW + countW + gap + scopesW + padX;
+
+        const QString closeText = QStringLiteral("✕ Esc");
+        QFont closeFont(QStringLiteral("sans-serif"));
+        closeFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.0) * scale)) : qMax(9, qRound(11.0 * scale)));
+        closeFont.setBold(true);
+        QFontMetrics fmClose(closeFont);
+        const int closeTextW = fmClose.horizontalAdvance(closeText);
+        const int closePillW = closeTextW + qRound(16 * scale);
+        const int closeSectionW = gap + closePillW;
+
+        const int w = padX + searchIconW + qRound(8 * scale) + queryW + countW + gap + scopesW + closeSectionW + padX;
 
         QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
         img.fill(Qt::transparent);
@@ -2807,6 +2827,21 @@ inline QImage renderHudModeHeader(qreal scale,
         // 5. Tab Hint
         p.setPen(QColor(120, 130, 145, 180));
         p.drawText(QPointF(currentX + 2.0 * scale, baselineY), tabHint);
+        currentX += fmScope.horizontalAdvance(tabHint) + gap;
+
+        // 6. Close Button [✕ Esc]
+        const QRectF closeRect(currentX, pillY, closePillW, pillH);
+        p.setPen(QPen(QColor(231, 76, 60, 180), 1.2 * scale));
+        p.setBrush(QColor(231, 76, 60, 35));
+        p.drawRoundedRect(closeRect, pillH / 2.0, pillH / 2.0);
+
+        p.setFont(closeFont);
+        p.setPen(QColor(255, 110, 100));
+        p.drawText(closeRect, Qt::AlignCenter, closeText);
+
+        if (outCloseButtonLocalRect) {
+            *outCloseButtonLocalRect = QRectF(closeRect.x() / scale, closeRect.y() / scale, closeRect.width() / scale, closeRect.height() / scale);
+        }
 
         p.end();
         return img;
@@ -2831,7 +2866,15 @@ inline QImage renderHudModeHeader(qreal scale,
         const int h = qMax(qRound(baseHeaderH * scale), qMax(fmTitle.height(), fmKey.height()) + 2 * padY);
         const int padX = qMax(qRound(18 * scale), qRound(h * 0.44));
 
-        const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + padX;
+        const QString closeText = QStringLiteral("✕ Esc");
+        QFont closeFont(QStringLiteral("sans-serif"));
+        closeFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.0) * scale)) : qMax(9, qRound(11.0 * scale)));
+        closeFont.setBold(true);
+        QFontMetrics fmClose(closeFont);
+        const int closeTextW = fmClose.horizontalAdvance(closeText);
+        const int closePillW = closeTextW + qRound(16 * scale);
+
+        const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + gap + closePillW + padX;
 
         QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
         img.fill(Qt::transparent);
@@ -2862,10 +2905,25 @@ inline QImage renderHudModeHeader(qreal scale,
         p.setPen(isLightBg ? QColor(46, 52, 64) : QColor(255, 255, 255));
         p.drawText(QPointF(padX, baselineY), leftText);
 
+        const qreal closeX = w - padX - closePillW;
         p.setFont(keyFont);
         p.setPen(accent);
-        const qreal keyX = w - padX - fmKey.horizontalAdvance(rightText);
+        const qreal keyX = closeX - gap - fmKey.horizontalAdvance(rightText);
         p.drawText(QPointF(keyX, baselineY), rightText);
+
+        const int closeBtnH = qMax(qRound(20 * scale), fmClose.height() + qRound(4 * scale));
+        const QRectF closeRect(closeX, (h - closeBtnH) / 2.0, closePillW, closeBtnH);
+        p.setPen(QPen(QColor(231, 76, 60, 180), 1.2 * scale));
+        p.setBrush(QColor(231, 76, 60, 35));
+        drawThemedShape(p, closeRect, theme.hudNav.tabShape, closeBtnH / 2.0, qRound(4 * scale));
+
+        p.setFont(closeFont);
+        p.setPen(QColor(255, 110, 100));
+        p.drawText(closeRect, Qt::AlignCenter, closeText);
+
+        if (outCloseButtonLocalRect) {
+            *outCloseButtonLocalRect = QRectF(closeRect.x() / scale, closeRect.y() / scale, closeRect.width() / scale, closeRect.height() / scale);
+        }
 
         p.end();
         return img;
@@ -2873,7 +2931,7 @@ inline QImage renderHudModeHeader(qreal scale,
 
     if (isSuperJump) {
         const QString leftText = QStringLiteral("⚡ SUPER JUMP: Pick any window to jump • Alt+Key to pull into [%1]").arg(!targetWorkspaceName.isEmpty() ? targetWorkspaceName : QStringLiteral("Workspace"));
-        const QString rightText = QStringLiteral("Meta+A / Esc : Back");
+        const QString rightText = QStringLiteral("Backspace : Back");
 
         QFont titleFont(QStringLiteral("sans-serif"));
         titleFont.setPixelSize((navFontSize > 0) ? qRound(navFontSize * scale) : qMax(10, qRound(13.0 * scale)));
@@ -2885,12 +2943,20 @@ inline QImage renderHudModeHeader(qreal scale,
         keyFont.setBold(true);
         QFontMetrics fmKey(keyFont);
 
+        const QString closeText = QStringLiteral("✕ Esc");
+        QFont closeFont(QStringLiteral("sans-serif"));
+        closeFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.0) * scale)) : qMax(9, qRound(11.0 * scale)));
+        closeFont.setBold(true);
+        QFontMetrics fmClose(closeFont);
+        const int closeTextW = fmClose.horizontalAdvance(closeText);
+        const int closePillW = closeTextW + qRound(16 * scale);
+
         const int padY = qRound(6 * scale);
         const int gap = qRound(16 * scale);
         const int h = qMax(qRound(baseHeaderH * scale), qMax(fmTitle.height(), fmKey.height()) + 2 * padY);
         const int padX = qMax(qRound(18 * scale), qRound(h * 0.44));
 
-        const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + padX;
+        const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + gap + closePillW + padX;
 
         QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
         img.fill(Qt::transparent);
@@ -2921,10 +2987,25 @@ inline QImage renderHudModeHeader(qreal scale,
         p.setPen(isLightBg ? QColor(46, 52, 64) : QColor(255, 255, 255));
         p.drawText(QPointF(padX, baselineY), leftText);
 
+        const qreal closeX = w - padX - closePillW;
         p.setFont(keyFont);
         p.setPen(accent);
-        const qreal keyX = w - padX - fmKey.horizontalAdvance(rightText);
+        const qreal keyX = closeX - gap - fmKey.horizontalAdvance(rightText);
         p.drawText(QPointF(keyX, baselineY), rightText);
+
+        const int closeBtnH = qMax(qRound(20 * scale), fmClose.height() + qRound(4 * scale));
+        const QRectF closeRect(closeX, (h - closeBtnH) / 2.0, closePillW, closeBtnH);
+        p.setPen(QPen(QColor(231, 76, 60, 180), 1.2 * scale));
+        p.setBrush(QColor(231, 76, 60, 35));
+        drawThemedShape(p, closeRect, theme.hudNav.tabShape, closeBtnH / 2.0, qRound(4 * scale));
+
+        p.setFont(closeFont);
+        p.setPen(QColor(255, 110, 100));
+        p.drawText(closeRect, Qt::AlignCenter, closeText);
+
+        if (outCloseButtonLocalRect) {
+            *outCloseButtonLocalRect = QRectF(closeRect.x() / scale, closeRect.y() / scale, closeRect.width() / scale, closeRect.height() / scale);
+        }
 
         p.end();
         return img;
@@ -2932,7 +3013,7 @@ inline QImage renderHudModeHeader(qreal scale,
 
     if (isSubLeap) {
         const QString leftText = QStringLiteral("🗂 GROUP DISAMBIGUATION: %1 (%2 windows)  •  Press target letter").arg(subLeapTitle).arg(subLeapCount);
-        const QString rightText = QStringLiteral("Backspace / Esc : Back");
+        const QString rightText = QStringLiteral("Backspace : Back");
 
         QFont titleFont(QStringLiteral("sans-serif"));
         titleFont.setPixelSize((navFontSize > 0) ? qRound(navFontSize * scale) : qMax(10, qRound(13.0 * scale)));
@@ -2944,12 +3025,20 @@ inline QImage renderHudModeHeader(qreal scale,
         keyFont.setBold(true);
         QFontMetrics fmKey(keyFont);
 
+        const QString closeText = QStringLiteral("✕ Esc");
+        QFont closeFont(QStringLiteral("sans-serif"));
+        closeFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.0) * scale)) : qMax(9, qRound(11.0 * scale)));
+        closeFont.setBold(true);
+        QFontMetrics fmClose(closeFont);
+        const int closeTextW = fmClose.horizontalAdvance(closeText);
+        const int closePillW = closeTextW + qRound(16 * scale);
+
         const int padY = qRound(6 * scale);
         const int gap = qRound(16 * scale);
         const int h = qMax(qRound(baseHeaderH * scale), qMax(fmTitle.height(), fmKey.height()) + 2 * padY);
         const int padX = qMax(qRound(18 * scale), qRound(h * 0.44));
 
-        const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + padX;
+        const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + gap + closePillW + padX;
 
         QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
         img.fill(Qt::transparent);
@@ -2980,10 +3069,25 @@ inline QImage renderHudModeHeader(qreal scale,
         p.setPen(isLightBg ? QColor(46, 52, 64) : QColor(255, 255, 255));
         p.drawText(QPointF(padX, baselineY), leftText);
 
+        const qreal closeX = w - padX - closePillW;
         p.setFont(keyFont);
         p.setPen(QColor(231, 76, 60));
-        const qreal keyX = w - padX - fmKey.horizontalAdvance(rightText);
+        const qreal keyX = closeX - gap - fmKey.horizontalAdvance(rightText);
         p.drawText(QPointF(keyX, baselineY), rightText);
+
+        const int closeBtnH = qMax(qRound(20 * scale), fmClose.height() + qRound(4 * scale));
+        const QRectF closeRect(closeX, (h - closeBtnH) / 2.0, closePillW, closeBtnH);
+        p.setPen(QPen(QColor(231, 76, 60, 180), 1.2 * scale));
+        p.setBrush(QColor(231, 76, 60, 35));
+        drawThemedShape(p, closeRect, theme.hudNav.tabShape, closeBtnH / 2.0, qRound(4 * scale));
+
+        p.setFont(closeFont);
+        p.setPen(QColor(255, 110, 100));
+        p.drawText(closeRect, Qt::AlignCenter, closeText);
+
+        if (outCloseButtonLocalRect) {
+            *outCloseButtonLocalRect = QRectF(closeRect.x() / scale, closeRect.y() / scale, closeRect.width() / scale, closeRect.height() / scale);
+        }
 
         p.end();
         return img;
@@ -2994,7 +3098,7 @@ inline QImage renderHudModeHeader(qreal scale,
             ? QStringLiteral("STASH")
             : (theme.hudNav.stashIcon + QStringLiteral(" STASH"));
         const QString leftText = QStringLiteral("%1: Pick a window to add to [%2]").arg(stashPrefix, !targetWorkspaceName.isEmpty() ? targetWorkspaceName : QStringLiteral("Workspace"));
-        const QString rightText = QStringLiteral(", / . : Switch workspace  •  Esc : Back");
+        const QString rightText = QStringLiteral(", / . : Switch workspace  •  Backspace : Back");
 
         QFont titleFont(QStringLiteral("sans-serif"));
         titleFont.setPixelSize((navFontSize > 0) ? qRound(navFontSize * scale) : qMax(10, qRound(13.0 * scale)));
@@ -3006,12 +3110,20 @@ inline QImage renderHudModeHeader(qreal scale,
         keyFont.setBold(true);
         QFontMetrics fmKey(keyFont);
 
+        const QString closeText = QStringLiteral("✕ Esc");
+        QFont closeFont(QStringLiteral("sans-serif"));
+        closeFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.0) * scale)) : qMax(9, qRound(11.0 * scale)));
+        closeFont.setBold(true);
+        QFontMetrics fmClose(closeFont);
+        const int closeTextW = fmClose.horizontalAdvance(closeText);
+        const int closePillW = closeTextW + qRound(16 * scale);
+
         const int padY = qRound(6 * scale);
         const int gap = qRound(16 * scale);
         const int h = qMax(qRound(baseHeaderH * scale), qMax(fmTitle.height(), fmKey.height()) + 2 * padY);
         const int padX = qMax(qRound(18 * scale), qRound(h * 0.44));
 
-        const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + padX;
+        const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + gap + closePillW + padX;
 
         QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
         img.fill(Qt::transparent);
@@ -3042,10 +3154,25 @@ inline QImage renderHudModeHeader(qreal scale,
         p.setPen(isLightBg ? QColor(46, 52, 64) : QColor(255, 255, 255));
         p.drawText(QPointF(padX, baselineY), leftText);
 
+        const qreal closeX = w - padX - closePillW;
         p.setFont(keyFont);
         p.setPen(QColor(46, 204, 113));
-        const qreal keyX = w - padX - fmKey.horizontalAdvance(rightText);
+        const qreal keyX = closeX - gap - fmKey.horizontalAdvance(rightText);
         p.drawText(QPointF(keyX, baselineY), rightText);
+
+        const int closeBtnH = qMax(qRound(20 * scale), fmClose.height() + qRound(4 * scale));
+        const QRectF closeRect(closeX, (h - closeBtnH) / 2.0, closePillW, closeBtnH);
+        p.setPen(QPen(QColor(231, 76, 60, 180), 1.2 * scale));
+        p.setBrush(QColor(231, 76, 60, 35));
+        drawThemedShape(p, closeRect, theme.hudNav.tabShape, closeBtnH / 2.0, qRound(4 * scale));
+
+        p.setFont(closeFont);
+        p.setPen(QColor(255, 110, 100));
+        p.drawText(closeRect, Qt::AlignCenter, closeText);
+
+        if (outCloseButtonLocalRect) {
+            *outCloseButtonLocalRect = QRectF(closeRect.x() / scale, closeRect.y() / scale, closeRect.width() / scale, closeRect.height() / scale);
+        }
 
         p.end();
         return img;
@@ -3219,7 +3346,18 @@ inline QImage renderHudModeHeader(qreal scale,
 
     const int stashSectionW = (stashCount >= 0) ? (navGap + qRound(1 * scale) + navGap + stashPillW) : 0;
 
-    const int totalW = padX + navLeftW + navGap + allTabsW + navGap + navRightW + newWsSectionW + stashSectionW + padX;
+    // Close Button pill [✕ Esc]
+    const QString closeText = QStringLiteral("✕ Esc");
+    QFont closeFont(QStringLiteral("sans-serif"));
+    closeFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.0) * scale)) : qMax(9, qRound(11.5 * scale)));
+    closeFont.setBold(true);
+    QFontMetrics fmClose(closeFont);
+
+    const int closeTextW = fmClose.horizontalAdvance(closeText);
+    const int closePillW = closeTextW + 2 * tabPadX;
+    const int closeSectionW = navGap + qRound(1 * scale) + navGap + closePillW;
+
+    const int totalW = padX + navLeftW + navGap + allTabsW + navGap + navRightW + newWsSectionW + stashSectionW + closeSectionW + padX;
 
     QImage img(totalW, headerH, QImage::Format_ARGB32_Premultiplied);
     img.fill(Qt::transparent);
@@ -3367,6 +3505,29 @@ inline QImage renderHudModeHeader(qreal scale,
         p.setFont(stashFont);
         p.setPen(QColor(46, 204, 113));
         p.drawText(QPointF(stashContentX, stashBaselineY), stashDisplayText);
+    }
+
+    // Close button pill separated on the far right
+    const qreal afterRightX = (stashCount >= 0) ? (newWsX + newWsPillW + navGap + qRound(1 * scale) + navGap + stashPillW) : (newWsX + newWsPillW);
+    const qreal closeSepX = afterRightX + navGap;
+    p.setPen(QPen(QColor(255, 255, 255, 38), 1.0 * scale));
+    p.drawLine(QPointF(closeSepX, padY + 3.0 * scale), QPointF(closeSepX, headerH - padY - 3.0 * scale));
+
+    const qreal closeX = closeSepX + qRound(1 * scale) + navGap;
+    const QRectF closeRect(closeX, tabY, closePillW, tabH);
+    const qreal closeRadius = (theme.hudNav.tabShape == QStringLiteral("sharp")) ? 0.0 : (tabH / 2.0);
+    const int closeChamferPx = (theme.hudNav.tabShape == QStringLiteral("chamfered")) ? qMax(2, qRound(theme.hudNav.tabChamferSize * scale)) : 0;
+
+    p.setPen(QPen(QColor(231, 76, 60, 180), 1.2 * scale));
+    p.setBrush(QColor(231, 76, 60, 35));
+    drawThemedShape(p, closeRect, theme.hudNav.tabShape, closeRadius, closeChamferPx);
+
+    p.setFont(closeFont);
+    p.setPen(isLightBg ? QColor(192, 57, 43) : QColor(255, 110, 100));
+    p.drawText(closeRect, Qt::AlignCenter, closeText);
+
+    if (outCloseButtonLocalRect) {
+        *outCloseButtonLocalRect = QRectF(closeRect.x() / scale, closeRect.y() / scale, closeRect.width() / scale, closeRect.height() / scale);
     }
 
     p.end();

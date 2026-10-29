@@ -8,6 +8,7 @@
 #include "popupfilter.h"
 #include "precedencehelper.h"
 #include <QKeyEvent>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QCursor>
 #include <effect/effecthandler.h>
@@ -4850,6 +4851,8 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     }
 
     m_jumpMode = true;
+    effects->startMouseInterception(this, Qt::ArrowCursor);
+    m_mouseIntercepting = true;
     if (m_soundFeedbackEnabled) {
         OutlineSound::playSound(OutlineSound::SoundEffect::EnterJump, m_soundFeedbackVolume);
     }
@@ -4881,6 +4884,14 @@ void ActiveWindowOutlineEffect::cancelJumpMode()
         return;
     }
     m_jumpMode = false;
+    if (m_mouseIntercepting) {
+        effects->stopMouseInterception(this);
+        m_mouseIntercepting = false;
+    }
+    m_hudCloseButtonLocalRect = QRectF();
+    m_hudCloseButtonScreenRect = QRectF();
+    m_hudHeaderScreenRect = QRectF();
+    m_hudTargetPillRects.clear();
     setKdeGlobalShortcutsBlocked(false);
     m_subLeapActive = false;
     m_stashModeActive = false;
@@ -4990,6 +5001,84 @@ void ActiveWindowOutlineEffect::enterSubLeapForGroup(QChar keyChar, const QList<
     effects->addRepaintFull();
 }
 
+void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
+{
+    if (!m_jumpMode) {
+        return;
+    }
+
+    if (e->type() == QEvent::MouseMove) {
+        auto *me = static_cast<QMouseEvent *>(e);
+        const QPointF pos = me->position();
+        bool isHoveringClickable = false;
+
+        if (m_hudCloseButtonScreenRect.isValid() && m_hudCloseButtonScreenRect.contains(pos)) {
+            isHoveringClickable = true;
+        } else {
+            for (const auto &pair : m_hudTargetPillRects) {
+                if (pair.first.isValid() && pair.first.contains(pos)) {
+                    isHoveringClickable = true;
+                    break;
+                }
+            }
+        }
+
+        if (isHoveringClickable) {
+            effects->defineCursor(Qt::PointingHandCursor);
+        } else {
+            effects->defineCursor(Qt::ArrowCursor);
+        }
+        return;
+    }
+
+    if (e->type() == QEvent::MouseButtonPress) {
+        auto *me = static_cast<QMouseEvent *>(e);
+        if (me->button() == Qt::LeftButton) {
+            const QPointF pos = me->position();
+
+            // 1. Click on Close button
+            if (m_hudCloseButtonScreenRect.isValid() && m_hudCloseButtonScreenRect.contains(pos)) {
+                cancelJumpMode();
+                return;
+            }
+
+            // 2. Click on a window pill
+            for (const auto &pair : m_hudTargetPillRects) {
+                if (pair.first.isValid() && pair.first.contains(pos) && pair.second) {
+                    EffectWindow *target = pair.second;
+                    cancelJumpMode();
+                    if (!target->isOnCurrentDesktop()) {
+                        const auto desktops = target->desktops();
+                        if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
+                            effects->setCurrentDesktop(desktops.first());
+                        }
+                    }
+                    m_workspaceMinimizedWindows.remove(target);
+                    m_stashedWindows.remove(target);
+                    if (target->isMinimized()) {
+                        target->setMinimized(false);
+                    }
+                    effects->activateWindow(target);
+                    warpCursorToWindow(target);
+                    return;
+                }
+            }
+
+            // 3. Click inside header (outside close button) -> ignore to prevent accidental dismiss
+            if (m_hudHeaderScreenRect.isValid() && m_hudHeaderScreenRect.contains(pos)) {
+                return;
+            }
+
+            // 4. Click outside on backdrop / empty space -> close HUD
+            cancelJumpMode();
+            return;
+        } else if (me->button() == Qt::RightButton) {
+            cancelJumpMode();
+            return;
+        }
+    }
+}
+
 void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 {
     if (!m_jumpMode) {
@@ -5038,6 +5127,14 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     const bool isCtrl = (mods & Qt::ControlModifier) && !(mods & Qt::AltModifier);
     const bool isMetaOnly = (mods & Qt::MetaModifier) && !isAlt && !isCtrl && !isShift;
 
+    // Global Close HUD shortcuts: Esc, Ctrl+C, Ctrl+] -> completely dismiss HUD in all modes
+    const bool isCloseHudKey = (e->key() == Qt::Key_Escape)
+        || (isCtrl && (e->key() == Qt::Key_C || e->key() == Qt::Key_BracketRight));
+    if (isCloseHudKey) {
+        cancelJumpMode();
+        return;
+    }
+
     auto extractKeyChar = [e, isShift]() -> QString {
         if (e->key() >= Qt::Key_A && e->key() <= Qt::Key_Z) {
             return QString(QChar('A' + (e->key() - Qt::Key_A)));
@@ -5065,7 +5162,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     // 1. If currently in Sub-Leap disambiguation:
     if (m_subLeapActive) {
-        if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace) {
+        if (e->key() == Qt::Key_Backspace) {
             exitSubLeapMode();
             return;
         }
@@ -5207,16 +5304,6 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     // 2. Main Jump Mode:
     if (m_searchModeActive) {
-        if (e->key() == Qt::Key_Escape) {
-            if (!m_searchQuery.isEmpty()) {
-                m_searchQuery.clear();
-                updateSearchMatches();
-            } else {
-                exitSearchMode();
-            }
-            return;
-        }
-
         if (e->key() == Qt::Key_Tab) {
             m_searchScope = (m_searchScope + 1) % 3;
             updateSearchMatches();
@@ -5361,7 +5448,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     }
 
     if (m_audioFilterModeActive) {
-        if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace) {
+        if (e->key() == Qt::Key_Backspace) {
             exitAudioFilterMode();
             return;
         }
@@ -5373,7 +5460,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     }
 
     if (m_stashModeActive) {
-        if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace) {
+        if (e->key() == Qt::Key_Backspace) {
             exitStashMode();
             return;
         }
@@ -5482,7 +5569,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
-    if (m_superJumpActive && (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace)) {
+    if (m_superJumpActive && e->key() == Qt::Key_Backspace) {
         exitSuperJumpMode();
         return;
     }
@@ -5492,7 +5579,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
-    if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
+    if (e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
         cancelJumpMode();
         return;
     }
@@ -5564,7 +5651,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         || (e->key() == Qt::Key_Minus);
 
     if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
-        if (isUnderscore || e->key() == Qt::Key_Delete || e->key() == Qt::Key_Backspace) {
+        if (isUnderscore || e->key() == Qt::Key_Delete) {
             slotCloseActiveWorkspace();
             return;
         }
@@ -6894,6 +6981,13 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     QList<QRectF> dividerRects;
     const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, topMargin, 12.0, hudRowGap, dividerAfterIndex, 28.0, &dividerRects);
 
+    m_hudTargetPillRects.clear();
+    for (int i = 0; i < targets.size() && i < rects.size(); ++i) {
+        if (targets.at(i).second) {
+            m_hudTargetPillRects.append({rects.at(i), targets.at(i).second});
+        }
+    }
+
     struct GroupFrameItem {
         std::shared_ptr<GLTexture> texture;
         QRectF rect;
@@ -7454,7 +7548,7 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
     if (!m_hudHeaderTexture || m_hudHeaderCacheKey != headerKey) {
         const QImage headerImg = OutlineBadge::renderHudModeHeader(
             scale, m_subLeapActive, subLeapTitle, subLeapColor, subLeapCount, viewTabs, stashCount, m_stashModeActive, targetWorkspaceName, m_superJumpActive, m_audioFilterModeActive, m_jumpLetterToWindow.size(),
-            m_searchModeActive, m_searchQuery, m_searchScope, m_searchMatches.size(), hudSize, navFontSize, theme);
+            m_searchModeActive, m_searchQuery, m_searchScope, m_searchMatches.size(), hudSize, navFontSize, theme, &m_hudCloseButtonLocalRect);
         if (!headerImg.isNull()) {
             auto uploaded = GLTexture::upload(headerImg);
             if (uploaded) {
@@ -7508,6 +7602,18 @@ QRectF ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &render
 
     const qreal headerX = screenRect.center().x() - (headerW / 2.0);
     const QRectF headerRect(headerX, headerY, headerW, headerH);
+
+    m_hudHeaderScreenRect = headerRect;
+    if (m_hudCloseButtonLocalRect.isValid() && !m_hudCloseButtonLocalRect.isEmpty()) {
+        m_hudCloseButtonScreenRect = QRectF(
+            headerRect.left() + m_hudCloseButtonLocalRect.left(),
+            headerRect.top() + m_hudCloseButtonLocalRect.top(),
+            m_hudCloseButtonLocalRect.width(),
+            m_hudCloseButtonLocalRect.height()
+        );
+    } else {
+        m_hudCloseButtonScreenRect = QRectF();
+    }
 
     GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
     GLint previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha;

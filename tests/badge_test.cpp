@@ -1096,6 +1096,22 @@ void testHudModeHeader()
     QImage svgHeader = OutlineBadge::renderHudModeHeader(1.0, false, QString(), QColor(), 0, svgViews, 1, false);
     assert(!svgHeader.isNull());
     assert(svgHeader.width() > 150);
+
+    // 8. Close button rect output verification
+    QRectF closeRect;
+    QImage headerWithClose = OutlineBadge::renderHudModeHeader(1.0, false, QString(), QColor(), 0, views, 3, false, QString(), false, false, 0, false, QString(), 1, 0, 44, 0, LeapKTheme::Theme(), &closeRect);
+    assert(!headerWithClose.isNull());
+    assert(closeRect.isValid());
+    assert(closeRect.width() > 20);
+    assert(closeRect.height() > 15);
+    assert(closeRect.right() <= headerWithClose.width());
+
+    QRectF superJumpCloseRect;
+    QImage sjWithClose = OutlineBadge::renderHudModeHeader(1.0, false, QString(), QColor(), 0, {}, -1, false, QStringLiteral("📁 Dev"), true, false, 0, false, QString(), 1, 0, 44, 0, LeapKTheme::Theme(), &superJumpCloseRect);
+    assert(!sjWithClose.isNull());
+    assert(superJumpCloseRect.isValid());
+    assert(superJumpCloseRect.width() > 20);
+    assert(superJumpCloseRect.height() > 15);
 }
 
 void testStashBadgeStyling()
