@@ -1561,6 +1561,8 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("BadgeLivePreviews")] = m_ui->kcfg_BadgeLivePreviews->isChecked();
     s[QStringLiteral("BadgeTimeout")] = m_ui->kcfg_BadgeTimeout->value();
     s[QStringLiteral("JumpRecentKey")] = m_ui->kcfg_JumpRecentKey->keySequence().toString();
+    s[QStringLiteral("ActiveThemeId")] = m_activeThemeId;
+    s[QStringLiteral("ActiveThemeParams")] = QString::fromUtf8(QJsonDocument(m_themeUserOverrides).toJson(QJsonDocument::Compact));
 
     // Color Cycling
     s[QStringLiteral("ColorCycleEnabled")] = m_ui->kcfg_ColorCycleEnabled->isChecked();
@@ -3037,6 +3039,8 @@ void ActiveWindowOutlineConfig::applySelectedTheme()
     m_currentDisplayedThemeId.clear();
     refreshThemesTable();
     updateThemeParametersUI();
+    saveThemeParameterValues();
+    updateBadgePreview();
     markAsChanged();
 }
 
@@ -3103,6 +3107,8 @@ void ActiveWindowOutlineConfig::updateThemeParametersUIFor(const QString &id)
             }
             connect(spin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [&param, this](double val) {
                 param.currentValue = val;
+                saveThemeParameterValues();
+                updateBadgePreview();
                 markAsChanged();
             });
             m_ui->formLayoutThemeParams->addRow(param.name + QStringLiteral(":"), spin);
@@ -3116,6 +3122,8 @@ void ActiveWindowOutlineConfig::updateThemeParametersUIFor(const QString &id)
             }
             connect(spin, QOverload<int>::of(&QSpinBox::valueChanged), this, [&param, this](int val) {
                 param.currentValue = val;
+                saveThemeParameterValues();
+                updateBadgePreview();
                 markAsChanged();
             });
             m_ui->formLayoutThemeParams->addRow(param.name + QStringLiteral(":"), spin);
@@ -3124,6 +3132,8 @@ void ActiveWindowOutlineConfig::updateThemeParametersUIFor(const QString &id)
             cb->setChecked(param.currentValue > 0.5);
             connect(cb, &QCheckBox::toggled, this, [&param, this](bool checked) {
                 param.currentValue = checked ? 1.0 : 0.0;
+                saveThemeParameterValues();
+                updateBadgePreview();
                 markAsChanged();
             });
             m_ui->formLayoutThemeParams->addRow(QString(), cb);
@@ -3132,6 +3142,8 @@ void ActiveWindowOutlineConfig::updateThemeParametersUIFor(const QString &id)
             btn->setColor(QColor(param.colorCurrent));
             connect(btn, &KColorButton::changed, this, [&param, this](const QColor &col) {
                 param.colorCurrent = col.name(QColor::HexRgb);
+                saveThemeParameterValues();
+                updateBadgePreview();
                 markAsChanged();
             });
             m_ui->formLayoutThemeParams->addRow(param.name + QStringLiteral(":"), btn);
@@ -3144,6 +3156,8 @@ void ActiveWindowOutlineConfig::updateThemeParametersUIFor(const QString &id)
             }
             connect(combo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [&param, combo, this](int) {
                 param.enumCurrent = combo->currentText();
+                saveThemeParameterValues();
+                updateBadgePreview();
                 markAsChanged();
             });
             m_ui->formLayoutThemeParams->addRow(param.name + QStringLiteral(":"), combo);

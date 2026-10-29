@@ -1223,6 +1223,71 @@ void testSearchModeRendering()
     assert(searchHint.width() > 200);
 }
 
+void testPillThumbnailClippingAndThemes()
+{
+    // 1. Test Pill Thumbnail Clipping in Nordic Frost
+    OutlineBadge::BadgeConfig cfgNordic;
+    cfgNordic.activeTheme = LeapKTheme::findThemeById(QStringLiteral("nordic-frost"));
+    cfgNordic.windowShowThumbnail = true;
+    cfgNordic.windowThumbnailWidth = 56;
+    cfgNordic.windowThumbnailHeight = 40;
+    cfgNordic.windowBadgeSize = 28;
+
+    // Solid magenta thumbnail so any leak is unmistakable
+    QImage magentaThumb(56, 40, QImage::Format_ARGB32_Premultiplied);
+    magentaThumb.fill(QColor(255, 0, 255));
+
+    // Measure width with pill shape
+    const qreal pillW = OutlineBadge::computeBadgeWidth(cfgNordic, 28, QString(), QString(), true, false);
+    assert(pillW >= 85); // Includes thumbnail + end cap padding for pill capsule
+
+    // Render pill badge with thumbnail
+    const QImage pillBadge = OutlineBadge::renderBadgeImage(cfgNordic, 'N', QColor(35, 38, 41), QColor(), false, 28, 1.0, QString(), QIcon(), magentaThumb);
+    assert(!pillBadge.isNull());
+
+    // Corner pixels of the pill bounding rectangle MUST be 100% transparent (alpha == 0)
+    // If the thumbnail or rect was not clipped to pillPath, these corners would have color!
+    assert(pillBadge.pixelColor(0, 0).alpha() == 0);
+    assert(pillBadge.pixelColor(pillBadge.width() - 1, 0).alpha() == 0);
+    assert(pillBadge.pixelColor(0, pillBadge.height() - 1).alpha() == 0);
+    assert(pillBadge.pixelColor(pillBadge.width() - 1, pillBadge.height() - 1).alpha() == 0);
+
+    // 2. Test Nordic Frost Light Theme Background (not black #232629!)
+    // When unmarked window color (#232629 from kwinrc) is passed, effectiveBg MUST resolve to white themeBgNormal (#ffffff)
+    const QColor samplePillBg = pillBadge.pixelColor(8, pillBadge.height() / 2);
+    assert(samplePillBg.red() > 220 && samplePillBg.green() > 220 && samplePillBg.blue() > 220);
+
+    // 3. Test Nordic Frost HUD Card Light Background
+    const QImage hudNordic = OutlineBadge::renderOffscreenTargetPill(cfgNordic, 'N', QColor(35, 38, 41), QColor(),
+                                                                    QStringLiteral("Desk 1"), QStringLiteral("Kate"), 36, 1.0,
+                                                                    QString(), QIcon(), QImage(), false);
+    assert(!hudNordic.isNull());
+    const QColor sampleHudBg = hudNordic.pixelColor(hudNordic.width() / 2, hudNordic.height() / 2);
+    assert(sampleHudBg.red() > 220 && sampleHudBg.green() > 220 && sampleHudBg.blue() > 220);
+
+    // 4. Test Cyberpunk Neon Deep Violet Card Background
+    OutlineBadge::BadgeConfig cfgCyber;
+    cfgCyber.activeTheme = LeapKTheme::findThemeById(QStringLiteral("cyberpunk-neon"));
+    const QImage hudCyber = OutlineBadge::renderOffscreenTargetPill(cfgCyber, 'C', QColor(35, 38, 41), QColor(),
+                                                                  QStringLiteral("Desk 1"), QStringLiteral("Firefox"), 36, 1.0,
+                                                                  QString(), QIcon(), QImage(), false);
+    assert(!hudCyber.isNull());
+    const QColor cyberBg = hudCyber.pixelColor(hudCyber.width() / 2, hudCyber.height() / 2);
+    // Deep neon violet #160d33 has blue > green and red > green
+    assert(cyberBg.blue() > cyberBg.green() && cyberBg.red() > cyberBg.green());
+
+    // 5. Test Retro Terminal CRT Forest Green Card Background
+    OutlineBadge::BadgeConfig cfgTerm;
+    cfgTerm.activeTheme = LeapKTheme::findThemeById(QStringLiteral("retro-terminal"));
+    const QImage hudTerm = OutlineBadge::renderOffscreenTargetPill(cfgTerm, 'T', QColor(35, 38, 41), QColor(),
+                                                                 QStringLiteral("Desk 1"), QStringLiteral("Terminal"), 36, 1.0,
+                                                                 QString(), QIcon(), QImage(), false);
+    assert(!hudTerm.isNull());
+    const QColor termBg = hudTerm.pixelColor(hudTerm.width() / 2, hudTerm.height() / 2);
+    // Dark CRT green #08200d has green > red and green > blue
+    assert(termBg.green() > termBg.red() && termBg.green() > termBg.blue());
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -1253,6 +1318,7 @@ int main(int argc, char *argv[])
     testCursorWarpCalculation();
     testAudioIndicatorRendering();
     testSearchModeRendering();
+    testPillThumbnailClippingAndThemes();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

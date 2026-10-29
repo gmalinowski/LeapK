@@ -2727,7 +2727,12 @@ static void parseBadgeConfigFromJson(OutlineBadge::BadgeConfig &cfg, int &badgeP
     }
     if (obj.contains(QStringLiteral("ActiveThemeId"))) {
         cfg.activeThemeId = obj.value(QStringLiteral("ActiveThemeId")).toString(QStringLiteral("default-breeze"));
-        cfg.activeTheme = LeapKTheme::findThemeById(cfg.activeThemeId);
+        QJsonObject previewThemeOverrides;
+        const QString pJson = obj.value(QStringLiteral("ActiveThemeParams")).toString();
+        if (!pJson.isEmpty()) {
+            previewThemeOverrides = QJsonDocument::fromJson(pJson.toUtf8()).object();
+        }
+        cfg.activeTheme = LeapKTheme::findThemeById(cfg.activeThemeId, previewThemeOverrides);
     }
 
     if (obj.contains(QStringLiteral("BadgeDefaultColor"))) {
@@ -6435,6 +6440,8 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
     const quint64 stashedKey = isStashed ? 0x10000 : 0;
     const quint64 audioKey = isPlayingAudio ? 0x20000 : 0;
     const quint64 flagsKey = (m_badgeShowIcon ? 0x1000 : 0) | (m_badgeShowThumbnail ? 0x2000 : 0) | (isRecent ? 0x4000 : 0) | (isJumpMode ? 1 : 0) | previewKey | stashedKey | audioKey;
+    const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
+    const quint64 themeHashVal = static_cast<quint64>(qHash(cfg.activeThemeId)) ^ static_cast<quint64>(qHash(cfg.activeThemeParamsJson));
     const quint64 key = (static_cast<quint64>(letter.unicode()) << 48)
         ^ (static_cast<quint64>(bgColor.rgba()) << 16)
         ^ (static_cast<quint64>(textColor.rgba()))
@@ -6443,11 +6450,11 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
         ^ (labelKey << 24)
         ^ (rKeyHash << 20)
         ^ (windowKey << 12)
+        ^ (themeHashVal << 4)
         ^ flagsKey;
 
     std::shared_ptr<GLTexture> texture;
     auto it = m_badgeTextureCache.find(key);
-    const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
     const bool showThumbOnWindow = cfg.windowShowThumbnail;
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     const qint64 lastCapture = m_lastCaptureTimestamp.value(target, 0);

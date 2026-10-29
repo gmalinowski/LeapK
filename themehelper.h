@@ -581,13 +581,13 @@ inline QList<Theme> builtInThemes()
         pRadius.suffix = QStringLiteral(" px");
         t.parameters.append(pRadius);
 
-        t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#14171a");
-        t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#181b1f");
-        t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#22272e");
+        t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#16191d");
+        t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#1e2227");
+        t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#282e36");
         t.tokens[QStringLiteral("textPrimary")] = QStringLiteral("#eff0f1");
-        t.tokens[QStringLiteral("textSecondary")] = QStringLiteral("#bdc3c7");
+        t.tokens[QStringLiteral("textSecondary")] = QStringLiteral("#9ba1a6");
         t.tokens[QStringLiteral("borderColor")] = QStringLiteral("$accentColor");
-        t.tokens[QStringLiteral("borderNormal")] = QStringLiteral("#3a404a");
+        t.tokens[QStringLiteral("borderNormal")] = QStringLiteral("#363c46");
         t.tokens[QStringLiteral("audioColor")] = QStringLiteral("#f1c40f");
 
         t.hudContainer.shape = QStringLiteral("rounded_rect");
@@ -669,14 +669,14 @@ inline QList<Theme> builtInThemes()
         pCut.suffix = QStringLiteral(" px");
         t.parameters.append(pCut);
 
-        t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#050811");
-        t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#090e1a");
-        t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#0e182e");
-        t.tokens[QStringLiteral("textPrimary")] = QStringLiteral("#ffffff");
-        t.tokens[QStringLiteral("textSecondary")] = QStringLiteral("#00f0ff");
+        t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#0a0618");
+        t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#160d33");
+        t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#261456");
+        t.tokens[QStringLiteral("textPrimary")] = QStringLiteral("#00f0ff");
+        t.tokens[QStringLiteral("textSecondary")] = QStringLiteral("#ff007f");
         t.tokens[QStringLiteral("borderColor")] = QStringLiteral("$neonCyan");
-        t.tokens[QStringLiteral("borderNormal")] = QStringLiteral("#162840");
-        t.tokens[QStringLiteral("audioColor")] = QStringLiteral("$neonPink");
+        t.tokens[QStringLiteral("borderNormal")] = QStringLiteral("#ff007f");
+        t.tokens[QStringLiteral("audioColor")] = QStringLiteral("#ffff00");
 
         t.hudContainer.shape = QStringLiteral("chamfered");
         t.hudContainer.chamferSize = 8;
@@ -737,14 +737,14 @@ inline QList<Theme> builtInThemes()
         pWireframe.currentValue = 1.0;
         t.parameters.append(pWireframe);
 
-        t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#000000");
-        t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#020803");
-        t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#071f0a");
-        t.tokens[QStringLiteral("textPrimary")] = QStringLiteral("#00ff66");
-        t.tokens[QStringLiteral("textSecondary")] = QStringLiteral("#00aa44");
+        t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#031006");
+        t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#08200d");
+        t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#103d19");
+        t.tokens[QStringLiteral("textPrimary")] = QStringLiteral("#33ff77");
+        t.tokens[QStringLiteral("textSecondary")] = QStringLiteral("#1ea843");
         t.tokens[QStringLiteral("borderColor")] = QStringLiteral("$phosphorColor");
-        t.tokens[QStringLiteral("borderNormal")] = QStringLiteral("#005522");
-        t.tokens[QStringLiteral("audioColor")] = QStringLiteral("#00ff66");
+        t.tokens[QStringLiteral("borderNormal")] = QStringLiteral("#0d5520");
+        t.tokens[QStringLiteral("audioColor")] = QStringLiteral("#33ff77");
 
         t.hudContainer.shape = QStringLiteral("sharp");
         t.hudContainer.cornerRadius = 0;
@@ -805,13 +805,13 @@ inline QList<Theme> builtInThemes()
         pOpacity.suffix = QStringLiteral("%");
         t.parameters.append(pOpacity);
 
-        t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#d8dee9");
-        t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#f4f6f9");
-        t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#ffffff");
+        t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#e5e9f0");
+        t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#ffffff");
+        t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#eceff4");
         t.tokens[QStringLiteral("textPrimary")] = QStringLiteral("#2e3440");
         t.tokens[QStringLiteral("textSecondary")] = QStringLiteral("#4c566a");
         t.tokens[QStringLiteral("borderColor")] = QStringLiteral("$frostColor");
-        t.tokens[QStringLiteral("borderNormal")] = QStringLiteral("#c5cbd5");
+        t.tokens[QStringLiteral("borderNormal")] = QStringLiteral("#d8dee9");
         t.tokens[QStringLiteral("audioColor")] = QStringLiteral("#d08770");
 
         t.hudContainer.shape = QStringLiteral("pill");

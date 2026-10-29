@@ -91,7 +91,7 @@ struct BadgeConfig {
     LeapKTheme::Theme activeTheme = LeapKTheme::builtInThemes().first();
 
     // Appearance
-    QColor defaultBgColor = QColor(35, 38, 41, 235);
+    QColor defaultBgColor = QColor(35, 38, 41, 255);
     int cornerRadius = 6;
     int opacityPercent = 92;
     int hudPosition = 0; // 0 = Bottom, 1 = Top, 2 = Left, 3 = Right
@@ -489,7 +489,8 @@ inline qreal computeBadgeWidth(qreal baseHeight, const QString &customLabel = QS
                                int letterFontSize = 0,
                                const QString &letterFontFamily = QString(),
                                bool hasLetter = true,
-                               bool isPlayingAudio = false)
+                               bool isPlayingAudio = false,
+                               const QString &badgeShape = QString())
 {
     const QString cleanLabel = customLabel.trimmed();
     if (!hasLetter && cleanLabel == QStringLiteral("●") && !isPlayingAudio) {
@@ -527,6 +528,10 @@ inline qreal computeBadgeWidth(qreal baseHeight, const QString &customLabel = QS
         const qreal aspect = qBound(1.0, configAspect, 2.0);
         const qreal effThumbW = (thumbWidth > 0) ? qMin(qreal(thumbWidth), qreal(qRound(effThumbH * aspect))) : qreal(qRound(effThumbH * aspect));
         totalW += effThumbW + 10.0;
+    }
+
+    if (badgeShape == QStringLiteral("pill") && (showThumbnail || showIcon || !cleanLabel.isEmpty() || isPlayingAudio)) {
+        totalW += qRound(baseHeight * 0.35);
     }
 
     if (cleanLabel.isEmpty()) {
@@ -580,9 +585,10 @@ inline qreal computeBadgeWidth(const BadgeConfig &cfg, qreal baseHeight, const Q
     const int thumbH = (cfg.windowThumbnailHeight > 0) ? cfg.windowThumbnailHeight : cfg.thumbnailHeight;
     const int labelSz = (cfg.windowLabelFontSize > 0) ? cfg.windowLabelFontSize : cfg.labelFontSize;
     const int letterSz = (cfg.windowLetterFontSize > 0) ? cfg.windowLetterFontSize : cfg.letterFontSize;
+    const QString &shape = cfg.activeTheme.windowBadge.shape;
     return computeBadgeWidth(baseHeight, customLabel, showI, showT,
                              1.6, iconSz, thumbW, labelSz, cfg.labelFontFamily,
-                             thumbH, recentKey, letterSz, cfg.letterFontFamily, hasLetter, isPlayingAudio);
+                             thumbH, recentKey, letterSz, cfg.letterFontFamily, hasLetter, isPlayingAudio, shape);
 }
 
 inline void drawHighContrastPinDot(QPainter &p, const QPointF &center, qreal radius, qreal scale, const QColor &customCore = QColor())
@@ -824,7 +830,11 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
 
     const int audioSectionW = isPlayingAudio ? qRound(effectiveBaseHeight * 0.85) : 0;
     const int effectiveLetterWidth = hasLetter ? qRound(effectiveBaseHeight * 1.35) : 0;
-    const int effectiveBaseWidth = effectiveLetterWidth + recentSectionW + iconSectionW + thumbSectionW + labelSectionW + audioSectionW;
+    const QString &badgeShape = cfg.activeTheme.windowBadge.shape;
+    const int endCapPadding = (badgeShape == QStringLiteral("pill") && (hasThumb || hasIcon || hasLabel || isPlayingAudio))
+        ? qRound(effectiveBaseHeight * 0.35)
+        : 0;
+    const int effectiveBaseWidth = effectiveLetterWidth + recentSectionW + iconSectionW + thumbSectionW + labelSectionW + audioSectionW + endCapPadding;
 
     const int w = qMax(1, qRound(effectiveBaseWidth * scale));
     const int h = qMax(1, qRound(effectiveBaseHeight * scale));
@@ -838,7 +848,6 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
 
     const qreal margin = 2.0 * scale;
     const QRectF rect(margin, margin, w - 2 * margin, h - 2 * margin);
-    const QString &badgeShape = cfg.activeTheme.windowBadge.shape;
     const int badgeChamfer = cfg.activeTheme.resolveInt(QString::number(cfg.activeTheme.windowBadge.chamferSize), 5);
     const qreal radius = (badgeShape == QStringLiteral("sharp"))
         ? 0.0
@@ -857,7 +866,8 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
     // Background color with opacity
     const QColor themeBgNormal = cfg.activeTheme.resolveColor(cfg.activeTheme.windowBadge.bgNormal, cfg.activeTheme.resolveColor(QStringLiteral("$bgCard"), cfg.defaultBgColor));
     const double themeOpacity = (cfg.activeTheme.hudContainer.bgOpacity > 0.05) ? cfg.activeTheme.hudContainer.bgOpacity : (cfg.opacityPercent / 100.0);
-    QColor effectiveBg = (bgColor.isValid() && bgColor != cfg.defaultBgColor) ? bgColor : themeBgNormal;
+    const bool isCustomMarkColor = (bgColor.isValid() && bgColor.rgb() != cfg.defaultBgColor.rgb() && bgColor.rgb() != QColor(35, 38, 41).rgb());
+    QColor effectiveBg = isCustomMarkColor ? bgColor : themeBgNormal;
     if (isStashed) {
         int h, s, v, a;
         effectiveBg.getHsv(&h, &s, &v, &a);
@@ -899,6 +909,7 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
 
     p.setFont(font);
     QColor effLetterColor = autoTextColor;
+    const QColor themeTextPrimary = cfg.activeTheme.resolveColor(QStringLiteral("$textPrimary"), autoTextColor);
     if (!cfg.letterColorAuto && cfg.letterColor.isValid()) {
         if (contrastRatio(effectiveBg, cfg.letterColor) >= 2.5) {
             effLetterColor = cfg.letterColor;
@@ -908,8 +919,13 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
             // Fall back to auto-contrast text color to prevent unreadable badges.
             effLetterColor = autoTextColor;
         }
+    } else if (contrastRatio(effectiveBg, themeTextPrimary) >= 3.0) {
+        effLetterColor = themeTextPrimary;
     }
     p.setPen(effLetterColor);
+
+    p.save();
+    p.setClipPath(pillPath);
 
     const bool hasExtra = hasIcon || hasThumb || hasLabel || hasRecentKey || isPlayingAudio;
     if (!hasExtra) {
@@ -968,7 +984,7 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
             QPainterPath thumbPath;
             thumbPath.addRoundedRect(thumbRect, thumbRadius, thumbRadius);
             p.save();
-            p.setClipPath(thumbPath);
+            p.setClipPath(thumbPath.intersected(pillPath));
             if (isStashed) {
                 p.setOpacity(0.65);
             }
@@ -1054,6 +1070,13 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
             currentX += audioAreaW;
         }
     }
+
+    p.restore();
+
+    // Redraw crisp themed border on top to guarantee clean, sharp edges
+    p.setPen(borderPen);
+    p.setBrush(Qt::NoBrush);
+    drawThemedShape(p, rect, badgeShape, radius, badgeChamfer * scale);
 
     p.end();
     return img;
@@ -1564,7 +1587,8 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     p.setPen(Qt::NoPen);
     p.fillPath(shadowPath.subtracted(bgPath), QColor(0, 0, 0, 140));
 
-    const bool effectivelyMarked = isMarked || isRecent || (bgColor.isValid() && bgColor != cfg.defaultBgColor && bgColor != QColor(35, 38, 41, 235));
+    const bool isCustomMarkColor = isMarked || (bgColor.isValid() && bgColor.rgb() != cfg.defaultBgColor.rgb() && bgColor.rgb() != QColor(35, 38, 41).rgb());
+    const bool effectivelyMarked = isCustomMarkColor || isRecent;
     const QColor rawMarkColor = bgColor.isValid() ? bgColor : cfg.defaultBgColor;
     QColor pureMarkColor = rawMarkColor;
     pureMarkColor.setAlpha(255); // Solid, vibrant, undimmed 100% mark color
@@ -1746,7 +1770,7 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         QPainterPath tPath;
         tPath.addRoundedRect(thumbRect, thumbRadius, thumbRadius);
         p.save();
-        p.setClipPath(tPath);
+        p.setClipPath(tPath.intersected(bgPath));
         if (isStashed) {
             p.setOpacity(0.65);
         }
@@ -1777,7 +1801,7 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
             QPainterPath tPath;
             tPath.addRoundedRect(thumbRect, thumbRadius, thumbRadius);
             p.save();
-            p.setClipPath(tPath);
+            p.setClipPath(tPath.intersected(bgPath));
             if (isStashed) {
                 p.setOpacity(0.65);
             }
@@ -1798,18 +1822,21 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         textLineHeight = pillH;
     }
 
+    const QColor themeTextPrimary = cfg.activeTheme.resolveColor(QStringLiteral("$textPrimary"), isLightPill ? QColor(20, 20, 20) : QColor(230, 235, 240));
+    const QColor themeTextSecondary = cfg.activeTheme.resolveColor(QStringLiteral("$textSecondary"), isLightPill ? QColor(70, 75, 85) : QColor(160, 170, 185));
+
     QColor line1Color;
     QColor line2Color;
 
     if (isPinned) {
         line1Color = (cfg.locationColorAuto || !cfg.locationColor.isValid()) ? QColor(241, 196, 15) : cfg.locationColor;
-        line2Color = (cfg.captionColorAuto || !cfg.captionColor.isValid()) ? (isLightPill ? QColor(50, 50, 50) : QColor(220, 225, 230)) : cfg.captionColor;
+        line2Color = (cfg.captionColorAuto || !cfg.captionColor.isValid()) ? themeTextSecondary : cfg.captionColor;
     } else if (hasCustomLabel) {
-        line1Color = (cfg.labelColorAuto || !cfg.labelUnmarkedColor.isValid()) ? pillAutoText : cfg.labelUnmarkedColor;
-        line2Color = (cfg.locationColorAuto || !cfg.locationColor.isValid()) ? (isLightPill ? QColor(40, 40, 40) : QColor(241, 196, 15)) : cfg.locationColor;
+        line1Color = (cfg.labelColorAuto || !cfg.labelUnmarkedColor.isValid()) ? themeTextPrimary : cfg.labelUnmarkedColor;
+        line2Color = (cfg.locationColorAuto || !cfg.locationColor.isValid()) ? themeTextSecondary : cfg.locationColor;
     } else {
-        line1Color = (cfg.locationColorAuto || !cfg.locationColor.isValid()) ? (isLightPill ? QColor(20, 20, 20) : QColor(241, 196, 15)) : cfg.locationColor;
-        line2Color = (cfg.captionColorAuto || !cfg.captionColor.isValid()) ? (isLightPill ? QColor(50, 50, 50) : QColor(220, 225, 230)) : cfg.captionColor;
+        line1Color = (cfg.locationColorAuto || !cfg.locationColor.isValid()) ? themeTextSecondary : cfg.locationColor;
+        line2Color = (cfg.captionColorAuto || !cfg.captionColor.isValid()) ? themeTextPrimary : cfg.captionColor;
     }
 
     if (isPinned && line1Text.startsWith(QStringLiteral("●"))) {
@@ -1877,6 +1904,11 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         const QColor themeAudioColor = cfg.activeTheme.resolveColor(QStringLiteral("$audioColor"), QColor(241, 196, 15));
         drawAudioSpeaker(p, spRect, themeAudioColor, pillBg);
     }
+
+    // Redraw themed card border on top to guarantee clean, sharp edges
+    p.setPen(borderPen);
+    p.setBrush(Qt::NoBrush);
+    p.drawPath(bgPath);
 
     p.end();
     return img;
