@@ -128,6 +128,10 @@ struct WindowBadgeTheme {
     bool shadowEnabled = true;
     QString shadowColor = QStringLiteral("#00000066");
     double shadowRadius = 4.0;
+    QString audioIndicatorStyle = QStringLiteral("speaker_icon"); // "speaker_icon", "soundwave_pulse", "minimal_dot"
+    QString audioIndicatorColor = QStringLiteral("$audioColor");
+    double audioIndicatorScale = 1.0;
+    bool audioPulseBadge = true;
 
     QJsonObject toJson() const
     {
@@ -141,6 +145,10 @@ struct WindowBadgeTheme {
         o[QStringLiteral("shadowEnabled")] = shadowEnabled;
         o[QStringLiteral("shadowColor")] = shadowColor;
         o[QStringLiteral("shadowRadius")] = shadowRadius;
+        o[QStringLiteral("audioIndicatorStyle")] = audioIndicatorStyle;
+        o[QStringLiteral("audioIndicatorColor")] = audioIndicatorColor;
+        o[QStringLiteral("audioIndicatorScale")] = audioIndicatorScale;
+        o[QStringLiteral("audioPulseBadge")] = audioPulseBadge;
         return o;
     }
 
@@ -156,6 +164,10 @@ struct WindowBadgeTheme {
         w.shadowEnabled = o.value(QStringLiteral("shadowEnabled")).toBool(w.shadowEnabled);
         w.shadowColor = o.value(QStringLiteral("shadowColor")).toString(w.shadowColor);
         w.shadowRadius = o.value(QStringLiteral("shadowRadius")).toDouble(w.shadowRadius);
+        w.audioIndicatorStyle = o.value(QStringLiteral("audioIndicatorStyle")).toString(w.audioIndicatorStyle);
+        w.audioIndicatorColor = o.value(QStringLiteral("audioIndicatorColor")).toString(w.audioIndicatorColor);
+        w.audioIndicatorScale = o.value(QStringLiteral("audioIndicatorScale")).toDouble(w.audioIndicatorScale);
+        w.audioPulseBadge = o.value(QStringLiteral("audioPulseBadge")).toBool(w.audioPulseBadge);
         return w;
     }
 };
@@ -230,6 +242,8 @@ struct HudCardTheme {
     bool activeGlow = true;
     QString audioIndicatorStyle = QStringLiteral("speaker_icon"); // "speaker_icon", "soundwave_pulse", "minimal_dot"
     QString audioIndicatorColor = QStringLiteral("$audioColor");
+    double audioIndicatorScale = 1.0;
+    bool audioPulseBadge = true;
 
     QJsonObject toJson() const
     {
@@ -246,6 +260,8 @@ struct HudCardTheme {
         o[QStringLiteral("activeGlow")] = activeGlow;
         o[QStringLiteral("audioIndicatorStyle")] = audioIndicatorStyle;
         o[QStringLiteral("audioIndicatorColor")] = audioIndicatorColor;
+        o[QStringLiteral("audioIndicatorScale")] = audioIndicatorScale;
+        o[QStringLiteral("audioPulseBadge")] = audioPulseBadge;
         return o;
     }
 
@@ -264,6 +280,8 @@ struct HudCardTheme {
         c.activeGlow = o.value(QStringLiteral("activeGlow")).toBool(c.activeGlow);
         c.audioIndicatorStyle = o.value(QStringLiteral("audioIndicatorStyle")).toString(c.audioIndicatorStyle);
         c.audioIndicatorColor = o.value(QStringLiteral("audioIndicatorColor")).toString(c.audioIndicatorColor);
+        c.audioIndicatorScale = o.value(QStringLiteral("audioIndicatorScale")).toDouble(c.audioIndicatorScale);
+        c.audioPulseBadge = o.value(QStringLiteral("audioPulseBadge")).toBool(c.audioPulseBadge);
         return c;
     }
 };
@@ -694,12 +712,17 @@ inline QList<Theme> builtInThemes()
         t.hudCard.borderNormal = QStringLiteral("$borderNormal");
         t.hudCard.borderActive = QStringLiteral("$neonCyan");
         t.hudCard.activeGlow = true;
+        t.hudCard.audioIndicatorStyle = QStringLiteral("soundwave_pulse");
         t.hudCard.audioIndicatorColor = QStringLiteral("$neonPink");
+        t.hudCard.audioIndicatorScale = 1.25;
 
         t.windowBadge.shape = QStringLiteral("chamfered");
         t.windowBadge.chamferSize = 5;
         t.windowBadge.bgNormal = QStringLiteral("$bgCard");
         t.windowBadge.borderColor = QStringLiteral("$neonCyan");
+        t.windowBadge.audioIndicatorStyle = QStringLiteral("soundwave_pulse");
+        t.windowBadge.audioIndicatorColor = QStringLiteral("$neonPink");
+        t.windowBadge.audioIndicatorScale = 1.25;
 
         t.searchHeader.promptPrefix = QStringLiteral("❯ ");
         t.searchHeader.cursorStyle = QStringLiteral("block_blink");
@@ -827,11 +850,14 @@ inline QList<Theme> builtInThemes()
         t.hudCard.borderNormal = QStringLiteral("$borderNormal");
         t.hudCard.borderActive = QStringLiteral("$frostColor");
         t.hudCard.audioIndicatorColor = QStringLiteral("$audioColor");
+        t.hudCard.audioIndicatorScale = 1.15;
 
         t.windowBadge.shape = QStringLiteral("pill");
         t.windowBadge.cornerRadius = 12;
         t.windowBadge.bgNormal = QStringLiteral("$bgCard");
         t.windowBadge.borderColor = QStringLiteral("$frostColor");
+        t.windowBadge.audioIndicatorColor = QStringLiteral("$audioColor");
+        t.windowBadge.audioIndicatorScale = 1.15;
 
         t.searchHeader.promptPrefix = QStringLiteral("❄ ");
         t.hintsBar.keycapStyle = QStringLiteral("pill");

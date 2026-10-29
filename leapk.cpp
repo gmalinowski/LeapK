@@ -488,14 +488,16 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
 
     m_audioRefreshTimer = new QTimer(this);
     connect(m_audioRefreshTimer, &QTimer::timeout, this, [this]() {
-        if (m_jumpMode) {
+        const bool badgesAlwaysOn = (m_outlineEnabled && m_badgeConfig.windowBadgesEnabled && m_badgeDisplayMode == 1);
+        if (m_jumpMode || badgesAlwaysOn) {
             m_audioTracker.refresh(getKnownWindowsInfo());
-            if (m_audioFilterModeActive) {
+            if (m_jumpMode && m_audioFilterModeActive) {
                 m_jumpLetterToWindow = assignJumpLetters();
             }
             m_badgeTextureCache.clear();
             m_hudHeaderTexture.reset();
             m_hudHeaderCacheKey = -1;
+            updateAnimationTimer();
             if (effects) {
                 effects->addRepaintFull();
             }
@@ -1032,6 +1034,18 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     }
 
     m_outlineCache.clear();
+    const bool badgesAlwaysOn = (m_outlineEnabled && m_badgeConfig.windowBadgesEnabled && m_badgeDisplayMode == 1);
+    if (m_audioRefreshTimer) {
+        if (m_jumpMode || badgesAlwaysOn) {
+            if (!m_audioRefreshTimer->isActive()) {
+                m_audioRefreshTimer->start(1500);
+            }
+        } else {
+            if (m_audioRefreshTimer->isActive()) {
+                m_audioRefreshTimer->stop();
+            }
+        }
+    }
     updateAnimationTimer();
 
     m_persistentMarks = LeapKMarks::loadPersistentMarks();
@@ -1065,6 +1079,11 @@ bool ActiveWindowOutlineEffect::isAnimationActive() const
             || (m_customShaderEnabled && !m_activeCustomShaderId.isEmpty());
     }
     if (m_jumpMode && m_badgeHudGroupShaderEnabled && (m_breatheEnabled || m_neonFlickerEnabled || (m_customShaderEnabled && !m_activeCustomShaderId.isEmpty()))) {
+        return true;
+    }
+    const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
+    const bool audioPulsingEnabled = theme.windowBadge.audioPulseBadge || theme.hudCard.audioPulseBadge;
+    if (audioPulsingEnabled && m_audioTracker.hasPlayingAudio() && (m_jumpMode || (m_outlineEnabled && m_badgeConfig.windowBadgesEnabled && m_badgeDisplayMode == 1))) {
         return true;
     }
     return false;
@@ -1118,6 +1137,12 @@ void ActiveWindowOutlineEffect::slotAnimationTick()
             m_delayedHideWindow = nullptr;
             m_delayedHideState.reset();
         }
+    }
+
+    const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
+    const bool audioPulsingEnabled = theme.windowBadge.audioPulseBadge || theme.hudCard.audioPulseBadge;
+    if (audioPulsingEnabled && m_audioTracker.hasPlayingAudio() && (m_jumpMode || (m_outlineEnabled && m_badgeConfig.windowBadgesEnabled && m_badgeDisplayMode == 1))) {
+        effects->addRepaintFull();
     }
 
     if (!isAnimationActive() && m_animationTimer->isActive()) {
@@ -4862,7 +4887,8 @@ void ActiveWindowOutlineEffect::cancelJumpMode()
     m_searchQuery.clear();
     m_searchMatches.clear();
     m_searchSelectedIndex = 0;
-    if (m_audioRefreshTimer) {
+    const bool badgesAlwaysOn = (m_outlineEnabled && m_badgeConfig.windowBadgesEnabled && m_badgeDisplayMode == 1);
+    if (m_audioRefreshTimer && !badgesAlwaysOn) {
         m_audioRefreshTimer->stop();
     }
     m_subLeapBaseKey = QChar();
@@ -6483,10 +6509,21 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
         m_badgeTextureCache[key] = texture;
     }
 
-    const float x0 = badgeRect.left() * scale;
-    const float y0 = badgeRect.top() * scale;
-    const float x1 = badgeRect.right() * scale;
-    const float y1 = badgeRect.bottom() * scale;
+    QRectF finalBadgeRect = badgeRect;
+    if (isPlayingAudio && cfg.activeTheme.windowBadge.audioPulseBadge) {
+        const qint64 elapsedMs = m_animationClock.isValid() ? m_animationClock.elapsed() : 0;
+        const qreal elapsedSec = elapsedMs / 1000.0;
+        const qreal pulse = 1.0 + 0.08 * std::sin(elapsedSec * 8.0);
+        const QPointF center = badgeRect.center();
+        const qreal pw = badgeRect.width() * pulse;
+        const qreal ph = badgeRect.height() * pulse;
+        finalBadgeRect = QRectF(center.x() - pw / 2.0, center.y() - ph / 2.0, pw, ph);
+    }
+
+    const float x0 = finalBadgeRect.left() * scale;
+    const float y0 = finalBadgeRect.top() * scale;
+    const float x1 = finalBadgeRect.right() * scale;
+    const float y1 = finalBadgeRect.bottom() * scale;
 
     const std::array<GLVertex2D, 6> verts = {{
         {QVector2D(x0, y0), QVector2D(0.0f, 0.0f)},
@@ -6995,7 +7032,20 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     shader->setUniform(GLShader::Vec4Uniform::ModulationConstant, QVector4D(1.0f, 1.0f, 1.0f, 1.0f));
     for (int i = 0; i < pills.size(); ++i) {
         const PillItem &item = pills.at(i);
-        const QRectF &rect = rects.at(i);
+        QRectF rect = rects.at(i);
+
+        const bool pillAudio = (i < targets.size() && targets.at(i).second)
+            ? m_audioTracker.isWindowPlaying(targets.at(i).second->pid(), targets.at(i).second->caption())
+            : false;
+        if (pillAudio && hudCfg.activeTheme.hudCard.audioPulseBadge) {
+            const qint64 elapsedMs = m_animationClock.isValid() ? m_animationClock.elapsed() : 0;
+            const qreal elapsedSec = elapsedMs / 1000.0;
+            const qreal pulse = 1.0 + 0.05 * std::sin(elapsedSec * 8.0);
+            const QPointF center = rect.center();
+            const qreal pw = rect.width() * pulse;
+            const qreal ph = rect.height() * pulse;
+            rect = QRectF(center.x() - pw / 2.0, center.y() - ph / 2.0, pw, ph);
+        }
 
         const float x0 = rect.left() * scale;
         const float y0 = rect.top() * scale;

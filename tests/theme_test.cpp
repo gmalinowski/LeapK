@@ -68,6 +68,11 @@ static void testBuiltInThemes()
     assert(cyber.hudContainer.shape == QStringLiteral("chamfered"));
     assert(cyber.hudContainer.glowEnabled);
     assert(cyber.searchHeader.promptPrefix == QStringLiteral("❯ "));
+    assert(cyber.hudCard.audioIndicatorStyle == QStringLiteral("soundwave_pulse"));
+    assert(cyber.hudCard.audioIndicatorColor == QStringLiteral("$neonPink"));
+    assert(cyber.hudCard.audioIndicatorScale > 1.2);
+    assert(cyber.windowBadge.audioIndicatorStyle == QStringLiteral("soundwave_pulse"));
+    assert(cyber.windowBadge.audioPulseBadge);
 
     // 3. Retro Terminal
     const Theme term = builtins[2];
@@ -80,6 +85,50 @@ static void testBuiltInThemes()
     assert(nordic.id == QStringLiteral("nordic-frost"));
     assert(nordic.hudContainer.shape == QStringLiteral("pill"));
     assert(nordic.hintsBar.keycapStyle == QStringLiteral("pill"));
+    assert(nordic.windowBadge.audioIndicatorScale > 1.1);
+    assert(nordic.windowBadge.audioPulseBadge);
+}
+
+static void testAudioThemeSettings()
+{
+    // Test defaults
+    WindowBadgeTheme wbt;
+    assert(wbt.audioIndicatorStyle == QStringLiteral("speaker_icon"));
+    assert(wbt.audioIndicatorColor == QStringLiteral("$audioColor"));
+    assert(std::abs(wbt.audioIndicatorScale - 1.0) < 0.001);
+    assert(wbt.audioPulseBadge == true);
+
+    HudCardTheme hct;
+    assert(hct.audioIndicatorStyle == QStringLiteral("speaker_icon"));
+    assert(hct.audioIndicatorColor == QStringLiteral("$audioColor"));
+    assert(std::abs(hct.audioIndicatorScale - 1.0) < 0.001);
+    assert(hct.audioPulseBadge == true);
+
+    // Test JSON round-trip for WindowBadgeTheme
+    wbt.audioIndicatorStyle = QStringLiteral("soundwave_pulse");
+    wbt.audioIndicatorColor = QStringLiteral("#ff007f");
+    wbt.audioIndicatorScale = 1.45;
+    wbt.audioPulseBadge = false;
+
+    const QJsonObject wbJson = wbt.toJson();
+    const WindowBadgeTheme wbParsed = WindowBadgeTheme::fromJson(wbJson);
+    assert(wbParsed.audioIndicatorStyle == QStringLiteral("soundwave_pulse"));
+    assert(wbParsed.audioIndicatorColor == QStringLiteral("#ff007f"));
+    assert(std::abs(wbParsed.audioIndicatorScale - 1.45) < 0.001);
+    assert(wbParsed.audioPulseBadge == false);
+
+    // Test JSON round-trip for HudCardTheme
+    hct.audioIndicatorStyle = QStringLiteral("minimal_dot");
+    hct.audioIndicatorColor = QStringLiteral("#00f0ff");
+    hct.audioIndicatorScale = 1.8;
+    hct.audioPulseBadge = true;
+
+    const QJsonObject hcJson = hct.toJson();
+    const HudCardTheme hcParsed = HudCardTheme::fromJson(hcJson);
+    assert(hcParsed.audioIndicatorStyle == QStringLiteral("minimal_dot"));
+    assert(hcParsed.audioIndicatorColor == QStringLiteral("#00f0ff"));
+    assert(std::abs(hcParsed.audioIndicatorScale - 1.8) < 0.001);
+    assert(hcParsed.audioPulseBadge == true);
 }
 
 static void testVariableResolutionAndOverrides()
@@ -156,6 +205,7 @@ int main(int, char **)
 {
     testThemeParameter();
     testBuiltInThemes();
+    testAudioThemeSettings();
     testVariableResolutionAndOverrides();
     testSerializationAndParsing();
     testThemeDiscoveryAndLookup();

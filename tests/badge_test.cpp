@@ -1226,6 +1226,32 @@ static void testAudioIndicatorRendering()
     const QColor yellowResult = OutlineBadge::dynamicAudioSpeakerColor(yellowBg);
     assert(yellowResult != yellowBg);
     assert(OutlineBadge::contrastRatio(yellowResult, yellowBg) >= 4.5);
+
+    // 8. drawAudioIndicator styles rendering
+    QImage testCanvas(64, 64, QImage::Format_ARGB32_Premultiplied);
+    testCanvas.fill(Qt::transparent);
+    QPainter p(&testCanvas);
+    OutlineBadge::drawAudioIndicator(p, QRectF(4, 4, 24, 24), QStringLiteral("speaker_icon"), QColor(241, 196, 15));
+    OutlineBadge::drawAudioIndicator(p, QRectF(32, 4, 24, 24), QStringLiteral("soundwave_pulse"), QColor(255, 0, 127));
+    OutlineBadge::drawAudioIndicator(p, QRectF(4, 32, 24, 24), QStringLiteral("minimal_dot"), QColor(0, 240, 255));
+    p.end();
+    assert(!testCanvas.isNull());
+
+    // 9. Audio scaling in computeBadgeWidth and computeHudPillSize
+    OutlineBadge::BadgeConfig cfgBase;
+    cfgBase.activeTheme.windowBadge.audioIndicatorScale = 1.0;
+    cfgBase.activeTheme.hudCard.audioIndicatorScale = 1.0;
+    const qreal wBase = OutlineBadge::computeBadgeWidth(cfgBase, 28.0, QString(), QString(), true, true);
+
+    OutlineBadge::BadgeConfig cfgScaled;
+    cfgScaled.activeTheme.windowBadge.audioIndicatorScale = 1.5;
+    cfgScaled.activeTheme.hudCard.audioIndicatorScale = 1.5;
+    const qreal wScaled = OutlineBadge::computeBadgeWidth(cfgScaled, 28.0, QString(), QString(), true, true);
+    assert(wScaled > wBase);
+
+    const QSizeF pillBase = OutlineBadge::computeHudPillSize(cfgBase, QStringLiteral("Desk 1"), QStringLiteral("Firefox"), 28, 1.0, QString(), false, false, QSize(), QString(), false, 0, false, false, true);
+    const QSizeF pillScaled = OutlineBadge::computeHudPillSize(cfgScaled, QStringLiteral("Desk 1"), QStringLiteral("Firefox"), 28, 1.0, QString(), false, false, QSize(), QString(), false, 0, false, false, true);
+    assert(pillScaled.width() > pillBase.width());
 }
 
 void testSearchModeRendering()
