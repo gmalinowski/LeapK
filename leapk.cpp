@@ -7795,7 +7795,7 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
         const QMap<QChar, EffectWindow *> backgroundBadges = assignJumpLetters();
         for (auto it = backgroundBadges.constBegin(); it != backgroundBadges.constEnd(); ++it) {
             EffectWindow *jw = it.value();
-            if (jw && !jw->isDeleted() && jw->isOnCurrentDesktop()) {
+            if (jw && jw != m_activeWindow && (!effects || jw != effects->activeWindow()) && !jw->isDeleted() && jw->isOnCurrentDesktop()) {
                 data.paint += jw->frameGeometry().toAlignedRect();
             }
         }
@@ -8067,7 +8067,9 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         for (auto it = backgroundBadges.constBegin(); it != backgroundBadges.constEnd(); ++it) {
             const QChar letter = it.key();
             EffectWindow *target = it.value();
-            if (!target || target->isDeleted() || !isEligibleTargetWindow(target)
+            if (!target || target == w || target == m_activeWindow
+                || (effects && target == effects->activeWindow())
+                || target->isDeleted() || !isEligibleTargetWindow(target)
                 || target->isMinimized() || !target->isOnCurrentDesktop()
                 || !target->isVisible()
                 || (m_hideOnFullScreen && target->isFullScreen())) {
@@ -8088,11 +8090,6 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 bgCol = resolveColor(1.0, target);
                 if (!bgCol.isValid() || bgCol.alpha() == 0) {
                     bgCol = m_recentWindowCustomColor.isValid() ? m_recentWindowCustomColor : QColor(52, 152, 219);
-                }
-            } else if (target == w) {
-                bgCol = resolveColor(1.0, target);
-                if (!bgCol.isValid() || bgCol.alpha() == 0) {
-                    bgCol = m_customColor.isValid() ? m_customColor : m_badgeConfig.defaultBgColor;
                 }
             } else {
                 bgCol = m_badgeConfig.defaultBgColor;

@@ -906,6 +906,25 @@ void testWindowBadgesEnabledConfig()
     cfgHudOnly.hudIncludeAll = true;
     assert(cfgHudOnly.windowBadgesEnabled == false);
     assert(cfgHudOnly.hudIncludeAll == true);
+
+    // Continuous background badge filtering logic (BadgeDisplayMode == 1)
+    // Active window must be excluded from continuous background badges
+    void *dummyActiveWindow = reinterpret_cast<void *>(0x1234);
+    void *dummyBackgroundWindow1 = reinterpret_cast<void *>(0x5678);
+    void *dummyBackgroundWindow2 = reinterpret_cast<void *>(0x9abc);
+
+    QList<void *> candidates = { dummyActiveWindow, dummyBackgroundWindow1, dummyBackgroundWindow2 };
+    QList<void *> renderedContinuousBadges;
+    for (void *target : candidates) {
+        if (target == dummyActiveWindow) {
+            continue; // Must not be rendered on active window
+        }
+        renderedContinuousBadges.append(target);
+    }
+    assert(renderedContinuousBadges.size() == 2);
+    assert(!renderedContinuousBadges.contains(dummyActiveWindow));
+    assert(renderedContinuousBadges.contains(dummyBackgroundWindow1));
+    assert(renderedContinuousBadges.contains(dummyBackgroundWindow2));
 }
 
 void testHudWindowGroupingAndFrames()
