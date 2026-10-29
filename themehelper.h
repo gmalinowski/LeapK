@@ -132,6 +132,8 @@ struct WindowBadgeTheme {
     QString audioIndicatorColor = QStringLiteral("$audioColor");
     double audioIndicatorScale = 1.0;
     bool audioPulseBadge = true;
+    double audioPulseSpeed = 1.0;
+    double audioPulseIntensity = 1.0;
 
     QJsonObject toJson() const
     {
@@ -149,6 +151,8 @@ struct WindowBadgeTheme {
         o[QStringLiteral("audioIndicatorColor")] = audioIndicatorColor;
         o[QStringLiteral("audioIndicatorScale")] = audioIndicatorScale;
         o[QStringLiteral("audioPulseBadge")] = audioPulseBadge;
+        o[QStringLiteral("audioPulseSpeed")] = audioPulseSpeed;
+        o[QStringLiteral("audioPulseIntensity")] = audioPulseIntensity;
         return o;
     }
 
@@ -168,6 +172,8 @@ struct WindowBadgeTheme {
         w.audioIndicatorColor = o.value(QStringLiteral("audioIndicatorColor")).toString(w.audioIndicatorColor);
         w.audioIndicatorScale = o.value(QStringLiteral("audioIndicatorScale")).toDouble(w.audioIndicatorScale);
         w.audioPulseBadge = o.value(QStringLiteral("audioPulseBadge")).toBool(w.audioPulseBadge);
+        w.audioPulseSpeed = o.value(QStringLiteral("audioPulseSpeed")).toDouble(w.audioPulseSpeed);
+        w.audioPulseIntensity = o.value(QStringLiteral("audioPulseIntensity")).toDouble(w.audioPulseIntensity);
         return w;
     }
 };
@@ -244,6 +250,8 @@ struct HudCardTheme {
     QString audioIndicatorColor = QStringLiteral("$audioColor");
     double audioIndicatorScale = 1.0;
     bool audioPulseBadge = true;
+    double audioPulseSpeed = 1.0;
+    double audioPulseIntensity = 1.0;
 
     QJsonObject toJson() const
     {
@@ -262,6 +270,8 @@ struct HudCardTheme {
         o[QStringLiteral("audioIndicatorColor")] = audioIndicatorColor;
         o[QStringLiteral("audioIndicatorScale")] = audioIndicatorScale;
         o[QStringLiteral("audioPulseBadge")] = audioPulseBadge;
+        o[QStringLiteral("audioPulseSpeed")] = audioPulseSpeed;
+        o[QStringLiteral("audioPulseIntensity")] = audioPulseIntensity;
         return o;
     }
 
@@ -282,6 +292,8 @@ struct HudCardTheme {
         c.audioIndicatorColor = o.value(QStringLiteral("audioIndicatorColor")).toString(c.audioIndicatorColor);
         c.audioIndicatorScale = o.value(QStringLiteral("audioIndicatorScale")).toDouble(c.audioIndicatorScale);
         c.audioPulseBadge = o.value(QStringLiteral("audioPulseBadge")).toBool(c.audioPulseBadge);
+        c.audioPulseSpeed = o.value(QStringLiteral("audioPulseSpeed")).toDouble(c.audioPulseSpeed);
+        c.audioPulseIntensity = o.value(QStringLiteral("audioPulseIntensity")).toDouble(c.audioPulseIntensity);
         return c;
     }
 };
@@ -667,6 +679,30 @@ inline QList<Theme> builtInThemes()
         pRadius.suffix = QStringLiteral(" px");
         t.parameters.append(pRadius);
 
+        ThemeParameter pAudioSpeed;
+        pAudioSpeed.id = QStringLiteral("audioPulseSpeed");
+        pAudioSpeed.name = QStringLiteral("Audio Pulse Speed");
+        pAudioSpeed.type = QStringLiteral("float");
+        pAudioSpeed.minValue = 0.2;
+        pAudioSpeed.maxValue = 3.0;
+        pAudioSpeed.step = 0.1;
+        pAudioSpeed.defaultValue = 1.0;
+        pAudioSpeed.currentValue = 1.0;
+        pAudioSpeed.suffix = QStringLiteral("x");
+        t.parameters.append(pAudioSpeed);
+
+        ThemeParameter pAudioIntensity;
+        pAudioIntensity.id = QStringLiteral("audioPulseIntensity");
+        pAudioIntensity.name = QStringLiteral("Audio Pulse Intensity");
+        pAudioIntensity.type = QStringLiteral("float");
+        pAudioIntensity.minValue = 0.0;
+        pAudioIntensity.maxValue = 2.5;
+        pAudioIntensity.step = 0.1;
+        pAudioIntensity.defaultValue = 1.0;
+        pAudioIntensity.currentValue = 1.0;
+        pAudioIntensity.suffix = QStringLiteral("x");
+        t.parameters.append(pAudioIntensity);
+
         t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#16191d");
         t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#1e2227");
         t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#282e36");
@@ -765,6 +801,30 @@ inline QList<Theme> builtInThemes()
         pCut.suffix = QStringLiteral(" px");
         t.parameters.append(pCut);
 
+        ThemeParameter pAudioSpeed;
+        pAudioSpeed.id = QStringLiteral("audioPulseSpeed");
+        pAudioSpeed.name = QStringLiteral("Audio Pulse Speed");
+        pAudioSpeed.type = QStringLiteral("float");
+        pAudioSpeed.minValue = 0.2;
+        pAudioSpeed.maxValue = 3.0;
+        pAudioSpeed.step = 0.1;
+        pAudioSpeed.defaultValue = 1.0;
+        pAudioSpeed.currentValue = 1.0;
+        pAudioSpeed.suffix = QStringLiteral("x");
+        t.parameters.append(pAudioSpeed);
+
+        ThemeParameter pAudioIntensity;
+        pAudioIntensity.id = QStringLiteral("audioPulseIntensity");
+        pAudioIntensity.name = QStringLiteral("Audio Pulse Intensity");
+        pAudioIntensity.type = QStringLiteral("float");
+        pAudioIntensity.minValue = 0.0;
+        pAudioIntensity.maxValue = 2.5;
+        pAudioIntensity.step = 0.1;
+        pAudioIntensity.defaultValue = 1.0;
+        pAudioIntensity.currentValue = 1.0;
+        pAudioIntensity.suffix = QStringLiteral("x");
+        t.parameters.append(pAudioIntensity);
+
         t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#0a0618");
         t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#160d33");
         t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#261456");
@@ -848,6 +908,30 @@ inline QList<Theme> builtInThemes()
         pWireframe.currentValue = 1.0;
         t.parameters.append(pWireframe);
 
+        ThemeParameter pAudioSpeed;
+        pAudioSpeed.id = QStringLiteral("audioPulseSpeed");
+        pAudioSpeed.name = QStringLiteral("Audio Pulse Speed");
+        pAudioSpeed.type = QStringLiteral("float");
+        pAudioSpeed.minValue = 0.2;
+        pAudioSpeed.maxValue = 3.0;
+        pAudioSpeed.step = 0.1;
+        pAudioSpeed.defaultValue = 1.0;
+        pAudioSpeed.currentValue = 1.0;
+        pAudioSpeed.suffix = QStringLiteral("x");
+        t.parameters.append(pAudioSpeed);
+
+        ThemeParameter pAudioIntensity;
+        pAudioIntensity.id = QStringLiteral("audioPulseIntensity");
+        pAudioIntensity.name = QStringLiteral("Audio Pulse Intensity");
+        pAudioIntensity.type = QStringLiteral("float");
+        pAudioIntensity.minValue = 0.0;
+        pAudioIntensity.maxValue = 2.5;
+        pAudioIntensity.step = 0.1;
+        pAudioIntensity.defaultValue = 1.0;
+        pAudioIntensity.currentValue = 1.0;
+        pAudioIntensity.suffix = QStringLiteral("x");
+        t.parameters.append(pAudioIntensity);
+
         t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#031006");
         t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#08200d");
         t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#103d19");
@@ -926,6 +1010,30 @@ inline QList<Theme> builtInThemes()
         pOpacity.suffix = QStringLiteral("%");
         t.parameters.append(pOpacity);
 
+        ThemeParameter pAudioSpeed;
+        pAudioSpeed.id = QStringLiteral("audioPulseSpeed");
+        pAudioSpeed.name = QStringLiteral("Audio Pulse Speed");
+        pAudioSpeed.type = QStringLiteral("float");
+        pAudioSpeed.minValue = 0.2;
+        pAudioSpeed.maxValue = 3.0;
+        pAudioSpeed.step = 0.1;
+        pAudioSpeed.defaultValue = 1.0;
+        pAudioSpeed.currentValue = 1.0;
+        pAudioSpeed.suffix = QStringLiteral("x");
+        t.parameters.append(pAudioSpeed);
+
+        ThemeParameter pAudioIntensity;
+        pAudioIntensity.id = QStringLiteral("audioPulseIntensity");
+        pAudioIntensity.name = QStringLiteral("Audio Pulse Intensity");
+        pAudioIntensity.type = QStringLiteral("float");
+        pAudioIntensity.minValue = 0.0;
+        pAudioIntensity.maxValue = 2.5;
+        pAudioIntensity.step = 0.1;
+        pAudioIntensity.defaultValue = 1.0;
+        pAudioIntensity.currentValue = 1.0;
+        pAudioIntensity.suffix = QStringLiteral("x");
+        t.parameters.append(pAudioIntensity);
+
         t.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#e5e9f0");
         t.tokens[QStringLiteral("bgCard")] = QStringLiteral("#ffffff");
         t.tokens[QStringLiteral("bgCardActive")] = QStringLiteral("#eceff4");
@@ -941,7 +1049,7 @@ inline QList<Theme> builtInThemes()
         t.hudContainer.bgOpacity = 0.88;
         t.hudContainer.borderColor = QStringLiteral("$frostColor");
 
-        t.hudCard.shape = QStringLiteral("pill");
+        t.hudCard.shape = QStringLiteral("rounded_rect");
         t.hudCard.cornerRadius = 14;
         t.hudCard.bgNormal = QStringLiteral("$bgCard");
         t.hudCard.bgActive = QStringLiteral("$bgCardActive");

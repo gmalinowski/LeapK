@@ -1086,7 +1086,11 @@ bool ActiveWindowOutlineEffect::isAnimationActive() const
         return true;
     }
     const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
-    const bool audioPulsingEnabled = theme.windowBadge.audioPulseBadge || theme.hudCard.audioPulseBadge;
+    const bool badgePulse = theme.resolveBool(QStringLiteral("$audioPulseBadge"), theme.windowBadge.audioPulseBadge)
+        && theme.resolveDouble(QStringLiteral("$audioPulseIntensity"), theme.windowBadge.audioPulseIntensity) > 0.001;
+    const bool cardPulse = theme.resolveBool(QStringLiteral("$audioPulseBadge"), theme.hudCard.audioPulseBadge)
+        && theme.resolveDouble(QStringLiteral("$audioPulseIntensity"), theme.hudCard.audioPulseIntensity) > 0.001;
+    const bool audioPulsingEnabled = badgePulse || cardPulse;
     if (audioPulsingEnabled && m_audioTracker.hasPlayingAudio() && (m_jumpMode || (m_outlineEnabled && m_badgeConfig.windowBadgesEnabled && m_badgeDisplayMode == 1))) {
         return true;
     }
@@ -1144,7 +1148,11 @@ void ActiveWindowOutlineEffect::slotAnimationTick()
     }
 
     const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
-    const bool audioPulsingEnabled = theme.windowBadge.audioPulseBadge || theme.hudCard.audioPulseBadge;
+    const bool badgePulse = theme.resolveBool(QStringLiteral("$audioPulseBadge"), theme.windowBadge.audioPulseBadge)
+        && theme.resolveDouble(QStringLiteral("$audioPulseIntensity"), theme.windowBadge.audioPulseIntensity) > 0.001;
+    const bool cardPulse = theme.resolveBool(QStringLiteral("$audioPulseBadge"), theme.hudCard.audioPulseBadge)
+        && theme.resolveDouble(QStringLiteral("$audioPulseIntensity"), theme.hudCard.audioPulseIntensity) > 0.001;
+    const bool audioPulsingEnabled = badgePulse || cardPulse;
     if (audioPulsingEnabled && m_audioTracker.hasPlayingAudio() && (m_jumpMode || (m_outlineEnabled && m_badgeConfig.windowBadgesEnabled && m_badgeDisplayMode == 1))) {
         effects->addRepaintFull();
     }
@@ -6662,10 +6670,13 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
     }
 
     QRectF finalBadgeRect = badgeRect;
-    if (isPlayingAudio && cfg.activeTheme.windowBadge.audioPulseBadge) {
+    const bool pulseBadge = cfg.activeTheme.resolveBool(QStringLiteral("$audioPulseBadge"), cfg.activeTheme.windowBadge.audioPulseBadge);
+    const double pulseIntensity = cfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseIntensity"), cfg.activeTheme.windowBadge.audioPulseIntensity);
+    const double pulseSpeed = cfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseSpeed"), cfg.activeTheme.windowBadge.audioPulseSpeed);
+    if (isPlayingAudio && pulseBadge && pulseIntensity > 0.001) {
         const qint64 elapsedMs = m_animationClock.isValid() ? m_animationClock.elapsed() : 0;
         const qreal elapsedSec = elapsedMs / 1000.0;
-        const qreal pulse = 1.0 + 0.08 * std::sin(elapsedSec * 8.0);
+        const qreal pulse = 1.0 + (0.08 * pulseIntensity) * std::sin(elapsedSec * 8.0 * pulseSpeed);
         const QPointF center = badgeRect.center();
         const qreal pw = badgeRect.width() * pulse;
         const qreal ph = badgeRect.height() * pulse;
@@ -7204,10 +7215,13 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         const bool pillAudio = (i < targets.size() && targets.at(i).second)
             ? m_audioTracker.isWindowPlaying(targets.at(i).second->pid(), targets.at(i).second->caption())
             : false;
-        if (pillAudio && hudCfg.activeTheme.hudCard.audioPulseBadge) {
+        const bool pulseCard = hudCfg.activeTheme.resolveBool(QStringLiteral("$audioPulseBadge"), hudCfg.activeTheme.hudCard.audioPulseBadge);
+        const double pulseIntensity = hudCfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseIntensity"), hudCfg.activeTheme.hudCard.audioPulseIntensity);
+        const double pulseSpeed = hudCfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseSpeed"), hudCfg.activeTheme.hudCard.audioPulseSpeed);
+        if (pillAudio && pulseCard && pulseIntensity > 0.001) {
             const qint64 elapsedMs = m_animationClock.isValid() ? m_animationClock.elapsed() : 0;
             const qreal elapsedSec = elapsedMs / 1000.0;
-            const qreal pulse = 1.0 + 0.05 * std::sin(elapsedSec * 8.0);
+            const qreal pulse = 1.0 + (0.05 * pulseIntensity) * std::sin(elapsedSec * 8.0 * pulseSpeed);
             const QPointF center = rect.center();
             const qreal pw = rect.width() * pulse;
             const qreal ph = rect.height() * pulse;

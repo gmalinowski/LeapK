@@ -96,6 +96,8 @@ static void testBuiltInThemes()
     const Theme nordic = builtins[3];
     assert(nordic.id == QStringLiteral("nordic-frost"));
     assert(nordic.hudContainer.shape == QStringLiteral("pill"));
+    assert(nordic.hudCard.shape == QStringLiteral("rounded_rect"));
+    assert(nordic.windowBadge.shape == QStringLiteral("pill"));
     assert(nordic.hintsBar.keycapStyle == QStringLiteral("pill"));
     assert(nordic.windowBadge.audioIndicatorScale > 1.1);
     assert(nordic.windowBadge.audioPulseBadge);
@@ -148,18 +150,24 @@ static void testAudioThemeSettings()
     assert(wbt.audioIndicatorColor == QStringLiteral("$audioColor"));
     assert(std::abs(wbt.audioIndicatorScale - 1.0) < 0.001);
     assert(wbt.audioPulseBadge == true);
+    assert(std::abs(wbt.audioPulseSpeed - 1.0) < 0.001);
+    assert(std::abs(wbt.audioPulseIntensity - 1.0) < 0.001);
 
     HudCardTheme hct;
     assert(hct.audioIndicatorStyle == QStringLiteral("speaker_icon"));
     assert(hct.audioIndicatorColor == QStringLiteral("$audioColor"));
     assert(std::abs(hct.audioIndicatorScale - 1.0) < 0.001);
     assert(hct.audioPulseBadge == true);
+    assert(std::abs(hct.audioPulseSpeed - 1.0) < 0.001);
+    assert(std::abs(hct.audioPulseIntensity - 1.0) < 0.001);
 
     // Test JSON round-trip for WindowBadgeTheme
     wbt.audioIndicatorStyle = QStringLiteral("soundwave_pulse");
     wbt.audioIndicatorColor = QStringLiteral("#ff007f");
     wbt.audioIndicatorScale = 1.45;
     wbt.audioPulseBadge = false;
+    wbt.audioPulseSpeed = 1.75;
+    wbt.audioPulseIntensity = 0.5;
 
     const QJsonObject wbJson = wbt.toJson();
     const WindowBadgeTheme wbParsed = WindowBadgeTheme::fromJson(wbJson);
@@ -167,12 +175,16 @@ static void testAudioThemeSettings()
     assert(wbParsed.audioIndicatorColor == QStringLiteral("#ff007f"));
     assert(std::abs(wbParsed.audioIndicatorScale - 1.45) < 0.001);
     assert(wbParsed.audioPulseBadge == false);
+    assert(std::abs(wbParsed.audioPulseSpeed - 1.75) < 0.001);
+    assert(std::abs(wbParsed.audioPulseIntensity - 0.5) < 0.001);
 
     // Test JSON round-trip for HudCardTheme
     hct.audioIndicatorStyle = QStringLiteral("minimal_dot");
     hct.audioIndicatorColor = QStringLiteral("#00f0ff");
     hct.audioIndicatorScale = 1.8;
     hct.audioPulseBadge = true;
+    hct.audioPulseSpeed = 2.0;
+    hct.audioPulseIntensity = 1.25;
 
     const QJsonObject hcJson = hct.toJson();
     const HudCardTheme hcParsed = HudCardTheme::fromJson(hcJson);
@@ -180,6 +192,13 @@ static void testAudioThemeSettings()
     assert(hcParsed.audioIndicatorColor == QStringLiteral("#00f0ff"));
     assert(std::abs(hcParsed.audioIndicatorScale - 1.8) < 0.001);
     assert(hcParsed.audioPulseBadge == true);
+    assert(std::abs(hcParsed.audioPulseSpeed - 2.0) < 0.001);
+    assert(std::abs(hcParsed.audioPulseIntensity - 1.25) < 0.001);
+
+    // Test parameter resolution
+    Theme breeze = builtInThemes()[0];
+    assert(std::abs(breeze.resolveDouble(QStringLiteral("$audioPulseSpeed"), 1.0) - 1.0) < 0.001);
+    assert(std::abs(breeze.resolveDouble(QStringLiteral("$audioPulseIntensity"), 1.0) - 1.0) < 0.001);
 }
 
 static void testVariableResolutionAndOverrides()
