@@ -979,10 +979,22 @@ void testHudActionHintBar()
     assert(barWrapped.width() <= 520);
     assert(barWrapped.height() > barDef.height());
 
-    // 7. Custom hints font size
+    // 7. Custom hints font size & dynamic scaling
     QImage barCustomFont = OutlineBadge::renderHudActionHintBar(1.0, false, 0, QString(), QColor(), false, false, false, false, 0.0, 16);
     assert(!barCustomFont.isNull());
     assert(barCustomFont.height() > barDef.height());
+
+    // 8. Large hints font sizes (24pt and 32pt)
+    QImage barLarge24 = OutlineBadge::renderHudActionHintBar(1.0, false, 0, QString(), QColor(), false, false, false, false, 0.0, 24);
+    assert(!barLarge24.isNull());
+    assert(barLarge24.height() >= 48);
+    // Pill capsule corner pixel (0, 0) must be transparent
+    assert(qAlpha(barLarge24.pixel(0, 0)) == 0);
+
+    QImage barLarge32 = OutlineBadge::renderHudActionHintBar(1.0, false, 0, QString(), QColor(), false, false, false, false, 0.0, 32);
+    assert(!barLarge32.isNull());
+    assert(barLarge32.height() > barLarge24.height());
+    assert(qAlpha(barLarge32.pixel(0, 0)) == 0);
 }
 
 void testHudModeHeader()

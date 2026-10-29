@@ -7112,7 +7112,10 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
     const int hintsFontSize = m_badgePreviewActive ? m_previewBadgeConfig.hudHintsFontSize : m_badgeConfig.hudHintsFontSize;
     const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
     const int themeHash = qHash(theme.id) % 10000;
-    const qreal maxHintBarWidth = qMin(qreal(screenRect.width() - 80.0), 1050.0) * scale;
+    const qreal maxAllowedForFont = (hintsFontSize > 12)
+        ? qMin(qreal(screenRect.width() - 80.0), qreal(1050.0 + (hintsFontSize - 12) * 50.0))
+        : 1050.0;
+    const qreal maxHintBarWidth = qMin(qreal(screenRect.width() - 80.0), maxAllowedForFont) * scale;
     const int nameHash = (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) ? (qHash(m_workspaces.at(m_activeHudView - 1).name) % 10000) : 0;
     const int hintBarKey = (m_subLeapActive ? 100000 : 0) + (m_stashModeActive ? 500000 : 0) + (m_superJumpActive ? 700000 : 0)
         + (m_audioFilterModeActive ? 900000 : 0)

@@ -2346,19 +2346,19 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
 
     const qreal maxW = (maxAllowedWidth > 0.0) ? maxAllowedWidth : (1050.0 * scale);
 
+    const int effFontSize = (hintsFontSize > 0) ? qRound(hintsFontSize * scale) : qMax(9, qRound(11.5 * scale));
     QFont keyFont(QStringLiteral("sans-serif"));
-    keyFont.setPixelSize((hintsFontSize > 0) ? qRound(hintsFontSize * scale) : qMax(9, qRound(11.5 * scale)));
+    keyFont.setPixelSize(effFontSize);
     keyFont.setBold(true);
     QFontMetrics fmKey(keyFont);
 
     QFont lblFont(QStringLiteral("sans-serif"));
-    lblFont.setPixelSize((hintsFontSize > 0) ? qMax(8, qRound((hintsFontSize - 0.5) * scale)) : qMax(9, qRound(11.0 * scale)));
+    const int effLblSize = (hintsFontSize > 0) ? qMax(8, qRound((hintsFontSize - 0.5) * scale)) : qMax(9, qRound(11.0 * scale));
+    lblFont.setPixelSize(effLblSize);
     lblFont.setBold(false);
     QFontMetrics fmLbl(lblFont);
 
-    const int padX = qRound(16 * scale);
-    const int padY = qRound(6 * scale);
-    const int itemGap = qRound(8 * scale);
+    const int itemGap = qMax(qRound(6 * scale), qRound(effFontSize * 0.55));
     const bool isBracket = (theme.hintsBar.keycapStyle == QStringLiteral("bracket"));
     auto formatKey = [&](const QString &k) {
         return isBracket ? QStringLiteral("[%1]").arg(k) : k;
@@ -2366,6 +2366,33 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     const QString sepStr = theme.hintsBar.separator.isEmpty() ? QStringLiteral("•") : theme.hintsBar.separator;
     const int bulletW = itemGap + fmLbl.horizontalAdvance(sepStr) + itemGap;
 
+    const int lineH = qMax(fmKey.height(), fmLbl.height()) + qRound(2 * scale);
+    const int padY = qMax(qRound(10 * scale), qRound(effFontSize * 0.65));
+    const int lineSpacing = qMax(qRound(5 * scale), qRound(effFontSize * 0.38));
+
+    const QString &containerShape = theme.hudContainer.shape;
+    const int chamferPx = (containerShape == QStringLiteral("chamfered"))
+        ? theme.resolveInt(QString::number(theme.hudContainer.chamferSize), 8) * scale
+        : 0;
+    const int crPx = (theme.hudContainer.cornerRadius > 0)
+        ? qRound(theme.hudContainer.cornerRadius * scale)
+        : qRound(12 * scale);
+
+    auto computePadXForHeight = [&](int height, bool isPill) -> int {
+        int px = qMax(qRound(20 * scale), qRound(effFontSize * 1.3));
+        if (isPill) {
+            px = qMax(px, qRound(height * 0.48) + qRound(8 * scale));
+        } else if (containerShape == QStringLiteral("chamfered")) {
+            px = qMax(px, chamferPx + qRound(12 * scale));
+        } else if (containerShape == QStringLiteral("sharp")) {
+            px = qMax(px, qRound(14 * scale));
+        } else {
+            px = qMax(px, crPx + qRound(10 * scale));
+        }
+        return px;
+    };
+
+    int padX = computePadXForHeight(lineH + 2 * padY, containerShape == QStringLiteral("pill"));
     const int maxContentW = qMax(qRound(250 * scale), qRound(maxW - 2 * padX));
 
     // Group segments into lines based on maxContentW
@@ -2392,14 +2419,20 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
         return QImage();
     }
 
+    const int h = lines.size() * lineH + (lines.size() - 1) * lineSpacing + 2 * padY;
+    const bool isPill = (containerShape == QStringLiteral("pill") || lines.size() == 1);
+    padX = computePadXForHeight(h, isPill);
+
     // Determine total width and each line's width
     int maxLineContentW = 0;
     QList<int> lineContentWidths;
+    lineContentWidths.reserve(lines.size());
     for (const auto &line : lines) {
         int lW = 0;
         for (int i = 0; i < line.size(); ++i) {
             const auto &s = line.at(i);
-            const int segW = fmKey.horizontalAdvance(s.key) + qRound(4 * scale) + fmLbl.horizontalAdvance(s.label);
+            const QString kText = formatKey(s.key);
+            const int segW = fmKey.horizontalAdvance(kText) + qRound(4 * scale) + fmLbl.horizontalAdvance(s.label);
             lW += segW;
             if (i < line.size() - 1) {
                 lW += bulletW;
@@ -2409,10 +2442,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
         maxLineContentW = qMax(maxLineContentW, lW);
     }
 
-    const int lineH = fmKey.height();
-    const int lineSpacing = qRound(4 * scale);
     const int w = maxLineContentW + 2 * padX;
-    const int h = lines.size() * lineH + (lines.size() - 1) * lineSpacing + 2 * padY;
 
     QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
     img.fill(Qt::transparent);
@@ -2421,15 +2451,23 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
 
-    const QRectF rect(0.5 * scale, 0.5 * scale, w - 1.0 * scale, h - 1.0 * scale);
-    const qreal radius = (lines.size() == 1) ? (h / 2.0) : qRound(12 * scale);
+    const qreal bw = qMax(1.0, (theme.hudContainer.borderWidth > 0.0 ? theme.hudContainer.borderWidth : 1.2) * scale);
+    const qreal bm = qMax(0.5 * scale, bw / 2.0);
+    const QRectF rect(bm, bm, w - 2 * bm, h - 2 * bm);
+    const qreal radius = (containerShape == QStringLiteral("sharp"))
+        ? 0.0
+        : (isPill
+            ? (rect.height() / 2.0)
+            : ((theme.hudContainer.cornerRadius > 0)
+                ? (theme.hudContainer.cornerRadius * scale)
+                : qRound(12 * scale)));
 
     // Background container using theme
     const QColor borderC = theme.resolveColor(theme.hudContainer.borderColor, QColor(255, 255, 255, 42));
     const QColor bgC = theme.resolveColor(QStringLiteral("$bgSurface"), QColor(16, 20, 25, 235));
-    p.setPen(QPen(borderC, 1.0 * scale));
+    p.setPen(QPen(borderC, bw));
     p.setBrush(bgC);
-    drawThemedShape(p, rect, theme.hudContainer.shape, radius, theme.hudContainer.chamferSize * scale);
+    drawThemedShape(p, rect, containerShape, radius, chamferPx);
 
     const bool isLightBg = (perceivedLuminance(bgC) > 0.53);
     const QColor defaultLabelCol = isLightBg ? QColor(76, 86, 106) : QColor(215, 220, 225);
@@ -2439,7 +2477,8 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
         const auto &line = lines.at(lineIdx);
         const int lW = lineContentWidths.at(lineIdx);
         qreal curX = (w - lW) / 2.0;
-        const qreal baselineY = padY + lineIdx * (lineH + lineSpacing) + fmKey.ascent();
+        const qreal lineCenterY = padY + lineIdx * (lineH + lineSpacing) + lineH / 2.0;
+        const qreal baselineY = lineCenterY + (fmKey.ascent() - fmKey.descent()) / 2.0;
 
         for (int i = 0; i < line.size(); ++i) {
             const auto &s = line.at(i);
@@ -2534,7 +2573,6 @@ inline QImage renderHudModeHeader(qreal scale,
         const QString countText = QStringLiteral("%1 matches").arg(searchCount);
         const QString tabHint = QStringLiteral("Tab ↹");
 
-        const int padX = qRound(14 * scale);
         const int padY = qRound(6 * scale);
         const int gap = qRound(10 * scale);
 
@@ -2552,8 +2590,9 @@ inline QImage renderHudModeHeader(qreal scale,
 
         const QString promptIcon = theme.searchHeader.promptPrefix.isEmpty() ? QStringLiteral("🔍") : theme.searchHeader.promptPrefix;
         const int searchIconW = qMax(qRound(18 * scale), fmQuery.horizontalAdvance(promptIcon));
-        const int w = padX + searchIconW + qRound(8 * scale) + queryW + countW + gap + scopesW + padX;
         const int h = qMax(qRound(baseHeaderH * scale), fmQuery.height() + 2 * padY);
+        const int padX = qMax(qRound(16 * scale), qRound(h * 0.44));
+        const int w = padX + searchIconW + qRound(8 * scale) + queryW + countW + gap + scopesW + padX;
 
         QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
         img.fill(Qt::transparent);
@@ -2562,16 +2601,23 @@ inline QImage renderHudModeHeader(qreal scale,
         p.setRenderHint(QPainter::Antialiasing, true);
         p.setRenderHint(QPainter::TextAntialiasing, true);
 
-        const QRectF rect(0.5 * scale, 0.5 * scale, w - 1.0 * scale, h - 1.0 * scale);
-        const qreal radius = h / 2.0;
+        const qreal bw = qMax(1.0, (theme.hudContainer.borderWidth > 0.0 ? theme.hudContainer.borderWidth : 1.8) * scale);
+        const qreal bm = qMax(0.5 * scale, bw / 2.0);
+        const QRectF rect(bm, bm, w - 2 * bm, h - 2 * bm);
+        const qreal radius = (theme.hudContainer.shape == QStringLiteral("sharp"))
+            ? 0.0
+            : (rect.height() / 2.0);
+        const int chamferPx = (theme.hudContainer.shape == QStringLiteral("chamfered"))
+            ? theme.resolveInt(QString::number(theme.hudContainer.chamferSize), 8) * scale
+            : 0;
 
         const QColor accent = theme.resolveColor(QStringLiteral("$accentColor"), QColor(52, 152, 219));
-        p.setPen(QPen(accent, 1.8 * scale));
+        p.setPen(QPen(accent, bw));
         p.setBrush(theme.resolveColor(QStringLiteral("$bgSurface"), QColor(16, 20, 28, 245)));
-        drawThemedShape(p, rect, theme.hudContainer.shape, radius, theme.hudContainer.chamferSize * scale);
+        drawThemedShape(p, rect, theme.hudContainer.shape, radius, chamferPx);
 
         qreal currentX = padX;
-        const qreal baselineY = padY + fmQuery.ascent();
+        const qreal baselineY = (h - (fmQuery.ascent() - fmQuery.descent())) / 2.0 + fmQuery.ascent();
 
         // 1. Search Icon / Prompt
         p.setFont(queryFont);
@@ -2590,8 +2636,10 @@ inline QImage renderHudModeHeader(qreal scale,
             const qint64 msecs = QDateTime::currentMSecsSinceEpoch();
             if ((msecs / 500) % 2 == 0) {
                 const qreal cursorX = currentX + fmQuery.horizontalAdvance(searchQuery) + 2.0 * scale;
+                const qreal cursorH = qMax(qreal(fmQuery.height()), 14.0 * scale);
+                const qreal cursorY = (h - cursorH) / 2.0;
                 p.setPen(QPen(accent, 2.0 * scale));
-                p.drawLine(QPointF(cursorX, padY + 2.0 * scale), QPointF(cursorX, h - padY - 2.0 * scale));
+                p.drawLine(QPointF(cursorX, cursorY), QPointF(cursorX, cursorY + cursorH));
             }
         }
         currentX += queryW;
@@ -2654,12 +2702,12 @@ inline QImage renderHudModeHeader(qreal scale,
         keyFont.setBold(true);
         QFontMetrics fmKey(keyFont);
 
-        const int padX = qRound(16 * scale);
         const int padY = qRound(6 * scale);
         const int gap = qRound(16 * scale);
+        const int h = qMax(qRound(baseHeaderH * scale), qMax(fmTitle.height(), fmKey.height()) + 2 * padY);
+        const int padX = qMax(qRound(18 * scale), qRound(h * 0.44));
 
         const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + padX;
-        const int h = qMax(qRound(baseHeaderH * scale), fmTitle.height() + 2 * padY);
 
         QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
         img.fill(Qt::transparent);
@@ -2668,17 +2716,24 @@ inline QImage renderHudModeHeader(qreal scale,
         p.setRenderHint(QPainter::Antialiasing, true);
         p.setRenderHint(QPainter::TextAntialiasing, true);
 
-        const QRectF rect(0.5 * scale, 0.5 * scale, w - 1.0 * scale, h - 1.0 * scale);
-        const qreal radius = h / 2.0;
+        const qreal bw = qMax(1.0, (theme.hudContainer.borderWidth > 0.0 ? theme.hudContainer.borderWidth : 1.8) * scale);
+        const qreal bm = qMax(0.5 * scale, bw / 2.0);
+        const QRectF rect(bm, bm, w - 2 * bm, h - 2 * bm);
+        const qreal radius = (theme.hudContainer.shape == QStringLiteral("sharp"))
+            ? 0.0
+            : (rect.height() / 2.0);
+        const int chamferPx = (theme.hudContainer.shape == QStringLiteral("chamfered"))
+            ? theme.resolveInt(QString::number(theme.hudContainer.chamferSize), 8) * scale
+            : 0;
 
         const QColor accent = theme.resolveColor(QStringLiteral("$audioColor"), QColor(241, 196, 15));
         const QColor bgC = theme.resolveColor(QStringLiteral("$bgSurface"), QColor(16, 20, 26, 245));
         const bool isLightBg = (perceivedLuminance(bgC) > 0.53);
-        p.setPen(QPen(accent, 1.8 * scale));
+        p.setPen(QPen(accent, bw));
         p.setBrush(bgC);
-        drawThemedShape(p, rect, theme.hudContainer.shape, radius, theme.hudContainer.chamferSize * scale);
+        drawThemedShape(p, rect, theme.hudContainer.shape, radius, chamferPx);
 
-        const qreal baselineY = padY + fmTitle.ascent();
+        const qreal baselineY = (h - (fmTitle.ascent() - fmTitle.descent())) / 2.0 + fmTitle.ascent();
         p.setFont(titleFont);
         p.setPen(isLightBg ? QColor(46, 52, 64) : QColor(255, 255, 255));
         p.drawText(QPointF(padX, baselineY), leftText);
@@ -2706,12 +2761,12 @@ inline QImage renderHudModeHeader(qreal scale,
         keyFont.setBold(true);
         QFontMetrics fmKey(keyFont);
 
-        const int padX = qRound(16 * scale);
         const int padY = qRound(6 * scale);
         const int gap = qRound(16 * scale);
+        const int h = qMax(qRound(baseHeaderH * scale), qMax(fmTitle.height(), fmKey.height()) + 2 * padY);
+        const int padX = qMax(qRound(18 * scale), qRound(h * 0.44));
 
         const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + padX;
-        const int h = qMax(qRound(baseHeaderH * scale), fmTitle.height() + 2 * padY);
 
         QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
         img.fill(Qt::transparent);
@@ -2720,17 +2775,24 @@ inline QImage renderHudModeHeader(qreal scale,
         p.setRenderHint(QPainter::Antialiasing, true);
         p.setRenderHint(QPainter::TextAntialiasing, true);
 
-        const QRectF rect(0.5 * scale, 0.5 * scale, w - 1.0 * scale, h - 1.0 * scale);
-        const qreal radius = h / 2.0;
+        const qreal bw = qMax(1.0, (theme.hudContainer.borderWidth > 0.0 ? theme.hudContainer.borderWidth : 1.8) * scale);
+        const qreal bm = qMax(0.5 * scale, bw / 2.0);
+        const QRectF rect(bm, bm, w - 2 * bm, h - 2 * bm);
+        const qreal radius = (theme.hudContainer.shape == QStringLiteral("sharp"))
+            ? 0.0
+            : (rect.height() / 2.0);
+        const int chamferPx = (theme.hudContainer.shape == QStringLiteral("chamfered"))
+            ? theme.resolveInt(QString::number(theme.hudContainer.chamferSize), 8) * scale
+            : 0;
 
         const QColor accent = theme.resolveColor(QStringLiteral("$accentColor"), QColor(0, 195, 255));
         const QColor bgC = theme.resolveColor(QStringLiteral("$bgSurface"), QColor(14, 22, 28, 245));
         const bool isLightBg = (perceivedLuminance(bgC) > 0.53);
-        p.setPen(QPen(accent, 1.8 * scale));
+        p.setPen(QPen(accent, bw));
         p.setBrush(bgC);
-        drawThemedShape(p, rect, theme.hudContainer.shape, radius, theme.hudContainer.chamferSize * scale);
+        drawThemedShape(p, rect, theme.hudContainer.shape, radius, chamferPx);
 
-        const qreal baselineY = padY + fmTitle.ascent();
+        const qreal baselineY = (h - (fmTitle.ascent() - fmTitle.descent())) / 2.0 + fmTitle.ascent();
         p.setFont(titleFont);
         p.setPen(isLightBg ? QColor(46, 52, 64) : QColor(255, 255, 255));
         p.drawText(QPointF(padX, baselineY), leftText);
@@ -2758,12 +2820,12 @@ inline QImage renderHudModeHeader(qreal scale,
         keyFont.setBold(true);
         QFontMetrics fmKey(keyFont);
 
-        const int padX = qRound(16 * scale);
         const int padY = qRound(6 * scale);
         const int gap = qRound(16 * scale);
+        const int h = qMax(qRound(baseHeaderH * scale), qMax(fmTitle.height(), fmKey.height()) + 2 * padY);
+        const int padX = qMax(qRound(18 * scale), qRound(h * 0.44));
 
         const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + padX;
-        const int h = qMax(qRound(baseHeaderH * scale), fmTitle.height() + 2 * padY);
 
         QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
         img.fill(Qt::transparent);
@@ -2772,17 +2834,24 @@ inline QImage renderHudModeHeader(qreal scale,
         p.setRenderHint(QPainter::Antialiasing, true);
         p.setRenderHint(QPainter::TextAntialiasing, true);
 
-        const QRectF rect(0.5 * scale, 0.5 * scale, w - 1.0 * scale, h - 1.0 * scale);
-        const qreal radius = h / 2.0;
+        const qreal bw = qMax(1.0, (theme.hudContainer.borderWidth > 0.0 ? theme.hudContainer.borderWidth : 1.8) * scale);
+        const qreal bm = qMax(0.5 * scale, bw / 2.0);
+        const QRectF rect(bm, bm, w - 2 * bm, h - 2 * bm);
+        const qreal radius = (theme.hudContainer.shape == QStringLiteral("sharp"))
+            ? 0.0
+            : (rect.height() / 2.0);
+        const int chamferPx = (theme.hudContainer.shape == QStringLiteral("chamfered"))
+            ? theme.resolveInt(QString::number(theme.hudContainer.chamferSize), 8) * scale
+            : 0;
 
         const QColor accent = subLeapColor.isValid() ? subLeapColor : theme.resolveColor(QStringLiteral("$accentColor"), QColor(155, 89, 182));
         const QColor bgC = theme.resolveColor(QStringLiteral("$bgSurface"), QColor(16, 20, 26, 245));
         const bool isLightBg = (perceivedLuminance(bgC) > 0.53);
-        p.setPen(QPen(accent, 1.8 * scale));
+        p.setPen(QPen(accent, bw));
         p.setBrush(bgC);
-        drawThemedShape(p, rect, theme.hudContainer.shape, radius, theme.hudContainer.chamferSize * scale);
+        drawThemedShape(p, rect, theme.hudContainer.shape, radius, chamferPx);
 
-        const qreal baselineY = padY + fmTitle.ascent();
+        const qreal baselineY = (h - (fmTitle.ascent() - fmTitle.descent())) / 2.0 + fmTitle.ascent();
         p.setFont(titleFont);
         p.setPen(isLightBg ? QColor(46, 52, 64) : QColor(255, 255, 255));
         p.drawText(QPointF(padX, baselineY), leftText);
@@ -2810,12 +2879,12 @@ inline QImage renderHudModeHeader(qreal scale,
         keyFont.setBold(true);
         QFontMetrics fmKey(keyFont);
 
-        const int padX = qRound(16 * scale);
         const int padY = qRound(6 * scale);
         const int gap = qRound(16 * scale);
+        const int h = qMax(qRound(baseHeaderH * scale), qMax(fmTitle.height(), fmKey.height()) + 2 * padY);
+        const int padX = qMax(qRound(18 * scale), qRound(h * 0.44));
 
         const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + padX;
-        const int h = qMax(qRound(baseHeaderH * scale), fmTitle.height() + 2 * padY);
 
         QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
         img.fill(Qt::transparent);
@@ -2824,17 +2893,24 @@ inline QImage renderHudModeHeader(qreal scale,
         p.setRenderHint(QPainter::Antialiasing, true);
         p.setRenderHint(QPainter::TextAntialiasing, true);
 
-        const QRectF rect(0.5 * scale, 0.5 * scale, w - 1.0 * scale, h - 1.0 * scale);
-        const qreal radius = h / 2.0;
+        const qreal bw = qMax(1.0, (theme.hudContainer.borderWidth > 0.0 ? theme.hudContainer.borderWidth : 1.8) * scale);
+        const qreal bm = qMax(0.5 * scale, bw / 2.0);
+        const QRectF rect(bm, bm, w - 2 * bm, h - 2 * bm);
+        const qreal radius = (theme.hudContainer.shape == QStringLiteral("sharp"))
+            ? 0.0
+            : (rect.height() / 2.0);
+        const int chamferPx = (theme.hudContainer.shape == QStringLiteral("chamfered"))
+            ? theme.resolveInt(QString::number(theme.hudContainer.chamferSize), 8) * scale
+            : 0;
 
         const QColor accent(46, 204, 113); // Emerald Green
         const QColor bgC = theme.resolveColor(QStringLiteral("$bgSurface"), QColor(14, 24, 18, 245));
         const bool isLightBg = (perceivedLuminance(bgC) > 0.53);
-        p.setPen(QPen(accent, 1.8 * scale));
+        p.setPen(QPen(accent, bw));
         p.setBrush(bgC);
-        drawThemedShape(p, rect, theme.hudContainer.shape, radius, theme.hudContainer.chamferSize * scale);
+        drawThemedShape(p, rect, theme.hudContainer.shape, radius, chamferPx);
 
-        const qreal baselineY = padY + fmTitle.ascent();
+        const qreal baselineY = (h - (fmTitle.ascent() - fmTitle.descent())) / 2.0 + fmTitle.ascent();
         p.setFont(titleFont);
         p.setPen(isLightBg ? QColor(46, 52, 64) : QColor(255, 255, 255));
         p.drawText(QPointF(padX, baselineY), leftText);
@@ -2870,14 +2946,14 @@ inline QImage renderHudModeHeader(qreal scale,
     inactiveFont.setBold(false);
     QFontMetrics fmInactive(inactiveFont);
 
-    const int padX = qRound(12 * scale);
     const int padY = qRound(5 * scale);
     const int tabPadX = qRound(10 * scale);
     const int tabGap = qRound(6 * scale);
     const int navGap = qRound(10 * scale);
 
-    const int headerH = qRound(baseHeaderH * scale);
+    const int headerH = qMax(qRound(baseHeaderH * scale), qMax(fmActive.height(), fmInactive.height()) + 2 * padY + qRound(6 * scale));
     const int tabH = headerH - 2 * padY;
+    const int padX = qMax(qRound(14 * scale), qRound(headerH * 0.36));
 
     struct TabRenderInfo {
         QString text;
@@ -2937,15 +3013,22 @@ inline QImage renderHudModeHeader(qreal scale,
     p.setRenderHint(QPainter::TextAntialiasing, true);
 
     // Outer background container using theme
-    const QRectF outerRect(0.5 * scale, 0.5 * scale, totalW - 1.0 * scale, headerH - 1.0 * scale);
-    const qreal outerRadius = headerH / 2.0;
+    const qreal bw = qMax(1.0, (theme.hudContainer.borderWidth > 0.0 ? theme.hudContainer.borderWidth : 1.0) * scale);
+    const qreal bm = qMax(0.5 * scale, bw / 2.0);
+    const QRectF outerRect(bm, bm, totalW - 2 * bm, headerH - 2 * bm);
+    const qreal outerRadius = (theme.hudContainer.shape == QStringLiteral("sharp"))
+        ? 0.0
+        : (outerRect.height() / 2.0);
+    const int chamferPx = (theme.hudContainer.shape == QStringLiteral("chamfered"))
+        ? theme.resolveInt(QString::number(theme.hudContainer.chamferSize), 8) * scale
+        : 0;
 
     const QColor borderC = theme.resolveColor(theme.hudContainer.borderColor, QColor(255, 255, 255, 38));
     const QColor bgC = theme.resolveColor(QStringLiteral("$bgSurface"), QColor(14, 18, 24, 242));
     const bool isLightBg = (perceivedLuminance(bgC) > 0.53);
-    p.setPen(QPen(borderC, 1.0 * scale));
+    p.setPen(QPen(borderC, bw));
     p.setBrush(bgC);
-    drawThemedShape(p, outerRect, theme.hudContainer.shape, outerRadius, theme.hudContainer.chamferSize * scale);
+    drawThemedShape(p, outerRect, theme.hudContainer.shape, outerRadius, chamferPx);
 
     // Navigation Left ◂ [,]
     p.setFont(navFont);
