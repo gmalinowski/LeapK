@@ -148,6 +148,23 @@ else()
     endif()
 endif()
 
+include(CheckCXXSourceCompiles)
+set(CMAKE_REQUIRED_LIBRARIES ${KWIN_TARGET} Qt6::Gui)
+check_cxx_source_compiles("
+#include <QEvent>
+#include <effect/effect.h>
+struct TestEffect : public KWin::Effect {
+    void windowInputMouseEvent(QEvent *e) override { (void)e; }
+};
+int main() { return 0; }
+" HAVE_KWIN_WINDOW_INPUT_MOUSE_EVENT)
+
+if(HAVE_KWIN_WINDOW_INPUT_MOUSE_EVENT)
+    target_compile_definitions(leapk PRIVATE
+        ACTIVE_WINDOW_OUTLINE_HAS_WINDOW_INPUT_MOUSE_EVENT
+    )
+endif()
+
 # --- Config module plugin ---
 qt6_wrap_ui(CONFIG_UI_SRCS leapk_config.ui)
 

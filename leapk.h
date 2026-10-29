@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include <QEvent>
+#include <QMouseEvent>
+#include <QKeyEvent>
 #include <effect/effect.h>
 #include <effect/globals.h>
 #include <opengl/glshader.h>
@@ -158,7 +161,9 @@ public:
     bool isActive() const override;
     QString debug(const QString &parameter) const override;
     void grabbedKeyboardEvent(QKeyEvent *e) override;
+#ifdef ACTIVE_WINDOW_OUTLINE_HAS_WINDOW_INPUT_MOUSE_EVENT
     void windowInputMouseEvent(QEvent *e) override;
+#endif
 
     static bool supported();
 

@@ -4851,8 +4851,10 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     }
 
     m_jumpMode = true;
+#ifdef ACTIVE_WINDOW_OUTLINE_HAS_WINDOW_INPUT_MOUSE_EVENT
     effects->startMouseInterception(this, Qt::ArrowCursor);
     m_mouseIntercepting = true;
+#endif
     if (m_soundFeedbackEnabled) {
         OutlineSound::playSound(OutlineSound::SoundEffect::EnterJump, m_soundFeedbackVolume);
     }
@@ -4884,10 +4886,12 @@ void ActiveWindowOutlineEffect::cancelJumpMode()
         return;
     }
     m_jumpMode = false;
+#ifdef ACTIVE_WINDOW_OUTLINE_HAS_WINDOW_INPUT_MOUSE_EVENT
     if (m_mouseIntercepting) {
         effects->stopMouseInterception(this);
         m_mouseIntercepting = false;
     }
+#endif
     m_hudCloseButtonLocalRect = QRectF();
     m_hudCloseButtonScreenRect = QRectF();
     m_hudHeaderScreenRect = QRectF();
@@ -5001,6 +5005,7 @@ void ActiveWindowOutlineEffect::enterSubLeapForGroup(QChar keyChar, const QList<
     effects->addRepaintFull();
 }
 
+#ifdef ACTIVE_WINDOW_OUTLINE_HAS_WINDOW_INPUT_MOUSE_EVENT
 void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
 {
     if (!m_jumpMode) {
@@ -5078,6 +5083,7 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
         }
     }
 }
+#endif
 
 void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 {
