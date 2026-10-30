@@ -2393,7 +2393,7 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
     return img;
 }
 
-inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false, bool isSearchMode = false, qreal maxAllowedWidth = 0.0, int hintsFontSize = 0, const LeapKTheme::Theme &theme = LeapKTheme::Theme(), bool isTilingPresets = false)
+inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false, bool isSearchMode = false, qreal maxAllowedWidth = 0.0, int hintsFontSize = 0, const LeapKTheme::Theme &theme = LeapKTheme::Theme(), bool isTilingPresets = false, bool isAiPrompt = false, bool isAiEnabled = false)
 {
     Q_UNUSED(customViewName);
     Q_UNUSED(customViewColor);
@@ -2405,7 +2405,13 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     };
 
     QList<Segment> segments;
-    if (isTilingPresets) {
+    if (isAiPrompt) {
+        segments = {
+            {QStringLiteral("Enter"), QStringLiteral("Execute command"), QColor(155, 89, 182)},
+            {QStringLiteral("Esc"), QStringLiteral("Back to HUD"), QColor(149, 165, 166)},
+            {QStringLiteral("Meta+I"), QStringLiteral("Close"), QColor(231, 76, 60)}
+        };
+    } else if (isTilingPresets) {
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Select preset (A-G)"), QColor(52, 152, 219)},
             {QStringLiteral("X"), QStringLiteral("Float / Turn off"), QColor(231, 76, 60)},
@@ -2479,6 +2485,9 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral(", / ."), QStringLiteral("Switch"), QColor(52, 152, 219)},
             {QStringLiteral("Esc / ⌫"), QStringLiteral("Close"), QColor(231, 76, 60)}
         };
+        if (isAiEnabled) {
+            segments.insert(qMin(10, segments.size()), {QStringLiteral("Meta+I / :"), QStringLiteral("AI Assistant"), QColor(155, 89, 182)});
+        }
         if (activeView >= 1) {
             segments.append({QStringLiteral("_"), QStringLiteral("Delete workspace"), QColor(231, 76, 60)});
         }
@@ -2736,7 +2745,10 @@ inline QImage renderHudModeHeader(qreal scale,
                                   const LeapKTheme::Theme &theme = LeapKTheme::Theme(),
                                   QRectF *outCloseButtonLocalRect = nullptr,
                                   bool isTilingPresets = false,
-                                  int tilingPresetsCount = 0)
+                                  int tilingPresetsCount = 0,
+                                  bool isAiPrompt = false,
+                                  const QString &aiPromptQuery = QString(),
+                                  const QString &aiStatusText = QString())
 {
     if (outCloseButtonLocalRect) {
         *outCloseButtonLocalRect = QRectF();
@@ -2744,6 +2756,80 @@ inline QImage renderHudModeHeader(qreal scale,
     const int baseHeaderH = (navFontSize > 0)
         ? qMax(32, qRound(navFontSize * 2.8))
         : qBound(32, qRound(hudSize * 0.88), 64);
+
+    if (isAiPrompt) {
+        const QString placeholder = QStringLiteral("Ask LeapK AI (e.g. 'all terminals tiling', 'stash background')...");
+        const QString qText = aiPromptQuery.isEmpty() ? placeholder : aiPromptQuery;
+
+        QFont queryFont(QStringLiteral("sans-serif"));
+        queryFont.setPixelSize((navFontSize > 0) ? qRound(navFontSize * scale) : qMax(10, qRound(13.0 * scale)));
+        queryFont.setBold(true);
+        QFontMetrics fmQuery(queryFont);
+
+        const QString leftIcon = QStringLiteral("✨");
+        const int iconW = fmQuery.horizontalAdvance(leftIcon);
+        const int minQueryW = qRound(260 * scale);
+        const int queryW = qMax(minQueryW, fmQuery.horizontalAdvance(qText) + qRound(24 * scale));
+
+        const QString statusText = aiStatusText.isEmpty() ? QStringLiteral("↵ Enter: Run • Esc: Back") : aiStatusText;
+        QFont statusFont(QStringLiteral("sans-serif"));
+        statusFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.5) * scale)) : qMax(9, qRound(11.0 * scale)));
+        QFontMetrics fmStatus(statusFont);
+        const int statusW = fmStatus.horizontalAdvance(statusText) + qRound(16 * scale);
+
+        const int padY = qRound(6 * scale);
+        const int h = qMax(qRound(baseHeaderH * scale), fmQuery.height() + 2 * padY);
+        const int padX = qMax(qRound(16 * scale), qRound(h * 0.44));
+        const int w = padX + iconW + qRound(10 * scale) + queryW + qRound(16 * scale) + statusW + padX;
+
+        QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
+        img.fill(Qt::transparent);
+
+        QPainter p(&img);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setRenderHint(QPainter::TextAntialiasing, true);
+
+        const qreal bw = qMax(1.0, 1.8 * scale);
+        const qreal bm = bw / 2.0;
+        const QRectF rect(bm, bm, w - 2 * bm, h - 2 * bm);
+        const qreal radius = rect.height() / 2.0;
+
+        const QColor aiPurple(155, 89, 182);
+        p.setPen(QPen(aiPurple, bw));
+        p.setBrush(QColor(22, 18, 32, 245));
+        p.drawRoundedRect(rect, radius, radius);
+
+        qreal currentX = padX;
+        const qreal baselineY = (h - (fmQuery.ascent() - fmQuery.descent())) / 2.0 + fmQuery.ascent();
+
+        // 1. Sparkle Icon
+        p.setFont(queryFont);
+        p.setPen(QColor(241, 196, 15));
+        p.drawText(QPointF(currentX, baselineY), leftIcon);
+        currentX += iconW + qRound(10 * scale);
+
+        // 2. Query Text
+        if (aiPromptQuery.isEmpty()) {
+            p.setPen(QColor(160, 150, 180, 160));
+            p.drawText(QPointF(currentX, baselineY), placeholder);
+        } else {
+            p.setPen(QColor(255, 255, 255));
+            p.drawText(QPointF(currentX, baselineY), aiPromptQuery);
+            const int textW = fmQuery.horizontalAdvance(aiPromptQuery);
+            p.setPen(QPen(aiPurple, 2.0));
+            p.drawLine(QPointF(currentX + textW + 2, baselineY - fmQuery.ascent() + 2),
+                       QPointF(currentX + textW + 2, baselineY + fmQuery.descent() - 2));
+        }
+        currentX += queryW + qRound(16 * scale);
+
+        // 3. Status
+        const qreal statusBaselineY = (h - (fmStatus.ascent() - fmStatus.descent())) / 2.0 + fmStatus.ascent();
+        p.setFont(statusFont);
+        p.setPen(QColor(180, 170, 200));
+        p.drawText(QPointF(currentX, statusBaselineY), statusText);
+
+        return img;
+    }
 
     if (isSearchMode) {
         const QString placeholder = QStringLiteral("Type to search windows...");

@@ -191,15 +191,29 @@ kwriteconfig6 --file kglobalshortcutsrc --group kwin \
 kwriteconfig6 --file kglobalshortcutsrc --group kwin \
   --key "MarkActiveWindowWithColor" --delete ''
 kwriteconfig6 --file kglobalshortcutsrc --group kwin \
+  --key "OpenWorkspaceManager" --delete ''
+kwriteconfig6 --file kglobalshortcutsrc --group kwin \
+  --key "OpenMarkerManager" --delete ''
+kwriteconfig6 --file kglobalshortcutsrc --group kwin \
   --key "ToggleHudGrouping" --delete ''
 kwriteconfig6 --file kglobalshortcutsrc --group kwin \
+  --key "TogglePinActiveWindow" --delete ''
+kwriteconfig6 --file kglobalshortcutsrc --group kwin \
   --key "JumpToWindow" --delete ''
+kwriteconfig6 --file kglobalshortcutsrc --group kwin \
+  --key "JumpToAudioWindow" --delete ''
+kwriteconfig6 --file kglobalshortcutsrc --group kwin \
+  --key "JumpToSearchWindow" --delete ''
 kwriteconfig6 --file kglobalshortcutsrc --group kwin \
   --key "RecentWindow" --delete ''
 kwriteconfig6 --file kglobalshortcutsrc --group kwin \
   --key "PrevRecentWindow" --delete ''
 kwriteconfig6 --file kglobalshortcutsrc --group kwin \
   --key "NextRecentWindow" --delete ''
+kwriteconfig6 --file kglobalshortcutsrc --group kwin \
+  --key "ToggleTilingPresets" --delete ''
+kwriteconfig6 --file kglobalshortcutsrc --group kwin \
+  --key "ToggleAiPrompt" --delete ''
 
 echo "[4/4] Refreshing KDE…"
 if command -v update-desktop-database >/dev/null 2>&1; then

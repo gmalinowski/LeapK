@@ -4,6 +4,26 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta17] - 2026-10-30
+
+### Added
+- **Global & In-HUD AI Prompt Activation (`Meta+I`, `Shift+I`, `:`)**:
+  - Global shortcut `Meta+I` (registered as `ToggleAiPrompt` via KGlobalAccel) opens the LeapK HUD directly into interactive AI command mode.
+  - Quick HUD triggers: pressing `Meta+I`, `Shift+I`, or `:` while HUD is open instantly focuses the AI input prompt bar.
+  - Full submode compatibility: switching to AI prompt mode is available from any HUD state (normal, Stash drawer, Audio filter, SuperJump).
+  - Pauses the HUD dismiss timeout while typing in the AI prompt bar to avoid accidental closures.
+- **Interactive AI Prompt Bar (`badgehelper.h`)**:
+  - High-resolution HUD input bar with `✨` sparkle indicator, real-time typing buffer, text cursor, and contextual key hint pill.
+  - Dynamic AI action hint segment in HUD bottom bar with shortcut preview.
+- **Natural Language Intent Matcher (`executeAiPrompt`)**:
+  - Zero-latency (<0.1 ms) local intent parser supporting both English and Polish commands:
+    - Selective Tiling: `"all terminals tiling"`, `"kafelkuj terminale"`, `"tile browsers grid"`, `"3 columns code"`, `"float"` / `"wyłącz"`.
+    - Background Stashing: `"stash background"`, `"schowaj w tle"`, `"unstash"` / `"przywróć"`.
+    - Direct Navigation: `"focus chrome"`, `"skocz firefox"`, `"jump konsole"`.
+- **Installer & KGlobalAccel Synchronization**:
+  - Added `ToggleAiPrompt` and `ToggleTilingPresets` to `migrate_shortcut` in `install-leapk.sh` and cleanup in `uninstall-leapk.sh`.
+  - Ensures global shortcuts are active immediately upon effect installation.
+
 ## [1.6.0-beta16] - 2026-10-30
 
 ### Added

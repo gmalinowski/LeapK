@@ -843,6 +843,13 @@ void ActiveWindowOutlineEffect::initShortcuts()
     KGlobalAccel::self()->setDefaultShortcut(tilingAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::Key_T));
     KGlobalAccel::self()->setGlobalShortcut(tilingAction, QKeySequence(Qt::META | Qt::Key_T));
     connect(tilingAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotTriggerTilingPresetsMode);
+
+    QAction *aiAction = new QAction(this);
+    aiAction->setObjectName(QStringLiteral("ToggleAiPrompt"));
+    aiAction->setText(QStringLiteral("LeapK: AI Assistant"));
+    KGlobalAccel::self()->setDefaultShortcut(aiAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::Key_I));
+    KGlobalAccel::self()->setGlobalShortcut(aiAction, QKeySequence(Qt::META | Qt::Key_I));
+    connect(aiAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotTriggerAiPromptMode);
 }
 
 bool ActiveWindowOutlineEffect::supported()
@@ -1117,6 +1124,14 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_tilingGaps = qBound(0, config.readEntry("TilingGaps", 6), 64);
     m_tilingMargins = qBound(0, config.readEntry("TilingMargins", 8), 64);
     m_tilingPresets = LeapKTiling::loadPresets();
+    m_aiConfig.enabled = config.readEntry("AiEnabled", false);
+    m_aiConfig.backend = static_cast<LeapKAi::AiBackend>(config.readEntry("AiBackend", 0));
+    m_aiConfig.localModelPath = config.readEntry("AiLocalModelPath", QString());
+    m_aiConfig.apiEndpoint = config.readEntry("AiApiEndpoint", QStringLiteral("https://api.openai.com/v1"));
+    m_aiConfig.apiModel = config.readEntry("AiApiModel", QStringLiteral("gpt-4o-mini"));
+    m_aiConfig.apiKey = config.readEntry("AiApiKey", QString());
+    m_aiConfig.apiProviderPreset = static_cast<LeapKAi::ApiProviderPreset>(config.readEntry("AiApiProviderPreset", 1));
+    m_aiConfig.shortcut = config.readEntry("AiShortcut", QStringLiteral("Meta+I"));
     refreshWorkspaces();
     for (EffectWindow *w : effects->stackingOrder()) {
         applyPersistentMarksToWindow(w);
@@ -3922,6 +3937,10 @@ void ActiveWindowOutlineEffect::enterStashMode()
     m_superJumpActive = false;
     m_subLeapActive = false;
     m_tilingPresetsModeActive = false;
+    m_aiPromptModeActive = false;
+    m_aiPromptQuery.clear();
+    m_aiPromptModeActive = false;
+    m_aiPromptQuery.clear();
     m_hudTilingPresetPillRects.clear();
     m_subLeapBaseKey = QChar();
     m_subLeapWindows.clear();
@@ -3978,6 +3997,9 @@ int ActiveWindowOutlineEffect::findWorkspaceForWindow(EffectWindow *target) cons
 
 void ActiveWindowOutlineEffect::toggleSuperJumpMode()
 {
+    if (m_aiPromptModeActive) {
+        exitAiPromptMode();
+    }
     if (m_tilingPresetsModeActive) {
         exitTilingPresetsMode();
     }
@@ -4035,6 +4057,9 @@ void ActiveWindowOutlineEffect::slotTriggerAudioFilterMode()
 
 void ActiveWindowOutlineEffect::toggleAudioFilterMode()
 {
+    if (m_aiPromptModeActive) {
+        exitAiPromptMode();
+    }
     if (m_tilingPresetsModeActive) {
         exitTilingPresetsMode();
     }
@@ -4132,8 +4157,235 @@ void ActiveWindowOutlineEffect::slotTriggerTilingPresetsMode()
     enterTilingPresetsMode();
 }
 
+void ActiveWindowOutlineEffect::slotTriggerAiPromptMode()
+{
+    if (!m_aiConfig.enabled) {
+        playThemedSound(OutlineSound::SoundEffect::Dismiss);
+        return;
+    }
+
+    if (m_jumpMode && m_aiPromptModeActive) {
+        cancelJumpMode();
+        return;
+    }
+
+    if (!m_jumpMode) {
+        slotTriggerJumpMode();
+    }
+    enterAiPromptMode();
+}
+
+void ActiveWindowOutlineEffect::enterAiPromptMode()
+{
+    if (!m_jumpMode) {
+        return;
+    }
+    if (m_searchModeActive) {
+        exitSearchMode();
+    }
+    if (m_tilingPresetsModeActive) {
+        exitTilingPresetsMode();
+    }
+    if (m_subLeapActive) {
+        exitSubLeapMode();
+    }
+    if (m_stashModeActive) {
+        exitStashMode();
+    }
+    if (m_superJumpActive) {
+        exitSuperJumpMode();
+    }
+    if (m_audioFilterModeActive) {
+        exitAudioFilterMode();
+    }
+
+    if (m_jumpTimeoutTimer) {
+        m_jumpTimeoutTimer->stop();
+    }
+
+    m_aiPromptModeActive = true;
+    m_aiPromptQuery.clear();
+    m_aiPromptStatusText.clear();
+    m_aiPromptIsThinking = false;
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    m_badgeTextureCache.clear();
+    playThemedSound(OutlineSound::SoundEffect::NavTab);
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::exitAiPromptMode()
+{
+    m_aiPromptModeActive = false;
+    m_aiPromptQuery.clear();
+    m_aiPromptStatusText.clear();
+    m_aiPromptIsThinking = false;
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    m_badgeTextureCache.clear();
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+    }
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::executeAiPrompt(const QString &query)
+{
+    const QString q = query.trimmed().toLower();
+    if (q.isEmpty()) {
+        exitAiPromptMode();
+        return;
+    }
+
+    VirtualDesktop *currentDesktop = effects ? effects->currentDesktop() : nullptr;
+    auto allWindows = effects ? effects->stackingOrder() : QList<EffectWindow *>();
+
+    auto isEligible = [this, currentDesktop](EffectWindow *w) -> bool {
+        if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus()) {
+            return false;
+        }
+        if (currentDesktop && !w->isOnDesktop(currentDesktop)) {
+            return false;
+        }
+        return true;
+    };
+
+    // 1. Tiling commands (e.g. "all terminals tiling", "tile terminals", "kafelkuj terminale")
+    if (q.contains(QStringLiteral("tiling")) || q.contains(QStringLiteral("tile")) || q.contains(QStringLiteral("kafelk"))) {
+        QList<EffectWindow *> targetWindows;
+        const bool isTerminal = q.contains(QStringLiteral("terminal")) || q.contains(QStringLiteral("konsole")) || q.contains(QStringLiteral("kitty")) || q.contains(QStringLiteral("alacritty")) || q.contains(QStringLiteral("foot"));
+        const bool isBrowser = q.contains(QStringLiteral("browser")) || q.contains(QStringLiteral("przeglądark")) || q.contains(QStringLiteral("firefox")) || q.contains(QStringLiteral("chrome")) || q.contains(QStringLiteral("brave")) || q.contains(QStringLiteral("zen"));
+        const bool isEditor = q.contains(QStringLiteral("code")) || q.contains(QStringLiteral("edytor")) || q.contains(QStringLiteral("kate")) || q.contains(QStringLiteral("clion")) || q.contains(QStringLiteral("neovim")) || q.contains(QStringLiteral("nvim"));
+
+        for (EffectWindow *w : allWindows) {
+            if (!isEligible(w)) continue;
+            const QString cap = w->caption().toLower();
+            const QString cls = w->windowClass().toLower();
+
+            if (isTerminal) {
+                if (cls.contains(QStringLiteral("terminal")) || cls.contains(QStringLiteral("konsole")) || cls.contains(QStringLiteral("kitty")) ||
+                    cls.contains(QStringLiteral("alacritty")) || cls.contains(QStringLiteral("foot")) || cls.contains(QStringLiteral("wezterm")) ||
+                    cap.contains(QStringLiteral("terminal"))) {
+                    targetWindows.append(w);
+                }
+            } else if (isBrowser) {
+                if (cls.contains(QStringLiteral("firefox")) || cls.contains(QStringLiteral("chrome")) || cls.contains(QStringLiteral("chromium")) ||
+                    cls.contains(QStringLiteral("brave")) || cls.contains(QStringLiteral("zen")) || cls.contains(QStringLiteral("opera"))) {
+                    targetWindows.append(w);
+                }
+            } else if (isEditor) {
+                if (cls.contains(QStringLiteral("code")) || cls.contains(QStringLiteral("vscodium")) || cls.contains(QStringLiteral("kate")) ||
+                    cls.contains(QStringLiteral("clion")) || cls.contains(QStringLiteral("idea")) || cls.contains(QStringLiteral("nvim"))) {
+                    targetWindows.append(w);
+                }
+            } else {
+                targetWindows.append(w);
+            }
+        }
+
+        LeapKTiling::TilingPreset chosenPreset;
+        const auto presets = m_tilingPresets.isEmpty() ? LeapKTiling::defaultPresets() : m_tilingPresets;
+
+        auto findPreset = [&presets](const QString &id) -> LeapKTiling::TilingPreset {
+            for (const auto &p : presets) {
+                if (p.id == id) return p;
+            }
+            return presets.isEmpty() ? LeapKTiling::TilingPreset() : presets.first();
+        };
+
+        if (q.contains(QStringLiteral("float")) || q.contains(QStringLiteral("turn off")) || q.contains(QStringLiteral("off")) || q.contains(QStringLiteral("wyłącz"))) {
+            deactivateTiling();
+            exitAiPromptMode();
+            cancelJumpMode();
+            return;
+        } else if (q.contains(QStringLiteral("columns 3")) || q.contains(QStringLiteral("3 col")) || q.contains(QStringLiteral("3 kolumn"))) {
+            chosenPreset = findPreset(QStringLiteral("columns-3"));
+        } else if (q.contains(QStringLiteral("columns 2")) || q.contains(QStringLiteral("2 col")) || q.contains(QStringLiteral("2 kolumn")) || q.contains(QStringLiteral("half")) || q.contains(QStringLiteral("side by side"))) {
+            chosenPreset = findPreset(QStringLiteral("columns-2"));
+        } else if (q.contains(QStringLiteral("grid")) || q.contains(QStringLiteral("quad")) || q.contains(QStringLiteral("4")) || q.contains(QStringLiteral("siatk"))) {
+            chosenPreset = findPreset(QStringLiteral("grid-4"));
+        } else if (q.contains(QStringLiteral("master")) || q.contains(QStringLiteral("stack"))) {
+            chosenPreset = findPreset(QStringLiteral("master-stack"));
+        } else if (q.contains(QStringLiteral("full")) || q.contains(QStringLiteral("monocle")) || q.contains(QStringLiteral("focus"))) {
+            chosenPreset = findPreset(QStringLiteral("monocle"));
+        } else {
+            if (targetWindows.size() <= 2) {
+                chosenPreset = findPreset(QStringLiteral("columns-2"));
+            } else if (targetWindows.size() == 3) {
+                chosenPreset = findPreset(QStringLiteral("columns-3"));
+            } else {
+                chosenPreset = findPreset(QStringLiteral("grid-4"));
+            }
+        }
+
+        activateTilingPreset(chosenPreset, targetWindows);
+        exitAiPromptMode();
+        cancelJumpMode();
+        return;
+    }
+
+    // 2. Stash commands
+    if (q.contains(QStringLiteral("stash")) || q.contains(QStringLiteral("schowaj")) || q.contains(QStringLiteral("ukryj"))) {
+        if (q.contains(QStringLiteral("unstash")) || q.contains(QStringLiteral("przywróć")) || q.contains(QStringLiteral("restore"))) {
+            for (EffectWindow *w : m_stashedWindows) {
+                if (w && !w->isDeleted() && w->isMinimized()) {
+                    w->setMinimized(false);
+                }
+            }
+            m_stashedWindows.clear();
+            playThemedSound(OutlineSound::SoundEffect::Stash);
+        } else {
+            for (EffectWindow *w : allWindows) {
+                if (isEligible(w) && w != m_activeWindow && !m_stashedWindows.contains(w)) {
+                    m_stashedWindows.insert(w);
+                    w->setMinimized(true);
+                }
+            }
+            playThemedSound(OutlineSound::SoundEffect::Stash);
+        }
+        exitAiPromptMode();
+        cancelJumpMode();
+        return;
+    }
+
+    // 3. Focus / Jump command
+    if (q.startsWith(QStringLiteral("focus ")) || q.startsWith(QStringLiteral("jump ")) || q.startsWith(QStringLiteral("skocz ")) || q.startsWith(QStringLiteral("aktywuj "))) {
+        const QString term = q.section(QLatin1Char(' '), 1).trimmed();
+        for (EffectWindow *w : allWindows) {
+            if (!w || w->isDeleted()) continue;
+            const QString cap = w->caption().toLower();
+            const QString cls = w->windowClass().toLower();
+            if (cap.contains(term) || cls.contains(term)) {
+                if (w->isMinimized()) {
+                    w->setMinimized(false);
+                }
+                effects->activateWindow(w);
+                warpCursorToWindow(w);
+                exitAiPromptMode();
+                cancelJumpMode();
+                return;
+            }
+        }
+    }
+
+    playThemedSound(OutlineSound::SoundEffect::Dismiss);
+    exitAiPromptMode();
+    cancelJumpMode();
+}
+
 void ActiveWindowOutlineEffect::enterSearchMode()
 {
+    if (m_aiPromptModeActive) {
+        exitAiPromptMode();
+    }
     if (m_tilingPresetsModeActive) {
         exitTilingPresetsMode();
     }
@@ -4955,6 +5207,8 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_stashModeActive = false;
     m_superJumpActive = false;
     m_tilingPresetsModeActive = false;
+    m_aiPromptModeActive = false;
+    m_aiPromptQuery.clear();
     m_hudTilingPresetPillRects.clear();
     m_subLeapBaseKey = QChar();
     m_subLeapWindows.clear();
@@ -5056,6 +5310,8 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
     m_stashModeActive = false;
     m_superJumpActive = false;
     m_tilingPresetsModeActive = false;
+    m_aiPromptModeActive = false;
+    m_aiPromptQuery.clear();
     m_hudTilingPresetPillRects.clear();
     m_audioFilterModeActive = false;
     m_searchModeActive = false;
@@ -5103,6 +5359,8 @@ void ActiveWindowOutlineEffect::exitSubLeapMode()
     m_stashModeActive = false;
     m_superJumpActive = false;
     m_tilingPresetsModeActive = false;
+    m_aiPromptModeActive = false;
+    m_aiPromptQuery.clear();
     m_hudTilingPresetPillRects.clear();
     m_subLeapBaseKey = QChar();
     m_subLeapWindows.clear();
@@ -5371,6 +5629,47 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         }
         return e->text().toUpper().trimmed();
     };
+
+    // 0a. If currently in AI Prompt mode:
+    if (m_aiPromptModeActive) {
+        if (e->key() == Qt::Key_Escape || (isMetaOnly && e->key() == Qt::Key_I)) {
+            exitAiPromptMode();
+            return;
+        }
+
+        if (e->key() == Qt::Key_Backspace) {
+            if (m_aiPromptQuery.isEmpty()) {
+                exitAiPromptMode();
+            } else {
+                m_aiPromptQuery.chop(1);
+                m_hudHeaderTexture.reset();
+                m_hudHeaderCacheKey = -1;
+                effects->addRepaintFull();
+            }
+            return;
+        }
+
+        if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
+            executeAiPrompt(m_aiPromptQuery);
+            return;
+        }
+
+        if (!e->text().isEmpty() && e->text().at(0).isPrint()) {
+            m_aiPromptQuery.append(e->text());
+            m_hudHeaderTexture.reset();
+            m_hudHeaderCacheKey = -1;
+            effects->addRepaintFull();
+            return;
+        }
+        return;
+    }
+
+    if (m_aiConfig.enabled && !m_aiPromptModeActive) {
+        if (isMetaOnly && e->key() == Qt::Key_I) {
+            enterAiPromptMode();
+            return;
+        }
+    }
 
     // 0. If currently in Tiling Presets mode:
     if (m_tilingPresetsModeActive) {
@@ -5867,6 +6166,15 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     if ((isMetaOnly && e->key() == Qt::Key_T) || (isShift && (e->key() == Qt::Key_T || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('T') || e->text().at(0) == QLatin1Char('t')))))) {
         enterTilingPresetsMode();
         return;
+    }
+
+    if (m_aiConfig.enabled) {
+        if ((isMetaOnly && e->key() == Qt::Key_I)
+            || (isShift && (e->key() == Qt::Key_I || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('I') || e->text().at(0) == QLatin1Char('i')))))
+            || (e->key() == Qt::Key_Colon) || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char(':'))) {
+            enterAiPromptMode();
+            return;
+        }
     }
 
     if (isMetaOnly && e->key() == Qt::Key_M) {
@@ -7563,6 +7871,9 @@ void ActiveWindowOutlineEffect::slotWindowFinishUserMovedResized(EffectWindow *w
 
 void ActiveWindowOutlineEffect::enterTilingPresetsMode()
 {
+    if (m_aiPromptModeActive) {
+        exitAiPromptMode();
+    }
     m_tilingPresetsModeActive = true;
     m_hudHeaderTexture.reset();
     m_hudHeaderCacheKey = -1;
@@ -7579,6 +7890,8 @@ void ActiveWindowOutlineEffect::enterTilingPresetsMode()
 void ActiveWindowOutlineEffect::exitTilingPresetsMode()
 {
     m_tilingPresetsModeActive = false;
+    m_aiPromptModeActive = false;
+    m_aiPromptQuery.clear();
     m_hudHeaderTexture.reset();
     m_hudHeaderCacheKey = -1;
     m_hudHintBarTexture.reset();
@@ -7590,7 +7903,7 @@ void ActiveWindowOutlineEffect::exitTilingPresetsMode()
     }
 }
 
-void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPreset &preset)
+void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPreset &preset, const QList<EffectWindow *> &overrideWindows)
 {
     if (preset.isFloatAction()) {
         deactivateTiling();
@@ -7634,31 +7947,42 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
         return true;
     };
 
-    // 1a. First priority: active window, if on current desktop
-    if (m_activeWindow && isEligibleOnCurrentDesktop(m_activeWindow)) {
-        targetWindows.append(m_activeWindow);
-    }
-
-    // 1b. Second priority: windows from m_windowHistory that are ON THE CURRENT DESKTOP
-    for (EffectWindow *w : m_windowHistory) {
-        if (targetWindows.size() >= slotCount) {
-            break;
-        }
-        if (isEligibleOnCurrentDesktop(w) && !targetWindows.contains(w)) {
-            targetWindows.append(w);
-        }
-    }
-
-    // 1c. Third priority: remaining windows on the CURRENT DESKTOP from stackingOrder (top-to-bottom)
-    if (targetWindows.size() < slotCount && effects) {
-        const auto stacking = effects->stackingOrder();
-        for (auto it = stacking.rbegin(); it != stacking.rend(); ++it) {
+    if (!overrideWindows.isEmpty()) {
+        for (EffectWindow *w : overrideWindows) {
             if (targetWindows.size() >= slotCount) {
                 break;
             }
-            EffectWindow *w = *it;
             if (isEligibleOnCurrentDesktop(w) && !targetWindows.contains(w)) {
                 targetWindows.append(w);
+            }
+        }
+    } else {
+        // 1a. First priority: active window, if on current desktop
+        if (m_activeWindow && isEligibleOnCurrentDesktop(m_activeWindow)) {
+            targetWindows.append(m_activeWindow);
+        }
+
+        // 1b. Second priority: windows from m_windowHistory that are ON THE CURRENT DESKTOP
+        for (EffectWindow *w : m_windowHistory) {
+            if (targetWindows.size() >= slotCount) {
+                break;
+            }
+            if (isEligibleOnCurrentDesktop(w) && !targetWindows.contains(w)) {
+                targetWindows.append(w);
+            }
+        }
+
+        // 1c. Third priority: remaining windows on the CURRENT DESKTOP from stackingOrder (top-to-bottom)
+        if (targetWindows.size() < slotCount && effects) {
+            const auto stacking = effects->stackingOrder();
+            for (auto it = stacking.rbegin(); it != stacking.rend(); ++it) {
+                if (targetWindows.size() >= slotCount) {
+                    break;
+                }
+                EffectWindow *w = *it;
+                if (isEligibleOnCurrentDesktop(w) && !targetWindows.contains(w)) {
+                    targetWindows.append(w);
+                }
             }
         }
     }
@@ -8086,10 +8410,12 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
         + (m_audioFilterModeActive ? 900000 : 0)
         + (m_searchModeActive ? 1100000 : 0)
         + (m_tilingPresetsModeActive ? 1300000 : 0)
+        + (m_aiPromptModeActive ? 1500000 : 0)
+        + (m_aiConfig.enabled ? 50000 : 0)
         + m_activeHudView * 1000 + nameHash + qRound(scale * 10) + (qRound(maxHintBarWidth) % 5000)
         + hintsFontSize * 19 + themeHash;
     if (!m_hudHintBarTexture || m_hudHintBarCacheKey != hintBarKey) {
-        const QImage hintImg = OutlineBadge::renderHudActionHintBar(scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive, m_superJumpActive, m_audioFilterModeActive, m_searchModeActive, maxHintBarWidth, hintsFontSize, theme, m_tilingPresetsModeActive);
+        const QImage hintImg = OutlineBadge::renderHudActionHintBar(scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive, m_superJumpActive, m_audioFilterModeActive, m_searchModeActive, maxHintBarWidth, hintsFontSize, theme, m_tilingPresetsModeActive, m_aiPromptModeActive, m_aiConfig.enabled);
         auto uploaded = GLTexture::upload(hintImg);
         if (uploaded) {
             uploaded->setFilter(GL_LINEAR);
@@ -8347,6 +8673,7 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
     const int headerKey = (m_subLeapActive ? 2000000 : 0) + (m_stashModeActive ? 4000000 : 0) + (m_superJumpActive ? 6000000 : 0)
         + (m_audioFilterModeActive ? 8000000 : 0)
         + (m_tilingPresetsModeActive ? 12000000 : 0)
+        + (m_aiPromptModeActive ? (14000000 + (qHash(m_aiPromptQuery) % 50000) + (qHash(m_aiPromptStatusText) % 5000)) : 0)
         + (m_searchModeActive ? (10000000 + m_searchScope * 100000 + (qHash(m_searchQuery) % 50000) + m_searchMatches.size() * 10) : 0)
         + m_activeHudView * 100000 + countsHash + stashCount * 13 + qRound(scale * 10) + hudSize * 7 + navFontSize * 17 + themeHash;
 
@@ -8354,7 +8681,8 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
         const QImage headerImg = OutlineBadge::renderHudModeHeader(
             scale, m_subLeapActive, subLeapTitle, subLeapColor, subLeapCount, viewTabs, stashCount, m_stashModeActive, targetWorkspaceName, m_superJumpActive, m_audioFilterModeActive, m_jumpLetterToWindow.size(),
             m_searchModeActive, m_searchQuery, m_searchScope, m_searchMatches.size(), hudSize, navFontSize, theme, &m_hudCloseButtonLocalRect,
-            m_tilingPresetsModeActive, m_tilingPresets.size());
+            m_tilingPresetsModeActive, m_tilingPresets.size(),
+            m_aiPromptModeActive, m_aiPromptQuery, m_aiPromptStatusText);
         if (!headerImg.isNull()) {
             auto uploaded = GLTexture::upload(headerImg);
             if (uploaded) {

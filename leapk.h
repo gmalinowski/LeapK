@@ -42,6 +42,7 @@
 #include "persistentmarkhelper.h"
 #include "workspacehelper.h"
 #include "tilinghelper.h"
+#include "aihelper.h"
 
 class QFileSystemWatcher;
 
@@ -313,11 +314,15 @@ private:
     void applyWorkspaceDeletion(const QString &deletedWorkspaceId, const QString &windowAction);
     void enterTilingPresetsMode();
     void exitTilingPresetsMode();
-    void activateTilingPreset(const LeapKTiling::TilingPreset &preset);
+    void activateTilingPreset(const LeapKTiling::TilingPreset &preset, const QList<EffectWindow *> &overrideWindows = {});
     void deactivateTiling(EffectWindow *skipRestoreWindow = nullptr);
     bool isWindowInTileSlot(EffectWindow *w) const;
     int findTileSlotIndexForWindow(EffectWindow *w) const;
     void performTilingSwap(EffectWindow *target);
+    void slotTriggerAiPromptMode();
+    void enterAiPromptMode();
+    void exitAiPromptMode();
+    void executeAiPrompt(const QString &query);
     void renderTilingPresetPills(const RenderTarget &renderTarget,
                                 const RenderViewport &viewport,
                                 const QList<LeapKTiling::TilingPreset> &presets);
@@ -562,6 +567,12 @@ private:
     int m_tilingGaps = 6;
     int m_tilingMargins = 8;
     QList<QPair<QRectF, LeapKTiling::TilingPreset>> m_hudTilingPresetPillRects;
+
+    LeapKAi::AiConfig m_aiConfig;
+    bool m_aiPromptModeActive = false;
+    QString m_aiPromptQuery;
+    QString m_aiPromptStatusText;
+    bool m_aiPromptIsThinking = false;
 
     // Persistent Marks (saved across desktop sessions)
     QList<LeapKMarks::PersistentMarkRule> m_persistentMarks;

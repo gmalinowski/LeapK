@@ -530,11 +530,17 @@ if command -v kreadconfig6 >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/nul
   migrate_shortcut "MarkActiveWindow" "none" "LeapK: Toggle Mark Window (Quick)"
   migrate_shortcut "MarkActiveWindowWithColor" "Meta+Ctrl+Space" "LeapK: Mark Window with Color Picker"
   migrate_shortcut "OpenWorkspaceManager" "Meta+Shift+Space" "LeapK: Open Workspace Manager"
+  migrate_shortcut "OpenMarkerManager" "Meta+Ctrl+M" "LeapK: Open Marker Manager"
   migrate_shortcut "ToggleHudGrouping" "Meta+Ctrl+G" "LeapK: Toggle HUD Window Grouping"
+  migrate_shortcut "TogglePinActiveWindow" "Meta+Ctrl+P" "LeapK: Toggle Pin Active Window"
   migrate_shortcut "JumpToWindow" "Meta+Space" "LeapK: Jump to Window"
+  migrate_shortcut "JumpToAudioWindow" "Meta+Ctrl+A" "LeapK: Jump to Audio Window"
+  migrate_shortcut "JumpToSearchWindow" "Meta+Ctrl+F" "LeapK: Fuzzy Search Windows"
   migrate_shortcut "RecentWindow" "" "LeapK: Switch to Recent Window"
   migrate_shortcut "PrevRecentWindow" "Meta+Ctrl+[" "LeapK: Previous Recent Window"
   migrate_shortcut "NextRecentWindow" "Meta+Ctrl+]" "LeapK: Next Recent Window"
+  migrate_shortcut "ToggleTilingPresets" "Meta+T" "LeapK: Tiling Presets"
+  migrate_shortcut "ToggleAiPrompt" "Meta+I" "LeapK: AI Assistant"
 fi
 
 if command -v qdbus6 >/dev/null 2>&1; then
