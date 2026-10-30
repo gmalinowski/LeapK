@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta31] - 2026-10-31
+
+### Fixed
+- **HUD Closure When Switching Workspaces While Tiling Is Active**:
+  - In `switchToWorkspaceView`, captured `wasInJumpMode` and passed `preserveJumpMode` to `activateTilingPreset(incomingPreset, wasInJumpMode)`.
+  - In `deactivateTiling`, prevented calling `cancelJumpMode()` when transitioning between workspaces (`preserveWorkspaceState == true`).
+  - When switching between workspaces (via HUD navigation tabs, key jumps, or window pills), HUD Mode is now preserved seamlessly with updated jump letters and full repaints.
+  - Added unit test `testHudPreservationOnWorkspaceTilingSwitch` in `tests/tiling_test.cpp`.
+- **Universal Window Rule for Minimum Size Limit**:
+  - In `ensureTilingNoMinSizeRule`, explicitly written `wmclass=` and `wmclasscomplete=false` to ensure clean universal matching across all KWin 6 clients.
+
 ## [1.6.0-beta30] - 2026-10-30
 
 ### Fixed

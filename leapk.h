@@ -336,7 +336,7 @@ private:
     void exitTilingPresetsMode();
     void refreshTilingPresetsWithKdeCustom();
     void slotOpenKdeTileEditor();
-    void activateTilingPreset(const LeapKTiling::TilingPreset &preset);
+    void activateTilingPreset(const LeapKTiling::TilingPreset &preset, bool preserveJumpMode = false);
     void deactivateTiling(EffectWindow *skipRestoreWindow = nullptr, bool preserveWorkspaceState = false);
     bool isWindowInTileSlot(EffectWindow *w) const;
     int findTileSlotIndexForWindow(EffectWindow *w) const;

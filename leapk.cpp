@@ -3669,6 +3669,7 @@ void ActiveWindowOutlineEffect::switchToWorkspaceView(int newHudViewIndex)
         return;
     }
 
+    const bool wasInJumpMode = m_jumpMode;
     const int oldHudView = m_activeHudView;
     const QString oldWsId = workspaceIdForView(oldHudView);
     const QString newWsId = workspaceIdForView(newHudViewIndex);
@@ -3808,9 +3809,17 @@ void ActiveWindowOutlineEffect::switchToWorkspaceView(int newHudViewIndex)
     }
 
     if (shouldTile && !incomingPreset.id.isEmpty() && !incomingPreset.isFloatAction()) {
-        activateTilingPreset(incomingPreset);
+        activateTilingPreset(incomingPreset, wasInJumpMode);
     } else if (m_tilingActive) {
         deactivateTiling(nullptr, true);
+    }
+
+    if (wasInJumpMode) {
+        m_jumpMode = true;
+        assignJumpLetters();
+        if (effects) {
+            effects->addRepaintFull();
+        }
     }
 }
 
@@ -7952,7 +7961,7 @@ void ActiveWindowOutlineEffect::exitTilingPresetsMode()
     }
 }
 
-void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPreset &preset)
+void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPreset &preset, bool preserveJumpMode)
 {
     if (preset.isFloatAction()) {
         deactivateTiling();
@@ -8134,7 +8143,7 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
 
     playThemedSound(OutlineSound::SoundEffect::SwitchWorkspace);
     exitTilingPresetsMode();
-    if (m_jumpMode) {
+    if (m_jumpMode && !preserveJumpMode) {
         cancelJumpMode();
     }
     if (effects) {
@@ -8190,7 +8199,7 @@ void ActiveWindowOutlineEffect::deactivateTiling(EffectWindow *skipRestoreWindow
     if (m_tilingPresetsModeActive) {
         exitTilingPresetsMode();
     }
-    if (m_jumpMode) {
+    if (m_jumpMode && !preserveWorkspaceState) {
         cancelJumpMode();
     }
     if (effects) {
@@ -8248,6 +8257,8 @@ void ActiveWindowOutlineEffect::ensureTilingNoMinSizeRule()
         || ruleGroup.readEntry(QStringLiteral("ignoregeometry"), false) != defRule.ignoregeometry
         || ruleGroup.readEntry(QStringLiteral("ignoregeometryrule"), 0) != defRule.ignoregeometryrule
         || ruleGroup.readEntry(QStringLiteral("types"), 0) != defRule.types
+        || !ruleGroup.hasKey(QStringLiteral("wmclass"))
+        || ruleGroup.readEntry(QStringLiteral("wmclasscomplete"), true) != defRule.wmclasscomplete
         || ruleGroup.readEntry(QStringLiteral("wmclassmatch"), -1) != defRule.wmclassmatch) {
 
         ruleGroup.writeEntry(QStringLiteral("description"), defRule.description);
@@ -8256,6 +8267,8 @@ void ActiveWindowOutlineEffect::ensureTilingNoMinSizeRule()
         ruleGroup.writeEntry(QStringLiteral("ignoregeometry"), defRule.ignoregeometry);
         ruleGroup.writeEntry(QStringLiteral("ignoregeometryrule"), defRule.ignoregeometryrule);
         ruleGroup.writeEntry(QStringLiteral("types"), defRule.types);
+        ruleGroup.writeEntry(QStringLiteral("wmclass"), defRule.wmclass);
+        ruleGroup.writeEntry(QStringLiteral("wmclasscomplete"), defRule.wmclasscomplete);
         ruleGroup.writeEntry(QStringLiteral("wmclassmatch"), defRule.wmclassmatch);
         needsWrite = true;
     }

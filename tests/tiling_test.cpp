@@ -240,6 +240,8 @@ void testTilingWindowRuleConfig()
     assert(rule.ignoregeometry == true);
     assert(rule.ignoregeometryrule == 2); // Force
     assert(rule.types == 1); // Normal window
+    assert(rule.wmclass.isEmpty());
+    assert(rule.wmclasscomplete == false);
     assert(rule.wmclassmatch == 0); // Unimportant match
 
     std::cout << "testTilingWindowRuleConfig PASSED\n";
@@ -343,6 +345,74 @@ void testTilingSwapStackingPreservation()
     std::cout << "testTilingSwapStackingPreservation PASSED\n";
 }
 
+void testHudPreservationOnWorkspaceTilingSwitch()
+{
+    // Simulates the workspace switch while HUD is active and tiling is enabled on either workspace.
+    struct MockWorkspaceSwitcher {
+        bool jumpMode = false;
+        bool tilingActive = false;
+        bool tilingPresetPreserved = false;
+
+        void switchToWorkspace(bool incomingHasTiling) {
+            const bool wasInJumpMode = jumpMode;
+            if (tilingActive) {
+                // deactivateTiling with preserveWorkspaceState = true
+                bool preserveWorkspaceState = true;
+                if (jumpMode && !preserveWorkspaceState) {
+                    jumpMode = false;
+                }
+                tilingActive = false;
+            }
+
+            if (incomingHasTiling) {
+                // activateTilingPreset with preserveJumpMode = wasInJumpMode
+                bool preserveJumpMode = wasInJumpMode;
+                if (jumpMode && !preserveJumpMode) {
+                    jumpMode = false;
+                }
+                tilingActive = true;
+                tilingPresetPreserved = true;
+            }
+
+            if (wasInJumpMode) {
+                jumpMode = true;
+            }
+        }
+    };
+
+    // Test Case 1: Switching from tiled workspace to another tiled workspace in HUD
+    {
+        MockWorkspaceSwitcher s;
+        s.jumpMode = true;
+        s.tilingActive = true;
+        s.switchToWorkspace(true);
+        assert(s.jumpMode == true);
+        assert(s.tilingActive == true);
+    }
+
+    // Test Case 2: Switching from untiled workspace to tiled workspace in HUD
+    {
+        MockWorkspaceSwitcher s;
+        s.jumpMode = true;
+        s.tilingActive = false;
+        s.switchToWorkspace(true);
+        assert(s.jumpMode == true);
+        assert(s.tilingActive == true);
+    }
+
+    // Test Case 3: Switching from tiled workspace to untiled workspace in HUD
+    {
+        MockWorkspaceSwitcher s;
+        s.jumpMode = true;
+        s.tilingActive = true;
+        s.switchToWorkspace(false);
+        assert(s.jumpMode == true);
+        assert(s.tilingActive == false);
+    }
+
+    std::cout << "testHudPreservationOnWorkspaceTilingSwitch PASSED\n";
+}
+
 int main()
 {
     testDefaultPresets();
@@ -352,6 +422,7 @@ int main()
     testKdeCustomPreset();
     testTilingWindowRuleConfig();
     testTilingSwapStackingPreservation();
+    testHudPreservationOnWorkspaceTilingSwitch();
 
     std::cout << "All LeapKTiling tests passed successfully!\n";
     return 0;

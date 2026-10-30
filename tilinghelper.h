@@ -29,6 +29,8 @@ struct TilingWindowRuleConfig
     bool ignoregeometry = true;
     int ignoregeometryrule = 2; // Force
     int types = 1; // Normal window
+    QString wmclass;
+    bool wmclasscomplete = false;
     int wmclassmatch = 0; // Unimportant match
 };
 
