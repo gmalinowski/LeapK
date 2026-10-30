@@ -4083,6 +4083,15 @@ void ActiveWindowOutlineEffect::applyWorkspaceViewIsolation(int hudViewIndex, Vi
                 continue;
             }
 
+            // Tiled windows currently occupying active slots must stay visible!
+            if (m_tilingActive && isWindowInTileSlot(w)) {
+                if (w->isMinimized()) {
+                    m_workspaceMinimizedWindows.remove(w);
+                    w->setMinimized(false);
+                }
+                continue;
+            }
+
             const auto desktops = w->desktops();
             const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
             const bool matches = LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum);
@@ -4173,6 +4182,10 @@ int ActiveWindowOutlineEffect::findWorkspaceForWindow(EffectWindow *target) cons
 {
     if (!target || target->isDeleted()) {
         return 0; // Standard
+    }
+
+    if (m_tilingActive && isWindowInTileSlot(target) && m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
+        return m_activeHudView;
     }
 
     const auto desktops = target->desktops();
@@ -4956,6 +4969,8 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
 
             if (m_pinnedWindows.contains(w)) {
                 // Pinned window: always visible across all workspaces!
+            } else if (m_tilingActive && isWindowInTileSlot(w)) {
+                // Tiled window currently occupying a slot: always visible and jumpable!
             } else if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) { // Workspace view: only windows matching this workspace
                 const auto &ws = m_workspaces.at(m_activeHudView - 1);
                 if (!LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum)) {
@@ -5128,10 +5143,6 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_audioTracker.refresh(getKnownWindowsInfo());
     refreshPersistentMarksForWindows();
     refreshWorkspaces();
-
-    if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
-        applyWorkspaceViewIsolation(m_activeHudView);
-    }
 
     if (m_searchModeActive) {
         m_searchQuery.clear();

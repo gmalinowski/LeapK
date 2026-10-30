@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta28] - 2026-10-30
+
+### Fixed
+- **Tiled Windows Minimization on HUD Activation**:
+  - Removed harmful `applyWorkspaceViewIsolation` call from `slotTriggerJumpMode()`: simply opening HUD/Jump Mode must never minimize windows on the user's active desktop.
+  - In `applyWorkspaceViewIsolation`, actively tiled windows (`isWindowInTileSlot`) are now explicitly protected from minimization while tiling is active.
+  - In `assignJumpLetters()`, all actively tiled windows on screen are guaranteed to receive jump badges so the user can easily jump across tiled columns.
+  - In `findWorkspaceForWindow`, windows actively participating in a workspace's tiling layout are associated with the active workspace, preventing workspace switches when jumping between tile slots.
+
 ## [1.6.0-beta27] - 2026-10-30
 
 ### Fixed
