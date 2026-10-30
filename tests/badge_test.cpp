@@ -1475,6 +1475,42 @@ void testSubLeapTargetDistribution()
     assert(resStash.addToHud);
 }
 
+void testTilingHudComponents()
+{
+    using OutlineBadge::BadgeConfig;
+    using OutlineBadge::renderTilingPresetPill;
+    using OutlineBadge::computeTilingPresetPillSize;
+    using OutlineBadge::renderHudActionHintBar;
+    using OutlineBadge::renderHudModeHeader;
+
+    BadgeConfig cfg;
+    const auto presets = LeapKTiling::defaultPresets();
+
+    // 1. computeTilingPresetPillSize and renderTilingPresetPill for Two Columns
+    const QSizeF sz = computeTilingPresetPillSize(cfg, presets[0], 1.0);
+    assert(sz.width() > 100);
+    assert(sz.height() >= 30);
+
+    const QImage img = renderTilingPresetPill(cfg, presets[0], 1.0, false);
+    assert(!img.isNull());
+    assert(img.width() == qRound(sz.width()));
+    assert(img.height() == qRound(sz.height()));
+
+    // 2. Float action preset pill
+    const QImage imgFloat = renderTilingPresetPill(cfg, presets[5], 1.0, false);
+    assert(!imgFloat.isNull());
+
+    // 3. Tiling Hint Bar
+    const QImage hintBar = renderHudActionHintBar(1.0, false, 0, QString(), QColor(), false, false, false, false, 0.0, 0, LeapKTheme::Theme(), true);
+    assert(!hintBar.isNull());
+    assert(hintBar.width() > 200);
+
+    // 4. Tiling Header
+    const QImage header = renderHudModeHeader(1.0, false, QString(), QColor(), 0, {}, -1, false, QString(), false, false, 0, false, QString(), 1, 0, 44, 0, LeapKTheme::Theme(), nullptr, true, presets.size());
+    assert(!header.isNull());
+    assert(header.width() > 200);
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -1507,6 +1543,7 @@ int main(int argc, char *argv[])
     testSearchModeRendering();
     testPillThumbnailClippingAndThemes();
     testSubLeapTargetDistribution();
+    testTilingHudComponents();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

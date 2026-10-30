@@ -72,7 +72,7 @@ target_link_libraries(leapk PRIVATE
 )
 # Identify the loaded library, including uncommitted test builds.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    leapk.cpp leapk.h popupfilter.h cursoroverlay.h visibilitystate.h ambilightalgorithm.h keyboardlayouthelper.h persistentmarkhelper.h audiotracker.h)
+    leapk.cpp leapk.h popupfilter.h cursoroverlay.h visibilitystate.h ambilightalgorithm.h keyboardlayouthelper.h persistentmarkhelper.h audiotracker.h tilinghelper.h)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk.cpp" OUTLINE_CPP_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk.h" OUTLINE_HEADER_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/popupfilter.h" OUTLINE_POPUP_HASH)
@@ -460,6 +460,11 @@ if(OUTLINE_BUILD_TESTS)
     target_include_directories(outline-theme-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(outline-theme-test PRIVATE Qt6::Core Qt6::Gui Qt6::Svg)
     add_test(NAME outline-theme COMMAND outline-theme-test)
+
+    add_executable(outline-tiling-test tests/tiling_test.cpp)
+    target_include_directories(outline-tiling-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-tiling-test PRIVATE Qt6::Core)
+    add_test(NAME outline-tiling COMMAND outline-tiling-test)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)

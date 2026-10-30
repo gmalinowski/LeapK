@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta14] - 2026-10-30
+
+### Added
+- **Integrated Tiling System (Tiling Presets & Smart Swap)**:
+  - **Independent Tiling Presets**: User-definable layouts independent of virtual desktops or workspaces (`tilinghelper.h`, `~/.config/leapk/tiling_presets.json`).
+  - **Preset Selector in HUD (`Shift+T`)**: Invoked directly from LeapK Jump HUD (`Meta+Space` $\rightarrow$ `Shift+T`), presenting visual preset cards (`[A]` Two Columns `▌▌`, `[S]` Three Columns `▌▌▌`, `[D]` Master & Stack `▌☰`, `[F]` 2x2 Quad Grid `⊞`, `[G]` Full Focus `🗖`, `[X]` Float / Turn off).
+  - **Auto-populate with MRU Windows**: Activating a preset instantly slots in the top $N$ most recent windows from `m_windowHistory` with configurable screen gaps and outer margins.
+  - **Smart SWAP via HUD Selection**: When tiling mode is active, picking any window from HUD (`Meta+Space` $\rightarrow$ key or click) executes an atomic swap:
+    - If the target is already in another tile slot on screen, the two windows swap slots seamlessly.
+    - If the target is incoming from background / minimized / stash, it adopts the active tile slot geometry and the previous occupant yields to the background.
+  - **Natural Mouse Drag Auto-Disengagement**: Dragging a window by its titlebar (`isUserMove()`) immediately disengages tiling mode and returns windows to floating. Dragging shared tile borders (`isUserResize()`) preserves tiling mode while updating slot geometries.
+  - **Automated Test Suite**: Added `outline-tiling-test` (`tests/tiling_test.cpp`) covering geometry math, relative-to-absolute calculations, padding/margins, and preset JSON serialization.
+
 ## [1.6.0-beta13] - 2026-10-29
 
 ### Fixed

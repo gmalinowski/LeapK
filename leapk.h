@@ -41,6 +41,7 @@
 #include "keyboardlayouthelper.h"
 #include "persistentmarkhelper.h"
 #include "workspacehelper.h"
+#include "tilinghelper.h"
 
 class QFileSystemWatcher;
 
@@ -178,6 +179,8 @@ private Q_SLOTS:
     void slotWindowHiddenChanged(KWin::EffectWindow *w);
     void slotWindowFullScreenChanged(KWin::EffectWindow *w);
     void slotWindowDamaged(KWin::EffectWindow *w);
+    void slotWindowStartUserMovedResized(KWin::EffectWindow *w);
+    void slotWindowFinishUserMovedResized(KWin::EffectWindow *w);
     void slotShowingDesktopChanged();
     void slotActiveFullScreenEffectChanged();
     void slotToggleAction();
@@ -307,6 +310,16 @@ private:
     void slotCreateNewWorkspacePrompt();
     void slotCloseActiveWorkspace();
     void applyWorkspaceDeletion(const QString &deletedWorkspaceId, const QString &windowAction);
+    void enterTilingPresetsMode();
+    void exitTilingPresetsMode();
+    void activateTilingPreset(const LeapKTiling::TilingPreset &preset);
+    void deactivateTiling();
+    bool isWindowInTileSlot(EffectWindow *w) const;
+    int findTileSlotIndexForWindow(EffectWindow *w) const;
+    void performTilingSwap(EffectWindow *target);
+    void renderTilingPresetPills(const RenderTarget &renderTarget,
+                                const RenderViewport &viewport,
+                                const QList<LeapKTiling::TilingPreset> &presets);
     void renderBadgePreview(const RenderTarget &renderTarget,
                             const RenderViewport &viewport);
     QImage captureWindowThumbnail(EffectWindow *target,
@@ -532,6 +545,20 @@ private:
     QList<EffectWindow *> m_subLeapWindows;
     QMap<QChar, EffectWindow *> m_subLeapLetterToWindow;
     QList<QPair<QChar, EffectWindow *>> m_subLeapTargets;
+
+    // Tiling Presets & Smart Swap
+    bool m_tilingActive = false;
+    LeapKTiling::TilingPreset m_activeTilingPreset;
+    struct ActiveTilingSlot {
+        QRectF geometry;
+        QPointer<EffectWindow> window;
+    };
+    QList<ActiveTilingSlot> m_activeTilingSlots;
+    bool m_tilingPresetsModeActive = false;
+    QList<LeapKTiling::TilingPreset> m_tilingPresets;
+    int m_tilingGaps = 6;
+    int m_tilingMargins = 8;
+    QList<QPair<QRectF, LeapKTiling::TilingPreset>> m_hudTilingPresetPillRects;
 
     // Persistent Marks (saved across desktop sessions)
     QList<LeapKMarks::PersistentMarkRule> m_persistentMarks;

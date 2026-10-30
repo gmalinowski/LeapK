@@ -25,6 +25,7 @@
 #include <algorithm>
 #include "ambilightalgorithm.h"
 #include "themehelper.h"
+#include "tilinghelper.h"
 
 namespace OutlineBadge
 {
@@ -2041,6 +2042,30 @@ inline QImage renderOffscreenTargetPill(const QChar &letter,
     return renderOffscreenTargetPill(cfg, letter, bgColor, textColor, locationText, caption, badgeSize, scale, customLabel, icon, thumbnail, isMarked, recentKey, isRecent, groupCount, isStashed, isPinned, isPlayingAudio, isSelected);
 }
 
+inline QSizeF computeTilingPresetPillSize(const BadgeConfig &cfg,
+                                         const LeapKTiling::TilingPreset &preset,
+                                         qreal scale,
+                                         bool isActive = false)
+{
+    const QString locText = preset.description;
+    const QString capText = preset.name;
+    const QString customLabel = QStringLiteral("%1 %2").arg(preset.iconDiagram, preset.name);
+    return computeHudPillSize(cfg, locText, capText, cfg.hudBadgeSize, scale, customLabel, false, false, QSize(), QString(), isActive, 0, false, false, false);
+}
+
+inline QImage renderTilingPresetPill(const BadgeConfig &cfg,
+                                     const LeapKTiling::TilingPreset &preset,
+                                     qreal scale,
+                                     bool isActive = false,
+                                     bool isSelected = false)
+{
+    const QColor bgCol = isActive ? QColor(46, 204, 113) : (preset.isFloatAction() ? QColor(231, 76, 60) : QColor(52, 152, 219));
+    const QString locText = preset.description;
+    const QString capText = preset.name;
+    const QString customLabel = QStringLiteral("%1 %2").arg(preset.iconDiagram, preset.name);
+    return renderOffscreenTargetPill(cfg, preset.triggerKey, bgCol, Qt::white, locText, capText, cfg.hudBadgeSize, scale, customLabel, QIcon(), QImage(), isActive, QString(), false, 0, false, false, false, isSelected);
+}
+
 inline QImage renderHudDividerLine(const QSizeF &size, qreal scale, bool isVertical = true)
 {
     const int w = qMax(1, qRound(size.width() * scale));
@@ -2368,7 +2393,7 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
     return img;
 }
 
-inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false, bool isSearchMode = false, qreal maxAllowedWidth = 0.0, int hintsFontSize = 0, const LeapKTheme::Theme &theme = LeapKTheme::Theme())
+inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false, bool isSearchMode = false, qreal maxAllowedWidth = 0.0, int hintsFontSize = 0, const LeapKTheme::Theme &theme = LeapKTheme::Theme(), bool isTilingPresets = false)
 {
     Q_UNUSED(customViewName);
     Q_UNUSED(customViewColor);
@@ -2380,7 +2405,14 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     };
 
     QList<Segment> segments;
-    if (isSearchMode) {
+    if (isTilingPresets) {
+        segments = {
+            {QStringLiteral("Key"), QStringLiteral("Select preset (A-G)"), QColor(52, 152, 219)},
+            {QStringLiteral("X"), QStringLiteral("Float / Turn off"), QColor(231, 76, 60)},
+            {QStringLiteral("Backspace"), QStringLiteral("Back"), QColor(149, 165, 166)},
+            {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
+        };
+    } else if (isSearchMode) {
         segments = {
             {QStringLiteral("Enter"), QStringLiteral("Jump to match"), QColor(0, 195, 255)},
             {QStringLiteral("↑ / ↓"), QStringLiteral("Select window"), QColor(52, 152, 219)},
@@ -2439,6 +2471,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
             {QStringLiteral("Tab"), QStringLiteral("Group"), QColor(155, 89, 182)},
+            {QStringLiteral("Shift+T"), QStringLiteral("Tiling"), QColor(52, 152, 219)},
             {QStringLiteral("Meta+S"), QStringLiteral("Stash"), QColor(46, 204, 113)},
             {QStringLiteral("Meta+P"), QStringLiteral("Pin active"), QColor(241, 196, 15)},
             {QStringLiteral("Meta+M"), QStringLiteral("Markers"), QColor(155, 89, 182)},
@@ -2701,7 +2734,9 @@ inline QImage renderHudModeHeader(qreal scale,
                                   int hudSize = 44,
                                   int navFontSize = 0,
                                   const LeapKTheme::Theme &theme = LeapKTheme::Theme(),
-                                  QRectF *outCloseButtonLocalRect = nullptr)
+                                  QRectF *outCloseButtonLocalRect = nullptr,
+                                  bool isTilingPresets = false,
+                                  int tilingPresetsCount = 0)
 {
     if (outCloseButtonLocalRect) {
         *outCloseButtonLocalRect = QRectF();
@@ -3102,6 +3137,88 @@ inline QImage renderHudModeHeader(qreal scale,
         const qreal closeX = w - padX - closePillW;
         p.setFont(keyFont);
         p.setPen(QColor(231, 76, 60));
+        const qreal keyX = closeX - gap - fmKey.horizontalAdvance(rightText);
+        p.drawText(QPointF(keyX, baselineY), rightText);
+
+        const int closeBtnH = qMax(qRound(20 * scale), fmClose.height() + qRound(4 * scale));
+        const QRectF closeRect(closeX, (h - closeBtnH) / 2.0, closePillW, closeBtnH);
+        p.setPen(QPen(QColor(231, 76, 60, 180), 1.2 * scale));
+        p.setBrush(QColor(231, 76, 60, 35));
+        drawThemedShape(p, closeRect, theme.hudNav.tabShape, closeBtnH / 2.0, qRound(4 * scale));
+
+        p.setFont(closeFont);
+        p.setPen(QColor(255, 110, 100));
+        p.drawText(closeRect, Qt::AlignCenter, closeText);
+
+        if (outCloseButtonLocalRect) {
+            *outCloseButtonLocalRect = QRectF(closeRect.x() / scale, closeRect.y() / scale, closeRect.width() / scale, closeRect.height() / scale);
+        }
+
+        p.end();
+        return img;
+    }
+
+    if (isTilingPresets) {
+        const QString leftText = QStringLiteral("▤ TILING PRESETS: Select layout (A–L, X to float) • %1 presets").arg(tilingPresetsCount);
+        const QString rightText = QStringLiteral("Shift+T / Esc : Back");
+
+        QFont titleFont(QStringLiteral("sans-serif"));
+        titleFont.setPixelSize((navFontSize > 0) ? qRound(navFontSize * scale) : qMax(10, qRound(13.0 * scale)));
+        titleFont.setBold(true);
+        QFontMetrics fmTitle(titleFont);
+
+        QFont keyFont(QStringLiteral("sans-serif"));
+        keyFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.5) * scale)) : qMax(9, qRound(11.5 * scale)));
+        keyFont.setBold(true);
+        QFontMetrics fmKey(keyFont);
+
+        const QString closeText = QStringLiteral("✕ Esc");
+        QFont closeFont(QStringLiteral("sans-serif"));
+        closeFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.0) * scale)) : qMax(9, qRound(11.0 * scale)));
+        closeFont.setBold(true);
+        QFontMetrics fmClose(closeFont);
+        const int closeTextW = fmClose.horizontalAdvance(closeText);
+        const int closePillW = closeTextW + qRound(16 * scale);
+
+        const int padY = qRound(6 * scale);
+        const int gap = qRound(16 * scale);
+        const int h = qMax(qRound(baseHeaderH * scale), qMax(fmTitle.height(), fmKey.height()) + 2 * padY);
+        const int padX = qMax(qRound(18 * scale), qRound(h * 0.44));
+
+        const int w = padX + fmTitle.horizontalAdvance(leftText) + gap + fmKey.horizontalAdvance(rightText) + gap + closePillW + padX;
+
+        QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
+        img.fill(Qt::transparent);
+
+        QPainter p(&img);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setRenderHint(QPainter::TextAntialiasing, true);
+
+        const qreal bw = qMax(1.0, (theme.hudContainer.borderWidth > 0.0 ? theme.hudContainer.borderWidth : 1.8) * scale);
+        const qreal bm = qMax(0.5 * scale, bw / 2.0);
+        const QRectF rect(bm, bm, w - 2 * bm, h - 2 * bm);
+        const qreal radius = (theme.hudContainer.shape == QStringLiteral("sharp"))
+            ? 0.0
+            : (rect.height() / 2.0);
+        const int chamferPx = (theme.hudContainer.shape == QStringLiteral("chamfered"))
+            ? theme.resolveInt(QString::number(theme.hudContainer.chamferSize), 8) * scale
+            : 0;
+
+        const QColor accent = theme.resolveColor(QStringLiteral("$tilingColor"), QColor(52, 152, 219));
+        const QColor bgC = theme.resolveColor(QStringLiteral("$bgSurface"), QColor(16, 20, 26, 245));
+        const bool isLightBg = (perceivedLuminance(bgC) > 0.53);
+        p.setPen(QPen(accent, bw));
+        p.setBrush(bgC);
+        drawThemedShape(p, rect, theme.hudContainer.shape, radius, chamferPx);
+
+        const qreal baselineY = (h - (fmTitle.ascent() - fmTitle.descent())) / 2.0 + fmTitle.ascent();
+        p.setFont(titleFont);
+        p.setPen(isLightBg ? QColor(46, 52, 64) : QColor(255, 255, 255));
+        p.drawText(QPointF(padX, baselineY), leftText);
+
+        const qreal closeX = w - padX - closePillW;
+        p.setFont(keyFont);
+        p.setPen(accent);
         const qreal keyX = closeX - gap - fmKey.horizontalAdvance(rightText);
         p.drawText(QPointF(keyX, baselineY), rightText);
 

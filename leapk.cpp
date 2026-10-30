@@ -610,6 +610,10 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
                 this, &ActiveWindowOutlineEffect::slotWindowFullScreenChanged);
         connect(w, &EffectWindow::windowDamaged,
                 this, &ActiveWindowOutlineEffect::slotWindowDamaged);
+        connect(w, &EffectWindow::windowStartUserMovedResized,
+                this, &ActiveWindowOutlineEffect::slotWindowStartUserMovedResized);
+        connect(w, &EffectWindow::windowFinishUserMovedResized,
+                this, &ActiveWindowOutlineEffect::slotWindowFinishUserMovedResized);
     }
 
     connect(effects, &EffectsHandler::windowActivated,
@@ -1100,6 +1104,9 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     updateAnimationTimer();
 
     m_persistentMarks = LeapKMarks::loadPersistentMarks();
+    m_tilingGaps = qBound(0, config.readEntry("TilingGaps", 6), 64);
+    m_tilingMargins = qBound(0, config.readEntry("TilingMargins", 8), 64);
+    m_tilingPresets = LeapKTiling::loadPresets();
     refreshWorkspaces();
     for (EffectWindow *w : effects->stackingOrder()) {
         applyPersistentMarksToWindow(w);
@@ -1445,6 +1452,10 @@ void ActiveWindowOutlineEffect::slotWindowAdded(EffectWindow *w)
             this, &ActiveWindowOutlineEffect::slotWindowFullScreenChanged);
     connect(w, &EffectWindow::windowDamaged,
             this, &ActiveWindowOutlineEffect::slotWindowDamaged);
+    connect(w, &EffectWindow::windowStartUserMovedResized,
+            this, &ActiveWindowOutlineEffect::slotWindowStartUserMovedResized);
+    connect(w, &EffectWindow::windowFinishUserMovedResized,
+            this, &ActiveWindowOutlineEffect::slotWindowFinishUserMovedResized);
 
     applyPersistentMarksToWindow(w);
 
@@ -1655,6 +1666,12 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
     m_suppressedWindows.remove(w);
     m_lastGeometry.remove(w);
     m_outlineCache.remove(w);
+
+    for (auto &slot : m_activeTilingSlots) {
+        if (slot.window == w) {
+            slot.window = nullptr;
+        }
+    }
 
     updatePopupBlockingState();
     updateRecentWindowsFromHistory();
@@ -4903,6 +4920,8 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_subLeapActive = false;
     m_stashModeActive = false;
     m_superJumpActive = false;
+    m_tilingPresetsModeActive = false;
+    m_hudTilingPresetPillRects.clear();
     m_subLeapBaseKey = QChar();
     m_subLeapWindows.clear();
     m_subLeapLetterToWindow.clear();
@@ -5002,6 +5021,8 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
     m_subLeapActive = false;
     m_stashModeActive = false;
     m_superJumpActive = false;
+    m_tilingPresetsModeActive = false;
+    m_hudTilingPresetPillRects.clear();
     m_audioFilterModeActive = false;
     m_searchModeActive = false;
     m_searchQuery.clear();
@@ -5047,6 +5068,8 @@ void ActiveWindowOutlineEffect::exitSubLeapMode()
     m_subLeapActive = false;
     m_stashModeActive = false;
     m_superJumpActive = false;
+    m_tilingPresetsModeActive = false;
+    m_hudTilingPresetPillRects.clear();
     m_subLeapBaseKey = QChar();
     m_subLeapWindows.clear();
     m_subLeapLetterToWindow.clear();
@@ -5133,6 +5156,13 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
 
         if (m_hudCloseButtonScreenRect.isValid() && m_hudCloseButtonScreenRect.contains(pos)) {
             isHoveringClickable = true;
+        } else if (m_tilingPresetsModeActive) {
+            for (const auto &pair : m_hudTilingPresetPillRects) {
+                if (pair.first.isValid() && pair.first.contains(pos)) {
+                    isHoveringClickable = true;
+                    break;
+                }
+            }
         } else {
             for (const auto &pair : m_hudTargetPillRects) {
                 if (pair.first.isValid() && pair.first.contains(pos)) {
@@ -5161,6 +5191,16 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
                 return;
             }
 
+            // If in tiling presets mode, check clicks on preset pills:
+            if (m_tilingPresetsModeActive) {
+                for (const auto &pair : m_hudTilingPresetPillRects) {
+                    if (pair.first.isValid() && pair.first.contains(pos)) {
+                        activateTilingPreset(pair.second);
+                        return;
+                    }
+                }
+            }
+
             // 2. Click on a window pill
             for (const auto &pair : m_hudTargetPillRects) {
                 if (pair.first.isValid() && pair.first.contains(pos) && pair.second) {
@@ -5177,7 +5217,11 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
                     if (target->isMinimized()) {
                         target->setMinimized(false);
                     }
-                    effects->activateWindow(target);
+                    if (m_tilingActive) {
+                        performTilingSwap(target);
+                    } else {
+                        effects->activateWindow(target);
+                    }
                     warpCursorToWindow(target);
                     return;
                 }
@@ -5293,6 +5337,31 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         }
         return e->text().toUpper().trimmed();
     };
+
+    // 0. If currently in Tiling Presets mode:
+    if (m_tilingPresetsModeActive) {
+        if (e->key() == Qt::Key_Backspace || (isShift && (e->key() == Qt::Key_T || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('T') || e->text().at(0) == QLatin1Char('t')))))) {
+            exitTilingPresetsMode();
+            return;
+        }
+
+        const QString text = extractKeyChar();
+        if (!text.isEmpty()) {
+            const QChar keyChar = text.at(0).toUpper();
+            if (keyChar == QLatin1Char('X')) {
+                deactivateTiling();
+                return;
+            }
+
+            for (const auto &preset : m_tilingPresets) {
+                if (preset.triggerKey.toUpper() == keyChar) {
+                    activateTilingPreset(preset);
+                    return;
+                }
+            }
+        }
+        return;
+    }
 
     // 1. If currently in Sub-Leap disambiguation:
     if (m_subLeapActive) {
@@ -5426,7 +5495,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     if (target->isMinimized()) {
                         target->setMinimized(false);
                     }
-                    effects->activateWindow(target);
+                    if (m_tilingActive) {
+                        performTilingSwap(target);
+                    } else {
+                        effects->activateWindow(target);
+                    }
                     warpCursorToWindow(target);
                     return;
                 }
@@ -5517,7 +5590,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     if (target->isMinimized()) {
                         target->setMinimized(false);
                     }
-                    effects->activateWindow(target);
+                    if (m_tilingActive) {
+                        performTilingSwap(target);
+                    } else {
+                        effects->activateWindow(target);
+                    }
                     warpCursorToWindow(target);
                     return;
                 }
@@ -5548,7 +5625,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     if (target->isMinimized()) {
                         target->setMinimized(false);
                     }
-                    effects->activateWindow(target);
+                    if (m_tilingActive) {
+                        performTilingSwap(target);
+                    } else {
+                        effects->activateWindow(target);
+                    }
                     warpCursorToWindow(target);
                     return;
                 }
@@ -5694,7 +5775,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                         // User pressed letter of a visible window on screen: focus/activate it
                         cancelJumpMode();
                         if (effects) {
-                            effects->activateWindow(target);
+                            if (m_tilingActive) {
+                                performTilingSwap(target);
+                            } else {
+                                effects->activateWindow(target);
+                            }
                             warpCursorToWindow(target);
                         }
                         return;
@@ -5742,6 +5827,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     if (e->key() == Qt::Key_Tab || (isMetaOnly && e->key() == Qt::Key_G)) {
         slotToggleHudGrouping();
+        return;
+    }
+
+    if (isShift && (e->key() == Qt::Key_T || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('T') || e->text().at(0) == QLatin1Char('t'))))) {
+        enterTilingPresetsMode();
         return;
     }
 
@@ -5840,7 +5930,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                         target->setMinimized(false);
                     }
                 }
-                effects->activateWindow(target);
+                if (m_tilingActive) {
+                    performTilingSwap(target);
+                } else {
+                    effects->activateWindow(target);
+                }
                 warpCursorToWindow(target);
             }
             return;
@@ -6022,7 +6116,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                 if (target->isMinimized()) {
                     target->setMinimized(false);
                 }
-                effects->activateWindow(target);
+                if (m_tilingActive) {
+                    performTilingSwap(target);
+                } else {
+                    effects->activateWindow(target);
+                }
                 warpCursorToWindow(target);
                 return;
             }
@@ -6101,7 +6199,11 @@ void ActiveWindowOutlineEffect::slotJumpToRecentWindow(int keyToRelease)
     if (target->isMinimized()) {
         target->setMinimized(false);
     }
-    effects->activateWindow(target);
+    if (m_tilingActive) {
+        performTilingSwap(target);
+    } else {
+        effects->activateWindow(target);
+    }
     warpCursorToWindow(target);
 }
 
@@ -7408,6 +7510,390 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     renderHudModeHeader(renderTarget, viewport, allPillsBounds, hintRect);
 }
 
+void ActiveWindowOutlineEffect::slotWindowStartUserMovedResized(EffectWindow *w)
+{
+    if (m_tilingActive && w && w->isUserMove()) {
+        deactivateTiling();
+    }
+}
+
+void ActiveWindowOutlineEffect::slotWindowFinishUserMovedResized(EffectWindow *w)
+{
+    if (m_tilingActive && w && w->isUserResize()) {
+        const int slotIdx = findTileSlotIndexForWindow(w);
+        if (slotIdx >= 0 && slotIdx < m_activeTilingSlots.size()) {
+            m_activeTilingSlots[slotIdx].geometry = w->frameGeometry();
+        }
+    }
+}
+
+void ActiveWindowOutlineEffect::enterTilingPresetsMode()
+{
+    m_tilingPresetsModeActive = true;
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    m_badgeTextureCache.clear();
+    m_hudTilingPresetPillRects.clear();
+    playThemedSound(OutlineSound::SoundEffect::NavTab);
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::exitTilingPresetsMode()
+{
+    m_tilingPresetsModeActive = false;
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    m_badgeTextureCache.clear();
+    m_hudTilingPresetPillRects.clear();
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPreset &preset)
+{
+    if (preset.isFloatAction()) {
+        deactivateTiling();
+        return;
+    }
+
+    m_tilingActive = true;
+    m_activeTilingPreset = preset;
+    m_activeTilingSlots.clear();
+
+    QRectF workArea;
+    if (effects) {
+        workArea = effects->clientArea(MaximizeArea, effects->activeScreen(), effects->currentDesktop());
+        if (workArea.isEmpty()) {
+            workArea = effects->virtualScreenGeometry();
+        }
+    }
+    if (workArea.isEmpty()) {
+        workArea = QRectF(0, 0, 1920, 1080);
+    }
+
+    const QList<QRectF> slotGeometries = LeapKTiling::computeSlotGeometries(preset, workArea, m_tilingGaps, m_tilingMargins);
+    const int slotCount = slotGeometries.size();
+    if (slotCount == 0) {
+        return;
+    }
+
+    // Select N most recent windows from m_windowHistory
+    QList<EffectWindow *> targetWindows;
+    if (m_activeWindow && isEligibleOutlineWindow(m_activeWindow) && !m_activeWindow->isDeleted() && !m_stashedWindows.contains(m_activeWindow)) {
+        targetWindows.append(m_activeWindow);
+    }
+
+    for (EffectWindow *w : m_windowHistory) {
+        if (targetWindows.size() >= slotCount) {
+            break;
+        }
+        if (!w || w->isDeleted() || targetWindows.contains(w) || !isEligibleOutlineWindow(w) || m_stashedWindows.contains(w)) {
+            continue;
+        }
+        targetWindows.append(w);
+    }
+
+    if (targetWindows.size() < slotCount && effects) {
+        for (EffectWindow *w : effects->stackingOrder()) {
+            if (targetWindows.size() >= slotCount) {
+                break;
+            }
+            if (!w || w->isDeleted() || targetWindows.contains(w) || !isEligibleOutlineWindow(w) || m_stashedWindows.contains(w)) {
+                continue;
+            }
+            targetWindows.append(w);
+        }
+    }
+
+    for (int i = 0; i < slotCount; ++i) {
+        ActiveTilingSlot slot;
+        slot.geometry = slotGeometries[i];
+        if (i < targetWindows.size()) {
+            EffectWindow *w = targetWindows[i];
+            slot.window = w;
+            if (w->isMinimized()) {
+                w->setMinimized(false);
+            }
+            if (w->window()) {
+                if (w->window()->maximizeMode() != MaximizeRestore) {
+                    w->window()->setMaximize(false, false);
+                }
+                w->window()->moveResize(slot.geometry);
+            }
+        }
+        m_activeTilingSlots.append(slot);
+    }
+
+    if (!targetWindows.isEmpty() && effects) {
+        effects->activateWindow(targetWindows.first());
+    }
+
+    playThemedSound(OutlineSound::SoundEffect::SwitchWorkspace);
+    exitTilingPresetsMode();
+    if (m_jumpMode) {
+        cancelJumpMode();
+    }
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::deactivateTiling()
+{
+    if (!m_tilingActive) {
+        return;
+    }
+    m_tilingActive = false;
+    m_activeTilingPreset = LeapKTiling::TilingPreset();
+    m_activeTilingSlots.clear();
+    playThemedSound(OutlineSound::SoundEffect::Dismiss);
+    if (m_tilingPresetsModeActive) {
+        exitTilingPresetsMode();
+    }
+    if (m_jumpMode) {
+        cancelJumpMode();
+    }
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+bool ActiveWindowOutlineEffect::isWindowInTileSlot(EffectWindow *w) const
+{
+    if (!w) {
+        return false;
+    }
+    for (const auto &slot : m_activeTilingSlots) {
+        if (slot.window == w) {
+            return true;
+        }
+    }
+    return false;
+}
+
+int ActiveWindowOutlineEffect::findTileSlotIndexForWindow(EffectWindow *w) const
+{
+    if (!w) {
+        return -1;
+    }
+    for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
+        if (m_activeTilingSlots[i].window == w) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void ActiveWindowOutlineEffect::performTilingSwap(EffectWindow *target)
+{
+    if (!m_tilingActive || !target || target->isDeleted()) {
+        if (effects && target && !target->isDeleted()) {
+            effects->activateWindow(target);
+        }
+        return;
+    }
+
+    if (m_activeTilingSlots.isEmpty()) {
+        if (effects) {
+            effects->activateWindow(target);
+        }
+        return;
+    }
+
+    int activeSlotIdx = findTileSlotIndexForWindow(m_activeWindow);
+    if (activeSlotIdx < 0 || activeSlotIdx >= m_activeTilingSlots.size()) {
+        activeSlotIdx = 0;
+        for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
+            if (!m_activeTilingSlots[i].window || m_activeTilingSlots[i].window->isDeleted()) {
+                activeSlotIdx = i;
+                break;
+            }
+        }
+    }
+
+    const int targetSlotIdx = findTileSlotIndexForWindow(target);
+
+    if (targetSlotIdx >= 0) {
+        if (targetSlotIdx == activeSlotIdx) {
+            if (target->isMinimized()) {
+                target->setMinimized(false);
+            }
+            if (target->window()) {
+                if (target->window()->maximizeMode() != MaximizeRestore) {
+                    target->window()->setMaximize(false, false);
+                }
+                target->window()->moveResize(m_activeTilingSlots[activeSlotIdx].geometry);
+            }
+        } else {
+            EffectWindow *activeWin = m_activeTilingSlots[activeSlotIdx].window.data();
+
+            m_activeTilingSlots[activeSlotIdx].window = target;
+            m_activeTilingSlots[targetSlotIdx].window = activeWin;
+
+            if (target->isMinimized()) {
+                target->setMinimized(false);
+            }
+            if (target->window()) {
+                if (target->window()->maximizeMode() != MaximizeRestore) {
+                    target->window()->setMaximize(false, false);
+                }
+                target->window()->moveResize(m_activeTilingSlots[activeSlotIdx].geometry);
+            }
+
+            if (activeWin && !activeWin->isDeleted() && activeWin->window()) {
+                if (activeWin->window()->maximizeMode() != MaximizeRestore) {
+                    activeWin->window()->setMaximize(false, false);
+                }
+                activeWin->window()->moveResize(m_activeTilingSlots[targetSlotIdx].geometry);
+            }
+        }
+    } else {
+        m_activeTilingSlots[activeSlotIdx].window = target;
+
+        if (target->isMinimized()) {
+            target->setMinimized(false);
+        }
+        if (target->window()) {
+            if (target->window()->maximizeMode() != MaximizeRestore) {
+                target->window()->setMaximize(false, false);
+            }
+            target->window()->moveResize(m_activeTilingSlots[activeSlotIdx].geometry);
+        }
+    }
+
+    if (effects) {
+        effects->activateWindow(target);
+    }
+}
+
+void ActiveWindowOutlineEffect::renderTilingPresetPills(const RenderTarget &renderTarget,
+                                                        const RenderViewport &viewport,
+                                                        const QList<LeapKTiling::TilingPreset> &presets)
+{
+    if (presets.isEmpty()) {
+        return;
+    }
+
+    const qreal scale = viewport.scale();
+    const QRectF screenRect = viewport.renderRect();
+    const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
+
+    struct PillItem {
+        std::shared_ptr<GLTexture> texture;
+        qreal width;
+        qreal height;
+    };
+    QList<PillItem> pills;
+
+    for (int i = 0; i < presets.size(); ++i) {
+        const auto &preset = presets.at(i);
+        const bool isActive = m_tilingActive && (m_activeTilingPreset.id == preset.id);
+
+        const QImage img = OutlineBadge::renderTilingPresetPill(cfg, preset, scale, isActive, false);
+        auto uploaded = GLTexture::upload(img);
+        if (!uploaded) {
+            continue;
+        }
+        uploaded->setFilter(GL_LINEAR);
+        uploaded->setWrapMode(GL_CLAMP_TO_EDGE);
+
+        const qreal w = img.width() / scale;
+        const qreal h = img.height() / scale;
+        pills.append({std::shared_ptr<GLTexture>(uploaded.release()), w, h});
+    }
+
+    if (pills.isEmpty()) {
+        return;
+    }
+
+    QList<QSizeF> pillSizes;
+    pillSizes.reserve(pills.size());
+    for (const PillItem &item : pills) {
+        pillSizes.append(QSizeF(item.width, item.height));
+    }
+
+    const int hudPos = m_badgePreviewActive ? m_previewBadgeHudPosition : m_badgeHudPosition;
+    const qreal headerH = ensureHudHeaderTexture(scale).height();
+    const qreal topMargin = (hudPos == 1) ? qMax(24.0, 12.0 + headerH + 12.0) : 24.0;
+    const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, topMargin, 12.0, 12.0, -1, 28.0, nullptr);
+
+    m_hudTilingPresetPillRects.clear();
+    for (int i = 0; i < presets.size() && i < rects.size(); ++i) {
+        m_hudTilingPresetPillRects.append({rects.at(i), presets.at(i)});
+    }
+
+    GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
+    GLint previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha;
+    glGetIntegerv(GL_BLEND_SRC_RGB, &previousSrcRgb);
+    glGetIntegerv(GL_BLEND_DST_RGB, &previousDstRgb);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &previousSrcAlpha);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &previousDstAlpha);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+    GLboolean scissorWasEnabled = glIsEnabled(GL_SCISSOR_TEST);
+    glDisable(GL_SCISSOR_TEST);
+
+    ShaderBinder binder(ShaderTrait::MapTexture | ShaderTrait::Modulate | ShaderTrait::TransformColorspace);
+    GLShader *shader = binder.shader();
+    shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix, viewport.projectionMatrix());
+    shader->setColorspaceUniforms(ColorDescription::sRGB, renderTarget.colorDescription(), RenderingIntent::Perceptual);
+    shader->setUniform(GLShader::Vec4Uniform::ModulationConstant, QVector4D(1.0f, 1.0f, 1.0f, 1.0f));
+
+    for (int i = 0; i < pills.size(); ++i) {
+        const PillItem &item = pills.at(i);
+        const QRectF rect = rects.at(i);
+
+        const float x0 = rect.left() * scale;
+        const float y0 = rect.top() * scale;
+        const float x1 = rect.right() * scale;
+        const float y1 = rect.bottom() * scale;
+
+        const std::array<GLVertex2D, 6> verts = {{
+            {QVector2D(x0, y0), QVector2D(0.0f, 0.0f)},
+            {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+            {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+            {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+            {QVector2D(x1, y1), QVector2D(1.0f, 1.0f)},
+            {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+        }};
+
+        auto vbo = GLVertexBuffer::streamingBuffer();
+        vbo->setVertices(verts);
+
+        shader->setUniform(GLShader::Mat4Uniform::TextureMatrix, item.texture->matrix(NormalizedCoordinates));
+        item.texture->bind();
+        vbo->render(GL_TRIANGLES);
+        item.texture->unbind();
+    }
+
+    if (scissorWasEnabled) {
+        glEnable(GL_SCISSOR_TEST);
+    }
+
+    glBlendFuncSeparate(previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha);
+    if (blendWasEnabled) {
+        glEnable(GL_BLEND);
+    } else {
+        glDisable(GL_BLEND);
+    }
+
+    QRectF allPillsBounds;
+    for (const QRectF &r : rects) {
+        allPillsBounds = allPillsBounds.isEmpty() ? r : allPillsBounds.united(r);
+    }
+    const QRectF hintRect = renderHudHintBar(renderTarget, viewport, allPillsBounds);
+    renderHudModeHeader(renderTarget, viewport, allPillsBounds, hintRect);
+}
+
 QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTarget,
                                                   const RenderViewport &viewport,
                                                   const QRectF &pillsBounds)
@@ -7455,10 +7941,11 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
     const int hintBarKey = (m_subLeapActive ? 100000 : 0) + (m_stashModeActive ? 500000 : 0) + (m_superJumpActive ? 700000 : 0)
         + (m_audioFilterModeActive ? 900000 : 0)
         + (m_searchModeActive ? 1100000 : 0)
+        + (m_tilingPresetsModeActive ? 1300000 : 0)
         + m_activeHudView * 1000 + nameHash + qRound(scale * 10) + (qRound(maxHintBarWidth) % 5000)
         + hintsFontSize * 19 + themeHash;
     if (!m_hudHintBarTexture || m_hudHintBarCacheKey != hintBarKey) {
-        const QImage hintImg = OutlineBadge::renderHudActionHintBar(scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive, m_superJumpActive, m_audioFilterModeActive, m_searchModeActive, maxHintBarWidth, hintsFontSize, theme);
+        const QImage hintImg = OutlineBadge::renderHudActionHintBar(scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive, m_superJumpActive, m_audioFilterModeActive, m_searchModeActive, maxHintBarWidth, hintsFontSize, theme, m_tilingPresetsModeActive);
         auto uploaded = GLTexture::upload(hintImg);
         if (uploaded) {
             uploaded->setFilter(GL_LINEAR);
@@ -7715,13 +8202,15 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
     const int themeHash = qHash(theme.id) % 10000;
     const int headerKey = (m_subLeapActive ? 2000000 : 0) + (m_stashModeActive ? 4000000 : 0) + (m_superJumpActive ? 6000000 : 0)
         + (m_audioFilterModeActive ? 8000000 : 0)
+        + (m_tilingPresetsModeActive ? 12000000 : 0)
         + (m_searchModeActive ? (10000000 + m_searchScope * 100000 + (qHash(m_searchQuery) % 50000) + m_searchMatches.size() * 10) : 0)
         + m_activeHudView * 100000 + countsHash + stashCount * 13 + qRound(scale * 10) + hudSize * 7 + navFontSize * 17 + themeHash;
 
     if (!m_hudHeaderTexture || m_hudHeaderCacheKey != headerKey) {
         const QImage headerImg = OutlineBadge::renderHudModeHeader(
             scale, m_subLeapActive, subLeapTitle, subLeapColor, subLeapCount, viewTabs, stashCount, m_stashModeActive, targetWorkspaceName, m_superJumpActive, m_audioFilterModeActive, m_jumpLetterToWindow.size(),
-            m_searchModeActive, m_searchQuery, m_searchScope, m_searchMatches.size(), hudSize, navFontSize, theme, &m_hudCloseButtonLocalRect);
+            m_searchModeActive, m_searchQuery, m_searchScope, m_searchMatches.size(), hudSize, navFontSize, theme, &m_hudCloseButtonLocalRect,
+            m_tilingPresetsModeActive, m_tilingPresets.size());
         if (!headerImg.isNull()) {
             auto uploaded = GLTexture::upload(headerImg);
             if (uploaded) {
@@ -8567,7 +9056,10 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     }
 
     if (m_jumpMode && !inhibited) {
-        const int jumpH = m_badgeConfig.jumpBadgeSize;
+        if (m_tilingPresetsModeActive) {
+            renderTilingPresetPills(renderTarget, viewport, m_tilingPresets);
+        } else {
+            const int jumpH = m_badgeConfig.jumpBadgeSize;
         const QRectF screenRect = viewport.renderRect();
         QList<QPair<QChar, EffectWindow *>> offscreenTargets;
         QList<QPair<QChar, EffectWindow *>> onscreenTargets;
@@ -8856,6 +9348,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         } else {
             const QRectF hintRect = renderHudHintBar(renderTarget, viewport, QRectF());
             renderHudModeHeader(renderTarget, viewport, QRectF(), hintRect);
+        }
         }
     }
 
