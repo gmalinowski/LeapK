@@ -1515,16 +1515,20 @@ void ActiveWindowOutlineEffect::slotWindowAdded(EffectWindow *w)
     refreshWorkspaces();
     if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
         if (isEligibleOutlineWindow(w) && !w->isSkipSwitcher() && w->acceptsFocus()) {
-            if (w->windowClass().isEmpty() && w->caption().isEmpty()) {
-                QPointer<EffectWindow> pw(w);
-                const int currentWsView = m_activeHudView;
-                QTimer::singleShot(60, this, [this, pw, currentWsView]() {
-                    if (pw && !pw->isDeleted() && m_activeHudView == currentWsView && m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
-                        addWindowToWorkspace(pw.data(), currentWsView);
-                    }
-                });
-            } else {
-                addWindowToWorkspace(w, m_activeHudView);
+            if (findWorkspaceForWindow(w) == 0) {
+                if (w->windowClass().isEmpty() && w->caption().isEmpty()) {
+                    QPointer<EffectWindow> pw(w);
+                    const int currentWsView = m_activeHudView;
+                    QTimer::singleShot(60, this, [this, pw, currentWsView]() {
+                        if (pw && !pw->isDeleted() && m_activeHudView == currentWsView && m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
+                            if (findWorkspaceForWindow(pw.data()) == 0) {
+                                addWindowToWorkspace(pw.data(), currentWsView);
+                            }
+                        }
+                    });
+                } else {
+                    addWindowToWorkspace(w, m_activeHudView);
+                }
             }
         }
     }
@@ -2393,19 +2397,6 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
     EffectWindow *previous = m_activeWindow;
     if (previous == w) {
         return;
-    }
-
-    if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
-        if (isEligibleOutlineWindow(w) && !w->isSkipSwitcher() && w->acceptsFocus()) {
-            const auto &ws = m_workspaces.at(m_activeHudView - 1);
-            const auto desktops = w->desktops();
-            const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
-            if (!LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum)
-                && !m_workspaceMinimizedWindows.contains(w)
-                && !m_stashedWindows.contains(w)) {
-                addWindowToWorkspace(w, m_activeHudView);
-            }
-        }
     }
 
     if (m_ambilightEnabled || m_ensurePerimeterContrast) {
@@ -3779,6 +3770,10 @@ void ActiveWindowOutlineEffect::switchToWorkspaceView(int newHudViewIndex)
         }
     }
 
+    // 4. Apply workspace window isolation FIRST (minimizes non-matching windows and unminimizes matching ones)
+    applyWorkspaceViewIsolation(m_activeHudView, targetDesktop);
+
+    // 5. Switch to target virtual desktop if needed
     if (targetDesktop && effects && effects->currentDesktop() != targetDesktop) {
         effects->setCurrentDesktop(targetDesktop);
     }
@@ -3786,8 +3781,25 @@ void ActiveWindowOutlineEffect::switchToWorkspaceView(int newHudViewIndex)
         m_workspaceLastVirtualDesktopId[newWsId] = effects->currentDesktop()->id();
     }
 
-    // 4. Apply workspace window isolation
-    applyWorkspaceViewIsolation(m_activeHudView);
+    // 6. Ensure top matching window on current desktop is active
+    if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
+        const auto &ws = m_workspaces.at(m_activeHudView - 1);
+        EffectWindow *topWin = nullptr;
+        for (EffectWindow *w : effects->stackingOrder()) {
+            if (!w || w->isDeleted() || w->isMinimized() || !isEligibleOutlineWindow(w) || isBlockingPopup(w)) continue;
+            if (w->isOnCurrentDesktop()) {
+                const auto desktops = w->desktops();
+                const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+                if (LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum)) {
+                    topWin = w;
+                }
+            }
+        }
+        if (topWin) {
+            effects->activateWindow(topWin);
+            m_activeWindow = topWin;
+        }
+    }
 
     // 5. Restore tiling state for incoming workspace
     bool shouldTile = m_workspaceTilingActive.value(newWsId, false);
@@ -4039,7 +4051,7 @@ void ActiveWindowOutlineEffect::slotToggleHudHints()
     }
 }
 
-void ActiveWindowOutlineEffect::applyWorkspaceViewIsolation(int hudViewIndex)
+void ActiveWindowOutlineEffect::applyWorkspaceViewIsolation(int hudViewIndex, VirtualDesktop *targetDesktop)
 {
     if (!effects) {
         return;
@@ -4050,6 +4062,7 @@ void ActiveWindowOutlineEffect::applyWorkspaceViewIsolation(int hudViewIndex)
     if (hudViewIndex >= 1 && hudViewIndex <= m_workspaces.size()) {
         const auto &ws = m_workspaces.at(hudViewIndex - 1);
         EffectWindow *topMatchingWindow = nullptr;
+        VirtualDesktop *effectiveDesk = targetDesktop ? targetDesktop : (effects ? effects->currentDesktop() : nullptr);
 
         for (EffectWindow *w : windows) {
             if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
@@ -4080,7 +4093,11 @@ void ActiveWindowOutlineEffect::applyWorkspaceViewIsolation(int hudViewIndex)
                     m_workspaceMinimizedWindows.remove(w);
                     w->setMinimized(false);
                 }
-                topMatchingWindow = w;
+                if (effectiveDesk && (desktops.contains(effectiveDesk) || w->isOnAllDesktops())) {
+                    topMatchingWindow = w;
+                } else if (!topMatchingWindow) {
+                    topMatchingWindow = w;
+                }
             } else {
                 // Should disappear: minimize if not minimized
                 if (!w->isMinimized()) {
@@ -4091,7 +4108,7 @@ void ActiveWindowOutlineEffect::applyWorkspaceViewIsolation(int hudViewIndex)
         }
 
         // If active window was minimized (or does not match workspace), focus top matching window
-        if (topMatchingWindow && (!m_activeWindow || m_activeWindow->isMinimized())) {
+        if (topMatchingWindow && (!m_activeWindow || m_activeWindow->isMinimized() || !m_activeWindow->isOnCurrentDesktop())) {
             effects->activateWindow(topMatchingWindow);
             m_activeWindow = topMatchingWindow;
         }

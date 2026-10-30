@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta27] - 2026-10-30
+
+### Fixed
+- **Spontaneous Cross-Workspace Window Reassignment on Desktop Transition**:
+  - Eliminated automatic rule reassignment and `effects->windowToDesktops` calls in `slotWindowActivated`: focusing a window must never steal its workspace rules or alter its virtual desktop assignment.
+  - In `switchToWorkspaceView`, `applyWorkspaceViewIsolation` is now executed *before* switching KWin's active virtual desktop (`effects->setCurrentDesktop`). This ensures non-matching windows from other workspaces are minimized before arriving at the target desktop, preventing KWin from focusing them during desktop transition.
+  - In `applyWorkspaceViewIsolation`, `topMatchingWindow` now prioritizes windows on the incoming target virtual desktop, preventing focus jumps across unrelated virtual desktops.
+  - In `slotWindowAdded`, newly created windows are only added to the active workspace if they do not already match an existing workspace rule (`findWorkspaceForWindow == 0`).
+
 ## [1.6.0-beta26] - 2026-10-30
 
 ### Added

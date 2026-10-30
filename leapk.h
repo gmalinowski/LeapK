@@ -303,7 +303,7 @@ private:
                               const RenderViewport &viewport,
                               const QRectF &pillsBounds = QRectF(),
                               const QRectF &hintBarBounds = QRectF());
-    void applyWorkspaceViewIsolation(int hudViewIndex);
+    void applyWorkspaceViewIsolation(int hudViewIndex, VirtualDesktop *targetDesktop = nullptr);
     void switchToWorkspaceView(int newHudViewIndex);
     QString workspaceIdForView(int hudViewIndex) const;
     void enterStashMode();
