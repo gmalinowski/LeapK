@@ -896,6 +896,89 @@ void testHudBadgeOcclusionAvoidance()
     }
 }
 
+void testBackgroundWindowBadgeOcclusionAvoidance()
+{
+    using OutlineBadge::BadgeConfig;
+    using OutlineBadge::computeBadgeWidth;
+    using OutlineBadge::isBadgeRectOccluded;
+    using OutlineBadge::findBestBadgePosition;
+
+    const QRectF screenRect(0, 0, 1920, 1080);
+    const QRectF backgroundWindowGeo(0, 0, 1920, 1080);
+    const QRectF activeForegroundWindowGeo(560, 240, 800, 600); // Centered window on top
+
+    BadgeConfig cfg;
+    const int badgeH = 34;
+    const qreal badgeW = computeBadgeWidth(cfg, badgeH);
+
+    // Case 1: HUD is at bottom (Header, Hint Bar, and Pills all at bottom)
+    const QRectF hudHeaderBottom(460, 940, 1000, 44);
+    const QRectF hudHintBarBottom(460, 992, 1000, 36);
+    const QRectF hudPill1Bottom(700, 1036, 250, 36);
+    const QRectF hudPill2Bottom(970, 1036, 250, 36);
+    const QList<QRectF> hudCollisionBottom = { hudHeaderBottom, hudHintBarBottom, hudPill1Bottom, hudPill2Bottom };
+    const QList<QRectF> occludingWindows = { activeForegroundWindowGeo };
+
+    // Initial position of background window: Center (4)
+    bool foundVisible = false;
+    QRectF bestPosBottom = findBestBadgePosition(
+        backgroundWindowGeo, 4 /* Center */, badgeW, badgeH, 12.0, screenRect,
+        occludingWindows, hudCollisionBottom, &foundVisible);
+
+    assert(foundVisible);
+    // Center is occluded by foreground window:
+    assert(!activeForegroundWindowGeo.intersects(bestPosBottom));
+    // Must NOT be occluded by any HUD element at the bottom:
+    for (const QRectF &hudElem : hudCollisionBottom) {
+        assert(!hudElem.intersects(bestPosBottom));
+    }
+    // With Center and Bottom occluded, it should choose Top (1), TopLeft (0), or TopRight (2)
+    assert(bestPosBottom.top() < 100.0);
+
+    // Case 2: HUD is at Top (Header, Pills, Hint bar at top)
+    const QRectF hudHeaderTop(460, 12, 1000, 44);
+    const QRectF hudPill1Top(700, 64, 250, 36);
+    const QRectF hudPill2Top(970, 64, 250, 36);
+    const QRectF hudHintBarTop(460, 108, 1000, 36);
+    const QList<QRectF> hudCollisionTop = { hudHeaderTop, hudPill1Top, hudPill2Top, hudHintBarTop };
+
+    foundVisible = false;
+    QRectF bestPosTop = findBestBadgePosition(
+        backgroundWindowGeo, 4 /* Center */, badgeW, badgeH, 12.0, screenRect,
+        occludingWindows, hudCollisionTop, &foundVisible);
+
+    assert(foundVisible);
+    assert(!activeForegroundWindowGeo.intersects(bestPosTop));
+    for (const QRectF &hudElem : hudCollisionTop) {
+        assert(!hudElem.intersects(bestPosTop));
+    }
+
+    // Full-width Top HUD (covers entire top margin: Top, TopLeft, TopRight):
+    const QRectF fullWidthTopHeader(0, 0, 1920, 160);
+    foundVisible = false;
+    QRectF bestPosFullTop = findBestBadgePosition(
+        backgroundWindowGeo, 4 /* Center */, badgeW, badgeH, 12.0, screenRect,
+        occludingWindows, { fullWidthTopHeader }, &foundVisible);
+
+    assert(foundVisible);
+    assert(!activeForegroundWindowGeo.intersects(bestPosFullTop));
+    assert(!fullWidthTopHeader.intersects(bestPosFullTop));
+    assert(bestPosFullTop.top() >= 160.0);
+
+    // Case 3: Complete occlusion of all 9 zones
+    QList<QRectF> fullObstacles = {
+        QRectF(0, 0, 960, 540),       // Top-Left quadrant
+        QRectF(960, 0, 960, 540),     // Top-Right quadrant
+        QRectF(0, 540, 960, 540),     // Bottom-Left quadrant
+        QRectF(960, 540, 960, 540)    // Bottom-Right quadrant
+    };
+    foundVisible = false;
+    findBestBadgePosition(
+        backgroundWindowGeo, 4 /* Center */, badgeW, badgeH, 12.0, screenRect,
+        fullObstacles, {}, &foundVisible);
+    assert(!foundVisible);
+}
+
 void testWindowBadgesEnabledConfig()
 {
     OutlineBadge::BadgeConfig cfgDefault;
@@ -1539,6 +1622,7 @@ int main(int argc, char *argv[])
     testIndependentWindowAndHudBadges();
     testRecentBadgeAndIncludeAll();
     testHudBadgeOcclusionAvoidance();
+    testBackgroundWindowBadgeOcclusionAvoidance();
     testWindowBadgesEnabledConfig();
     testHudWindowGroupingAndFrames();
     testHudActionHintBar();

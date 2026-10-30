@@ -486,6 +486,75 @@ inline QRectF computeTopBarPinnedBadgeRect(const QRectF &frameGeo, const QRectF 
     return QRectF(badgeX, badgeY, badgeW, badgeH);
 }
 
+inline bool isBadgeRectOccluded(const QRectF &badgeRect,
+                                const QList<QRectF> &occludingWindowRects,
+                                const QList<QRectF> &hudCollisionRects,
+                                const QRectF &screenBounds = QRectF())
+{
+    if (!screenBounds.isEmpty() && !screenBounds.intersects(badgeRect)) {
+        return true;
+    }
+    for (const QRectF &hudRect : hudCollisionRects) {
+        if (hudRect.intersects(badgeRect)) {
+            return true;
+        }
+    }
+    for (const QRectF &winRect : occludingWindowRects) {
+        if (winRect.intersects(badgeRect)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+inline QRectF findBestBadgePosition(const QRectF &visibleWindowGeo,
+                                   int defaultPosition,
+                                   qreal badgeW,
+                                   qreal badgeH,
+                                   qreal margin,
+                                   const QRectF &screenRect,
+                                   const QList<QRectF> &occludingWindowRects,
+                                   const QList<QRectF> &hudCollisionRects,
+                                   bool *outFoundVisible = nullptr)
+{
+    auto clampRect = [](QRectF r, const QRectF &sRect) -> QRectF {
+        if (sRect.isValid() && !sRect.isEmpty()) {
+            if (r.left() < sRect.left() + 4.0) r.moveLeft(sRect.left() + 4.0);
+            if (r.right() > sRect.right() - 4.0) r.moveRight(sRect.right() - 4.0);
+            if (r.top() < sRect.top() + 4.0) r.moveTop(sRect.top() + 4.0);
+            if (r.bottom() > sRect.bottom() - 4.0) r.moveBottom(sRect.bottom() - 4.0);
+        }
+        return r;
+    };
+
+    QRectF badgeRect = clampRect(computeBadgeRect(visibleWindowGeo, defaultPosition, badgeW, badgeH, margin), screenRect);
+
+    if (!isBadgeRectOccluded(badgeRect, occludingWindowRects, hudCollisionRects, screenRect)) {
+        if (outFoundVisible) {
+            *outFoundVisible = true;
+        }
+        return badgeRect;
+    }
+
+    const int altPositions[] = { 4 /* Center */, 1 /* Top */, 0 /* TopLeft */, 2 /* TopRight */, 7 /* Bottom */, 6 /* BottomLeft */, 8 /* BottomRight */, 3 /* Left */, 5 /* Right */ };
+    for (int altPos : altPositions) {
+        if (altPos == defaultPosition) continue;
+        QRectF altRect = clampRect(computeBadgeRect(visibleWindowGeo, altPos, badgeW, badgeH, margin), screenRect);
+
+        if (!isBadgeRectOccluded(altRect, occludingWindowRects, hudCollisionRects, screenRect)) {
+            if (outFoundVisible) {
+                *outFoundVisible = true;
+            }
+            return altRect;
+        }
+    }
+
+    if (outFoundVisible) {
+        *outFoundVisible = false;
+    }
+    return badgeRect;
+}
+
 inline QPointF computeCursorWarpPos(int warpMode, const QRectF &frameGeo, const QRectF &clientGeo, bool hasDec = false)
 {
     if (warpMode <= 0 || frameGeo.isEmpty()) {

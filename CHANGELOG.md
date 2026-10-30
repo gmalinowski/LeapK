@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta29] - 2026-10-30
+
+### Fixed
+- **Underlying Background Window Badges Occlusion by HUD**:
+  - Implemented `computeAllHudCollisionRects` to comprehensively aggregate all HUD obstacle geometries: offscreen dock pill rects, full dock bounding rect (`allPillsBounds`), group container frames, group divider rects, HUD action hint bar (`computeHudHintBarRect`), and HUD workspace navigation header (`computeHudHeaderRect`).
+  - Added `findBestBadgePositionForWindow` to evaluate on-screen jump badge placement against both overlapping foreground windows in KWin's stacking order and all HUD components.
+  - When an underlying large window's default badge position is occluded by an active small window on top, it now systematically searches alternate positions (Top, Bottom, Corners, Sides) and rejects any candidate overlapping HUD Header, Hint Bar, or Dock.
+  - If a background window's visible area is entirely covered by foreground windows or HUD elements, it safely demotes the window to an offscreen card in the HUD dock instead of drawing an obscured on-screen badge.
+  - Added unit test `testBackgroundWindowBadgeOcclusionAvoidance` in `tests/badge_test.cpp` to verify collision avoidance for underlying windows across top and bottom HUD layouts.
+
 ## [1.6.0-beta28] - 2026-10-30
 
 ### Fixed

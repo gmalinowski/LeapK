@@ -3037,7 +3037,7 @@ void ActiveWindowOutlineEffect::renderBadgePreview(const RenderTarget &renderTar
             hudTargets.append(qMakePair(winLetters.value(target, 'A'), target));
         }
         if (!hudTargets.isEmpty()) {
-            hudRects = computeHudPillRects(hudTargets, viewport, m_previewBadgeConfig.hudBadgeSize, m_previewBadgeConfig);
+            hudRects = computeAllHudCollisionRects(hudTargets, viewport, m_previewBadgeConfig.hudBadgeSize, m_previewBadgeConfig);
         }
     }
 
@@ -3068,36 +3068,15 @@ void ActiveWindowOutlineEffect::renderBadgePreview(const RenderTarget &renderTar
                 : (isRecent ? (m_recentWindowCustomColor.isValid() ? m_recentWindowCustomColor : QColor(52, 152, 219)) : m_previewBadgeConfig.defaultBgColor);
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
             QString customLabel = m_markedWindowLabels.value(target);
-        if (isWindowPinned(target)) {
-            customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
-        }
+            if (isWindowPinned(target)) {
+                customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
+            }
             const qreal badgeW = OutlineBadge::computeBadgeWidth(m_previewBadgeConfig, badgeH, customLabel, recentKey, true);
-            QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_previewBadgePosition, badgeW, badgeH, m_previewBadgeConfig.margin);
-            if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
-            if (badgeRect.right() > screenRect.right() - 4.0) badgeRect.moveRight(screenRect.right() - 4.0);
-            if (badgeRect.top() < screenRect.top() + 4.0) badgeRect.moveTop(screenRect.top() + 4.0);
-            if (badgeRect.bottom() > screenRect.bottom() - 4.0) badgeRect.moveBottom(screenRect.bottom() - 4.0);
 
-            if (isBadgeOccluded(target, badgeRect, hudRects)) {
-                const int altPositions[] = { 4 /* Center */, 1 /* Top */, 0 /* TopLeft */, 2 /* TopRight */, 7 /* Bottom */, 6 /* BottomLeft */, 8 /* BottomRight */, 3 /* Left */, 5 /* Right */ };
-                bool foundVisiblePosition = false;
-                for (int altPos : altPositions) {
-                    if (altPos == m_previewBadgePosition) continue;
-                    QRectF altRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, altPos, badgeW, badgeH, m_previewBadgeConfig.margin);
-                    if (altRect.left() < screenRect.left() + 4.0) altRect.moveLeft(screenRect.left() + 4.0);
-                    if (altRect.right() > screenRect.right() - 4.0) altRect.moveRight(screenRect.right() - 4.0);
-                    if (altRect.top() < screenRect.top() + 4.0) altRect.moveTop(screenRect.top() + 4.0);
-                    if (altRect.bottom() > screenRect.bottom() - 4.0) altRect.moveBottom(screenRect.bottom() - 4.0);
-
-                    if (!isBadgeOccluded(target, altRect, hudRects)) {
-                        badgeRect = altRect;
-                        foundVisiblePosition = true;
-                        break;
-                    }
-                }
-                if (!foundVisiblePosition) {
-                    continue;
-                }
+            bool foundVisiblePosition = false;
+            QRectF badgeRect = findBestBadgePositionForWindow(target, visibleWindowGeo, m_previewBadgePosition, badgeW, badgeH, m_previewBadgeConfig.margin, screenRect, hudRects, &foundVisiblePosition);
+            if (!foundVisiblePosition) {
+                continue;
             }
 
             renderBadge(renderTarget, viewport, badgeRect, winLetters.value(target, 'A'), bgCol, textCol, false, badgeH, customLabel, target, recentKey, isRecent);
@@ -5221,6 +5200,7 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
     m_hudCloseButtonLocalRect = QRectF();
     m_hudCloseButtonScreenRect = QRectF();
     m_hudHeaderScreenRect = QRectF();
+    m_hudHintBarScreenRect = QRectF();
     m_hudTabLocalRects.clear();
     m_hudTabScreenRects.clear();
     m_hudTargetPillRects.clear();
@@ -6517,6 +6497,12 @@ bool ActiveWindowOutlineEffect::isBadgeOccluded(EffectWindow *target, const QRec
             return true;
         }
     }
+    if (m_hudHeaderScreenRect.isValid() && !m_hudHeaderScreenRect.isEmpty() && m_hudHeaderScreenRect.intersects(badgeRect)) {
+        return true;
+    }
+    if (m_hudHintBarScreenRect.isValid() && !m_hudHintBarScreenRect.isEmpty() && m_hudHintBarScreenRect.intersects(badgeRect)) {
+        return true;
+    }
     bool aboveTarget = false;
     const auto windows = effects->stackingOrder();
     for (EffectWindow *candidate : windows) {
@@ -6541,6 +6527,55 @@ bool ActiveWindowOutlineEffect::isBadgeOccluded(EffectWindow *target, const QRec
         }
     }
     return false;
+}
+
+QRectF ActiveWindowOutlineEffect::findBestBadgePositionForWindow(
+    EffectWindow *target,
+    const QRectF &visibleWindowGeo,
+    int defaultPosition,
+    qreal badgeW,
+    qreal badgeH,
+    qreal margin,
+    const QRectF &screenRect,
+    const QList<QRectF> &hudRects,
+    bool *outFoundVisible) const
+{
+    auto clampRect = [](QRectF r, const QRectF &sRect) -> QRectF {
+        if (sRect.isValid() && !sRect.isEmpty()) {
+            if (r.left() < sRect.left() + 4.0) r.moveLeft(sRect.left() + 4.0);
+            if (r.right() > sRect.right() - 4.0) r.moveRight(sRect.right() - 4.0);
+            if (r.top() < sRect.top() + 4.0) r.moveTop(sRect.top() + 4.0);
+            if (r.bottom() > sRect.bottom() - 4.0) r.moveBottom(sRect.bottom() - 4.0);
+        }
+        return r;
+    };
+
+    QRectF badgeRect = clampRect(OutlineBadge::computeBadgeRect(visibleWindowGeo, defaultPosition, badgeW, badgeH, margin), screenRect);
+
+    if (!isBadgeOccluded(target, badgeRect, hudRects)) {
+        if (outFoundVisible) {
+            *outFoundVisible = true;
+        }
+        return badgeRect;
+    }
+
+    const int altPositions[] = { 4 /* Center */, 1 /* Top */, 0 /* TopLeft */, 2 /* TopRight */, 7 /* Bottom */, 6 /* BottomLeft */, 8 /* BottomRight */, 3 /* Left */, 5 /* Right */ };
+    for (int altPos : altPositions) {
+        if (altPos == defaultPosition) continue;
+        QRectF altRect = clampRect(OutlineBadge::computeBadgeRect(visibleWindowGeo, altPos, badgeW, badgeH, margin), screenRect);
+
+        if (!isBadgeOccluded(target, altRect, hudRects)) {
+            if (outFoundVisible) {
+                *outFoundVisible = true;
+            }
+            return altRect;
+        }
+    }
+
+    if (outFoundVisible) {
+        *outFoundVisible = false;
+    }
+    return badgeRect;
 }
 
 void ActiveWindowOutlineEffect::slotPrevRecentWindow()
@@ -7360,6 +7395,103 @@ QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
     const qreal headerH = ensureHudHeaderTexture(scale).height();
     const qreal topMargin = (hudPos == 1) ? qMax(24.0, 12.0 + headerH + 12.0) : 24.0;
     return OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, topMargin, 12.0, hudRowGap, dividerAfterIndex, 28.0, outDividerRects);
+}
+
+QList<QRectF> ActiveWindowOutlineEffect::computeAllHudCollisionRects(
+    const QList<QPair<QChar, EffectWindow *>> &targets,
+    const RenderViewport &viewport,
+    int badgeSize,
+    const OutlineBadge::BadgeConfig &cfg,
+    int dividerAfterIndex) const
+{
+    const QRectF screenRect = viewport.renderRect();
+
+    QList<QRectF> collisionRects;
+    QList<QRectF> dividerRects;
+
+    // 1. Compute pills rects
+    const QList<QRectF> pillRects = computeHudPillRects(targets, viewport, badgeSize, cfg, dividerAfterIndex, &dividerRects);
+    collisionRects.append(pillRects);
+    collisionRects.append(dividerRects);
+
+    // 2. Compute group frames if grouping is off and multiple windows share group letters
+    QRectF allPillsBounds;
+    for (const QRectF &r : pillRects) {
+        allPillsBounds = allPillsBounds.isEmpty() ? r : allPillsBounds.united(r);
+    }
+
+    if (!cfg.hudGroupWindows && !m_subLeapActive) {
+        const int hudPos = m_badgePreviewActive ? m_previewBadgeHudPosition : m_badgeHudPosition;
+        const int effGroupFontSize = (cfg.hudGroupFontSize > 0) ? cfg.hudGroupFontSize : 11;
+        const int tabH = qMax(22, effGroupFontSize + 10);
+        const bool tabAtBottom = (hudPos == 1);
+        const qreal padX = 8.0;
+
+        QMap<QChar, QList<int>> groupIndices;
+        for (int i = 0; i < targets.size(); ++i) {
+            EffectWindow *win = targets.at(i).second;
+            if (win && m_windowToGroupLetter.contains(win)) {
+                const QChar gKey = m_windowToGroupLetter.value(win);
+                if (m_groupJumpLetters.contains(gKey) && m_groupJumpLetters.value(gKey).size() > 1) {
+                    groupIndices[gKey].append(i);
+                }
+            }
+        }
+
+        for (auto it = groupIndices.constBegin(); it != groupIndices.constEnd(); ++it) {
+            const auto &indices = it.value();
+            QMap<int, QList<int>> segmentToIndices;
+            for (int idx : indices) {
+                if (idx >= 0 && idx < pillRects.size()) {
+                    const int bucket = (hudPos == 2 || hudPos == 3)
+                        ? qRound(pillRects.at(idx).center().x() / 20.0)
+                        : qRound(pillRects.at(idx).center().y() / 20.0);
+                    segmentToIndices[bucket].append(idx);
+                }
+            }
+            for (auto segIt = segmentToIndices.constBegin(); segIt != segmentToIndices.constEnd(); ++segIt) {
+                QRectF groupBoundingRect;
+                for (int idx : segIt.value()) {
+                    groupBoundingRect = groupBoundingRect.isEmpty() ? pillRects.at(idx) : groupBoundingRect.united(pillRects.at(idx));
+                }
+                if (!groupBoundingRect.isEmpty()) {
+                    const qreal padBottom = tabAtBottom ? (tabH + 8.0) : 6.0;
+                    const qreal padTop = tabAtBottom ? 6.0 : (tabH + 8.0);
+                    QRectF frameRect = groupBoundingRect.adjusted(-padX, -padTop, padX, padBottom);
+                    if (frameRect.left() < screenRect.left() + 4.0) frameRect.setLeft(screenRect.left() + 4.0);
+                    if (frameRect.right() > screenRect.right() - 4.0) frameRect.setRight(screenRect.right() - 4.0);
+                    if (frameRect.top() < screenRect.top() + 4.0) frameRect.setTop(screenRect.top() + 4.0);
+                    if (frameRect.bottom() > screenRect.bottom() - 4.0) frameRect.setBottom(screenRect.bottom() - 4.0);
+                    collisionRects.append(frameRect);
+                    allPillsBounds = allPillsBounds.isEmpty() ? frameRect : allPillsBounds.united(frameRect);
+                }
+            }
+        }
+    }
+
+    if (!allPillsBounds.isEmpty()) {
+        collisionRects.append(allPillsBounds);
+    }
+
+    // 3. Compute HUD hint bar rect
+    const QRectF hintRect = computeHudHintBarRect(viewport, allPillsBounds);
+    if (hintRect.isValid() && !hintRect.isEmpty()) {
+        collisionRects.append(hintRect);
+        m_hudHintBarScreenRect = hintRect;
+    } else {
+        m_hudHintBarScreenRect = QRectF();
+    }
+
+    // 4. Compute HUD mode header rect
+    const QRectF headerRect = computeHudHeaderRect(viewport, allPillsBounds, hintRect);
+    if (headerRect.isValid() && !headerRect.isEmpty()) {
+        collisionRects.append(headerRect);
+        m_hudHeaderScreenRect = headerRect;
+    } else {
+        m_hudHeaderScreenRect = QRectF();
+    }
+
+    return collisionRects;
 }
 
 void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &renderTarget,
@@ -8368,9 +8500,8 @@ void ActiveWindowOutlineEffect::renderTilingPresetPills(const RenderTarget &rend
     renderHudModeHeader(renderTarget, viewport, allPillsBounds, hintRect);
 }
 
-QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTarget,
-                                                  const RenderViewport &viewport,
-                                                  const QRectF &pillsBounds)
+QRectF ActiveWindowOutlineEffect::computeHudHintBarRect(const RenderViewport &viewport,
+                                                       const QRectF &pillsBounds) const
 {
     const bool showHints = m_badgePreviewActive ? m_previewBadgeConfig.hudShowHints : m_badgeConfig.hudShowHints;
     if (!showHints) {
@@ -8466,7 +8597,20 @@ QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTar
     }
 
     const qreal hintX = screenRect.center().x() - (hintW / 2.0);
-    const QRectF hintRect(hintX, hintY, hintW, hintH);
+    return QRectF(hintX, hintY, hintW, hintH);
+}
+
+QRectF ActiveWindowOutlineEffect::renderHudHintBar(const RenderTarget &renderTarget,
+                                                  const RenderViewport &viewport,
+                                                  const QRectF &pillsBounds)
+{
+    const QRectF hintRect = computeHudHintBarRect(viewport, pillsBounds);
+    if (!hintRect.isValid() || hintRect.isEmpty() || !m_hudHintBarTexture) {
+        return QRectF();
+    }
+
+    const qreal scale = viewport.scale();
+    m_hudHintBarScreenRect = hintRect;
 
     GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
     GLint previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha;
@@ -8703,10 +8847,9 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
     return QSizeF(m_hudHeaderTexture->width() / scale, m_hudHeaderTexture->height() / scale);
 }
 
-QRectF ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTarget,
-                                                     const RenderViewport &viewport,
-                                                     const QRectF &pillsBounds,
-                                                     const QRectF &hintBarBounds)
+QRectF ActiveWindowOutlineEffect::computeHudHeaderRect(const RenderViewport &viewport,
+                                                      const QRectF &pillsBounds,
+                                                      const QRectF &hintBarBounds) const
 {
     const qreal scale = viewport.scale();
     const QRectF screenRect = viewport.renderRect();
@@ -8737,7 +8880,20 @@ QRectF ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &render
     }
 
     const qreal headerX = screenRect.center().x() - (headerW / 2.0);
-    const QRectF headerRect(headerX, headerY, headerW, headerH);
+    return QRectF(headerX, headerY, headerW, headerH);
+}
+
+QRectF ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &renderTarget,
+                                                     const RenderViewport &viewport,
+                                                     const QRectF &pillsBounds,
+                                                     const QRectF &hintBarBounds)
+{
+    const QRectF headerRect = computeHudHeaderRect(viewport, pillsBounds, hintBarBounds);
+    if (!headerRect.isValid() || headerRect.isEmpty() || !m_hudHeaderTexture) {
+        return QRectF();
+    }
+
+    const qreal scale = viewport.scale();
 
     m_hudHeaderScreenRect = headerRect;
     if (m_hudCloseButtonLocalRect.isValid() && !m_hudCloseButtonLocalRect.isEmpty()) {
@@ -8815,6 +8971,7 @@ QRectF ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &render
     } else {
         glDisable(GL_BLEND);
     }
+
     return headerRect;
 }
 
@@ -9754,7 +9911,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             offscreenTargets = leftTargets + rightTargets;
         }
 
-        QList<QRectF> hudRects = computeHudPillRects(offscreenTargets, viewport, m_badgeConfig.hudBadgeSize, m_badgeConfig, dividerAfterIndex);
+        QList<QRectF> hudRects = computeAllHudCollisionRects(offscreenTargets, viewport, m_badgeConfig.hudBadgeSize, m_badgeConfig, dividerAfterIndex);
 
         for (const auto &pair : onscreenTargets) {
             const QChar letter = pair.first;
@@ -9790,42 +9947,26 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             }
             const bool isPlayingAudio = target ? m_audioTracker.isWindowPlaying(target->pid(), target->caption()) : false;
             const qreal jumpW = OutlineBadge::computeBadgeWidth(m_badgeConfig, jumpH, customLabel, recentKey, true, isPlayingAudio);
-            QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
-            if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
-            if (badgeRect.right() > screenRect.right() - 4.0) badgeRect.moveRight(screenRect.right() - 4.0);
-            if (badgeRect.top() < screenRect.top() + 4.0) badgeRect.moveTop(screenRect.top() + 4.0);
-            if (badgeRect.bottom() > screenRect.bottom() - 4.0) badgeRect.moveBottom(screenRect.bottom() - 4.0);
 
-            if (isBadgeOccluded(target, badgeRect, hudRects)) {
-                const int altPositions[] = { 4 /* Center */, 1 /* Top */, 0 /* TopLeft */, 2 /* TopRight */, 7 /* Bottom */, 6 /* BottomLeft */, 8 /* BottomRight */, 3 /* Left */, 5 /* Right */ };
-                bool foundVisiblePosition = false;
-                for (int altPos : altPositions) {
-                    if (altPos == m_badgePosition) continue;
-                    QRectF altRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, altPos, jumpW, jumpH, m_badgeMargin);
-                    if (altRect.left() < screenRect.left() + 4.0) altRect.moveLeft(screenRect.left() + 4.0);
-                    if (altRect.right() > screenRect.right() - 4.0) altRect.moveRight(screenRect.right() - 4.0);
-                    if (altRect.top() < screenRect.top() + 4.0) altRect.moveTop(screenRect.top() + 4.0);
-                    if (altRect.bottom() > screenRect.bottom() - 4.0) altRect.moveBottom(screenRect.bottom() - 4.0);
+            bool foundVisiblePosition = false;
+            QRectF badgeRect = findBestBadgePositionForWindow(target, visibleWindowGeo, m_badgePosition, jumpW, jumpH, m_badgeMargin, screenRect, hudRects, &foundVisiblePosition);
 
-                    if (!isBadgeOccluded(target, altRect, hudRects)) {
-                        badgeRect = altRect;
-                        foundVisiblePosition = true;
-                        break;
-                    }
-                }
-                if (!foundVisiblePosition) {
-                    if (target == w) {
-                        badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
-                    } else {
-                        if (!m_badgeConfig.hudIncludeAll) {
-                            const auto pair = qMakePair(letter, target);
-                            if (!offscreenTargets.contains(pair)) {
-                                offscreenTargets.append(pair);
-                                hudRects = computeHudPillRects(offscreenTargets, viewport, m_badgeConfig.hudBadgeSize, m_badgeConfig, dividerAfterIndex);
-                            }
+            if (!foundVisiblePosition) {
+                if (target == w) {
+                    badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
+                    if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
+                    if (badgeRect.right() > screenRect.right() - 4.0) badgeRect.moveRight(screenRect.right() - 4.0);
+                    if (badgeRect.top() < screenRect.top() + 4.0) badgeRect.moveTop(screenRect.top() + 4.0);
+                    if (badgeRect.bottom() > screenRect.bottom() - 4.0) badgeRect.moveBottom(screenRect.bottom() - 4.0);
+                } else {
+                    if (!m_badgeConfig.hudIncludeAll) {
+                        const auto offPair = qMakePair(letter, target);
+                        if (!offscreenTargets.contains(offPair)) {
+                            offscreenTargets.append(offPair);
+                            hudRects = computeAllHudCollisionRects(offscreenTargets, viewport, m_badgeConfig.hudBadgeSize, m_badgeConfig, dividerAfterIndex);
                         }
-                        continue;
                     }
+                    continue;
                 }
             }
             renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, true, m_badgeConfig.jumpBadgeSize, customLabel, target, recentKey, isRecent);

@@ -251,6 +251,15 @@ private:
     void exitSubLeapMode();
     bool isWindowObscured(EffectWindow *target) const;
     bool isBadgeOccluded(EffectWindow *target, const QRectF &badgeRect, const QList<QRectF> &hudRects = {}) const;
+    QRectF findBestBadgePositionForWindow(EffectWindow *target,
+                                          const QRectF &visibleWindowGeo,
+                                          int defaultPosition,
+                                          qreal badgeW,
+                                          qreal badgeH,
+                                          qreal margin,
+                                          const QRectF &screenRect,
+                                          const QList<QRectF> &hudRects,
+                                          bool *outFoundVisible = nullptr) const;
     bool isWindowInStash(EffectWindow *w) const;
     bool isWindowPinned(EffectWindow *w) const;
     void playThemedSound(OutlineSound::SoundEffect effect);
@@ -295,10 +304,20 @@ private:
                                    const QList<QPair<QChar, EffectWindow *>> &targets,
                                    int badgeSize,
                                    int dividerAfterIndex = -1);
+    QList<QRectF> computeAllHudCollisionRects(const QList<QPair<QChar, EffectWindow *>> &targets,
+                                              const RenderViewport &viewport,
+                                              int badgeSize,
+                                              const OutlineBadge::BadgeConfig &cfg,
+                                              int dividerAfterIndex = -1) const;
+    QRectF computeHudHintBarRect(const RenderViewport &viewport,
+                                 const QRectF &pillsBounds = QRectF()) const;
     QRectF renderHudHintBar(const RenderTarget &renderTarget,
                             const RenderViewport &viewport,
                             const QRectF &pillsBounds = QRectF());
     QSizeF ensureHudHeaderTexture(qreal scale) const;
+    QRectF computeHudHeaderRect(const RenderViewport &viewport,
+                                const QRectF &pillsBounds = QRectF(),
+                                const QRectF &hintBarBounds = QRectF()) const;
     QRectF renderHudModeHeader(const RenderTarget &renderTarget,
                               const RenderViewport &viewport,
                               const QRectF &pillsBounds = QRectF(),
@@ -517,8 +536,8 @@ private:
     QTimer *m_expectedJumpTargetTimer = nullptr;
     int m_activeHudView = 0;
     QSet<EffectWindow *> m_closingWindows;
-    std::shared_ptr<GLTexture> m_hudHintBarTexture;
-    int m_hudHintBarCacheKey = -1;
+    mutable std::shared_ptr<GLTexture> m_hudHintBarTexture;
+    mutable int m_hudHintBarCacheKey = -1;
     mutable std::shared_ptr<GLTexture> m_hudHeaderTexture;
     mutable int m_hudHeaderCacheKey = -1;
     QSet<EffectWindow *> m_workspaceMinimizedWindows;
@@ -542,7 +561,8 @@ private:
     QTimer *m_keyReleaseSafetyTimer = nullptr;
     mutable QRectF m_hudCloseButtonLocalRect;
     QRectF m_hudCloseButtonScreenRect;
-    QRectF m_hudHeaderScreenRect;
+    mutable QRectF m_hudHeaderScreenRect;
+    mutable QRectF m_hudHintBarScreenRect;
     QList<QPair<QRectF, EffectWindow *>> m_hudTargetPillRects;
 
     // Sub-Leap Disambiguation (multi-instance window disambiguation)
