@@ -14,6 +14,9 @@
 #include <effect/effecthandler.h>
 #include <effect/effectwindow.h>
 #include <window.h>
+#include <workspace.h>
+#include <core/output.h>
+#include "kwintilehelper.h"
 #include <virtualdesktops.h>
 #include <QLocale>
 #include <opengl/glshader.h>
@@ -833,6 +836,13 @@ void ActiveWindowOutlineEffect::initShortcuts()
     KGlobalAccel::self()->setDefaultShortcut(nextRecentAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_BracketRight));
     KGlobalAccel::self()->setGlobalShortcut(nextRecentAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_BracketRight));
     connect(nextRecentAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotNextRecentWindow);
+
+    QAction *tilingAction = new QAction(this);
+    tilingAction->setObjectName(QStringLiteral("ToggleTilingPresets"));
+    tilingAction->setText(QStringLiteral("LeapK: Tiling Presets"));
+    KGlobalAccel::self()->setDefaultShortcut(tilingAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::Key_T));
+    KGlobalAccel::self()->setGlobalShortcut(tilingAction, QKeySequence(Qt::META | Qt::Key_T));
+    connect(tilingAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotTriggerTilingPresetsMode);
 }
 
 bool ActiveWindowOutlineEffect::supported()
@@ -1672,6 +1682,7 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
             slot.window = nullptr;
         }
     }
+    m_preTilingGeometries.remove(w);
 
     updatePopupBlockingState();
     updateRecentWindowsFromHistory();
@@ -3910,6 +3921,8 @@ void ActiveWindowOutlineEffect::enterStashMode()
     m_stashModeActive = true;
     m_superJumpActive = false;
     m_subLeapActive = false;
+    m_tilingPresetsModeActive = false;
+    m_hudTilingPresetPillRects.clear();
     m_subLeapBaseKey = QChar();
     m_subLeapWindows.clear();
     m_subLeapLetterToWindow.clear();
@@ -3965,6 +3978,9 @@ int ActiveWindowOutlineEffect::findWorkspaceForWindow(EffectWindow *target) cons
 
 void ActiveWindowOutlineEffect::toggleSuperJumpMode()
 {
+    if (m_tilingPresetsModeActive) {
+        exitTilingPresetsMode();
+    }
     if (m_subLeapActive) {
         exitSubLeapMode();
     }
@@ -4019,6 +4035,9 @@ void ActiveWindowOutlineEffect::slotTriggerAudioFilterMode()
 
 void ActiveWindowOutlineEffect::toggleAudioFilterMode()
 {
+    if (m_tilingPresetsModeActive) {
+        exitTilingPresetsMode();
+    }
     if (m_subLeapActive) {
         exitSubLeapMode();
     }
@@ -4101,8 +4120,23 @@ void ActiveWindowOutlineEffect::slotTriggerSearchMode()
     }
 }
 
+void ActiveWindowOutlineEffect::slotTriggerTilingPresetsMode()
+{
+    if (m_jumpMode && m_tilingPresetsModeActive) {
+        cancelJumpMode();
+        return;
+    }
+    if (!m_jumpMode) {
+        slotTriggerJumpMode();
+    }
+    enterTilingPresetsMode();
+}
+
 void ActiveWindowOutlineEffect::enterSearchMode()
 {
+    if (m_tilingPresetsModeActive) {
+        exitTilingPresetsMode();
+    }
     if (m_subLeapActive) {
         exitSubLeapMode();
     }
@@ -5340,7 +5374,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     // 0. If currently in Tiling Presets mode:
     if (m_tilingPresetsModeActive) {
-        if (e->key() == Qt::Key_Backspace || (isShift && (e->key() == Qt::Key_T || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('T') || e->text().at(0) == QLatin1Char('t')))))) {
+        if (e->key() == Qt::Key_Backspace || (isMetaOnly && e->key() == Qt::Key_T) || (isShift && (e->key() == Qt::Key_T || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('T') || e->text().at(0) == QLatin1Char('t')))))) {
             exitTilingPresetsMode();
             return;
         }
@@ -5830,7 +5864,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
-    if (isShift && (e->key() == Qt::Key_T || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('T') || e->text().at(0) == QLatin1Char('t'))))) {
+    if ((isMetaOnly && e->key() == Qt::Key_T) || (isShift && (e->key() == Qt::Key_T || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('T') || e->text().at(0) == QLatin1Char('t')))))) {
         enterTilingPresetsMode();
         return;
     }
@@ -7513,7 +7547,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
 void ActiveWindowOutlineEffect::slotWindowStartUserMovedResized(EffectWindow *w)
 {
     if (m_tilingActive && w && w->isUserMove()) {
-        deactivateTiling();
+        deactivateTiling(w);
     }
 }
 
@@ -7563,10 +7597,6 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
         return;
     }
 
-    m_tilingActive = true;
-    m_activeTilingPreset = preset;
-    m_activeTilingSlots.clear();
-
     QRectF workArea;
     if (effects) {
         workArea = effects->clientArea(MaximizeArea, effects->activeScreen(), effects->currentDesktop());
@@ -7584,33 +7614,103 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
         return;
     }
 
-    // Select N most recent windows from m_windowHistory
+    // 1. Select windows ONLY from the current virtual desktop (Fixes Item 4)
     QList<EffectWindow *> targetWindows;
-    if (m_activeWindow && isEligibleOutlineWindow(m_activeWindow) && !m_activeWindow->isDeleted() && !m_stashedWindows.contains(m_activeWindow)) {
+    VirtualDesktop *currentDesktop = effects ? effects->currentDesktop() : nullptr;
+
+    auto isEligibleOnCurrentDesktop = [this, currentDesktop](EffectWindow *win) -> bool {
+        if (!win || win->isDeleted() || !isEligibleOutlineWindow(win)) {
+            return false;
+        }
+        if (m_stashedWindows.contains(win)) {
+            return false;
+        }
+        if (win->isSkipSwitcher() || !win->acceptsFocus()) {
+            return false;
+        }
+        if (currentDesktop && !win->isOnDesktop(currentDesktop)) {
+            return false;
+        }
+        return true;
+    };
+
+    // 1a. First priority: active window, if on current desktop
+    if (m_activeWindow && isEligibleOnCurrentDesktop(m_activeWindow)) {
         targetWindows.append(m_activeWindow);
     }
 
+    // 1b. Second priority: windows from m_windowHistory that are ON THE CURRENT DESKTOP
     for (EffectWindow *w : m_windowHistory) {
         if (targetWindows.size() >= slotCount) {
             break;
         }
-        if (!w || w->isDeleted() || targetWindows.contains(w) || !isEligibleOutlineWindow(w) || m_stashedWindows.contains(w)) {
-            continue;
-        }
-        targetWindows.append(w);
-    }
-
-    if (targetWindows.size() < slotCount && effects) {
-        for (EffectWindow *w : effects->stackingOrder()) {
-            if (targetWindows.size() >= slotCount) {
-                break;
-            }
-            if (!w || w->isDeleted() || targetWindows.contains(w) || !isEligibleOutlineWindow(w) || m_stashedWindows.contains(w)) {
-                continue;
-            }
+        if (isEligibleOnCurrentDesktop(w) && !targetWindows.contains(w)) {
             targetWindows.append(w);
         }
     }
+
+    // 1c. Third priority: remaining windows on the CURRENT DESKTOP from stackingOrder (top-to-bottom)
+    if (targetWindows.size() < slotCount && effects) {
+        const auto stacking = effects->stackingOrder();
+        for (auto it = stacking.rbegin(); it != stacking.rend(); ++it) {
+            if (targetWindows.size() >= slotCount) {
+                break;
+            }
+            EffectWindow *w = *it;
+            if (isEligibleOnCurrentDesktop(w) && !targetWindows.contains(w)) {
+                targetWindows.append(w);
+            }
+        }
+    }
+
+    // 2. Save original geometries before tiling (Fixes Item 2)
+    for (EffectWindow *w : targetWindows) {
+        if (w && !m_preTilingGeometries.contains(w)) {
+            m_preTilingGeometries.insert(w, w->frameGeometry());
+        }
+    }
+
+    // 3. Overwrite layout in KDE's built-in Custom Tiling (Fixes Item 3)
+    LogicalOutput *activeOutput = effects ? effects->activeScreen() : nullptr;
+    TileManager *tileMgr = (workspace() && activeOutput) ? workspace()->tileManager(activeOutput) : nullptr;
+    RootTile *rootTile = (tileMgr && currentDesktop) ? tileMgr->rootTile(currentDesktop) : nullptr;
+
+    if (activeOutput && currentDesktop && effects && effects->config()) {
+        const QString outUuid = activeOutput->uuid();
+        const QString deskId = currentDesktop->id();
+        const QByteArray jsonBytes = QJsonDocument(preset.toKdeJson()).toJson(QJsonDocument::Compact);
+
+        KConfigGroup cg = effects->config()->group(QStringLiteral("Tiling"));
+        // Write [Tiling][deskId][outUuid]
+        KConfigGroup deskGroup(&cg, deskId);
+        KConfigGroup outTileGroup(&deskGroup, outUuid);
+        outTileGroup.writeEntry("tiles", jsonBytes);
+        outTileGroup.writeEntry("padding", m_tilingGaps);
+
+        // Also write [Tiling][outUuid][deskId]
+        KConfigGroup outGroup(&cg, outUuid);
+        KConfigGroup deskTileGroup(&outGroup, deskId);
+        deskTileGroup.writeEntry("tiles", jsonBytes);
+        deskTileGroup.writeEntry("padding", m_tilingGaps);
+
+        cg.sync();
+    }
+
+    // Reload settings into live KDE TileManager
+    QList<Tile *> leafTiles;
+    if (tileMgr && rootTile) {
+        tileMgr->readSettings(rootTile);
+        for (Tile *t : rootTile->descendants()) {
+            if (!t->isLayout()) {
+                leafTiles.append(t);
+            }
+        }
+    }
+
+    // 4. Place windows into active tiling slots and KDE leaf tiles
+    m_tilingActive = true;
+    m_activeTilingPreset = preset;
+    m_activeTilingSlots.clear();
 
     for (int i = 0; i < slotCount; ++i) {
         ActiveTilingSlot slot;
@@ -7618,12 +7718,17 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
         if (i < targetWindows.size()) {
             EffectWindow *w = targetWindows[i];
             slot.window = w;
+            slot.originalGeometry = m_preTilingGeometries.value(w, w->frameGeometry());
+
             if (w->isMinimized()) {
                 w->setMinimized(false);
             }
             if (w->window()) {
                 if (w->window()->maximizeMode() != MaximizeRestore) {
                     w->window()->setMaximize(false, false);
+                }
+                if (i < leafTiles.size()) {
+                    leafTiles[i]->manage(w->window());
                 }
                 w->window()->moveResize(slot.geometry);
             }
@@ -7645,11 +7750,33 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
     }
 }
 
-void ActiveWindowOutlineEffect::deactivateTiling()
+void ActiveWindowOutlineEffect::deactivateTiling(EffectWindow *skipRestoreWindow)
 {
     if (!m_tilingActive) {
         return;
     }
+
+    // Restore windows back to their sizes and positions from before tiling (Fixes Item 2)
+    for (auto it = m_preTilingGeometries.constBegin(); it != m_preTilingGeometries.constEnd(); ++it) {
+        EffectWindow *w = it.key().data();
+        if (!w || w->isDeleted() || w == skipRestoreWindow) {
+            continue;
+        }
+
+        const QRectF origGeo = it.value();
+        if (w->window()) {
+            if (Tile *tile = w->window()->tile()) {
+                tile->unmanage(w->window());
+            }
+            w->window()->requestTile(nullptr);
+
+            if (origGeo.isValid() && !origGeo.isEmpty()) {
+                w->window()->moveResize(origGeo);
+            }
+        }
+    }
+
+    m_preTilingGeometries.clear();
     m_tilingActive = false;
     m_activeTilingPreset = LeapKTiling::TilingPreset();
     m_activeTilingSlots.clear();
@@ -7707,6 +7834,21 @@ void ActiveWindowOutlineEffect::performTilingSwap(EffectWindow *target)
         return;
     }
 
+    // 1. If target is ALREADY participating in tiling:
+    // Simply activate / jump to that window (DO NOT SWAP)! (Fixes Item 5)
+    if (isWindowInTileSlot(target)) {
+        if (target->isMinimized()) {
+            target->setMinimized(false);
+        }
+        if (effects) {
+            effects->activateWindow(target);
+        }
+        warpCursorToWindow(target);
+        return;
+    }
+
+    // 2. Target is OUTSIDE of tiling (background / minimized / stash):
+    // SWAP it into the currently active tile slot!
     int activeSlotIdx = findTileSlotIndexForWindow(m_activeWindow);
     if (activeSlotIdx < 0 || activeSlotIdx >= m_activeTilingSlots.size()) {
         activeSlotIdx = 0;
@@ -7718,59 +7860,61 @@ void ActiveWindowOutlineEffect::performTilingSwap(EffectWindow *target)
         }
     }
 
-    const int targetSlotIdx = findTileSlotIndexForWindow(target);
+    EffectWindow *previousWin = m_activeTilingSlots[activeSlotIdx].window.data();
+    m_activeTilingSlots[activeSlotIdx].window = target;
 
-    if (targetSlotIdx >= 0) {
-        if (targetSlotIdx == activeSlotIdx) {
-            if (target->isMinimized()) {
-                target->setMinimized(false);
-            }
-            if (target->window()) {
-                if (target->window()->maximizeMode() != MaximizeRestore) {
-                    target->window()->setMaximize(false, false);
+    // Save target's original geometry before tiling if not already saved
+    if (!m_preTilingGeometries.contains(target)) {
+        m_preTilingGeometries.insert(target, target->frameGeometry());
+    }
+
+    // Unmanage previousWin from tile and restore its original geometry
+    if (previousWin && !previousWin->isDeleted() && previousWin->window()) {
+        if (Tile *tile = previousWin->window()->tile()) {
+            tile->unmanage(previousWin->window());
+        }
+        previousWin->window()->requestTile(nullptr);
+        const QRectF prevOrig = m_preTilingGeometries.value(previousWin);
+        if (prevOrig.isValid() && !prevOrig.isEmpty()) {
+            previousWin->window()->moveResize(prevOrig);
+        }
+        m_preTilingGeometries.remove(previousWin);
+    }
+
+    // Place target into active slot
+    const QRectF slotGeo = m_activeTilingSlots[activeSlotIdx].geometry;
+    if (target->isMinimized()) {
+        target->setMinimized(false);
+    }
+    if (target->window()) {
+        if (target->window()->maximizeMode() != MaximizeRestore) {
+            target->window()->setMaximize(false, false);
+        }
+
+        // Connect to KDE tile if available
+        LogicalOutput *activeOutput = effects ? effects->activeScreen() : nullptr;
+        VirtualDesktop *currentDesktop = effects ? effects->currentDesktop() : nullptr;
+        TileManager *tileMgr = (workspace() && activeOutput) ? workspace()->tileManager(activeOutput) : nullptr;
+        RootTile *rootTile = (tileMgr && currentDesktop) ? tileMgr->rootTile(currentDesktop) : nullptr;
+        if (rootTile) {
+            QList<Tile *> leafTiles;
+            for (Tile *t : rootTile->descendants()) {
+                if (!t->isLayout()) {
+                    leafTiles.append(t);
                 }
-                target->window()->moveResize(m_activeTilingSlots[activeSlotIdx].geometry);
             }
-        } else {
-            EffectWindow *activeWin = m_activeTilingSlots[activeSlotIdx].window.data();
-
-            m_activeTilingSlots[activeSlotIdx].window = target;
-            m_activeTilingSlots[targetSlotIdx].window = activeWin;
-
-            if (target->isMinimized()) {
-                target->setMinimized(false);
-            }
-            if (target->window()) {
-                if (target->window()->maximizeMode() != MaximizeRestore) {
-                    target->window()->setMaximize(false, false);
-                }
-                target->window()->moveResize(m_activeTilingSlots[activeSlotIdx].geometry);
-            }
-
-            if (activeWin && !activeWin->isDeleted() && activeWin->window()) {
-                if (activeWin->window()->maximizeMode() != MaximizeRestore) {
-                    activeWin->window()->setMaximize(false, false);
-                }
-                activeWin->window()->moveResize(m_activeTilingSlots[targetSlotIdx].geometry);
+            if (activeSlotIdx < leafTiles.size()) {
+                leafTiles[activeSlotIdx]->manage(target->window());
             }
         }
-    } else {
-        m_activeTilingSlots[activeSlotIdx].window = target;
 
-        if (target->isMinimized()) {
-            target->setMinimized(false);
-        }
-        if (target->window()) {
-            if (target->window()->maximizeMode() != MaximizeRestore) {
-                target->window()->setMaximize(false, false);
-            }
-            target->window()->moveResize(m_activeTilingSlots[activeSlotIdx].geometry);
-        }
+        target->window()->moveResize(slotGeo);
     }
 
     if (effects) {
         effects->activateWindow(target);
     }
+    warpCursorToWindow(target);
 }
 
 void ActiveWindowOutlineEffect::renderTilingPresetPills(const RenderTarget &renderTarget,

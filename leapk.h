@@ -195,6 +195,7 @@ private Q_SLOTS:
     void slotTriggerJumpMode();
     void slotTriggerAudioFilterMode();
     void slotTriggerSearchMode();
+    void slotTriggerTilingPresetsMode();
     void slotJumpToRecentWindow();
     void slotJumpToRecentWindow(int keyToRelease);
     void slotPrevRecentWindow();
@@ -313,7 +314,7 @@ private:
     void enterTilingPresetsMode();
     void exitTilingPresetsMode();
     void activateTilingPreset(const LeapKTiling::TilingPreset &preset);
-    void deactivateTiling();
+    void deactivateTiling(EffectWindow *skipRestoreWindow = nullptr);
     bool isWindowInTileSlot(EffectWindow *w) const;
     int findTileSlotIndexForWindow(EffectWindow *w) const;
     void performTilingSwap(EffectWindow *target);
@@ -552,8 +553,10 @@ private:
     struct ActiveTilingSlot {
         QRectF geometry;
         QPointer<EffectWindow> window;
+        QRectF originalGeometry;
     };
     QList<ActiveTilingSlot> m_activeTilingSlots;
+    QMap<QPointer<EffectWindow>, QRectF> m_preTilingGeometries;
     bool m_tilingPresetsModeActive = false;
     QList<LeapKTiling::TilingPreset> m_tilingPresets;
     int m_tilingGaps = 6;

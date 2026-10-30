@@ -4,6 +4,25 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta15] - 2026-10-30
+
+### Added
+- **KDE 6 Built-in Custom Quick Tile Synchronization**:
+  - Overwrites and keeps in sync the native KDE Custom Tiling layout in `kwinrc` (`[Tiling][deskId][outUuid]` and `[Tiling][outUuid][deskId]`) and live `TileManager` / `RootTile` hierarchy.
+  - Tiles windows directly into KWin's native `Tile` nodes using `Tile::manage(Window*)` / `unmanage(Window*)`, ensuring full compatibility with KDE's built-in Tile Editor (`Meta+T` / Tile Mode).
+- **Exact Pre-Tiling Geometry Restoration**:
+  - Remembers original window positions and dimensions before tiling in `m_preTilingGeometries`.
+  - Fully restores all window geometries when exiting tiling mode (via `X`, float preset, or dragging a window titlebar).
+  - When swapping in an external window, the replaced occupant's pre-tiling geometry is cleanly restored upon yielding the tile slot.
+- **Strict Current-Desktop Window Gathering**:
+  - Tiling preset window allocation strictly filters to windows belonging to the current virtual desktop (`w->isOnDesktop(currentDesktop)`).
+  - Prioritizes: 1. Active window on current desktop, 2. MRU history on current desktop, 3. Remaining windows on current desktop from `stackingOrder` (top-to-bottom). Never pulls windows across virtual desktops.
+- **Tiling Navigation vs. Smart External Swap**:
+  - Selecting a window that is already in a tile slot directly focuses and warps the cursor to that window without modifying the tile layout.
+  - Selecting a window outside of the tiling grid (minimized, background, stash) performs an atomic swap into the active tile slot.
+- **Shortcut Update to `Meta+T`**:
+  - Presets mode can now be toggled directly using `Meta+T` both globally (via KGlobalAccel) and from within the Jump HUD.
+
 ## [1.6.0-beta14] - 2026-10-30
 
 ### Added

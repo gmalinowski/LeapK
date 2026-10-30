@@ -36,11 +36,14 @@ struct TilingPreset
     QString iconDiagram;   // e.g. "▌▌", "▌▌▌", "▌☰", "⊞", "🗖", "✕"
     QString description;   // e.g. "2 slots • 50/50"
     QList<TileSlot> tileSlots;
+    QJsonObject kdeJson;   // Custom KDE built-in tiling layout JSON representation
 
     bool isFloatAction() const
     {
         return id == QStringLiteral("float") || tileSlots.isEmpty();
     }
+
+    QJsonObject toKdeJson() const;
 
     bool operator==(const TilingPreset &other) const
     {
@@ -191,6 +194,128 @@ inline QList<QRectF> computeSlotGeometries(const TilingPreset &preset, const QRe
     return geometries;
 }
 
+inline QJsonObject toKdeJson(const TilingPreset &preset)
+{
+    if (!preset.kdeJson.isEmpty()) {
+        return preset.kdeJson;
+    }
+
+    QJsonObject root;
+    if (preset.isFloatAction() || preset.tileSlots.isEmpty()) {
+        root[QStringLiteral("layoutDirection")] = QStringLiteral("floating");
+        root[QStringLiteral("tiles")] = QJsonArray();
+        return root;
+    }
+
+    if (preset.id == QStringLiteral("columns-2")) {
+        root[QStringLiteral("layoutDirection")] = QStringLiteral("horizontal");
+        QJsonArray tiles;
+        QJsonObject t1, t2;
+        t1[QStringLiteral("width")] = 0.5;
+        t2[QStringLiteral("width")] = 0.5;
+        tiles.append(t1);
+        tiles.append(t2);
+        root[QStringLiteral("tiles")] = tiles;
+        return root;
+    }
+
+    if (preset.id == QStringLiteral("columns-3")) {
+        root[QStringLiteral("layoutDirection")] = QStringLiteral("horizontal");
+        QJsonArray tiles;
+        QJsonObject t1, t2, t3;
+        t1[QStringLiteral("width")] = 0.25;
+        t2[QStringLiteral("width")] = 0.50;
+        t3[QStringLiteral("width")] = 0.25;
+        tiles.append(t1);
+        tiles.append(t2);
+        tiles.append(t3);
+        root[QStringLiteral("tiles")] = tiles;
+        return root;
+    }
+
+    if (preset.id == QStringLiteral("master-stack")) {
+        root[QStringLiteral("layoutDirection")] = QStringLiteral("horizontal");
+        QJsonArray tiles;
+        QJsonObject master;
+        master[QStringLiteral("width")] = 0.60;
+        tiles.append(master);
+
+        QJsonObject stack;
+        stack[QStringLiteral("layoutDirection")] = QStringLiteral("vertical");
+        stack[QStringLiteral("width")] = 0.40;
+        QJsonArray stackTiles;
+        QJsonObject s1, s2;
+        s1[QStringLiteral("height")] = 0.50;
+        s2[QStringLiteral("height")] = 0.50;
+        stackTiles.append(s1);
+        stackTiles.append(s2);
+        stack[QStringLiteral("tiles")] = stackTiles;
+        tiles.append(stack);
+
+        root[QStringLiteral("tiles")] = tiles;
+        return root;
+    }
+
+    if (preset.id == QStringLiteral("grid-4")) {
+        root[QStringLiteral("layoutDirection")] = QStringLiteral("horizontal");
+        QJsonArray tiles;
+
+        QJsonObject col1;
+        col1[QStringLiteral("layoutDirection")] = QStringLiteral("vertical");
+        col1[QStringLiteral("width")] = 0.50;
+        QJsonArray col1Tiles;
+        QJsonObject c1t1, c1t2;
+        c1t1[QStringLiteral("height")] = 0.50;
+        c1t2[QStringLiteral("height")] = 0.50;
+        col1Tiles.append(c1t1);
+        col1Tiles.append(c1t2);
+        col1[QStringLiteral("tiles")] = col1Tiles;
+        tiles.append(col1);
+
+        QJsonObject col2;
+        col2[QStringLiteral("layoutDirection")] = QStringLiteral("vertical");
+        col2[QStringLiteral("width")] = 0.50;
+        QJsonArray col2Tiles;
+        QJsonObject c2t1, c2t2;
+        c2t1[QStringLiteral("height")] = 0.50;
+        c2t2[QStringLiteral("height")] = 0.50;
+        col2Tiles.append(c2t1);
+        col2Tiles.append(c2t2);
+        col2[QStringLiteral("tiles")] = col2Tiles;
+        tiles.append(col2);
+
+        root[QStringLiteral("tiles")] = tiles;
+        return root;
+    }
+
+    if (preset.id == QStringLiteral("monocle") || preset.tileSlots.size() == 1) {
+        root[QStringLiteral("layoutDirection")] = QStringLiteral("horizontal");
+        QJsonArray tiles;
+        QJsonObject t1;
+        t1[QStringLiteral("width")] = 1.0;
+        tiles.append(t1);
+        root[QStringLiteral("tiles")] = tiles;
+        return root;
+    }
+
+    root[QStringLiteral("layoutDirection")] = QStringLiteral("horizontal");
+    QJsonArray tiles;
+    const int count = preset.tileSlots.size();
+    const double w = count > 0 ? (1.0 / count) : 1.0;
+    for (int i = 0; i < count; ++i) {
+        QJsonObject t;
+        t[QStringLiteral("width")] = preset.tileSlots[i].relativeRect.width() > 0 ? preset.tileSlots[i].relativeRect.width() : w;
+        tiles.append(t);
+    }
+    root[QStringLiteral("tiles")] = tiles;
+    return root;
+}
+
+inline QJsonObject TilingPreset::toKdeJson() const
+{
+    return LeapKTiling::toKdeJson(*this);
+}
+
 inline QString defaultPresetsFilePath()
 {
     const QString base = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
@@ -216,6 +341,9 @@ inline QJsonObject presetToJson(const TilingPreset &preset)
         slotsArr.append(sObj);
     }
     obj[QStringLiteral("slots")] = slotsArr;
+    if (!preset.kdeJson.isEmpty()) {
+        obj[QStringLiteral("kdeJson")] = preset.kdeJson;
+    }
     return obj;
 }
 
@@ -228,6 +356,9 @@ inline TilingPreset jsonToPreset(const QJsonObject &obj)
     p.triggerKey = keyStr.isEmpty() ? QChar() : keyStr.at(0).toUpper();
     p.iconDiagram = obj.value(QStringLiteral("iconDiagram")).toString();
     p.description = obj.value(QStringLiteral("description")).toString();
+    if (obj.contains(QStringLiteral("kdeJson"))) {
+        p.kdeJson = obj.value(QStringLiteral("kdeJson")).toObject();
+    }
 
     const QJsonArray slotsArr = obj.value(QStringLiteral("slots")).toArray();
     for (const auto &val : slotsArr) {

@@ -123,11 +123,69 @@ void testJsonPersistence()
     std::cout << "testJsonPersistence PASSED\n";
 }
 
+void testToKdeJson()
+{
+    using namespace LeapKTiling;
+
+    const auto presets = defaultPresets();
+
+    // 1. Two columns
+    const auto kde2 = presets[0].toKdeJson();
+    assert(kde2.value(QStringLiteral("layoutDirection")).toString() == QStringLiteral("horizontal"));
+    const auto tiles2 = kde2.value(QStringLiteral("tiles")).toArray();
+    assert(tiles2.size() == 2);
+    assert(qAbs(tiles2[0].toObject().value(QStringLiteral("width")).toDouble() - 0.5) < 0.001);
+    assert(qAbs(tiles2[1].toObject().value(QStringLiteral("width")).toDouble() - 0.5) < 0.001);
+
+    // 2. Three columns
+    const auto kde3 = presets[1].toKdeJson();
+    assert(kde3.value(QStringLiteral("layoutDirection")).toString() == QStringLiteral("horizontal"));
+    const auto tiles3 = kde3.value(QStringLiteral("tiles")).toArray();
+    assert(tiles3.size() == 3);
+    assert(qAbs(tiles3[0].toObject().value(QStringLiteral("width")).toDouble() - 0.25) < 0.001);
+    assert(qAbs(tiles3[1].toObject().value(QStringLiteral("width")).toDouble() - 0.50) < 0.001);
+    assert(qAbs(tiles3[2].toObject().value(QStringLiteral("width")).toDouble() - 0.25) < 0.001);
+
+    // 3. Master & Stack
+    const auto kdeMs = presets[2].toKdeJson();
+    assert(kdeMs.value(QStringLiteral("layoutDirection")).toString() == QStringLiteral("horizontal"));
+    const auto tilesMs = kdeMs.value(QStringLiteral("tiles")).toArray();
+    assert(tilesMs.size() == 2);
+    assert(qAbs(tilesMs[0].toObject().value(QStringLiteral("width")).toDouble() - 0.60) < 0.001);
+    const auto stackObj = tilesMs[1].toObject();
+    assert(stackObj.value(QStringLiteral("layoutDirection")).toString() == QStringLiteral("vertical"));
+    assert(qAbs(stackObj.value(QStringLiteral("width")).toDouble() - 0.40) < 0.001);
+    const auto stackTiles = stackObj.value(QStringLiteral("tiles")).toArray();
+    assert(stackTiles.size() == 2);
+    assert(qAbs(stackTiles[0].toObject().value(QStringLiteral("height")).toDouble() - 0.50) < 0.001);
+    assert(qAbs(stackTiles[1].toObject().value(QStringLiteral("height")).toDouble() - 0.50) < 0.001);
+
+    // 4. Grid-4
+    const auto kdeG4 = presets[3].toKdeJson();
+    assert(kdeG4.value(QStringLiteral("layoutDirection")).toString() == QStringLiteral("horizontal"));
+    const auto colTiles = kdeG4.value(QStringLiteral("tiles")).toArray();
+    assert(colTiles.size() == 2);
+    assert(colTiles[0].toObject().value(QStringLiteral("layoutDirection")).toString() == QStringLiteral("vertical"));
+    assert(colTiles[1].toObject().value(QStringLiteral("layoutDirection")).toString() == QStringLiteral("vertical"));
+
+    // 5. Monocle
+    const auto kdeMono = presets[4].toKdeJson();
+    assert(kdeMono.value(QStringLiteral("tiles")).toArray().size() == 1);
+
+    // 6. Float
+    const auto kdeFloat = presets[5].toKdeJson();
+    assert(kdeFloat.value(QStringLiteral("layoutDirection")).toString() == QStringLiteral("floating"));
+    assert(kdeFloat.value(QStringLiteral("tiles")).toArray().isEmpty());
+
+    std::cout << "testToKdeJson PASSED\n";
+}
+
 int main()
 {
     testDefaultPresets();
     testComputeSlotGeometries();
     testJsonPersistence();
+    testToKdeJson();
 
     std::cout << "All LeapKTiling tests passed successfully!\n";
     return 0;

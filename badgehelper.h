@@ -2409,7 +2409,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Select preset (A-G)"), QColor(52, 152, 219)},
             {QStringLiteral("X"), QStringLiteral("Float / Turn off"), QColor(231, 76, 60)},
-            {QStringLiteral("Backspace"), QStringLiteral("Back"), QColor(149, 165, 166)},
+            {QStringLiteral("Meta+T"), QStringLiteral("Back"), QColor(149, 165, 166)},
             {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
         };
     } else if (isSearchMode) {
@@ -2471,7 +2471,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
             {QStringLiteral("Tab"), QStringLiteral("Group"), QColor(155, 89, 182)},
-            {QStringLiteral("Shift+T"), QStringLiteral("Tiling"), QColor(52, 152, 219)},
+            {QStringLiteral("Meta+T"), QStringLiteral("Tiling"), QColor(52, 152, 219)},
             {QStringLiteral("Meta+S"), QStringLiteral("Stash"), QColor(46, 204, 113)},
             {QStringLiteral("Meta+P"), QStringLiteral("Pin active"), QColor(241, 196, 15)},
             {QStringLiteral("Meta+M"), QStringLiteral("Markers"), QColor(155, 89, 182)},
@@ -3160,7 +3160,7 @@ inline QImage renderHudModeHeader(qreal scale,
 
     if (isTilingPresets) {
         const QString leftText = QStringLiteral("▤ TILING PRESETS: Select layout (A–L, X to float) • %1 presets").arg(tilingPresetsCount);
-        const QString rightText = QStringLiteral("Shift+T / Esc : Back");
+        const QString rightText = QStringLiteral("Meta+T / Esc : Back");
 
         QFont titleFont(QStringLiteral("sans-serif"));
         titleFont.setPixelSize((navFontSize > 0) ? qRound(navFontSize * scale) : qMax(10, qRound(13.0 * scale)));
