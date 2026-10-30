@@ -4271,13 +4271,16 @@ void ActiveWindowOutlineEffect::exitAiPromptMode()
         m_aiDismissTimer->stop();
     }
     if (m_aiActiveProcess) {
+        m_aiActiveProcess->disconnect();
         if (m_aiActiveProcess->state() != QProcess::NotRunning) {
             m_aiActiveProcess->kill();
+            m_aiActiveProcess->waitForFinished(50);
         }
         m_aiActiveProcess->deleteLater();
         m_aiActiveProcess = nullptr;
     }
     if (m_aiActiveReply) {
+        m_aiActiveReply->disconnect();
         m_aiActiveReply->abort();
         m_aiActiveReply->deleteLater();
         m_aiActiveReply = nullptr;
@@ -4571,13 +4574,16 @@ void ActiveWindowOutlineEffect::executeAiPrompt(const QString &query)
 void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
 {
     if (m_aiActiveProcess) {
+        m_aiActiveProcess->disconnect();
         if (m_aiActiveProcess->state() != QProcess::NotRunning) {
             m_aiActiveProcess->kill();
+            m_aiActiveProcess->waitForFinished(50);
         }
         m_aiActiveProcess->deleteLater();
         m_aiActiveProcess = nullptr;
     }
     if (m_aiActiveReply) {
+        m_aiActiveReply->disconnect();
         m_aiActiveReply->abort();
         m_aiActiveReply->deleteLater();
         m_aiActiveReply = nullptr;
@@ -4634,12 +4640,22 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
         if (m_aiThinkingTimer) m_aiThinkingTimer->start(80);
 
         m_aiActiveProcess = new QProcess(this);
+        const QFileInfo cliFi(cliPath);
+        m_aiActiveProcess->setWorkingDirectory(cliFi.canonicalPath());
+        QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+        const QString libDir = cliFi.canonicalPath();
+        const QString oldLd = env.value(QStringLiteral("LD_LIBRARY_PATH"));
+        env.insert(QStringLiteral("LD_LIBRARY_PATH"), oldLd.isEmpty() ? libDir : (libDir + QLatin1Char(':') + oldLd));
+        m_aiActiveProcess->setProcessEnvironment(env);
+
         connect(m_aiActiveProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                this, [this](int exitCode, QProcess::ExitStatus exitStatus) {
+                this, [this, query](int exitCode, QProcess::ExitStatus exitStatus) {
             if (m_aiThinkingTimer) m_aiThinkingTimer->stop();
             m_aiPromptIsThinking = false;
 
             if (exitStatus != QProcess::NormalExit || exitCode != 0) {
+                const QString errStr = m_aiActiveProcess ? QString::fromUtf8(m_aiActiveProcess->readAllStandardError()).trimmed() : QString();
+                qWarning() << "LeapK AI: query:" << query << "llama-cli exitCode:" << exitCode << "status:" << exitStatus << "stderr:" << errStr;
                 m_aiPromptStatusText = QStringLiteral("❌ Błąd procesu lokalnego AI (%1)").arg(exitCode);
                 m_hudHeaderTexture.reset();
                 m_hudHeaderCacheKey = -1;
@@ -4647,7 +4663,7 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
                 return;
             }
 
-            const QByteArray out = m_aiActiveProcess->readAllStandardOutput();
+            const QByteArray out = m_aiActiveProcess ? m_aiActiveProcess->readAllStandardOutput() : QByteArray();
             const QString outStr = QString::fromUtf8(out);
 
             const int start = outStr.indexOf(QLatin1Char('{'));
@@ -4682,10 +4698,30 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
              << QStringLiteral("-p") << prompt
              << QStringLiteral("-n") << QStringLiteral("64")
              << QStringLiteral("--temp") << QStringLiteral("0.0")
+             << QStringLiteral("--single-turn")
+             << QStringLiteral("--no-display-prompt")
+             << QStringLiteral("--no-show-timings")
+             << QStringLiteral("--no-warmup")
              << QStringLiteral("--simple-io")
              << QStringLiteral("--log-disable");
 
         m_aiActiveProcess->start(cliPath, args);
+        m_aiActiveProcess->closeWriteChannel();
+
+        // 15-second watchdog timer to avoid infinite hangs
+        QTimer::singleShot(15000, m_aiActiveProcess, [this, proc = m_aiActiveProcess]() {
+            if (proc && proc == m_aiActiveProcess && proc->state() != QProcess::NotRunning) {
+                proc->disconnect();
+                proc->kill();
+                m_aiPromptIsThinking = false;
+                if (m_aiThinkingTimer) m_aiThinkingTimer->stop();
+                m_aiPromptStatusText = QStringLiteral("❌ Przekroczono limit czasu AI (timeout)");
+                m_hudHeaderTexture.reset();
+                m_hudHeaderCacheKey = -1;
+                if (effects) effects->addRepaintFull();
+            }
+        });
+
         m_hudHeaderTexture.reset();
         m_hudHeaderCacheKey = -1;
         if (effects) effects->addRepaintFull();
@@ -5700,8 +5736,9 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_stashModeActive = false;
     m_superJumpActive = false;
     m_tilingPresetsModeActive = false;
-    m_aiPromptModeActive = false;
-    m_aiPromptQuery.clear();
+    if (m_aiPromptModeActive) {
+        exitAiPromptMode();
+    }
     m_hudTilingPresetPillRects.clear();
     m_subLeapBaseKey = QChar();
     m_subLeapWindows.clear();
@@ -5803,8 +5840,9 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
     m_stashModeActive = false;
     m_superJumpActive = false;
     m_tilingPresetsModeActive = false;
-    m_aiPromptModeActive = false;
-    m_aiPromptQuery.clear();
+    if (m_aiPromptModeActive) {
+        exitAiPromptMode();
+    }
     m_hudTilingPresetPillRects.clear();
     m_audioFilterModeActive = false;
     m_searchModeActive = false;
@@ -5852,8 +5890,9 @@ void ActiveWindowOutlineEffect::exitSubLeapMode()
     m_stashModeActive = false;
     m_superJumpActive = false;
     m_tilingPresetsModeActive = false;
-    m_aiPromptModeActive = false;
-    m_aiPromptQuery.clear();
+    if (m_aiPromptModeActive) {
+        exitAiPromptMode();
+    }
     m_hudTilingPresetPillRects.clear();
     m_subLeapBaseKey = QChar();
     m_subLeapWindows.clear();

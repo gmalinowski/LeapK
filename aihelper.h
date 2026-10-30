@@ -104,10 +104,18 @@ inline QString defaultLlamaCliPath()
     const QString base = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
     const QString localLeapk = base + QStringLiteral("/leapk/bin/llama-cli");
     if (QFileInfo::exists(localLeapk)) {
+        const QFileInfo fi(localLeapk);
+        if (fi.isSymLink()) {
+            return fi.canonicalFilePath();
+        }
         return localLeapk;
     }
     const QString inPath = QStandardPaths::findExecutable(QStringLiteral("llama-cli"));
     if (!inPath.isEmpty()) {
+        const QFileInfo fi(inPath);
+        if (fi.isSymLink()) {
+            return fi.canonicalFilePath();
+        }
         return inPath;
     }
     return localLeapk;

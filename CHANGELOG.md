@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta19] - 2026-10-30
+
+### Fixed
+- **Local AI Process Hanging & Exit Error Fix (`leapk.cpp`, `aihelper.h`)**:
+  - Resolved `❌ Błąd procesu lokalnego AI` caused by newer `llama-cli` defaulting to interactive conversation mode and waiting indefinitely on stdin.
+  - Added `--single-turn`, `--no-display-prompt`, `--no-show-timings`, and `--no-warmup` flags to execute prompts non-interactively in batch mode and exit cleanly with code 0 in ~2 seconds.
+  - Explicitly closed the process write channel (`closeWriteChannel()`) after start.
+  - Configured working directory and dynamic `LD_LIBRARY_PATH` to the canonical binary folder to guarantee that all runtime shared libraries (`libllama-cli-impl.so`, `libggml-base.so`) are always found.
+  - Disconnected process signals before termination (`kill()`) to prevent false-positive error triggers when prompts are cancelled or re-submitted.
+  - Added a 15-second watchdog timer to automatically abort and notify the user if an inference process ever hangs.
+
 ## [1.6.0-beta18] - 2026-10-30
 
 ### Added
