@@ -2748,7 +2748,9 @@ inline QImage renderHudModeHeader(qreal scale,
                                   int tilingPresetsCount = 0,
                                   bool isAiPrompt = false,
                                   const QString &aiPromptQuery = QString(),
-                                  const QString &aiStatusText = QString())
+                                  const QString &aiStatusText = QString(),
+                                  bool isAiThinking = false,
+                                  int thinkingFrame = 0)
 {
     if (outCloseButtonLocalRect) {
         *outCloseButtonLocalRect = QRectF();
@@ -2758,7 +2760,15 @@ inline QImage renderHudModeHeader(qreal scale,
         : qBound(32, qRound(hudSize * 0.88), 64);
 
     if (isAiPrompt) {
-        const QString placeholder = QStringLiteral("Ask LeapK AI (e.g. 'all terminals tiling', 'stash background')...");
+        static const QStringList spinnerChars = {
+            QStringLiteral("⠋"), QStringLiteral("⠙"), QStringLiteral("⠹"),
+            QStringLiteral("⠸"), QStringLiteral("⠼"), QStringLiteral("⠴"),
+            QStringLiteral("⠦"), QStringLiteral("⠧"), QStringLiteral("⠇"),
+            QStringLiteral("⠏")
+        };
+        const QString spinner = spinnerChars.at((thinkingFrame >= 0 ? thinkingFrame : 0) % spinnerChars.size());
+
+        const QString placeholder = QStringLiteral("Ask LeapK AI (e.g. 'firefox', 'all terminals tiling', 'stash background')...");
         const QString qText = aiPromptQuery.isEmpty() ? placeholder : aiPromptQuery;
 
         QFont queryFont(QStringLiteral("sans-serif"));
@@ -2766,12 +2776,15 @@ inline QImage renderHudModeHeader(qreal scale,
         queryFont.setBold(true);
         QFontMetrics fmQuery(queryFont);
 
-        const QString leftIcon = QStringLiteral("✨");
+        const QString leftIcon = isAiThinking ? spinner : QStringLiteral("✨");
         const int iconW = fmQuery.horizontalAdvance(leftIcon);
         const int minQueryW = qRound(260 * scale);
         const int queryW = qMax(minQueryW, fmQuery.horizontalAdvance(qText) + qRound(24 * scale));
 
-        const QString statusText = aiStatusText.isEmpty() ? QStringLiteral("↵ Enter: Run • Esc: Back") : aiStatusText;
+        QString statusText = aiStatusText;
+        if (statusText.isEmpty()) {
+            statusText = isAiThinking ? QStringLiteral("AI myśli...") : QStringLiteral("↵ Enter: Run • Esc: Back");
+        }
         QFont statusFont(QStringLiteral("sans-serif"));
         statusFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.5) * scale)) : qMax(9, qRound(11.0 * scale)));
         QFontMetrics fmStatus(statusFont);
@@ -2795,16 +2808,30 @@ inline QImage renderHudModeHeader(qreal scale,
         const qreal radius = rect.height() / 2.0;
 
         const QColor aiPurple(155, 89, 182);
-        p.setPen(QPen(aiPurple, bw));
+        QColor borderColor = aiPurple;
+        if (isAiThinking) {
+            const int hue = (270 + (thinkingFrame * 15)) % 360;
+            borderColor = QColor::fromHsv(hue, 180, 240);
+        } else if (statusText.startsWith(QLatin1String("✔")) || statusText.startsWith(QStringLiteral("✔"))) {
+            borderColor = QColor(46, 204, 113);
+        } else if (statusText.startsWith(QLatin1String("❌")) || statusText.startsWith(QStringLiteral("❌"))) {
+            borderColor = QColor(231, 76, 60);
+        }
+
+        p.setPen(QPen(borderColor, bw));
         p.setBrush(QColor(22, 18, 32, 245));
         p.drawRoundedRect(rect, radius, radius);
 
         qreal currentX = padX;
         const qreal baselineY = (h - (fmQuery.ascent() - fmQuery.descent())) / 2.0 + fmQuery.ascent();
 
-        // 1. Sparkle Icon
+        // 1. Icon (pulsing/spinning if thinking, gold sparkle if idle)
         p.setFont(queryFont);
-        p.setPen(QColor(241, 196, 15));
+        if (isAiThinking) {
+            p.setPen(borderColor);
+        } else {
+            p.setPen(QColor(241, 196, 15));
+        }
         p.drawText(QPointF(currentX, baselineY), leftIcon);
         currentX += iconW + qRound(10 * scale);
 
@@ -2816,16 +2843,26 @@ inline QImage renderHudModeHeader(qreal scale,
             p.setPen(QColor(255, 255, 255));
             p.drawText(QPointF(currentX, baselineY), aiPromptQuery);
             const int textW = fmQuery.horizontalAdvance(aiPromptQuery);
-            p.setPen(QPen(aiPurple, 2.0));
-            p.drawLine(QPointF(currentX + textW + 2, baselineY - fmQuery.ascent() + 2),
-                       QPointF(currentX + textW + 2, baselineY + fmQuery.descent() - 2));
+            if (!isAiThinking) {
+                p.setPen(QPen(aiPurple, 2.0));
+                p.drawLine(QPointF(currentX + textW + 2, baselineY - fmQuery.ascent() + 2),
+                           QPointF(currentX + textW + 2, baselineY + fmQuery.descent() - 2));
+            }
         }
         currentX += queryW + qRound(16 * scale);
 
-        // 3. Status
+        // 3. Status Pill
         const qreal statusBaselineY = (h - (fmStatus.ascent() - fmStatus.descent())) / 2.0 + fmStatus.ascent();
         p.setFont(statusFont);
-        p.setPen(QColor(180, 170, 200));
+        if (isAiThinking) {
+            p.setPen(borderColor);
+        } else if (statusText.startsWith(QLatin1String("✔"))) {
+            p.setPen(QColor(46, 204, 113));
+        } else if (statusText.startsWith(QLatin1String("❌"))) {
+            p.setPen(QColor(231, 76, 60));
+        } else {
+            p.setPen(QColor(180, 170, 200));
+        }
         p.drawText(QPointF(currentX, statusBaselineY), statusText);
 
         return img;

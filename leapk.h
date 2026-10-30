@@ -45,6 +45,9 @@
 #include "aihelper.h"
 
 class QFileSystemWatcher;
+class QNetworkAccessManager;
+class QNetworkReply;
+class QProcess;
 
 namespace KWin
 {
@@ -323,6 +326,8 @@ private:
     void enterAiPromptMode();
     void exitAiPromptMode();
     void executeAiPrompt(const QString &query);
+    void launchAiProcess(const QString &query);
+    void handleAiActionJson(const QJsonObject &rootObj);
     void renderTilingPresetPills(const RenderTarget &renderTarget,
                                 const RenderViewport &viewport,
                                 const QList<LeapKTiling::TilingPreset> &presets);
@@ -573,6 +578,12 @@ private:
     QString m_aiPromptQuery;
     QString m_aiPromptStatusText;
     bool m_aiPromptIsThinking = false;
+    int m_aiThinkingFrame = 0;
+    QTimer *m_aiThinkingTimer = nullptr;
+    QTimer *m_aiDismissTimer = nullptr;
+    QNetworkAccessManager *m_aiNetManager = nullptr;
+    QPointer<QNetworkReply> m_aiActiveReply;
+    QPointer<QProcess> m_aiActiveProcess;
 
     // Persistent Marks (saved across desktop sessions)
     QList<LeapKMarks::PersistentMarkRule> m_persistentMarks;

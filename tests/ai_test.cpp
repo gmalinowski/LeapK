@@ -129,6 +129,17 @@ void testModelDetection()
     std::cout << "testModelDetection passed!" << std::endl;
 }
 
+void testLlamaCliDetection()
+{
+    using namespace LeapKAi;
+
+    const QString cliPath = defaultLlamaCliPath();
+    assert(!cliPath.isEmpty());
+    assert(cliPath.contains(QStringLiteral("llama-cli")));
+
+    std::cout << "testLlamaCliDetection passed!" << std::endl;
+}
+
 int main(int argc, char **argv)
 {
     Q_UNUSED(argc);
@@ -138,6 +149,7 @@ int main(int argc, char **argv)
     testProviderPresets();
     testModelPathsAndFormatting();
     testModelDetection();
+    testLlamaCliDetection();
 
     std::cout << "All AI tests passed successfully!" << std::endl;
     return 0;

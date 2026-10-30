@@ -67,6 +67,10 @@
 #include <QDBusMessage>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
+#include <QNetworkAccessManager>
+#include <QNetworkRequest>
+#include <QNetworkReply>
 #include "presethelper.h"
 #include <cmath>
 #include <utility>
@@ -511,6 +515,31 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
         }
     });
 
+    m_aiThinkingTimer = new QTimer(this);
+    connect(m_aiThinkingTimer, &QTimer::timeout, this, [this]() {
+        if (m_aiPromptModeActive && m_aiPromptIsThinking) {
+            m_aiThinkingFrame++;
+            m_hudHeaderTexture.reset();
+            m_hudHeaderCacheKey = -1;
+            if (effects) {
+                effects->addRepaintFull();
+            }
+        } else {
+            m_aiThinkingTimer->stop();
+        }
+    });
+
+    m_aiDismissTimer = new QTimer(this);
+    m_aiDismissTimer->setSingleShot(true);
+    connect(m_aiDismissTimer, &QTimer::timeout, this, [this]() {
+        if (m_jumpMode && m_aiPromptModeActive && !m_aiPromptIsThinking) {
+            exitAiPromptMode();
+            cancelJumpMode();
+        }
+    });
+
+    m_aiNetManager = new QNetworkAccessManager(this);
+
     reconfigure(ReconfigureAll);
 
     // Some third-party effect KCMs are not reliably reconfigured by KWin's
@@ -734,6 +763,21 @@ ActiveWindowOutlineEffect::~ActiveWindowOutlineEffect()
     }
     m_workspaceMinimizedWindows.clear();
     m_stashedWindows.clear();
+    if (m_aiThinkingTimer) {
+        m_aiThinkingTimer->stop();
+    }
+    if (m_aiDismissTimer) {
+        m_aiDismissTimer->stop();
+    }
+    if (m_aiActiveProcess) {
+        if (m_aiActiveProcess->state() != QProcess::NotRunning) {
+            m_aiActiveProcess->kill();
+            m_aiActiveProcess->waitForFinished(100);
+        }
+    }
+    if (m_aiActiveReply) {
+        m_aiActiveReply->abort();
+    }
     if (m_menuHideTimer) {
         m_menuHideTimer->stop();
     }
@@ -4220,10 +4264,30 @@ void ActiveWindowOutlineEffect::enterAiPromptMode()
 
 void ActiveWindowOutlineEffect::exitAiPromptMode()
 {
+    if (m_aiThinkingTimer) {
+        m_aiThinkingTimer->stop();
+    }
+    if (m_aiDismissTimer) {
+        m_aiDismissTimer->stop();
+    }
+    if (m_aiActiveProcess) {
+        if (m_aiActiveProcess->state() != QProcess::NotRunning) {
+            m_aiActiveProcess->kill();
+        }
+        m_aiActiveProcess->deleteLater();
+        m_aiActiveProcess = nullptr;
+    }
+    if (m_aiActiveReply) {
+        m_aiActiveReply->abort();
+        m_aiActiveReply->deleteLater();
+        m_aiActiveReply = nullptr;
+    }
+
     m_aiPromptModeActive = false;
+    m_aiPromptIsThinking = false;
+    m_aiThinkingFrame = 0;
     m_aiPromptQuery.clear();
     m_aiPromptStatusText.clear();
-    m_aiPromptIsThinking = false;
     m_hudHeaderTexture.reset();
     m_hudHeaderCacheKey = -1;
     m_hudHintBarTexture.reset();
@@ -4245,6 +4309,10 @@ void ActiveWindowOutlineEffect::executeAiPrompt(const QString &query)
         return;
     }
 
+    if (m_aiPromptIsThinking) {
+        return;
+    }
+
     VirtualDesktop *currentDesktop = effects ? effects->currentDesktop() : nullptr;
     auto allWindows = effects ? effects->stackingOrder() : QList<EffectWindow *>();
 
@@ -4258,42 +4326,129 @@ void ActiveWindowOutlineEffect::executeAiPrompt(const QString &query)
         return true;
     };
 
-    // 1. Tiling commands (e.g. "all terminals tiling", "tile terminals", "kafelkuj terminale")
-    if (q.contains(QStringLiteral("tiling")) || q.contains(QStringLiteral("tile")) || q.contains(QStringLiteral("kafelk"))) {
-        QList<EffectWindow *> targetWindows;
-        const bool isTerminal = q.contains(QStringLiteral("terminal")) || q.contains(QStringLiteral("konsole")) || q.contains(QStringLiteral("kitty")) || q.contains(QStringLiteral("alacritty")) || q.contains(QStringLiteral("foot"));
-        const bool isBrowser = q.contains(QStringLiteral("browser")) || q.contains(QStringLiteral("przeglądark")) || q.contains(QStringLiteral("firefox")) || q.contains(QStringLiteral("chrome")) || q.contains(QStringLiteral("brave")) || q.contains(QStringLiteral("zen"));
-        const bool isEditor = q.contains(QStringLiteral("code")) || q.contains(QStringLiteral("edytor")) || q.contains(QStringLiteral("kate")) || q.contains(QStringLiteral("clion")) || q.contains(QStringLiteral("neovim")) || q.contains(QStringLiteral("nvim"));
+    QList<EffectWindow *> eligibleWindows;
+    for (EffectWindow *w : allWindows) {
+        if (isEligible(w)) {
+            eligibleWindows.append(w);
+        }
+    }
 
-        for (EffectWindow *w : allWindows) {
-            if (!isEligible(w)) continue;
-            const QString cap = w->caption().toLower();
-            const QString cls = w->windowClass().toLower();
+    struct CategoryDef {
+        QString name;
+        QStringList keywords;
+        QStringList classMatches;
+    };
+    static const QList<CategoryDef> categories = {
+        {
+            QStringLiteral("terminal"),
+            {QStringLiteral("terminal"), QStringLiteral("terminals"), QStringLiteral("terminale"), QStringLiteral("konsola"), QStringLiteral("konsole"), QStringLiteral("shell"), QStringLiteral("bash"), QStringLiteral("zsh")},
+            {QStringLiteral("konsole"), QStringLiteral("kitty"), QStringLiteral("alacritty"), QStringLiteral("foot"), QStringLiteral("wezterm"), QStringLiteral("ghostty"), QStringLiteral("terminator"), QStringLiteral("tilix"), QStringLiteral("xterm"), QStringLiteral("urxvt"), QStringLiteral("gnome-terminal")}
+        },
+        {
+            QStringLiteral("browser"),
+            {QStringLiteral("browser"), QStringLiteral("browsers"), QStringLiteral("przeglądarka"), QStringLiteral("przegladarka"), QStringLiteral("przeglądarki"), QStringLiteral("przegladarki"), QStringLiteral("web"), QStringLiteral("internet")},
+            {QStringLiteral("firefox"), QStringLiteral("chrome"), QStringLiteral("chromium"), QStringLiteral("brave"), QStringLiteral("zen"), QStringLiteral("opera"), QStringLiteral("edge"), QStringLiteral("vivaldi"), QStringLiteral("waterfox"), QStringLiteral("librewolf")}
+        },
+        {
+            QStringLiteral("code"),
+            {QStringLiteral("code"), QStringLiteral("editor"), QStringLiteral("editors"), QStringLiteral("edytor"), QStringLiteral("edytory"), QStringLiteral("ide"), QStringLiteral("programowanie")},
+            {QStringLiteral("code"), QStringLiteral("vscodium"), QStringLiteral("kate"), QStringLiteral("kwrite"), QStringLiteral("clion"), QStringLiteral("idea"), QStringLiteral("pycharm"), QStringLiteral("webstorm"), QStringLiteral("neovim"), QStringLiteral("nvim"), QStringLiteral("sublime_text")}
+        },
+        {
+            QStringLiteral("files"),
+            {QStringLiteral("files"), QStringLiteral("file manager"), QStringLiteral("pliki"), QStringLiteral("katalogi"), QStringLiteral("menedżer plików"), QStringLiteral("menedzer plikow"), QStringLiteral("manager")},
+            {QStringLiteral("dolphin"), QStringLiteral("nautilus"), QStringLiteral("nemo"), QStringLiteral("thunar"), QStringLiteral("krusader")}
+        },
+        {
+            QStringLiteral("chat"),
+            {QStringLiteral("chat"), QStringLiteral("komunikator"), QStringLiteral("wiadomości"), QStringLiteral("wiadomosci"), QStringLiteral("messenger")},
+            {QStringLiteral("discord"), QStringLiteral("telegram"), QStringLiteral("slack"), QStringLiteral("element"), QStringLiteral("signal")}
+        },
+        {
+            QStringLiteral("media"),
+            {QStringLiteral("music"), QStringLiteral("muzyka"), QStringLiteral("media"), QStringLiteral("audio"), QStringLiteral("player"), QStringLiteral("odtwarzacz")},
+            {QStringLiteral("spotify"), QStringLiteral("vlc"), QStringLiteral("mpv"), QStringLiteral("audacious"), QStringLiteral("rhythmbox")}
+        }
+    };
 
-            if (isTerminal) {
-                if (cls.contains(QStringLiteral("terminal")) || cls.contains(QStringLiteral("konsole")) || cls.contains(QStringLiteral("kitty")) ||
-                    cls.contains(QStringLiteral("alacritty")) || cls.contains(QStringLiteral("foot")) || cls.contains(QStringLiteral("wezterm")) ||
-                    cap.contains(QStringLiteral("terminal"))) {
-                    targetWindows.append(w);
+    auto matchesCategory = [&](const QString &term, EffectWindow *w) -> bool {
+        if (!w || w->isDeleted()) return false;
+        const QString cls = w->windowClass().toLower();
+        const QString cap = w->caption().toLower();
+        for (const auto &cat : categories) {
+            bool termMatches = false;
+            for (const auto &kw : cat.keywords) {
+                if (term == kw || term.contains(kw) || kw.contains(term)) {
+                    termMatches = true;
+                    break;
                 }
-            } else if (isBrowser) {
-                if (cls.contains(QStringLiteral("firefox")) || cls.contains(QStringLiteral("chrome")) || cls.contains(QStringLiteral("chromium")) ||
-                    cls.contains(QStringLiteral("brave")) || cls.contains(QStringLiteral("zen")) || cls.contains(QStringLiteral("opera"))) {
-                    targetWindows.append(w);
+            }
+            if (termMatches) {
+                for (const auto &cm : cat.classMatches) {
+                    if (cls.contains(cm) || cap.contains(cm)) {
+                        return true;
+                    }
                 }
-            } else if (isEditor) {
-                if (cls.contains(QStringLiteral("code")) || cls.contains(QStringLiteral("vscodium")) || cls.contains(QStringLiteral("kate")) ||
-                    cls.contains(QStringLiteral("clion")) || cls.contains(QStringLiteral("idea")) || cls.contains(QStringLiteral("nvim"))) {
-                    targetWindows.append(w);
-                }
-            } else {
-                targetWindows.append(w);
             }
         }
+        return false;
+    };
 
-        LeapKTiling::TilingPreset chosenPreset;
+    auto windowMatchesTerm = [&](const QString &term, EffectWindow *w) -> bool {
+        if (!w || w->isDeleted()) return false;
+        if (matchesCategory(term, w)) return true;
+        const QString cls = w->windowClass().toLower();
+        const QString cap = w->caption().toLower();
+        if (cls.contains(term) || term.contains(cls)) return true;
+        if (cap.contains(term)) return true;
+        if (OutlineFuzzy::fuzzyMatchScore(term, cls) > 0 || OutlineFuzzy::fuzzyMatchScore(term, cap) > 0) return true;
+        return false;
+    };
+
+    // 1. Tiling Intent
+    const bool hasTilingKeyword = q.contains(QStringLiteral("tiling")) || q.contains(QStringLiteral("tile")) || q.contains(QStringLiteral("kafelk"))
+        || q.contains(QStringLiteral("układ")) || q.contains(QStringLiteral("uklad")) || q.contains(QStringLiteral("rozmieść"))
+        || q.contains(QStringLiteral("rozmieszcz")) || q.contains(QStringLiteral("ułóż")) || q.contains(QStringLiteral("uloz"))
+        || q.contains(QStringLiteral("split")) || q.contains(QStringLiteral("podziel"));
+
+    if (hasTilingKeyword) {
+        if (q.contains(QStringLiteral("float")) || q.contains(QStringLiteral("turn off")) || q.contains(QStringLiteral("off")) || q.contains(QStringLiteral("wyłącz")) || q.contains(QStringLiteral("wylacz")) || q.contains(QStringLiteral("un-tile"))) {
+            deactivateTiling();
+            m_aiPromptStatusText = QStringLiteral("✔ Wyłączono kafelkowanie (przywrócono okna)");
+            m_hudHeaderTexture.reset();
+            m_hudHeaderCacheKey = -1;
+            if (effects) effects->addRepaintFull();
+            if (m_aiDismissTimer) m_aiDismissTimer->start(600);
+            return;
+        }
+
+        QList<EffectWindow *> targetWindows;
+        for (const auto &cat : categories) {
+            bool matches = false;
+            for (const auto &kw : cat.keywords) {
+                if (q.contains(kw)) { matches = true; break; }
+            }
+            if (matches) {
+                for (EffectWindow *w : eligibleWindows) {
+                    if (matchesCategory(cat.name, w) && !targetWindows.contains(w)) {
+                        targetWindows.append(w);
+                    }
+                }
+                break;
+            }
+        }
+        if (targetWindows.isEmpty()) {
+            for (EffectWindow *w : eligibleWindows) {
+                if (windowMatchesTerm(w->windowClass().toLower(), w) && q.contains(w->windowClass().toLower())) {
+                    targetWindows.append(w);
+                }
+            }
+        }
+        if (targetWindows.isEmpty()) {
+            targetWindows = eligibleWindows;
+        }
+
         const auto presets = m_tilingPresets.isEmpty() ? LeapKTiling::defaultPresets() : m_tilingPresets;
-
         auto findPreset = [&presets](const QString &id) -> LeapKTiling::TilingPreset {
             for (const auto &p : presets) {
                 if (p.id == id) return p;
@@ -4301,20 +4456,16 @@ void ActiveWindowOutlineEffect::executeAiPrompt(const QString &query)
             return presets.isEmpty() ? LeapKTiling::TilingPreset() : presets.first();
         };
 
-        if (q.contains(QStringLiteral("float")) || q.contains(QStringLiteral("turn off")) || q.contains(QStringLiteral("off")) || q.contains(QStringLiteral("wyłącz"))) {
-            deactivateTiling();
-            exitAiPromptMode();
-            cancelJumpMode();
-            return;
-        } else if (q.contains(QStringLiteral("columns 3")) || q.contains(QStringLiteral("3 col")) || q.contains(QStringLiteral("3 kolumn"))) {
+        LeapKTiling::TilingPreset chosenPreset;
+        if (q.contains(QStringLiteral("columns 3")) || q.contains(QStringLiteral("3 col")) || q.contains(QStringLiteral("3 kolumn")) || q.contains(QStringLiteral("trzy")) || q.contains(QStringLiteral(" 3"))) {
             chosenPreset = findPreset(QStringLiteral("columns-3"));
-        } else if (q.contains(QStringLiteral("columns 2")) || q.contains(QStringLiteral("2 col")) || q.contains(QStringLiteral("2 kolumn")) || q.contains(QStringLiteral("half")) || q.contains(QStringLiteral("side by side"))) {
+        } else if (q.contains(QStringLiteral("columns 2")) || q.contains(QStringLiteral("2 col")) || q.contains(QStringLiteral("2 kolumn")) || q.contains(QStringLiteral("half")) || q.contains(QStringLiteral("side by side")) || q.contains(QStringLiteral("pół")) || q.contains(QStringLiteral("pol")) || q.contains(QStringLiteral(" 2"))) {
             chosenPreset = findPreset(QStringLiteral("columns-2"));
         } else if (q.contains(QStringLiteral("grid")) || q.contains(QStringLiteral("quad")) || q.contains(QStringLiteral("4")) || q.contains(QStringLiteral("siatk"))) {
             chosenPreset = findPreset(QStringLiteral("grid-4"));
         } else if (q.contains(QStringLiteral("master")) || q.contains(QStringLiteral("stack"))) {
             chosenPreset = findPreset(QStringLiteral("master-stack"));
-        } else if (q.contains(QStringLiteral("full")) || q.contains(QStringLiteral("monocle")) || q.contains(QStringLiteral("focus"))) {
+        } else if (q.contains(QStringLiteral("full")) || q.contains(QStringLiteral("monocle")) || q.contains(QStringLiteral("maksymal"))) {
             chosenPreset = findPreset(QStringLiteral("monocle"));
         } else {
             if (targetWindows.size() <= 2) {
@@ -4327,14 +4478,21 @@ void ActiveWindowOutlineEffect::executeAiPrompt(const QString &query)
         }
 
         activateTilingPreset(chosenPreset, targetWindows);
-        exitAiPromptMode();
-        cancelJumpMode();
+        m_aiPromptStatusText = QStringLiteral("✔ Kafelkowanie: %1 (%2 okna)").arg(chosenPreset.name.isEmpty() ? chosenPreset.id : chosenPreset.name).arg(targetWindows.size());
+        m_hudHeaderTexture.reset();
+        m_hudHeaderCacheKey = -1;
+        if (effects) effects->addRepaintFull();
+        if (m_aiDismissTimer) m_aiDismissTimer->start(650);
         return;
     }
 
-    // 2. Stash commands
-    if (q.contains(QStringLiteral("stash")) || q.contains(QStringLiteral("schowaj")) || q.contains(QStringLiteral("ukryj"))) {
-        if (q.contains(QStringLiteral("unstash")) || q.contains(QStringLiteral("przywróć")) || q.contains(QStringLiteral("restore"))) {
+    // 2. Stash Intent
+    const bool hasStashKeyword = q.contains(QStringLiteral("stash")) || q.contains(QStringLiteral("schowaj")) || q.contains(QStringLiteral("ukryj"))
+        || q.contains(QStringLiteral("zminimalizuj")) || q.contains(QStringLiteral("tło")) || q.contains(QStringLiteral("tlo"))
+        || q.contains(QStringLiteral("background"));
+
+    if (hasStashKeyword) {
+        if (q.contains(QStringLiteral("unstash")) || q.contains(QStringLiteral("przywróć")) || q.contains(QStringLiteral("przywroc")) || q.contains(QStringLiteral("restore")) || q.contains(QStringLiteral("odkryj"))) {
             for (EffectWindow *w : m_stashedWindows) {
                 if (w && !w->isDeleted() && w->isMinimized()) {
                     w->setMinimized(false);
@@ -4342,43 +4500,378 @@ void ActiveWindowOutlineEffect::executeAiPrompt(const QString &query)
             }
             m_stashedWindows.clear();
             playThemedSound(OutlineSound::SoundEffect::Stash);
+            m_aiPromptStatusText = QStringLiteral("✔ Przywrócono okna ze schowka");
         } else {
-            for (EffectWindow *w : allWindows) {
-                if (isEligible(w) && w != m_activeWindow && !m_stashedWindows.contains(w)) {
+            int stashed = 0;
+            for (EffectWindow *w : eligibleWindows) {
+                if (w != m_activeWindow && !m_stashedWindows.contains(w)) {
                     m_stashedWindows.insert(w);
                     w->setMinimized(true);
+                    stashed++;
                 }
             }
             playThemedSound(OutlineSound::SoundEffect::Stash);
+            m_aiPromptStatusText = QStringLiteral("✔ Ukryto w tle %1 okien").arg(stashed);
         }
-        exitAiPromptMode();
-        cancelJumpMode();
+        m_hudHeaderTexture.reset();
+        m_hudHeaderCacheKey = -1;
+        if (effects) effects->addRepaintFull();
+        if (m_aiDismissTimer) m_aiDismissTimer->start(650);
         return;
     }
 
-    // 3. Focus / Jump command
-    if (q.startsWith(QStringLiteral("focus ")) || q.startsWith(QStringLiteral("jump ")) || q.startsWith(QStringLiteral("skocz ")) || q.startsWith(QStringLiteral("aktywuj "))) {
-        const QString term = q.section(QLatin1Char(' '), 1).trimmed();
-        for (EffectWindow *w : allWindows) {
-            if (!w || w->isDeleted()) continue;
-            const QString cap = w->caption().toLower();
-            const QString cls = w->windowClass().toLower();
-            if (cap.contains(term) || cls.contains(term)) {
-                if (w->isMinimized()) {
-                    w->setMinimized(false);
-                }
-                effects->activateWindow(w);
-                warpCursorToWindow(w);
-                exitAiPromptMode();
-                cancelJumpMode();
-                return;
-            }
+    // 3. Focus / Jump Intent (handles "focus firefox", "show konsole", "firefox", "terminal", "pliki"!)
+    static const QStringList focusVerbs = {
+        QStringLiteral("focus "), QStringLiteral("jump "), QStringLiteral("show "), QStringLiteral("goto "),
+        QStringLiteral("go to "), QStringLiteral("open "), QStringLiteral("switch "), QStringLiteral("switch to "),
+        QStringLiteral("activate "), QStringLiteral("skocz "), QStringLiteral("skocz do "), QStringLiteral("pokaż "),
+        QStringLiteral("pokaz "), QStringLiteral("otwórz "), QStringLiteral("otworz "), QStringLiteral("przełącz "),
+        QStringLiteral("przelacz "), QStringLiteral("aktywuj "), QStringLiteral("znajdź "), QStringLiteral("znajdz ")
+    };
+
+    QString focusTarget;
+    for (const auto &verb : focusVerbs) {
+        if (q.startsWith(verb)) {
+            focusTarget = q.mid(verb.length()).trimmed();
+            break;
+        }
+    }
+    if (focusTarget.isEmpty()) {
+        focusTarget = q;
+    }
+
+    EffectWindow *bestWin = nullptr;
+    for (EffectWindow *w : allWindows) {
+        if (!w || w->isDeleted()) continue;
+        if (windowMatchesTerm(focusTarget, w)) {
+            bestWin = w;
+            break;
         }
     }
 
-    playThemedSound(OutlineSound::SoundEffect::Dismiss);
-    exitAiPromptMode();
-    cancelJumpMode();
+    if (bestWin) {
+        if (bestWin->isMinimized()) {
+            bestWin->setMinimized(false);
+        }
+        effects->activateWindow(bestWin);
+        warpCursorToWindow(bestWin);
+        playThemedSound(OutlineSound::SoundEffect::LandWindow);
+        m_aiPromptStatusText = QStringLiteral("✔ Przełączono: %1").arg(bestWin->caption().left(35));
+        m_hudHeaderTexture.reset();
+        m_hudHeaderCacheKey = -1;
+        if (effects) effects->addRepaintFull();
+        if (m_aiDismissTimer) m_aiDismissTimer->start(600);
+        return;
+    }
+
+    // 4. Fall back to Real AI Process Inference (llama-cli / Remote API)
+    launchAiProcess(query);
+}
+
+void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
+{
+    if (m_aiActiveProcess) {
+        if (m_aiActiveProcess->state() != QProcess::NotRunning) {
+            m_aiActiveProcess->kill();
+        }
+        m_aiActiveProcess->deleteLater();
+        m_aiActiveProcess = nullptr;
+    }
+    if (m_aiActiveReply) {
+        m_aiActiveReply->abort();
+        m_aiActiveReply->deleteLater();
+        m_aiActiveReply = nullptr;
+    }
+
+    VirtualDesktop *currentDesktop = effects ? effects->currentDesktop() : nullptr;
+    auto allWindows = effects ? effects->stackingOrder() : QList<EffectWindow *>();
+
+    QList<EffectWindow *> eligibleWindows;
+    QStringList winDescriptions;
+    int idx = 0;
+    for (EffectWindow *w : allWindows) {
+        if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus()) {
+            continue;
+        }
+        if (currentDesktop && !w->isOnDesktop(currentDesktop)) {
+            continue;
+        }
+        eligibleWindows.append(w);
+        winDescriptions << QStringLiteral("[%1] class=\"%2\", title=\"%3\"").arg(idx++).arg(w->windowClass()).arg(w->caption().left(30));
+    }
+
+    if (m_aiConfig.backend == LeapKAi::AiBackend::LocalLlamaCpp) {
+        const QString modelPath = m_aiConfig.localModelPath.isEmpty() ? LeapKAi::defaultModelPath() : m_aiConfig.localModelPath;
+        if (!LeapKAi::isModelInstalled(modelPath)) {
+            m_aiPromptIsThinking = false;
+            m_aiPromptStatusText = QStringLiteral("❌ Model nie został pobrany. Pobierz w Ustawieniach LeapK (tab AI)");
+            m_hudHeaderTexture.reset();
+            m_hudHeaderCacheKey = -1;
+            if (effects) effects->addRepaintFull();
+            return;
+        }
+
+        const QString cliPath = LeapKAi::defaultLlamaCliPath();
+        if (!QFileInfo::exists(cliPath)) {
+            m_aiPromptIsThinking = false;
+            m_aiPromptStatusText = QStringLiteral("❌ Brak pliku llama-cli w ~/.local/share/leapk/bin/");
+            m_hudHeaderTexture.reset();
+            m_hudHeaderCacheKey = -1;
+            if (effects) effects->addRepaintFull();
+            return;
+        }
+
+        const QString prompt = QStringLiteral(
+            "You are a window manager assistant. Windows on desktop:\n%1\n\n"
+            "Respond ONLY with a single JSON object (no markdown, no extra explanation):\n"
+            "{\"action\": \"focus\"|\"tile\"|\"stash\"|\"unstash\"|\"float\", \"index\": <num>, \"preset\": \"columns-2\"|\"columns-3\"|\"grid-4\", \"reason\": \"<description>\"}\n\n"
+            "User command: %2\nJSON:"
+        ).arg(winDescriptions.join(QLatin1Char('\n')), query);
+
+        m_aiPromptIsThinking = true;
+        m_aiThinkingFrame = 0;
+        m_aiPromptStatusText = QStringLiteral("AI myśli... (Gemma 2B)");
+        if (m_aiThinkingTimer) m_aiThinkingTimer->start(80);
+
+        m_aiActiveProcess = new QProcess(this);
+        connect(m_aiActiveProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+                this, [this](int exitCode, QProcess::ExitStatus exitStatus) {
+            if (m_aiThinkingTimer) m_aiThinkingTimer->stop();
+            m_aiPromptIsThinking = false;
+
+            if (exitStatus != QProcess::NormalExit || exitCode != 0) {
+                m_aiPromptStatusText = QStringLiteral("❌ Błąd procesu lokalnego AI (%1)").arg(exitCode);
+                m_hudHeaderTexture.reset();
+                m_hudHeaderCacheKey = -1;
+                if (effects) effects->addRepaintFull();
+                return;
+            }
+
+            const QByteArray out = m_aiActiveProcess->readAllStandardOutput();
+            const QString outStr = QString::fromUtf8(out);
+
+            const int start = outStr.indexOf(QLatin1Char('{'));
+            const int end = outStr.lastIndexOf(QLatin1Char('}'));
+            if (start != -1 && end > start) {
+                const QByteArray jsonBytes = outStr.mid(start, end - start + 1).toUtf8();
+                const QJsonDocument doc = QJsonDocument::fromJson(jsonBytes);
+                if (doc.isObject()) {
+                    handleAiActionJson(doc.object());
+                    return;
+                }
+            }
+
+            m_aiPromptStatusText = QStringLiteral("❌ Nie udało się zinterpretować odpowiedzi AI");
+            m_hudHeaderTexture.reset();
+            m_hudHeaderCacheKey = -1;
+            if (effects) effects->addRepaintFull();
+        });
+
+        connect(m_aiActiveProcess, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
+            Q_UNUSED(error);
+            if (m_aiThinkingTimer) m_aiThinkingTimer->stop();
+            m_aiPromptIsThinking = false;
+            m_aiPromptStatusText = QStringLiteral("❌ Błąd uruchomienia procesu llama-cli");
+            m_hudHeaderTexture.reset();
+            m_hudHeaderCacheKey = -1;
+            if (effects) effects->addRepaintFull();
+        });
+
+        QStringList args;
+        args << QStringLiteral("-m") << modelPath
+             << QStringLiteral("-p") << prompt
+             << QStringLiteral("-n") << QStringLiteral("64")
+             << QStringLiteral("--temp") << QStringLiteral("0.0")
+             << QStringLiteral("--simple-io")
+             << QStringLiteral("--log-disable");
+
+        m_aiActiveProcess->start(cliPath, args);
+        m_hudHeaderTexture.reset();
+        m_hudHeaderCacheKey = -1;
+        if (effects) effects->addRepaintFull();
+
+    } else {
+        // RemoteOpenAiApi
+        if (m_aiConfig.apiKey.isEmpty() && m_aiConfig.apiProviderPreset != LeapKAi::ApiProviderPreset::LocalServer) {
+            m_aiPromptIsThinking = false;
+            m_aiPromptStatusText = QStringLiteral("❌ Brak klucza API. Skonfiguruj w Ustawieniach LeapK (tab AI)");
+            m_hudHeaderTexture.reset();
+            m_hudHeaderCacheKey = -1;
+            if (effects) effects->addRepaintFull();
+            return;
+        }
+
+        m_aiPromptIsThinking = true;
+        m_aiThinkingFrame = 0;
+        m_aiPromptStatusText = QStringLiteral("AI myśli... (%1)").arg(m_aiConfig.apiModel);
+        if (m_aiThinkingTimer) m_aiThinkingTimer->start(80);
+
+        const QString prompt = QStringLiteral(
+            "You are a window manager assistant. Windows on desktop:\n%1\n\n"
+            "Respond ONLY with a single JSON object (no markdown, no extra explanation):\n"
+            "{\"action\": \"focus\"|\"tile\"|\"stash\"|\"unstash\"|\"float\", \"index\": <num>, \"preset\": \"columns-2\"|\"columns-3\"|\"grid-4\", \"reason\": \"<description>\"}"
+        ).arg(winDescriptions.join(QLatin1Char('\n')));
+
+        QJsonObject rootObj;
+        rootObj[QStringLiteral("model")] = m_aiConfig.apiModel;
+        QJsonArray messages;
+        QJsonObject sysMsg;
+        sysMsg[QStringLiteral("role")] = QStringLiteral("system");
+        sysMsg[QStringLiteral("content")] = prompt;
+        messages.append(sysMsg);
+
+        QJsonObject userMsg;
+        userMsg[QStringLiteral("role")] = QStringLiteral("user");
+        userMsg[QStringLiteral("content")] = query;
+        messages.append(userMsg);
+
+        rootObj[QStringLiteral("messages")] = messages;
+        rootObj[QStringLiteral("temperature")] = 0.0;
+        rootObj[QStringLiteral("max_tokens")] = 64;
+
+        QUrl url(m_aiConfig.apiEndpoint + QStringLiteral("/chat/completions"));
+        QNetworkRequest request{url};
+        request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+        if (!m_aiConfig.apiKey.isEmpty()) {
+            request.setRawHeader("Authorization", QStringLiteral("Bearer %1").arg(m_aiConfig.apiKey).toUtf8());
+        }
+
+        if (!m_aiNetManager) {
+            m_aiNetManager = new QNetworkAccessManager(this);
+        }
+
+        m_aiActiveReply = m_aiNetManager->post(request, QJsonDocument(rootObj).toJson(QJsonDocument::Compact));
+        connect(m_aiActiveReply, &QNetworkReply::finished, this, [this]() {
+            if (!m_aiActiveReply) return;
+            if (m_aiThinkingTimer) m_aiThinkingTimer->stop();
+            m_aiPromptIsThinking = false;
+
+            if (m_aiActiveReply->error() != QNetworkReply::NoError) {
+                m_aiPromptStatusText = QStringLiteral("❌ Błąd API: %1").arg(m_aiActiveReply->errorString().left(35));
+                m_hudHeaderTexture.reset();
+                m_hudHeaderCacheKey = -1;
+                if (effects) effects->addRepaintFull();
+                m_aiActiveReply->deleteLater();
+                m_aiActiveReply = nullptr;
+                return;
+            }
+
+            const QByteArray data = m_aiActiveReply->readAll();
+            m_aiActiveReply->deleteLater();
+            m_aiActiveReply = nullptr;
+
+            const QJsonDocument respDoc = QJsonDocument::fromJson(data);
+            if (respDoc.isObject()) {
+                const QJsonObject respObj = respDoc.object();
+                const QJsonArray choices = respObj.value(QStringLiteral("choices")).toArray();
+                if (!choices.isEmpty()) {
+                    const QString content = choices.first().toObject().value(QStringLiteral("message")).toObject().value(QStringLiteral("content")).toString();
+                    const int start = content.indexOf(QLatin1Char('{'));
+                    const int end = content.lastIndexOf(QLatin1Char('}'));
+                    if (start != -1 && end > start) {
+                        const QJsonDocument actionDoc = QJsonDocument::fromJson(content.mid(start, end - start + 1).toUtf8());
+                        if (actionDoc.isObject()) {
+                            handleAiActionJson(actionDoc.object());
+                            return;
+                        }
+                    }
+                }
+            }
+
+            m_aiPromptStatusText = QStringLiteral("❌ Błąd parsowania odpowiedzi API");
+            m_hudHeaderTexture.reset();
+            m_hudHeaderCacheKey = -1;
+            if (effects) effects->addRepaintFull();
+        });
+
+        m_hudHeaderTexture.reset();
+        m_hudHeaderCacheKey = -1;
+        if (effects) effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::handleAiActionJson(const QJsonObject &rootObj)
+{
+    const QString action = rootObj.value(QStringLiteral("action")).toString().toLower();
+    const QString reason = rootObj.value(QStringLiteral("reason")).toString();
+
+    VirtualDesktop *currentDesktop = effects ? effects->currentDesktop() : nullptr;
+    auto allWindows = effects ? effects->stackingOrder() : QList<EffectWindow *>();
+
+    QList<EffectWindow *> eligibleWindows;
+    for (EffectWindow *w : allWindows) {
+        if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus()) {
+            continue;
+        }
+        if (currentDesktop && !w->isOnDesktop(currentDesktop)) {
+            continue;
+        }
+        eligibleWindows.append(w);
+    }
+
+    if (action == QStringLiteral("focus")) {
+        const int index = rootObj.value(QStringLiteral("index")).toInt(-1);
+        EffectWindow *targetWin = nullptr;
+        if (index >= 0 && index < eligibleWindows.size()) {
+            targetWin = eligibleWindows[index];
+        }
+        if (targetWin) {
+            if (targetWin->isMinimized()) {
+                targetWin->setMinimized(false);
+            }
+            effects->activateWindow(targetWin);
+            warpCursorToWindow(targetWin);
+            playThemedSound(OutlineSound::SoundEffect::LandWindow);
+            m_aiPromptStatusText = QStringLiteral("✔ %1").arg(reason.isEmpty() ? QStringLiteral("Przełączono okno") : reason);
+        } else {
+            m_aiPromptStatusText = QStringLiteral("❌ Nie znaleziono wskazanego okna");
+        }
+    } else if (action == QStringLiteral("tile")) {
+        const QString presetId = rootObj.value(QStringLiteral("preset")).toString(QStringLiteral("columns-2"));
+        const auto presets = m_tilingPresets.isEmpty() ? LeapKTiling::defaultPresets() : m_tilingPresets;
+        LeapKTiling::TilingPreset chosen;
+        for (const auto &p : presets) {
+            if (p.id == presetId) {
+                chosen = p;
+                break;
+            }
+        }
+        if (chosen.id.isEmpty() && !presets.isEmpty()) {
+            chosen = presets.first();
+        }
+        activateTilingPreset(chosen, eligibleWindows);
+        m_aiPromptStatusText = QStringLiteral("✔ %1").arg(reason.isEmpty() ? QStringLiteral("Zastosowano kafelkowanie") : reason);
+    } else if (action == QStringLiteral("float")) {
+        deactivateTiling();
+        m_aiPromptStatusText = QStringLiteral("✔ %1").arg(reason.isEmpty() ? QStringLiteral("Wyłączono kafelkowanie") : reason);
+    } else if (action == QStringLiteral("stash")) {
+        int stashed = 0;
+        for (EffectWindow *w : eligibleWindows) {
+            if (w != m_activeWindow && !m_stashedWindows.contains(w)) {
+                m_stashedWindows.insert(w);
+                w->setMinimized(true);
+                stashed++;
+            }
+        }
+        playThemedSound(OutlineSound::SoundEffect::Stash);
+        m_aiPromptStatusText = QStringLiteral("✔ %1").arg(reason.isEmpty() ? QStringLiteral("Ukryto okna w tle") : reason);
+    } else if (action == QStringLiteral("unstash")) {
+        for (EffectWindow *w : m_stashedWindows) {
+            if (w && !w->isDeleted() && w->isMinimized()) {
+                w->setMinimized(false);
+            }
+        }
+        m_stashedWindows.clear();
+        playThemedSound(OutlineSound::SoundEffect::Stash);
+        m_aiPromptStatusText = QStringLiteral("✔ %1").arg(reason.isEmpty() ? QStringLiteral("Przywrócono okna ze schowka") : reason);
+    } else {
+        m_aiPromptStatusText = QStringLiteral("✔ Polecenie przetworzone");
+    }
+
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    if (effects) effects->addRepaintFull();
+    if (m_aiDismissTimer) m_aiDismissTimer->start(750);
 }
 
 void ActiveWindowOutlineEffect::enterSearchMode()
@@ -5637,11 +6130,17 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
+        if (m_aiPromptIsThinking) {
+            // While thinking, wait or allow Escape to abort
+            return;
+        }
+
         if (e->key() == Qt::Key_Backspace) {
             if (m_aiPromptQuery.isEmpty()) {
                 exitAiPromptMode();
             } else {
                 m_aiPromptQuery.chop(1);
+                m_aiPromptStatusText.clear();
                 m_hudHeaderTexture.reset();
                 m_hudHeaderCacheKey = -1;
                 effects->addRepaintFull();
@@ -5656,6 +6155,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
         if (!e->text().isEmpty() && e->text().at(0).isPrint()) {
             m_aiPromptQuery.append(e->text());
+            m_aiPromptStatusText.clear();
             m_hudHeaderTexture.reset();
             m_hudHeaderCacheKey = -1;
             effects->addRepaintFull();
@@ -8673,7 +9173,7 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
     const int headerKey = (m_subLeapActive ? 2000000 : 0) + (m_stashModeActive ? 4000000 : 0) + (m_superJumpActive ? 6000000 : 0)
         + (m_audioFilterModeActive ? 8000000 : 0)
         + (m_tilingPresetsModeActive ? 12000000 : 0)
-        + (m_aiPromptModeActive ? (14000000 + (qHash(m_aiPromptQuery) % 50000) + (qHash(m_aiPromptStatusText) % 5000)) : 0)
+        + (m_aiPromptModeActive ? (14000000 + (qHash(m_aiPromptQuery) % 50000) + (qHash(m_aiPromptStatusText) % 5000) + (m_aiPromptIsThinking ? (m_aiThinkingFrame * 37) : 0)) : 0)
         + (m_searchModeActive ? (10000000 + m_searchScope * 100000 + (qHash(m_searchQuery) % 50000) + m_searchMatches.size() * 10) : 0)
         + m_activeHudView * 100000 + countsHash + stashCount * 13 + qRound(scale * 10) + hudSize * 7 + navFontSize * 17 + themeHash;
 
@@ -8682,7 +9182,8 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
             scale, m_subLeapActive, subLeapTitle, subLeapColor, subLeapCount, viewTabs, stashCount, m_stashModeActive, targetWorkspaceName, m_superJumpActive, m_audioFilterModeActive, m_jumpLetterToWindow.size(),
             m_searchModeActive, m_searchQuery, m_searchScope, m_searchMatches.size(), hudSize, navFontSize, theme, &m_hudCloseButtonLocalRect,
             m_tilingPresetsModeActive, m_tilingPresets.size(),
-            m_aiPromptModeActive, m_aiPromptQuery, m_aiPromptStatusText);
+            m_aiPromptModeActive, m_aiPromptQuery, m_aiPromptStatusText,
+            m_aiPromptIsThinking, m_aiThinkingFrame);
         if (!headerImg.isNull()) {
             auto uploaded = GLTexture::upload(headerImg);
             if (uploaded) {

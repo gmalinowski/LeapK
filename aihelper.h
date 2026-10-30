@@ -99,6 +99,27 @@ inline QString defaultModelPath()
     return defaultModelsDirectory() + QLatin1Char('/') + QLatin1String(DEFAULT_MODEL_FILENAME);
 }
 
+inline QString defaultLlamaCliPath()
+{
+    const QString base = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+    const QString localLeapk = base + QStringLiteral("/leapk/bin/llama-cli");
+    if (QFileInfo::exists(localLeapk)) {
+        return localLeapk;
+    }
+    const QString inPath = QStandardPaths::findExecutable(QStringLiteral("llama-cli"));
+    if (!inPath.isEmpty()) {
+        return inPath;
+    }
+    return localLeapk;
+}
+
+inline bool isLlamaCliInstalled()
+{
+    const QString path = defaultLlamaCliPath();
+    const QFileInfo fi(path);
+    return fi.exists() && fi.isExecutable();
+}
+
 inline bool isModelInstalled(const QString &path)
 {
     const QString targetPath = path.isEmpty() ? defaultModelPath() : path;

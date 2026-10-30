@@ -68,6 +68,7 @@ target_link_libraries(leapk PRIVATE
     KF6::GlobalAccel
     Qt6::Widgets
     Qt6::DBus
+    Qt6::Network
     Qt6::Svg
 )
 # Identify the loaded library, including uncommitted test builds.

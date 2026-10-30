@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta18] - 2026-10-30
+
+### Added
+- **Universal Intent Resolver & Expanded Natural Language Parser (`executeAiPrompt`)**:
+  - Direct window and category targeting: accepts single app names without requiring verbs (e.g. `"firefox"`, `"terminal"`).
+  - Semantic category mappings for terminals (Konsole, Kitty, Alacritty, Foot, Ghostty, Wezterm, etc.), web browsers (Firefox, Chrome, Chromium, Brave, Zen, etc.), code editors (VS Code, Kate, CLion, Neovim, etc.), and file managers (Dolphin, Nautilus, etc.).
+  - Broadened Polish and English action verbs (`"show konsole"`, `"otwórz"`, `"przełącz"`, `"skocz"`, `"znajdź"`, `"split"`, `"podziel"`, etc.).
+  - Instant tactile feedback: displays `✔ Przełączono: [Window]`, `✔ Kafelkowanie: [Preset]`, or `✔ Ukryto w tle [N] okien` with a 600ms confirmation window before closing.
+- **Animated Process-Connected Thinking Indicator (`badgehelper.h`, `leapk.cpp`)**:
+  - Braille spinner (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`) in the HUD prompt header replaces the sparkle icon while the model or API is processing.
+  - Live HSV pulsing border during active inference.
+  - Status border tinting: green (`#2ecc71`) on successful execution, red (`#e74c3c`) on errors or missing models.
+  - Directly connected to the lifecycle of the underlying process: spins while `QProcess` (`llama-cli`) or `QNetworkReply` is active and stops instantly upon completion.
+- **Full Execution Pipeline for Local & Remote Backends**:
+  - Non-interactive `llama-cli` execution with non-blocking async `QProcess` and automatic desktop window list injection.
+  - Asynchronous OpenAI-compatible remote API querying via `Qt6::Network` (`QNetworkAccessManager`).
+  - Structured JSON action parser and executor supporting `focus`, `tile`, `float`, `stash`, and `unstash`.
+
 ## [1.6.0-beta17] - 2026-10-30
 
 ### Added
