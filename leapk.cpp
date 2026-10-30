@@ -4614,6 +4614,22 @@ void ActiveWindowOutlineEffect::executeAiPrompt(const QString &query)
     launchAiProcess(query);
 }
 
+QList<EffectWindow *> ActiveWindowOutlineEffect::getEligibleAiWindows() const
+{
+    QList<EffectWindow *> result;
+    if (!effects) {
+        return result;
+    }
+    const auto allWindows = effects->stackingOrder();
+    for (EffectWindow *w : allWindows) {
+        if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus()) {
+            continue;
+        }
+        result.append(w);
+    }
+    return result;
+}
+
 void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
 {
     if (m_aiActiveProcess) {
@@ -4632,21 +4648,60 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
         m_aiActiveReply = nullptr;
     }
 
+    const auto eligibleWindows = getEligibleAiWindows();
     VirtualDesktop *currentDesktop = effects ? effects->currentDesktop() : nullptr;
-    auto allWindows = effects ? effects->stackingOrder() : QList<EffectWindow *>();
+    EffectWindow *activeWin = effects ? effects->activeWindow() : nullptr;
+    if (!activeWin) {
+        activeWin = m_activeWindow;
+    }
 
-    QList<EffectWindow *> eligibleWindows;
     QStringList winDescriptions;
     int idx = 0;
-    for (EffectWindow *w : allWindows) {
-        if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus()) {
-            continue;
+    for (EffectWindow *w : eligibleWindows) {
+        QString status;
+        if (w == activeWin) {
+            status += QStringLiteral(" active");
+        }
+        if (w->isMinimized()) {
+            status += QStringLiteral(" minimized");
+        }
+        if (w->isFullScreen()) {
+            status += QStringLiteral(" fullscreen");
+        }
+        if (w->window() && w->window()->maximizeMode() != MaximizeRestore) {
+            status += QStringLiteral(" maximized");
         }
         if (currentDesktop && !w->isOnDesktop(currentDesktop)) {
-            continue;
+            const auto desktops = w->desktops();
+            if (!desktops.isEmpty() && !w->isOnAllDesktops()) {
+                status += QStringLiteral(" [desktop: %1]").arg(
+                    desktops.first()->name().isEmpty()
+                        ? QString::number(desktops.first()->x11DesktopNumber())
+                        : desktops.first()->name());
+            }
         }
-        eligibleWindows.append(w);
-        winDescriptions << QStringLiteral("[%1] class=\"%2\", title=\"%3\"").arg(idx++).arg(w->windowClass()).arg(w->caption().left(30));
+        winDescriptions << QStringLiteral("[%1] class=\"%2\", title=\"%3\"%4")
+                               .arg(idx++)
+                               .arg(w->windowClass())
+                               .arg(w->caption().left(40))
+                               .arg(status);
+    }
+
+    refreshWorkspaces();
+    QStringList wsDescriptions;
+    for (int i = 0; i < m_workspaces.size(); ++i) {
+        const bool isActive = (m_activeHudView == (i + 1));
+        wsDescriptions << QStringLiteral("[%1] \"%2\"%3")
+                               .arg(i + 1)
+                               .arg(m_workspaces[i].name)
+                               .arg(isActive ? QStringLiteral(" (active)") : QString());
+    }
+
+    QString desktopInfo;
+    if (effects && !effects->desktops().isEmpty()) {
+        const int totalDesktops = effects->desktops().size();
+        const int currDesktopNum = currentDesktop ? currentDesktop->x11DesktopNumber() : 1;
+        desktopInfo = QStringLiteral("Current desktop: %1 of %2").arg(currDesktopNum).arg(totalDesktops);
     }
 
     if (m_aiConfig.backend == LeapKAi::AiBackend::LocalLlamaCpp) {
@@ -4670,12 +4725,8 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
             return;
         }
 
-        const QString prompt = QStringLiteral(
-            "You are a window manager assistant. Windows on desktop:\n%1\n\n"
-            "Respond ONLY with a single JSON object (no markdown, no extra explanation):\n"
-            "{\"action\": \"focus\"|\"tile\"|\"stash\"|\"unstash\"|\"float\", \"index\": <num>, \"indices\": [<num>, ...], \"preset\": \"columns-2\"|\"columns-3\"|\"grid-4\", \"reason\": \"<description>\"}\n\n"
-            "User command: %2\nJSON:"
-        ).arg(winDescriptions.join(QLatin1Char('\n')), query);
+        const QString prompt = LeapKAi::buildAiSystemPrompt(winDescriptions, wsDescriptions, desktopInfo)
+            + QStringLiteral("\nUser command: %1\nJSON:").arg(query);
 
         m_aiPromptIsThinking = true;
         m_aiThinkingFrame = 0;
@@ -4708,22 +4759,7 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
 
             const QByteArray out = m_aiActiveProcess ? m_aiActiveProcess->readAllStandardOutput() : QByteArray();
             const QString outStr = QString::fromUtf8(out);
-
-            const int start = outStr.indexOf(QLatin1Char('{'));
-            const int end = outStr.lastIndexOf(QLatin1Char('}'));
-            if (start != -1 && end > start) {
-                const QByteArray jsonBytes = outStr.mid(start, end - start + 1).toUtf8();
-                const QJsonDocument doc = QJsonDocument::fromJson(jsonBytes);
-                if (doc.isObject()) {
-                    handleAiActionJson(doc.object());
-                    return;
-                }
-            }
-
-            m_aiPromptStatusText = QStringLiteral("❌ Nie udało się zinterpretować odpowiedzi AI");
-            m_hudHeaderTexture.reset();
-            m_hudHeaderCacheKey = -1;
-            if (effects) effects->addRepaintFull();
+            handleAiResponse(outStr);
         });
 
         connect(m_aiActiveProcess, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
@@ -4739,7 +4775,7 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
         QStringList args;
         args << QStringLiteral("-m") << modelPath
              << QStringLiteral("-p") << prompt
-             << QStringLiteral("-n") << QStringLiteral("64")
+             << QStringLiteral("-n") << QStringLiteral("256")
              << QStringLiteral("--temp") << QStringLiteral("0.0")
              << QStringLiteral("--single-turn")
              << QStringLiteral("--no-display-prompt")
@@ -4785,18 +4821,14 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
         m_aiPromptStatusText = QStringLiteral("AI myśli... (%1)").arg(m_aiConfig.apiModel);
         if (m_aiThinkingTimer) m_aiThinkingTimer->start(80);
 
-        const QString prompt = QStringLiteral(
-            "You are a window manager assistant. Windows on desktop:\n%1\n\n"
-            "Respond ONLY with a single JSON object (no markdown, no extra explanation):\n"
-            "{\"action\": \"focus\"|\"tile\"|\"stash\"|\"unstash\"|\"float\", \"index\": <num>, \"indices\": [<num>, ...], \"preset\": \"columns-2\"|\"columns-3\"|\"grid-4\", \"reason\": \"<description>\"}"
-        ).arg(winDescriptions.join(QLatin1Char('\n')));
+        const QString sysPrompt = LeapKAi::buildAiSystemPrompt(winDescriptions, wsDescriptions, desktopInfo);
 
         QJsonObject rootObj;
         rootObj[QStringLiteral("model")] = m_aiConfig.apiModel;
         QJsonArray messages;
         QJsonObject sysMsg;
         sysMsg[QStringLiteral("role")] = QStringLiteral("system");
-        sysMsg[QStringLiteral("content")] = prompt;
+        sysMsg[QStringLiteral("content")] = sysPrompt;
         messages.append(sysMsg);
 
         QJsonObject userMsg;
@@ -4806,7 +4838,7 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
 
         rootObj[QStringLiteral("messages")] = messages;
         rootObj[QStringLiteral("temperature")] = 0.0;
-        rootObj[QStringLiteral("max_tokens")] = 64;
+        rootObj[QStringLiteral("max_tokens")] = 256;
 
         QUrl url(m_aiConfig.apiEndpoint + QStringLiteral("/chat/completions"));
         QNetworkRequest request{url};
@@ -4845,15 +4877,8 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
                 const QJsonArray choices = respObj.value(QStringLiteral("choices")).toArray();
                 if (!choices.isEmpty()) {
                     const QString content = choices.first().toObject().value(QStringLiteral("message")).toObject().value(QStringLiteral("content")).toString();
-                    const int start = content.indexOf(QLatin1Char('{'));
-                    const int end = content.lastIndexOf(QLatin1Char('}'));
-                    if (start != -1 && end > start) {
-                        const QJsonDocument actionDoc = QJsonDocument::fromJson(content.mid(start, end - start + 1).toUtf8());
-                        if (actionDoc.isObject()) {
-                            handleAiActionJson(actionDoc.object());
-                            return;
-                        }
-                    }
+                    handleAiResponse(content);
+                    return;
                 }
             }
 
@@ -4869,123 +4894,319 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
     }
 }
 
+void ActiveWindowOutlineEffect::handleAiResponse(const QString &rawResponse)
+{
+    const auto actions = LeapKAi::parseAiResponse(rawResponse);
+    if (actions.isEmpty()) {
+        qWarning() << "LeapK AI: failed to parse AI response:" << rawResponse;
+        m_aiPromptStatusText = QStringLiteral("❌ Nie udało się zinterpretować odpowiedzi AI");
+        m_hudHeaderTexture.reset();
+        m_hudHeaderCacheKey = -1;
+        if (effects) effects->addRepaintFull();
+        return;
+    }
+    executeAiActions(actions);
+}
+
 void ActiveWindowOutlineEffect::handleAiActionJson(const QJsonObject &rootObj)
 {
-    const QString action = rootObj.value(QStringLiteral("action")).toString().toLower();
-    const QString reason = rootObj.value(QStringLiteral("reason")).toString();
-
-    VirtualDesktop *currentDesktop = effects ? effects->currentDesktop() : nullptr;
-    auto allWindows = effects ? effects->stackingOrder() : QList<EffectWindow *>();
-
-    QList<EffectWindow *> eligibleWindows;
-    for (EffectWindow *w : allWindows) {
-        if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus()) {
-            continue;
-        }
-        if (currentDesktop && !w->isOnDesktop(currentDesktop)) {
-            continue;
-        }
-        eligibleWindows.append(w);
+    const auto actions = LeapKAi::parseAiResponse(QString::fromUtf8(QJsonDocument(rootObj).toJson(QJsonDocument::Compact)));
+    if (actions.isEmpty()) {
+        m_aiPromptStatusText = QStringLiteral("❌ Nie udało się zinterpretować odpowiedzi AI");
+        m_hudHeaderTexture.reset();
+        m_hudHeaderCacheKey = -1;
+        if (effects) effects->addRepaintFull();
+        return;
     }
+    executeAiActions(actions);
+}
 
-    if (action == QStringLiteral("focus")) {
-        int index = rootObj.value(QStringLiteral("index")).toInt(-1);
-        if (index < 0 && rootObj.value(QStringLiteral("indices")).isArray()) {
-            const QJsonArray arr = rootObj.value(QStringLiteral("indices")).toArray();
-            if (!arr.isEmpty()) {
-                index = arr.first().toInt(-1);
-            }
-        }
-        EffectWindow *targetWin = nullptr;
-        if (index >= 0 && index < eligibleWindows.size()) {
-            targetWin = eligibleWindows[index];
-        }
-        if (targetWin) {
-            if (targetWin->isMinimized()) {
-                targetWin->setMinimized(false);
-            }
-            effects->activateWindow(targetWin);
-            warpCursorToWindow(targetWin);
-            playThemedSound(OutlineSound::SoundEffect::LandWindow);
-            m_aiPromptStatusText = QStringLiteral("✔ %1").arg(reason.isEmpty() ? QStringLiteral("Przełączono okno") : reason);
-        } else {
-            m_aiPromptStatusText = QStringLiteral("❌ Nie znaleziono wskazanego okna");
-        }
-    } else if (action == QStringLiteral("tile")) {
-        const QString presetId = rootObj.value(QStringLiteral("preset")).toString(QStringLiteral("columns-2"));
-        const auto presets = m_tilingPresets.isEmpty() ? LeapKTiling::defaultPresets() : m_tilingPresets;
-        LeapKTiling::TilingPreset chosen;
-        for (const auto &p : presets) {
-            if (p.id == presetId) {
-                chosen = p;
-                break;
-            }
-        }
-        if (chosen.id.isEmpty() && !presets.isEmpty()) {
-            chosen = presets.first();
-        }
+void ActiveWindowOutlineEffect::executeAiActions(const QList<LeapKAi::ParsedAiAction> &actions)
+{
+    const auto eligibleWindows = getEligibleAiWindows();
+    VirtualDesktop *currentDesktop = effects ? effects->currentDesktop() : nullptr;
+    QStringList successReasons;
 
-        // Support selective tiling of specific indices returned by the model (e.g. "index": [2, 3])
+    for (const auto &act : actions) {
+        const QString action = act.action;
+
+        // Resolve target windows
         QList<EffectWindow *> targetWindows;
-        QJsonValue idxVal = rootObj.value(QStringLiteral("indices"));
-        if (idxVal.isUndefined() || idxVal.isNull()) {
-            idxVal = rootObj.value(QStringLiteral("index"));
+        for (int i : act.indices) {
+            if (i >= 0 && i < eligibleWindows.size()) {
+                EffectWindow *w = eligibleWindows[i];
+                if (!targetWindows.contains(w)) {
+                    targetWindows.append(w);
+                }
+            }
+        }
+        if (targetWindows.isEmpty() && !act.targetApp.isEmpty()) {
+            for (EffectWindow *w : eligibleWindows) {
+                if (w->windowClass().contains(act.targetApp, Qt::CaseInsensitive)
+                    || w->caption().contains(act.targetApp, Qt::CaseInsensitive)) {
+                    targetWindows.append(w);
+                    break;
+                }
+            }
         }
 
-        if (idxVal.isArray()) {
-            for (const QJsonValue &v : idxVal.toArray()) {
-                const int i = v.toInt(-1);
-                if (i >= 0 && i < eligibleWindows.size()) {
-                    EffectWindow *w = eligibleWindows[i];
-                    if (!targetWindows.contains(w)) {
+        if (action == QStringLiteral("focus")) {
+            EffectWindow *targetWin = !targetWindows.isEmpty() ? targetWindows.first() : nullptr;
+            if (!targetWin) {
+                targetWin = m_activeWindow ? m_activeWindow : (effects ? effects->activeWindow() : nullptr);
+            }
+            if (targetWin) {
+                if (targetWin->isMinimized()) {
+                    m_workspaceMinimizedWindows.remove(targetWin);
+                    m_stashedWindows.remove(targetWin);
+                    targetWin->setMinimized(false);
+                }
+                refreshWorkspaces();
+                const int targetWs = findWorkspaceForWindow(targetWin);
+                if (targetWs > 0 && targetWs <= m_workspaces.size() && m_activeHudView != targetWs) {
+                    m_activeHudView = targetWs;
+                    if (effects && effects->config()) {
+                        KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+                        primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
+                        primaryConfig.sync();
+                    }
+                    applyWorkspaceViewIsolation(m_activeHudView);
+                }
+                if (!targetWin->isOnCurrentDesktop()) {
+                    const auto desktops = targetWin->desktops();
+                    if (!desktops.isEmpty() && !targetWin->isOnAllDesktops()) {
+                        effects->setCurrentDesktop(desktops.first());
+                    }
+                }
+                effects->activateWindow(targetWin);
+                warpCursorToWindow(targetWin);
+                playThemedSound(OutlineSound::SoundEffect::LandWindow);
+                successReasons << (act.reason.isEmpty() ? QStringLiteral("Przełączono na okno: %1").arg(targetWin->caption().left(25)) : act.reason);
+            } else {
+                m_aiPromptStatusText = QStringLiteral("❌ Nie znaleziono wskazanego okna");
+            }
+
+        } else if (action == QStringLiteral("tile")) {
+            if (targetWindows.isEmpty()) {
+                for (EffectWindow *w : eligibleWindows) {
+                    if (currentDesktop && w->isOnDesktop(currentDesktop) && !w->isMinimized()) {
                         targetWindows.append(w);
                     }
                 }
             }
-        } else if (idxVal.isDouble()) {
-            const int i = idxVal.toInt(-1);
-            if (i >= 0 && i < eligibleWindows.size()) {
-                targetWindows.append(eligibleWindows[i]);
+            if (targetWindows.isEmpty()) {
+                targetWindows = eligibleWindows;
             }
-        }
 
-        if (targetWindows.isEmpty()) {
-            targetWindows = eligibleWindows;
-        }
+            QString presetId = act.preset.trimmed();
+            if (presetId.isEmpty() || presetId == QStringLiteral("columns-2")) {
+                if (targetWindows.size() == 3) {
+                    presetId = QStringLiteral("columns-3");
+                } else if (targetWindows.size() >= 4) {
+                    presetId = QStringLiteral("grid-4");
+                }
+            }
 
-        activateTilingPreset(chosen, targetWindows);
-        m_aiPromptStatusText = QStringLiteral("✔ %1").arg(reason.isEmpty() ? QStringLiteral("Zastosowano kafelkowanie") : reason);
-    } else if (action == QStringLiteral("float")) {
-        deactivateTiling();
-        m_aiPromptStatusText = QStringLiteral("✔ %1").arg(reason.isEmpty() ? QStringLiteral("Wyłączono kafelkowanie") : reason);
-    } else if (action == QStringLiteral("stash")) {
-        int stashed = 0;
-        for (EffectWindow *w : eligibleWindows) {
-            if (w != m_activeWindow && !m_stashedWindows.contains(w)) {
-                m_stashedWindows.insert(w);
-                w->setMinimized(true);
-                stashed++;
+            const auto presets = m_tilingPresets.isEmpty() ? LeapKTiling::defaultPresets() : m_tilingPresets;
+            LeapKTiling::TilingPreset chosen;
+            for (const auto &p : presets) {
+                if (p.id == presetId) {
+                    chosen = p;
+                    break;
+                }
+            }
+            if (chosen.id.isEmpty() && !presets.isEmpty()) {
+                chosen = presets.first();
+            }
+
+            activateTilingPreset(chosen, targetWindows);
+            successReasons << (act.reason.isEmpty() ? QStringLiteral("Zastosowano kafelkowanie (%1)").arg(chosen.name) : act.reason);
+
+        } else if (action == QStringLiteral("float")) {
+            deactivateTiling();
+            successReasons << (act.reason.isEmpty() ? QStringLiteral("Wyłączono kafelkowanie") : act.reason);
+
+        } else if (action == QStringLiteral("fullscreen")) {
+            if (targetWindows.isEmpty() && m_activeWindow) {
+                targetWindows.append(m_activeWindow);
+            }
+            for (EffectWindow *w : targetWindows) {
+                if (w && w->window()) {
+                    const bool targetState = act.hasExplicitState ? act.state : !w->isFullScreen();
+                    w->window()->setFullScreen(targetState);
+                }
+            }
+            successReasons << (act.reason.isEmpty() ? QStringLiteral("Zmieniono tryb pełnoekranowy") : act.reason);
+
+        } else if (action == QStringLiteral("maximize")) {
+            if (targetWindows.isEmpty() && m_activeWindow) {
+                targetWindows.append(m_activeWindow);
+            }
+            for (EffectWindow *w : targetWindows) {
+                if (w && w->window()) {
+                    const bool isMax = (w->window()->maximizeMode() != MaximizeRestore);
+                    const bool targetState = act.hasExplicitState ? act.state : !isMax;
+                    w->window()->setMaximize(targetState, targetState);
+                }
+            }
+            successReasons << (act.reason.isEmpty() ? QStringLiteral("Zmieniono maksymalizację") : act.reason);
+
+        } else if (action == QStringLiteral("minimize")) {
+            if (targetWindows.isEmpty() && m_activeWindow) {
+                targetWindows.append(m_activeWindow);
+            }
+            for (EffectWindow *w : targetWindows) {
+                if (w) {
+                    w->setMinimized(true);
+                }
+            }
+            successReasons << (act.reason.isEmpty() ? QStringLiteral("Zminimalizowano okno") : act.reason);
+
+        } else if (action == QStringLiteral("restore") || action == QStringLiteral("unminimize")) {
+            for (EffectWindow *w : targetWindows) {
+                if (w) {
+                    m_workspaceMinimizedWindows.remove(w);
+                    m_stashedWindows.remove(w);
+                    w->setMinimized(false);
+                    effects->activateWindow(w);
+                }
+            }
+            successReasons << (act.reason.isEmpty() ? QStringLiteral("Przywrócono okno") : act.reason);
+
+        } else if (action == QStringLiteral("close")) {
+            if (targetWindows.isEmpty() && m_activeWindow) {
+                targetWindows.append(m_activeWindow);
+            }
+            for (EffectWindow *w : targetWindows) {
+                if (w) {
+                    w->closeWindow();
+                }
+            }
+            successReasons << (act.reason.isEmpty() ? QStringLiteral("Zamknięto okno") : act.reason);
+
+        } else if (action == QStringLiteral("move_workspace")) {
+            if (targetWindows.isEmpty()) {
+                for (EffectWindow *w : eligibleWindows) {
+                    if (currentDesktop && w->isOnDesktop(currentDesktop) && !w->isMinimized()) {
+                        targetWindows.append(w);
+                    }
+                }
+            }
+            if (targetWindows.isEmpty() && m_activeWindow) {
+                targetWindows.append(m_activeWindow);
+            }
+
+            refreshWorkspaces();
+            const QString targetSpec = act.targetWorkspace.trimmed();
+            int targetWsIdx = -1;
+
+            if (targetSpec.isEmpty() || targetSpec.compare(QStringLiteral("new"), Qt::CaseInsensitive) == 0) {
+                createEmptyWorkspace();
+                targetWsIdx = m_workspaces.size();
+            } else {
+                bool isNum = false;
+                const int num = targetSpec.toInt(&isNum);
+                if (isNum && num >= 1 && num <= m_workspaces.size()) {
+                    targetWsIdx = num;
+                } else {
+                    for (int i = 0; i < m_workspaces.size(); ++i) {
+                        if (m_workspaces[i].name.contains(targetSpec, Qt::CaseInsensitive)) {
+                            targetWsIdx = i + 1;
+                            break;
+                        }
+                    }
+                    if (targetWsIdx == -1) {
+                        createEmptyWorkspace(targetSpec);
+                        targetWsIdx = m_workspaces.size();
+                    }
+                }
+            }
+
+            if (targetWsIdx >= 1 && targetWsIdx <= m_workspaces.size()) {
+                for (EffectWindow *w : targetWindows) {
+                    addWindowToWorkspace(w, targetWsIdx);
+                }
+                m_activeHudView = targetWsIdx;
+                if (effects && effects->config()) {
+                    KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+                    primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
+                    primaryConfig.sync();
+                }
+                applyWorkspaceViewIsolation(m_activeHudView);
+            }
+            successReasons << (act.reason.isEmpty() ? QStringLiteral("Przeniesiono do obszaru roboczego %1").arg(targetWsIdx) : act.reason);
+
+        } else if (action == QStringLiteral("switch_workspace")) {
+            refreshWorkspaces();
+            const QString targetSpec = act.targetWorkspace.trimmed();
+            int targetWsIdx = -1;
+            bool isNum = false;
+            const int num = targetSpec.toInt(&isNum);
+            if (isNum && num >= 1 && num <= m_workspaces.size()) {
+                targetWsIdx = num;
+            } else {
+                for (int i = 0; i < m_workspaces.size(); ++i) {
+                    if (m_workspaces[i].name.contains(targetSpec, Qt::CaseInsensitive)) {
+                        targetWsIdx = i + 1;
+                        break;
+                    }
+                }
+            }
+            if (targetWsIdx >= 1 && targetWsIdx <= m_workspaces.size()) {
+                m_activeHudView = targetWsIdx;
+                if (effects && effects->config()) {
+                    KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+                    primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
+                    primaryConfig.sync();
+                }
+                applyWorkspaceViewIsolation(m_activeHudView);
+                successReasons << (act.reason.isEmpty() ? QStringLiteral("Przełączono na obszar roboczy %1").arg(targetWsIdx) : act.reason);
+            }
+
+        } else if (action == QStringLiteral("stash")) {
+            if (targetWindows.isEmpty()) {
+                for (EffectWindow *w : eligibleWindows) {
+                    if (currentDesktop && w->isOnDesktop(currentDesktop) && w != m_activeWindow) {
+                        targetWindows.append(w);
+                    }
+                }
+            }
+            for (EffectWindow *w : targetWindows) {
+                if (w != m_activeWindow && !m_stashedWindows.contains(w)) {
+                    m_stashedWindows.insert(w);
+                    w->setMinimized(true);
+                }
+            }
+            playThemedSound(OutlineSound::SoundEffect::Stash);
+            successReasons << (act.reason.isEmpty() ? QStringLiteral("Ukryto okna w tle") : act.reason);
+
+        } else if (action == QStringLiteral("unstash")) {
+            for (EffectWindow *w : m_stashedWindows) {
+                if (w && !w->isDeleted() && w->isMinimized()) {
+                    w->setMinimized(false);
+                }
+            }
+            m_stashedWindows.clear();
+            playThemedSound(OutlineSound::SoundEffect::Stash);
+            successReasons << (act.reason.isEmpty() ? QStringLiteral("Przywrócono okna ze schowka") : act.reason);
+
+        } else {
+            if (!act.reason.isEmpty()) {
+                successReasons << act.reason;
             }
         }
-        playThemedSound(OutlineSound::SoundEffect::Stash);
-        m_aiPromptStatusText = QStringLiteral("✔ %1").arg(reason.isEmpty() ? QStringLiteral("Ukryto okna w tle") : reason);
-    } else if (action == QStringLiteral("unstash")) {
-        for (EffectWindow *w : m_stashedWindows) {
-            if (w && !w->isDeleted() && w->isMinimized()) {
-                w->setMinimized(false);
-            }
-        }
-        m_stashedWindows.clear();
-        playThemedSound(OutlineSound::SoundEffect::Stash);
-        m_aiPromptStatusText = QStringLiteral("✔ %1").arg(reason.isEmpty() ? QStringLiteral("Przywrócono okna ze schowka") : reason);
-    } else {
+    }
+
+    if (!successReasons.isEmpty()) {
+        m_aiPromptStatusText = QStringLiteral("✔ %1").arg(successReasons.join(QStringLiteral(", ")));
+    } else if (m_aiPromptStatusText.isEmpty() || m_aiPromptStatusText.startsWith(QStringLiteral("AI"))) {
         m_aiPromptStatusText = QStringLiteral("✔ Polecenie przetworzone");
     }
 
     m_hudHeaderTexture.reset();
     m_hudHeaderCacheKey = -1;
     if (effects) effects->addRepaintFull();
-    if (m_aiDismissTimer) m_aiDismissTimer->start(750);
+    if (m_aiDismissTimer) m_aiDismissTimer->start(850);
 }
 
 void ActiveWindowOutlineEffect::enterSearchMode()

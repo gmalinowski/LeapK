@@ -4,6 +4,29 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta22] - 2026-10-30
+
+### Added
+- **Full LeapK Toolset & Multi-Action Engine for AI Assistant**:
+  - Leveraged existing LeapK and KWin C++ functions to support all window and workspace management actions via AI:
+    - `fullscreen`: toggle or explicitly set fullscreen via `w->window()->setFullScreen(bool)`.
+    - `maximize`: toggle or set window maximization via `w->window()->setMaximize(bool, bool)`.
+    - `minimize`: minimize window via `w->setMinimized(true)`.
+    - `restore` / `unminimize`: restore minimized windows and bring them forward.
+    - `close`: safely close target windows via `w->closeWindow()`.
+    - `move_workspace`: dynamically create new workspaces (`createEmptyWorkspace()`), move target windows (`addWindowToWorkspace()`), and apply view isolation (`applyWorkspaceViewIsolation()`).
+    - `switch_workspace`: switch directly to target workspace or virtual desktop with full view isolation.
+    - `tile`: selectively tile target windows with intelligent preset selection (`columns-2`, `columns-3`, `grid-4`, `master-stack`).
+    - `float`: reset windows back to floating layout (`deactivateTiling()`).
+    - `focus`: activate window, warp cursor, unminimize if needed, and switch workspaces/desktops automatically.
+    - `stash` / `unstash`: stash background windows or restore them.
+  - Multi-action pipeline supporting single JSON objects, multi-step `{"actions": [...]}`, or top-level arrays `[{...}]`.
+  - Resilient JSON extractor handling markdown backticks (```` ```json ````) and conversational wrappers.
+  - Enriched desktop context with virtual desktop info, workspace list, and window flags (`active`, `minimized`, `fullscreen`, `maximized`).
+  - App alias awareness in system prompt (e.g. `konsole` -> terminal, `dolphin` -> file manager, `code` -> editor).
+  - Increased token generation limit from 64 to 256 tokens in both `llama-cli` (`-n 256`) and remote API (`max_tokens: 256`) to prevent JSON truncation.
+  - Added comprehensive parsing and schema validation tests in `tests/ai_test.cpp`.
+
 ## [1.6.0-beta21] - 2026-10-30
 
 ### Added

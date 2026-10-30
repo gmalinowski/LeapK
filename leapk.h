@@ -327,6 +327,9 @@ private:
     void exitAiPromptMode();
     void executeAiPrompt(const QString &query);
     void launchAiProcess(const QString &query);
+    QList<EffectWindow *> getEligibleAiWindows() const;
+    void handleAiResponse(const QString &rawResponse);
+    void executeAiActions(const QList<LeapKAi::ParsedAiAction> &actions);
     void handleAiActionJson(const QJsonObject &rootObj);
     void renderTilingPresetPills(const RenderTarget &renderTarget,
                                 const RenderViewport &viewport,

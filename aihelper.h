@@ -7,8 +7,10 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QList>
+#include <QStringList>
 
 namespace LeapKAi
 {
@@ -214,5 +216,210 @@ struct AiConfig {
         return cfg;
     }
 };
+
+struct ParsedAiAction {
+    QString action; // "focus", "tile", "float", "fullscreen", "maximize", "minimize", "restore", "close", "move_workspace", "switch_workspace", "stash", "unstash"
+    QList<int> indices;
+    QString targetApp;
+    QString preset = QStringLiteral("columns-2");
+    QString targetWorkspace; // e.g. "new", "1", "Chat"
+    int targetDesktop = 0;
+    bool hasExplicitState = false;
+    bool state = true;
+    QString reason;
+};
+
+inline ParsedAiAction parseSingleAiAction(const QJsonObject &obj)
+{
+    ParsedAiAction act;
+    act.action = obj.value(QStringLiteral("action")).toString().trimmed().toLower();
+    act.reason = obj.value(QStringLiteral("reason")).toString().trimmed();
+    act.preset = obj.value(QStringLiteral("preset")).toString(QStringLiteral("columns-2")).trimmed();
+
+    // Check indices / index / windows / window / app
+    QJsonValue idxVal = obj.value(QStringLiteral("indices"));
+    if (idxVal.isUndefined() || idxVal.isNull()) {
+        idxVal = obj.value(QStringLiteral("index"));
+    }
+    if (idxVal.isUndefined() || idxVal.isNull()) {
+        idxVal = obj.value(QStringLiteral("windows"));
+    }
+    if (idxVal.isUndefined() || idxVal.isNull()) {
+        idxVal = obj.value(QStringLiteral("window"));
+    }
+
+    if (idxVal.isArray()) {
+        const QJsonArray arr = idxVal.toArray();
+        for (const QJsonValue &v : arr) {
+            if (v.isDouble()) {
+                act.indices.append(v.toInt());
+            } else if (v.isString()) {
+                bool ok = false;
+                const int parsed = v.toString().toInt(&ok);
+                if (ok) {
+                    act.indices.append(parsed);
+                } else if (act.targetApp.isEmpty()) {
+                    act.targetApp = v.toString().trimmed();
+                }
+            }
+        }
+    } else if (idxVal.isDouble()) {
+        act.indices.append(idxVal.toInt());
+    } else if (idxVal.isString()) {
+        bool ok = false;
+        const int parsed = idxVal.toString().toInt(&ok);
+        if (ok) {
+            act.indices.append(parsed);
+        } else {
+            act.targetApp = idxVal.toString().trimmed();
+        }
+    }
+
+    if (act.targetApp.isEmpty() && obj.contains(QStringLiteral("app"))) {
+        act.targetApp = obj.value(QStringLiteral("app")).toString().trimmed();
+    }
+
+    // Parse state (e.g. for fullscreen / maximize)
+    if (obj.contains(QStringLiteral("state"))) {
+        act.hasExplicitState = true;
+        act.state = obj.value(QStringLiteral("state")).toBool(true);
+    }
+
+    // Parse target_workspace / workspace / target
+    if (obj.contains(QStringLiteral("target_workspace"))) {
+        const QJsonValue wsVal = obj.value(QStringLiteral("target_workspace"));
+        act.targetWorkspace = wsVal.isDouble() ? QString::number(wsVal.toInt()) : wsVal.toString().trimmed();
+    } else if (obj.contains(QStringLiteral("workspace"))) {
+        const QJsonValue wsVal = obj.value(QStringLiteral("workspace"));
+        act.targetWorkspace = wsVal.isDouble() ? QString::number(wsVal.toInt()) : wsVal.toString().trimmed();
+    } else if (obj.contains(QStringLiteral("target"))) {
+        const QJsonValue wsVal = obj.value(QStringLiteral("target"));
+        act.targetWorkspace = wsVal.isDouble() ? QString::number(wsVal.toInt()) : wsVal.toString().trimmed();
+    }
+
+    // Parse target_desktop / desktop
+    if (obj.contains(QStringLiteral("target_desktop"))) {
+        act.targetDesktop = obj.value(QStringLiteral("target_desktop")).toInt(0);
+    } else if (obj.contains(QStringLiteral("desktop"))) {
+        act.targetDesktop = obj.value(QStringLiteral("desktop")).toInt(0);
+    }
+
+    return act;
+}
+
+inline QList<ParsedAiAction> parseAiResponse(const QString &text)
+{
+    QList<ParsedAiAction> result;
+    if (text.trimmed().isEmpty()) {
+        return result;
+    }
+
+    // Locate JSON block: check whether array '[' or object '{' appears first
+    int start = -1;
+    int end = -1;
+
+    const int firstObj = text.indexOf(QLatin1Char('{'));
+    const int firstArr = text.indexOf(QLatin1Char('['));
+
+    if (firstArr != -1 && (firstObj == -1 || firstArr < firstObj)) {
+        const int lastArr = text.lastIndexOf(QLatin1Char(']'));
+        if (lastArr > firstArr) {
+            start = firstArr;
+            end = lastArr;
+        }
+    }
+    if (start == -1 && firstObj != -1) {
+        const int lastObj = text.lastIndexOf(QLatin1Char('}'));
+        if (lastObj > firstObj) {
+            start = firstObj;
+            end = lastObj;
+        }
+    }
+
+    if (start == -1 || end <= start) {
+        return result;
+    }
+
+    const QByteArray jsonBytes = text.mid(start, end - start + 1).toUtf8();
+    const QJsonDocument doc = QJsonDocument::fromJson(jsonBytes);
+
+    if (doc.isArray()) {
+        const QJsonArray arr = doc.array();
+        for (const QJsonValue &v : arr) {
+            if (v.isObject()) {
+                result.append(parseSingleAiAction(v.toObject()));
+            }
+        }
+    } else if (doc.isObject()) {
+        const QJsonObject obj = doc.object();
+        if (obj.contains(QStringLiteral("actions")) && obj.value(QStringLiteral("actions")).isArray()) {
+            const QJsonArray arr = obj.value(QStringLiteral("actions")).toArray();
+            for (const QJsonValue &v : arr) {
+                if (v.isObject()) {
+                    auto act = parseSingleAiAction(v.toObject());
+                    if (act.reason.isEmpty() && obj.contains(QStringLiteral("reason"))) {
+                        act.reason = obj.value(QStringLiteral("reason")).toString();
+                    }
+                    result.append(act);
+                }
+            }
+        } else {
+            result.append(parseSingleAiAction(obj));
+        }
+    }
+
+    return result;
+}
+
+inline QString buildAiSystemPrompt(const QStringList &winDescriptions, const QStringList &workspaces = {}, const QString &desktopInfo = {})
+{
+    QString prompt = QStringLiteral("You are an intelligent window manager assistant for KDE Plasma LeapK.\n");
+    if (!desktopInfo.isEmpty()) {
+        prompt += desktopInfo + QLatin1Char('\n');
+    }
+    if (!workspaces.isEmpty()) {
+        prompt += QStringLiteral("Workspaces:\n") + workspaces.join(QLatin1Char('\n')) + QStringLiteral("\n\n");
+    }
+    prompt += QStringLiteral("Windows on screen:\n");
+    if (winDescriptions.isEmpty()) {
+        prompt += QStringLiteral("(none)\n");
+    } else {
+        prompt += winDescriptions.join(QLatin1Char('\n')) + QLatin1Char('\n');
+    }
+
+    prompt += QStringLiteral(
+        "\nSupported actions:\n"
+        "- focus: {\"action\": \"focus\", \"index\": <num>}\n"
+        "- tile: {\"action\": \"tile\", \"indices\": [<num>, ...], \"preset\": \"columns-2\"|\"columns-3\"|\"master-stack\"|\"grid-4\"|\"monocle\"}\n"
+        "- float: {\"action\": \"float\"}\n"
+        "- fullscreen: {\"action\": \"fullscreen\", \"index\": <num>, \"state\": true|false}\n"
+        "- maximize: {\"action\": \"maximize\", \"index\": <num>, \"state\": true|false}\n"
+        "- minimize: {\"action\": \"minimize\", \"index\": <num>}\n"
+        "- restore: {\"action\": \"restore\", \"index\": <num>}\n"
+        "- close: {\"action\": \"close\", \"index\": <num>}\n"
+        "- move_workspace: {\"action\": \"move_workspace\", \"indices\": [<num>, ...], \"target_workspace\": \"new\"|<num>|\"<name>\"}\n"
+        "- switch_workspace: {\"action\": \"switch_workspace\", \"target_workspace\": <num>|\"<name>\"}\n"
+        "- stash: {\"action\": \"stash\"}\n"
+        "- unstash: {\"action\": \"unstash\"}\n\n"
+        "Guidelines:\n"
+        "- You may return a single JSON action object or {\"actions\": [ ... ]} for multi-step operations.\n"
+        "- App class names may differ from common user terms (e.g. \"org.kde.konsole\" is terminal, \"org.kde.dolphin\" is file manager, \"code\" is editor). Map user terms to the best matching window.\n"
+        "- If the user names an app (e.g. \"firefox\", \"focus terminal\", \"show konsole\"), return action \"focus\".\n"
+        "- For tiling, identify the requested windows and return their indices in \"indices\" (e.g. [0, 1]).\n"
+        "- If user asks to move windows to a new workspace (e.g. \"move windows to new workspace\"), return action \"move_workspace\" with \"target_workspace\": \"new\".\n"
+        "- Respond ONLY with valid JSON (no markdown backticks, no conversational preamble, no text outside JSON).\n\n"
+        "Examples:\n"
+        "User: firefox and signal tilling\n"
+        "JSON: {\"action\": \"tile\", \"indices\": [0, 1], \"preset\": \"columns-2\", \"reason\": \"Tile Firefox and Signal\"}\n\n"
+        "User: move windows to new workspace\n"
+        "JSON: {\"action\": \"move_workspace\", \"target_workspace\": \"new\", \"reason\": \"Move windows to new workspace\"}\n\n"
+        "User: firefox full screen\n"
+        "JSON: {\"action\": \"fullscreen\", \"index\": 0, \"state\": true, \"reason\": \"Make Firefox fullscreen\"}\n\n"
+        "User: focus terminal\n"
+        "JSON: {\"action\": \"focus\", \"index\": 2, \"reason\": \"Switch to terminal\"}\n"
+    );
+
+    return prompt;
+}
 
 } // namespace LeapKAi

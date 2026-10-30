@@ -143,6 +143,144 @@ void testLlamaCliDetection()
     std::cout << "testLlamaCliDetection passed!" << std::endl;
 }
 
+void testAiResponseParsing()
+{
+    using namespace LeapKAi;
+
+    // 1. Single action with index
+    {
+        const QString json = QStringLiteral("{\"action\": \"focus\", \"index\": 2, \"reason\": \"Focus Konsole\"}");
+        const auto acts = parseAiResponse(json);
+        assert(acts.size() == 1);
+        assert(acts[0].action == QStringLiteral("focus"));
+        assert(acts[0].indices.size() == 1 && acts[0].indices[0] == 2);
+        assert(acts[0].reason == QStringLiteral("Focus Konsole"));
+    }
+
+    // 2. Tile with indices array
+    {
+        const QString json = QStringLiteral("{\"action\": \"tile\", \"indices\": [0, 2], \"preset\": \"columns-2\"}");
+        const auto acts = parseAiResponse(json);
+        assert(acts.size() == 1);
+        assert(acts[0].action == QStringLiteral("tile"));
+        assert(acts[0].indices.size() == 2 && acts[0].indices[0] == 0 && acts[0].indices[1] == 2);
+        assert(acts[0].preset == QStringLiteral("columns-2"));
+    }
+
+    // 3. Tile with index field containing array (model quirk)
+    {
+        const QString json = QStringLiteral("{\"action\": \"tile\", \"index\": [1, 3]}");
+        const auto acts = parseAiResponse(json);
+        assert(acts.size() == 1);
+        assert(acts[0].indices.size() == 2 && acts[0].indices[0] == 1 && acts[0].indices[1] == 3);
+    }
+
+    // 4. Fullscreen with explicit state
+    {
+        const QString json = QStringLiteral("{\"action\": \"fullscreen\", \"index\": 0, \"state\": true, \"reason\": \"Full screen\"}");
+        const auto acts = parseAiResponse(json);
+        assert(acts.size() == 1);
+        assert(acts[0].action == QStringLiteral("fullscreen"));
+        assert(acts[0].indices[0] == 0);
+        assert(acts[0].hasExplicitState && acts[0].state == true);
+    }
+
+    // 5. Move to new workspace
+    {
+        const QString json = QStringLiteral("{\"action\": \"move_workspace\", \"target_workspace\": \"new\"}");
+        const auto acts = parseAiResponse(json);
+        assert(acts.size() == 1);
+        assert(acts[0].action == QStringLiteral("move_workspace"));
+        assert(acts[0].targetWorkspace == QStringLiteral("new"));
+    }
+
+    // 6. Move to named workspace with indices
+    {
+        const QString json = QStringLiteral("{\"action\": \"move_workspace\", \"indices\": [0, 1], \"workspace\": \"Coding\"}");
+        const auto acts = parseAiResponse(json);
+        assert(acts.size() == 1);
+        assert(acts[0].indices.size() == 2);
+        assert(acts[0].targetWorkspace == QStringLiteral("Coding"));
+    }
+
+    // 7. Multi-action response
+    {
+        const QString json = QStringLiteral("{\"actions\": [{\"action\": \"fullscreen\", \"index\": 0}, {\"action\": \"focus\", \"index\": 0}], \"reason\": \"Done\"}");
+        const auto acts = parseAiResponse(json);
+        assert(acts.size() == 2);
+        assert(acts[0].action == QStringLiteral("fullscreen"));
+        assert(acts[1].action == QStringLiteral("focus"));
+        assert(acts[0].reason == QStringLiteral("Done"));
+    }
+
+    // 8. Top-level array
+    {
+        const QString json = QStringLiteral("[{\"action\": \"close\", \"index\": 1}, {\"action\": \"close\", \"index\": 2}]");
+        const auto acts = parseAiResponse(json);
+        assert(acts.size() == 2);
+        assert(acts[0].action == QStringLiteral("close") && acts[0].indices[0] == 1);
+        assert(acts[1].action == QStringLiteral("close") && acts[1].indices[0] == 2);
+    }
+
+    // 9. Markdown fence wrapped
+    {
+        const QString raw = QStringLiteral("```json\n{\"action\": \"minimize\", \"index\": 1}\n```");
+        const auto acts = parseAiResponse(raw);
+        assert(acts.size() == 1);
+        assert(acts[0].action == QStringLiteral("minimize"));
+        assert(acts[0].indices[0] == 1);
+    }
+
+    // 10. Conversational wrapper
+    {
+        const QString raw = QStringLiteral("Certainly! Here is your command:\n{\"action\": \"restore\", \"index\": 3}\nHope that helps!");
+        const auto acts = parseAiResponse(raw);
+        assert(acts.size() == 1);
+        assert(acts[0].action == QStringLiteral("restore"));
+        assert(acts[0].indices[0] == 3);
+    }
+
+    // 11. Target app fallback
+    {
+        const QString raw = QStringLiteral("{\"action\": \"focus\", \"window\": \"firefox\"}");
+        const auto acts = parseAiResponse(raw);
+        assert(acts.size() == 1);
+        assert(acts[0].action == QStringLiteral("focus"));
+        assert(acts[0].targetApp == QStringLiteral("firefox"));
+    }
+
+    // 12. Invalid response
+    {
+        const QString raw = QStringLiteral("Sorry, I cannot do that.");
+        const auto acts = parseAiResponse(raw);
+        assert(acts.isEmpty());
+    }
+
+    std::cout << "testAiResponseParsing passed!" << std::endl;
+}
+
+void testAiSystemPrompt()
+{
+    using namespace LeapKAi;
+
+    QStringList wins;
+    wins << QStringLiteral("[0] class=\"firefox\", title=\"Mozilla Firefox\" active");
+    wins << QStringLiteral("[1] class=\"org.kde.konsole\", title=\"Terminal\"");
+
+    QStringList ws;
+    ws << QStringLiteral("[1] \"Coding\"");
+    ws << QStringLiteral("[2] \"Chat\"");
+
+    const QString prompt = buildAiSystemPrompt(wins, ws, QStringLiteral("Virtual desktops: 2"));
+    assert(prompt.contains(QStringLiteral("Virtual desktops: 2")));
+    assert(prompt.contains(QStringLiteral("Coding")));
+    assert(prompt.contains(QStringLiteral("Mozilla Firefox")));
+    assert(prompt.contains(QStringLiteral("move_workspace")));
+    assert(prompt.contains(QStringLiteral("fullscreen")));
+
+    std::cout << "testAiSystemPrompt passed!" << std::endl;
+}
+
 int main(int argc, char **argv)
 {
     Q_UNUSED(argc);
@@ -153,6 +291,8 @@ int main(int argc, char **argv)
     testModelPathsAndFormatting();
     testModelDetection();
     testLlamaCliDetection();
+    testAiResponseParsing();
+    testAiSystemPrompt();
 
     std::cout << "All AI tests passed successfully!" << std::endl;
     return 0;
