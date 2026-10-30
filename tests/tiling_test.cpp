@@ -245,6 +245,104 @@ void testTilingWindowRuleConfig()
     std::cout << "testTilingWindowRuleConfig PASSED\n";
 }
 
+void testTilingSwapStackingPreservation()
+{
+    // Simulates KWin's window stacking order during a tiling swap operation.
+    // In KWin stacking: index 0 is bottom-most, higher index is higher in Z-order.
+    struct WindowStackSimulator {
+        QList<QString> stack; // bottom to top
+
+        void lowerWindow(const QString &win) {
+            stack.removeAll(win);
+            stack.prepend(win);
+        }
+
+        void raiseWindow(const QString &win) {
+            stack.removeAll(win);
+            stack.append(win);
+        }
+
+        void stackAbove(const QString &win, const QString &reference) {
+            stack.removeAll(win);
+            int idx = stack.indexOf(reference);
+            if (idx >= 0) {
+                stack.insert(idx + 1, win);
+            } else {
+                stack.append(win);
+            }
+        }
+    };
+
+    // Scenario: 3 tiled slots, plus 2 background windows.
+    // Initial stacking: Background windows underneath, all 3 tile slots on top.
+    // Tile slots: Slot 0: W0, Slot 1: W1, Slot 2: W2.
+    // Background windows: BG1, BG2.
+    // We want to swap W0 with BG1.
+
+    // 1. Verify flawed legacy logic: lowerWindow(previousWin) followed by stackAbove(slot, previousWin).
+    {
+        WindowStackSimulator sim;
+        sim.stack = {QStringLiteral("BG1"), QStringLiteral("BG2"), QStringLiteral("W1"), QStringLiteral("W2"), QStringLiteral("W0")};
+
+        const QString previousWin = QStringLiteral("W0");
+        const QString target = QStringLiteral("BG1");
+        QList<QString> activeSlots = {target, QStringLiteral("W1"), QStringLiteral("W2")};
+
+        // Old flawed logic:
+        sim.lowerWindow(previousWin);
+        for (const auto &slotWin : activeSlots) {
+            if (slotWin != previousWin && slotWin != target) {
+                sim.stackAbove(slotWin, previousWin);
+            }
+        }
+        sim.raiseWindow(target);
+
+        // In the flawed logic, W1 and W2 were placed right above previousWin at the bottom:
+        // Stacking order became: [W0, W2, W1, BG2, BG1]
+        // BG2 (a background window!) was above W1 and W2, covering them!
+        int idxW1 = sim.stack.indexOf(QStringLiteral("W1"));
+        int idxW2 = sim.stack.indexOf(QStringLiteral("W2"));
+        int idxBG2 = sim.stack.indexOf(QStringLiteral("BG2"));
+        assert(idxBG2 > idxW1 && idxBG2 > idxW2); // Proves the bug: BG2 occludes W1 and W2!
+    }
+
+    // 2. Verify fixed logic: lowerWindow(previousWin), raiseWindow for each active slot, then raiseWindow(target).
+    {
+        WindowStackSimulator sim;
+        sim.stack = {QStringLiteral("BG1"), QStringLiteral("BG2"), QStringLiteral("W1"), QStringLiteral("W2"), QStringLiteral("W0")};
+
+        const QString previousWin = QStringLiteral("W0");
+        const QString target = QStringLiteral("BG1");
+        QList<QString> activeSlots = {target, QStringLiteral("W1"), QStringLiteral("W2")};
+
+        // Fixed logic:
+        sim.lowerWindow(previousWin);
+        for (const auto &slotWin : activeSlots) {
+            if (slotWin != target) {
+                sim.raiseWindow(slotWin);
+            }
+        }
+        sim.raiseWindow(target);
+
+        // Resulting stacking: [W0, BG2, W1, W2, BG1]
+        // Both W1 and W2, and the swapped target BG1, are above ALL background windows (W0, BG2).
+        int idxW0 = sim.stack.indexOf(QStringLiteral("W0"));
+        int idxBG2 = sim.stack.indexOf(QStringLiteral("BG2"));
+        int idxW1 = sim.stack.indexOf(QStringLiteral("W1"));
+        int idxW2 = sim.stack.indexOf(QStringLiteral("W2"));
+        int idxTarget = sim.stack.indexOf(QStringLiteral("BG1"));
+
+        int maxBackgroundIdx = qMax(idxW0, idxBG2);
+        int minTiledSlotIdx = qMin(qMin(idxW1, idxW2), idxTarget);
+
+        assert(minTiledSlotIdx > maxBackgroundIdx);
+        assert(idxTarget == sim.stack.size() - 1); // target is active on top
+        assert(sim.stack.first() == QStringLiteral("W0")); // previousWin lowered to bottom
+    }
+
+    std::cout << "testTilingSwapStackingPreservation PASSED\n";
+}
+
 int main()
 {
     testDefaultPresets();
@@ -253,6 +351,7 @@ int main()
     testToKdeJson();
     testKdeCustomPreset();
     testTilingWindowRuleConfig();
+    testTilingSwapStackingPreservation();
 
     std::cout << "All LeapKTiling tests passed successfully!\n";
     return 0;

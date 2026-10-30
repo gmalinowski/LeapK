@@ -8334,10 +8334,17 @@ void ActiveWindowOutlineEffect::performTilingSwap(EffectWindow *target)
 
         if (workspace()) {
             workspace()->lowerWindow(previousWin->window());
-            for (const auto &slot : m_activeTilingSlots) {
-                if (slot.window && !slot.window->isDeleted() && slot.window != previousWin && slot.window->window()) {
-                    workspace()->stackAbove(slot.window->window(), previousWin->window());
+        }
+    }
+
+    // Ensure all other currently active tiled windows stay raised above any background windows
+    if (workspace()) {
+        for (const auto &slot : m_activeTilingSlots) {
+            if (slot.window && !slot.window->isDeleted() && slot.window != target && slot.window->window()) {
+                if (slot.window->isMinimized()) {
+                    slot.window->setMinimized(false);
                 }
+                workspace()->raiseWindow(slot.window->window());
             }
         }
     }
@@ -8373,6 +8380,9 @@ void ActiveWindowOutlineEffect::performTilingSwap(EffectWindow *target)
         target->window()->moveResize(slotGeo);
     }
 
+    if (workspace() && target->window()) {
+        workspace()->raiseWindow(target->window());
+    }
     if (effects) {
         effects->activateWindow(target);
     }

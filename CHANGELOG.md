@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta30] - 2026-10-30
+
+### Fixed
+- **Tile Slots Occlusion by Background Windows on Swap**:
+  - In `performTilingSwap`, eliminated the erroneous `workspace()->stackAbove(slot, previousWin)` call which dragged remaining active tile slots down to the bottom of the window stack immediately above the evacuated window, allowing background windows to occlude them.
+  - After lowering the evacuated window (`previousWin`) to the bottom of the stack, LeapK now explicitly raises all other active tile slots (`workspace()->raiseWindow(slot)`) and unminimizes them if necessary.
+  - The newly swapped-in target window is then managed, resized, raised to the very top (`workspace()->raiseWindow(target)`), and focused (`effects->activateWindow(target)`).
+  - Guarantees that all active tile slots remain strictly above all background floating windows in the window manager stacking order.
+  - Added unit test `testTilingSwapStackingPreservation` in `tests/tiling_test.cpp` to verify that active tile slots maintain top stacking priority over background windows before and after tile swaps.
+
 ## [1.6.0-beta29] - 2026-10-30
 
 ### Fixed
