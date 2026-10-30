@@ -857,6 +857,13 @@ void ActiveWindowOutlineEffect::initShortcuts()
     KGlobalAccel::self()->setDefaultShortcut(tilingAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::Key_T));
     KGlobalAccel::self()->setGlobalShortcut(tilingAction, QKeySequence(Qt::META | Qt::Key_T));
     connect(tilingAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotTriggerTilingPresetsMode);
+
+    QAction *tilingEditAction = new QAction(this);
+    tilingEditAction->setObjectName(QStringLiteral("ToggleTilingEdit"));
+    tilingEditAction->setText(QStringLiteral("LeapK: Tile Edit Mode (Swap & Resize)"));
+    KGlobalAccel::self()->setDefaultShortcut(tilingEditAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::Key_Return) << QKeySequence(Qt::META | Qt::Key_Enter));
+    KGlobalAccel::self()->setGlobalShortcut(tilingEditAction, QKeySequence(Qt::META | Qt::Key_Return));
+    connect(tilingEditAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotToggleTilingEditMode);
 }
 
 bool ActiveWindowOutlineEffect::supported()
@@ -5483,6 +5490,89 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
+    if (m_tilingEditModeActive) {
+        if (e->type() != QEvent::KeyPress) {
+            return;
+        }
+
+        const Qt::KeyboardModifiers mods = e->modifiers();
+        if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter
+            || ((mods & Qt::MetaModifier) && (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter))) {
+            exitTilingEditMode();
+            return;
+        }
+
+        if (e->key() == Qt::Key_Backspace) {
+            if (m_tilingEditMultiplier > 0) {
+                m_tilingEditMultiplier /= 10;
+                effects->addRepaintFull();
+            }
+            return;
+        }
+
+        if (e->key() >= Qt::Key_0 && e->key() <= Qt::Key_9) {
+            int digit = e->key() - Qt::Key_0;
+            m_tilingEditMultiplier = qBound(0, m_tilingEditMultiplier * 10 + digit, 50);
+            effects->addRepaintFull();
+            return;
+        }
+
+        bool isResizeKey = false;
+        LeapKTiling::ResizeDirection dir = LeapKTiling::ResizeDirection::Left;
+        switch (e->key()) {
+        case Qt::Key_H:
+        case Qt::Key_Left:
+            isResizeKey = true;
+            dir = LeapKTiling::ResizeDirection::Left;
+            break;
+        case Qt::Key_L:
+        case Qt::Key_Right:
+            isResizeKey = true;
+            dir = LeapKTiling::ResizeDirection::Right;
+            break;
+        case Qt::Key_K:
+        case Qt::Key_Up:
+            isResizeKey = true;
+            dir = LeapKTiling::ResizeDirection::Up;
+            break;
+        case Qt::Key_J:
+        case Qt::Key_Down:
+            isResizeKey = true;
+            dir = LeapKTiling::ResizeDirection::Down;
+            break;
+        default:
+            break;
+        }
+
+        if (isResizeKey) {
+            int count = m_tilingEditMultiplier > 0 ? m_tilingEditMultiplier : 1;
+            m_tilingEditMultiplier = 0;
+            performTilingResize(dir, count);
+            return;
+        }
+
+        QString keyText = e->text().toUpper();
+        QChar pressedChar = keyText.isEmpty() ? QChar(e->key()).toUpper() : keyText.at(0).toUpper();
+
+        int activeSlotIdx = findTileSlotIndexForWindow(m_activeWindow);
+        if (activeSlotIdx < 0 && !m_activeTilingSlots.isEmpty()) {
+            activeSlotIdx = 0;
+        }
+
+        const int numKeys = 14;
+        for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
+            if (i == activeSlotIdx) continue;
+            QChar slotChar = LeapKTiling::kTileEditKeys[i % numKeys];
+            if (slotChar == pressedChar) {
+                m_tilingEditMultiplier = 0;
+                performTileSlotSwap(activeSlotIdx, i);
+                return;
+            }
+        }
+
+        return;
+    }
+
     if (!m_jumpMode) {
         return;
     }
@@ -8196,6 +8286,9 @@ void ActiveWindowOutlineEffect::deactivateTiling(EffectWindow *skipRestoreWindow
     m_activeTilingPreset = LeapKTiling::TilingPreset();
     m_activeTilingSlots.clear();
     playThemedSound(OutlineSound::SoundEffect::Dismiss);
+    if (m_tilingEditModeActive) {
+        exitTilingEditMode();
+    }
     if (m_tilingPresetsModeActive) {
         exitTilingPresetsMode();
     }
@@ -8400,6 +8493,212 @@ void ActiveWindowOutlineEffect::performTilingSwap(EffectWindow *target)
         effects->activateWindow(target);
     }
     warpCursorToWindow(target);
+}
+
+void ActiveWindowOutlineEffect::slotToggleTilingEditMode()
+{
+    if (m_tilingEditModeActive) {
+        exitTilingEditMode();
+    } else {
+        enterTilingEditMode();
+    }
+}
+
+void ActiveWindowOutlineEffect::enterTilingEditMode()
+{
+    if (!m_tilingActive || m_activeTilingSlots.isEmpty()) {
+        if (!m_tilingPresets.isEmpty()) {
+            activateTilingPreset(m_tilingPresets.first());
+        }
+    }
+    if (!m_tilingActive || m_activeTilingSlots.isEmpty()) {
+        playThemedSound(OutlineSound::SoundEffect::Dismiss);
+        return;
+    }
+
+    if (m_jumpMode) {
+        cancelJumpMode();
+    }
+
+    if (!effects->grabKeyboard(this)) {
+        return;
+    }
+    m_keyboardGrabActive = true;
+    m_tilingEditModeActive = true;
+    m_tilingEditMultiplier = 0;
+    playThemedSound(OutlineSound::SoundEffect::EnterJump);
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::exitTilingEditMode()
+{
+    if (!m_tilingEditModeActive) {
+        return;
+    }
+    m_tilingEditModeActive = false;
+    m_tilingEditMultiplier = 0;
+    finishKeyboardGrab();
+    playThemedSound(OutlineSound::SoundEffect::Dismiss);
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::performTileSlotSwap(int idx1, int idx2)
+{
+    if (idx1 < 0 || idx1 >= m_activeTilingSlots.size() || idx2 < 0 || idx2 >= m_activeTilingSlots.size() || idx1 == idx2) {
+        return;
+    }
+
+    EffectWindow *w1 = m_activeTilingSlots[idx1].window.data();
+    EffectWindow *w2 = m_activeTilingSlots[idx2].window.data();
+
+    m_activeTilingSlots[idx1].window = w2;
+    m_activeTilingSlots[idx2].window = w1;
+
+    // Connect to KDE tile if available
+    LogicalOutput *activeOutput = effects ? effects->activeScreen() : nullptr;
+    VirtualDesktop *currentDesktop = effects ? effects->currentDesktop() : nullptr;
+    TileManager *tileMgr = (workspace() && activeOutput) ? workspace()->tileManager(activeOutput) : nullptr;
+    RootTile *rootTile = (tileMgr && currentDesktop) ? tileMgr->rootTile(currentDesktop) : nullptr;
+    if (rootTile) {
+        QList<Tile *> leafTiles;
+        for (Tile *t : rootTile->descendants()) {
+            if (!t->isLayout()) {
+                leafTiles.append(t);
+            }
+        }
+        if (idx1 < leafTiles.size() && w2 && w2->window()) {
+            leafTiles[idx1]->manage(w2->window());
+        }
+        if (idx2 < leafTiles.size() && w1 && w1->window()) {
+            leafTiles[idx2]->manage(w1->window());
+        }
+    }
+
+    if (w1 && !w1->isDeleted() && w1->window()) {
+        w1->window()->evaluateWindowRules();
+        w1->window()->moveResize(m_activeTilingSlots[idx2].geometry);
+    }
+    if (w2 && !w2->isDeleted() && w2->window()) {
+        w2->window()->evaluateWindowRules();
+        w2->window()->moveResize(m_activeTilingSlots[idx1].geometry);
+    }
+
+    if (workspace()) {
+        for (const auto &slot : m_activeTilingSlots) {
+            if (slot.window && !slot.window->isDeleted() && slot.window->window()) {
+                workspace()->raiseWindow(slot.window->window());
+            }
+        }
+    }
+
+    if (w1) {
+        if (effects) {
+            effects->activateWindow(w1);
+        }
+        warpCursorToWindow(w1);
+    }
+
+    playThemedSound(OutlineSound::SoundEffect::LandWindow);
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::performTilingResize(LeapKTiling::ResizeDirection dir, int count)
+{
+    if (m_activeTilingSlots.size() < 2) {
+        return;
+    }
+
+    int activeSlotIdx = findTileSlotIndexForWindow(m_activeWindow);
+    if (activeSlotIdx < 0) {
+        activeSlotIdx = 0;
+    }
+
+    QRectF workArea;
+    if (effects) {
+        workArea = effects->clientArea(MaximizeArea, effects->activeScreen(), effects->currentDesktop());
+    }
+    if (workArea.isEmpty()) {
+        workArea = QRectF(0, 0, 1920, 1080);
+    }
+
+    // Base step size: 5% of screen width / height per count unit
+    const qreal delta = (dir == LeapKTiling::ResizeDirection::Left || dir == LeapKTiling::ResizeDirection::Right)
+        ? workArea.width() * 0.05 * count
+        : workArea.height() * 0.05 * count;
+
+    QList<QRectF> geos;
+    for (const auto &slot : m_activeTilingSlots) {
+        geos.append(slot.geometry);
+    }
+
+    if (LeapKTiling::resizeSlotGeometries(geos, activeSlotIdx, dir, delta, 100.0)) {
+        for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
+            m_activeTilingSlots[i].geometry = geos[i];
+            EffectWindow *w = m_activeTilingSlots[i].window.data();
+            if (w && !w->isDeleted() && w->window()) {
+                w->window()->moveResize(geos[i]);
+            }
+        }
+        playThemedSound(OutlineSound::SoundEffect::NavTab);
+        if (effects) {
+            effects->addRepaintFull();
+        }
+    }
+}
+
+void ActiveWindowOutlineEffect::renderTilingEditOverlay(const RenderTarget &renderTarget,
+                                                        const RenderViewport &viewport)
+{
+    if (m_activeTilingSlots.isEmpty()) {
+        return;
+    }
+
+    const QRectF screenRect = viewport.renderRect();
+    int activeSlotIdx = findTileSlotIndexForWindow(m_activeWindow);
+    if (activeSlotIdx < 0 || activeSlotIdx >= m_activeTilingSlots.size()) {
+        activeSlotIdx = 0;
+    }
+
+    // 1. Render badge on other tile slots (target for swap)
+    const int numKeys = 14;
+    for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
+        const QRectF geo = m_activeTilingSlots[i].geometry;
+        EffectWindow *w = m_activeTilingSlots[i].window.data();
+        if (i == activeSlotIdx) {
+            // Active slot indicator
+            const qreal badgeW = 96.0;
+            const qreal badgeH = 52.0;
+            const QRectF bRect(geo.center().x() - badgeW / 2.0, geo.center().y() - badgeH / 2.0, badgeW, badgeH);
+            const QString label = (m_tilingEditMultiplier > 0)
+                ? QString::number(m_tilingEditMultiplier) + QLatin1Char('x')
+                : QStringLiteral("EDIT");
+            const QColor bgCol = (m_tilingEditMultiplier > 0) ? QColor(255, 170, 0, 240) : QColor(0, 180, 216, 230);
+            renderBadge(renderTarget, viewport, bRect, QChar(), bgCol, QColor(255, 255, 255), false, 48, label, w);
+        } else {
+            // Other slot: swap target badge with distinct letter
+            const QChar letter = LeapKTiling::kTileEditKeys[i % numKeys];
+            const qreal bSize = 64.0;
+            const QRectF bRect(geo.center().x() - bSize / 2.0, geo.center().y() - bSize / 2.0, bSize, bSize);
+            const QColor bgCol(0, 122, 255, 240); // Bright iOS/KDE system blue
+            renderBadge(renderTarget, viewport, bRect, letter, bgCol, QColor(255, 255, 255), true, 64, QString(), w);
+        }
+    }
+
+    // 2. Render bottom hint bar pill
+    const qreal barW = qMin(screenRect.width() - 40.0, 780.0);
+    const qreal barH = 42.0;
+    const QRectF barRect(screenRect.center().x() - barW / 2.0, screenRect.bottom() - barH - 24.0, barW, barH);
+    const QString hintText = (m_tilingEditMultiplier > 0)
+        ? QStringLiteral("Multiplier: %1x  •  [H/J/K/L / Arrows: Resize]  •  [Backspace: Clear]  •  [Enter: Finish]").arg(m_tilingEditMultiplier)
+        : QStringLiteral("[Badge Letters: Swap Slot]  •  [1-9 + H/J/K/L: Resize (5% step)]  •  [Enter / Esc: Finish]");
+    const QColor barBg(25, 25, 30, 235);
+    renderBadge(renderTarget, viewport, barRect, QChar(), barBg, QColor(255, 255, 255), false, 36, hintText, nullptr);
 }
 
 void ActiveWindowOutlineEffect::renderTilingPresetPills(const RenderTarget &renderTarget,
@@ -9723,7 +10022,9 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         }
     }
 
-    if (m_jumpMode && !inhibited) {
+    if (m_tilingEditModeActive && !inhibited) {
+        renderTilingEditOverlay(renderTarget, viewport);
+    } else if (m_jumpMode && !inhibited) {
         if (m_tilingPresetsModeActive) {
             renderTilingPresetPills(renderTarget, viewport, m_tilingPresets);
         } else {

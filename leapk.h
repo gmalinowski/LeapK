@@ -342,6 +342,13 @@ private:
     int findTileSlotIndexForWindow(EffectWindow *w) const;
     void performTilingSwap(EffectWindow *target);
     void ensureTilingNoMinSizeRule();
+    void slotToggleTilingEditMode();
+    void enterTilingEditMode();
+    void exitTilingEditMode();
+    void performTileSlotSwap(int idx1, int idx2);
+    void performTilingResize(LeapKTiling::ResizeDirection dir, int count);
+    void renderTilingEditOverlay(const RenderTarget &renderTarget,
+                                 const RenderViewport &viewport);
     void renderTilingPresetPills(const RenderTarget &renderTarget,
                                 const RenderViewport &viewport,
                                 const QList<LeapKTiling::TilingPreset> &presets);
@@ -586,6 +593,8 @@ private:
     QList<LeapKTiling::TilingPreset> m_tilingPresets;
     int m_tilingGaps = 6;
     int m_tilingMargins = 8;
+    bool m_tilingEditModeActive = false;
+    int m_tilingEditMultiplier = 0;
     QList<QPair<QRectF, LeapKTiling::TilingPreset>> m_hudTilingPresetPillRects;
 
     // Persistent Marks (saved across desktop sessions)

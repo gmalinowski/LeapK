@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta32] - 2026-10-31
+
+### Added
+- **Tile Edit Mode (Direct Slot Swap & Vim-style Numeric Resize)**:
+  - Added dedicated interactive Tile Edit Mode toggled via `Meta+Return` (Super+Enter) or `Meta+Enter`.
+  - When activated on a tiled desktop, the active tile slot displays an `[EDIT]` or `[Nx]` multiplier badge, while all other tile slots display clean, single-letter swap target badges (`A`, `B`, `C`, etc. from `kTileEditKeys`).
+  - **1-Key Instant Swap**: Pressing any displayed badge letter immediately swaps the active window with that tile slot, exchanging geometries, KDE quick tile management, and raising slots above background windows.
+  - **Vim-Style Directional Resize**: `H` (Left), `L` (Right), `K` (Up), `J` (Down) and Arrow keys smoothly resize the divider between neighboring slots (base step: 5% of screen size).
+  - **Numeric Multipliers**: Users can type numbers (e.g. `5h`, `3l`, `2j`) to multiply the step size (e.g. `5h` moves boundary by $5 \times 5\% = 25\%$ of screen width). Multiplier is displayed live on the active slot badge and bottom hint bar.
+  - Added bottom floating hint bar: `[Letters: Swap Slot] • [1-9 + H/J/K/L: Resize (5% step)] • [Enter/Esc: Finish]`.
+  - Added `resizeSlotGeometries` in `tilinghelper.h` and comprehensive test `testResizeSlotGeometries` in `tests/tiling_test.cpp`.
+
 ## [1.6.0-beta31] - 2026-10-31
 
 ### Fixed

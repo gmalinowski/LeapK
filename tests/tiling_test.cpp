@@ -413,6 +413,69 @@ void testHudPreservationOnWorkspaceTilingSwitch()
     std::cout << "testHudPreservationOnWorkspaceTilingSwitch PASSED\n";
 }
 
+void testResizeSlotGeometries()
+{
+    using namespace LeapKTiling;
+
+    // Test 1: Two horizontal columns (50/50)
+    {
+        QList<QRectF> tileGeos = {
+            QRectF(10, 10, 945, 1060),
+            QRectF(965, 10, 945, 1060)
+        };
+
+        // Resize Slot 0 to the Right by 100px (expanding Slot 0, shrinking Slot 1)
+        bool ok = resizeSlotGeometries(tileGeos, 0, ResizeDirection::Right, 100.0, 100.0);
+        assert(ok);
+        assert(qAbs(tileGeos[0].width() - 1045.0) < 0.001);
+        assert(qAbs(tileGeos[1].left() - 1065.0) < 0.001);
+        assert(qAbs(tileGeos[1].width() - 845.0) < 0.001);
+
+        // Gap must still be exactly 10px
+        assert(qAbs(tileGeos[1].left() - tileGeos[0].right() - 10.0) < 0.001);
+
+        // Resize Slot 0 to the Left by 100px (shrinking Slot 0, expanding Slot 1)
+        ok = resizeSlotGeometries(tileGeos, 0, ResizeDirection::Left, 100.0, 100.0);
+        assert(ok);
+        assert(qAbs(tileGeos[0].width() - 945.0) < 0.001);
+        assert(qAbs(tileGeos[1].left() - 965.0) < 0.001);
+        assert(qAbs(tileGeos[1].width() - 945.0) < 0.001);
+
+        // Test minimum size clamping: try to shrink Slot 0 by 900px with minSize=100
+        ok = resizeSlotGeometries(tileGeos, 0, ResizeDirection::Left, 900.0, 100.0);
+        assert(ok);
+        assert(tileGeos[0].width() >= 100.0);
+        assert(qAbs(tileGeos[0].width() - 100.0) < 0.001);
+    }
+
+    // Test 2: Master & Stack vertical split
+    {
+        QList<QRectF> tileGeos = {
+            QRectF(10, 10, 1140, 1060),       // Slot 0: Master (Left)
+            QRectF(1160, 10, 750, 520),       // Slot 1: Top Right Stack
+            QRectF(1160, 540, 750, 530)       // Slot 2: Bottom Right Stack
+        };
+
+        // Resize Slot 1 Down by 80px (expanding Slot 1 vertically, shrinking Slot 2)
+        bool ok = resizeSlotGeometries(tileGeos, 1, ResizeDirection::Down, 80.0, 100.0);
+        assert(ok);
+        assert(qAbs(tileGeos[1].height() - 600.0) < 0.001);
+        assert(qAbs(tileGeos[2].top() - 620.0) < 0.001);
+        assert(qAbs(tileGeos[2].height() - 450.0) < 0.001);
+
+        // Vertical gap must still be exactly 10px
+        assert(qAbs(tileGeos[2].top() - tileGeos[1].bottom() - 10.0) < 0.001);
+
+        // Resize Slot 2 Up by 100px (expanding Slot 2 vertically, shrinking Slot 1)
+        ok = resizeSlotGeometries(tileGeos, 2, ResizeDirection::Up, 100.0, 100.0);
+        assert(ok);
+        assert(qAbs(tileGeos[2].height() - 550.0) < 0.001);
+        assert(qAbs(tileGeos[1].height() - 500.0) < 0.001);
+    }
+
+    std::cout << "testResizeSlotGeometries PASSED\n";
+}
+
 int main()
 {
     testDefaultPresets();
@@ -423,6 +486,7 @@ int main()
     testTilingWindowRuleConfig();
     testTilingSwapStackingPreservation();
     testHudPreservationOnWorkspaceTilingSwitch();
+    testResizeSlotGeometries();
 
     std::cout << "All LeapKTiling tests passed successfully!\n";
     return 0;
