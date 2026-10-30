@@ -3457,6 +3457,16 @@
                </widget>
               </item>
               <item>
+               <widget class="QCheckBox" name="kcfg_AiAlwaysSendToAi">
+                <property name="text">
+                 <string>Always pass all commands directly to AI (bypass local pattern guessing)</string>
+                </property>
+                <property name="toolTip">
+                 <string>When checked, LeapK does not try to guess commands locally and forwards all prompt text straight to the configured AI engine (Gemma / OpenAI API).</string>
+                </property>
+               </widget>
+              </item>
+              <item>
                <widget class="QLabel" name="lblAiDescription">
                 <property name="text">
                  <string>Issue natural language commands (e.g. &quot;all terminals tiling&quot;, &quot;browser left, code right&quot;, &quot;stash background apps&quot;) to automate window management and layouts. 100% opt-in: zero background resource usage and 0 MB RAM when disabled.</string>

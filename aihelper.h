@@ -157,6 +157,7 @@ inline QString formatBytes(qint64 bytes)
 
 struct AiConfig {
     bool enabled = false;
+    bool alwaysSendToAi = false;
     AiBackend backend = AiBackend::LocalLlamaCpp;
     QString localModelPath = defaultModelPath();
     QString apiEndpoint = QStringLiteral("https://api.openai.com/v1");
@@ -169,6 +170,7 @@ struct AiConfig {
     {
         QJsonObject obj;
         obj[QStringLiteral("enabled")] = enabled;
+        obj[QStringLiteral("alwaysSendToAi")] = alwaysSendToAi;
         obj[QStringLiteral("backend")] = static_cast<int>(backend);
         obj[QStringLiteral("localModelPath")] = localModelPath;
         obj[QStringLiteral("apiEndpoint")] = apiEndpoint;
@@ -184,6 +186,9 @@ struct AiConfig {
         AiConfig cfg;
         if (obj.contains(QStringLiteral("enabled"))) {
             cfg.enabled = obj[QStringLiteral("enabled")].toBool(false);
+        }
+        if (obj.contains(QStringLiteral("alwaysSendToAi"))) {
+            cfg.alwaysSendToAi = obj[QStringLiteral("alwaysSendToAi")].toBool(false);
         }
         if (obj.contains(QStringLiteral("backend"))) {
             cfg.backend = static_cast<AiBackend>(obj[QStringLiteral("backend")].toInt(0));

@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta21] - 2026-10-30
+
+### Added
+- **Direct AI Bypass Option (`AiAlwaysSendToAi`)**:
+  - Added new configuration toggle in Settings (🤖 AI Assistant tab): `"Always pass all commands directly to AI (bypass local pattern guessing)"`.
+  - When enabled, LeapK completely skips heuristic guessing and category patterns, forwarding 100% of user prompts directly to the configured AI model (Gemma / OpenAI API).
+  - Synchronized across `leapkconfig.kcfg`, `aihelper.h`, `leapk_config.ui`, `leapk_config.cpp`, `install-leapk.sh`, and `uninstall-leapk.sh`.
+  - Added unit test validation in `outline-ai` and `outline-config-sync`.
+
 ## [1.6.0-beta20] - 2026-10-30
 
 ### Fixed

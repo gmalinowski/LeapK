@@ -399,6 +399,7 @@ set_default ActiveCustomShaderId ""
 set_default ActiveThemeId "default-breeze"
 set_default ActiveThemeParams ""
 set_default AiEnabled false
+set_default AiAlwaysSendToAi false
 set_default AiBackend 0
 set_default AiLocalModelPath ""
 set_default AiApiEndpoint "https://api.openai.com/v1"

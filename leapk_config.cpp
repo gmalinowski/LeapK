@@ -359,6 +359,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
 
     // Tab 8: AI Assistant
     m_configSkeleton->addItemBool(QStringLiteral("AiEnabled"), *new bool, false);
+    m_configSkeleton->addItemBool(QStringLiteral("AiAlwaysSendToAi"), *new bool, false);
     m_configSkeleton->addItemInt(QStringLiteral("AiBackend"), *new int, 0);
     m_configSkeleton->addItemString(QStringLiteral("AiLocalModelPath"), *new QString, QString());
     m_configSkeleton->addItemString(QStringLiteral("AiApiEndpoint"), *new QString, QStringLiteral("https://api.openai.com/v1"));
@@ -3216,6 +3217,7 @@ void ActiveWindowOutlineConfig::initAiTab()
 void ActiveWindowOutlineConfig::updateAiUIState()
 {
     const bool enabled = m_ui->kcfg_AiEnabled->isChecked();
+    m_ui->kcfg_AiAlwaysSendToAi->setEnabled(enabled);
     m_ui->groupAiBackend->setEnabled(enabled);
     const bool isLocal = m_ui->rbAiLocal->isChecked();
     m_ui->groupLocalModel->setEnabled(enabled && isLocal);

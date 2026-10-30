@@ -1169,6 +1169,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_tilingMargins = qBound(0, config.readEntry("TilingMargins", 8), 64);
     m_tilingPresets = LeapKTiling::loadPresets();
     m_aiConfig.enabled = config.readEntry("AiEnabled", false);
+    m_aiConfig.alwaysSendToAi = config.readEntry("AiAlwaysSendToAi", false);
     m_aiConfig.backend = static_cast<LeapKAi::AiBackend>(config.readEntry("AiBackend", 0));
     m_aiConfig.localModelPath = config.readEntry("AiLocalModelPath", QString());
     m_aiConfig.apiEndpoint = config.readEntry("AiApiEndpoint", QStringLiteral("https://api.openai.com/v1"));
@@ -4313,6 +4314,11 @@ void ActiveWindowOutlineEffect::executeAiPrompt(const QString &query)
     }
 
     if (m_aiPromptIsThinking) {
+        return;
+    }
+
+    if (m_aiConfig.alwaysSendToAi) {
+        launchAiProcess(query);
         return;
     }
 

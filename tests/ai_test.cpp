@@ -16,6 +16,7 @@ void testAiConfigSerialization()
 
     AiConfig cfg;
     assert(!cfg.enabled);
+    assert(!cfg.alwaysSendToAi);
     assert(cfg.backend == AiBackend::LocalLlamaCpp);
     assert(cfg.apiEndpoint == QStringLiteral("https://api.openai.com/v1"));
     assert(cfg.apiModel == QStringLiteral("gpt-4o-mini"));
@@ -24,6 +25,7 @@ void testAiConfigSerialization()
 
     // Modify values
     cfg.enabled = true;
+    cfg.alwaysSendToAi = true;
     cfg.backend = AiBackend::RemoteOpenAiApi;
     cfg.apiEndpoint = QStringLiteral("https://generativelanguage.googleapis.com/v1beta/openai");
     cfg.apiModel = QStringLiteral("gemini-1.5-flash");
@@ -37,6 +39,7 @@ void testAiConfigSerialization()
     const AiConfig restored = AiConfig::fromJson(json);
 
     assert(restored.enabled == true);
+    assert(restored.alwaysSendToAi == true);
     assert(restored.backend == AiBackend::RemoteOpenAiApi);
     assert(restored.apiEndpoint == QStringLiteral("https://generativelanguage.googleapis.com/v1beta/openai"));
     assert(restored.apiModel == QStringLiteral("gemini-1.5-flash"));
