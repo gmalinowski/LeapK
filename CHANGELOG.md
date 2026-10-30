@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta23] - 2026-10-30
+
+### Fixed
+- **Robust Balanced JSON Extraction from `llama-cli` Output (`aihelper.h`)**:
+  - Fixed issue where commands repeatedly produced `"❌ Could not interpret AI response"`:
+    - `llama-cli` prints runtime banners and echoes the prompt instructions containing schema braces (`{"action": ...}`).
+    - The old parser matched the first brace in the prompt instructions to the last brace at the end of the output, creating an invalid JSON blob.
+  - Implemented `extractBalancedJson()` with reverse depth tracking and string escape handling to cleanly isolate the actual generated JSON payload.
+  - Added prompt boundary trimming (`JSON:`) and markdown code block support (```` ```json ````).
+  - Added regression unit test in `tests/ai_test.cpp` modeled on real `llama-cli` stdout logs.
+- **English Language Consistency (`leapk.cpp`)**:
+  - Translated all HUD status notifications, error messages, and action completion strings from Polish to clear, professional English.
+
 ## [1.6.0-beta22] - 2026-10-30
 
 ### Added

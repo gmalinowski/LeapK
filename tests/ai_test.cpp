@@ -256,6 +256,32 @@ void testAiResponseParsing()
         assert(acts.isEmpty());
     }
 
+    // 13. Real llama-cli output with banner, echoed prompt containing guideline braces, and trailing text
+    {
+        const QString raw = QStringLiteral(
+            "\n\nLoading model... \n\n"
+            "build      : b12004-3c809f443\n"
+            "model      : /home/greg/.local/share/leapk/models/gemma-2-2b-it-Q4_K_M.gguf\n\n"
+            "> You are an intelligent window manager assistant for KDE Plasma LeapK.\n"
+            "Windows on screen:\n"
+            "[0] class=\"konsole org.kde.konsole\", title=\"~ : bash — Konsole\"\n"
+            "[1] class=\"dolphin org.kde.dolphin\", title=\"Dolphin\"\n\n"
+            "Supported actions:\n"
+            "- focus: {\"action\": \"focus\", \"index\": <num>}\n"
+            "- tile: {\"action\": \"tile\", \"indices\": [<num>, ...]}\n\n"
+            "User command: Focus terminal\n"
+            "JSON:\n"
+            "```json\n"
+            "{\"action\": \"focus\", \"index\": 0, \"reason\": \"Focus terminal\"}\n"
+            "```\n\n\nExiting...\n"
+        );
+        const auto acts = parseAiResponse(raw);
+        assert(acts.size() == 1);
+        assert(acts[0].action == QStringLiteral("focus"));
+        assert(acts[0].indices.size() == 1 && acts[0].indices[0] == 0);
+        assert(acts[0].reason == QStringLiteral("Focus terminal"));
+    }
+
     std::cout << "testAiResponseParsing passed!" << std::endl;
 }
 

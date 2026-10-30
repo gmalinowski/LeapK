@@ -307,6 +307,61 @@ inline ParsedAiAction parseSingleAiAction(const QJsonObject &obj)
     return act;
 }
 
+inline QString extractBalancedJson(const QString &str)
+{
+    const int lastBrace = str.lastIndexOf(QLatin1Char('}'));
+    const int lastBracket = str.lastIndexOf(QLatin1Char(']'));
+
+    if (lastBrace == -1 && lastBracket == -1) {
+        return QString();
+    }
+
+    if (lastBracket > lastBrace) {
+        // Array ends last: scan backwards to find matching '['
+        int depth = 0;
+        bool inStr = false;
+        bool escaped = false;
+        for (int i = lastBracket; i >= 0; --i) {
+            const QChar c = str.at(i);
+            if (c == QLatin1Char('"') && !escaped) {
+                inStr = !inStr;
+            } else if (!inStr) {
+                if (c == QLatin1Char(']')) {
+                    depth++;
+                } else if (c == QLatin1Char('[')) {
+                    depth--;
+                    if (depth == 0) {
+                        return str.mid(i, lastBracket - i + 1);
+                    }
+                }
+            }
+            escaped = (c == QLatin1Char('\\') && !escaped);
+        }
+    } else {
+        // Object ends last: scan backwards to find matching '{'
+        int depth = 0;
+        bool inStr = false;
+        bool escaped = false;
+        for (int i = lastBrace; i >= 0; --i) {
+            const QChar c = str.at(i);
+            if (c == QLatin1Char('"') && !escaped) {
+                inStr = !inStr;
+            } else if (!inStr) {
+                if (c == QLatin1Char('}')) {
+                    depth++;
+                } else if (c == QLatin1Char('{')) {
+                    depth--;
+                    if (depth == 0) {
+                        return str.mid(i, lastBrace - i + 1);
+                    }
+                }
+            }
+            escaped = (c == QLatin1Char('\\') && !escaped);
+        }
+    }
+    return QString();
+}
+
 inline QList<ParsedAiAction> parseAiResponse(const QString &text)
 {
     QList<ParsedAiAction> result;
@@ -314,33 +369,25 @@ inline QList<ParsedAiAction> parseAiResponse(const QString &text)
         return result;
     }
 
-    // Locate JSON block: check whether array '[' or object '{' appears first
-    int start = -1;
-    int end = -1;
-
-    const int firstObj = text.indexOf(QLatin1Char('{'));
-    const int firstArr = text.indexOf(QLatin1Char('['));
-
-    if (firstArr != -1 && (firstObj == -1 || firstArr < firstObj)) {
-        const int lastArr = text.lastIndexOf(QLatin1Char(']'));
-        if (lastArr > firstArr) {
-            start = firstArr;
-            end = lastArr;
-        }
-    }
-    if (start == -1 && firstObj != -1) {
-        const int lastObj = text.lastIndexOf(QLatin1Char('}'));
-        if (lastObj > firstObj) {
-            start = firstObj;
-            end = lastObj;
-        }
+    // 1. If output contains the prompt marker "JSON:", strip prompt banner & instructions
+    QString candidate = text;
+    const int jsonMarker = text.lastIndexOf(QStringLiteral("JSON:"));
+    if (jsonMarker != -1) {
+        candidate = text.mid(jsonMarker + 5).trimmed();
     }
 
-    if (start == -1 || end <= start) {
+    // 2. Extract balanced JSON block (object or array)
+    QString jsonCandidate = extractBalancedJson(candidate);
+    if (jsonCandidate.isEmpty() && candidate != text) {
+        // Fallback to searching the full text
+        jsonCandidate = extractBalancedJson(text);
+    }
+
+    if (jsonCandidate.isEmpty()) {
         return result;
     }
 
-    const QByteArray jsonBytes = text.mid(start, end - start + 1).toUtf8();
+    const QByteArray jsonBytes = jsonCandidate.toUtf8();
     const QJsonDocument doc = QJsonDocument::fromJson(jsonBytes);
 
     if (doc.isArray()) {

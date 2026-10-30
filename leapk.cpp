@@ -4427,7 +4427,7 @@ void ActiveWindowOutlineEffect::executeAiPrompt(const QString &query)
     if (hasTilingKeyword) {
         if (q.contains(QStringLiteral("float")) || q.contains(QStringLiteral("turn off")) || q.contains(QStringLiteral("off")) || q.contains(QStringLiteral("wyłącz")) || q.contains(QStringLiteral("wylacz")) || q.contains(QStringLiteral("un-tile"))) {
             deactivateTiling();
-            m_aiPromptStatusText = QStringLiteral("✔ Wyłączono kafelkowanie (przywrócono okna)");
+            m_aiPromptStatusText = QStringLiteral("✔ Tiling disabled (floating windows restored)");
             m_hudHeaderTexture.reset();
             m_hudHeaderCacheKey = -1;
             if (effects) effects->addRepaintFull();
@@ -4509,7 +4509,7 @@ void ActiveWindowOutlineEffect::executeAiPrompt(const QString &query)
         }
 
         activateTilingPreset(chosenPreset, targetWindows);
-        m_aiPromptStatusText = QStringLiteral("✔ Kafelkowanie: %1 (%2 okna)").arg(chosenPreset.name.isEmpty() ? chosenPreset.id : chosenPreset.name).arg(targetWindows.size());
+        m_aiPromptStatusText = QStringLiteral("✔ Tiled: %1 (%2 windows)").arg(chosenPreset.name.isEmpty() ? chosenPreset.id : chosenPreset.name).arg(targetWindows.size());
         m_hudHeaderTexture.reset();
         m_hudHeaderCacheKey = -1;
         if (effects) effects->addRepaintFull();
@@ -4531,7 +4531,7 @@ void ActiveWindowOutlineEffect::executeAiPrompt(const QString &query)
             }
             m_stashedWindows.clear();
             playThemedSound(OutlineSound::SoundEffect::Stash);
-            m_aiPromptStatusText = QStringLiteral("✔ Przywrócono okna ze schowka");
+            m_aiPromptStatusText = QStringLiteral("✔ Restored stashed windows");
         } else {
             int stashed = 0;
             for (EffectWindow *w : eligibleWindows) {
@@ -4542,7 +4542,7 @@ void ActiveWindowOutlineEffect::executeAiPrompt(const QString &query)
                 }
             }
             playThemedSound(OutlineSound::SoundEffect::Stash);
-            m_aiPromptStatusText = QStringLiteral("✔ Ukryto w tle %1 okien").arg(stashed);
+            m_aiPromptStatusText = QStringLiteral("✔ Stashed %1 windows in background").arg(stashed);
         }
         m_hudHeaderTexture.reset();
         m_hudHeaderCacheKey = -1;
@@ -4602,7 +4602,7 @@ void ActiveWindowOutlineEffect::executeAiPrompt(const QString &query)
         effects->activateWindow(bestWin);
         warpCursorToWindow(bestWin);
         playThemedSound(OutlineSound::SoundEffect::LandWindow);
-        m_aiPromptStatusText = QStringLiteral("✔ Przełączono: %1").arg(bestWin->caption().left(35));
+        m_aiPromptStatusText = QStringLiteral("✔ Focused: %1").arg(bestWin->caption().left(35));
         m_hudHeaderTexture.reset();
         m_hudHeaderCacheKey = -1;
         if (effects) effects->addRepaintFull();
@@ -4708,7 +4708,7 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
         const QString modelPath = m_aiConfig.localModelPath.isEmpty() ? LeapKAi::defaultModelPath() : m_aiConfig.localModelPath;
         if (!LeapKAi::isModelInstalled(modelPath)) {
             m_aiPromptIsThinking = false;
-            m_aiPromptStatusText = QStringLiteral("❌ Model nie został pobrany. Pobierz w Ustawieniach LeapK (tab AI)");
+            m_aiPromptStatusText = QStringLiteral("❌ Model not downloaded. Download in LeapK Settings (AI tab)");
             m_hudHeaderTexture.reset();
             m_hudHeaderCacheKey = -1;
             if (effects) effects->addRepaintFull();
@@ -4718,7 +4718,7 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
         const QString cliPath = LeapKAi::defaultLlamaCliPath();
         if (!QFileInfo::exists(cliPath)) {
             m_aiPromptIsThinking = false;
-            m_aiPromptStatusText = QStringLiteral("❌ Brak pliku llama-cli w ~/.local/share/leapk/bin/");
+            m_aiPromptStatusText = QStringLiteral("❌ llama-cli not found in ~/.local/share/leapk/bin/");
             m_hudHeaderTexture.reset();
             m_hudHeaderCacheKey = -1;
             if (effects) effects->addRepaintFull();
@@ -4730,7 +4730,7 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
 
         m_aiPromptIsThinking = true;
         m_aiThinkingFrame = 0;
-        m_aiPromptStatusText = QStringLiteral("AI myśli... (Gemma 2B)");
+        m_aiPromptStatusText = QStringLiteral("AI thinking... (Gemma 2B)");
         if (m_aiThinkingTimer) m_aiThinkingTimer->start(80);
 
         m_aiActiveProcess = new QProcess(this);
@@ -4750,7 +4750,7 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
             if (exitStatus != QProcess::NormalExit || exitCode != 0) {
                 const QString errStr = m_aiActiveProcess ? QString::fromUtf8(m_aiActiveProcess->readAllStandardError()).trimmed() : QString();
                 qWarning() << "LeapK AI: query:" << query << "llama-cli exitCode:" << exitCode << "status:" << exitStatus << "stderr:" << errStr;
-                m_aiPromptStatusText = QStringLiteral("❌ Błąd procesu lokalnego AI (%1)").arg(exitCode);
+                m_aiPromptStatusText = QStringLiteral("❌ Local AI process error (%1)").arg(exitCode);
                 m_hudHeaderTexture.reset();
                 m_hudHeaderCacheKey = -1;
                 if (effects) effects->addRepaintFull();
@@ -4766,7 +4766,7 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
             Q_UNUSED(error);
             if (m_aiThinkingTimer) m_aiThinkingTimer->stop();
             m_aiPromptIsThinking = false;
-            m_aiPromptStatusText = QStringLiteral("❌ Błąd uruchomienia procesu llama-cli");
+            m_aiPromptStatusText = QStringLiteral("❌ Failed to start llama-cli process");
             m_hudHeaderTexture.reset();
             m_hudHeaderCacheKey = -1;
             if (effects) effects->addRepaintFull();
@@ -4794,7 +4794,7 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
                 proc->kill();
                 m_aiPromptIsThinking = false;
                 if (m_aiThinkingTimer) m_aiThinkingTimer->stop();
-                m_aiPromptStatusText = QStringLiteral("❌ Przekroczono limit czasu AI (timeout)");
+                m_aiPromptStatusText = QStringLiteral("❌ AI request timed out");
                 m_hudHeaderTexture.reset();
                 m_hudHeaderCacheKey = -1;
                 if (effects) effects->addRepaintFull();
@@ -4809,7 +4809,7 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
         // RemoteOpenAiApi
         if (m_aiConfig.apiKey.isEmpty() && m_aiConfig.apiProviderPreset != LeapKAi::ApiProviderPreset::LocalServer) {
             m_aiPromptIsThinking = false;
-            m_aiPromptStatusText = QStringLiteral("❌ Brak klucza API. Skonfiguruj w Ustawieniach LeapK (tab AI)");
+            m_aiPromptStatusText = QStringLiteral("❌ Missing API key. Configure in LeapK Settings (AI tab)");
             m_hudHeaderTexture.reset();
             m_hudHeaderCacheKey = -1;
             if (effects) effects->addRepaintFull();
@@ -4818,7 +4818,7 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
 
         m_aiPromptIsThinking = true;
         m_aiThinkingFrame = 0;
-        m_aiPromptStatusText = QStringLiteral("AI myśli... (%1)").arg(m_aiConfig.apiModel);
+        m_aiPromptStatusText = QStringLiteral("AI thinking... (%1)").arg(m_aiConfig.apiModel);
         if (m_aiThinkingTimer) m_aiThinkingTimer->start(80);
 
         const QString sysPrompt = LeapKAi::buildAiSystemPrompt(winDescriptions, wsDescriptions, desktopInfo);
@@ -4858,7 +4858,7 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
             m_aiPromptIsThinking = false;
 
             if (m_aiActiveReply->error() != QNetworkReply::NoError) {
-                m_aiPromptStatusText = QStringLiteral("❌ Błąd API: %1").arg(m_aiActiveReply->errorString().left(35));
+                m_aiPromptStatusText = QStringLiteral("❌ API error: %1").arg(m_aiActiveReply->errorString().left(35));
                 m_hudHeaderTexture.reset();
                 m_hudHeaderCacheKey = -1;
                 if (effects) effects->addRepaintFull();
@@ -4882,7 +4882,7 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
                 }
             }
 
-            m_aiPromptStatusText = QStringLiteral("❌ Błąd parsowania odpowiedzi API");
+            m_aiPromptStatusText = QStringLiteral("❌ Failed to parse API response");
             m_hudHeaderTexture.reset();
             m_hudHeaderCacheKey = -1;
             if (effects) effects->addRepaintFull();
@@ -4899,7 +4899,7 @@ void ActiveWindowOutlineEffect::handleAiResponse(const QString &rawResponse)
     const auto actions = LeapKAi::parseAiResponse(rawResponse);
     if (actions.isEmpty()) {
         qWarning() << "LeapK AI: failed to parse AI response:" << rawResponse;
-        m_aiPromptStatusText = QStringLiteral("❌ Nie udało się zinterpretować odpowiedzi AI");
+        m_aiPromptStatusText = QStringLiteral("❌ Could not interpret AI response");
         m_hudHeaderTexture.reset();
         m_hudHeaderCacheKey = -1;
         if (effects) effects->addRepaintFull();
@@ -4912,7 +4912,7 @@ void ActiveWindowOutlineEffect::handleAiActionJson(const QJsonObject &rootObj)
 {
     const auto actions = LeapKAi::parseAiResponse(QString::fromUtf8(QJsonDocument(rootObj).toJson(QJsonDocument::Compact)));
     if (actions.isEmpty()) {
-        m_aiPromptStatusText = QStringLiteral("❌ Nie udało się zinterpretować odpowiedzi AI");
+        m_aiPromptStatusText = QStringLiteral("❌ Could not interpret AI response");
         m_hudHeaderTexture.reset();
         m_hudHeaderCacheKey = -1;
         if (effects) effects->addRepaintFull();
@@ -4981,9 +4981,9 @@ void ActiveWindowOutlineEffect::executeAiActions(const QList<LeapKAi::ParsedAiAc
                 effects->activateWindow(targetWin);
                 warpCursorToWindow(targetWin);
                 playThemedSound(OutlineSound::SoundEffect::LandWindow);
-                successReasons << (act.reason.isEmpty() ? QStringLiteral("Przełączono na okno: %1").arg(targetWin->caption().left(25)) : act.reason);
+                successReasons << (act.reason.isEmpty() ? QStringLiteral("Focused: %1").arg(targetWin->caption().left(25)) : act.reason);
             } else {
-                m_aiPromptStatusText = QStringLiteral("❌ Nie znaleziono wskazanego okna");
+                m_aiPromptStatusText = QStringLiteral("❌ Target window not found");
             }
 
         } else if (action == QStringLiteral("tile")) {
@@ -5020,11 +5020,11 @@ void ActiveWindowOutlineEffect::executeAiActions(const QList<LeapKAi::ParsedAiAc
             }
 
             activateTilingPreset(chosen, targetWindows);
-            successReasons << (act.reason.isEmpty() ? QStringLiteral("Zastosowano kafelkowanie (%1)").arg(chosen.name) : act.reason);
+            successReasons << (act.reason.isEmpty() ? QStringLiteral("Applied tiling (%1)").arg(chosen.name) : act.reason);
 
         } else if (action == QStringLiteral("float")) {
             deactivateTiling();
-            successReasons << (act.reason.isEmpty() ? QStringLiteral("Wyłączono kafelkowanie") : act.reason);
+            successReasons << (act.reason.isEmpty() ? QStringLiteral("Disabled tiling") : act.reason);
 
         } else if (action == QStringLiteral("fullscreen")) {
             if (targetWindows.isEmpty() && m_activeWindow) {
@@ -5036,7 +5036,7 @@ void ActiveWindowOutlineEffect::executeAiActions(const QList<LeapKAi::ParsedAiAc
                     w->window()->setFullScreen(targetState);
                 }
             }
-            successReasons << (act.reason.isEmpty() ? QStringLiteral("Zmieniono tryb pełnoekranowy") : act.reason);
+            successReasons << (act.reason.isEmpty() ? QStringLiteral("Toggled fullscreen") : act.reason);
 
         } else if (action == QStringLiteral("maximize")) {
             if (targetWindows.isEmpty() && m_activeWindow) {
@@ -5049,7 +5049,7 @@ void ActiveWindowOutlineEffect::executeAiActions(const QList<LeapKAi::ParsedAiAc
                     w->window()->setMaximize(targetState, targetState);
                 }
             }
-            successReasons << (act.reason.isEmpty() ? QStringLiteral("Zmieniono maksymalizację") : act.reason);
+            successReasons << (act.reason.isEmpty() ? QStringLiteral("Toggled maximize") : act.reason);
 
         } else if (action == QStringLiteral("minimize")) {
             if (targetWindows.isEmpty() && m_activeWindow) {
@@ -5060,7 +5060,7 @@ void ActiveWindowOutlineEffect::executeAiActions(const QList<LeapKAi::ParsedAiAc
                     w->setMinimized(true);
                 }
             }
-            successReasons << (act.reason.isEmpty() ? QStringLiteral("Zminimalizowano okno") : act.reason);
+            successReasons << (act.reason.isEmpty() ? QStringLiteral("Minimized window") : act.reason);
 
         } else if (action == QStringLiteral("restore") || action == QStringLiteral("unminimize")) {
             for (EffectWindow *w : targetWindows) {
@@ -5071,7 +5071,7 @@ void ActiveWindowOutlineEffect::executeAiActions(const QList<LeapKAi::ParsedAiAc
                     effects->activateWindow(w);
                 }
             }
-            successReasons << (act.reason.isEmpty() ? QStringLiteral("Przywrócono okno") : act.reason);
+            successReasons << (act.reason.isEmpty() ? QStringLiteral("Restored window") : act.reason);
 
         } else if (action == QStringLiteral("close")) {
             if (targetWindows.isEmpty() && m_activeWindow) {
@@ -5082,7 +5082,7 @@ void ActiveWindowOutlineEffect::executeAiActions(const QList<LeapKAi::ParsedAiAc
                     w->closeWindow();
                 }
             }
-            successReasons << (act.reason.isEmpty() ? QStringLiteral("Zamknięto okno") : act.reason);
+            successReasons << (act.reason.isEmpty() ? QStringLiteral("Closed window") : act.reason);
 
         } else if (action == QStringLiteral("move_workspace")) {
             if (targetWindows.isEmpty()) {
@@ -5134,7 +5134,7 @@ void ActiveWindowOutlineEffect::executeAiActions(const QList<LeapKAi::ParsedAiAc
                 }
                 applyWorkspaceViewIsolation(m_activeHudView);
             }
-            successReasons << (act.reason.isEmpty() ? QStringLiteral("Przeniesiono do obszaru roboczego %1").arg(targetWsIdx) : act.reason);
+            successReasons << (act.reason.isEmpty() ? QStringLiteral("Moved to workspace %1").arg(targetWsIdx) : act.reason);
 
         } else if (action == QStringLiteral("switch_workspace")) {
             refreshWorkspaces();
@@ -5160,7 +5160,7 @@ void ActiveWindowOutlineEffect::executeAiActions(const QList<LeapKAi::ParsedAiAc
                     primaryConfig.sync();
                 }
                 applyWorkspaceViewIsolation(m_activeHudView);
-                successReasons << (act.reason.isEmpty() ? QStringLiteral("Przełączono na obszar roboczy %1").arg(targetWsIdx) : act.reason);
+                successReasons << (act.reason.isEmpty() ? QStringLiteral("Switched to workspace %1").arg(targetWsIdx) : act.reason);
             }
 
         } else if (action == QStringLiteral("stash")) {
@@ -5178,7 +5178,7 @@ void ActiveWindowOutlineEffect::executeAiActions(const QList<LeapKAi::ParsedAiAc
                 }
             }
             playThemedSound(OutlineSound::SoundEffect::Stash);
-            successReasons << (act.reason.isEmpty() ? QStringLiteral("Ukryto okna w tle") : act.reason);
+            successReasons << (act.reason.isEmpty() ? QStringLiteral("Stashed background windows") : act.reason);
 
         } else if (action == QStringLiteral("unstash")) {
             for (EffectWindow *w : m_stashedWindows) {
@@ -5188,7 +5188,7 @@ void ActiveWindowOutlineEffect::executeAiActions(const QList<LeapKAi::ParsedAiAc
             }
             m_stashedWindows.clear();
             playThemedSound(OutlineSound::SoundEffect::Stash);
-            successReasons << (act.reason.isEmpty() ? QStringLiteral("Przywrócono okna ze schowka") : act.reason);
+            successReasons << (act.reason.isEmpty() ? QStringLiteral("Restored stashed windows") : act.reason);
 
         } else {
             if (!act.reason.isEmpty()) {
@@ -5200,7 +5200,7 @@ void ActiveWindowOutlineEffect::executeAiActions(const QList<LeapKAi::ParsedAiAc
     if (!successReasons.isEmpty()) {
         m_aiPromptStatusText = QStringLiteral("✔ %1").arg(successReasons.join(QStringLiteral(", ")));
     } else if (m_aiPromptStatusText.isEmpty() || m_aiPromptStatusText.startsWith(QStringLiteral("AI"))) {
-        m_aiPromptStatusText = QStringLiteral("✔ Polecenie przetworzone");
+        m_aiPromptStatusText = QStringLiteral("✔ Action completed");
     }
 
     m_hudHeaderTexture.reset();
