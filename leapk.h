@@ -320,6 +320,7 @@ private:
     bool isWindowInTileSlot(EffectWindow *w) const;
     int findTileSlotIndexForWindow(EffectWindow *w) const;
     void performTilingSwap(EffectWindow *target);
+    void ensureTilingNoMinSizeRule();
     void renderTilingPresetPills(const RenderTarget &renderTarget,
                                 const RenderViewport &viewport,
                                 const QList<LeapKTiling::TilingPreset> &presets);

@@ -18,6 +18,20 @@
 namespace LeapKTiling
 {
 
+constexpr const char *kNoMinSizeRuleId = "a9e701bc-6258-4903-a185-3b95a8bfb621";
+
+struct TilingWindowRuleConfig
+{
+    QString id = QStringLiteral("a9e701bc-6258-4903-a185-3b95a8bfb621");
+    QString description = QStringLiteral("LeapK Tiling: No minimum size limit");
+    QString minsize = QStringLiteral("1,1");
+    int minsizerule = 2; // Force
+    bool ignoregeometry = true;
+    int ignoregeometryrule = 2; // Force
+    int types = 1; // Normal window
+    int wmclassmatch = 0; // Unimportant match
+};
+
 struct TileSlot
 {
     QRectF relativeRect; // Normalized coordinates [0.0, 1.0]

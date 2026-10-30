@@ -15,6 +15,7 @@
 #include <effect/effectwindow.h>
 #include <window.h>
 #include <workspace.h>
+#include <rules.h>
 #include <core/output.h>
 #include "kwintilehelper.h"
 #include <virtualdesktops.h>
@@ -50,6 +51,7 @@
 #endif
 #endif
 #include <KConfigGroup>
+#include <KSharedConfig>
 #include <QGuiApplication>
 #include <QFileInfo>
 #include <QDir>
@@ -1117,6 +1119,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_tilingGaps = qBound(0, config.readEntry("TilingGaps", 6), 64);
     m_tilingMargins = qBound(0, config.readEntry("TilingMargins", 8), 64);
     m_tilingPresets = LeapKTiling::loadPresets();
+    ensureTilingNoMinSizeRule();
     refreshWorkspaces();
     for (EffectWindow *w : effects->stackingOrder()) {
         applyPersistentMarksToWindow(w);
@@ -7766,6 +7769,8 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
         }
     }
 
+    ensureTilingNoMinSizeRule();
+
     // 4. Place windows into active tiling slots and KDE leaf tiles
     m_tilingActive = true;
     m_activeTilingPreset = preset;
@@ -7789,10 +7794,21 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
                 if (i < leafTiles.size()) {
                     leafTiles[i]->manage(w->window());
                 }
+                w->window()->evaluateWindowRules();
                 w->window()->moveResize(slot.geometry);
             }
         }
         m_activeTilingSlots.append(slot);
+    }
+
+    // Raise tiled windows above background windows so background windows never cover slots
+    if (workspace()) {
+        for (int i = targetWindows.size() - 1; i >= 0; --i) {
+            EffectWindow *w = targetWindows[i];
+            if (w && !w->isDeleted() && w->window()) {
+                workspace()->raiseWindow(w->window());
+            }
+        }
     }
 
     if (!targetWindows.isEmpty() && effects) {
@@ -7877,6 +7893,50 @@ int ActiveWindowOutlineEffect::findTileSlotIndexForWindow(EffectWindow *w) const
     return -1;
 }
 
+void ActiveWindowOutlineEffect::ensureTilingNoMinSizeRule()
+{
+    using namespace LeapKTiling;
+    const QString ruleId = QString::fromLatin1(kNoMinSizeRuleId);
+    auto rulesConfig = KSharedConfig::openConfig(QStringLiteral("kwinrulesrc"));
+    KConfigGroup generalGroup(rulesConfig, QStringLiteral("General"));
+    QStringList rulesList = generalGroup.readEntry(QStringLiteral("rules"), QStringList());
+
+    bool needsWrite = false;
+    if (!rulesList.contains(ruleId)) {
+        rulesList.prepend(ruleId);
+        generalGroup.writeEntry(QStringLiteral("rules"), rulesList);
+        generalGroup.writeEntry(QStringLiteral("count"), rulesList.size());
+        needsWrite = true;
+    }
+
+    KConfigGroup ruleGroup(rulesConfig, ruleId);
+    TilingWindowRuleConfig defRule;
+    if (!ruleGroup.exists()
+        || ruleGroup.readEntry(QStringLiteral("minsize"), QString()) != defRule.minsize
+        || ruleGroup.readEntry(QStringLiteral("minsizerule"), 0) != defRule.minsizerule
+        || ruleGroup.readEntry(QStringLiteral("ignoregeometry"), false) != defRule.ignoregeometry
+        || ruleGroup.readEntry(QStringLiteral("ignoregeometryrule"), 0) != defRule.ignoregeometryrule
+        || ruleGroup.readEntry(QStringLiteral("types"), 0) != defRule.types
+        || ruleGroup.readEntry(QStringLiteral("wmclassmatch"), -1) != defRule.wmclassmatch) {
+
+        ruleGroup.writeEntry(QStringLiteral("description"), defRule.description);
+        ruleGroup.writeEntry(QStringLiteral("minsize"), defRule.minsize);
+        ruleGroup.writeEntry(QStringLiteral("minsizerule"), defRule.minsizerule);
+        ruleGroup.writeEntry(QStringLiteral("ignoregeometry"), defRule.ignoregeometry);
+        ruleGroup.writeEntry(QStringLiteral("ignoregeometryrule"), defRule.ignoregeometryrule);
+        ruleGroup.writeEntry(QStringLiteral("types"), defRule.types);
+        ruleGroup.writeEntry(QStringLiteral("wmclassmatch"), defRule.wmclassmatch);
+        needsWrite = true;
+    }
+
+    if (needsWrite) {
+        rulesConfig->sync();
+        if (workspace() && workspace()->rulebook()) {
+            workspace()->rulebook()->load();
+        }
+    }
+}
+
 void ActiveWindowOutlineEffect::performTilingSwap(EffectWindow *target)
 {
     if (!m_tilingActive || !target || target->isDeleted()) {
@@ -7906,6 +7966,8 @@ void ActiveWindowOutlineEffect::performTilingSwap(EffectWindow *target)
         return;
     }
 
+    ensureTilingNoMinSizeRule();
+
     // 2. Target is OUTSIDE of tiling (background / minimized / stash):
     // SWAP it into the currently active tile slot!
     int activeSlotIdx = findTileSlotIndexForWindow(m_activeWindow);
@@ -7927,7 +7989,7 @@ void ActiveWindowOutlineEffect::performTilingSwap(EffectWindow *target)
         m_preTilingGeometries.insert(target, target->frameGeometry());
     }
 
-    // Unmanage previousWin from tile and restore its original geometry
+    // Unmanage previousWin from tile, restore its original geometry, and send it underneath tiled windows
     if (previousWin && !previousWin->isDeleted() && previousWin->window()) {
         if (Tile *tile = previousWin->window()->tile()) {
             tile->unmanage(previousWin->window());
@@ -7938,6 +8000,15 @@ void ActiveWindowOutlineEffect::performTilingSwap(EffectWindow *target)
             previousWin->window()->moveResize(prevOrig);
         }
         m_preTilingGeometries.remove(previousWin);
+
+        if (workspace()) {
+            workspace()->lowerWindow(previousWin->window());
+            for (const auto &slot : m_activeTilingSlots) {
+                if (slot.window && !slot.window->isDeleted() && slot.window != previousWin && slot.window->window()) {
+                    workspace()->stackAbove(slot.window->window(), previousWin->window());
+                }
+            }
+        }
     }
 
     // Place target into active slot
@@ -7967,6 +8038,7 @@ void ActiveWindowOutlineEffect::performTilingSwap(EffectWindow *target)
             }
         }
 
+        target->window()->evaluateWindowRules();
         target->window()->moveResize(slotGeo);
     }
 

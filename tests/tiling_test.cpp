@@ -229,6 +229,22 @@ void testKdeCustomPreset()
     std::cout << "testKdeCustomPreset PASSED\n";
 }
 
+void testTilingWindowRuleConfig()
+{
+    using namespace LeapKTiling;
+
+    TilingWindowRuleConfig rule;
+    assert(rule.id == QString::fromLatin1(kNoMinSizeRuleId));
+    assert(rule.minsize == QStringLiteral("1,1"));
+    assert(rule.minsizerule == 2); // Force
+    assert(rule.ignoregeometry == true);
+    assert(rule.ignoregeometryrule == 2); // Force
+    assert(rule.types == 1); // Normal window
+    assert(rule.wmclassmatch == 0); // Unimportant match
+
+    std::cout << "testTilingWindowRuleConfig PASSED\n";
+}
+
 int main()
 {
     testDefaultPresets();
@@ -236,6 +252,7 @@ int main()
     testJsonPersistence();
     testToKdeJson();
     testKdeCustomPreset();
+    testTilingWindowRuleConfig();
 
     std::cout << "All LeapKTiling tests passed successfully!\n";
     return 0;

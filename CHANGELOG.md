@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta25] - 2026-10-30
+
+### Fixed
+- **Tiling Swap Window Stacking Order**:
+  - Evacuated windows from tile slots during smart swap are now explicitly pushed to the bottom of the window stacking order using `workspace()->lowerWindow()` and actively restacked below all current tile slots with `workspace()->stackAbove()`.
+  - Prevents evacuated windows from covering active tiled windows when their restored floating geometry overlaps the tiling grid.
+  - When activating tiling presets, all tiled windows are now raised in reverse order so no floating background windows can sit between or obscure active tile slots.
+- **Forced Minimum Window Size Removal for Tiling**:
+  - Integrated automatic enforcement of a dedicated KWin window rule (`a9e701bc-6258-4903-a185-3b95a8bfb621`) configured with `minsize=1,1` (Force) and `ignoregeometry=true` (Force) for normal application windows.
+  - Windows tiled into slots now invoke `Window::evaluateWindowRules()` prior to geometry resize, allowing applications with high minimum size constraints (such as browsers, messengers, and utilities) to shrink freely and conform to narrow tiling columns or split slots without overflowing.
+  - Automatically verifies and synchronizes the rule in `~/.config/kwinrulesrc` on startup and preset activation, notifying KWin's `RuleBook` immediately.
+
 ## [1.6.0-beta24] - 2026-10-30
 
 ### Fixed
