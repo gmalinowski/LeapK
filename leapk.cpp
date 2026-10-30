@@ -4402,16 +4402,20 @@ void ActiveWindowOutlineEffect::executeAiPrompt(const QString &query)
         if (matchesCategory(term, w)) return true;
         const QString cls = w->windowClass().toLower();
         const QString cap = w->caption().toLower();
-        if (cls.contains(term) || term.contains(cls)) return true;
-        if (cap.contains(term)) return true;
-        if (OutlineFuzzy::fuzzyMatchScore(term, cls) > 0 || OutlineFuzzy::fuzzyMatchScore(term, cap) > 0) return true;
+        if (cls == term || (!term.isEmpty() && cls.contains(term))) return true;
+        if (!term.isEmpty() && cap.contains(term)) return true;
+        if (!term.contains(QLatin1Char(' '))) {
+            if (OutlineFuzzy::fuzzyMatchScore(term, cls) > 0 || OutlineFuzzy::fuzzyMatchScore(term, cap) > 0) return true;
+        }
         return false;
     };
 
     // 1. Tiling Intent
-    const bool hasTilingKeyword = q.contains(QStringLiteral("tiling")) || q.contains(QStringLiteral("tile")) || q.contains(QStringLiteral("kafelk"))
-        || q.contains(QStringLiteral("układ")) || q.contains(QStringLiteral("uklad")) || q.contains(QStringLiteral("rozmieść"))
-        || q.contains(QStringLiteral("rozmieszcz")) || q.contains(QStringLiteral("ułóż")) || q.contains(QStringLiteral("uloz"))
+    const bool hasTilingKeyword = q.contains(QStringLiteral("tiling")) || q.contains(QStringLiteral("tilling"))
+        || q.contains(QStringLiteral("tile")) || q.contains(QStringLiteral("tiles")) || q.contains(QStringLiteral("tiled"))
+        || q.contains(QStringLiteral("kafelk")) || q.contains(QStringLiteral("układ")) || q.contains(QStringLiteral("uklad"))
+        || q.contains(QStringLiteral("rozmieść")) || q.contains(QStringLiteral("rozmieszcz"))
+        || q.contains(QStringLiteral("ułóż")) || q.contains(QStringLiteral("uloz"))
         || q.contains(QStringLiteral("split")) || q.contains(QStringLiteral("podziel"));
 
     if (hasTilingKeyword) {
@@ -4426,6 +4430,31 @@ void ActiveWindowOutlineEffect::executeAiPrompt(const QString &query)
         }
 
         QList<EffectWindow *> targetWindows;
+
+        // 1a. Check which open windows are directly mentioned by name or class in query (e.g. "firefox and signal")
+        for (EffectWindow *w : eligibleWindows) {
+            const QString cls = w->windowClass().toLower();
+            const QString cap = w->caption().toLower();
+            bool mentioned = false;
+            if (!cls.isEmpty() && q.contains(cls)) {
+                mentioned = true;
+            } else if (cls.contains(QStringLiteral("firefox")) && q.contains(QStringLiteral("firefox"))) {
+                mentioned = true;
+            } else if (cls.contains(QStringLiteral("signal")) && q.contains(QStringLiteral("signal"))) {
+                mentioned = true;
+            } else if (cls.contains(QStringLiteral("konsole")) && (q.contains(QStringLiteral("konsole")) || q.contains(QStringLiteral("terminal")))) {
+                mentioned = true;
+            } else if (cls.contains(QStringLiteral("dolphin")) && (q.contains(QStringLiteral("dolphin")) || q.contains(QStringLiteral("pliki")))) {
+                mentioned = true;
+            } else if (cls.contains(QStringLiteral("code")) && (q.contains(QStringLiteral("code")) || q.contains(QStringLiteral("vscode")))) {
+                mentioned = true;
+            }
+            if (mentioned && !targetWindows.contains(w)) {
+                targetWindows.append(w);
+            }
+        }
+
+        // 1b. Check categories (without break so multiple categories can be combined, e.g. terminals and browsers)
         for (const auto &cat : categories) {
             bool matches = false;
             for (const auto &kw : cat.keywords) {
@@ -4437,16 +4466,9 @@ void ActiveWindowOutlineEffect::executeAiPrompt(const QString &query)
                         targetWindows.append(w);
                     }
                 }
-                break;
             }
         }
-        if (targetWindows.isEmpty()) {
-            for (EffectWindow *w : eligibleWindows) {
-                if (windowMatchesTerm(w->windowClass().toLower(), w) && q.contains(w->windowClass().toLower())) {
-                    targetWindows.append(w);
-                }
-            }
-        }
+
         if (targetWindows.isEmpty()) {
             targetWindows = eligibleWindows;
         }
@@ -4543,12 +4565,27 @@ void ActiveWindowOutlineEffect::executeAiPrompt(const QString &query)
         focusTarget = q;
     }
 
+    bool allowFocus = true;
+    if (focusTarget == q && q.contains(QLatin1Char(' '))) {
+        // Multi-word query without a focus verb (e.g. conversational prompt or complex command)
+        // Only allow direct focus if it matches a full window caption or full category keyword exactly
+        allowFocus = false;
+        for (EffectWindow *w : allWindows) {
+            if (w && !w->isDeleted() && (w->caption().compare(q, Qt::CaseInsensitive) == 0 || w->windowClass().compare(q, Qt::CaseInsensitive) == 0)) {
+                allowFocus = true;
+                break;
+            }
+        }
+    }
+
     EffectWindow *bestWin = nullptr;
-    for (EffectWindow *w : allWindows) {
-        if (!w || w->isDeleted()) continue;
-        if (windowMatchesTerm(focusTarget, w)) {
-            bestWin = w;
-            break;
+    if (allowFocus) {
+        for (EffectWindow *w : allWindows) {
+            if (!w || w->isDeleted()) continue;
+            if (windowMatchesTerm(focusTarget, w)) {
+                bestWin = w;
+                break;
+            }
         }
     }
 
@@ -4630,7 +4667,7 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
         const QString prompt = QStringLiteral(
             "You are a window manager assistant. Windows on desktop:\n%1\n\n"
             "Respond ONLY with a single JSON object (no markdown, no extra explanation):\n"
-            "{\"action\": \"focus\"|\"tile\"|\"stash\"|\"unstash\"|\"float\", \"index\": <num>, \"preset\": \"columns-2\"|\"columns-3\"|\"grid-4\", \"reason\": \"<description>\"}\n\n"
+            "{\"action\": \"focus\"|\"tile\"|\"stash\"|\"unstash\"|\"float\", \"index\": <num>, \"indices\": [<num>, ...], \"preset\": \"columns-2\"|\"columns-3\"|\"grid-4\", \"reason\": \"<description>\"}\n\n"
             "User command: %2\nJSON:"
         ).arg(winDescriptions.join(QLatin1Char('\n')), query);
 
@@ -4745,7 +4782,7 @@ void ActiveWindowOutlineEffect::launchAiProcess(const QString &query)
         const QString prompt = QStringLiteral(
             "You are a window manager assistant. Windows on desktop:\n%1\n\n"
             "Respond ONLY with a single JSON object (no markdown, no extra explanation):\n"
-            "{\"action\": \"focus\"|\"tile\"|\"stash\"|\"unstash\"|\"float\", \"index\": <num>, \"preset\": \"columns-2\"|\"columns-3\"|\"grid-4\", \"reason\": \"<description>\"}"
+            "{\"action\": \"focus\"|\"tile\"|\"stash\"|\"unstash\"|\"float\", \"index\": <num>, \"indices\": [<num>, ...], \"preset\": \"columns-2\"|\"columns-3\"|\"grid-4\", \"reason\": \"<description>\"}"
         ).arg(winDescriptions.join(QLatin1Char('\n')));
 
         QJsonObject rootObj;
@@ -4846,7 +4883,13 @@ void ActiveWindowOutlineEffect::handleAiActionJson(const QJsonObject &rootObj)
     }
 
     if (action == QStringLiteral("focus")) {
-        const int index = rootObj.value(QStringLiteral("index")).toInt(-1);
+        int index = rootObj.value(QStringLiteral("index")).toInt(-1);
+        if (index < 0 && rootObj.value(QStringLiteral("indices")).isArray()) {
+            const QJsonArray arr = rootObj.value(QStringLiteral("indices")).toArray();
+            if (!arr.isEmpty()) {
+                index = arr.first().toInt(-1);
+            }
+        }
         EffectWindow *targetWin = nullptr;
         if (index >= 0 && index < eligibleWindows.size()) {
             targetWin = eligibleWindows[index];
@@ -4875,7 +4918,36 @@ void ActiveWindowOutlineEffect::handleAiActionJson(const QJsonObject &rootObj)
         if (chosen.id.isEmpty() && !presets.isEmpty()) {
             chosen = presets.first();
         }
-        activateTilingPreset(chosen, eligibleWindows);
+
+        // Support selective tiling of specific indices returned by the model (e.g. "index": [2, 3])
+        QList<EffectWindow *> targetWindows;
+        QJsonValue idxVal = rootObj.value(QStringLiteral("indices"));
+        if (idxVal.isUndefined() || idxVal.isNull()) {
+            idxVal = rootObj.value(QStringLiteral("index"));
+        }
+
+        if (idxVal.isArray()) {
+            for (const QJsonValue &v : idxVal.toArray()) {
+                const int i = v.toInt(-1);
+                if (i >= 0 && i < eligibleWindows.size()) {
+                    EffectWindow *w = eligibleWindows[i];
+                    if (!targetWindows.contains(w)) {
+                        targetWindows.append(w);
+                    }
+                }
+            }
+        } else if (idxVal.isDouble()) {
+            const int i = idxVal.toInt(-1);
+            if (i >= 0 && i < eligibleWindows.size()) {
+                targetWindows.append(eligibleWindows[i]);
+            }
+        }
+
+        if (targetWindows.isEmpty()) {
+            targetWindows = eligibleWindows;
+        }
+
+        activateTilingPreset(chosen, targetWindows);
         m_aiPromptStatusText = QStringLiteral("✔ %1").arg(reason.isEmpty() ? QStringLiteral("Zastosowano kafelkowanie") : reason);
     } else if (action == QStringLiteral("float")) {
         deactivateTiling();

@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta20] - 2026-10-30
+
+### Fixed
+- **Selective Multi-Window Tiling & LLM Index Resolution (`leapk.cpp`)**:
+  - Resolved issue where AI correctly returned target window indices (e.g. `{"action": "tile", "index": [2, 3]}`) for commands like `"firefox and signal tilling"`, but the effect tiled all desktop windows and slotted File Manager (Dolphin) instead.
+  - Added full array index support (`indices` and `index: [...]`) in `handleAiActionJson` to tile only the explicitly requested windows.
+  - Updated LLM system prompt schema to formalize `"indices": [<num>, ...]`.
+  - Upgraded Tier 1 Intent Resolver:
+    - Added typo tolerance for `"tilling"`, `"tiles"`, `"tiled"`.
+    - Added multi-window conjunction parsing (e.g. `"firefox and signal"`, `"terminal i edytor"`).
+    - Blocked multi-word non-focus sentences from false-positive focus jumps on unrelated windows.
+
 ## [1.6.0-beta19] - 2026-10-30
 
 ### Fixed
