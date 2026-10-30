@@ -3417,7 +3417,421 @@
       </layout>
      </widget>
 
-     <!-- TAB 8: About & Maintenance -->
+     <!-- TAB 8: AI Assistant -->
+     <widget class="QWidget" name="tabAI">
+      <attribute name="title">
+       <string>AI Assistant</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayoutAI">
+       <item>
+        <widget class="QScrollArea" name="scrollAreaAI">
+         <property name="widgetResizable">
+          <bool>true</bool>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::NoFrame</enum>
+         </property>
+         <widget class="QWidget" name="scrollAreaWidgetContentsAI">
+          <layout class="QVBoxLayout" name="layoutAIContents">
+           <property name="spacing">
+            <number>12</number>
+           </property>
+
+           <!-- 1. Enable AI Assistant -->
+           <item>
+            <widget class="QGroupBox" name="groupAiEnable">
+             <property name="title">
+              <string>AI Window &amp; Tiling Assistant (Experimental)</string>
+             </property>
+             <layout class="QVBoxLayout" name="layoutAiEnable">
+              <item>
+               <widget class="QCheckBox" name="kcfg_AiEnabled">
+                <property name="font">
+                 <font>
+                  <bold>true</bold>
+                 </font>
+                </property>
+                <property name="text">
+                 <string>Enable LeapK AI Assistant</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="lblAiDescription">
+                <property name="text">
+                 <string>Issue natural language commands (e.g. &quot;all terminals tiling&quot;, &quot;browser left, code right&quot;, &quot;stash background apps&quot;) to automate window management and layouts. 100% opt-in: zero background resource usage and 0 MB RAM when disabled.</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+
+           <!-- 2. Backend Selection -->
+           <item>
+            <widget class="QGroupBox" name="groupAiBackend">
+             <property name="title">
+              <string>AI Engine Backend</string>
+             </property>
+             <layout class="QVBoxLayout" name="layoutAiBackend">
+              <item>
+               <widget class="QRadioButton" name="rbAiLocal">
+                <property name="text">
+                 <string>Local On-Device Engine (llama.cpp) — 100% Offline &amp; Private (Vulkan GPU / CPU SIMD)</string>
+                </property>
+                <property name="checked">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QRadioButton" name="rbAiRemote">
+                <property name="text">
+                 <string>Remote OpenAI-Compatible API — 0 MB Disk Space (OpenAI, Google Gemini, Groq, OpenRouter)</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+
+           <!-- 3. Local Model Management -->
+           <item>
+            <widget class="QGroupBox" name="groupLocalModel">
+             <property name="title">
+              <string>Local Model Management (Google Gemma 2 2B Instruct GGUF)</string>
+             </property>
+             <layout class="QVBoxLayout" name="layoutLocalModel">
+              <item>
+               <widget class="QLabel" name="lblLocalModelInfo">
+                <property name="text">
+                 <string>The local engine runs completely offline on your hardware using llama.cpp with Vulkan GPU or CPU acceleration. Window titles and desktop data never leave your computer.</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="layoutModelStatusRow">
+                <item>
+                 <widget class="QLabel" name="lblModelStatusCaption">
+                  <property name="text">
+                   <string>Model Status:</string>
+                  </property>
+                  <property name="font">
+                   <font>
+                    <bold>true</bold>
+                   </font>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QLabel" name="lblModelStatus">
+                  <property name="text">
+                   <string>Checking...</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="spacerModelStatus">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>40</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <widget class="QProgressBar" name="progressModelDownload">
+                <property name="value">
+                 <number>0</number>
+                </property>
+                <property name="visible">
+                 <bool>false</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="lblDownloadDetails">
+                <property name="text">
+                 <string></string>
+                </property>
+                <property name="visible">
+                 <bool>false</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="layoutModelButtons">
+                <item>
+                 <widget class="QPushButton" name="btnDownloadModel">
+                  <property name="text">
+                   <string>Download Model (Google Gemma 2 2B • 1.5 GB)</string>
+                  </property>
+                  <property name="icon">
+                   <iconset theme="download"/>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="btnBrowseModelFile">
+                  <property name="text">
+                   <string>Browse Local .gguf...</string>
+                  </property>
+                  <property name="icon">
+                   <iconset theme="document-open"/>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="btnDeleteModel">
+                  <property name="text">
+                   <string>Delete Model</string>
+                  </property>
+                  <property name="icon">
+                   <iconset theme="edit-delete"/>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="spacerModelButtons">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>40</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <widget class="QLabel" name="lblModelFilePath">
+                <property name="text">
+                 <string>Path: ~/.local/share/leapk/models/gemma-2-2b-it-Q4_K_M.gguf</string>
+                </property>
+                <property name="textInteractionFlags">
+                 <set>Qt::TextSelectableByMouse</set>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+
+           <!-- 4. Remote API Configuration -->
+           <item>
+            <widget class="QGroupBox" name="groupRemoteApi">
+             <property name="title">
+              <string>Remote API Configuration (OpenAI-Compatible)</string>
+             </property>
+             <layout class="QFormLayout" name="layoutRemoteApi">
+              <item row="0" column="0">
+               <widget class="QLabel" name="lblApiPreset">
+                <property name="text">
+                 <string>Provider Preset:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QComboBox" name="cmbApiProviderPreset">
+                <item>
+                 <property name="text">
+                  <string>Custom / OpenAI-compatible</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>OpenAI (GPT-4o mini)</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Google Gemini (gemini-1.5-flash)</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Groq (Ultra-Fast Llama 3)</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>OpenRouter (Multi-Provider)</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Local Server (Ollama / LocalAI / vLLM)</string>
+                 </property>
+                </item>
+               </widget>
+              </item>
+              <item row="1" column="0">
+               <widget class="QLabel" name="lblApiEndpoint">
+                <property name="text">
+                 <string>Endpoint URL:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QLineEdit" name="kcfg_AiApiEndpoint">
+                <property name="text">
+                 <string>https://api.openai.com/v1</string>
+                </property>
+                <property name="placeholderText">
+                 <string>e.g. https://api.openai.com/v1</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="lblApiModel">
+                <property name="text">
+                 <string>Model Name:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1">
+               <widget class="QLineEdit" name="kcfg_AiApiModel">
+                <property name="text">
+                 <string>gpt-4o-mini</string>
+                </property>
+                <property name="placeholderText">
+                 <string>e.g. gpt-4o-mini, gemini-1.5-flash, llama-3.2-3b-preview</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="0">
+               <widget class="QLabel" name="lblApiKey">
+                <property name="text">
+                 <string>API Key:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="1">
+               <layout class="QHBoxLayout" name="layoutApiKeyRow">
+                <item>
+                 <widget class="QLineEdit" name="kcfg_AiApiKey">
+                  <property name="echoMode">
+                   <enum>QLineEdit::Password</enum>
+                  </property>
+                  <property name="placeholderText">
+                   <string>Enter your API key (stored locally)</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="btnTestApiConnection">
+                  <property name="text">
+                   <string>Test Connection</string>
+                  </property>
+                  <property name="icon">
+                   <iconset theme="network-connect"/>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+              <item row="4" column="1">
+               <widget class="QLabel" name="lblApiTestStatus">
+                <property name="text">
+                 <string></string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+
+           <!-- 5. Trigger & Shortcut -->
+           <item>
+            <widget class="QGroupBox" name="groupAiShortcut">
+             <property name="title">
+              <string>Invocation &amp; Shortcuts</string>
+             </property>
+             <layout class="QHBoxLayout" name="layoutAiShortcut">
+              <item>
+               <widget class="QLabel" name="lblAiShortcut">
+                <property name="text">
+                 <string>Global Shortcut:</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="kcfg_AiShortcut">
+                <property name="text">
+                 <string>Meta+I</string>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>150</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="lblAiHudHint">
+                <property name="text">
+                 <string>(Also accessible inside LeapK HUD via key ':' or Enter)</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <spacer name="spacerAiShortcut">
+                <property name="orientation">
+                 <enum>Qt::Horizontal</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>40</width>
+                  <height>20</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+             </layout>
+            </widget>
+           </item>
+
+           <!-- Bottom spacer -->
+           <item>
+            <spacer name="spacerAiBottom">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+
+     <!-- TAB 9: About & Maintenance -->
      <widget class="QWidget" name="tabAbout">
       <attribute name="title">
        <string>About</string>

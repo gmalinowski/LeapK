@@ -4,6 +4,26 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta16] - 2026-10-30
+
+### Added
+- **Modular AI Assistant Settings & Model Manager (`leapk-settings`)**:
+  - **100% Opt-In Architecture**: AI is completely disabled by default, consuming 0 MB RAM, 0 background processes, and 0 bytes disk space until explicitly enabled by the user.
+  - **New "🤖 AI Assistant" Configuration Tab**:
+    - Master toggle to activate/deactivate natural language window management.
+    - Choice of engine: **Local On-Device (`llama.cpp`)** vs **Universal Remote API**.
+  - **Local Model Manager (`aihelper.h`)**:
+    - Real-time status display: *Not Installed*, *Downloading*, or *Installed*.
+    - One-click asynchronous download of **Google Gemma 2 2B Instruct GGUF (~1.52 GB)** from HuggingFace with progress bar, download speed, and error recovery.
+    - One-click **Delete Model** button to safely reclaim 1.5 GB disk space.
+    - Custom `.gguf` model file browser for power users.
+  - **OpenAI-Compatible Remote API Integration**:
+    - Pre-configured provider presets: OpenAI (GPT-4o mini), Google Gemini (gemini-1.5-flash), Groq (Ultra-Fast Llama 3), OpenRouter, Local Server (Ollama / LocalAI / vLLM), and Custom endpoints.
+    - Integrated **Test Connection** button validating endpoint, model, and API key with live HTTP status feedback.
+  - **Automated Test Suite & Installer Sync**:
+    - Added `outline-ai-test` (`tests/ai_test.cpp`) testing configuration serialization, provider mappings, byte formatting, and model detection.
+    - Synchronized all 8 new config keys in `install-leapk.sh` and `uninstall-leapk.sh` (30/30 CTests passing at 100%).
+
 ## [1.6.0-beta15] - 2026-10-30
 
 ### Added

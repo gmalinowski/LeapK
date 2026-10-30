@@ -357,6 +357,16 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemBool(QStringLiteral("CustomShaderEnabled"), *new bool, false);
     m_configSkeleton->addItemString(QStringLiteral("ActiveCustomShaderId"), *new QString, QString());
 
+    // Tab 8: AI Assistant
+    m_configSkeleton->addItemBool(QStringLiteral("AiEnabled"), *new bool, false);
+    m_configSkeleton->addItemInt(QStringLiteral("AiBackend"), *new int, 0);
+    m_configSkeleton->addItemString(QStringLiteral("AiLocalModelPath"), *new QString, QString());
+    m_configSkeleton->addItemString(QStringLiteral("AiApiEndpoint"), *new QString, QStringLiteral("https://api.openai.com/v1"));
+    m_configSkeleton->addItemString(QStringLiteral("AiApiModel"), *new QString, QStringLiteral("gpt-4o-mini"));
+    m_configSkeleton->addItemString(QStringLiteral("AiApiKey"), *new QString, QString());
+    m_configSkeleton->addItemInt(QStringLiteral("AiApiProviderPreset"), *new int, 1);
+    m_configSkeleton->addItemString(QStringLiteral("AiShortcut"), *new QString, QStringLiteral("Meta+I"));
+
     addConfig(m_configSkeleton, widget());
 
     // Setup table
@@ -712,11 +722,15 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     // Themes section
     initThemesTab();
 
+    // AI Assistant section
+    initAiTab();
+
     load();
 }
 
 ActiveWindowOutlineConfig::~ActiveWindowOutlineConfig()
 {
+    cancelModelDownload();
     if (m_ui && (m_ui->check_previewWindowBadges->isChecked() || m_ui->check_previewHudBadges->isChecked())) {
         QDBusMessage msg = QDBusMessage::createMethodCall(
             QStringLiteral("org.kde.KWin"),
@@ -1178,6 +1192,18 @@ void ActiveWindowOutlineConfig::load()
     refreshThemesTable();
     updateThemeParametersUI();
 
+    const int aiBackend = group.readEntry("AiBackend", 0);
+    if (aiBackend == 1) {
+        m_ui->rbAiRemote->setChecked(true);
+    } else {
+        m_ui->rbAiLocal->setChecked(true);
+    }
+    m_aiCustomModelPath = group.readEntry("AiLocalModelPath", QString());
+    const int apiPreset = group.readEntry("AiApiProviderPreset", 1);
+    m_ui->cmbApiProviderPreset->setCurrentIndex(qBound(0, apiPreset, m_ui->cmbApiProviderPreset->count() - 1));
+    updateAiUIState();
+    refreshModelStatusUI();
+
     setNeedsSave(false);
 }
 
@@ -1256,6 +1282,11 @@ void ActiveWindowOutlineConfig::defaults()
     m_currentDisplayedThemeId.clear();
     refreshThemesTable();
     updateThemeParametersUI();
+    m_ui->rbAiLocal->setChecked(true);
+    m_aiCustomModelPath.clear();
+    m_ui->cmbApiProviderPreset->setCurrentIndex(1);
+    updateAiUIState();
+    refreshModelStatusUI();
     markAsChanged();
 }
 
@@ -2315,6 +2346,10 @@ void ActiveWindowOutlineConfig::save()
         QFile::remove(desktopPath);
         QProcess::execute(QStringLiteral("killall"), {QStringLiteral("leapk-tray"), QStringLiteral("kleap-tray"), QStringLiteral("active-window-outline-tray")});
     }
+
+    group.writeEntry(QStringLiteral("AiBackend"), m_ui->rbAiRemote->isChecked() ? 1 : 0);
+    group.writeEntry(QStringLiteral("AiLocalModelPath"), m_aiCustomModelPath);
+    group.writeEntry(QStringLiteral("AiApiProviderPreset"), m_ui->cmbApiProviderPreset->currentIndex());
 }
 
 void ActiveWindowOutlineConfig::initShadersSection()
@@ -3161,6 +3196,316 @@ void ActiveWindowOutlineConfig::exportSelectedTheme()
 
     QMessageBox::information(widget(), QStringLiteral("Theme Exported"),
         QStringLiteral("Theme '%1' exported successfully to:\n%2").arg(theme.name, filePath));
+}
+
+void ActiveWindowOutlineConfig::initAiTab()
+{
+    connect(m_ui->kcfg_AiEnabled, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateAiUIState);
+    connect(m_ui->rbAiLocal, &QRadioButton::toggled, this, &ActiveWindowOutlineConfig::updateAiUIState);
+    connect(m_ui->rbAiRemote, &QRadioButton::toggled, this, &ActiveWindowOutlineConfig::updateAiUIState);
+    connect(m_ui->cmbApiProviderPreset, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ActiveWindowOutlineConfig::onApiPresetChanged);
+    connect(m_ui->btnDownloadModel, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::startModelDownload);
+    connect(m_ui->btnBrowseModelFile, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::browseCustomModelFile);
+    connect(m_ui->btnDeleteModel, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::deleteModel);
+    connect(m_ui->btnTestApiConnection, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::testApiConnection);
+
+    updateAiUIState();
+    refreshModelStatusUI();
+}
+
+void ActiveWindowOutlineConfig::updateAiUIState()
+{
+    const bool enabled = m_ui->kcfg_AiEnabled->isChecked();
+    m_ui->groupAiBackend->setEnabled(enabled);
+    const bool isLocal = m_ui->rbAiLocal->isChecked();
+    m_ui->groupLocalModel->setEnabled(enabled && isLocal);
+    m_ui->groupRemoteApi->setEnabled(enabled && !isLocal);
+    m_ui->groupAiShortcut->setEnabled(enabled);
+    markAsChanged();
+}
+
+void ActiveWindowOutlineConfig::refreshModelStatusUI()
+{
+    const QString targetPath = m_aiCustomModelPath.isEmpty() ? LeapKAi::defaultModelPath() : m_aiCustomModelPath;
+    m_ui->lblModelFilePath->setText(tr("Path: %1").arg(targetPath));
+
+    if (m_modelDownloadReply) {
+        return; // Don't override status while download is in progress
+    }
+
+    const bool installed = LeapKAi::isModelInstalled(targetPath);
+    if (installed) {
+        const qint64 size = LeapKAi::modelFileSize(targetPath);
+        m_ui->lblModelStatus->setText(tr("<span style='color: #2ecc71; font-weight: bold;'>● Installed (%1)</span>").arg(LeapKAi::formatBytes(size)));
+        m_ui->btnDownloadModel->setText(tr("Re-download Model"));
+        m_ui->btnDownloadModel->setIcon(QIcon::fromTheme(QStringLiteral("download")));
+        m_ui->btnDownloadModel->setEnabled(true);
+        m_ui->btnDeleteModel->setEnabled(true);
+    } else {
+        m_ui->lblModelStatus->setText(tr("<span style='color: #e74c3c; font-weight: bold;'>○ Not Installed</span> (1.52 GB download required)"));
+        m_ui->btnDownloadModel->setText(tr("Download Model (Google Gemma 2 2B • 1.5 GB)"));
+        m_ui->btnDownloadModel->setIcon(QIcon::fromTheme(QStringLiteral("download")));
+        m_ui->btnDownloadModel->setEnabled(true);
+        m_ui->btnDeleteModel->setEnabled(false);
+    }
+}
+
+void ActiveWindowOutlineConfig::startModelDownload()
+{
+    if (m_modelDownloadReply) {
+        cancelModelDownload();
+        return;
+    }
+
+    if (!m_networkManager) {
+        m_networkManager = new QNetworkAccessManager(this);
+    }
+
+    const QString targetDir = LeapKAi::defaultModelsDirectory();
+    QDir().mkpath(targetDir);
+
+    m_modelDownloadTargetPath = LeapKAi::defaultModelPath();
+    const QString partPath = m_modelDownloadTargetPath + QStringLiteral(".part");
+
+    if (m_modelDownloadFile) {
+        m_modelDownloadFile->close();
+        delete m_modelDownloadFile;
+        m_modelDownloadFile = nullptr;
+    }
+
+    m_modelDownloadFile = new QFile(partPath, this);
+    if (!m_modelDownloadFile->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        QMessageBox::warning(widget(), tr("Download Error"), tr("Failed to open file for writing:\n%1").arg(partPath));
+        delete m_modelDownloadFile;
+        m_modelDownloadFile = nullptr;
+        return;
+    }
+
+    QNetworkRequest request{QUrl(QString::fromLatin1(LeapKAi::DEFAULT_MODEL_DOWNLOAD_URL))};
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("LeapK-Settings/%1").arg(ACTIVE_WINDOW_OUTLINE_VERSION));
+
+    m_modelDownloadReply = m_networkManager->get(request);
+
+    m_ui->btnDownloadModel->setText(tr("Cancel Download"));
+    m_ui->btnDownloadModel->setIcon(QIcon::fromTheme(QStringLiteral("dialog-cancel")));
+    m_ui->progressModelDownload->setVisible(true);
+    m_ui->progressModelDownload->setValue(0);
+    m_ui->lblDownloadDetails->setVisible(true);
+    m_ui->lblDownloadDetails->setText(tr("Connecting to HuggingFace CDN…"));
+    m_ui->btnDeleteModel->setEnabled(false);
+    m_ui->btnBrowseModelFile->setEnabled(false);
+    m_modelDownloadTimer.restart();
+
+    connect(m_modelDownloadReply, &QNetworkReply::readyRead, this, [this]() {
+        if (m_modelDownloadFile && m_modelDownloadReply) {
+            m_modelDownloadFile->write(m_modelDownloadReply->readAll());
+        }
+    });
+
+    connect(m_modelDownloadReply, &QNetworkReply::downloadProgress, this, [this](qint64 received, qint64 total) {
+        if (m_modelDownloadFile && m_modelDownloadReply) {
+            m_modelDownloadFile->write(m_modelDownloadReply->readAll());
+        }
+        if (total > 0) {
+            const int pct = static_cast<int>((received * 100) / total);
+            m_ui->progressModelDownload->setValue(pct);
+            const double elapsedSec = m_modelDownloadTimer.elapsed() / 1000.0;
+            const double speed = elapsedSec > 0.1 ? (received / elapsedSec) : 0.0;
+            m_ui->lblDownloadDetails->setText(tr("%1 / %2 (%3/s) — %4%")
+                .arg(LeapKAi::formatBytes(received),
+                     LeapKAi::formatBytes(total),
+                     LeapKAi::formatBytes(static_cast<qint64>(speed)),
+                     QString::number(pct)));
+        } else {
+            m_ui->lblDownloadDetails->setText(tr("Downloaded: %1").arg(LeapKAi::formatBytes(received)));
+        }
+    });
+
+    connect(m_modelDownloadReply, &QNetworkReply::finished, this, [this, partPath]() {
+        if (!m_modelDownloadReply) {
+            return;
+        }
+
+        const bool hasError = (m_modelDownloadReply->error() != QNetworkReply::NoError);
+        const QString errStr = m_modelDownloadReply->errorString();
+        m_modelDownloadReply->deleteLater();
+        m_modelDownloadReply = nullptr;
+
+        if (m_modelDownloadFile) {
+            m_modelDownloadFile->flush();
+            m_modelDownloadFile->close();
+            delete m_modelDownloadFile;
+            m_modelDownloadFile = nullptr;
+        }
+
+        m_ui->progressModelDownload->setVisible(false);
+        m_ui->lblDownloadDetails->setVisible(false);
+        m_ui->btnDownloadModel->setIcon(QIcon::fromTheme(QStringLiteral("download")));
+        m_ui->btnBrowseModelFile->setEnabled(true);
+
+        if (hasError) {
+            QFile::remove(partPath);
+            QMessageBox::warning(widget(), tr("Download Failed"), tr("Could not download model:\n%1").arg(errStr));
+        } else {
+            QFile::remove(m_modelDownloadTargetPath);
+            if (QFile::rename(partPath, m_modelDownloadTargetPath)) {
+                m_aiCustomModelPath.clear();
+                QMessageBox::information(widget(), tr("Download Complete"),
+                    tr("Google Gemma 2 2B Instruct model has been installed successfully!\nLeapK local AI assistant is now ready."));
+            } else {
+                QMessageBox::warning(widget(), tr("File Rename Error"), tr("Failed to finalize model file from:\n%1\nto:\n%2").arg(partPath, m_modelDownloadTargetPath));
+            }
+        }
+
+        refreshModelStatusUI();
+    });
+}
+
+void ActiveWindowOutlineConfig::cancelModelDownload()
+{
+    if (m_modelDownloadReply) {
+        m_modelDownloadReply->abort();
+        m_modelDownloadReply->deleteLater();
+        m_modelDownloadReply = nullptr;
+    }
+
+    if (m_modelDownloadFile) {
+        m_modelDownloadFile->close();
+        delete m_modelDownloadFile;
+        m_modelDownloadFile = nullptr;
+    }
+
+    const QString partPath = LeapKAi::defaultModelPath() + QStringLiteral(".part");
+    QFile::remove(partPath);
+
+    m_ui->progressModelDownload->setVisible(false);
+    m_ui->lblDownloadDetails->setVisible(false);
+    m_ui->btnDownloadModel->setIcon(QIcon::fromTheme(QStringLiteral("download")));
+    m_ui->btnBrowseModelFile->setEnabled(true);
+    refreshModelStatusUI();
+}
+
+void ActiveWindowOutlineConfig::deleteModel()
+{
+    const QString targetPath = m_aiCustomModelPath.isEmpty() ? LeapKAi::defaultModelPath() : m_aiCustomModelPath;
+    const qint64 size = LeapKAi::modelFileSize(targetPath);
+
+    const auto ret = QMessageBox::question(widget(), tr("Delete AI Model"),
+        tr("Are you sure you want to delete the local AI model (%1) to free up disk space?\n\nFile:\n%2")
+            .arg(LeapKAi::formatBytes(size), targetPath),
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+
+    if (ret != QMessageBox::Yes) {
+        return;
+    }
+
+    if (QFile::remove(targetPath)) {
+        m_aiCustomModelPath.clear();
+        refreshModelStatusUI();
+        QMessageBox::information(widget(), tr("Model Deleted"),
+            tr("Local AI model deleted successfully. Disk space has been reclaimed."));
+    } else {
+        QMessageBox::warning(widget(), tr("Delete Failed"),
+            tr("Failed to delete file:\n%1").arg(targetPath));
+    }
+}
+
+void ActiveWindowOutlineConfig::browseCustomModelFile()
+{
+    const QString filePath = QFileDialog::getOpenFileName(widget(),
+        tr("Select GGUF Model File"),
+        QDir::homePath(),
+        tr("GGUF Models (*.gguf);;All Files (*)"));
+
+    if (!filePath.isEmpty()) {
+        m_aiCustomModelPath = filePath;
+        refreshModelStatusUI();
+        markAsChanged();
+    }
+}
+
+void ActiveWindowOutlineConfig::onApiPresetChanged(int index)
+{
+    const auto preset = static_cast<LeapKAi::ApiProviderPreset>(index);
+    if (preset != LeapKAi::ApiProviderPreset::Custom) {
+        const auto info = LeapKAi::providerInfo(preset);
+        m_ui->kcfg_AiApiEndpoint->setText(info.endpoint);
+        m_ui->kcfg_AiApiModel->setText(info.defaultModel);
+    }
+    markAsChanged();
+}
+
+void ActiveWindowOutlineConfig::testApiConnection()
+{
+    if (!m_networkManager) {
+        m_networkManager = new QNetworkAccessManager(this);
+    }
+
+    const QString endpoint = m_ui->kcfg_AiApiEndpoint->text().trimmed();
+    const QString model = m_ui->kcfg_AiApiModel->text().trimmed();
+    const QString apiKey = m_ui->kcfg_AiApiKey->text().trimmed();
+
+    if (endpoint.isEmpty()) {
+        m_ui->lblApiTestStatus->setText(tr("<span style='color: #e74c3c;'>Error: Endpoint URL is empty.</span>"));
+        return;
+    }
+
+    QString urlStr = endpoint;
+    if (!urlStr.endsWith(QStringLiteral("/chat/completions")) && !urlStr.endsWith(QStringLiteral("/chat/completions/"))) {
+        if (!urlStr.endsWith(QLatin1Char('/'))) {
+            urlStr += QLatin1Char('/');
+        }
+        urlStr += QStringLiteral("chat/completions");
+    }
+
+    QNetworkRequest request{QUrl(urlStr)};
+    request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+    if (!apiKey.isEmpty()) {
+        request.setRawHeader("Authorization", QByteArray("Bearer ") + apiKey.toUtf8());
+    }
+
+    QJsonObject payload;
+    payload[QStringLiteral("model")] = model.isEmpty() ? QStringLiteral("gpt-4o-mini") : model;
+    payload[QStringLiteral("max_tokens")] = 5;
+
+    QJsonArray messages;
+    QJsonObject msg;
+    msg[QStringLiteral("role")] = QStringLiteral("user");
+    msg[QStringLiteral("content")] = QStringLiteral("ping");
+    messages.append(msg);
+    payload[QStringLiteral("messages")] = messages;
+
+    m_ui->btnTestApiConnection->setEnabled(false);
+    m_ui->lblApiTestStatus->setText(tr("<span style='color: #3498db;'>Testing connection to %1…</span>").arg(urlStr));
+
+    QNetworkReply *reply = m_networkManager->post(request, QJsonDocument(payload).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, urlStr]() {
+        m_ui->btnTestApiConnection->setEnabled(true);
+        const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+
+        if (reply->error() == QNetworkReply::NoError || (statusCode >= 200 && statusCode < 300)) {
+            m_ui->lblApiTestStatus->setText(
+                tr("<span style='color: #2ecc71; font-weight: bold;'>✓ Connection successful! API responded (HTTP %1).</span>").arg(statusCode));
+        } else {
+            const QByteArray body = reply->readAll();
+            QString detail = reply->errorString();
+            if (!body.isEmpty()) {
+                QJsonDocument doc = QJsonDocument::fromJson(body);
+                if (doc.isObject() && doc.object().contains(QStringLiteral("error"))) {
+                    auto errVal = doc.object()[QStringLiteral("error")];
+                    if (errVal.isObject() && errVal.toObject().contains(QStringLiteral("message"))) {
+                        detail = errVal.toObject()[QStringLiteral("message")].toString();
+                    }
+                }
+            }
+            m_ui->lblApiTestStatus->setText(
+                tr("<span style='color: #e74c3c; font-weight: bold;'>✗ Connection failed (HTTP %1):</span> %2")
+                    .arg(statusCode)
+                    .arg(detail.toHtmlEscaped()));
+        }
+        reply->deleteLater();
+    });
 }
 
 #include "leapk_config.moc"

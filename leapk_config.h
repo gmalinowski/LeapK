@@ -9,9 +9,12 @@
 #include <KCModule>
 #include <QColor>
 #include <QJsonObject>
+#include <QElapsedTimer>
+#include <QFile>
 #include "customshaderhelper.h"
 #include "persistentmarkhelper.h"
 #include "themehelper.h"
+#include "aihelper.h"
 
 namespace Ui
 {
@@ -20,6 +23,7 @@ class ActiveWindowOutlineConfigForm;
 
 class KConfigSkeleton;
 class QNetworkAccessManager;
+class QNetworkReply;
 
 class ActiveWindowOutlineConfig : public KCModule
 {
@@ -93,9 +97,25 @@ private:
     void updateThemeParametersUIFor(const QString &id);
     void saveThemeParameterValues();
 
+    void initAiTab();
+    void updateAiUIState();
+    void refreshModelStatusUI();
+    void startModelDownload();
+    void cancelModelDownload();
+    void deleteModel();
+    void browseCustomModelFile();
+    void onApiPresetChanged(int index);
+    void testApiConnection();
+
     Ui::ActiveWindowOutlineConfigForm *m_ui;
     KConfigSkeleton *m_configSkeleton = nullptr;
     QNetworkAccessManager *m_networkManager = nullptr;
+    QNetworkReply *m_modelDownloadReply = nullptr;
+    QFile *m_modelDownloadFile = nullptr;
+    QString m_modelDownloadTargetPath;
+    qint64 m_modelDownloadTotalBytes = 0;
+    QElapsedTimer m_modelDownloadTimer;
+    QString m_aiCustomModelPath;
     bool m_isApplyingPreset = false;
     bool m_updatingTable = false;
     QString m_currentDisplayedShaderId;

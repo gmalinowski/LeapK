@@ -398,6 +398,14 @@ set_default CustomShaderEnabled false
 set_default ActiveCustomShaderId ""
 set_default ActiveThemeId "default-breeze"
 set_default ActiveThemeParams ""
+set_default AiEnabled false
+set_default AiBackend 0
+set_default AiLocalModelPath ""
+set_default AiApiEndpoint "https://api.openai.com/v1"
+set_default AiApiModel "gpt-4o-mini"
+set_default AiApiKey ""
+set_default AiApiProviderPreset 1
+set_default AiShortcut "Meta+I"
 set_default FadeDuration 200
 set_default MenuHideDelay 500
 set_default MenuShowDelay 500
