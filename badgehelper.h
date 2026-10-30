@@ -2738,10 +2738,14 @@ inline QImage renderHudModeHeader(qreal scale,
                                   const LeapKTheme::Theme &theme = LeapKTheme::Theme(),
                                   QRectF *outCloseButtonLocalRect = nullptr,
                                   bool isTilingPresets = false,
-                                  int tilingPresetsCount = 0)
+                                  int tilingPresetsCount = 0,
+                                  QList<QRectF> *outTabLocalRects = nullptr)
 {
     if (outCloseButtonLocalRect) {
         *outCloseButtonLocalRect = QRectF();
+    }
+    if (outTabLocalRects) {
+        outTabLocalRects->clear();
     }
     const int baseHeaderH = (navFontSize > 0)
         ? qMax(32, qRound(navFontSize * 2.8))
@@ -3553,6 +3557,9 @@ inline QImage renderHudModeHeader(qreal scale,
 
     for (const auto &tab : tabInfos) {
         const QRectF tabRect(curX, tabY, tab.width, tabH);
+        if (outTabLocalRects) {
+            outTabLocalRects->append(QRectF(tabRect.x() / scale, tabRect.y() / scale, tabRect.width() / scale, tabRect.height() / scale));
+        }
 
         if (tab.isActive) {
             const QColor col = tab.color.isValid() ? tab.color : QColor(52, 152, 219);

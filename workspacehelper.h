@@ -52,6 +52,8 @@ struct WorkspaceInfo {
     QChar shortcutKey;      // optional quick-assign key, e.g. '1', 'B'
     QList<WindowMatchRule> rules;
     qint64 createdAt = 0;
+    QString lastVirtualDesktopId; // optional remembered virtual desktop ID
+    QString tilingPresetId;       // optional remembered tiling preset, e.g. "columns-2"
 };
 
 inline QJsonObject workspaceToJson(const WorkspaceInfo &ws)
@@ -69,6 +71,12 @@ inline QJsonObject workspaceToJson(const WorkspaceInfo &ws)
     }
     obj[QStringLiteral("rules")] = rulesArr;
     obj[QStringLiteral("createdAt")] = ws.createdAt > 0 ? ws.createdAt : QDateTime::currentMSecsSinceEpoch();
+    if (!ws.lastVirtualDesktopId.isEmpty()) {
+        obj[QStringLiteral("lastVirtualDesktopId")] = ws.lastVirtualDesktopId;
+    }
+    if (!ws.tilingPresetId.isEmpty()) {
+        obj[QStringLiteral("tilingPresetId")] = ws.tilingPresetId;
+    }
     return obj;
 }
 
@@ -81,6 +89,8 @@ inline WorkspaceInfo workspaceFromJson(const QJsonObject &obj)
     const QString keyStr = obj.value(QStringLiteral("shortcutKey")).toString().trimmed();
     ws.shortcutKey = keyStr.isEmpty() ? QChar() : keyStr.at(0).toUpper();
     ws.createdAt = obj.value(QStringLiteral("createdAt")).toVariant().toLongLong();
+    ws.lastVirtualDesktopId = obj.value(QStringLiteral("lastVirtualDesktopId")).toString();
+    ws.tilingPresetId = obj.value(QStringLiteral("tilingPresetId")).toString();
 
     const QJsonArray rulesArr = obj.value(QStringLiteral("rules")).toArray();
     for (const auto &val : rulesArr) {

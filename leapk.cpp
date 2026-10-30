@@ -642,6 +642,18 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
                     playThemedSound(OutlineSound::SoundEffect::SwitchWorkspace);
                 }
                 m_lastDesktop = cur;
+                if (cur) {
+                    const QString curWsId = workspaceIdForView(m_activeHudView);
+                    m_workspaceLastVirtualDesktopId[curWsId] = cur->id();
+                    if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
+                        m_workspaces[m_activeHudView - 1].lastVirtualDesktopId = cur->id();
+                        LeapKWorkspace::saveWorkspaces(m_workspaces);
+                    } else if (m_activeHudView == 0 && effects && effects->config()) {
+                        KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+                        primaryConfig.writeEntry("StandardLastVirtualDesktopId", cur->id());
+                        primaryConfig.sync();
+                    }
+                }
                 repaintAllOutlines();
             });
     connect(effects, &EffectsHandler::screenLockingChanged,
@@ -1080,6 +1092,20 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_soundFeedbackEnabled = config.readEntry("SoundFeedbackEnabled", false);
     m_soundFeedbackVolume = qBound(0, config.readEntry("SoundFeedbackVolume", 30), 100);
     m_activeHudView = config.readEntry("ActiveHudView", 0);
+    const QString stdDeskId = config.readEntry("StandardLastVirtualDesktopId", QString());
+    if (!stdDeskId.isEmpty()) {
+        m_workspaceLastVirtualDesktopId[QStringLiteral("__standard__")] = stdDeskId;
+    }
+    const QString stdPresetId = config.readEntry("StandardTilingPresetId", QString());
+    if (!stdPresetId.isEmpty()) {
+        for (const auto &p : m_tilingPresets) {
+            if (p.id == stdPresetId) {
+                m_workspaceTilingActive[QStringLiteral("__standard__")] = true;
+                m_workspaceTilingPreset[QStringLiteral("__standard__")] = p;
+                break;
+            }
+        }
+    }
     m_badgeTextureCache.clear();
     m_thumbnailCache.clear();
     m_lastCaptureTimestamp.clear();
@@ -3630,9 +3656,170 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
 void ActiveWindowOutlineEffect::refreshWorkspaces()
 {
     m_workspaces = LeapKWorkspace::loadWorkspaces();
+    for (const auto &ws : m_workspaces) {
+        if (!ws.lastVirtualDesktopId.isEmpty()) {
+            m_workspaceLastVirtualDesktopId[ws.id] = ws.lastVirtualDesktopId;
+        }
+        if (!ws.tilingPresetId.isEmpty()) {
+            for (const auto &p : m_tilingPresets) {
+                if (p.id == ws.tilingPresetId) {
+                    m_workspaceTilingActive[ws.id] = true;
+                    m_workspaceTilingPreset[ws.id] = p;
+                    break;
+                }
+            }
+        }
+    }
     const int totalViews = qMax(1, 3 + m_workspaces.size());
     if (m_activeHudView >= totalViews || m_activeHudView < 0) {
         m_activeHudView = 0;
+    }
+}
+
+QString ActiveWindowOutlineEffect::workspaceIdForView(int hudViewIndex) const
+{
+    if (hudViewIndex >= 1 && hudViewIndex <= m_workspaces.size()) {
+        return m_workspaces.at(hudViewIndex - 1).id;
+    }
+    if (hudViewIndex == m_workspaces.size() + 1) {
+        return QStringLiteral("__all__");
+    }
+    return QStringLiteral("__standard__");
+}
+
+void ActiveWindowOutlineEffect::switchToWorkspaceView(int newHudViewIndex)
+{
+    refreshWorkspaces();
+    const int totalViews = qMax(1, 3 + m_workspaces.size());
+    if (newHudViewIndex < 0 || newHudViewIndex >= totalViews) {
+        newHudViewIndex = 0;
+    }
+
+    if (m_activeHudView == newHudViewIndex) {
+        return;
+    }
+
+    const int oldHudView = m_activeHudView;
+    const QString oldWsId = workspaceIdForView(oldHudView);
+    const QString newWsId = workspaceIdForView(newHudViewIndex);
+
+    // 1. Save outgoing workspace state
+    if (effects && effects->currentDesktop()) {
+        m_workspaceLastVirtualDesktopId[oldWsId] = effects->currentDesktop()->id();
+        if (oldHudView >= 1 && oldHudView <= m_workspaces.size()) {
+            m_workspaces[oldHudView - 1].lastVirtualDesktopId = effects->currentDesktop()->id();
+            LeapKWorkspace::saveWorkspaces(m_workspaces);
+        } else if (oldHudView == 0 && effects->config()) {
+            KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+            primaryConfig.writeEntry("StandardLastVirtualDesktopId", effects->currentDesktop()->id());
+            primaryConfig.sync();
+        }
+    }
+
+    m_workspaceTilingActive[oldWsId] = m_tilingActive;
+    if (m_tilingActive) {
+        m_workspaceTilingPreset[oldWsId] = m_activeTilingPreset;
+        if (oldHudView >= 1 && oldHudView <= m_workspaces.size()) {
+            m_workspaces[oldHudView - 1].tilingPresetId = m_activeTilingPreset.id;
+            LeapKWorkspace::saveWorkspaces(m_workspaces);
+        } else if (oldHudView == 0 && effects->config()) {
+            KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+            primaryConfig.writeEntry("StandardTilingPresetId", m_activeTilingPreset.id);
+            primaryConfig.sync();
+        }
+        deactivateTiling(nullptr, true);
+    } else {
+        if (oldHudView >= 1 && oldHudView <= m_workspaces.size()) {
+            m_workspaces[oldHudView - 1].tilingPresetId = QString();
+            LeapKWorkspace::saveWorkspaces(m_workspaces);
+        } else if (oldHudView == 0 && effects->config()) {
+            KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+            primaryConfig.writeEntry("StandardTilingPresetId", QString());
+            primaryConfig.sync();
+        }
+    }
+
+    // 2. Set new active view
+    m_activeHudView = newHudViewIndex;
+    if (effects && effects->config()) {
+        KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+        primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
+        primaryConfig.sync();
+    }
+
+    // 3. Restore remembered virtual desktop for incoming workspace
+    VirtualDesktop *targetDesktop = nullptr;
+    QString targetDeskId;
+
+    if (m_workspaceLastVirtualDesktopId.contains(newWsId)) {
+        targetDeskId = m_workspaceLastVirtualDesktopId.value(newWsId);
+    } else if (newHudViewIndex >= 1 && newHudViewIndex <= m_workspaces.size()) {
+        targetDeskId = m_workspaces.at(newHudViewIndex - 1).lastVirtualDesktopId;
+    } else if (newHudViewIndex == 0 && effects && effects->config()) {
+        KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+        targetDeskId = primaryConfig.readEntry("StandardLastVirtualDesktopId", QString());
+    }
+
+    if (!targetDeskId.isEmpty()) {
+        targetDesktop = VirtualDesktopManager::self()->desktopForId(targetDeskId);
+    }
+
+    if (!targetDesktop && newHudViewIndex >= 1 && newHudViewIndex <= m_workspaces.size()) {
+        const auto &ws = m_workspaces.at(newHudViewIndex - 1);
+        for (EffectWindow *w : effects->stackingOrder()) {
+            if (!w || w->isDeleted() || isBlockingPopup(w)) continue;
+            const auto desktops = w->desktops();
+            const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+            if (LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum)) {
+                if (!desktops.isEmpty() && !w->isOnAllDesktops()) {
+                    targetDesktop = desktops.first();
+                    break;
+                }
+            }
+        }
+    }
+
+    if (targetDesktop && effects && effects->currentDesktop() != targetDesktop) {
+        effects->setCurrentDesktop(targetDesktop);
+    }
+    if (effects && effects->currentDesktop()) {
+        m_workspaceLastVirtualDesktopId[newWsId] = effects->currentDesktop()->id();
+    }
+
+    // 4. Apply workspace window isolation
+    applyWorkspaceViewIsolation(m_activeHudView);
+
+    // 5. Restore tiling state for incoming workspace
+    bool shouldTile = m_workspaceTilingActive.value(newWsId, false);
+    LeapKTiling::TilingPreset incomingPreset;
+
+    if (m_workspaceTilingPreset.contains(newWsId)) {
+        incomingPreset = m_workspaceTilingPreset.value(newWsId);
+    } else {
+        QString savedPresetId;
+        if (newHudViewIndex >= 1 && newHudViewIndex <= m_workspaces.size()) {
+            savedPresetId = m_workspaces.at(newHudViewIndex - 1).tilingPresetId;
+        } else if (newHudViewIndex == 0 && effects && effects->config()) {
+            KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+            savedPresetId = primaryConfig.readEntry("StandardTilingPresetId", QString());
+        }
+        if (!savedPresetId.isEmpty()) {
+            for (const auto &p : m_tilingPresets) {
+                if (p.id == savedPresetId) {
+                    incomingPreset = p;
+                    shouldTile = true;
+                    m_workspaceTilingActive[newWsId] = true;
+                    m_workspaceTilingPreset[newWsId] = p;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (shouldTile && !incomingPreset.id.isEmpty() && !incomingPreset.isFloatAction()) {
+        activateTilingPreset(incomingPreset);
+    } else if (m_tilingActive) {
+        deactivateTiling(nullptr, true);
     }
 }
 
@@ -4348,21 +4535,13 @@ void ActiveWindowOutlineEffect::createEmptyWorkspace(const QString &suggestedNam
 
     LeapKWorkspace::createEmptyWorkspace(m_workspaces, name);
 
-    // Switch active HUD view directly to the new empty workspace
-    // Views: 0 = Standard, 1..N = Workspaces, N+1 = All
-    m_activeHudView = m_workspaces.size();
-
-    if (effects && effects->config()) {
-        KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
-        primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
-        primaryConfig.sync();
-    }
-
     if (m_subLeapActive) {
         exitSubLeapMode();
     }
 
-    applyWorkspaceViewIsolation(m_activeHudView);
+    // Switch active HUD view directly to the new empty workspace
+    // Views: 0 = Standard, 1..N = Workspaces, N+1 = All
+    switchToWorkspaceView(m_workspaces.size());
 
     m_jumpLetterToWindow = assignJumpLetters();
     m_badgeTextureCache.clear();
@@ -4448,16 +4627,16 @@ void ActiveWindowOutlineEffect::applyWorkspaceDeletion(const QString &deletedWor
         m_workspaces.removeAt(foundIdx);
         LeapKWorkspace::saveWorkspaces(m_workspaces);
     }
+    m_workspaceLastVirtualDesktopId.remove(deletedWorkspaceId);
+    m_workspaceTilingActive.remove(deletedWorkspaceId);
+    m_workspaceTilingPreset.remove(deletedWorkspaceId);
 
     // Reset active view to Standard (0)
-    m_activeHudView = 0;
-    if (effects && effects->config()) {
-        KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
-        primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
-        primaryConfig.sync();
+    if (m_activeHudView != 0) {
+        switchToWorkspaceView(0);
+    } else {
+        applyWorkspaceViewIsolation(0);
     }
-
-    applyWorkspaceViewIsolation(0);
 
     m_jumpLetterToWindow = assignJumpLetters();
     m_badgeTextureCache.clear();
@@ -4510,12 +4689,7 @@ void ActiveWindowOutlineEffect::slotCreateNewWorkspacePrompt()
         process->deleteLater();
         if (exitCode == 0) {
             refreshWorkspaces();
-            m_activeHudView = m_workspaces.size();
-            if (effects && effects->config()) {
-                KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
-                primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
-                primaryConfig.sync();
-            }
+            switchToWorkspaceView(m_workspaces.size());
             slotTriggerJumpMode();
         } else {
             slotTriggerJumpMode();
@@ -4627,52 +4801,18 @@ void ActiveWindowOutlineEffect::slotCloseActiveWorkspace()
 void ActiveWindowOutlineEffect::slotCycleHudView(int delta)
 {
     playThemedSound(OutlineSound::SoundEffect::NavTab);
-    if (m_stashModeActive) {
-        refreshWorkspaces();
-        const int totalViews = qMax(1, 2 + m_workspaces.size());
-        m_activeHudView = (m_activeHudView + delta) % totalViews;
-        if (m_activeHudView < 0) {
-            m_activeHudView += totalViews;
-        }
-        if (effects && effects->config()) {
-            KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
-            primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
-            primaryConfig.sync();
-        }
-
-        // Apply workspace view isolation so windows from target workspace actually pop in
-        applyWorkspaceViewIsolation(m_activeHudView);
-
-        m_jumpLetterToWindow = assignJumpLetters();
-        m_badgeTextureCache.clear();
-        m_hudHeaderTexture.reset();
-        m_hudHeaderCacheKey = -1;
-        m_hudHintBarTexture.reset();
-        m_hudHintBarCacheKey = -1;
-
-        if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
-            m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
-        }
-
-        effects->addRepaintFull();
-        return;
-    }
     refreshWorkspaces();
-    const int totalViews = qMax(1, 2 + m_workspaces.size());
-    m_activeHudView = (m_activeHudView + delta) % totalViews;
-    if (m_activeHudView < 0) {
-        m_activeHudView += totalViews;
+    const int totalViews = m_stashModeActive ? qMax(1, 2 + m_workspaces.size()) : qMax(1, 3 + m_workspaces.size());
+    int targetView = (m_activeHudView + delta) % totalViews;
+    if (targetView < 0) {
+        targetView += totalViews;
     }
-    if (effects && effects->config()) {
-        KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
-        primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
-        primaryConfig.sync();
-    }
+
     if (m_subLeapActive) {
         exitSubLeapMode();
     }
 
-    applyWorkspaceViewIsolation(m_activeHudView);
+    switchToWorkspaceView(targetView);
 
     m_jumpLetterToWindow = assignJumpLetters();
     m_badgeTextureCache.clear();
@@ -5053,6 +5193,8 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
     m_hudCloseButtonLocalRect = QRectF();
     m_hudCloseButtonScreenRect = QRectF();
     m_hudHeaderScreenRect = QRectF();
+    m_hudTabLocalRects.clear();
+    m_hudTabScreenRects.clear();
     m_hudTargetPillRects.clear();
     setKdeGlobalShortcutsBlocked(false);
     m_subLeapActive = false;
@@ -5201,10 +5343,18 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
                 }
             }
         } else {
-            for (const auto &pair : m_hudTargetPillRects) {
-                if (pair.first.isValid() && pair.first.contains(pos)) {
+            for (const auto &tr : m_hudTabScreenRects) {
+                if (tr.isValid() && tr.contains(pos)) {
                     isHoveringClickable = true;
                     break;
+                }
+            }
+            if (!isHoveringClickable) {
+                for (const auto &pair : m_hudTargetPillRects) {
+                    if (pair.first.isValid() && pair.first.contains(pos)) {
+                        isHoveringClickable = true;
+                        break;
+                    }
                 }
             }
         }
@@ -5243,6 +5393,10 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
                 if (pair.first.isValid() && pair.first.contains(pos) && pair.second) {
                     EffectWindow *target = pair.second;
                     cancelJumpMode();
+                    const int targetWs = findWorkspaceForWindow(target);
+                    if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
+                        switchToWorkspaceView(targetWs);
+                    }
                     if (!target->isOnCurrentDesktop()) {
                         const auto desktops = target->desktops();
                         if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
@@ -5264,8 +5418,24 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
                 }
             }
 
-            // 3. Click inside header (outside close button) -> ignore to prevent accidental dismiss
+            // 3. Click inside header on a workspace tab
             if (m_hudHeaderScreenRect.isValid() && m_hudHeaderScreenRect.contains(pos)) {
+                for (int i = 0; i < m_hudTabScreenRects.size(); ++i) {
+                    if (m_hudTabScreenRects[i].contains(pos)) {
+                        playThemedSound(OutlineSound::SoundEffect::NavTab);
+                        switchToWorkspaceView(i);
+                        m_jumpLetterToWindow = assignJumpLetters();
+                        m_badgeTextureCache.clear();
+                        m_hudHeaderTexture.reset();
+                        m_hudHeaderCacheKey = -1;
+                        m_hudHintBarTexture.reset();
+                        m_hudHintBarCacheKey = -1;
+                        if (effects) {
+                            effects->addRepaintFull();
+                        }
+                        return;
+                    }
+                }
                 return;
             }
 
@@ -5525,13 +5695,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     }
                     const int targetWs = findWorkspaceForWindow(target);
                     if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
-                        m_activeHudView = targetWs;
-                        if (effects && effects->config()) {
-                            KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
-                            primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
-                            primaryConfig.sync();
-                        }
-                        applyWorkspaceViewIsolation(m_activeHudView);
+                        switchToWorkspaceView(targetWs);
                     }
                     if (!target->isOnCurrentDesktop()) {
                         const auto desktops = target->desktops();
@@ -5620,13 +5784,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     }
                     const int targetWs = findWorkspaceForWindow(target);
                     if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
-                        m_activeHudView = targetWs;
-                        if (effects && effects->config()) {
-                            KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
-                            primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
-                            primaryConfig.sync();
-                        }
-                        applyWorkspaceViewIsolation(m_activeHudView);
+                        switchToWorkspaceView(targetWs);
                     }
                     if (!target->isOnCurrentDesktop()) {
                         const auto desktops = target->desktops();
@@ -5660,8 +5818,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     cancelJumpMode(e->key());
                     const int targetWs = findWorkspaceForWindow(target);
                     if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
-                        m_activeHudView = targetWs;
-                        applyWorkspaceViewIsolation(m_activeHudView);
+                        switchToWorkspaceView(targetWs);
                     }
                     if (!target->isOnCurrentDesktop()) {
                         const auto desktops = target->desktops();
@@ -6145,13 +6302,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
                 const int targetWs = findWorkspaceForWindow(target);
                 if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
-                    m_activeHudView = targetWs;
-                    if (effects && effects->config()) {
-                        KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
-                        primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
-                        primaryConfig.sync();
-                    }
-                    applyWorkspaceViewIsolation(m_activeHudView);
+                    switchToWorkspaceView(targetWs);
                 }
 
                 if (!target->isOnCurrentDesktop()) {
@@ -6228,13 +6379,7 @@ void ActiveWindowOutlineEffect::slotJumpToRecentWindow(int keyToRelease)
 
     const int targetWs = findWorkspaceForWindow(target);
     if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
-        m_activeHudView = targetWs;
-        if (effects && effects->config()) {
-            KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
-            primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
-            primaryConfig.sync();
-        }
-        applyWorkspaceViewIsolation(m_activeHudView);
+        switchToWorkspaceView(targetWs);
     }
 
     if (!target->isOnCurrentDesktop()) {
@@ -7776,6 +7921,18 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
     m_activeTilingPreset = preset;
     m_activeTilingSlots.clear();
 
+    const QString curWsId = workspaceIdForView(m_activeHudView);
+    m_workspaceTilingActive[curWsId] = true;
+    m_workspaceTilingPreset[curWsId] = preset;
+    if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
+        m_workspaces[m_activeHudView - 1].tilingPresetId = preset.id;
+        LeapKWorkspace::saveWorkspaces(m_workspaces);
+    } else if (m_activeHudView == 0 && effects && effects->config()) {
+        KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+        primaryConfig.writeEntry("StandardTilingPresetId", preset.id);
+        primaryConfig.sync();
+    }
+
     for (int i = 0; i < slotCount; ++i) {
         ActiveTilingSlot slot;
         slot.geometry = slotGeometries[i];
@@ -7825,10 +7982,24 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
     }
 }
 
-void ActiveWindowOutlineEffect::deactivateTiling(EffectWindow *skipRestoreWindow)
+void ActiveWindowOutlineEffect::deactivateTiling(EffectWindow *skipRestoreWindow, bool preserveWorkspaceState)
 {
     if (!m_tilingActive) {
         return;
+    }
+
+    if (!preserveWorkspaceState) {
+        const QString curWsId = workspaceIdForView(m_activeHudView);
+        m_workspaceTilingActive[curWsId] = false;
+        m_workspaceTilingPreset.remove(curWsId);
+        if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
+            m_workspaces[m_activeHudView - 1].tilingPresetId = QString();
+            LeapKWorkspace::saveWorkspaces(m_workspaces);
+        } else if (m_activeHudView == 0 && effects && effects->config()) {
+            KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+            primaryConfig.writeEntry("StandardTilingPresetId", QString());
+            primaryConfig.sync();
+        }
     }
 
     // Restore windows back to their sizes and positions from before tiling (Fixes Item 2)
@@ -8485,7 +8656,7 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
         const QImage headerImg = OutlineBadge::renderHudModeHeader(
             scale, m_subLeapActive, subLeapTitle, subLeapColor, subLeapCount, viewTabs, stashCount, m_stashModeActive, targetWorkspaceName, m_superJumpActive, m_audioFilterModeActive, m_jumpLetterToWindow.size(),
             m_searchModeActive, m_searchQuery, m_searchScope, m_searchMatches.size(), hudSize, navFontSize, theme, &m_hudCloseButtonLocalRect,
-            m_tilingPresetsModeActive, m_tilingPresets.size());
+            m_tilingPresetsModeActive, m_tilingPresets.size(), &m_hudTabLocalRects);
         if (!headerImg.isNull()) {
             auto uploaded = GLTexture::upload(headerImg);
             if (uploaded) {
@@ -8550,6 +8721,20 @@ QRectF ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &render
         );
     } else {
         m_hudCloseButtonScreenRect = QRectF();
+    }
+
+    m_hudTabScreenRects.clear();
+    for (const QRectF &localRect : m_hudTabLocalRects) {
+        if (localRect.isValid() && !localRect.isEmpty()) {
+            m_hudTabScreenRects.append(QRectF(
+                headerRect.left() + localRect.left(),
+                headerRect.top() + localRect.top(),
+                localRect.width(),
+                localRect.height()
+            ));
+        } else {
+            m_hudTabScreenRects.append(QRectF());
+        }
     }
 
     GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);

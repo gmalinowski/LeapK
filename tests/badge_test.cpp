@@ -1024,10 +1024,17 @@ void testHudModeHeader()
     views.append({QStringLiteral("📁 Backend"), QColor(52, 152, 219), 2, false});
     views.append({QStringLiteral("🌐 All"), QColor(155, 89, 182), 6, false});
 
-    QImage header1 = OutlineBadge::renderHudModeHeader(1.0, false, QString(), QColor(), 0, views, 3, false);
+    QList<QRectF> tabRects1;
+    QImage header1 = OutlineBadge::renderHudModeHeader(1.0, false, QString(), QColor(), 0, views, 3, false, QString(), false, false, 0, false, QString(), 1, 0, 44, 0, LeapKTheme::Theme(), nullptr, false, 0, &tabRects1);
     assert(!header1.isNull());
     assert(header1.width() > 200);
     assert(header1.height() >= 30);
+    assert(tabRects1.size() == 3);
+    assert(tabRects1[0].width() > 10);
+    assert(tabRects1[1].width() > 10);
+    assert(tabRects1[2].width() > 10);
+    assert(tabRects1[0].right() <= tabRects1[1].left());
+    assert(tabRects1[1].right() <= tabRects1[2].left());
 
     QImage header2 = OutlineBadge::renderHudModeHeader(1.5, false, QString(), QColor(), 0, views, 1, false);
     assert(!header2.isNull());

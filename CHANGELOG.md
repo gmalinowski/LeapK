@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta26] - 2026-10-30
+
+### Added
+- **Per-Workspace Last Active Virtual Desktop Memory**:
+  - LeapK now tracks and remembers the last active virtual desktop (`lastVirtualDesktopId`) per workspace when navigating away.
+  - When switching back into a workspace (via HUD navigation tabs, key jump, window pills, or cycling), LeapK automatically transitions KWin to that workspace's last active virtual desktop before window isolation and slotting.
+  - Serialized and persisted in `workspaces.json` and `Effect-leapk` config (`StandardLastVirtualDesktopId`).
+- **Per-Workspace Tiling Layout and State Preservation**:
+  - Tiling preset and active tiling state (`tilingPresetId`) are now scoped and preserved per workspace.
+  - Navigating away from a tiled workspace safely unslots its windows from KDE quick tiles without discarding its active preset state.
+  - Navigating back to the workspace automatically restores and reapplies its active tiling preset to the windows on that workspace's active virtual desktop.
+  - Supported across Standard, Custom, and All views, and persisted across sessions.
+- **Interactive HUD Workspace Header Tabs**:
+  - Bounding rectangles for workspace navigation tabs in the HUD mode header are now tracked and mapped to screen space (`m_hudTabScreenRects`).
+  - Users can click directly on any workspace tab in the HUD header to switch workspaces with sound feedback.
+
 ## [1.6.0-beta25] - 2026-10-30
 
 ### Fixed

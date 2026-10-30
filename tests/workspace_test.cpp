@@ -38,6 +38,8 @@ void testWorkspaceSerialization()
     ws.color = QColor(QStringLiteral("#3498db"));
     ws.shortcutKey = QChar('B');
     ws.createdAt = 1700000000000;
+    ws.lastVirtualDesktopId = QStringLiteral("desk-uuid-1234");
+    ws.tilingPresetId = QStringLiteral("columns-2");
 
     WindowMatchRule r1;
     r1.matchApp = QStringLiteral("org.kde.konsole");
@@ -59,6 +61,8 @@ void testWorkspaceSerialization()
     assert(restored.color == ws.color);
     assert(restored.shortcutKey == ws.shortcutKey);
     assert(restored.createdAt == ws.createdAt);
+    assert(restored.lastVirtualDesktopId == ws.lastVirtualDesktopId);
+    assert(restored.tilingPresetId == ws.tilingPresetId);
     assert(restored.rules.size() == 2);
     assert(restored.rules.at(0).matchApp == r1.matchApp);
     assert(restored.rules.at(0).matchCaption == r1.matchCaption);

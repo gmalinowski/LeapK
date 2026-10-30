@@ -304,6 +304,8 @@ private:
                               const QRectF &pillsBounds = QRectF(),
                               const QRectF &hintBarBounds = QRectF());
     void applyWorkspaceViewIsolation(int hudViewIndex);
+    void switchToWorkspaceView(int newHudViewIndex);
+    QString workspaceIdForView(int hudViewIndex) const;
     void enterStashMode();
     void exitStashMode();
     void addWindowToWorkspace(EffectWindow *w, int workspaceIndex);
@@ -316,7 +318,7 @@ private:
     void refreshTilingPresetsWithKdeCustom();
     void slotOpenKdeTileEditor();
     void activateTilingPreset(const LeapKTiling::TilingPreset &preset);
-    void deactivateTiling(EffectWindow *skipRestoreWindow = nullptr);
+    void deactivateTiling(EffectWindow *skipRestoreWindow = nullptr, bool preserveWorkspaceState = false);
     bool isWindowInTileSlot(EffectWindow *w) const;
     int findTileSlotIndexForWindow(EffectWindow *w) const;
     void performTilingSwap(EffectWindow *target);
@@ -571,6 +573,11 @@ private:
 
     // Workspaces (Smart Workspaces / project spaces)
     QList<LeapKWorkspace::WorkspaceInfo> m_workspaces;
+    QMap<QString, QString> m_workspaceLastVirtualDesktopId;
+    QMap<QString, bool> m_workspaceTilingActive;
+    QMap<QString, LeapKTiling::TilingPreset> m_workspaceTilingPreset;
+    mutable QList<QRectF> m_hudTabLocalRects;
+    QList<QRectF> m_hudTabScreenRects;
 
     // History Navigation
     bool m_isHistoryNavigating = false;
