@@ -180,12 +180,62 @@ void testToKdeJson()
     std::cout << "testToKdeJson PASSED\n";
 }
 
+void testKdeCustomPreset()
+{
+    using namespace LeapKTiling;
+
+    // Test with 2 slots
+    QList<QRectF> slots2 = {
+        QRectF(0.0, 0.0, 0.48, 1.0),
+        QRectF(0.48, 0.0, 0.52, 1.0)
+    };
+    const auto p2 = createKdeCustomPreset(slots2);
+    assert(p2.id == QStringLiteral("kde-custom"));
+    assert(p2.triggerKey == 'C');
+    assert(p2.iconDiagram == QStringLiteral("▌▌"));
+    assert(p2.tileSlots.size() == 2);
+    assert(!p2.isFloatAction());
+    assert(qAbs(p2.tileSlots[0].relativeRect.width() - 0.48) < 0.001);
+    assert(qAbs(p2.tileSlots[1].relativeRect.width() - 0.52) < 0.001);
+
+    // Test slot geometries computation for 2 custom slots
+    const QRectF workArea(0, 0, 1920, 1080);
+    const auto rects = computeSlotGeometries(p2, workArea, 10, 0);
+    assert(rects.size() == 2);
+    assert(rects[0].left() == 0);
+    assert(rects[1].right() == 1920);
+
+    // Test with 3 slots
+    QList<QRectF> slots3 = {
+        QRectF(0.0, 0.0, 0.33, 1.0),
+        QRectF(0.33, 0.0, 0.34, 1.0),
+        QRectF(0.67, 0.0, 0.33, 1.0)
+    };
+    const auto p3 = createKdeCustomPreset(slots3);
+    assert(p3.iconDiagram == QStringLiteral("▌▌▌"));
+    assert(p3.tileSlots.size() == 3);
+
+    // Test with 4 slots
+    QList<QRectF> slots4 = {
+        QRectF(0.0, 0.0, 0.5, 0.5),
+        QRectF(0.5, 0.0, 0.5, 0.5),
+        QRectF(0.0, 0.5, 0.5, 0.5),
+        QRectF(0.5, 0.5, 0.5, 0.5)
+    };
+    const auto p4 = createKdeCustomPreset(slots4);
+    assert(p4.iconDiagram == QStringLiteral("⊞"));
+    assert(p4.tileSlots.size() == 4);
+
+    std::cout << "testKdeCustomPreset PASSED\n";
+}
+
 int main()
 {
     testDefaultPresets();
     testComputeSlotGeometries();
     testJsonPersistence();
     testToKdeJson();
+    testKdeCustomPreset();
 
     std::cout << "All LeapKTiling tests passed successfully!\n";
     return 0;

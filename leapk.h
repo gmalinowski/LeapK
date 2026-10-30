@@ -313,6 +313,8 @@ private:
     void applyWorkspaceDeletion(const QString &deletedWorkspaceId, const QString &windowAction);
     void enterTilingPresetsMode();
     void exitTilingPresetsMode();
+    void refreshTilingPresetsWithKdeCustom();
+    void slotOpenKdeTileEditor();
     void activateTilingPreset(const LeapKTiling::TilingPreset &preset);
     void deactivateTiling(EffectWindow *skipRestoreWindow = nullptr);
     bool isWindowInTileSlot(EffectWindow *w) const;

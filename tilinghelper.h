@@ -51,6 +51,30 @@ struct TilingPreset
     }
 };
 
+inline TilingPreset createKdeCustomPreset(const QList<QRectF> &slotGeometries)
+{
+    TilingPreset p;
+    p.id = QStringLiteral("kde-custom");
+    p.name = QStringLiteral("KDE Custom");
+    p.triggerKey = QLatin1Char('C');
+    p.iconDiagram = QStringLiteral("▨");
+    const int count = slotGeometries.size();
+    if (count == 2) {
+        p.iconDiagram = QStringLiteral("▌▌");
+    } else if (count == 3) {
+        p.iconDiagram = QStringLiteral("▌▌▌");
+    } else if (count == 4) {
+        p.iconDiagram = QStringLiteral("⊞");
+    } else if (count == 1) {
+        p.iconDiagram = QStringLiteral("🗖");
+    }
+    p.description = QStringLiteral("%1 slots • KDE layout").arg(count);
+    for (const auto &r : slotGeometries) {
+        p.tileSlots.append(TileSlot{r});
+    }
+    return p;
+}
+
 inline QList<TilingPreset> defaultPresets()
 {
     QList<TilingPreset> presets;

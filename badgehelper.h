@@ -2059,7 +2059,7 @@ inline QImage renderTilingPresetPill(const BadgeConfig &cfg,
                                      bool isActive = false,
                                      bool isSelected = false)
 {
-    const QColor bgCol = isActive ? QColor(46, 204, 113) : (preset.isFloatAction() ? QColor(231, 76, 60) : QColor(52, 152, 219));
+    const QColor bgCol = isActive ? QColor(46, 204, 113) : (preset.isFloatAction() ? QColor(231, 76, 60) : (preset.id == QStringLiteral("kde-custom") ? QColor(142, 68, 173) : QColor(52, 152, 219)));
     const QString locText = preset.description;
     const QString capText = preset.name;
     const QString customLabel = QStringLiteral("%1 %2").arg(preset.iconDiagram, preset.name);
@@ -2407,7 +2407,9 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     QList<Segment> segments;
     if (isTilingPresets) {
         segments = {
+            {QStringLiteral("C"), QStringLiteral("KDE Custom"), QColor(142, 68, 173)},
             {QStringLiteral("Key"), QStringLiteral("Select preset (A-G)"), QColor(52, 152, 219)},
+            {QStringLiteral("E"), QStringLiteral("Edit in KDE"), QColor(241, 196, 15)},
             {QStringLiteral("X"), QStringLiteral("Float / Turn off"), QColor(231, 76, 60)},
             {QStringLiteral("Meta+T"), QStringLiteral("Back"), QColor(149, 165, 166)},
             {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
@@ -3159,7 +3161,7 @@ inline QImage renderHudModeHeader(qreal scale,
     }
 
     if (isTilingPresets) {
-        const QString leftText = QStringLiteral("▤ TILING PRESETS: Select layout (A–L, X to float) • %1 presets").arg(tilingPresetsCount);
+        const QString leftText = QStringLiteral("▤ TILING PRESETS: Select layout (C: KDE Custom, A–G, E: Edit in KDE, X: float) • %1 presets").arg(tilingPresetsCount);
         const QString rightText = QStringLiteral("Meta+T / Esc : Back");
 
         QFont titleFont(QStringLiteral("sans-serif"));

@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta24] - 2026-10-30
+
+### Fixed
+- **KDE Custom Tiling Layout Integration & Multiplication Fix**:
+  - Fixed a critical bug where repeatedly switching or activating tiling presets caused `RootTile` children to accumulate without being cleared, multiplying column slices in `kwinrc` (`[Tiling][deskId][outUuid]`) and cluttering KDE Custom Tiling with unexpected narrow columns.
+  - Prior to applying external presets, `rootTile->destroyChild()` is now safely called on existing child tiles so new preset layouts replace the existing tree rather than appending to it.
+  - Eliminated duplicate reversed `[Tiling][outUuid][deskId]` keys in `kwinrc`, preserving the canonical KDE `[Tiling][deskId][outUuid]` format.
+
+### Added
+- **Dynamic "KDE Custom Layout" (`[C]`) Integration**:
+  - Presets mode now dynamically queries KWin's live `RootTile` and inspects the user's custom tile arrangement configured in KDE.
+  - Introduces the **"KDE Custom Layout"** preset (key `C`, or `Enter` by default), rendering the exact slots and dimensions configured by the user in KDE Custom Tiling (e.g. 2 columns, custom split ratios).
+  - Selecting `[C]` slots windows directly into the user's custom KDE tiles without modifying or overwriting `kwinrc`.
+- **Direct KDE Tile Editor Invocation (`E`)**:
+  - Pressing `E` while in LeapK Presets mode dismisses the Jump HUD and immediately opens KDE's native Tile Editor (`Edit Tiles`) via DBus.
+  - Updated HUD action hint bar and header text to display `[C] KDE Custom` and `[E] Edit in KDE`.
+
 ## [1.6.0-beta15] - 2026-10-30
 
 ### Added

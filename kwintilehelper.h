@@ -26,10 +26,15 @@ public:
     QRectF windowGeometry() const;
     QRectF absoluteGeometry() const;
     QRectF relativeGeometry() const;
+    int childCount() const;
+    Tile *childTile(int row);
+    void destroyChild(Tile *tile);
 };
 
 class CustomTile : public Tile
 {
+public:
+    void remove();
 };
 
 class RootTile : public CustomTile

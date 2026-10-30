@@ -5379,9 +5379,21 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
+        if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
+            if (!m_tilingPresets.isEmpty()) {
+                activateTilingPreset(m_tilingPresets.first());
+                return;
+            }
+        }
+
         const QString text = extractKeyChar();
         if (!text.isEmpty()) {
             const QChar keyChar = text.at(0).toUpper();
+            if (keyChar == QLatin1Char('E')) {
+                slotOpenKdeTileEditor();
+                return;
+            }
+
             if (keyChar == QLatin1Char('X')) {
                 deactivateTiling();
                 return;
@@ -7561,9 +7573,51 @@ void ActiveWindowOutlineEffect::slotWindowFinishUserMovedResized(EffectWindow *w
     }
 }
 
+void ActiveWindowOutlineEffect::slotOpenKdeTileEditor()
+{
+    if (m_jumpMode) {
+        cancelJumpMode();
+    }
+    QDBusMessage msg = QDBusMessage::createMethodCall(
+        QStringLiteral("org.kde.kglobalaccel"),
+        QStringLiteral("/component/kwin"),
+        QStringLiteral("org.kde.kglobalaccel.Component"),
+        QStringLiteral("invokeShortcut"));
+    msg << QStringLiteral("Edit Tiles");
+    QDBusConnection::sessionBus().send(msg);
+}
+
+void ActiveWindowOutlineEffect::refreshTilingPresetsWithKdeCustom()
+{
+    m_tilingPresets = LeapKTiling::loadPresets();
+
+    LogicalOutput *activeOutput = effects ? effects->activeScreen() : nullptr;
+    VirtualDesktop *currentDesktop = effects ? effects->currentDesktop() : nullptr;
+    TileManager *tileMgr = (workspace() && activeOutput) ? workspace()->tileManager(activeOutput) : nullptr;
+    RootTile *rootTile = (tileMgr && currentDesktop) ? tileMgr->rootTile(currentDesktop) : nullptr;
+
+    if (rootTile) {
+        QList<QRectF> kdeRelativeRects;
+        for (Tile *t : rootTile->descendants()) {
+            if (!t->isLayout()) {
+                const QRectF rel = t->relativeGeometry();
+                if (rel.isValid() && rel.width() > 0.02 && rel.height() > 0.02) {
+                    kdeRelativeRects.append(rel);
+                }
+            }
+        }
+
+        if (kdeRelativeRects.size() >= 1) {
+            LeapKTiling::TilingPreset kdePreset = LeapKTiling::createKdeCustomPreset(kdeRelativeRects);
+            m_tilingPresets.prepend(kdePreset);
+        }
+    }
+}
+
 void ActiveWindowOutlineEffect::enterTilingPresetsMode()
 {
     m_tilingPresetsModeActive = true;
+    refreshTilingPresetsWithKdeCustom();
     m_hudHeaderTexture.reset();
     m_hudHeaderCacheKey = -1;
     m_hudHintBarTexture.reset();
@@ -7670,36 +7724,41 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
         }
     }
 
-    // 3. Overwrite layout in KDE's built-in Custom Tiling (Fixes Item 3)
+    // 3. Synchronize layout with KDE's built-in Custom Tiling
     LogicalOutput *activeOutput = effects ? effects->activeScreen() : nullptr;
     TileManager *tileMgr = (workspace() && activeOutput) ? workspace()->tileManager(activeOutput) : nullptr;
     RootTile *rootTile = (tileMgr && currentDesktop) ? tileMgr->rootTile(currentDesktop) : nullptr;
 
-    if (activeOutput && currentDesktop && effects && effects->config()) {
-        const QString outUuid = activeOutput->uuid();
-        const QString deskId = currentDesktop->id();
-        const QByteArray jsonBytes = QJsonDocument(preset.toKdeJson()).toJson(QJsonDocument::Compact);
+    if (preset.id != QStringLiteral("kde-custom")) {
+        // Clear existing child tiles before reloading to prevent duplicate tile accumulation
+        if (rootTile) {
+            while (rootTile->childCount() > 0) {
+                Tile *child = rootTile->childTile(0);
+                rootTile->destroyChild(child);
+            }
+        }
 
-        KConfigGroup cg = effects->config()->group(QStringLiteral("Tiling"));
-        // Write [Tiling][deskId][outUuid]
-        KConfigGroup deskGroup(&cg, deskId);
-        KConfigGroup outTileGroup(&deskGroup, outUuid);
-        outTileGroup.writeEntry("tiles", jsonBytes);
-        outTileGroup.writeEntry("padding", m_tilingGaps);
+        if (activeOutput && currentDesktop && effects && effects->config()) {
+            const QString outUuid = activeOutput->uuid();
+            const QString deskId = currentDesktop->id();
+            const QByteArray jsonBytes = QJsonDocument(preset.toKdeJson()).toJson(QJsonDocument::Compact);
 
-        // Also write [Tiling][outUuid][deskId]
-        KConfigGroup outGroup(&cg, outUuid);
-        KConfigGroup deskTileGroup(&outGroup, deskId);
-        deskTileGroup.writeEntry("tiles", jsonBytes);
-        deskTileGroup.writeEntry("padding", m_tilingGaps);
+            KConfigGroup cg = effects->config()->group(QStringLiteral("Tiling"));
+            KConfigGroup deskGroup(&cg, deskId);
+            KConfigGroup outTileGroup(&deskGroup, outUuid);
+            outTileGroup.writeEntry("tiles", jsonBytes);
+            outTileGroup.writeEntry("padding", m_tilingGaps);
+            cg.sync();
+        }
 
-        cg.sync();
+        // Reload settings into live KDE TileManager
+        if (tileMgr && rootTile) {
+            tileMgr->readSettings(rootTile);
+        }
     }
 
-    // Reload settings into live KDE TileManager
     QList<Tile *> leafTiles;
-    if (tileMgr && rootTile) {
-        tileMgr->readSettings(rootTile);
+    if (rootTile) {
         for (Tile *t : rootTile->descendants()) {
             if (!t->isLayout()) {
                 leafTiles.append(t);
