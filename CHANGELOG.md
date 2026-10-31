@@ -4,6 +4,32 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta35] - 2026-10-31
+
+### Added
+- **HUD Meta-Hold Shortcut Cheat Sheet Overlay**:
+  - Pressing and holding `Meta` (Super) while in HUD now renders a dedicated floating modal cheat sheet overlay in the center of the screen displaying all primary shortcuts and modal commands:
+    - `Meta + A`: Super Jump (Scope toggle: All Workspaces + Stash).
+    - `Meta + S`: Stash Mode (Drawer for stashing and un-stashing windows).
+    - `Meta + X`: Close Window Mode (Batch close windows with red badges).
+    - `Meta + U`: Audio Mode (Filter windows actively playing sound).
+    - `Meta + P`: Pinning Mode (Pin or unpin windows across workspaces).
+    - `Meta + T`: Tiling Presets (Choose tiling layout preset or slot edit).
+  - Highlights active modes in real-time (`[ACTIVE]`), and smoothly disappears upon releasing `Meta` while persisting the selected mode.
+- **Close Window Mode (`Meta + X`) with Batch Multi-Close**:
+  - Dedicated window closing mode: all windows from the current workspace (or all workspaces + stash when Super Jump is toggled) appear in HUD and on-screen with vibrant red badges (`QColor(230, 57, 70)`) and close indicator (`✕`).
+  - Pressing a window's jump letter immediately calls `target->closeWindow()`, closes the window, cleans up stashed/minimized states, and dynamically reassigns jump letters to remaining windows.
+  - LeapK persists in Close Window mode after closing a window, enabling rapid multi-window batch closure without needing to re-open the HUD. Exits cleanly on `Esc`, `Enter`, `Backspace`, or `Meta + X`.
+- **Universal Orthogonal Scope (`Meta + A`)**:
+  - Transformed `Meta + A` into an orthogonal global scope modifier across all modes (Normal Jump, Close Window Mode, Pinning Mode, Stash Mode, etc.).
+  - When `Meta + A` is active, queries and displays all windows globally regardless of where they reside (other virtual desktops, workspaces, and in stash), removing the previous stash exclusion.
+  - In Close Window mode: pressing `Meta + A` exposes all windows across all workspaces + stash with red close badges for global batch closing.
+- **Pinning Mode (`Meta + P`)**:
+  - Interactive window pinning mode where pressing any window's jump letter toggles its pinned state (`pinWindow` / `unpinWindow`) across all workspaces.
+  - Displays amber badges (`QColor(245, 166, 35)`) and pin indicators (`📌` / `+📌`), persisting in the mode until manual exit.
+- **Extended Test Suite**:
+  - Added `testCloseWindowModeBannerAndHintBar`, `testPinModeBannerAndHintBar`, and `testHudMetaOverlayRendering` in `tests/superjump_test.cpp`.
+
 ## [1.6.0-beta34] - 2026-10-31
 
 ### Fixed

@@ -418,6 +418,80 @@ void testHudPartitioningAndDivider()
     std::cout << "testHudPartitioningAndDivider PASSED\n";
 }
 
+void testCloseWindowModeBannerAndHintBar()
+{
+    // 1. Close Mode banner (standard workspace scope)
+    QImage closeBanner = OutlineBadge::renderHudModeHeader(
+        1.0, false, QString(), QColor(), 0, {}, -1, false, QString(), false, false, 0,
+        false, QString(), 1, 0, 44, 0, LeapKTheme::Theme(), nullptr, false, 0, nullptr,
+        true /* isCloseMode */, false /* isPinMode */);
+    assert(!closeBanner.isNull());
+    assert(closeBanner.width() > 250);
+    assert(closeBanner.height() >= 30);
+
+    // 2. Close Mode banner with Super Jump scope (all WS + stash)
+    QImage closeSuperBanner = OutlineBadge::renderHudModeHeader(
+        1.0, false, QString(), QColor(), 0, {}, -1, false, QString(), true /* isSuperJump */, false, 0,
+        false, QString(), 1, 0, 44, 0, LeapKTheme::Theme(), nullptr, false, 0, nullptr,
+        true /* isCloseMode */, false /* isPinMode */);
+    assert(!closeSuperBanner.isNull());
+    assert(closeSuperBanner.width() > closeBanner.width());
+
+    // 3. Close Mode Hint Bar
+    QImage closeHintBar = OutlineBadge::renderHudActionHintBar(
+        1.0, false, 0, QString(), QColor(), false, false, false, false, 1050.0, 0,
+        LeapKTheme::Theme(), false, true /* isCloseMode */, false /* isPinMode */);
+    assert(!closeHintBar.isNull());
+    assert(closeHintBar.width() > 100);
+
+    std::cout << "testCloseWindowModeBannerAndHintBar PASSED\n";
+}
+
+void testPinModeBannerAndHintBar()
+{
+    // 1. Pin Mode banner
+    QImage pinBanner = OutlineBadge::renderHudModeHeader(
+        1.0, false, QString(), QColor(), 0, {}, -1, false, QString(), false, false, 0,
+        false, QString(), 1, 0, 44, 0, LeapKTheme::Theme(), nullptr, false, 0, nullptr,
+        false /* isCloseMode */, true /* isPinMode */);
+    assert(!pinBanner.isNull());
+    assert(pinBanner.width() > 250);
+    assert(pinBanner.height() >= 30);
+
+    // 2. Pin Mode Hint Bar
+    QImage pinHintBar = OutlineBadge::renderHudActionHintBar(
+        1.0, false, 0, QString(), QColor(), false, false, false, false, 1050.0, 0,
+        LeapKTheme::Theme(), false, false /* isCloseMode */, true /* isPinMode */);
+    assert(!pinHintBar.isNull());
+    assert(pinHintBar.width() > 100);
+
+    std::cout << "testPinModeBannerAndHintBar PASSED\n";
+}
+
+void testHudMetaOverlayRendering()
+{
+    // 1. Overlay when inactive
+    QImage overlayDefault = OutlineBadge::renderHudMetaOverlayImage(
+        1.0, LeapKTheme::Theme(), false, false, false, false, false, false);
+    assert(!overlayDefault.isNull());
+    assert(overlayDefault.width() >= 500);
+    assert(overlayDefault.height() >= 200);
+
+    // 2. Overlay with Super Jump active and Close Mode active
+    QImage overlayCloseSuper = OutlineBadge::renderHudMetaOverlayImage(
+        1.0, LeapKTheme::Theme(), true /* isSuperJump */, true /* isCloseMode */, false, false, false, false);
+    assert(!overlayCloseSuper.isNull());
+    assert(overlayCloseSuper.size() == overlayDefault.size());
+
+    // 3. HiDPI scale (2.0)
+    QImage overlayHiDpi = OutlineBadge::renderHudMetaOverlayImage(
+        2.0, LeapKTheme::Theme(), false, false, false, true /* isPinMode */, false, false);
+    assert(!overlayHiDpi.isNull());
+    assert(overlayHiDpi.width() >= overlayDefault.width() * 1.8);
+
+    std::cout << "testHudMetaOverlayRendering PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
@@ -431,6 +505,9 @@ int main(int argc, char *argv[])
     testSuperJumpKeyboardModifierIsolation();
     testPinnedWindowPinAndDropLogic();
     testHudPartitioningAndDivider();
+    testCloseWindowModeBannerAndHintBar();
+    testPinModeBannerAndHintBar();
+    testHudMetaOverlayRendering();
 
     std::cout << "All Super Jump tests passed successfully!\n";
     return 0;

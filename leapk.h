@@ -193,6 +193,8 @@ private Q_SLOTS:
     void slotTogglePinActiveWindow();
     void slotCycleHudView(int delta = 1);
     void slotTriggerJumpMode();
+    void slotTriggerCloseWindowMode();
+    void slotTriggerPinMode();
     void slotTriggerAudioFilterMode();
     void slotTriggerSearchMode();
     void slotTriggerTilingPresetsMode();
@@ -269,6 +271,11 @@ private:
     int findWorkspaceForWindow(EffectWindow *target) const;
     void toggleSuperJumpMode();
     void exitSuperJumpMode();
+    void enterCloseWindowMode();
+    void exitCloseWindowMode();
+    void enterPinMode();
+    void exitPinMode();
+    void renderHudMetaOverlay(const RenderTarget &renderTarget, const RenderViewport &viewport);
     void toggleAudioFilterMode();
     void exitAudioFilterMode();
     bool isWorkspacePlayingAudio(int wsIndex) const;
@@ -549,6 +556,11 @@ private:
     mutable int m_hudHeaderCacheKey = -1;
     QSet<EffectWindow *> m_workspaceMinimizedWindows;
     bool m_stashModeActive = false;
+    bool m_closeWindowModeActive = false;
+    bool m_pinModeActive = false;
+    bool m_hudMetaHeld = false;
+    mutable std::shared_ptr<GLTexture> m_hudMetaOverlayTexture;
+    mutable qint64 m_hudMetaOverlayCacheKey = -1;
     QSet<EffectWindow *> m_stashedWindows;
     QSet<EffectWindow *> m_pinnedWindows;
     bool m_superJumpActive = false;

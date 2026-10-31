@@ -4249,9 +4249,6 @@ void ActiveWindowOutlineEffect::toggleSuperJumpMode()
     if (m_subLeapActive) {
         exitSubLeapMode();
     }
-    if (m_stashModeActive) {
-        exitStashMode();
-    }
 
     m_superJumpActive = !m_superJumpActive;
     if (m_superJumpActive) {
@@ -4286,6 +4283,236 @@ void ActiveWindowOutlineEffect::exitSuperJumpMode()
         m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
     }
     effects->addRepaintFull();
+}
+
+void ActiveWindowOutlineEffect::enterCloseWindowMode()
+{
+    if (m_closeWindowModeActive) {
+        exitCloseWindowMode();
+        return;
+    }
+    if (m_tilingPresetsModeActive) {
+        exitTilingPresetsMode();
+    }
+    if (m_subLeapActive) {
+        exitSubLeapMode();
+    }
+    if (m_searchModeActive) {
+        exitSearchMode();
+    }
+    if (m_pinModeActive) {
+        exitPinMode();
+    }
+
+    m_closeWindowModeActive = true;
+    m_jumpLetterToWindow = assignJumpLetters();
+    m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+    }
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::exitCloseWindowMode()
+{
+    if (!m_closeWindowModeActive) {
+        return;
+    }
+    m_closeWindowModeActive = false;
+    m_jumpLetterToWindow = assignJumpLetters();
+    m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+    }
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::slotTriggerCloseWindowMode()
+{
+    if (!m_jumpMode) {
+        m_closeWindowModeActive = true;
+        slotTriggerJumpMode();
+    } else {
+        if (m_closeWindowModeActive) {
+            exitCloseWindowMode();
+        } else {
+            enterCloseWindowMode();
+        }
+    }
+}
+
+void ActiveWindowOutlineEffect::enterPinMode()
+{
+    if (m_pinModeActive) {
+        exitPinMode();
+        return;
+    }
+    if (m_tilingPresetsModeActive) {
+        exitTilingPresetsMode();
+    }
+    if (m_subLeapActive) {
+        exitSubLeapMode();
+    }
+    if (m_searchModeActive) {
+        exitSearchMode();
+    }
+    if (m_closeWindowModeActive) {
+        exitCloseWindowMode();
+    }
+
+    m_pinModeActive = true;
+    m_jumpLetterToWindow = assignJumpLetters();
+    m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+    }
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::exitPinMode()
+{
+    if (!m_pinModeActive) {
+        return;
+    }
+    m_pinModeActive = false;
+    m_jumpLetterToWindow = assignJumpLetters();
+    m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+    }
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::slotTriggerPinMode()
+{
+    if (!m_jumpMode) {
+        m_pinModeActive = true;
+        slotTriggerJumpMode();
+    } else {
+        if (m_pinModeActive) {
+            exitPinMode();
+        } else {
+            enterPinMode();
+        }
+    }
+}
+
+void ActiveWindowOutlineEffect::renderHudMetaOverlay(const RenderTarget &renderTarget,
+                                                     const RenderViewport &viewport)
+{
+    const qreal scale = viewport.scale();
+    const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
+
+    const qint64 overlayKey = (m_superJumpActive ? 1 : 0)
+        | (m_closeWindowModeActive ? 2 : 0)
+        | (m_stashModeActive ? 4 : 0)
+        | (m_pinModeActive ? 8 : 0)
+        | (m_audioFilterModeActive ? 16 : 0)
+        | (m_tilingPresetsModeActive ? 32 : 0)
+        | (static_cast<qint64>(qRound(scale * 10)) << 8)
+        | (static_cast<qint64>(qHash(theme.id) % 1000) << 16);
+
+    if (!m_hudMetaOverlayTexture || m_hudMetaOverlayCacheKey != overlayKey) {
+        const QImage img = OutlineBadge::renderHudMetaOverlayImage(
+            scale, theme, m_superJumpActive, m_closeWindowModeActive,
+            m_stashModeActive, m_pinModeActive, m_audioFilterModeActive,
+            m_tilingPresetsModeActive);
+        if (!img.isNull()) {
+            auto uploaded = GLTexture::upload(img);
+            if (uploaded) {
+                uploaded->setFilter(GL_LINEAR);
+                uploaded->setWrapMode(GL_CLAMP_TO_EDGE);
+                m_hudMetaOverlayTexture = std::shared_ptr<GLTexture>(uploaded.release());
+                m_hudMetaOverlayCacheKey = overlayKey;
+            }
+        }
+    }
+
+    if (!m_hudMetaOverlayTexture) {
+        return;
+    }
+
+    const QRectF screenRect = viewport.renderRect();
+    const qreal w = m_hudMetaOverlayTexture->width() / scale;
+    const qreal h = m_hudMetaOverlayTexture->height() / scale;
+    const QRectF overlayRect(screenRect.center().x() - w / 2.0,
+                             screenRect.center().y() - h / 2.0,
+                             w, h);
+
+    GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
+    GLint previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha;
+    glGetIntegerv(GL_BLEND_SRC_RGB, &previousSrcRgb);
+    glGetIntegerv(GL_BLEND_DST_RGB, &previousDstRgb);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &previousSrcAlpha);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &previousDstAlpha);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+    GLboolean scissorWasEnabled = glIsEnabled(GL_SCISSOR_TEST);
+    glDisable(GL_SCISSOR_TEST);
+
+    ShaderBinder binder(ShaderTrait::MapTexture | ShaderTrait::Modulate | ShaderTrait::TransformColorspace);
+    GLShader *shader = binder.shader();
+    shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix, viewport.projectionMatrix());
+    shader->setColorspaceUniforms(ColorDescription::sRGB, renderTarget.colorDescription(), RenderingIntent::Perceptual);
+    shader->setUniform(GLShader::Vec4Uniform::ModulationConstant, QVector4D(1.0f, 1.0f, 1.0f, 1.0f));
+
+    const float x0 = overlayRect.left() * scale;
+    const float y0 = overlayRect.top() * scale;
+    const float x1 = overlayRect.right() * scale;
+    const float y1 = overlayRect.bottom() * scale;
+
+    const std::array<GLVertex2D, 6> verts = {{
+        {QVector2D(x0, y0), QVector2D(0.0f, 0.0f)},
+        {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+        {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+        {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+        {QVector2D(x1, y1), QVector2D(1.0f, 1.0f)},
+        {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+    }};
+
+    auto vbo = GLVertexBuffer::streamingBuffer();
+    vbo->setVertices(verts);
+
+    shader->setUniform(GLShader::Mat4Uniform::TextureMatrix, m_hudMetaOverlayTexture->matrix(NormalizedCoordinates));
+    m_hudMetaOverlayTexture->bind();
+    vbo->render(GL_TRIANGLES);
+    m_hudMetaOverlayTexture->unbind();
+
+    if (scissorWasEnabled) {
+        glEnable(GL_SCISSOR_TEST);
+    }
+    glBlendFuncSeparate(previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha);
+    if (blendWasEnabled) {
+        glEnable(GL_BLEND);
+    } else {
+        glDisable(GL_BLEND);
+    }
 }
 
 void ActiveWindowOutlineEffect::slotTriggerAudioFilterMode()
@@ -4980,10 +5207,7 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
                 continue;
             }
         } else if (m_superJumpActive) {
-            // Super Jump: all eligible windows across all workspaces and desktops, excluding Stash!
-            if (isWindowInStash(w)) {
-                continue;
-            }
+            // Super Jump: all eligible windows across all workspaces, desktops, and stash!
         } else if (m_stashModeActive) { // Stash view: include both stashed windows and visible workspace windows
             const bool isStashed = isWindowInStash(w);
 
@@ -5174,6 +5398,11 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_subLeapActive = false;
     m_stashModeActive = false;
     m_superJumpActive = false;
+    m_closeWindowModeActive = false;
+    m_pinModeActive = false;
+    m_hudMetaHeld = (QGuiApplication::queryKeyboardModifiers() & Qt::MetaModifier) != 0;
+    m_hudMetaOverlayTexture.reset();
+    m_hudMetaOverlayCacheKey = -1;
     m_tilingPresetsModeActive = false;
     m_hudTilingPresetPillRects.clear();
     m_subLeapBaseKey = QChar();
@@ -5274,6 +5503,11 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
     m_subLeapActive = false;
     m_stashModeActive = false;
     m_superJumpActive = false;
+    m_closeWindowModeActive = false;
+    m_pinModeActive = false;
+    m_hudMetaHeld = false;
+    m_hudMetaOverlayTexture.reset();
+    m_hudMetaOverlayCacheKey = -1;
     m_tilingPresetsModeActive = false;
     m_hudTilingPresetPillRects.clear();
     m_audioFilterModeActive = false;
@@ -5319,10 +5553,6 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
 void ActiveWindowOutlineEffect::exitSubLeapMode()
 {
     m_subLeapActive = false;
-    m_stashModeActive = false;
-    m_superJumpActive = false;
-    m_tilingPresetsModeActive = false;
-    m_hudTilingPresetPillRects.clear();
     m_subLeapBaseKey = QChar();
     m_subLeapWindows.clear();
     m_subLeapLetterToWindow.clear();
@@ -5540,6 +5770,22 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
+    auto isMetaKey = [](int key) {
+        return key == Qt::Key_Meta || key == Qt::Key_Super_L || key == Qt::Key_Super_R;
+    };
+
+    if (e->type() == QEvent::KeyRelease) {
+        if (isMetaKey(e->key()) || !(e->modifiers() & Qt::MetaModifier)) {
+            if (m_hudMetaHeld) {
+                m_hudMetaHeld = false;
+                if (effects) {
+                    effects->addRepaintFull();
+                }
+            }
+        }
+        return;
+    }
+
     if (m_tilingEditModeActive) {
         if (e->type() != QEvent::KeyPress) {
             return;
@@ -5652,9 +5898,19 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     case Qt::Key_Direction_L:
     case Qt::Key_Direction_R:
     case Qt::Key_Mode_switch:
+        if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+            m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+        }
+        return;
     case Qt::Key_Meta:
     case Qt::Key_Super_L:
     case Qt::Key_Super_R:
+        if (!m_hudMetaHeld) {
+            m_hudMetaHeld = true;
+            if (effects) {
+                effects->addRepaintFull();
+            }
+        }
         if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
             m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
         }
@@ -5664,6 +5920,14 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     }
 
     const Qt::KeyboardModifiers mods = e->modifiers();
+    if (mods & Qt::MetaModifier) {
+        if (!m_hudMetaHeld) {
+            m_hudMetaHeld = true;
+            if (effects) {
+                effects->addRepaintFull();
+            }
+        }
+    }
     const bool isShift = (mods & Qt::ShiftModifier);
     const bool isAlt = (mods & Qt::AltModifier) && !(mods & Qt::ControlModifier);
     const bool isCtrl = (mods & Qt::ControlModifier) && !(mods & Qt::AltModifier);
@@ -5760,8 +6024,13 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
         if (isMetaOnly && e->key() == Qt::Key_P) {
             exitSubLeapMode();
-            cancelJumpMode();
-            slotTogglePinActiveWindow();
+            enterPinMode();
+            return;
+        }
+
+        if (isMetaOnly && e->key() == Qt::Key_X) {
+            exitSubLeapMode();
+            enterCloseWindowMode();
             return;
         }
 
@@ -6050,15 +6319,19 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         }
 
         if (isMetaOnly && e->key() == Qt::Key_A) {
-            exitStashMode();
             toggleSuperJumpMode();
             return;
         }
 
         if (isMetaOnly && e->key() == Qt::Key_P) {
             exitStashMode();
-            cancelJumpMode();
-            slotTogglePinActiveWindow();
+            enterPinMode();
+            return;
+        }
+
+        if (isMetaOnly && e->key() == Qt::Key_X) {
+            exitStashMode();
+            enterCloseWindowMode();
             return;
         }
 
@@ -6153,6 +6426,153 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
+    if (m_closeWindowModeActive) {
+        if (e->key() == Qt::Key_Backspace) {
+            exitCloseWindowMode();
+            return;
+        }
+
+        if (isMetaOnly && e->key() == Qt::Key_X) {
+            exitCloseWindowMode();
+            return;
+        }
+
+        if (isMetaOnly && e->key() == Qt::Key_A) {
+            toggleSuperJumpMode();
+            return;
+        }
+
+        if (isMetaOnly && e->key() == Qt::Key_S) {
+            exitCloseWindowMode();
+            enterStashMode();
+            return;
+        }
+
+        if (isMetaOnly && e->key() == Qt::Key_P) {
+            exitCloseWindowMode();
+            enterPinMode();
+            return;
+        }
+
+        if (isMetaOnly && e->key() == Qt::Key_U) {
+            exitCloseWindowMode();
+            toggleAudioFilterMode();
+            return;
+        }
+
+        if (e->key() == Qt::Key_Comma || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char(','))) {
+            slotCycleHudView(-1);
+            return;
+        }
+
+        if (e->key() == Qt::Key_Period || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char('.'))) {
+            slotCycleHudView(1);
+            return;
+        }
+
+        const QString text = extractKeyChar();
+        if (!text.isEmpty()) {
+            const QChar keyChar = text.at(0);
+            if (m_jumpLetterToWindow.contains(keyChar)) {
+                EffectWindow *target = m_jumpLetterToWindow.value(keyChar);
+                if (target && !target->isDeleted()) {
+                    if (m_pinnedWindows.contains(target)) {
+                        unpinWindow(target, m_activeHudView);
+                    }
+                    target->closeWindow();
+                    m_stashedWindows.remove(target);
+                    m_workspaceMinimizedWindows.remove(target);
+                    m_closingWindows.insert(target);
+                    m_jumpLetterToWindow = assignJumpLetters();
+                    m_badgeTextureCache.clear();
+                    m_hudHeaderTexture.reset();
+                    m_hudHeaderCacheKey = -1;
+                    m_hudHintBarTexture.reset();
+                    m_hudHintBarCacheKey = -1;
+                    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+                        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+                    }
+                    if (m_jumpLetterToWindow.isEmpty()) {
+                        exitCloseWindowMode();
+                        cancelJumpMode();
+                    } else {
+                        effects->addRepaintFull();
+                    }
+                    return;
+                }
+            }
+        }
+        return;
+    }
+
+    if (m_pinModeActive) {
+        if (e->key() == Qt::Key_Backspace) {
+            exitPinMode();
+            return;
+        }
+
+        if (isMetaOnly && e->key() == Qt::Key_P) {
+            exitPinMode();
+            return;
+        }
+
+        if (isMetaOnly && e->key() == Qt::Key_A) {
+            toggleSuperJumpMode();
+            return;
+        }
+
+        if (isMetaOnly && e->key() == Qt::Key_S) {
+            exitPinMode();
+            enterStashMode();
+            return;
+        }
+
+        if (isMetaOnly && e->key() == Qt::Key_X) {
+            exitPinMode();
+            enterCloseWindowMode();
+            return;
+        }
+
+        if (isMetaOnly && e->key() == Qt::Key_U) {
+            exitPinMode();
+            toggleAudioFilterMode();
+            return;
+        }
+
+        if (e->key() == Qt::Key_Comma || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char(','))) {
+            slotCycleHudView(-1);
+            return;
+        }
+
+        if (e->key() == Qt::Key_Period || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char('.'))) {
+            slotCycleHudView(1);
+            return;
+        }
+
+        const QString text = extractKeyChar();
+        if (!text.isEmpty()) {
+            const QChar keyChar = text.at(0);
+            if (m_jumpLetterToWindow.contains(keyChar)) {
+                EffectWindow *target = m_jumpLetterToWindow.value(keyChar);
+                if (target && !target->isDeleted()) {
+                    toggleWindowPin(target);
+                    m_jumpLetterToWindow = assignJumpLetters();
+                    m_badgeTextureCache.clear();
+                    m_hudHeaderTexture.reset();
+                    m_hudHeaderCacheKey = -1;
+                    m_hudHintBarTexture.reset();
+                    m_hudHintBarCacheKey = -1;
+                    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+                        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+                    }
+                    effects->addRepaintFull();
+                    return;
+                }
+            }
+        }
+        return;
+    }
+
     if (m_superJumpActive && e->key() == Qt::Key_Backspace) {
         exitSuperJumpMode();
         return;
@@ -6170,6 +6590,16 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     if (isMetaOnly && e->key() == Qt::Key_S) {
         enterStashMode();
+        return;
+    }
+
+    if (isMetaOnly && e->key() == Qt::Key_X) {
+        enterCloseWindowMode();
+        return;
+    }
+
+    if (isMetaOnly && e->key() == Qt::Key_P) {
+        enterPinMode();
         return;
     }
 
@@ -6201,12 +6631,6 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     if (isMetaOnly && e->key() == Qt::Key_M) {
         cancelJumpMode();
         slotOpenMarkerManager();
-        return;
-    }
-
-    if (isMetaOnly && e->key() == Qt::Key_P) {
-        cancelJumpMode();
-        slotTogglePinActiveWindow();
         return;
     }
 
@@ -7696,7 +8120,11 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         const bool isPlayingAudio = m_audioTracker.isWindowPlaying(target->pid(), target->caption());
 
         QColor bgCol;
-        if (isMarked) {
+        if (m_closeWindowModeActive) {
+            bgCol = QColor(230, 57, 70);
+        } else if (m_pinModeActive) {
+            bgCol = QColor(245, 166, 35);
+        } else if (isMarked) {
             bgCol = m_markedWindows.value(target);
         } else if (isRecent) {
             bgCol = resolveColor(1.0, target);
@@ -7712,7 +8140,11 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
 
         const QString caption = target->caption();
         QString customLabel = m_markedWindowLabels.value(target);
-        if (isPinned && !customLabel.isEmpty()) {
+        if (m_closeWindowModeActive) {
+            customLabel = customLabel.isEmpty() ? QStringLiteral("✕") : QStringLiteral("✕ %1").arg(customLabel);
+        } else if (m_pinModeActive) {
+            customLabel = isPinned ? QStringLiteral("📌") : QStringLiteral("+📌");
+        } else if (isPinned && !customLabel.isEmpty()) {
             customLabel = QStringLiteral("● %1").arg(customLabel);
         }
 
@@ -8941,10 +9373,12 @@ QRectF ActiveWindowOutlineEffect::computeHudHintBarRect(const RenderViewport &vi
         + (m_audioFilterModeActive ? 900000 : 0)
         + (m_searchModeActive ? 1100000 : 0)
         + (m_tilingPresetsModeActive ? 1300000 : 0)
+        + (m_closeWindowModeActive ? 1500000 : 0)
+        + (m_pinModeActive ? 1700000 : 0)
         + m_activeHudView * 1000 + nameHash + qRound(scale * 10) + (qRound(maxHintBarWidth) % 5000)
         + hintsFontSize * 19 + themeHash;
     if (!m_hudHintBarTexture || m_hudHintBarCacheKey != hintBarKey) {
-        const QImage hintImg = OutlineBadge::renderHudActionHintBar(scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive, m_superJumpActive, m_audioFilterModeActive, m_searchModeActive, maxHintBarWidth, hintsFontSize, theme, m_tilingPresetsModeActive);
+        const QImage hintImg = OutlineBadge::renderHudActionHintBar(scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive, m_superJumpActive, m_audioFilterModeActive, m_searchModeActive, maxHintBarWidth, hintsFontSize, theme, m_tilingPresetsModeActive, m_closeWindowModeActive, m_pinModeActive);
         auto uploaded = GLTexture::upload(hintImg);
         if (uploaded) {
             uploaded->setFilter(GL_LINEAR);
@@ -9215,6 +9649,8 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
     const int headerKey = (m_subLeapActive ? 2000000 : 0) + (m_stashModeActive ? 4000000 : 0) + (m_superJumpActive ? 6000000 : 0)
         + (m_audioFilterModeActive ? 8000000 : 0)
         + (m_tilingPresetsModeActive ? 12000000 : 0)
+        + (m_closeWindowModeActive ? 14000000 : 0)
+        + (m_pinModeActive ? 16000000 : 0)
         + (m_searchModeActive ? (10000000 + m_searchScope * 100000 + (qHash(m_searchQuery) % 50000) + m_searchMatches.size() * 10) : 0)
         + m_activeHudView * 100000 + countsHash + stashCount * 13 + qRound(scale * 10) + hudSize * 7 + navFontSize * 17 + themeHash;
 
@@ -9222,7 +9658,7 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
         const QImage headerImg = OutlineBadge::renderHudModeHeader(
             scale, m_subLeapActive, subLeapTitle, subLeapColor, subLeapCount, viewTabs, stashCount, m_stashModeActive, targetWorkspaceName, m_superJumpActive, m_audioFilterModeActive, m_jumpLetterToWindow.size(),
             m_searchModeActive, m_searchQuery, m_searchScope, m_searchMatches.size(), hudSize, navFontSize, theme, &m_hudCloseButtonLocalRect,
-            m_tilingPresetsModeActive, m_tilingPresets.size(), &m_hudTabLocalRects);
+            m_tilingPresetsModeActive, m_tilingPresets.size(), &m_hudTabLocalRects, m_closeWindowModeActive, m_pinModeActive);
         if (!headerImg.isNull()) {
             auto uploaded = GLTexture::upload(headerImg);
             if (uploaded) {
@@ -10175,9 +10611,9 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                         repWin = firstWin;
                     }
 
-                    const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(repWin) || m_stashModeActive;
+                    const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(repWin) || m_stashModeActive || m_closeWindowModeActive || m_pinModeActive;
                     if (forceHud) {
-                        if (winList.size() > 1 || firstWin != w || isWindowPinned(repWin) || m_stashModeActive) {
+                        if (winList.size() > 1 || firstWin != w || isWindowPinned(repWin) || m_stashModeActive || m_closeWindowModeActive || m_pinModeActive) {
                             offscreenTargets.append(qMakePair(letter, repWin));
                         }
                     } else {
@@ -10237,13 +10673,13 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                             if (target->isOnCurrentDesktop() && !target->isMinimized()) {
                                 onscreenTargets.append(qMakePair(directKey, target));
                             }
-                            if (isWindowPinned(target) || m_stashModeActive) {
+                            if (isWindowPinned(target) || m_stashModeActive || m_closeWindowModeActive || m_pinModeActive) {
                                 offscreenTargets.append(qMakePair(directKey, target));
                             }
                             continue;
                         }
 
-                        const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(target) || m_stashModeActive;
+                        const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(target) || m_stashModeActive || m_closeWindowModeActive || m_pinModeActive;
                         if (forceHud) {
                             offscreenTargets.append(qMakePair(directKey, target));
                         }
@@ -10321,7 +10757,11 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             const QString recentKey = isMostRecent ? m_jumpRecentKey : QString();
 
             QColor bgCol;
-            if (isMarked) {
+            if (m_closeWindowModeActive) {
+                bgCol = QColor(230, 57, 70);
+            } else if (m_pinModeActive) {
+                bgCol = QColor(245, 166, 35);
+            } else if (isMarked) {
                 bgCol = m_markedWindows.value(target);
             } else if (isRecent) {
                 bgCol = resolveColor(1.0, target);
@@ -10338,7 +10778,11 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             }
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
             QString customLabel = m_markedWindowLabels.value(target);
-            if (isWindowPinned(target)) {
+            if (m_closeWindowModeActive) {
+                customLabel = customLabel.isEmpty() ? QStringLiteral("✕") : QStringLiteral("✕ %1").arg(customLabel);
+            } else if (m_pinModeActive) {
+                customLabel = isWindowPinned(target) ? QStringLiteral("📌") : QStringLiteral("+📌");
+            } else if (isWindowPinned(target)) {
                 customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
             }
             const bool isPlayingAudio = target ? m_audioTracker.isWindowPlaying(target->pid(), target->caption()) : false;
@@ -10373,6 +10817,10 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         } else {
             const QRectF hintRect = renderHudHintBar(renderTarget, viewport, QRectF());
             renderHudModeHeader(renderTarget, viewport, QRectF(), hintRect);
+        }
+
+        if (m_hudMetaHeld) {
+            renderHudMetaOverlay(renderTarget, viewport);
         }
         }
     }
