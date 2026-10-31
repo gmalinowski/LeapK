@@ -625,6 +625,7 @@ private:
     bool m_isHistoryNavigating = false;
     int m_historyNavIndex = 0;
     QList<EffectWindow *> m_windowHistory;
+    QList<EffectWindow *> m_hudSnapshotHistory;
     QTimer *m_historyCommitTimer = nullptr;
 
     // Badge OpenGL texture cache

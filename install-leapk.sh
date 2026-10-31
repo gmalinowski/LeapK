@@ -510,10 +510,8 @@ if command -v kreadconfig6 >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/nul
       active_keys="Meta+Ctrl+Space"
     elif [[ "$key" == "JumpToWindow" && "$active_keys" == *"Meta+Alt+Space"* ]]; then
       active_keys="$def_key"
-    elif [[ "$key" == "PrevRecentWindow" && "$active_keys" == *"Meta+Alt+["* ]]; then
-      active_keys="$def_key"
-    elif [[ "$key" == "NextRecentWindow" && "$active_keys" == *"Meta+Alt+]"* ]]; then
-      active_keys="$def_key"
+    elif [[ "$key" == "PrevRecentWindow" || "$key" == "NextRecentWindow" || "$key" == "OpenWorkspaceManager" || "$key" == "OpenMarkerManager" ]]; then
+      active_keys="none"
     fi
     kwriteconfig6 --file kglobalshortcutsrc --group kwin --key "$key" "$active_keys,$def_key,$label"
   }
@@ -521,12 +519,13 @@ if command -v kreadconfig6 >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/nul
   migrate_shortcut "ToggleActiveWindowOutline" "Meta+Ctrl+O" "LeapK: Toggle Window Highlight"
   migrate_shortcut "MarkActiveWindow" "none" "LeapK: Toggle Mark Window (Quick)"
   migrate_shortcut "MarkActiveWindowWithColor" "Meta+Ctrl+Space" "LeapK: Mark Window with Color Picker"
-  migrate_shortcut "OpenWorkspaceManager" "Meta+Shift+Space" "LeapK: Open Workspace Manager"
+  migrate_shortcut "OpenWorkspaceManager" "none" "LeapK: Open Workspace Manager"
+  migrate_shortcut "OpenMarkerManager" "none" "LeapK: Open Marker Manager"
   migrate_shortcut "ToggleHudGrouping" "Meta+Ctrl+G" "LeapK: Toggle HUD Window Grouping"
   migrate_shortcut "JumpToWindow" "Meta+Space" "LeapK: Jump to Window"
   migrate_shortcut "RecentWindow" "" "LeapK: Switch to Recent Window"
-  migrate_shortcut "PrevRecentWindow" "Meta+Ctrl+[" "LeapK: Previous Recent Window"
-  migrate_shortcut "NextRecentWindow" "Meta+Ctrl+]" "LeapK: Next Recent Window"
+  migrate_shortcut "PrevRecentWindow" "none" "LeapK: Previous Recent Window"
+  migrate_shortcut "NextRecentWindow" "none" "LeapK: Next Recent Window"
 fi
 
 if command -v qdbus6 >/dev/null 2>&1; then

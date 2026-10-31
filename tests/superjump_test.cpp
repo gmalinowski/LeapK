@@ -631,6 +631,93 @@ void testHudShiftBadgeCycling()
     std::cout << "testHudShiftBadgeCycling PASSED\n";
 }
 
+void testHudRecencySorting()
+{
+    struct DummyWindow {
+        QString name;
+    };
+
+    DummyWindow w0{QStringLiteral("Unvisited W0")};
+    DummyWindow w1{QStringLiteral("Oldest W1")};
+    DummyWindow w2{QStringLiteral("Middle W2")};
+    DummyWindow w3{QStringLiteral("Youngest W3")};
+
+    // History: W3 is index 0 (youngest/most recent), W2 is index 1, W1 is index 2 (oldest).
+    // W0 is not in history (unvisited).
+    QList<DummyWindow *> history = { &w3, &w2, &w1 };
+
+    auto recencyRank = [&history](DummyWindow *w) -> int {
+        if (!w) return 999999;
+        int idx = history.indexOf(w);
+        return idx >= 0 ? idx : 999999;
+    };
+
+    auto sortByRecencyOldestToNewest = [&recencyRank](QList<QPair<QChar, DummyWindow *>> &list) {
+        std::stable_sort(list.begin(), list.end(), [&recencyRank](const QPair<QChar, DummyWindow *> &a, const QPair<QChar, DummyWindow *> &b) {
+            int rankA = recencyRank(a.second);
+            int rankB = recencyRank(b.second);
+            if (rankA != rankB) {
+                return rankA > rankB; // Older window (higher index) on the left (first)
+            }
+            return false;
+        });
+    };
+
+    // Initial arbitrary order
+    QList<QPair<QChar, DummyWindow *>> targets = {
+        {QChar('C'), &w3},
+        {QChar('A'), &w0},
+        {QChar('B'), &w2},
+        {QChar('D'), &w1}
+    };
+
+    sortByRecencyOldestToNewest(targets);
+
+    // After sorting oldest-to-newest (left-to-right):
+    // Leftmost (idx 0) is w0 (unvisited, rank 999999)
+    // Next (idx 1) is w1 (oldest visited, rank 2)
+    // Next (idx 2) is w2 (rank 1)
+    // Rightmost (idx 3) is w3 (youngest visited, rank 0)
+    assert(targets.size() == 4);
+    assert(targets[0].second == &w0);
+    assert(targets[1].second == &w1);
+    assert(targets[2].second == &w2);
+    assert(targets[3].second == &w3);
+
+    // Test cycling from rightmost (w3) with Shift+, (left towards older) and Shift+. (right towards younger)
+    QList<DummyWindow *> orderedWindows;
+    for (const auto &p : targets) {
+        orderedWindows.append(p.second);
+    }
+
+    DummyWindow *activeWin = &w3; // Started on youngest (rightmost)
+    auto cycle = [&](int delta) {
+        int currIdx = orderedWindows.indexOf(activeWin);
+        int nextIdx = (currIdx >= 0)
+            ? (currIdx + delta + orderedWindows.size()) % orderedWindows.size()
+            : (delta > 0 ? 0 : orderedWindows.size() - 1);
+        activeWin = orderedWindows.at(nextIdx);
+    };
+
+    // Shift+, (<) moves left towards older window
+    cycle(-1);
+    assert(activeWin == &w2);
+    cycle(-1);
+    assert(activeWin == &w1);
+    cycle(-1);
+    assert(activeWin == &w0);
+
+    // Shift+. (>) moves right towards younger window
+    cycle(1);
+    assert(activeWin == &w1);
+    cycle(1);
+    assert(activeWin == &w2);
+    cycle(1);
+    assert(activeWin == &w3);
+
+    std::cout << "testHudRecencySorting PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
@@ -649,6 +736,7 @@ int main(int argc, char *argv[])
     testHudMetaOverlayRendering();
     testSuperJumpPullIntoEmptyWorkspace();
     testHudShiftBadgeCycling();
+    testHudRecencySorting();
 
     std::cout << "All Super Jump tests passed successfully!\n";
     return 0;

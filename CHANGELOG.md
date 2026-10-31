@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta44] - 2026-10-31
+
+### Removed
+- **Global `Shift + Meta + ,` and `Shift + Meta + .` Shortcuts**:
+  - Removed default and global shortcut bindings for `PrevRecentWindow` and `NextRecentWindow` in favor of standard KDE Plasma `Alt + Tab` window switching.
+  - Removed outside-HUD keyboard grab interception for history navigation from `grabbedKeyboardEvent`, leaving keyboard interaction untouched outside HUD mode.
+  - Updated `install-leapk.sh` to migrate `PrevRecentWindow`, `NextRecentWindow`, `OpenWorkspaceManager`, and `OpenMarkerManager` to `"none"`.
+
+### Changed
+- **HUD Badges Recency Sorting (Oldest on Left, Youngest on Right)**:
+  - In HUD mode, badges (`offscreenTargets`) are now sorted strictly by recency from right to left: the oldest (or unvisited) windows appear on the far left, while the youngest (most recently active) windows appear on the far right.
+  - When pinned windows or stash mode partitions are present, both left and right groups maintain this oldest-to-youngest visual sorting within their sections.
+  - Window history snapshot (`m_hudSnapshotHistory`) is captured upon opening HUD, ensuring badge pill positions remain stable and stationary while cycling.
+  - `slotCycleBadge()` uses `m_hudTargetPillRects` visual screen order: `Shift + .` (`>`) cycles rightward towards younger/newer windows, and `Shift + ,` (`<`) cycles leftward towards older windows.
+  - Added unit test `testHudRecencySorting` in `tests/superjump_test.cpp`.
+
 ## [1.6.0-beta43] - 2026-10-31
 
 ### Added

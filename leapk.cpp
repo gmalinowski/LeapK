@@ -840,21 +840,15 @@ void ActiveWindowOutlineEffect::initShortcuts()
     QAction *prevRecentAction = new QAction(this);
     prevRecentAction->setObjectName(QStringLiteral("PrevRecentWindow"));
     prevRecentAction->setText(QStringLiteral("LeapK: Previous Recent Window"));
-    KGlobalAccel::self()->setDefaultShortcut(prevRecentAction, QList<QKeySequence>()
-        << QKeySequence(Qt::META | Qt::Key_Less)
-        << QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Less)
-        << QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Comma));
-    KGlobalAccel::self()->setGlobalShortcut(prevRecentAction, QKeySequence(Qt::META | Qt::Key_Less));
+    KGlobalAccel::self()->setDefaultShortcut(prevRecentAction, QList<QKeySequence>());
+    KGlobalAccel::self()->setGlobalShortcut(prevRecentAction, QKeySequence());
     connect(prevRecentAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotPrevRecentWindow);
 
     QAction *nextRecentAction = new QAction(this);
     nextRecentAction->setObjectName(QStringLiteral("NextRecentWindow"));
     nextRecentAction->setText(QStringLiteral("LeapK: Next Recent Window"));
-    KGlobalAccel::self()->setDefaultShortcut(nextRecentAction, QList<QKeySequence>()
-        << QKeySequence(Qt::META | Qt::Key_Greater)
-        << QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Greater)
-        << QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Period));
-    KGlobalAccel::self()->setGlobalShortcut(nextRecentAction, QKeySequence(Qt::META | Qt::Key_Greater));
+    KGlobalAccel::self()->setDefaultShortcut(nextRecentAction, QList<QKeySequence>());
+    KGlobalAccel::self()->setGlobalShortcut(nextRecentAction, QKeySequence());
     connect(nextRecentAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotNextRecentWindow);
 
     QAction *tilingAction = new QAction(this);
@@ -1750,6 +1744,7 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
     }
     m_recentWindows.removeAll(w);
     m_windowHistory.removeAll(w);
+    m_hudSnapshotHistory.removeAll(w);
     m_recentAmbilightColors.remove(w);
     m_recentCycleColors.remove(w);
     m_smartAccentCache.remove(w);
@@ -2423,6 +2418,12 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
         if (isSystemOverlay(w) && m_jumpMode) {
             cancelJumpMode();
         }
+        return;
+    }
+
+    if (m_jumpMode) {
+        m_activeWindow = w;
+        repaintAllOutlines();
         return;
     }
 
@@ -3879,6 +3880,7 @@ void ActiveWindowOutlineEffect::switchToWorkspaceView(int newHudViewIndex)
 
     if (wasInJumpMode) {
         m_jumpMode = true;
+    m_hudSnapshotHistory = m_windowHistory;
         assignJumpLetters();
         if (effects) {
             effects->addRepaintFull();
@@ -5129,23 +5131,34 @@ void ActiveWindowOutlineEffect::slotCycleBadge(int delta)
         return;
     }
 
-    const auto activeLayout = LeapKKeyboard::detectActiveLayout();
-    const QString pool = LeapKKeyboard::preferredLetterPool(activeLayout);
-
     QList<EffectWindow *> orderedWindows;
-    for (int i = 0; i < pool.length(); ++i) {
-        const QChar ch = pool.at(i);
-        if (letterMap.contains(ch)) {
-            EffectWindow *w = letterMap.value(ch);
+    if (!m_hudTargetPillRects.isEmpty()) {
+        for (const auto &pair : m_hudTargetPillRects) {
+            EffectWindow *w = pair.second;
             if (w && !w->isDeleted() && !orderedWindows.contains(w)) {
                 orderedWindows.append(w);
             }
         }
     }
-    for (auto it = letterMap.constBegin(); it != letterMap.constEnd(); ++it) {
-        EffectWindow *w = it.value();
-        if (w && !w->isDeleted() && !orderedWindows.contains(w)) {
-            orderedWindows.append(w);
+
+    if (orderedWindows.isEmpty()) {
+        const auto activeLayout = LeapKKeyboard::detectActiveLayout();
+        const QString pool = LeapKKeyboard::preferredLetterPool(activeLayout);
+
+        for (int i = 0; i < pool.length(); ++i) {
+            const QChar ch = pool.at(i);
+            if (letterMap.contains(ch)) {
+                EffectWindow *w = letterMap.value(ch);
+                if (w && !w->isDeleted() && !orderedWindows.contains(w)) {
+                    orderedWindows.append(w);
+                }
+            }
+        }
+        for (auto it = letterMap.constBegin(); it != letterMap.constEnd(); ++it) {
+            EffectWindow *w = it.value();
+            if (w && !w->isDeleted() && !orderedWindows.contains(w)) {
+                orderedWindows.append(w);
+            }
         }
     }
 
@@ -5522,6 +5535,7 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_keyboardGrabActive = true;
 
     m_jumpMode = true;
+    m_hudSnapshotHistory = m_windowHistory;
 #ifdef ACTIVE_WINDOW_OUTLINE_HAS_WINDOW_INPUT_MOUSE_EVENT
     effects->startMouseInterception(this, Qt::ArrowCursor);
     m_mouseIntercepting = true;
@@ -5577,6 +5591,14 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
         return;
     }
     m_jumpMode = false;
+    m_hudSnapshotHistory.clear();
+    EffectWindow *curr = effects ? effects->activeWindow() : m_activeWindow;
+    if (curr && isEligibleOutlineWindow(curr)) {
+        m_windowHistory.removeAll(curr);
+        m_windowHistory.prepend(curr);
+        m_activeWindow = curr;
+        updateRecentWindowsFromHistory();
+    }
     playThemedSound(OutlineSound::SoundEffect::Dismiss);
 #ifdef ACTIVE_WINDOW_OUTLINE_HAS_WINDOW_INPUT_MOUSE_EVENT
     if (m_mouseIntercepting) {
@@ -5867,12 +5889,6 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     };
 
     if (e->type() == QEvent::KeyRelease) {
-        if (m_isHistoryNavigating && !m_jumpMode) {
-            if (isMetaKey(e->key()) || e->key() == Qt::Key_Shift || !(e->modifiers() & Qt::MetaModifier)) {
-                slotCommitHistoryNavigation();
-                return;
-            }
-        }
         if (isMetaKey(e->key()) || !(e->modifiers() & Qt::MetaModifier)) {
             if (m_hudMetaHeld) {
                 m_hudMetaHeld = false;
@@ -5880,33 +5896,6 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     effects->addRepaintFull();
                 }
             }
-        }
-        return;
-    }
-
-    if (!m_jumpMode && m_isHistoryNavigating) {
-        if (e->type() == QEvent::KeyPress) {
-            const Qt::KeyboardModifiers mods = e->modifiers();
-            const bool isMetaShift = (mods & (Qt::MetaModifier | Qt::ShiftModifier)) == (Qt::MetaModifier | Qt::ShiftModifier);
-            const bool isMetaOnly = (mods & Qt::MetaModifier) && !(mods & (Qt::AltModifier | Qt::ControlModifier | Qt::ShiftModifier));
-
-            const bool isPrevHistory = (isMetaShift && (e->key() == Qt::Key_Comma || e->key() == Qt::Key_Less || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('<') || e->text().at(0) == QLatin1Char(',')))))
-                || (isMetaOnly && (e->key() == Qt::Key_Less || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char('<'))));
-
-            const bool isNextHistory = (isMetaShift && (e->key() == Qt::Key_Period || e->key() == Qt::Key_Greater || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('>') || e->text().at(0) == QLatin1Char('.')))))
-                || (isMetaOnly && (e->key() == Qt::Key_Greater || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char('>'))));
-
-            if (isPrevHistory) {
-                slotPrevRecentWindow();
-                return;
-            }
-            if (isNextHistory) {
-                slotNextRecentWindow();
-                return;
-            }
-
-            slotCommitHistoryNavigation();
-            return;
         }
         return;
     }
@@ -7408,12 +7397,6 @@ void ActiveWindowOutlineEffect::slotPrevRecentWindow()
         }
     }
 
-    if (!m_jumpMode && !m_keyboardGrabActive && effects) {
-        if (effects->grabKeyboard(this)) {
-            m_keyboardGrabActive = true;
-        }
-    }
-
     if (m_historyCommitTimer) {
         m_historyCommitTimer->start(600);
     }
@@ -7457,12 +7440,6 @@ void ActiveWindowOutlineEffect::slotNextRecentWindow()
             break;
         } else {
             prevIdx--;
-        }
-    }
-
-    if (!m_jumpMode && !m_keyboardGrabActive && effects) {
-        if (effects->grabKeyboard(this)) {
-            m_keyboardGrabActive = true;
         }
     }
 
@@ -10965,6 +10942,27 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                         rightTargets.append(pair);
                     }
                 }
+            }
+
+            if (!m_searchModeActive) {
+                const auto &history = !m_hudSnapshotHistory.isEmpty() ? m_hudSnapshotHistory : m_windowHistory;
+                auto recencyRank = [&history](EffectWindow *w) -> int {
+                    if (!w) return 999999;
+                    int idx = history.indexOf(w);
+                    return idx >= 0 ? idx : 999999;
+                };
+                auto sortByRecencyOldestToNewest = [&recencyRank](QList<QPair<QChar, EffectWindow *>> &list) {
+                    std::stable_sort(list.begin(), list.end(), [&recencyRank](const QPair<QChar, EffectWindow *> &a, const QPair<QChar, EffectWindow *> &b) {
+                        int rankA = recencyRank(a.second);
+                        int rankB = recencyRank(b.second);
+                        if (rankA != rankB) {
+                            return rankA > rankB; // Older window (higher index) on the left (first)
+                        }
+                        return false;
+                    });
+                };
+                sortByRecencyOldestToNewest(leftTargets);
+                sortByRecencyOldestToNewest(rightTargets);
             }
 
             if (!leftTargets.isEmpty() && !rightTargets.isEmpty()) {
