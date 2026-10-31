@@ -2477,7 +2477,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     QList<Segment> segments;
     if (isCloseMode) {
         segments = {
-            {QStringLiteral("Key"), QStringLiteral("Close window (:bd)"), QColor(231, 76, 60)},
+            {QStringLiteral("Key"), QStringLiteral("Close window"), QColor(231, 76, 60)},
             {QStringLiteral("Meta+A"), QStringLiteral("All WS + Stash"), QColor(0, 195, 255)},
             {QStringLiteral("Meta+Q / ␣ / ⌫"), QStringLiteral("Exit Close Mode"), QColor(149, 165, 166)},
             {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
@@ -2512,7 +2512,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Key"), QStringLiteral("Jump to audio window"), QColor(255, 107, 107)},
             {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
-            {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
+            {QStringLiteral("Shift+Key"), QStringLiteral("Close"), QColor(231, 76, 60)},
             {QStringLiteral("␣ / ⌫"), QStringLiteral("Back"), QColor(149, 165, 166)},
             {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
         };
@@ -2521,8 +2521,8 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Key"), QStringLiteral("Jump to workspace"), QColor(0, 195, 255)},
             {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pull / Drop here"), QColor(241, 196, 15)},
-            {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
-            {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
+            {QStringLiteral("Shift+Key"), QStringLiteral("Close"), QColor(231, 76, 60)},
+            {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash"), QColor(46, 204, 113)},
             {QStringLiteral("␣ / ⌫"), QStringLiteral("Back"), QColor(149, 165, 166)},
             {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
         };
@@ -2532,7 +2532,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Add to stash"), QColor(46, 204, 113)},
             {QStringLiteral(", / ."), QStringLiteral("Switch workspace"), QColor(52, 152, 219)},
-            {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
+            {QStringLiteral("Shift+Key"), QStringLiteral("Close"), QColor(231, 76, 60)},
             {QStringLiteral("␣ / ⌫"), QStringLiteral("Back"), QColor(149, 165, 166)},
             {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
         };
@@ -2552,8 +2552,8 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("/"), QStringLiteral("Search"), QColor(0, 195, 255)},
             {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
-            {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
-            {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
+            {QStringLiteral("Shift+Key"), QStringLiteral("Close"), QColor(231, 76, 60)},
+            {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash"), QColor(46, 204, 113)},
             {QStringLiteral("Tab"), QStringLiteral("Group"), QColor(155, 89, 182)},
             {QStringLiteral("Hold Meta"), QStringLiteral("Switch mode"), QColor(0, 195, 255)},
             {QStringLiteral(", / ."), QStringLiteral("Switch"), QColor(52, 152, 219)},
@@ -3246,7 +3246,7 @@ inline QImage renderHudModeHeader(qreal scale,
     }
 
     if (isSuperJump) {
-        const QString leftText = QStringLiteral("⚡ SUPER JUMP: Pick any window to jump • Alt+Key to pull into [%1]").arg(!targetWorkspaceName.isEmpty() ? targetWorkspaceName : QStringLiteral("Workspace"));
+        const QString leftText = QStringLiteral("⚡ GLOBAL SCOPE: Pick any window to jump • Alt+Key to pull into [%1]").arg(!targetWorkspaceName.isEmpty() ? targetWorkspaceName : QStringLiteral("Workspace"));
         const QString rightText = QStringLiteral("Backspace : Back");
 
         QFont titleFont(QStringLiteral("sans-serif"));
@@ -3714,34 +3714,6 @@ inline QImage renderHudModeHeader(qreal scale,
     const int stashGraphicExtra = isStashGraphic ? (stashGraphicDim + stashGraphicGap) : 0;
     const int stashPillW = stashGraphicExtra + stashTextW + 2 * tabPadX;
 
-    // New Workspace pill [+ New • Shift++]
-    const QString newWsIcon = theme.hudNav.newWsIcon;
-    const bool isNewWsGraphic = isNavGraphicIcon(newWsIcon);
-    const QString newWsLabel = theme.hudNav.newWsText.isEmpty() ? QStringLiteral("New") : theme.hudNav.newWsText;
-    QFont newWsFont(QStringLiteral("sans-serif"));
-    newWsFont.setPixelSize((navFontSize > 0) ? qMax(9, qRound((navFontSize - 1.0) * scale)) : qMax(9, qRound(11.5 * scale)));
-    newWsFont.setBold(true);
-    QFontMetrics fmNewWs(newWsFont);
-
-    QString newWsDisplayText;
-    int newWsGraphicDim = 0;
-    int newWsGraphicGap = 0;
-    if (isNewWsGraphic) {
-        newWsDisplayText = QStringLiteral("%1 • Shift++").arg(newWsLabel);
-        newWsGraphicDim = qRound(15.0 * scale * headerIconScale);
-        newWsGraphicGap = qRound(6.0 * scale);
-    } else {
-        if (!newWsIcon.isEmpty()) {
-            newWsDisplayText = QStringLiteral("%1 %2 • Shift++").arg(newWsIcon, newWsLabel);
-        } else {
-            newWsDisplayText = QStringLiteral("%1 • Shift++").arg(newWsLabel);
-        }
-    }
-    const int newWsTextW = fmNewWs.horizontalAdvance(newWsDisplayText);
-    const int newWsGraphicExtra = isNewWsGraphic ? (newWsGraphicDim + newWsGraphicGap) : 0;
-    const int newWsPillW = newWsGraphicExtra + newWsTextW + 2 * tabPadX;
-    const int newWsSectionW = navGap + newWsPillW;
-
     const int stashSectionW = (stashCount >= 0) ? (navGap + qRound(1 * scale) + navGap + stashPillW) : 0;
 
     // Close Button pill [✕ Esc]
@@ -3755,7 +3727,7 @@ inline QImage renderHudModeHeader(qreal scale,
     const int closePillW = closeTextW + 2 * tabPadX;
     const int closeSectionW = navGap + qRound(1 * scale) + navGap + closePillW;
 
-    const int totalW = padX + navLeftW + navGap + allTabsW + navGap + navRightW + newWsSectionW + stashSectionW + closeSectionW + padX;
+    const int totalW = padX + navLeftW + navGap + allTabsW + navGap + navRightW + stashSectionW + closeSectionW + padX;
 
     QImage img(totalW, headerH, QImage::Format_ARGB32_Premultiplied);
     img.fill(Qt::transparent);
@@ -3858,31 +3830,10 @@ inline QImage renderHudModeHeader(qreal scale,
     const qreal navRightX = curX - tabGap + navGap;
     p.drawText(QPointF(navRightX, navLeftY), navRight);
 
-    // New Workspace pill [+ New • Shift++]
-    const qreal newWsX = navRightX + navRightW + navGap;
-    const QRectF newWsRect(newWsX, tabY, newWsPillW, tabH);
-    const qreal newWsRadius = (theme.hudNav.tabShape == QStringLiteral("sharp")) ? 0.0 : (tabH / 2.0);
-    const int newWsChamferPx = (theme.hudNav.tabShape == QStringLiteral("chamfered")) ? qMax(2, qRound(theme.hudNav.tabChamferSize * scale)) : 0;
-
-    p.setPen(QPen(QColor(52, 152, 219, 180), 1.2 * scale));
-    p.setBrush(QColor(52, 152, 219, 35));
-    drawThemedShape(p, newWsRect, theme.hudNav.tabShape, newWsRadius, newWsChamferPx);
-
-    qreal newWsContentX = newWsRect.left() + (newWsRect.width() - (newWsGraphicExtra + newWsTextW)) / 2.0;
-    if (isNewWsGraphic) {
-        const qreal iconY = newWsRect.top() + (newWsRect.height() - newWsGraphicDim) / 2.0;
-        const QRectF iconRect(newWsContentX, iconY, newWsGraphicDim, newWsGraphicDim);
-        renderNavGraphicIcon(p, iconRect, newWsIcon);
-        newWsContentX += newWsGraphicDim + newWsGraphicGap;
-    }
-    const qreal newWsBaselineY = newWsRect.top() + (newWsRect.height() - fmNewWs.height()) / 2.0 + fmNewWs.ascent();
-    p.setFont(newWsFont);
-    p.setPen(QColor(52, 152, 219));
-    p.drawText(QPointF(newWsContentX, newWsBaselineY), newWsDisplayText);
-
     // Stash drawer pill separated on the right
+    qreal afterRightX = navRightX + navRightW;
     if (stashCount >= 0) {
-        const qreal sepX = newWsX + newWsPillW + navGap;
+        const qreal sepX = navRightX + navRightW + navGap;
         p.setPen(QPen(QColor(255, 255, 255, 38), 1.0 * scale));
         p.drawLine(QPointF(sepX, padY + 3.0 * scale), QPointF(sepX, headerH - padY - 3.0 * scale));
 
@@ -3906,10 +3857,11 @@ inline QImage renderHudModeHeader(qreal scale,
         p.setFont(stashFont);
         p.setPen(QColor(46, 204, 113));
         p.drawText(QPointF(stashContentX, stashBaselineY), stashDisplayText);
+
+        afterRightX = stashX + stashPillW;
     }
 
     // Close button pill separated on the far right
-    const qreal afterRightX = (stashCount >= 0) ? (newWsX + newWsPillW + navGap + qRound(1 * scale) + navGap + stashPillW) : (newWsX + newWsPillW);
     const qreal closeSepX = afterRightX + navGap;
     p.setPen(QPen(QColor(255, 255, 255, 38), 1.0 * scale));
     p.drawLine(QPointF(closeSepX, padY + 3.0 * scale), QPointF(closeSepX, headerH - padY - 3.0 * scale));
@@ -3953,7 +3905,7 @@ inline QImage renderHudMetaOverlayImage(qreal scale,
     };
 
     const QList<CheatItem> items = {
-        {QStringLiteral("Meta+A"), QStringLiteral("Super Jump"), QStringLiteral("Global Scope (All Workspaces + Stash)"), isSuperJump, QColor(0, 195, 255)},
+        {QStringLiteral("Meta+A"), QStringLiteral("Global Scope"), QStringLiteral("Global Scope (All Workspaces + Stash)"), isSuperJump, QColor(0, 195, 255)},
         {QStringLiteral("Meta+S"), QStringLiteral("Stash Mode"), QStringLiteral("Drawer for stashing / un-stashing windows"), isStashMode, QColor(46, 204, 113)},
         {QStringLiteral("Meta+Q"), QStringLiteral("Close Mode"), QStringLiteral("Batch close windows with red badges"), isCloseMode, QColor(231, 76, 60)},
         {QStringLiteral("Meta+U"), QStringLiteral("Audio Mode"), QStringLiteral("Filter windows actively playing sound"), isAudioMode, QColor(241, 196, 15)},

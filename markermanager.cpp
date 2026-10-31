@@ -114,7 +114,7 @@ public:
         int row = 0;
 
         // 1. Jump Letter
-        auto *lblLetter = new QLabel(QStringLiteral("Jump Letter (A-Z):"), this);
+        auto *lblLetter = new QLabel(QStringLiteral("&Jump Letter (A-Z) [Alt+L]:"), this);
         lblLetter->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.85); font-size: 13px;"));
         formLayout->addWidget(lblLetter, row, 0);
 
@@ -123,6 +123,7 @@ public:
         m_editLetter->setText(m_rule.letter.isNull() ? QStringLiteral("A") : QString(m_rule.letter));
         m_editLetter->setFixedWidth(60);
         m_editLetter->setAlignment(Qt::AlignCenter);
+        lblLetter->setBuddy(m_editLetter);
         m_editLetter->setStyleSheet(QStringLiteral(
             "QLineEdit {"
             "  background: rgba(255,255,255,0.1); border: 1.5px solid #3498db; border-radius: 6px;"
@@ -139,7 +140,7 @@ public:
         row++;
 
         // 2. Kolor obrysu (Color)
-        auto *lblColor = new QLabel(QStringLiteral("Outline Color:"), this);
+        auto *lblColor = new QLabel(QStringLiteral("&Outline Color [Alt+C]:"), this);
         lblColor->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.85); font-size: 13px;"));
         formLayout->addWidget(lblColor, row, 0);
 
@@ -151,10 +152,12 @@ public:
         updateColorPreview();
         colorRow->addWidget(m_colorPreview);
 
-        for (const auto &cHex : s_presetColors) {
+        for (int cIdx = 0; cIdx < 8 && cIdx < (int)(sizeof(s_presetColors)/sizeof(s_presetColors[0])); ++cIdx) {
+            const auto &cHex = s_presetColors[cIdx];
             auto *btnP = new QPushButton(this);
             btnP->setFixedSize(22, 22);
             btnP->setCursor(Qt::PointingHandCursor);
+            btnP->setToolTip(QStringLiteral("Preset Color %1 [Alt+%1]").arg(cIdx + 1));
             btnP->setStyleSheet(QStringLiteral(
                 "QPushButton { background: %1; border-radius: 11px; border: 1px solid rgba(255,255,255,0.3); }"
                 "QPushButton:hover { border: 2px solid #ffffff; }"
@@ -166,20 +169,14 @@ public:
             colorRow->addWidget(btnP);
         }
 
-        auto *btnCustomColor = new QPushButton(QStringLiteral("More…"), this);
+        auto *btnCustomColor = new QPushButton(QStringLiteral("More… [Alt+C]"), this);
         btnCustomColor->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background: rgba(255,255,255,0.1); color: #ffffff; border-radius: 6px; padding: 4px 8px; font-size: 11px;"
             "}"
             "QPushButton:hover { background: rgba(255,255,255,0.2); }"
         ));
-        connect(btnCustomColor, &QPushButton::clicked, this, [this]() {
-            QColor c = QColorDialog::getColor(m_selectedColor, this, QStringLiteral("Select Outline Color"));
-            if (c.isValid()) {
-                m_selectedColor = c;
-                updateColorPreview();
-            }
-        });
+        connect(btnCustomColor, &QPushButton::clicked, this, &EditMarkerRuleDialog::openCustomColorDialog);
         colorRow->addWidget(btnCustomColor);
         colorRow->addStretch(1);
 
@@ -187,13 +184,14 @@ public:
         row++;
 
         // 3. Etykieta grupy (Label)
-        auto *lblLabel = new QLabel(QStringLiteral("Group Label:"), this);
+        auto *lblLabel = new QLabel(QStringLiteral("&Group Label [Alt+G]:"), this);
         lblLabel->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.85); font-size: 13px;"));
         formLayout->addWidget(lblLabel, row, 0);
 
         m_editLabel = new QLineEdit(this);
         m_editLabel->setPlaceholderText(QStringLiteral("e.g. Browser, Terminals, Editor"));
         m_editLabel->setText(m_rule.label);
+        lblLabel->setBuddy(m_editLabel);
         m_editLabel->setStyleSheet(QStringLiteral(
             "QLineEdit {"
             "  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;"
@@ -205,13 +203,14 @@ public:
         row++;
 
         // 4. Aplikacja / Klasa (App Class)
-        auto *lblApp = new QLabel(QStringLiteral("Application (Class):"), this);
+        auto *lblApp = new QLabel(QStringLiteral("&Application (Class) [Alt+A]:"), this);
         lblApp->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.85); font-size: 13px;"));
         formLayout->addWidget(lblApp, row, 0);
 
         m_editApp = new QLineEdit(this);
         m_editApp->setPlaceholderText(QStringLiteral("e.g. firefox, org.kde.konsole, code"));
         m_editApp->setText(m_rule.matchApp);
+        lblApp->setBuddy(m_editApp);
         m_editApp->setStyleSheet(QStringLiteral(
             "QLineEdit {"
             "  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;"
@@ -223,13 +222,14 @@ public:
         row++;
 
         // 5. Title / Process Pattern
-        auto *lblCaption = new QLabel(QStringLiteral("Title / Process Pattern:"), this);
+        auto *lblCaption = new QLabel(QStringLiteral("&Title Pattern [Alt+T]:"), this);
         lblCaption->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.85); font-size: 13px;"));
         formLayout->addWidget(lblCaption, row, 0);
 
         m_editCaption = new QLineEdit(this);
         m_editCaption->setPlaceholderText(QStringLiteral("e.g. nvim, localhost, GitHub (optional)"));
         m_editCaption->setText(m_rule.matchCaption);
+        lblCaption->setBuddy(m_editCaption);
         m_editCaption->setStyleSheet(QStringLiteral(
             "QLineEdit {"
             "  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;"
@@ -241,7 +241,7 @@ public:
         row++;
 
         // 6. Pulpit wirtualny (Desktop)
-        auto *lblDesktop = new QLabel(QStringLiteral("Virtual Desktop:"), this);
+        auto *lblDesktop = new QLabel(QStringLiteral("&Virtual Desktop [Alt+V]:"), this);
         lblDesktop->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.85); font-size: 13px;"));
         formLayout->addWidget(lblDesktop, row, 0);
 
@@ -256,6 +256,7 @@ public:
                 break;
             }
         }
+        lblDesktop->setBuddy(m_comboDesktop);
         m_comboDesktop->setStyleSheet(QStringLiteral(
             "QComboBox {"
             "  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;"
@@ -269,7 +270,7 @@ public:
         row++;
 
         // 7. Enabled
-        m_chkEnabled = new QCheckBox(QStringLiteral("Rule active (automatically mark matching windows)"), this);
+        m_chkEnabled = new QCheckBox(QStringLiteral("Rule &active [Alt+R] (automatically mark matching windows)"), this);
         m_chkEnabled->setChecked(m_rule.enabled);
         m_chkEnabled->setStyleSheet(QStringLiteral("color: #ffffff; font-size: 13px; padding: 4px 0;"));
         formLayout->addWidget(m_chkEnabled, row, 0, 1, 2);
@@ -282,7 +283,7 @@ public:
         auto *bottomLayout = new QHBoxLayout();
         bottomLayout->addStretch(1);
 
-        auto *btnCancel = new QPushButton(QStringLiteral("Cancel [Esc]"), this);
+        auto *btnCancel = new QPushButton(QStringLiteral("✕ Cancel [Esc]"), this);
         btnCancel->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background: rgba(255, 255, 255, 0.1); border-radius: 8px; color: #ffffff; padding: 8px 16px;"
@@ -292,7 +293,7 @@ public:
         connect(btnCancel, &QPushButton::clicked, this, &QDialog::reject);
         bottomLayout->addWidget(btnCancel);
 
-        auto *btnSave = new QPushButton(QStringLiteral("✓ Save Rule"), this);
+        auto *btnSave = new QPushButton(QStringLiteral("✓ Save Rule [Enter]"), this);
         btnSave->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background: #3498db; border-radius: 8px; color: #ffffff; font-weight: bold; padding: 8px 20px;"
@@ -317,6 +318,24 @@ protected:
         if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
             onSaveClicked();
             return;
+        }
+        if (e->modifiers() & Qt::AltModifier) {
+            if (e->key() == Qt::Key_S) {
+                onSaveClicked();
+                return;
+            }
+            if (e->key() == Qt::Key_C) {
+                openCustomColorDialog();
+                return;
+            }
+            if (e->key() >= Qt::Key_1 && e->key() <= Qt::Key_8) {
+                int cIdx = e->key() - Qt::Key_1;
+                if (cIdx >= 0 && cIdx < (int)(sizeof(s_presetColors)/sizeof(s_presetColors[0]))) {
+                    m_selectedColor = QColor(s_presetColors[cIdx]);
+                    updateColorPreview();
+                    return;
+                }
+            }
         }
         QDialog::keyPressEvent(e);
     }
@@ -345,6 +364,15 @@ protected:
     }
 
 private:
+    void openCustomColorDialog()
+    {
+        QColor c = QColorDialog::getColor(m_selectedColor, this, QStringLiteral("Select Outline Color"));
+        if (c.isValid()) {
+            m_selectedColor = c;
+            updateColorPreview();
+        }
+    }
+
     void updateColorPreview()
     {
         m_colorPreview->setStyleSheet(QStringLiteral(
@@ -394,13 +422,16 @@ public:
     MarkerRuleCard(const LeapKMarks::PersistentMarkRule &rule,
                    int matchingWindowCount,
                    const QStringList &matchingWindowTitles,
+                   int cardIndex = -1,
                    QWidget *parent = nullptr)
         : QFrame(parent)
         , m_rule(rule)
         , m_matchingCount(matchingWindowCount)
         , m_matchingTitles(matchingWindowTitles)
+        , m_cardIndex(cardIndex)
     {
         setObjectName(QStringLiteral("ruleCard"));
+        setCursor(Qt::PointingHandCursor);
         updateStyle();
 
         auto *layout = new QHBoxLayout(this);
@@ -424,6 +455,13 @@ public:
         // Title row (Label / App Name)
         auto *titleRow = new QHBoxLayout();
         titleRow->setSpacing(8);
+
+        if (m_cardIndex >= 0 && m_cardIndex < 9) {
+            auto *lblNum = new QLabel(QStringLiteral("<span style='color:#3498db; font-size:12px; font-weight:bold;'>[%1]</span>").arg(m_cardIndex + 1), this);
+            lblNum->setTextFormat(Qt::RichText);
+            lblNum->setStyleSheet(QStringLiteral("border: none; background: transparent;"));
+            titleRow->addWidget(lblNum);
+        }
 
         const QString displayTitle = !rule.label.trimmed().isEmpty()
             ? rule.label.trimmed()
@@ -488,6 +526,7 @@ public:
 
         m_btnToggle = new QPushButton(this);
         m_btnToggle->setCursor(Qt::PointingHandCursor);
+        m_btnToggle->setToolTip(QStringLiteral("Toggle active / disabled state [T]"));
         updateToggleStyle();
         connect(m_btnToggle, &QPushButton::clicked, this, [this]() {
             m_rule.enabled = !m_rule.enabled;
@@ -499,13 +538,13 @@ public:
         });
         btnLayout->addWidget(m_btnToggle);
 
-        auto *btnEdit = new QPushButton(QStringLiteral("✏️"), this);
-        btnEdit->setFixedSize(32, 28);
+        auto *btnEdit = new QPushButton(QStringLiteral("[E] ✏️"), this);
+        btnEdit->setFixedSize(56, 28);
         btnEdit->setCursor(Qt::PointingHandCursor);
-        btnEdit->setToolTip(QStringLiteral("Edit this rule"));
+        btnEdit->setToolTip(QStringLiteral("Edit this rule [E / Enter]"));
         btnEdit->setStyleSheet(QStringLiteral(
             "QPushButton {"
-            "  background: rgba(255,255,255,0.1); color: #ffffff; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2);"
+            "  background: rgba(255,255,255,0.1); color: #ffffff; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); font-size: 11px; font-weight: bold;"
             "}"
             "QPushButton:hover { background: rgba(52, 152, 219, 0.4); border-color: #3498db; }"
         ));
@@ -516,13 +555,13 @@ public:
         });
         btnLayout->addWidget(btnEdit);
 
-        auto *btnDelete = new QPushButton(QStringLiteral("🗑"), this);
-        btnDelete->setFixedSize(32, 28);
+        auto *btnDelete = new QPushButton(QStringLiteral("[D] 🗑"), this);
+        btnDelete->setFixedSize(56, 28);
         btnDelete->setCursor(Qt::PointingHandCursor);
-        btnDelete->setToolTip(QStringLiteral("Delete this rule"));
+        btnDelete->setToolTip(QStringLiteral("Delete this rule [D / Del]"));
         btnDelete->setStyleSheet(QStringLiteral(
             "QPushButton {"
-            "  background: rgba(231, 76, 60, 0.15); color: #e74c3c; border-radius: 6px; border: 1px solid rgba(231, 76, 60, 0.35);"
+            "  background: rgba(231, 76, 60, 0.15); color: #e74c3c; border-radius: 6px; border: 1px solid rgba(231, 76, 60, 0.35); font-size: 11px; font-weight: bold;"
             "}"
             "QPushButton:hover { background: rgba(231, 76, 60, 0.4); color: #ffffff; }"
         ));
@@ -538,14 +577,47 @@ public:
 
     LeapKMarks::PersistentMarkRule rule() const { return m_rule; }
 
+    void setSelected(bool sel)
+    {
+        if (m_isSelected != sel) {
+            m_isSelected = sel;
+            updateStyle();
+        }
+    }
+
+    bool isSelected() const { return m_isSelected; }
+
+    std::function<void()> onCardClicked;
     std::function<void(const LeapKMarks::PersistentMarkRule &)> onToggleEnabled;
     std::function<void(const LeapKMarks::PersistentMarkRule &)> onEditClicked;
     std::function<void(const LeapKMarks::PersistentMarkRule &)> onDeleteClicked;
 
+protected:
+    void mousePressEvent(QMouseEvent *e) override
+    {
+        if (e->button() == Qt::LeftButton) {
+            if (onCardClicked) {
+                onCardClicked();
+            }
+        }
+        QFrame::mousePressEvent(e);
+    }
+
 private:
     void updateStyle()
     {
-        if (m_rule.enabled) {
+        if (m_isSelected) {
+            setStyleSheet(QStringLiteral(
+                "QFrame#ruleCard {"
+                "  background-color: rgba(155, 89, 182, 0.22);"
+                "  border: 2px solid #9b59b6;"
+                "  border-radius: 12px;"
+                "}"
+                "QFrame#ruleCard:hover {"
+                "  background-color: rgba(155, 89, 182, 0.32);"
+                "}"
+            ));
+        } else if (m_rule.enabled) {
             setStyleSheet(QStringLiteral(
                 "QFrame#ruleCard {"
                 "  background-color: rgba(255, 255, 255, 0.06);"
@@ -574,7 +646,7 @@ private:
     void updateToggleStyle()
     {
         if (m_rule.enabled) {
-            m_btnToggle->setText(QStringLiteral("✓ Active"));
+            m_btnToggle->setText(QStringLiteral("[T] ✓ Active"));
             m_btnToggle->setStyleSheet(QStringLiteral(
                 "QPushButton {"
                 "  background: rgba(46, 204, 113, 0.2); color: #2ecc71; font-weight: bold; font-size: 11px;"
@@ -583,7 +655,7 @@ private:
                 "QPushButton:hover { background: rgba(46, 204, 113, 0.35); }"
             ));
         } else {
-            m_btnToggle->setText(QStringLiteral("⏸ Disabled"));
+            m_btnToggle->setText(QStringLiteral("[T] ⏸ Disabled"));
             m_btnToggle->setStyleSheet(QStringLiteral(
                 "QPushButton {"
                 "  background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.5); font-size: 11px;"
@@ -597,6 +669,8 @@ private:
     LeapKMarks::PersistentMarkRule m_rule;
     int m_matchingCount;
     QStringList m_matchingTitles;
+    int m_cardIndex = -1;
+    bool m_isSelected = false;
     QLabel *m_lblBadge = nullptr;
     QPushButton *m_btnToggle = nullptr;
 };
@@ -619,7 +693,7 @@ public:
     {
         setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
         setAttribute(Qt::WA_TranslucentBackground, true);
-        resize(640, 600);
+        resize(660, 620);
 
         auto *rootLayout = new QVBoxLayout(this);
         rootLayout->setContentsMargins(0, 0, 0, 0);
@@ -629,7 +703,7 @@ public:
 
         auto *mainLayout = new QVBoxLayout(m_mainFrame);
         mainLayout->setContentsMargins(22, 20, 22, 20);
-        mainLayout->setSpacing(14);
+        mainLayout->setSpacing(12);
 
         // Header
         auto *headerLayout = new QVBoxLayout();
@@ -658,7 +732,7 @@ public:
         actionLayout->setSpacing(8);
 
         m_searchEdit = new QLineEdit(this);
-        m_searchEdit->setPlaceholderText(QStringLiteral("🔍 Filter rules, letters, apps..."));
+        m_searchEdit->setPlaceholderText(QStringLiteral("🔍 Filter rules... [Esc: Nav / Controls, /: Search]"));
         m_searchEdit->setStyleSheet(QStringLiteral(
             "QLineEdit {"
             "  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); border-radius: 8px;"
@@ -666,40 +740,43 @@ public:
             "}"
             "QLineEdit:focus { border: 1.5px solid #9b59b6; }"
         ));
+        m_searchEdit->installEventFilter(this);
         connect(m_searchEdit, &QLineEdit::textChanged, this, &MarkerManagerDialog::rebuildCardList);
         actionLayout->addWidget(m_searchEdit, 1);
 
         if (!m_appClass.isEmpty()) {
-            auto *btnAssignCurrent = new QPushButton(QStringLiteral("+ Assign Window"), this);
-            btnAssignCurrent->setCursor(Qt::PointingHandCursor);
-            btnAssignCurrent->setStyleSheet(QStringLiteral(
+            m_btnAssignCurrent = new QPushButton(QStringLiteral("[W] + Assign Window"), this);
+            m_btnAssignCurrent->setCursor(Qt::PointingHandCursor);
+            m_btnAssignCurrent->setToolTip(QStringLiteral("Create rule for current window [W]"));
+            m_btnAssignCurrent->setStyleSheet(QStringLiteral(
                 "QPushButton {"
                 "  background: rgba(46, 204, 113, 0.2); border: 1.5px solid #2ecc71; border-radius: 8px;"
                 "  color: #2ecc71; font-weight: bold; font-size: 12px; padding: 6px 12px;"
                 "}"
                 "QPushButton:hover { background: rgba(46, 204, 113, 0.35); }"
             ));
-            connect(btnAssignCurrent, &QPushButton::clicked, this, &MarkerManagerDialog::onAssignCurrentClicked);
-            actionLayout->addWidget(btnAssignCurrent);
+            connect(m_btnAssignCurrent, &QPushButton::clicked, this, &MarkerManagerDialog::onAssignCurrentClicked);
+            actionLayout->addWidget(m_btnAssignCurrent);
         }
 
-        auto *btnAddRule = new QPushButton(QStringLiteral("+ New Rule"), this);
-        btnAddRule->setCursor(Qt::PointingHandCursor);
-        btnAddRule->setStyleSheet(QStringLiteral(
+        m_btnAddRule = new QPushButton(QStringLiteral("[N] + New Rule"), this);
+        m_btnAddRule->setCursor(Qt::PointingHandCursor);
+        m_btnAddRule->setToolTip(QStringLiteral("Create a new marker rule [N]"));
+        m_btnAddRule->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background: #9b59b6; border-radius: 8px; color: #ffffff; font-weight: bold; font-size: 12px; padding: 6px 14px;"
             "}"
             "QPushButton:hover { background: #8e44ad; }"
         ));
-        connect(btnAddRule, &QPushButton::clicked, this, &MarkerManagerDialog::onAddNewRuleClicked);
-        actionLayout->addWidget(btnAddRule);
+        connect(m_btnAddRule, &QPushButton::clicked, this, &MarkerManagerDialog::onAddNewRuleClicked);
+        actionLayout->addWidget(m_btnAddRule);
 
         mainLayout->addLayout(actionLayout);
 
         // Scroll Area with Rule Cards
-        auto *scrollArea = new QScrollArea(this);
-        scrollArea->setWidgetResizable(true);
-        scrollArea->setStyleSheet(QStringLiteral(
+        m_scrollArea = new QScrollArea(this);
+        m_scrollArea->setWidgetResizable(true);
+        m_scrollArea->setStyleSheet(QStringLiteral(
             "QScrollArea { border: none; background: transparent; }"
             "QScrollBar:vertical { background: rgba(255,255,255,0.05); width: 8px; border-radius: 4px; }"
             "QScrollBar::handle:vertical { background: rgba(255,255,255,0.25); border-radius: 4px; }"
@@ -712,8 +789,27 @@ public:
         m_cardsLayout->setContentsMargins(0, 4, 0, 4);
         m_cardsLayout->setSpacing(8);
 
-        scrollArea->setWidget(m_cardsContainer);
-        mainLayout->addWidget(scrollArea, 1);
+        m_scrollArea->setWidget(m_cardsContainer);
+        mainLayout->addWidget(m_scrollArea, 1);
+
+        // Bottom Shortcut Hints Strip
+        auto *hintLayout = new QHBoxLayout();
+        auto *lblHints = new QLabel(QStringLiteral(
+            "<span style='color:rgba(255,255,255,0.7); font-size:11.5px;'>"
+            "<b style='color:#3498db;'>[Esc]</b> Search/Nav &bull; "
+            "<b style='color:#3498db;'>[J/K]</b> Select &bull; "
+            "<b style='color:#2ecc71;'>[T]</b> Toggle &bull; "
+            "<b style='color:#f1c40f;'>[E]</b> Edit &bull; "
+            "<b style='color:#e74c3c;'>[D]</b> Del &bull; "
+            "<b style='color:#9b59b6;'>[N]</b> New &bull; "
+            "<b style='color:#2ecc71;'>[W]</b> Assign &bull; "
+            "<b style='color:#e74c3c;'>[Q]</b> Close"
+            "</span>"
+        ), this);
+        lblHints->setTextFormat(Qt::RichText);
+        lblHints->setAlignment(Qt::AlignCenter);
+        hintLayout->addWidget(lblHints);
+        mainLayout->addLayout(hintLayout);
 
         // Bottom Bar
         auto *bottomLayout = new QHBoxLayout();
@@ -722,25 +818,27 @@ public:
         bottomLayout->addWidget(m_lblStats);
         bottomLayout->addStretch(1);
 
-        auto *btnClearAll = new QPushButton(QStringLiteral("Clear All…"), this);
-        btnClearAll->setStyleSheet(QStringLiteral(
+        m_btnClearAll = new QPushButton(QStringLiteral("[X] Clear All…"), this);
+        m_btnClearAll->setToolTip(QStringLiteral("Delete all rules [X]"));
+        m_btnClearAll->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background: rgba(231, 76, 60, 0.12); color: #e74c3c; border-radius: 8px; font-size: 12px; padding: 7px 12px;"
             "}"
             "QPushButton:hover { background: rgba(231, 76, 60, 0.25); }"
         ));
-        connect(btnClearAll, &QPushButton::clicked, this, &MarkerManagerDialog::onClearAllClicked);
-        bottomLayout->addWidget(btnClearAll);
+        connect(m_btnClearAll, &QPushButton::clicked, this, &MarkerManagerDialog::onClearAllClicked);
+        bottomLayout->addWidget(m_btnClearAll);
 
-        auto *btnClose = new QPushButton(QStringLiteral("Close [Esc]"), this);
-        btnClose->setStyleSheet(QStringLiteral(
+        m_btnClose = new QPushButton(QStringLiteral("[Q] Close"), this);
+        m_btnClose->setToolTip(QStringLiteral("Close Marker Manager [Q / Esc]"));
+        m_btnClose->setStyleSheet(QStringLiteral(
             "QPushButton {"
-            "  background: rgba(255,255,255,0.12); border-radius: 8px; color: #ffffff; padding: 7px 18px; font-size: 12px;"
+            "  background: rgba(255,255,255,0.12); border-radius: 8px; color: #ffffff; padding: 7px 18px; font-size: 12px; font-weight: bold;"
             "}"
             "QPushButton:hover { background: rgba(255,255,255,0.22); }"
         ));
-        connect(btnClose, &QPushButton::clicked, this, &QDialog::accept);
-        bottomLayout->addWidget(btnClose);
+        connect(m_btnClose, &QPushButton::clicked, this, &QDialog::accept);
+        bottomLayout->addWidget(m_btnClose);
 
         mainLayout->addLayout(bottomLayout);
 
@@ -750,22 +848,138 @@ public:
 
     QList<LeapKMarks::PersistentMarkRule> rules() const { return m_rules; }
 
+    bool eventFilter(QObject *obj, QEvent *event) override
+    {
+        if (obj == m_searchEdit && event->type() == QEvent::KeyPress) {
+            auto *ke = static_cast<QKeyEvent *>(event);
+            if (ke->key() == Qt::Key_Escape) {
+                // Esc exits search field to navigate controls
+                m_searchEdit->clearFocus();
+                setFocus();
+                return true;
+            }
+            if (ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter || ke->key() == Qt::Key_Down) {
+                // Return / Enter / Down exits search field and focuses cards
+                m_searchEdit->clearFocus();
+                setFocus();
+                if (m_selectedCardIndex < 0 && !m_cardWidgets.isEmpty()) {
+                    m_selectedCardIndex = 0;
+                    updateCardSelection();
+                }
+                return true;
+            }
+            if (ke->key() == Qt::Key_Up) {
+                m_searchEdit->clearFocus();
+                setFocus();
+                return true;
+            }
+        }
+        return QDialog::eventFilter(obj, event);
+    }
+
 protected:
+    void showEvent(QShowEvent *e) override
+    {
+        QDialog::showEvent(e);
+        // Default to navigation mode so single-key shortcuts work without mouse
+        m_searchEdit->clearFocus();
+        setFocus();
+    }
+
     void keyPressEvent(QKeyEvent *e) override
     {
-        if (e->key() == Qt::Key_Escape) {
-            accept();
+        if (m_searchEdit && m_searchEdit->hasFocus()) {
+            if (e->key() == Qt::Key_Escape) {
+                m_searchEdit->clearFocus();
+                setFocus();
+                return;
+            }
+            QDialog::keyPressEvent(e);
             return;
         }
-        if (e->modifiers() & Qt::ControlModifier && e->key() == Qt::Key_N) {
-            onAddNewRuleClicked();
-            return;
-        }
-        if (e->modifiers() & Qt::ControlModifier && e->key() == Qt::Key_F) {
+
+        // When not in search field: Esc enters the search field
+        if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Slash) {
             m_searchEdit->setFocus();
             m_searchEdit->selectAll();
             return;
         }
+
+        // [Q] -> Close Marker Manager
+        if (e->key() == Qt::Key_Q || ((e->modifiers() & Qt::ControlModifier) && (e->key() == Qt::Key_W || e->key() == Qt::Key_Q))) {
+            accept();
+            return;
+        }
+
+        // [N] -> Add New Rule
+        if (e->key() == Qt::Key_N) {
+            onAddNewRuleClicked();
+            return;
+        }
+
+        // [W] -> Assign Current Window
+        if (e->key() == Qt::Key_W && !m_appClass.isEmpty()) {
+            onAssignCurrentClicked();
+            return;
+        }
+
+        // [X] -> Clear All Rules
+        if (e->key() == Qt::Key_X) {
+            onClearAllClicked();
+            return;
+        }
+
+        // [J] / [Down] -> Select next rule card
+        if (e->key() == Qt::Key_J || e->key() == Qt::Key_Down) {
+            selectNextCard();
+            return;
+        }
+
+        // [K] / [Up] -> Select previous rule card
+        if (e->key() == Qt::Key_K || e->key() == Qt::Key_Up) {
+            selectPrevCard();
+            return;
+        }
+
+        // [E] / [Enter] / [Return] / [F2] -> Edit selected rule
+        if (e->key() == Qt::Key_E || e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter || e->key() == Qt::Key_F2) {
+            editSelectedRule();
+            return;
+        }
+
+        // [D] / [Delete] -> Delete selected rule
+        if (e->key() == Qt::Key_D || e->key() == Qt::Key_Delete) {
+            deleteSelectedRule();
+            return;
+        }
+
+        // [T] / [Space] -> Toggle active / disabled for selected rule
+        if (e->key() == Qt::Key_T || e->key() == Qt::Key_Space) {
+            toggleSelectedRule();
+            return;
+        }
+
+        // [1..9] -> Jump directly to card 1..9
+        if (e->key() >= Qt::Key_1 && e->key() <= Qt::Key_9) {
+            int idx = e->key() - Qt::Key_1;
+            if (idx >= 0 && idx < m_cardWidgets.size()) {
+                selectCard(idx);
+                return;
+            }
+        }
+
+        // Direct jump letter matching (e.g. user presses 'A'..'Z' matching rule letter)
+        const QString keyText = e->text().toUpper();
+        if (!keyText.isEmpty()) {
+            const QChar ch = keyText.at(0);
+            for (int i = 0; i < m_visibleRules.size(); ++i) {
+                if (m_visibleRules.at(i).letter.toUpper() == ch) {
+                    selectCard(i);
+                    return;
+                }
+            }
+        }
+
         QDialog::keyPressEvent(e);
     }
 
@@ -827,14 +1041,97 @@ private:
         return count;
     }
 
+    void updateCardSelection()
+    {
+        for (int i = 0; i < m_cardWidgets.size(); ++i) {
+            m_cardWidgets[i]->setSelected(i == m_selectedCardIndex);
+        }
+    }
+
+    void selectCard(int idx)
+    {
+        if (idx >= 0 && idx < m_cardWidgets.size()) {
+            m_selectedCardIndex = idx;
+            updateCardSelection();
+            if (m_scrollArea) {
+                m_scrollArea->ensureWidgetVisible(m_cardWidgets[idx]);
+            }
+        }
+    }
+
+    void selectNextCard()
+    {
+        if (m_cardWidgets.isEmpty()) return;
+        m_selectedCardIndex = (m_selectedCardIndex + 1) % m_cardWidgets.size();
+        updateCardSelection();
+        if (m_scrollArea && m_selectedCardIndex >= 0 && m_selectedCardIndex < m_cardWidgets.size()) {
+            m_scrollArea->ensureWidgetVisible(m_cardWidgets[m_selectedCardIndex]);
+        }
+    }
+
+    void selectPrevCard()
+    {
+        if (m_cardWidgets.isEmpty()) return;
+        m_selectedCardIndex = (m_selectedCardIndex - 1 + m_cardWidgets.size()) % m_cardWidgets.size();
+        updateCardSelection();
+        if (m_scrollArea && m_selectedCardIndex >= 0 && m_selectedCardIndex < m_cardWidgets.size()) {
+            m_scrollArea->ensureWidgetVisible(m_cardWidgets[m_selectedCardIndex]);
+        }
+    }
+
+    void editSelectedRule()
+    {
+        if (m_selectedCardIndex >= 0 && m_selectedCardIndex < m_visibleRules.size()) {
+            const auto r = m_visibleRules.at(m_selectedCardIndex);
+            EditMarkerRuleDialog dlg(r, false, this);
+            if (dlg.exec() == QDialog::Accepted) {
+                LeapKMarks::upsertPersistentMark(m_rules, dlg.rule());
+                saveRules();
+                rebuildCardList();
+            }
+        }
+    }
+
+    void deleteSelectedRule()
+    {
+        if (m_selectedCardIndex >= 0 && m_selectedCardIndex < m_visibleRules.size()) {
+            const auto r = m_visibleRules.at(m_selectedCardIndex);
+            const QString msg = QStringLiteral("Are you sure you want to delete the rule for group [%1]?").arg(r.letter.isNull() ? r.label : QString(r.letter));
+            if (QMessageBox::question(this, QStringLiteral("Delete Rule"), msg) == QMessageBox::Yes) {
+                LeapKMarks::deletePersistentMark(m_rules, r.id);
+                saveRules();
+                rebuildCardList();
+            }
+        }
+    }
+
+    void toggleSelectedRule()
+    {
+        if (m_selectedCardIndex >= 0 && m_selectedCardIndex < m_visibleRules.size()) {
+            auto updated = m_visibleRules.at(m_selectedCardIndex);
+            updated.enabled = !updated.enabled;
+            LeapKMarks::upsertPersistentMark(m_rules, updated);
+            saveRules();
+            rebuildCardList();
+        }
+    }
+
     void rebuildCardList()
     {
+        // Remember previously selected rule ID if any
+        QString prevSelectedId;
+        if (m_selectedCardIndex >= 0 && m_selectedCardIndex < m_visibleRules.size()) {
+            prevSelectedId = m_visibleRules.at(m_selectedCardIndex).id;
+        }
+
         // Clear layout
         QLayoutItem *item;
         while ((item = m_cardsLayout->takeAt(0)) != nullptr) {
             delete item->widget();
             delete item;
         }
+        m_cardWidgets.clear();
+        m_visibleRules.clear();
 
         const QString filter = m_searchEdit->text().trimmed().toLower();
         int activeCount = 0;
@@ -860,15 +1157,18 @@ private:
             QStringList titles;
             const int matchCount = countMatchesForRule(rule, &titles);
 
-            auto *card = new MarkerRuleCard(rule, matchCount, titles, m_cardsContainer);
+            const int cardIdx = displayedCount;
+            auto *card = new MarkerRuleCard(rule, matchCount, titles, cardIdx, m_cardsContainer);
             card->onToggleEnabled = [this](const LeapKMarks::PersistentMarkRule &updated) {
                 LeapKMarks::upsertPersistentMark(m_rules, updated);
+                saveRules();
                 rebuildCardList();
             };
             card->onEditClicked = [this](const LeapKMarks::PersistentMarkRule &r) {
                 EditMarkerRuleDialog dlg(r, false, this);
                 if (dlg.exec() == QDialog::Accepted) {
                     LeapKMarks::upsertPersistentMark(m_rules, dlg.rule());
+                    saveRules();
                     rebuildCardList();
                 }
             };
@@ -876,11 +1176,17 @@ private:
                 const QString msg = QStringLiteral("Are you sure you want to delete the rule for group [%1]?").arg(r.letter.isNull() ? r.label : QString(r.letter));
                 if (QMessageBox::question(this, QStringLiteral("Delete Rule"), msg) == QMessageBox::Yes) {
                     LeapKMarks::deletePersistentMark(m_rules, r.id);
+                    saveRules();
                     rebuildCardList();
                 }
             };
+            card->onCardClicked = [this, cardIdx]() {
+                selectCard(cardIdx);
+            };
 
             m_cardsLayout->addWidget(card);
+            m_cardWidgets.append(card);
+            m_visibleRules.append(rule);
             displayedCount++;
         }
 
@@ -890,13 +1196,30 @@ private:
             if (m_rules.isEmpty()) {
                 lblEmpty->setText(QStringLiteral("<p style='color:rgba(255,255,255,0.6); font-size:14px; margin-top:40px;'>"
                                                  "No marker rules defined yet.<br><br>"
-                                                 "Click <b>[+ New Rule]</b> or press <b>Meta+Ctrl+Space</b> on any window to create one.</p>"));
+                                                 "Press <b>[N]</b> or click <b>[+ New Rule]</b> to create one.</p>"));
             } else {
                 lblEmpty->setText(QStringLiteral("<p style='color:rgba(255,255,255,0.5); font-size:13px; margin-top:30px;'>"
-                                                 "No rules match the current search filter.</p>"));
+                                                 "No rules match the current search filter.<br><br>"
+                                                 "Press <b>[Esc]</b> to exit search or clear the filter.</p>"));
             }
             lblEmpty->setTextFormat(Qt::RichText);
             m_cardsLayout->addWidget(lblEmpty);
+            m_selectedCardIndex = -1;
+        } else {
+            // Restore selection or select 0
+            int newIdx = 0;
+            if (!prevSelectedId.isEmpty()) {
+                for (int j = 0; j < m_visibleRules.size(); ++j) {
+                    if (m_visibleRules.at(j).id == prevSelectedId) {
+                        newIdx = j;
+                        break;
+                    }
+                }
+            } else if (m_selectedCardIndex >= 0 && m_selectedCardIndex < m_visibleRules.size()) {
+                newIdx = m_selectedCardIndex;
+            }
+            m_selectedCardIndex = newIdx;
+            updateCardSelection();
         }
 
         m_cardsLayout->addStretch(1);
@@ -917,6 +1240,7 @@ private:
         EditMarkerRuleDialog dlg(newRule, true, this);
         if (dlg.exec() == QDialog::Accepted) {
             LeapKMarks::upsertPersistentMark(m_rules, dlg.rule());
+            saveRules();
             rebuildCardList();
         }
     }
@@ -937,6 +1261,7 @@ private:
         EditMarkerRuleDialog dlg(newRule, true, this);
         if (dlg.exec() == QDialog::Accepted) {
             LeapKMarks::upsertPersistentMark(m_rules, dlg.rule());
+            saveRules();
             rebuildCardList();
         }
     }
@@ -977,9 +1302,17 @@ private:
 
     MainMarkerFrame *m_mainFrame = nullptr;
     QLineEdit *m_searchEdit = nullptr;
+    QPushButton *m_btnAssignCurrent = nullptr;
+    QPushButton *m_btnAddRule = nullptr;
+    QPushButton *m_btnClearAll = nullptr;
+    QPushButton *m_btnClose = nullptr;
+    QScrollArea *m_scrollArea = nullptr;
     QWidget *m_cardsContainer = nullptr;
     QVBoxLayout *m_cardsLayout = nullptr;
     QLabel *m_lblStats = nullptr;
+    int m_selectedCardIndex = -1;
+    QList<MarkerRuleCard *> m_cardWidgets;
+    QList<LeapKMarks::PersistentMarkRule> m_visibleRules;
     QPoint m_dragPos;
     bool m_isDragging = false;
 };

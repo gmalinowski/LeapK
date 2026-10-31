@@ -4,6 +4,35 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta41] - 2026-10-31
+
+### Changed
+- **Renamed "Super Jump" to "Global Scope"**:
+  - Renamed the header banner in `badgehelper.h` from `SUPER JUMP` to `GLOBAL SCOPE`.
+  - Updated the Meta-hold mode switcher cheat sheet overlay from `Super Jump` to `Global Scope`.
+- **Cleaned Hint Syntax in HUD Action Bar**:
+  - Removed vim-style parenthetical suffixes `(:bd)` from Close actions and `(:hide)` from Stash actions across all HUD sub-modes and default mode.
+- **Removed "+ New • Shift++" Pill from HUD Workspace Header**:
+  - Completely removed the `+ New • Shift++` button pill and its width/separator calculations from the HUD workspace header navigation bar.
+- **Full Keyboard Navigation in Marker Manager**:
+  - Added seamless `Esc` toggling: pressing `Esc` inside the search field exits search focus to navigate controls, while pressing `Esc` (or `/`) outside enters and selects the search field.
+  - Assigned dedicated letter shortcuts to every control:
+    - `[N]`: + New Rule
+    - `[W]`: + Assign Window (when active window info is available)
+    - `[X]`: Clear All Rules
+    - `[Q]`: Close dialog
+    - `[J]` / `[Down]`: Select next rule card
+    - `[K]` / `[Up]`: Select previous rule card
+    - `[E]` / `[Enter]`: Edit selected rule
+    - `[D]` / `[Del]`: Delete selected rule
+    - `[T]` / `[Space]`: Toggle active / disabled state of selected rule
+    - `[1..9]`: Directly select visible rule card 1 through 9
+    - `[A..Z]`: Direct jump letter selection matching rule letter
+  - Added visual selection highlight and card index badges (`[1]`, `[2]`, ... `[9]`).
+  - Added keyboard shortcut cheat strip directly in the Marker Manager dialog.
+  - Added keyboard mnemonics and Alt-shortcuts to `EditMarkerRuleDialog` (`Alt+L`, `Alt+C`, `Alt+G`, `Alt+A`, `Alt+T`, `Alt+V`, `Alt+R`, `Alt+S`, `Alt+1..8`).
+  - Added immediate persistence and live KWin D-Bus reload (`reconfigureEffect`) on every rule toggle, edit, creation, and deletion.
+
 ## [1.6.0-beta40] - 2026-10-31
 
 ### Changed
