@@ -8230,6 +8230,81 @@ QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
     return OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, topMargin, 12.0, hudRowGap, dividerAfterIndex, 28.0, outDividerRects);
 }
 
+QRectF ActiveWindowOutlineEffect::computeActiveMarkerRectForTargets(
+    const QList<QRectF> &pillRects,
+    const QList<QPair<QChar, EffectWindow *>> &targets,
+    int dividerAfterIndex,
+    int hudPos) const
+{
+    if (pillRects.isEmpty() || targets.isEmpty()) {
+        return QRectF();
+    }
+
+    EffectWindow *currActive = effects ? effects->activeWindow() : m_activeWindow;
+    if (!currActive || currActive->isDeleted()) {
+        return QRectF();
+    }
+
+    const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
+
+    for (int i = 0; i < targets.size(); ++i) {
+        if (targets.at(i).second == currActive) {
+            return QRectF();
+        }
+        if (!m_subLeapActive && cfg.hudGroupWindows && m_groupJumpLetters.contains(targets.at(i).first)) {
+            const auto &winList = m_groupJumpLetters.value(targets.at(i).first);
+            if (winList.contains(currActive)) {
+                return QRectF();
+            }
+        }
+    }
+
+    const auto &history = !m_hudSnapshotHistory.isEmpty() ? m_hudSnapshotHistory : m_windowHistory;
+    auto recencyRank = [&history](EffectWindow *w) -> int {
+        if (!w) return 999999;
+        int idx = history.indexOf(w);
+        return idx >= 0 ? idx : 999999;
+    };
+
+    const bool activeIsLeft = m_stashModeActive ? !isWindowInStash(currActive) : isWindowPinned(currActive);
+    int startIdx = 0;
+    int endIdx = targets.size() - 1;
+
+    if (dividerAfterIndex >= 0) {
+        if (activeIsLeft) {
+            startIdx = 0;
+            endIdx = dividerAfterIndex;
+        } else {
+            startIdx = dividerAfterIndex + 1;
+            endIdx = targets.size() - 1;
+        }
+    }
+
+    int insertIndex = startIdx;
+    const int activeRank = recencyRank(currActive);
+
+    if (startIdx <= endIdx && startIdx >= 0 && endIdx < targets.size()) {
+        bool found = false;
+        for (int k = startIdx; k <= endIdx; ++k) {
+            int targetRank = recencyRank(targets.at(k).second);
+            if (activeRank > targetRank) {
+                insertIndex = k;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            insertIndex = endIdx + 1;
+        }
+    } else if (activeIsLeft) {
+        insertIndex = 0;
+    } else {
+        insertIndex = targets.size();
+    }
+
+    return OutlineBadge::computeActiveMarkerRect(pillRects, insertIndex, hudPos, 12.0, dividerAfterIndex);
+}
+
 QList<QRectF> ActiveWindowOutlineEffect::computeAllHudCollisionRects(
     const QList<QPair<QChar, EffectWindow *>> &targets,
     const RenderViewport &viewport,
@@ -8247,10 +8322,19 @@ QList<QRectF> ActiveWindowOutlineEffect::computeAllHudCollisionRects(
     collisionRects.append(pillRects);
     collisionRects.append(dividerRects);
 
+    const int hudPos = m_badgePreviewActive ? m_previewBadgeHudPosition : m_badgeHudPosition;
+    const QRectF activeMarkerRect = computeActiveMarkerRectForTargets(pillRects, targets, dividerAfterIndex, hudPos);
+    if (activeMarkerRect.isValid() && !activeMarkerRect.isEmpty()) {
+        collisionRects.append(activeMarkerRect);
+    }
+
     // 2. Compute group frames if grouping is off and multiple windows share group letters
     QRectF allPillsBounds;
     for (const QRectF &r : pillRects) {
         allPillsBounds = allPillsBounds.isEmpty() ? r : allPillsBounds.united(r);
+    }
+    if (activeMarkerRect.isValid() && !activeMarkerRect.isEmpty()) {
+        allPillsBounds = allPillsBounds.isEmpty() ? activeMarkerRect : allPillsBounds.united(activeMarkerRect);
     }
 
     if (!cfg.hudGroupWindows && !m_subLeapActive) {
@@ -8347,6 +8431,25 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     };
     QList<PillItem> pills;
 
+    const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
+    EffectWindow *currActive = effects ? effects->activeWindow() : m_activeWindow;
+    int activeDockIndex = -1;
+    if (currActive) {
+        for (int k = 0; k < targets.size(); ++k) {
+            if (targets.at(k).second == currActive) {
+                activeDockIndex = k;
+                break;
+            }
+            if (!m_subLeapActive && cfg.hudGroupWindows && m_groupJumpLetters.contains(targets.at(k).first)) {
+                const auto &winList = m_groupJumpLetters.value(targets.at(k).first);
+                if (winList.contains(currActive)) {
+                    activeDockIndex = k;
+                    break;
+                }
+            }
+        }
+    }
+
     for (int i = 0; i < targets.size(); ++i) {
         const auto &pair = targets.at(i);
         const QChar letter = pair.first;
@@ -8354,8 +8457,6 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         if (!target || target->isDeleted()) {
             continue;
         }
-
-        const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
 
         int groupCount = 0;
         if (!m_subLeapActive && cfg.hudGroupWindows && m_groupJumpLetters.contains(letter)) {
@@ -8417,7 +8518,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             ? captureWindowThumbnail(target, renderTarget, viewport, QSize(cfg.hudThumbnailWidth * 2, cfg.hudThumbnailHeight * 2))
             : QImage();
 
-        const bool isSelected = (m_searchModeActive && i == m_searchSelectedIndex);
+        const bool isSelected = m_searchModeActive ? (i == m_searchSelectedIndex) : (i == activeDockIndex);
         const QImage img = OutlineBadge::renderOffscreenTargetPill(cfg, letter, bgCol, textCol, loc, caption, badgeSize, scale, customLabel,
                                                                    icon, thumbnail, isMarked, recentKey, isRecent, groupCount, isStashed, isPinned, isPlayingAudio, isSelected);
         auto uploaded = GLTexture::upload(img);
@@ -8449,6 +8550,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     const qreal topMargin = (hudPos == 1) ? qMax(24.0, 12.0 + headerH + 12.0) : 24.0;
     QList<QRectF> dividerRects;
     const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, topMargin, 12.0, hudRowGap, dividerAfterIndex, 28.0, &dividerRects);
+    const QRectF activeMarkerRect = computeActiveMarkerRectForTargets(rects, targets, dividerAfterIndex, hudPos);
 
     m_hudTargetPillRects.clear();
     for (int i = 0; i < targets.size() && i < rects.size(); ++i) {
@@ -8681,6 +8783,43 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         divTex->unbind();
     }
 
+    // 4. Render active HUD marker line (if active window is on-screen / not in HUD dock)
+    if (activeMarkerRect.isValid() && !activeMarkerRect.isEmpty()) {
+        const bool isVert = (activeMarkerRect.height() >= activeMarkerRect.width());
+        const QColor markerColor = hudCfg.activeTheme.resolveColor(
+            hudCfg.activeTheme.hudCard.borderActive,
+            hudCfg.activeTheme.resolveColor(QStringLiteral("$borderColor"), QColor(0, 195, 255)));
+
+        const QImage markerImg = OutlineBadge::renderHudActiveMarkerLine(activeMarkerRect.size(), scale, markerColor, isVert);
+        auto markerTex = GLTexture::upload(markerImg);
+        if (markerTex) {
+            markerTex->setFilter(GL_LINEAR);
+            markerTex->setWrapMode(GL_CLAMP_TO_EDGE);
+
+            const float x0 = activeMarkerRect.left() * scale;
+            const float y0 = activeMarkerRect.top() * scale;
+            const float x1 = activeMarkerRect.right() * scale;
+            const float y1 = activeMarkerRect.bottom() * scale;
+
+            const std::array<GLVertex2D, 6> verts = {{
+                {QVector2D(x0, y0), QVector2D(0.0f, 0.0f)},
+                {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+                {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+                {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+                {QVector2D(x1, y1), QVector2D(1.0f, 1.0f)},
+                {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+            }};
+
+            auto vbo = GLVertexBuffer::streamingBuffer();
+            vbo->setVertices(verts);
+
+            shader->setUniform(GLShader::Mat4Uniform::TextureMatrix, markerTex->matrix(NormalizedCoordinates));
+            markerTex->bind();
+            vbo->render(GL_TRIANGLES);
+            markerTex->unbind();
+        }
+    }
+
     if (scissorWasEnabled) {
         glEnable(GL_SCISSOR_TEST);
     }
@@ -8699,6 +8838,9 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         } else {
             allPillsBounds = allPillsBounds.united(r);
         }
+    }
+    if (activeMarkerRect.isValid() && !activeMarkerRect.isEmpty()) {
+        allPillsBounds = allPillsBounds.isEmpty() ? activeMarkerRect : allPillsBounds.united(activeMarkerRect);
     }
     for (const GroupFrameItem &gf : groupFrames) {
         allPillsBounds = allPillsBounds.united(gf.rect);

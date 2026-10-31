@@ -317,6 +317,10 @@ private:
                                               int badgeSize,
                                               const OutlineBadge::BadgeConfig &cfg,
                                               int dividerAfterIndex = -1) const;
+    QRectF computeActiveMarkerRectForTargets(const QList<QRectF> &pillRects,
+                                            const QList<QPair<QChar, EffectWindow *>> &targets,
+                                            int dividerAfterIndex,
+                                            int hudPos) const;
     QRectF computeHudHintBarRect(const RenderViewport &viewport,
                                  const QRectF &pillsBounds = QRectF()) const;
     QRectF renderHudHintBar(const RenderTarget &renderTarget,

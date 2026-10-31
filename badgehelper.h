@@ -1745,7 +1745,8 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         : ((cfg.activeTheme.hudCard.cornerRadius > 0)
             ? (cfg.activeTheme.hudCard.cornerRadius * 1.3 * scale)
             : ((cfg.cornerRadius == 0) ? 0.0 : qMax(1.0, cfg.cornerRadius * 1.3 * scale)));
-    const QRectF pillRect(0.5, 0.5, pillW - 1.0, pillH - 1.0);
+    const qreal penInset = isSelected ? (1.5 * scale) : 0.5;
+    const QRectF pillRect(penInset, penInset, pillW - 2.0 * penInset, pillH - 2.0 * penInset);
     QPainterPath bgPath;
     addThemedShapePath(bgPath, pillRect, cardShape, cornerRadius, cardChamfer * scale);
 
@@ -1827,10 +1828,13 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         pillBg = themeBgActive;
         pillBg.setAlphaF(qBound(0.1, themeBgActive.alphaF() * themeOpacity, 1.0));
         borderColor = themeBorderActive;
+        if (!isMarked && !isPinned) {
+            badgeBg = themeBorderActive;
+        }
     }
 
     p.fillPath(bgPath, pillBg);
-    QPen borderPen(borderColor, (isSelected ? 2.5 : (isPinned ? 2.0 : 1.5)) * scale);
+    QPen borderPen(borderColor, (isSelected ? 3.0 : (isPinned ? 2.0 : 1.5)) * scale);
     if (isStashed && !isSelected) {
         borderPen.setStyle(Qt::CustomDashLine);
         borderPen.setDashPattern({4, 3});
@@ -2171,6 +2175,147 @@ inline QImage renderHudDividerLine(const QSizeF &size, qreal scale, bool isVerti
 
     p.end();
     return img;
+}
+
+inline QImage renderHudActiveMarkerLine(const QSizeF &size, qreal scale, const QColor &accentColor, bool isVertical = true)
+{
+    const int w = qMax(1, qRound(size.width() * scale));
+    const int h = qMax(1, qRound(size.height() * scale));
+    QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+
+    QPainter p(&img);
+    p.setRenderHint(QPainter::Antialiasing, true);
+
+    QColor coreColor = accentColor.isValid() ? accentColor : QColor(0, 195, 255);
+    QColor glowColor = coreColor;
+    glowColor.setAlpha(95);
+    QColor outerGlow = coreColor;
+    outerGlow.setAlpha(40);
+
+    if (isVertical) {
+        const qreal midX = w / 2.0;
+        // Outer soft glow
+        p.setPen(QPen(outerGlow, qMax(4.0, 7.0 * scale), Qt::SolidLine, Qt::RoundCap));
+        p.drawLine(QPointF(midX, 2.0 * scale), QPointF(midX, h - 2.0 * scale));
+
+        // Inner glow
+        p.setPen(QPen(glowColor, qMax(2.5, 4.5 * scale), Qt::SolidLine, Qt::RoundCap));
+        p.drawLine(QPointF(midX, 2.0 * scale), QPointF(midX, h - 2.0 * scale));
+
+        // Core bright line
+        p.setPen(QPen(coreColor, qMax(1.5, 2.5 * scale), Qt::SolidLine, Qt::RoundCap));
+        p.drawLine(QPointF(midX, 2.0 * scale), QPointF(midX, h - 2.0 * scale));
+    } else {
+        const qreal midY = h / 2.0;
+        p.setPen(QPen(outerGlow, qMax(4.0, 7.0 * scale), Qt::SolidLine, Qt::RoundCap));
+        p.drawLine(QPointF(2.0 * scale, midY), QPointF(w - 2.0 * scale, midY));
+
+        p.setPen(QPen(glowColor, qMax(2.5, 4.5 * scale), Qt::SolidLine, Qt::RoundCap));
+        p.drawLine(QPointF(2.0 * scale, midY), QPointF(w - 2.0 * scale, midY));
+
+        p.setPen(QPen(coreColor, qMax(1.5, 2.5 * scale), Qt::SolidLine, Qt::RoundCap));
+        p.drawLine(QPointF(2.0 * scale, midY), QPointF(w - 2.0 * scale, midY));
+    }
+
+    p.end();
+    return img;
+}
+
+inline QRectF computeActiveMarkerRect(const QList<QRectF> &rects,
+                                      int insertIndex,
+                                      int hudPosition = 0,
+                                      qreal gap = 12.0,
+                                      int dividerAfterIndex = -1)
+{
+    if (rects.isEmpty()) {
+        return QRectF();
+    }
+
+    const int clampedPos = qBound(0, hudPosition, 3);
+    const bool isHorizontal = (clampedPos == 0 || clampedPos == 1);
+    const int idx = qBound(0, insertIndex, rects.size());
+
+    if (isHorizontal) {
+        const qreal markerBoxW = 14.0;
+        qreal mx = 0.0;
+        qreal my = 0.0;
+        qreal mh = 0.0;
+
+        if (idx == 0) {
+            const QRectF &first = rects.first();
+            const qreal midX = first.left() - gap;
+            mx = midX - markerBoxW / 2.0;
+            my = first.top() + 3.0;
+            mh = qMax(16.0, first.height() - 6.0);
+        } else if (idx >= rects.size()) {
+            const QRectF &last = rects.last();
+            const qreal midX = last.right() + gap;
+            mx = midX - markerBoxW / 2.0;
+            my = last.top() + 3.0;
+            mh = qMax(16.0, last.height() - 6.0);
+        } else {
+            const QRectF &prev = rects.at(idx - 1);
+            const QRectF &next = rects.at(idx);
+            if (qAbs(prev.top() - next.top()) < 15.0) {
+                // Same row
+                qreal midX = (prev.right() + next.left()) / 2.0;
+                if (dividerAfterIndex == idx - 1) {
+                    midX = (midX + next.left()) / 2.0;
+                }
+                mx = midX - markerBoxW / 2.0;
+                my = qMin(prev.top(), next.top()) + 3.0;
+                mh = qMax(16.0, qMax(prev.height(), next.height()) - 6.0);
+            } else {
+                // Row wrapped: at beginning of next row
+                const qreal midX = next.left() - gap;
+                mx = midX - markerBoxW / 2.0;
+                my = next.top() + 3.0;
+                mh = qMax(16.0, next.height() - 6.0);
+            }
+        }
+        return QRectF(mx, my, markerBoxW, mh);
+    } else {
+        // Vertical layout: 2 = Left, 3 = Right
+        const qreal markerBoxH = 14.0;
+        qreal mx = 0.0;
+        qreal my = 0.0;
+        qreal mw = 0.0;
+
+        if (idx == 0) {
+            const QRectF &first = rects.first();
+            const qreal midY = first.top() - gap;
+            my = midY - markerBoxH / 2.0;
+            mx = first.left() + 3.0;
+            mw = qMax(16.0, first.width() - 6.0);
+        } else if (idx >= rects.size()) {
+            const QRectF &last = rects.last();
+            const qreal midY = last.bottom() + gap;
+            my = midY - markerBoxH / 2.0;
+            mx = last.left() + 3.0;
+            mw = qMax(16.0, last.width() - 6.0);
+        } else {
+            const QRectF &prev = rects.at(idx - 1);
+            const QRectF &next = rects.at(idx);
+            if (qAbs(prev.left() - next.left()) < 15.0) {
+                // Same column
+                qreal midY = (prev.bottom() + next.top()) / 2.0;
+                if (dividerAfterIndex == idx - 1) {
+                    midY = (midY + next.top()) / 2.0;
+                }
+                my = midY - markerBoxH / 2.0;
+                mx = qMin(prev.left(), next.left()) + 3.0;
+                mw = qMax(16.0, qMax(prev.width(), next.width()) - 6.0);
+            } else {
+                // Column wrapped: at top of next col
+                const qreal midY = next.top() - gap;
+                my = midY - markerBoxH / 2.0;
+                mx = next.left() + 3.0;
+                mw = qMax(16.0, next.width() - 6.0);
+            }
+        }
+        return QRectF(mx, my, mw, markerBoxH);
+    }
 }
 
 inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,

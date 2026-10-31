@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta46] - 2026-10-31
+
+### Added
+- **Active Badge Indication and Recency Insertion Marker in HUD Dock**:
+  - **Dock Pill Active Highlighting**: When the active window is present in the HUD dock pills (`activeDockIndex >= 0`), its pill card is rendered with prominent active styling: vibrant `themeBorderActive` stroke (3.0px width), `themeBgActive` card background, and active badge square background (`themeBorderActive`) for immediate visual identification.
+  - **Vertical Recency Insertion Marker Line**: When `BadgeHudIncludeAll` is disabled and the currently active window is on-screen (with its badge floating on the window itself and omitted from the dock pills), a sleek vertical glowing marker line (`renderHudActiveMarkerLine`) is rendered between the dock badges at the exact insertion point where the active window belongs in the recency timeline (from oldest on the left to youngest on the right, respecting pinned and stash partitioning).
+  - Added geometric calculation `OutlineBadge::computeActiveMarkerRect()` and unified collision handling in `computeAllHudCollisionRects()` and `renderOffscreenJumpTargets()`.
+  - Added unit test `testHudActiveMarkerRect` in `tests/hudlayout_test.cpp`.
+
 ## [1.6.0-beta45] - 2026-10-31
 
 ### Fixed

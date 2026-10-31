@@ -266,6 +266,60 @@ void testEmptyHudHeaderAndHintBarSeparation()
     std::cout << "testEmptyHudHeaderAndHintBarSeparation PASSED\n";
 }
 
+void testHudActiveMarkerRect()
+{
+    // 1. Empty rects -> returns invalid/empty QRectF
+    assert(OutlineBadge::computeActiveMarkerRect({}, 0).isEmpty());
+
+    // 2. Horizontal layout: 3 pills
+    const QRectF p0(100, 50, 100, 40);
+    const QRectF p1(212, 50, 100, 40);
+    const QRectF p2(324, 50, 100, 40);
+    const QList<QRectF> rects = {p0, p1, p2};
+
+    // Index 0: Before first pill (to the left of p0)
+    QRectF m0 = OutlineBadge::computeActiveMarkerRect(rects, 0, 0, 12.0);
+    assert(m0.isValid() && !m0.isEmpty());
+    assert(m0.right() <= p0.left());
+    assert(m0.height() > 0);
+
+    // Index 1: Between p0 and p1
+    QRectF m1 = OutlineBadge::computeActiveMarkerRect(rects, 1, 0, 12.0);
+    assert(m1.isValid() && !m1.isEmpty());
+    assert(m1.left() >= p0.right() - 2.0);
+    assert(m1.right() <= p1.left() + 2.0);
+
+    // Index 2: Between p1 and p2
+    QRectF m2 = OutlineBadge::computeActiveMarkerRect(rects, 2, 0, 12.0);
+    assert(m2.isValid() && !m2.isEmpty());
+    assert(m2.left() >= p1.right() - 2.0);
+    assert(m2.right() <= p2.left() + 2.0);
+
+    // Index 3: After last pill (to the right of p2)
+    QRectF m3 = OutlineBadge::computeActiveMarkerRect(rects, 3, 0, 12.0);
+    assert(m3.isValid() && !m3.isEmpty());
+    assert(m3.left() >= p2.right());
+
+    // 3. Vertical layout: 2 pills (Position 2 = Left)
+    const QRectF v0(50, 100, 120, 36);
+    const QRectF v1(50, 148, 120, 36);
+    const QList<QRectF> vRects = {v0, v1};
+
+    // Index 1: Between v0 and v1 vertically
+    QRectF mv1 = OutlineBadge::computeActiveMarkerRect(vRects, 1, 2, 12.0);
+    assert(mv1.isValid() && !mv1.isEmpty());
+    assert(mv1.top() >= v0.bottom() - 2.0);
+    assert(mv1.bottom() <= v1.top() + 2.0);
+
+    // 4. Test renderHudActiveMarkerLine
+    QImage lineImg = OutlineBadge::renderHudActiveMarkerLine(QSizeF(14, 40), 1.0, QColor(0, 195, 255), true);
+    assert(!lineImg.isNull());
+    assert(lineImg.width() == 14);
+    assert(lineImg.height() == 40);
+
+    std::cout << "testHudActiveMarkerRect PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
@@ -277,6 +331,7 @@ int main(int argc, char *argv[])
     testGroupContainerFrames();
     testHudDividerLayout();
     testEmptyHudHeaderAndHintBarSeparation();
+    testHudActiveMarkerRect();
 
     std::cout << "All HUD Layout tests passed successfully!\n";
     return 0;
