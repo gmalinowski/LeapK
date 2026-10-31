@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta36] - 2026-10-31
+
+### Changed
+- **Declutter HUD Bottom Hint Bar**:
+  - Replaced individual `Meta+A`, `Meta+X`, `Meta+P`, `Meta+S`, `Meta+U`, `Meta+T`, and `Meta+M` shortcut pills in the bottom action hint bar with a single clean indicator: `[Hold Meta] Switch mode`.
+  - Added `Meta+M` (Marker Manager) to the modal cheatsheet overlay (`renderHudMetaOverlayImage`).
+
 ## [1.6.0-beta35] - 2026-10-31
 
 ### Added

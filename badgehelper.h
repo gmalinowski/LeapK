@@ -2551,16 +2551,10 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("/"), QStringLiteral("Search"), QColor(0, 195, 255)},
             {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
-            {QStringLiteral("Meta+A"), QStringLiteral("Super Jump"), QColor(0, 195, 255)},
-            {QStringLiteral("Meta+X"), QStringLiteral("Close Mode"), QColor(231, 76, 60)},
-            {QStringLiteral("Meta+P"), QStringLiteral("Pin Mode"), QColor(245, 166, 35)},
-            {QStringLiteral("Meta+S"), QStringLiteral("Stash"), QColor(46, 204, 113)},
-            {QStringLiteral("Meta+U"), QStringLiteral("Audio filter"), QColor(255, 107, 107)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
             {QStringLiteral("Tab"), QStringLiteral("Group"), QColor(155, 89, 182)},
-            {QStringLiteral("Meta+T"), QStringLiteral("Tiling"), QColor(52, 152, 219)},
-            {QStringLiteral("Meta+M"), QStringLiteral("Markers"), QColor(155, 89, 182)},
+            {QStringLiteral("Hold Meta"), QStringLiteral("Switch mode"), QColor(0, 195, 255)},
             {QStringLiteral("Shift++"), QStringLiteral("New workspace"), QColor(52, 152, 219)},
             {QStringLiteral(", / ."), QStringLiteral("Switch"), QColor(52, 152, 219)},
             {QStringLiteral("Esc / ⌫"), QStringLiteral("Close"), QColor(231, 76, 60)}
@@ -3967,7 +3961,8 @@ inline QImage renderHudMetaOverlayImage(qreal scale,
         {QStringLiteral("Meta+X"), QStringLiteral("Close Mode"), QStringLiteral("Batch close windows with red badges"), isCloseMode, QColor(231, 76, 60)},
         {QStringLiteral("Meta+U"), QStringLiteral("Audio Mode"), QStringLiteral("Filter windows actively playing sound"), isAudioMode, QColor(241, 196, 15)},
         {QStringLiteral("Meta+P"), QStringLiteral("Pinning Mode"), QStringLiteral("Pin or unpin windows across workspaces"), isPinMode, QColor(245, 166, 35)},
-        {QStringLiteral("Meta+T"), QStringLiteral("Tiling Presets"), QStringLiteral("Choose tiling layout preset or slot edit"), isTilingPresets, QColor(52, 152, 219)}
+        {QStringLiteral("Meta+T"), QStringLiteral("Tiling Presets"), QStringLiteral("Choose tiling layout preset or slot edit"), isTilingPresets, QColor(52, 152, 219)},
+        {QStringLiteral("Meta+M"), QStringLiteral("Markers Manager"), QStringLiteral("Assign custom colors and labels to windows"), false, QColor(155, 89, 182)}
     };
 
     QFont titleFont(QStringLiteral("sans-serif"));
