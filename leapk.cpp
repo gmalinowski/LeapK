@@ -791,15 +791,15 @@ void ActiveWindowOutlineEffect::initShortcuts()
     QAction *workspaceManagerAction = new QAction(this);
     workspaceManagerAction->setObjectName(QStringLiteral("OpenWorkspaceManager"));
     workspaceManagerAction->setText(QStringLiteral("LeapK: Open Workspace Manager"));
-    KGlobalAccel::self()->setDefaultShortcut(workspaceManagerAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Space));
-    KGlobalAccel::self()->setGlobalShortcut(workspaceManagerAction, QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Space));
+    KGlobalAccel::self()->setDefaultShortcut(workspaceManagerAction, QList<QKeySequence>());
+    KGlobalAccel::self()->setGlobalShortcut(workspaceManagerAction, QKeySequence());
     connect(workspaceManagerAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotOpenWorkspaceManager);
 
     QAction *markerManagerAction = new QAction(this);
     markerManagerAction->setObjectName(QStringLiteral("OpenMarkerManager"));
     markerManagerAction->setText(QStringLiteral("LeapK: Open Marker Manager"));
-    KGlobalAccel::self()->setDefaultShortcut(markerManagerAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_M));
-    KGlobalAccel::self()->setGlobalShortcut(markerManagerAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_M));
+    KGlobalAccel::self()->setDefaultShortcut(markerManagerAction, QList<QKeySequence>());
+    KGlobalAccel::self()->setGlobalShortcut(markerManagerAction, QKeySequence());
     connect(markerManagerAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotOpenMarkerManager);
 
     QAction *toggleGroupAction = new QAction(this);
@@ -6023,6 +6023,17 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
+        if (isMetaOnly && e->key() == Qt::Key_W) {
+            cancelJumpMode();
+            slotOpenWorkspaceManager();
+            return;
+        }
+        if (isMetaOnly && e->key() == Qt::Key_M) {
+            cancelJumpMode();
+            slotOpenMarkerManager();
+            return;
+        }
+
         if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
             if (!m_tilingPresets.isEmpty()) {
                 activateTilingPreset(m_tilingPresets.first());
@@ -6081,6 +6092,17 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         if (isMetaOnly && e->key() == Qt::Key_Q) {
             exitSubLeapMode();
             enterCloseWindowMode();
+            return;
+        }
+
+        if (isMetaOnly && e->key() == Qt::Key_W) {
+            cancelJumpMode();
+            slotOpenWorkspaceManager();
+            return;
+        }
+        if (isMetaOnly && e->key() == Qt::Key_M) {
+            cancelJumpMode();
+            slotOpenMarkerManager();
             return;
         }
 
@@ -6385,6 +6407,17 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
+        if (isMetaOnly && e->key() == Qt::Key_W) {
+            cancelJumpMode();
+            slotOpenWorkspaceManager();
+            return;
+        }
+        if (isMetaOnly && e->key() == Qt::Key_M) {
+            cancelJumpMode();
+            slotOpenMarkerManager();
+            return;
+        }
+
         if (e->key() == Qt::Key_Comma || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char(','))) {
             slotCycleHudView(-1);
             return;
@@ -6510,6 +6543,17 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
+        if (isMetaOnly && e->key() == Qt::Key_W) {
+            cancelJumpMode();
+            slotOpenWorkspaceManager();
+            return;
+        }
+        if (isMetaOnly && e->key() == Qt::Key_M) {
+            cancelJumpMode();
+            slotOpenMarkerManager();
+            return;
+        }
+
         if (e->key() == Qt::Key_Comma || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char(','))) {
             slotCycleHudView(-1);
             return;
@@ -6586,6 +6630,17 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         if (isMetaOnly && e->key() == Qt::Key_U) {
             exitPinMode();
             toggleAudioFilterMode();
+            return;
+        }
+
+        if (isMetaOnly && e->key() == Qt::Key_W) {
+            cancelJumpMode();
+            slotOpenWorkspaceManager();
+            return;
+        }
+        if (isMetaOnly && e->key() == Qt::Key_M) {
+            cancelJumpMode();
+            slotOpenMarkerManager();
             return;
         }
 
@@ -6678,6 +6733,12 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
+    if (isMetaOnly && e->key() == Qt::Key_W) {
+        cancelJumpMode();
+        slotOpenWorkspaceManager();
+        return;
+    }
+
     if (isMetaOnly && e->key() == Qt::Key_M) {
         cancelJumpMode();
         slotOpenMarkerManager();
@@ -6698,26 +6759,6 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('`') || e->text().at(0) == QLatin1Char('~')))) {
         slotCycleHudView(1);
         return;
-    }
-
-    const bool isPlus = (e->key() == Qt::Key_Plus)
-        || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char('+'))
-        || (e->key() == Qt::Key_Equal && isShift);
-
-    if (isPlus || (isMetaOnly && e->key() == Qt::Key_N)) {
-        slotCreateNewWorkspacePrompt();
-        return;
-    }
-
-    const bool isUnderscore = (e->key() == Qt::Key_Underscore)
-        || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('_') || e->text().at(0) == QLatin1Char('-')))
-        || (e->key() == Qt::Key_Minus);
-
-    if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
-        if (isUnderscore || e->key() == Qt::Key_Delete) {
-            slotCloseActiveWorkspace();
-            return;
-        }
     }
 
     bool isRecentKeyMatch = false;

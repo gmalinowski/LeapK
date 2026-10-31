@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta40] - 2026-10-31
+
+### Changed
+- **Removed Workspace Add/Delete Shortcuts from HUD**:
+  - Removed `Shift++` (New workspace) and `_` (Delete workspace) from the bottom action hint bar.
+  - Removed `isPlus` and `isUnderscore` / `Delete` key bindings from HUD keyboard routing in `grabbedKeyboardEvent`.
+- **Added `Meta+W` to HUD Mode Switcher**:
+  - Added `Meta+W` (Workspace Manager) to the Meta-hold cheat sheet overlay (`renderHudMetaOverlayImage`).
+  - Pressing `Meta+W` inside HUD now cleanly closes the HUD and launches the Workspace Manager across all HUD modes (Jump, SubLeap, Stash, Close, Pin, Tiling).
+- **Removed Global Shortcuts for Managers**:
+  - Removed global shortcuts for `OpenWorkspaceManager` and `OpenMarkerManager` in `KGlobalAccel` and `kglobalshortcutsrc`. They are now cleanly launched directly via the HUD Meta switch mode (`Meta+W` and `Meta+M`).
+
 ## [1.6.0-beta39] - 2026-10-31
 
 ### Fixed

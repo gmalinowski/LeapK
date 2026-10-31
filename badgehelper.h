@@ -2466,6 +2466,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
 {
     Q_UNUSED(customViewName);
     Q_UNUSED(customViewColor);
+    Q_UNUSED(activeView);
 
     struct Segment {
         QString key;
@@ -2555,13 +2556,9 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
             {QStringLiteral("Tab"), QStringLiteral("Group"), QColor(155, 89, 182)},
             {QStringLiteral("Hold Meta"), QStringLiteral("Switch mode"), QColor(0, 195, 255)},
-            {QStringLiteral("Shift++"), QStringLiteral("New workspace"), QColor(52, 152, 219)},
             {QStringLiteral(", / ."), QStringLiteral("Switch"), QColor(52, 152, 219)},
             {QStringLiteral("Esc / ␣ / ⌫"), QStringLiteral("Close"), QColor(231, 76, 60)}
         };
-        if (activeView >= 1) {
-            segments.append({QStringLiteral("_"), QStringLiteral("Delete workspace"), QColor(231, 76, 60)});
-        }
     }
 
     const qreal maxW = (maxAllowedWidth > 0.0) ? maxAllowedWidth : (1050.0 * scale);
@@ -3962,6 +3959,7 @@ inline QImage renderHudMetaOverlayImage(qreal scale,
         {QStringLiteral("Meta+U"), QStringLiteral("Audio Mode"), QStringLiteral("Filter windows actively playing sound"), isAudioMode, QColor(241, 196, 15)},
         {QStringLiteral("Meta+P"), QStringLiteral("Pinning Mode"), QStringLiteral("Pin or unpin windows across workspaces"), isPinMode, QColor(245, 166, 35)},
         {QStringLiteral("Meta+T"), QStringLiteral("Tiling Presets"), QStringLiteral("Choose tiling layout preset or slot edit"), isTilingPresets, QColor(52, 152, 219)},
+        {QStringLiteral("Meta+W"), QStringLiteral("Workspace Manager"), QStringLiteral("Create, rename, reorder and delete workspaces"), false, QColor(41, 128, 185)},
         {QStringLiteral("Meta+M"), QStringLiteral("Markers Manager"), QStringLiteral("Assign custom colors and labels to windows"), false, QColor(155, 89, 182)}
     };
 
