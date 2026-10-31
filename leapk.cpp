@@ -840,15 +840,21 @@ void ActiveWindowOutlineEffect::initShortcuts()
     QAction *prevRecentAction = new QAction(this);
     prevRecentAction->setObjectName(QStringLiteral("PrevRecentWindow"));
     prevRecentAction->setText(QStringLiteral("LeapK: Previous Recent Window"));
-    KGlobalAccel::self()->setDefaultShortcut(prevRecentAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Comma));
-    KGlobalAccel::self()->setGlobalShortcut(prevRecentAction, QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Comma));
+    KGlobalAccel::self()->setDefaultShortcut(prevRecentAction, QList<QKeySequence>()
+        << QKeySequence(Qt::META | Qt::Key_Less)
+        << QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Less)
+        << QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Comma));
+    KGlobalAccel::self()->setGlobalShortcut(prevRecentAction, QKeySequence(Qt::META | Qt::Key_Less));
     connect(prevRecentAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotPrevRecentWindow);
 
     QAction *nextRecentAction = new QAction(this);
     nextRecentAction->setObjectName(QStringLiteral("NextRecentWindow"));
     nextRecentAction->setText(QStringLiteral("LeapK: Next Recent Window"));
-    KGlobalAccel::self()->setDefaultShortcut(nextRecentAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Period));
-    KGlobalAccel::self()->setGlobalShortcut(nextRecentAction, QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Period));
+    KGlobalAccel::self()->setDefaultShortcut(nextRecentAction, QList<QKeySequence>()
+        << QKeySequence(Qt::META | Qt::Key_Greater)
+        << QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Greater)
+        << QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Period));
+    KGlobalAccel::self()->setGlobalShortcut(nextRecentAction, QKeySequence(Qt::META | Qt::Key_Greater));
     connect(nextRecentAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotNextRecentWindow);
 
     QAction *tilingAction = new QAction(this);
@@ -5967,12 +5973,19 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     const bool isMetaShift = (mods & (Qt::MetaModifier | Qt::ShiftModifier)) == (Qt::MetaModifier | Qt::ShiftModifier)
         && !(mods & Qt::AltModifier) && !(mods & Qt::ControlModifier);
-    if (isMetaShift && e->key() == Qt::Key_Comma) {
+
+    const bool isPrevHistoryKey = (isMetaShift && (e->key() == Qt::Key_Comma || e->key() == Qt::Key_Less || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('<') || e->text().at(0) == QLatin1Char(',')))))
+        || (isMetaOnly && (e->key() == Qt::Key_Less || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char('<'))));
+
+    const bool isNextHistoryKey = (isMetaShift && (e->key() == Qt::Key_Period || e->key() == Qt::Key_Greater || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('>') || e->text().at(0) == QLatin1Char('.')))))
+        || (isMetaOnly && (e->key() == Qt::Key_Greater || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char('>'))));
+
+    if (isPrevHistoryKey) {
         cancelJumpMode(e->key());
         slotPrevRecentWindow();
         return;
     }
-    if (isMetaShift && e->key() == Qt::Key_Period) {
+    if (isNextHistoryKey) {
         cancelJumpMode(e->key());
         slotNextRecentWindow();
         return;
@@ -7194,10 +7207,24 @@ void ActiveWindowOutlineEffect::slotPrevRecentWindow()
         }
     }
 
-    if (!m_isHistoryNavigating && m_activeWindow && isEligibleOutlineWindow(m_activeWindow)) {
-        m_windowHistory.removeAll(m_activeWindow);
-        m_windowHistory.prepend(m_activeWindow);
-        m_historyNavIndex = 0;
+    if (!m_isHistoryNavigating) {
+        EffectWindow *active = effects ? effects->activeWindow() : m_activeWindow;
+        if (active && isEligibleOutlineWindow(active)) {
+            m_activeWindow = active;
+            m_windowHistory.removeAll(m_activeWindow);
+            m_windowHistory.prepend(m_activeWindow);
+            m_historyNavIndex = 0;
+        }
+    }
+
+    if (m_windowHistory.size() < 2 && effects) {
+        const auto windows = effects->stackingOrder();
+        for (auto it = windows.rbegin(); it != windows.rend(); ++it) {
+            EffectWindow *w = *it;
+            if (w && !w->isDeleted() && isEligibleOutlineWindow(w) && !m_windowHistory.contains(w)) {
+                m_windowHistory.append(w);
+            }
+        }
     }
 
     if (m_windowHistory.size() < 2) {
