@@ -413,6 +413,105 @@ void testHudPreservationOnWorkspaceTilingSwitch()
     std::cout << "testHudPreservationOnWorkspaceTilingSwitch PASSED\n";
 }
 
+void testTilingWorkspaceWindowIsolation()
+{
+    struct MockWindow {
+        QString id;
+        QString appClass;
+        QString caption;
+        int workspaceId = 0; // 0 = standard, 1 = ws1, 2 = ws2
+        bool isMinimized = false;
+        bool isPinned = false;
+        bool isStashed = false;
+        bool isWorkspaceMinimized = false;
+        int desktop = 1;
+    };
+
+    auto isEligibleForWorkspaceTiling = [](const MockWindow &win, int activeHudView, int currentDesktop) -> bool {
+        if (win.isStashed || win.isWorkspaceMinimized || win.isMinimized) {
+            return false;
+        }
+        if (win.desktop != currentDesktop) {
+            return false;
+        }
+        if (activeHudView >= 1) {
+            if (!win.isPinned && win.workspaceId != activeHudView) {
+                return false;
+            }
+        } else if (activeHudView == 0) {
+            if (!win.isPinned && win.workspaceId != 0) {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    // Scenario: User created Workspace 2 with 1 window (W3).
+    // History contains W1, W2 from Workspace 1.
+    MockWindow w1{QStringLiteral("w1"), QStringLiteral("firefox"), QStringLiteral("Web"), 1, true, false, false, true, 1};
+    MockWindow w2{QStringLiteral("w2"), QStringLiteral("dolphin"), QStringLiteral("Files"), 1, true, false, false, true, 1};
+    MockWindow w3{QStringLiteral("w3"), QStringLiteral("kate"), QStringLiteral("Code"), 2, false, false, false, false, 1};
+
+    QList<MockWindow> allWindows = {w1, w2, w3};
+    QList<MockWindow> windowHistory = {w1, w2, w3};
+
+    int activeHudView = 2; // Workspace 2
+    int currentDesktop = 1;
+    const int slotCount = 2; // Two columns
+
+    QList<QString> targetWindows;
+    // 1a. Active window (w3)
+    if (isEligibleForWorkspaceTiling(w3, activeHudView, currentDesktop)) {
+        targetWindows.append(w3.id);
+    }
+
+    // 1b. History
+    for (const auto &w : windowHistory) {
+        if (targetWindows.size() >= slotCount) break;
+        if (isEligibleForWorkspaceTiling(w, activeHudView, currentDesktop) && !targetWindows.contains(w.id)) {
+            targetWindows.append(w.id);
+        }
+    }
+
+    // Assert: Only w3 was selected! w1 and w2 from Workspace 1 were excluded.
+    assert(targetWindows.size() == 1);
+    assert(targetWindows.first() == QStringLiteral("w3"));
+
+    // Tiling slots: Slot 0 gets w3, Slot 1 is EMPTY
+    struct MockTileSlot {
+        QString windowId;
+    };
+    QList<MockTileSlot> tileSlots;
+    for (int i = 0; i < slotCount; ++i) {
+        MockTileSlot s;
+        if (i < targetWindows.size()) {
+            s.windowId = targetWindows[i];
+        }
+        tileSlots.append(s);
+    }
+    assert(tileSlots.size() == 2);
+    assert(tileSlots[0].windowId == QStringLiteral("w3"));
+    assert(tileSlots[1].windowId.isEmpty()); // Slot 1 is empty!
+
+    // Now user launches a new window on Workspace 2 (w4):
+    MockWindow w4{QStringLiteral("w4"), QStringLiteral("konsole"), QStringLiteral("Terminal"), 2, false, false, false, false, 1};
+    int emptySlotIdx = -1;
+    for (int i = 0; i < tileSlots.size(); ++i) {
+        if (tileSlots[i].windowId.isEmpty()) {
+            emptySlotIdx = i;
+            break;
+        }
+    }
+    assert(emptySlotIdx == 1);
+    tileSlots[emptySlotIdx].windowId = w4.id;
+
+    // Both slots now populated without kicking out w3
+    assert(tileSlots[0].windowId == QStringLiteral("w3"));
+    assert(tileSlots[1].windowId == QStringLiteral("w4"));
+
+    std::cout << "testTilingWorkspaceWindowIsolation PASSED\n";
+}
+
 void testResizeSlotGeometries()
 {
     using namespace LeapKTiling;
@@ -570,6 +669,7 @@ int main()
     testTilingWindowRuleConfig();
     testTilingSwapStackingPreservation();
     testHudPreservationOnWorkspaceTilingSwitch();
+    testTilingWorkspaceWindowIsolation();
     testResizeSlotGeometries();
 
     std::cout << "All LeapKTiling tests passed successfully!\n";

@@ -1539,6 +1539,56 @@ void ActiveWindowOutlineEffect::slotWindowAdded(EffectWindow *w)
             }
         }
     }
+
+    if (m_tilingActive && isEligibleOutlineWindow(w) && !w->isSkipSwitcher() && w->acceptsFocus() && !isBlockingPopup(w)) {
+        VirtualDesktop *currentDesktop = effects ? effects->currentDesktop() : nullptr;
+        bool onDesk = !currentDesktop || w->isOnDesktop(currentDesktop);
+        bool matchesWs = true;
+        if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
+            const int wWs = findWorkspaceForWindow(w);
+            if (wWs != 0 && wWs != m_activeHudView) {
+                matchesWs = false;
+            }
+        }
+        if (onDesk && matchesWs && !m_stashedWindows.contains(w) && !m_workspaceMinimizedWindows.contains(w)) {
+            int emptyIdx = -1;
+            for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
+                if (!m_activeTilingSlots[i].window || m_activeTilingSlots[i].window->isDeleted()) {
+                    emptyIdx = i;
+                    break;
+                }
+            }
+            if (emptyIdx >= 0) {
+                m_activeTilingSlots[emptyIdx].window = w;
+                if (!m_preTilingGeometries.contains(w)) {
+                    m_preTilingGeometries.insert(w, w->frameGeometry());
+                }
+                QPointer<EffectWindow> pw(w);
+                const QRectF slotGeo = m_activeTilingSlots[emptyIdx].geometry;
+                QTimer::singleShot(80, this, [this, pw, slotGeo, emptyIdx]() {
+                    if (pw && !pw->isDeleted() && pw->window()) {
+                        LogicalOutput *activeOutput = effects ? effects->activeScreen() : nullptr;
+                        VirtualDesktop *curDesk = effects ? effects->currentDesktop() : nullptr;
+                        TileManager *tileMgr = (workspace() && activeOutput) ? workspace()->tileManager(activeOutput) : nullptr;
+                        RootTile *rootTile = (tileMgr && curDesk) ? tileMgr->rootTile(curDesk) : nullptr;
+                        if (rootTile) {
+                            QList<Tile *> leafTiles;
+                            for (Tile *t : rootTile->descendants()) {
+                                if (!t->isLayout()) {
+                                    leafTiles.append(t);
+                                }
+                            }
+                            if (emptyIdx < leafTiles.size()) {
+                                leafTiles[emptyIdx]->manage(pw->window());
+                            }
+                        }
+                        pw->window()->evaluateWindowRules();
+                        pw->window()->moveResize(slotGeo);
+                    }
+                });
+            }
+        }
+    }
 }
 
 bool ActiveWindowOutlineEffect::isEligibleOutlineWindow(EffectWindow *w) const
@@ -8075,42 +8125,59 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
         return;
     }
 
-    // 1. Select windows ONLY from the current virtual desktop (Fixes Item 4)
+    // 1. Select windows ONLY from the current virtual desktop and workspace
     QList<EffectWindow *> targetWindows;
     VirtualDesktop *currentDesktop = effects ? effects->currentDesktop() : nullptr;
 
-    auto isEligibleOnCurrentDesktop = [this, currentDesktop](EffectWindow *win) -> bool {
+    auto isEligibleForCurrentWorkspaceTiling = [this, currentDesktop](EffectWindow *win) -> bool {
         if (!win || win->isDeleted() || !isEligibleOutlineWindow(win)) {
             return false;
         }
-        if (m_stashedWindows.contains(win)) {
+        if (m_stashedWindows.contains(win) || m_workspaceMinimizedWindows.contains(win)) {
             return false;
         }
-        if (win->isSkipSwitcher() || !win->acceptsFocus()) {
+        if (win->isMinimized() || win->isSkipSwitcher() || !win->acceptsFocus() || isBlockingPopup(win)) {
             return false;
         }
         if (currentDesktop && !win->isOnDesktop(currentDesktop)) {
             return false;
         }
+
+        // Workspace isolation: only windows belonging to the active workspace (or pinned across all workspaces)
+        if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
+            if (!m_pinnedWindows.contains(win)) {
+                const auto &ws = m_workspaces.at(m_activeHudView - 1);
+                const auto desktops = win->desktops();
+                const int dNum = (!desktops.isEmpty() && !win->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+                if (!LeapKWorkspace::matchesWorkspace(ws, win->windowClass(), win->caption(), dNum)) {
+                    return false;
+                }
+            }
+        } else if (m_activeHudView == 0) {
+            // Standard view: exclude windows assigned to named workspaces
+            if (!m_pinnedWindows.contains(win) && findWorkspaceForWindow(win) != 0) {
+                return false;
+            }
+        }
         return true;
     };
 
-    // 1a. First priority: active window, if on current desktop
-    if (m_activeWindow && isEligibleOnCurrentDesktop(m_activeWindow)) {
+    // 1a. First priority: active window, if on current desktop and workspace
+    if (m_activeWindow && isEligibleForCurrentWorkspaceTiling(m_activeWindow)) {
         targetWindows.append(m_activeWindow);
     }
 
-    // 1b. Second priority: windows from m_windowHistory that are ON THE CURRENT DESKTOP
+    // 1b. Second priority: windows from m_windowHistory that belong to the CURRENT WORKSPACE
     for (EffectWindow *w : m_windowHistory) {
         if (targetWindows.size() >= slotCount) {
             break;
         }
-        if (isEligibleOnCurrentDesktop(w) && !targetWindows.contains(w)) {
+        if (isEligibleForCurrentWorkspaceTiling(w) && !targetWindows.contains(w)) {
             targetWindows.append(w);
         }
     }
 
-    // 1c. Third priority: remaining windows on the CURRENT DESKTOP from stackingOrder (top-to-bottom)
+    // 1c. Third priority: remaining windows on the CURRENT WORKSPACE from stackingOrder (top-to-bottom)
     if (targetWindows.size() < slotCount && effects) {
         const auto stacking = effects->stackingOrder();
         for (auto it = stacking.rbegin(); it != stacking.rend(); ++it) {
@@ -8118,7 +8185,7 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
                 break;
             }
             EffectWindow *w = *it;
-            if (isEligibleOnCurrentDesktop(w) && !targetWindows.contains(w)) {
+            if (isEligibleForCurrentWorkspaceTiling(w) && !targetWindows.contains(w)) {
                 targetWindows.append(w);
             }
         }
@@ -8406,20 +8473,25 @@ void ActiveWindowOutlineEffect::performTilingSwap(EffectWindow *target)
     ensureTilingNoMinSizeRule();
 
     // 2. Target is OUTSIDE of tiling (background / minimized / stash):
-    // SWAP it into the currently active tile slot!
-    int activeSlotIdx = findTileSlotIndexForWindow(m_activeWindow);
-    if (activeSlotIdx < 0 || activeSlotIdx >= m_activeTilingSlots.size()) {
-        activeSlotIdx = 0;
-        for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
-            if (!m_activeTilingSlots[i].window || m_activeTilingSlots[i].window->isDeleted()) {
-                activeSlotIdx = i;
-                break;
-            }
+    // If there is an empty tile slot, populate it first without displacing existing tiled windows!
+    // Otherwise, swap it into the currently active tile slot.
+    int targetSlotIdx = -1;
+    for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
+        if (!m_activeTilingSlots[i].window || m_activeTilingSlots[i].window->isDeleted()) {
+            targetSlotIdx = i;
+            break;
         }
     }
 
-    EffectWindow *previousWin = m_activeTilingSlots[activeSlotIdx].window.data();
-    m_activeTilingSlots[activeSlotIdx].window = target;
+    if (targetSlotIdx < 0) {
+        targetSlotIdx = findTileSlotIndexForWindow(m_activeWindow);
+        if (targetSlotIdx < 0 || targetSlotIdx >= m_activeTilingSlots.size()) {
+            targetSlotIdx = 0;
+        }
+    }
+
+    EffectWindow *previousWin = m_activeTilingSlots[targetSlotIdx].window.data();
+    m_activeTilingSlots[targetSlotIdx].window = target;
 
     // Save target's original geometry before tiling if not already saved
     if (!m_preTilingGeometries.contains(target)) {
@@ -8455,8 +8527,8 @@ void ActiveWindowOutlineEffect::performTilingSwap(EffectWindow *target)
         }
     }
 
-    // Place target into active slot
-    const QRectF slotGeo = m_activeTilingSlots[activeSlotIdx].geometry;
+    // Place target into target slot
+    const QRectF slotGeo = m_activeTilingSlots[targetSlotIdx].geometry;
     if (target->isMinimized()) {
         target->setMinimized(false);
     }
@@ -8477,8 +8549,8 @@ void ActiveWindowOutlineEffect::performTilingSwap(EffectWindow *target)
                     leafTiles.append(t);
                 }
             }
-            if (activeSlotIdx < leafTiles.size()) {
-                leafTiles[activeSlotIdx]->manage(target->window());
+            if (targetSlotIdx < leafTiles.size()) {
+                leafTiles[targetSlotIdx]->manage(target->window());
             }
         }
 

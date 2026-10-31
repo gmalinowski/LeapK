@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta34] - 2026-10-31
+
+### Fixed
+- **Tiling Slot Window Isolation Across Workspaces**:
+  - In `activateTilingPreset`, replaced broad desktop eligibility with strict workspace-aware qualification (`isEligibleForCurrentWorkspaceTiling`).
+  - Prohibited pulling in windows from other workspaces via `m_windowHistory` (recents) or `effects->stackingOrder()`.
+  - Windows minimized by workspace view isolation (`m_workspaceMinimizedWindows`) and user-minimized windows are now strictly excluded from automatic tiling population.
+  - When a workspace contains fewer windows than slots in the preset (e.g. 1 window in a 2-slot or 3-slot layout), only the current workspace's windows are placed, leaving remaining slots empty without dragging in foreign windows.
+  - In `performTilingSwap`, added empty slot detection: bringing in a background or unmanaged window now populates an empty slot first instead of displacing the active window.
+  - In `slotWindowAdded`, newly launched windows on a tiled workspace automatically occupy the first available empty slot and resize to its geometry.
+  - Added unit test `testTilingWorkspaceWindowIsolation` in `tests/tiling_test.cpp` to verify workspace window boundary isolation and empty slot handling.
+
 ## [1.6.0-beta33] - 2026-10-31
 
 ### Fixed
