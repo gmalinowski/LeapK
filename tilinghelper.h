@@ -250,6 +250,7 @@ inline bool resizeSlotGeometries(QList<QRectF> &geometries, int activeIdx, Resiz
     }
 
     const QRectF cur = geometries[activeIdx];
+    const qreal tol = 5.0;
 
     auto verticalOverlap = [](const QRectF &a, const QRectF &b) -> bool {
         return qMax(a.top(), b.top()) < qMin(a.bottom(), b.bottom()) - 2.0;
@@ -259,209 +260,297 @@ inline bool resizeSlotGeometries(QList<QRectF> &geometries, int activeIdx, Resiz
         return qMax(a.left(), b.left()) < qMin(a.right(), b.right()) - 2.0;
     };
 
-    if (dir == ResizeDirection::Left) {
-        // Find neighbor immediately to the left
-        int leftNeighbor = -1;
-        qreal bestDist = 999999.0;
+    if (dir == ResizeDirection::Left || dir == ResizeDirection::Right) {
+        // Find candidate vertical dividers (divL is right edge of left group, divR is left edge of right group)
+
+        // 1. Divider to the right of cur (cur is in left group)
+        bool hasRightDivider = false;
+        qreal rightDivL = cur.right();
+        qreal rightDivR = 0.0;
+        qreal bestRightGap = 999999.0;
         for (int i = 0; i < geometries.size(); ++i) {
             if (i == activeIdx) continue;
             const QRectF &other = geometries[i];
-            if (verticalOverlap(cur, other) && other.right() <= cur.left() + 5.0) {
-                qreal dist = cur.left() - other.right();
-                if (dist >= -5.0 && dist < bestDist) {
-                    bestDist = dist;
-                    leftNeighbor = i;
-                }
-            }
-        }
-
-        if (leftNeighbor >= 0) {
-            qreal effectiveDelta = qMin(delta, geometries[leftNeighbor].width() - minSize);
-            if (effectiveDelta > 1.0) {
-                geometries[leftNeighbor].setRight(geometries[leftNeighbor].right() - effectiveDelta);
-                geometries[activeIdx].setLeft(geometries[activeIdx].left() - effectiveDelta);
-                return true;
-            }
-            return false;
-        }
-
-        // Active is at left edge: shrink active from right, expand right neighbor
-        int rightNeighbor = -1;
-        bestDist = 999999.0;
-        for (int i = 0; i < geometries.size(); ++i) {
-            if (i == activeIdx) continue;
-            const QRectF &other = geometries[i];
-            if (verticalOverlap(cur, other) && other.left() >= cur.right() - 5.0) {
+            if (verticalOverlap(cur, other) && other.left() >= cur.right() - tol) {
                 qreal dist = other.left() - cur.right();
-                if (dist >= -5.0 && dist < bestDist) {
-                    bestDist = dist;
-                    rightNeighbor = i;
+                if (dist >= -tol && dist < bestRightGap) {
+                    bestRightGap = dist;
+                    hasRightDivider = true;
                 }
             }
         }
-
-        if (rightNeighbor >= 0) {
-            qreal effectiveDelta = qMin(delta, geometries[activeIdx].width() - minSize);
-            if (effectiveDelta > 1.0) {
-                geometries[activeIdx].setRight(geometries[activeIdx].right() - effectiveDelta);
-                geometries[rightNeighbor].setLeft(geometries[rightNeighbor].left() - effectiveDelta);
-                return true;
-            }
-            return false;
+        if (hasRightDivider) {
+            rightDivR = cur.right() + bestRightGap;
         }
-    } else if (dir == ResizeDirection::Right) {
-        // Find neighbor immediately to the right
-        int rightNeighbor = -1;
-        qreal bestDist = 999999.0;
+
+        // 2. Divider to the left of cur (cur is in right group)
+        bool hasLeftDivider = false;
+        qreal leftDivR = cur.left();
+        qreal leftDivL = 0.0;
+        qreal bestLeftGap = 999999.0;
         for (int i = 0; i < geometries.size(); ++i) {
             if (i == activeIdx) continue;
             const QRectF &other = geometries[i];
-            if (verticalOverlap(cur, other) && other.left() >= cur.right() - 5.0) {
-                qreal dist = other.left() - cur.right();
-                if (dist >= -5.0 && dist < bestDist) {
-                    bestDist = dist;
-                    rightNeighbor = i;
-                }
-            }
-        }
-
-        if (rightNeighbor >= 0) {
-            qreal effectiveDelta = qMin(delta, geometries[rightNeighbor].width() - minSize);
-            if (effectiveDelta > 1.0) {
-                geometries[activeIdx].setRight(geometries[activeIdx].right() + effectiveDelta);
-                geometries[rightNeighbor].setLeft(geometries[rightNeighbor].left() + effectiveDelta);
-                return true;
-            }
-            return false;
-        }
-
-        // Active is at right edge: shrink active from left, expand left neighbor
-        int leftNeighbor = -1;
-        bestDist = 999999.0;
-        for (int i = 0; i < geometries.size(); ++i) {
-            if (i == activeIdx) continue;
-            const QRectF &other = geometries[i];
-            if (verticalOverlap(cur, other) && other.right() <= cur.left() + 5.0) {
+            if (verticalOverlap(cur, other) && other.right() <= cur.left() + tol) {
                 qreal dist = cur.left() - other.right();
-                if (dist >= -5.0 && dist < bestDist) {
-                    bestDist = dist;
-                    leftNeighbor = i;
+                if (dist >= -tol && dist < bestLeftGap) {
+                    bestLeftGap = dist;
+                    hasLeftDivider = true;
+                }
+            }
+        }
+        if (hasLeftDivider) {
+            leftDivL = cur.left() - bestLeftGap;
+        }
+
+        // Determine which divider to use and direction of shift
+        // shiftSign: +1 means shift divider right (+X), -1 means shift divider left (-X)
+        qreal chosenDivL = 0.0;
+        qreal chosenDivR = 0.0;
+        int shiftSign = 0;
+
+        if (dir == ResizeDirection::Right) {
+            if (hasRightDivider) {
+                chosenDivL = rightDivL;
+                chosenDivR = rightDivR;
+                shiftSign = +1;
+            } else if (hasLeftDivider) {
+                chosenDivL = leftDivL;
+                chosenDivR = leftDivR;
+                shiftSign = +1;
+            }
+        } else { // ResizeDirection::Left
+            if (hasLeftDivider) {
+                chosenDivL = leftDivL;
+                chosenDivR = leftDivR;
+                shiftSign = -1;
+            } else if (hasRightDivider) {
+                chosenDivL = rightDivL;
+                chosenDivR = rightDivR;
+                shiftSign = -1;
+            }
+        }
+
+        if (shiftSign == 0) {
+            return false;
+        }
+
+        // Collect Group L (right edge at chosenDivL) and Group R (left edge at chosenDivR)
+        QList<int> groupL;
+        QList<int> groupR;
+        for (int i = 0; i < geometries.size(); ++i) {
+            if (qAbs(geometries[i].right() - chosenDivL) <= tol) {
+                groupL.append(i);
+            }
+            if (qAbs(geometries[i].left() - chosenDivR) <= tol) {
+                groupR.append(i);
+            }
+        }
+
+        // Filter groupL to only those that overlap vertically with at least one in groupR
+        // and groupR to only those that overlap vertically with at least one in groupL
+        QList<int> filteredL;
+        for (int l : groupL) {
+            for (int r : groupR) {
+                if (verticalOverlap(geometries[l], geometries[r])) {
+                    filteredL.append(l);
+                    break;
+                }
+            }
+        }
+        QList<int> filteredR;
+        for (int r : groupR) {
+            for (int l : groupL) {
+                if (verticalOverlap(geometries[l], geometries[r])) {
+                    filteredR.append(r);
+                    break;
                 }
             }
         }
 
-        if (leftNeighbor >= 0) {
-            qreal effectiveDelta = qMin(delta, geometries[activeIdx].width() - minSize);
-            if (effectiveDelta > 1.0) {
-                geometries[leftNeighbor].setRight(geometries[leftNeighbor].right() + effectiveDelta);
-                geometries[activeIdx].setLeft(geometries[activeIdx].left() + effectiveDelta);
-                return true;
-            }
+        if (filteredL.isEmpty() || filteredR.isEmpty()) {
             return false;
         }
-    } else if (dir == ResizeDirection::Up) {
-        // Find neighbor immediately above
-        int topNeighbor = -1;
-        qreal bestDist = 999999.0;
-        for (int i = 0; i < geometries.size(); ++i) {
-            if (i == activeIdx) continue;
-            const QRectF &other = geometries[i];
-            if (horizontalOverlap(cur, other) && other.bottom() <= cur.top() + 5.0) {
-                qreal dist = cur.top() - other.bottom();
-                if (dist >= -5.0 && dist < bestDist) {
-                    bestDist = dist;
-                    topNeighbor = i;
+
+        if (shiftSign > 0) {
+            // Divider moves right: Group L expands, Group R shrinks
+            qreal effectiveDelta = delta;
+            for (int r : filteredR) {
+                effectiveDelta = qMin(effectiveDelta, geometries[r].width() - minSize);
+            }
+            if (effectiveDelta > 1.0) {
+                for (int l : filteredL) {
+                    geometries[l].setRight(geometries[l].right() + effectiveDelta);
                 }
+                for (int r : filteredR) {
+                    geometries[r].setLeft(geometries[r].left() + effectiveDelta);
+                }
+                return true;
             }
-        }
-
-        if (topNeighbor >= 0) {
-            qreal effectiveDelta = qMin(delta, geometries[topNeighbor].height() - minSize);
+            return false;
+        } else {
+            // Divider moves left: Group L shrinks, Group R expands
+            qreal effectiveDelta = delta;
+            for (int l : filteredL) {
+                effectiveDelta = qMin(effectiveDelta, geometries[l].width() - minSize);
+            }
             if (effectiveDelta > 1.0) {
-                geometries[topNeighbor].setBottom(geometries[topNeighbor].bottom() - effectiveDelta);
-                geometries[activeIdx].setTop(geometries[activeIdx].top() - effectiveDelta);
+                for (int l : filteredL) {
+                    geometries[l].setRight(geometries[l].right() - effectiveDelta);
+                }
+                for (int r : filteredR) {
+                    geometries[r].setLeft(geometries[r].left() - effectiveDelta);
+                }
                 return true;
             }
             return false;
         }
+    } else { // Up or Down
+        // Find candidate horizontal dividers (divT is bottom edge of top group, divB is top edge of bottom group)
 
-        // Active is at top edge: shrink active from bottom, expand bottom neighbor
-        int bottomNeighbor = -1;
-        bestDist = 999999.0;
+        // 1. Divider below cur (cur is in top group)
+        bool hasBottomDivider = false;
+        qreal bottomDivT = cur.bottom();
+        qreal bottomDivB = 0.0;
+        qreal bestBottomGap = 999999.0;
         for (int i = 0; i < geometries.size(); ++i) {
             if (i == activeIdx) continue;
             const QRectF &other = geometries[i];
-            if (horizontalOverlap(cur, other) && other.top() >= cur.bottom() - 5.0) {
+            if (horizontalOverlap(cur, other) && other.top() >= cur.bottom() - tol) {
                 qreal dist = other.top() - cur.bottom();
-                if (dist >= -5.0 && dist < bestDist) {
-                    bestDist = dist;
-                    bottomNeighbor = i;
+                if (dist >= -tol && dist < bestBottomGap) {
+                    bestBottomGap = dist;
+                    hasBottomDivider = true;
                 }
             }
         }
-
-        if (bottomNeighbor >= 0) {
-            qreal effectiveDelta = qMin(delta, geometries[activeIdx].height() - minSize);
-            if (effectiveDelta > 1.0) {
-                geometries[activeIdx].setBottom(geometries[activeIdx].bottom() - effectiveDelta);
-                geometries[bottomNeighbor].setTop(geometries[bottomNeighbor].top() - effectiveDelta);
-                return true;
-            }
-            return false;
+        if (hasBottomDivider) {
+            bottomDivB = cur.bottom() + bestBottomGap;
         }
-    } else if (dir == ResizeDirection::Down) {
-        // Find neighbor immediately below
-        int bottomNeighbor = -1;
-        qreal bestDist = 999999.0;
+
+        // 2. Divider above cur (cur is in bottom group)
+        bool hasTopDivider = false;
+        qreal topDivB = cur.top();
+        qreal topDivT = 0.0;
+        qreal bestTopGap = 999999.0;
         for (int i = 0; i < geometries.size(); ++i) {
             if (i == activeIdx) continue;
             const QRectF &other = geometries[i];
-            if (horizontalOverlap(cur, other) && other.top() >= cur.bottom() - 5.0) {
-                qreal dist = other.top() - cur.bottom();
-                if (dist >= -5.0 && dist < bestDist) {
-                    bestDist = dist;
-                    bottomNeighbor = i;
-                }
-            }
-        }
-
-        if (bottomNeighbor >= 0) {
-            qreal effectiveDelta = qMin(delta, geometries[bottomNeighbor].height() - minSize);
-            if (effectiveDelta > 1.0) {
-                geometries[activeIdx].setBottom(geometries[activeIdx].bottom() + effectiveDelta);
-                geometries[bottomNeighbor].setTop(geometries[bottomNeighbor].top() + effectiveDelta);
-                return true;
-            }
-            return false;
-        }
-
-        // Active is at bottom edge: shrink active from top, expand top neighbor
-        int topNeighbor = -1;
-        bestDist = 999999.0;
-        for (int i = 0; i < geometries.size(); ++i) {
-            if (i == activeIdx) continue;
-            const QRectF &other = geometries[i];
-            if (horizontalOverlap(cur, other) && other.bottom() <= cur.top() + 5.0) {
+            if (horizontalOverlap(cur, other) && other.bottom() <= cur.top() + tol) {
                 qreal dist = cur.top() - other.bottom();
-                if (dist >= -5.0 && dist < bestDist) {
-                    bestDist = dist;
-                    topNeighbor = i;
+                if (dist >= -tol && dist < bestTopGap) {
+                    bestTopGap = dist;
+                    hasTopDivider = true;
+                }
+            }
+        }
+        if (hasTopDivider) {
+            topDivT = cur.top() - bestTopGap;
+        }
+
+        // Determine which divider to use and direction of shift
+        // shiftSign: +1 means shift divider down (+Y), -1 means shift divider up (-Y)
+        qreal chosenDivT = 0.0;
+        qreal chosenDivB = 0.0;
+        int shiftSign = 0;
+
+        if (dir == ResizeDirection::Down) {
+            if (hasBottomDivider) {
+                chosenDivT = bottomDivT;
+                chosenDivB = bottomDivB;
+                shiftSign = +1;
+            } else if (hasTopDivider) {
+                chosenDivT = topDivT;
+                chosenDivB = topDivB;
+                shiftSign = +1;
+            }
+        } else { // ResizeDirection::Up
+            if (hasTopDivider) {
+                chosenDivT = topDivT;
+                chosenDivB = topDivB;
+                shiftSign = -1;
+            } else if (hasBottomDivider) {
+                chosenDivT = bottomDivT;
+                chosenDivB = bottomDivB;
+                shiftSign = -1;
+            }
+        }
+
+        if (shiftSign == 0) {
+            return false;
+        }
+
+        // Collect Group T (bottom edge at chosenDivT) and Group B (top edge at chosenDivB)
+        QList<int> groupT;
+        QList<int> groupB;
+        for (int i = 0; i < geometries.size(); ++i) {
+            if (qAbs(geometries[i].bottom() - chosenDivT) <= tol) {
+                groupT.append(i);
+            }
+            if (qAbs(geometries[i].top() - chosenDivB) <= tol) {
+                groupB.append(i);
+            }
+        }
+
+        // Filter groupT to only those that overlap horizontally with at least one in groupB
+        // and groupB to only those that overlap horizontally with at least one in groupT
+        QList<int> filteredT;
+        for (int t : groupT) {
+            for (int b : groupB) {
+                if (horizontalOverlap(geometries[t], geometries[b])) {
+                    filteredT.append(t);
+                    break;
+                }
+            }
+        }
+        QList<int> filteredB;
+        for (int b : groupB) {
+            for (int t : groupT) {
+                if (horizontalOverlap(geometries[t], geometries[b])) {
+                    filteredB.append(b);
+                    break;
                 }
             }
         }
 
-        if (topNeighbor >= 0) {
-            qreal effectiveDelta = qMin(delta, geometries[activeIdx].height() - minSize);
+        if (filteredT.isEmpty() || filteredB.isEmpty()) {
+            return false;
+        }
+
+        if (shiftSign > 0) {
+            // Divider moves down: Group T expands, Group B shrinks
+            qreal effectiveDelta = delta;
+            for (int b : filteredB) {
+                effectiveDelta = qMin(effectiveDelta, geometries[b].height() - minSize);
+            }
             if (effectiveDelta > 1.0) {
-                geometries[topNeighbor].setBottom(geometries[topNeighbor].bottom() + effectiveDelta);
-                geometries[activeIdx].setTop(geometries[activeIdx].top() + effectiveDelta);
+                for (int t : filteredT) {
+                    geometries[t].setBottom(geometries[t].bottom() + effectiveDelta);
+                }
+                for (int b : filteredB) {
+                    geometries[b].setTop(geometries[b].top() + effectiveDelta);
+                }
+                return true;
+            }
+            return false;
+        } else {
+            // Divider moves up: Group T shrinks, Group B expands
+            qreal effectiveDelta = delta;
+            for (int t : filteredT) {
+                effectiveDelta = qMin(effectiveDelta, geometries[t].height() - minSize);
+            }
+            if (effectiveDelta > 1.0) {
+                for (int t : filteredT) {
+                    geometries[t].setBottom(geometries[t].bottom() - effectiveDelta);
+                }
+                for (int b : filteredB) {
+                    geometries[b].setTop(geometries[b].top() - effectiveDelta);
+                }
                 return true;
             }
             return false;
         }
     }
-
-    return false;
 }
 
 inline QJsonObject toKdeJson(const TilingPreset &preset)

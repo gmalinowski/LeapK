@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta33] - 2026-10-31
+
+### Fixed
+- **Synchronous Resizing Across Stacked and Grid Tile Slots**:
+  - In `resizeSlotGeometries` (`tilinghelper.h`), replaced the single-neighbor lookup with a boundary divider algorithm that groups all aligned slots sharing the boundary.
+  - When resizing a column divider (e.g. Master & Stack with 1 Master left, 2 Stack windows right), adjusting the Master slot now resizes BOTH stacked slots (Top and Bottom) in unison without leaving the bottom slot misaligned.
+  - Symmetrically, resizing from any window in the stack adjusts the entire stack column against the Master slot, maintaining straight vertical column boundaries and identical gap spacing.
+  - Added multi-slot divider support for 2x2 Quad Grid and multi-column layouts, moving shared row and column dividers synchronously across all intersecting slots.
+  - Extended unit tests in `tests/tiling_test.cpp` (`testResizeSlotGeometries`) to verify multi-slot synchronization in Master & Stack and 2x2 Quad Grid across left/right/up/down resize directions.
+
 ## [1.6.0-beta32] - 2026-10-31
 
 ### Added

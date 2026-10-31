@@ -473,6 +473,90 @@ void testResizeSlotGeometries()
         assert(qAbs(tileGeos[1].height() - 500.0) < 0.001);
     }
 
+    // Test 3: Master & Stack horizontal divider (both stack slots adjust in unison)
+    {
+        QList<QRectF> tileGeos = {
+            QRectF(10, 10, 1140, 1060),       // Slot 0: Master (Left)
+            QRectF(1160, 10, 750, 520),       // Slot 1: Top Right Stack
+            QRectF(1160, 540, 750, 530)       // Slot 2: Bottom Right Stack
+        };
+
+        // Resize Slot 0 (Master) to the Right by 100px:
+        // Slot 0 grows right (+100px), BOTH Slot 1 and Slot 2 must shrink on left (+100px)
+        bool ok = resizeSlotGeometries(tileGeos, 0, ResizeDirection::Right, 100.0, 100.0);
+        assert(ok);
+        assert(qAbs(tileGeos[0].width() - 1240.0) < 0.001);
+        assert(qAbs(tileGeos[1].left() - 1260.0) < 0.001);
+        assert(qAbs(tileGeos[2].left() - 1260.0) < 0.001);
+        assert(qAbs(tileGeos[1].width() - 650.0) < 0.001);
+        assert(qAbs(tileGeos[2].width() - 650.0) < 0.001);
+        assert(qAbs(tileGeos[1].left() - tileGeos[0].right() - 10.0) < 0.001);
+        assert(qAbs(tileGeos[2].left() - tileGeos[0].right() - 10.0) < 0.001);
+
+        // Resize Slot 0 (Master) to the Left by 100px:
+        // Slot 0 shrinks left (-100px), BOTH Slot 1 and Slot 2 expand left (-100px)
+        ok = resizeSlotGeometries(tileGeos, 0, ResizeDirection::Left, 100.0, 100.0);
+        assert(ok);
+        assert(qAbs(tileGeos[0].width() - 1140.0) < 0.001);
+        assert(qAbs(tileGeos[1].left() - 1160.0) < 0.001);
+        assert(qAbs(tileGeos[2].left() - 1160.0) < 0.001);
+        assert(qAbs(tileGeos[1].width() - 750.0) < 0.001);
+        assert(qAbs(tileGeos[2].width() - 750.0) < 0.001);
+
+        // Resize from Slot 2 (Stack Bottom) to the Left by 60px:
+        // Slot 0 shrinks (-60px), BOTH Slot 1 and Slot 2 expand left (-60px)
+        ok = resizeSlotGeometries(tileGeos, 2, ResizeDirection::Left, 60.0, 100.0);
+        assert(ok);
+        assert(qAbs(tileGeos[0].width() - 1080.0) < 0.001);
+        assert(qAbs(tileGeos[1].left() - 1100.0) < 0.001);
+        assert(qAbs(tileGeos[2].left() - 1100.0) < 0.001);
+        assert(qAbs(tileGeos[1].width() - 810.0) < 0.001);
+        assert(qAbs(tileGeos[2].width() - 810.0) < 0.001);
+
+        // Resize from Slot 1 (Stack Top) to the Right by 60px:
+        // Slot 0 expands right (+60px), BOTH Slot 1 and Slot 2 shrink right (+60px)
+        ok = resizeSlotGeometries(tileGeos, 1, ResizeDirection::Right, 60.0, 100.0);
+        assert(ok);
+        assert(qAbs(tileGeos[0].width() - 1140.0) < 0.001);
+        assert(qAbs(tileGeos[1].left() - 1160.0) < 0.001);
+        assert(qAbs(tileGeos[2].left() - 1160.0) < 0.001);
+        assert(qAbs(tileGeos[1].width() - 750.0) < 0.001);
+        assert(qAbs(tileGeos[2].width() - 750.0) < 0.001);
+    }
+
+    // Test 4: Quad Grid (2x2) synchronized column and row divider resizing
+    {
+        QList<QRectF> tileGeos = {
+            QRectF(10, 10, 945, 525),        // Slot 0: Top-Left
+            QRectF(965, 10, 945, 525),       // Slot 1: Top-Right
+            QRectF(10, 545, 945, 525),       // Slot 2: Bottom-Left
+            QRectF(965, 545, 945, 525)       // Slot 3: Bottom-Right
+        };
+
+        // Resize Slot 0 Right by 50px:
+        // BOTH Slot 0 and Slot 2 expand right, BOTH Slot 1 and Slot 3 shrink left
+        bool ok = resizeSlotGeometries(tileGeos, 0, ResizeDirection::Right, 50.0, 100.0);
+        assert(ok);
+        assert(qAbs(tileGeos[0].width() - 995.0) < 0.001);
+        assert(qAbs(tileGeos[2].width() - 995.0) < 0.001);
+        assert(qAbs(tileGeos[1].left() - 1015.0) < 0.001);
+        assert(qAbs(tileGeos[3].left() - 1015.0) < 0.001);
+        assert(qAbs(tileGeos[1].width() - 895.0) < 0.001);
+        assert(qAbs(tileGeos[3].width() - 895.0) < 0.001);
+
+        // Resize Slot 3 Down by 40px (from bottom-right slot):
+        // Slot 3 has no bottom neighbor, so horizontal divider above moves down (+40px):
+        // BOTH Top slots (0, 1) expand down, BOTH Bottom slots (2, 3) shrink from top
+        ok = resizeSlotGeometries(tileGeos, 3, ResizeDirection::Down, 40.0, 100.0);
+        assert(ok);
+        assert(qAbs(tileGeos[0].height() - 565.0) < 0.001);
+        assert(qAbs(tileGeos[1].height() - 565.0) < 0.001);
+        assert(qAbs(tileGeos[2].top() - 585.0) < 0.001);
+        assert(qAbs(tileGeos[3].top() - 585.0) < 0.001);
+        assert(qAbs(tileGeos[2].height() - 485.0) < 0.001);
+        assert(qAbs(tileGeos[3].height() - 485.0) < 0.001);
+    }
+
     std::cout << "testResizeSlotGeometries PASSED\n";
 }
 
