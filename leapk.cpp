@@ -840,15 +840,15 @@ void ActiveWindowOutlineEffect::initShortcuts()
     QAction *prevRecentAction = new QAction(this);
     prevRecentAction->setObjectName(QStringLiteral("PrevRecentWindow"));
     prevRecentAction->setText(QStringLiteral("LeapK: Previous Recent Window"));
-    KGlobalAccel::self()->setDefaultShortcut(prevRecentAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_BracketLeft));
-    KGlobalAccel::self()->setGlobalShortcut(prevRecentAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_BracketLeft));
+    KGlobalAccel::self()->setDefaultShortcut(prevRecentAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Comma));
+    KGlobalAccel::self()->setGlobalShortcut(prevRecentAction, QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Comma));
     connect(prevRecentAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotPrevRecentWindow);
 
     QAction *nextRecentAction = new QAction(this);
     nextRecentAction->setObjectName(QStringLiteral("NextRecentWindow"));
     nextRecentAction->setText(QStringLiteral("LeapK: Next Recent Window"));
-    KGlobalAccel::self()->setDefaultShortcut(nextRecentAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::CTRL | Qt::Key_BracketRight));
-    KGlobalAccel::self()->setGlobalShortcut(nextRecentAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_BracketRight));
+    KGlobalAccel::self()->setDefaultShortcut(nextRecentAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Period));
+    KGlobalAccel::self()->setGlobalShortcut(nextRecentAction, QKeySequence(Qt::META | Qt::SHIFT | Qt::Key_Period));
     connect(nextRecentAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotNextRecentWindow);
 
     QAction *tilingAction = new QAction(this);
@@ -5391,7 +5391,31 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     }
 
     if (m_jumpMode) {
-        slotJumpToRecentWindow(Qt::Key_Space);
+        if (m_subLeapActive) {
+            exitSubLeapMode();
+            return;
+        }
+        if (m_tilingPresetsModeActive) {
+            exitTilingPresetsMode();
+            return;
+        }
+        if (m_stashModeActive) {
+            exitStashMode();
+            return;
+        }
+        if (m_closeWindowModeActive) {
+            exitCloseWindowMode();
+            return;
+        }
+        if (m_pinModeActive) {
+            exitPinMode();
+            return;
+        }
+        if (m_superJumpActive) {
+            exitSuperJumpMode();
+            return;
+        }
+        cancelJumpMode(Qt::Key_Space);
         return;
     }
 
@@ -5941,6 +5965,19 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
+    const bool isMetaShift = (mods & (Qt::MetaModifier | Qt::ShiftModifier)) == (Qt::MetaModifier | Qt::ShiftModifier)
+        && !(mods & Qt::AltModifier) && !(mods & Qt::ControlModifier);
+    if (isMetaShift && e->key() == Qt::Key_Comma) {
+        cancelJumpMode(e->key());
+        slotPrevRecentWindow();
+        return;
+    }
+    if (isMetaShift && e->key() == Qt::Key_Period) {
+        cancelJumpMode(e->key());
+        slotNextRecentWindow();
+        return;
+    }
+
     auto extractKeyChar = [e, isShift]() -> QString {
         if (e->key() >= Qt::Key_A && e->key() <= Qt::Key_Z) {
             return QString(QChar('A' + (e->key() - Qt::Key_A)));
@@ -5968,7 +6005,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     // 0. If currently in Tiling Presets mode:
     if (m_tilingPresetsModeActive) {
-        if (e->key() == Qt::Key_Backspace || (isMetaOnly && e->key() == Qt::Key_T) || (isShift && (e->key() == Qt::Key_T || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('T') || e->text().at(0) == QLatin1Char('t')))))) {
+        if (e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Space || (isMetaOnly && (e->key() == Qt::Key_T || e->key() == Qt::Key_Space)) || (isShift && (e->key() == Qt::Key_T || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('T') || e->text().at(0) == QLatin1Char('t')))))) {
             exitTilingPresetsMode();
             return;
         }
@@ -6005,7 +6042,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     // 1. If currently in Sub-Leap disambiguation:
     if (m_subLeapActive) {
-        if (e->key() == Qt::Key_Backspace) {
+        if (e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Space || (isMetaOnly && e->key() == Qt::Key_Space)) {
             exitSubLeapMode();
             return;
         }
@@ -6308,7 +6345,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     }
 
     if (m_stashModeActive) {
-        if (e->key() == Qt::Key_Backspace) {
+        if (e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Space || (isMetaOnly && (e->key() == Qt::Key_S || e->key() == Qt::Key_Space))) {
             exitStashMode();
             return;
         }
@@ -6427,7 +6464,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     }
 
     if (m_closeWindowModeActive) {
-        if (e->key() == Qt::Key_Backspace) {
+        if (e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Space || (isMetaOnly && (e->key() == Qt::Key_Q || e->key() == Qt::Key_Space))) {
             exitCloseWindowMode();
             return;
         }
@@ -6506,7 +6543,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     }
 
     if (m_pinModeActive) {
-        if (e->key() == Qt::Key_Backspace) {
+        if (e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Space || (isMetaOnly && (e->key() == Qt::Key_P || e->key() == Qt::Key_Space))) {
             exitPinMode();
             return;
         }
@@ -6573,7 +6610,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
-    if (m_superJumpActive && e->key() == Qt::Key_Backspace) {
+    if (m_superJumpActive && (e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Space || (isMetaOnly && e->key() == Qt::Key_Space))) {
         exitSuperJumpMode();
         return;
     }
@@ -6583,7 +6620,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
-    if (e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
+    if (e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter || e->key() == Qt::Key_Space || (isMetaOnly && e->key() == Qt::Key_Space)) {
         cancelJumpMode(e->key());
         return;
     }
@@ -6672,9 +6709,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     bool isRecentKeyMatch = false;
     const QString rKey = m_jumpRecentKey.trimmed();
-    if (rKey.compare(QLatin1String("Space"), Qt::CaseInsensitive) == 0 && e->key() == Qt::Key_Space) {
-        isRecentKeyMatch = true;
-    } else if (!rKey.isEmpty()) {
+    if (rKey.compare(QLatin1String("Space"), Qt::CaseInsensitive) != 0 && !rKey.isEmpty()) {
         QKeySequence seq(rKey);
         if (!seq.isEmpty()) {
             const QKeyCombination comb = seq[0];
@@ -6687,8 +6722,6 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         if (!isRecentKeyMatch && !e->text().isEmpty() && e->text().compare(rKey, Qt::CaseInsensitive) == 0) {
             isRecentKeyMatch = true;
         }
-    } else if (e->key() == Qt::Key_Space) {
-        isRecentKeyMatch = true;
     }
 
     if (!isCtrl && isRecentKeyMatch) {
@@ -7942,7 +7975,9 @@ QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
 
         const bool isRecent = (target == recentWin) || m_recentWindows.contains(target);
         const bool isMostRecent = (target == recentWin);
-        const QString recentKey = isMostRecent ? (m_badgePreviewActive ? cfg.jumpRecentKey : m_jumpRecentKey) : QString();
+        const QString recentKey = (isMostRecent && m_jumpRecentKey.compare(QLatin1String("Space"), Qt::CaseInsensitive) != 0)
+            ? (m_badgePreviewActive ? cfg.jumpRecentKey : m_jumpRecentKey)
+            : QString();
         const QString loc = getWindowLocationString(target);
         const QString caption = target->caption();
         QString customLabel = m_markedWindowLabels.value(target);
@@ -8114,7 +8149,9 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
 
         const bool isRecent = (target == findRecentWindow()) || m_recentWindows.contains(target);
         const bool isMostRecent = (target == findRecentWindow());
-        const QString recentKey = isMostRecent ? (m_badgePreviewActive ? m_previewBadgeConfig.jumpRecentKey : m_jumpRecentKey) : QString();
+        const QString recentKey = (isMostRecent && m_jumpRecentKey.compare(QLatin1String("Space"), Qt::CaseInsensitive) != 0)
+            ? (m_badgePreviewActive ? m_previewBadgeConfig.jumpRecentKey : m_jumpRecentKey)
+            : QString();
         const bool isStashed = isWindowInStash(target);
         const bool isPinned = isWindowPinned(target);
         const bool isPlayingAudio = m_audioTracker.isWindowPlaying(target->pid(), target->caption());
@@ -10754,7 +10791,9 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             const bool isMarked = m_markedWindows.contains(target);
             const bool isRecent = (target == findRecentWindow()) || m_recentWindows.contains(target);
             const bool isMostRecent = (target == findRecentWindow());
-            const QString recentKey = isMostRecent ? m_jumpRecentKey : QString();
+            const QString recentKey = (isMostRecent && m_jumpRecentKey.compare(QLatin1String("Space"), Qt::CaseInsensitive) != 0)
+                ? m_jumpRecentKey
+                : QString();
 
             QColor bgCol;
             if (m_closeWindowModeActive) {

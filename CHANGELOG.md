@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta38] - 2026-10-31
+
+### Changed
+- **Space in HUD Now Goes Back / Closes HUD**:
+  - Pressing `Space` (or `Meta + Space`) while in any HUD sub-mode (SubLeap, Stash, Close Window, Pinning, Super Jump, Tiling Presets) exits the sub-mode back to the main HUD.
+  - Pressing `Space` (or `Meta + Space`) while in the base HUD now cleanly dismisses and closes the HUD (`cancelJumpMode`).
+  - Removed `Space` as the default jump-to-recent key match in HUD.
+- **Global Window History Navigation Shortcuts (`Shift + Super + ,` / `Shift + Super + .`)**:
+  - Rebound global actions for navigating window history:
+    - Previous Recent Window: `Shift + Super + ,` (`Qt::META | Qt::SHIFT | Qt::Key_Comma`).
+    - Next Recent Window: `Shift + Super + .` (`Qt::META | Qt::SHIFT | Qt::Key_Period`).
+  - Preserved `Super + Space` exclusively for opening LeapK HUD (`JumpToWindow`).
+  - Added seamless pass-through in `grabbedKeyboardEvent` to allow cycling window history with `Shift + Super + ,` and `Shift + Super + .` even while HUD is open.
+- **HUD Hint Bar and Header Updates**:
+  - Updated hint bars and header banners across all modes to show `␣ / ⌫ : Back` and `Esc / ␣ / ⌫ : Close`.
+
 ## [1.6.0-beta37] - 2026-10-31
 
 ### Changed

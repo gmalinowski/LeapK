@@ -2478,14 +2478,14 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Close window (:bd)"), QColor(231, 76, 60)},
             {QStringLiteral("Meta+A"), QStringLiteral("All WS + Stash"), QColor(0, 195, 255)},
-            {QStringLiteral("Meta+Q / ⌫"), QStringLiteral("Exit Close Mode"), QColor(149, 165, 166)},
+            {QStringLiteral("Meta+Q / ␣ / ⌫"), QStringLiteral("Exit Close Mode"), QColor(149, 165, 166)},
             {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
         };
     } else if (isPinMode) {
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Toggle pin state"), QColor(245, 166, 35)},
             {QStringLiteral("Meta+A"), QStringLiteral("All WS + Stash"), QColor(0, 195, 255)},
-            {QStringLiteral("Meta+P / ⌫"), QStringLiteral("Exit Pin Mode"), QColor(149, 165, 166)},
+            {QStringLiteral("Meta+P / ␣ / ⌫"), QStringLiteral("Exit Pin Mode"), QColor(149, 165, 166)},
             {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
         };
     } else if (isTilingPresets) {
@@ -2494,7 +2494,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Key"), QStringLiteral("Select preset (A-G)"), QColor(52, 152, 219)},
             {QStringLiteral("E"), QStringLiteral("Edit in KDE"), QColor(241, 196, 15)},
             {QStringLiteral("X"), QStringLiteral("Float / Turn off"), QColor(231, 76, 60)},
-            {QStringLiteral("Meta+T"), QStringLiteral("Back"), QColor(149, 165, 166)},
+            {QStringLiteral("␣ / ⌫"), QStringLiteral("Back"), QColor(149, 165, 166)},
             {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
         };
     } else if (isSearchMode) {
@@ -2512,7 +2512,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
-            {QStringLiteral("Backspace"), QStringLiteral("Back"), QColor(149, 165, 166)},
+            {QStringLiteral("␣ / ⌫"), QStringLiteral("Back"), QColor(149, 165, 166)},
             {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
         };
     } else if (isSuperJump) {
@@ -2522,7 +2522,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Alt+Key"), QStringLiteral("Pull / Drop here"), QColor(241, 196, 15)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash (:hide)"), QColor(46, 204, 113)},
-            {QStringLiteral("Backspace"), QStringLiteral("Back"), QColor(149, 165, 166)},
+            {QStringLiteral("␣ / ⌫"), QStringLiteral("Back"), QColor(149, 165, 166)},
             {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
         };
     } else if (isStashMode) {
@@ -2532,7 +2532,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Add to stash"), QColor(46, 204, 113)},
             {QStringLiteral(", / ."), QStringLiteral("Switch workspace"), QColor(52, 152, 219)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close (:bd)"), QColor(231, 76, 60)},
-            {QStringLiteral("Backspace"), QStringLiteral("Back"), QColor(149, 165, 166)},
+            {QStringLiteral("␣ / ⌫"), QStringLiteral("Back"), QColor(149, 165, 166)},
             {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
         };
     } else if (isSubLeap) {
@@ -2542,7 +2542,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close"), QColor(231, 76, 60)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash"), QColor(46, 204, 113)},
-            {QStringLiteral("Backspace"), QStringLiteral("Back"), QColor(149, 165, 166)},
+            {QStringLiteral("␣ / ⌫"), QStringLiteral("Back"), QColor(149, 165, 166)},
             {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
         };
     } else {
@@ -2557,7 +2557,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Hold Meta"), QStringLiteral("Switch mode"), QColor(0, 195, 255)},
             {QStringLiteral("Shift++"), QStringLiteral("New workspace"), QColor(52, 152, 219)},
             {QStringLiteral(", / ."), QStringLiteral("Switch"), QColor(52, 152, 219)},
-            {QStringLiteral("Esc / ⌫"), QStringLiteral("Close"), QColor(231, 76, 60)}
+            {QStringLiteral("Esc / ␣ / ⌫"), QStringLiteral("Close"), QColor(231, 76, 60)}
         };
         if (activeView >= 1) {
             segments.append({QStringLiteral("_"), QStringLiteral("Delete workspace"), QColor(231, 76, 60)});
@@ -2835,7 +2835,7 @@ inline QImage renderHudModeHeader(qreal scale,
         const QString leftText = isSuperJump
             ? QStringLiteral("✕ CLOSE MODE [ALL WS + STASH]: Pick window letter to close")
             : QStringLiteral("✕ CLOSE MODE: Pick window letter to close (batch close)");
-        const QString rightText = QStringLiteral("Meta+A : Scope  •  Meta+Q / Esc : Exit");
+        const QString rightText = QStringLiteral("Meta+A : Scope  •  Meta+Q / Space / Esc : Exit");
 
         QFont titleFont(QStringLiteral("sans-serif"));
         titleFont.setPixelSize((navFontSize > 0) ? qRound(navFontSize * scale) : qMax(10, qRound(13.0 * scale)));
@@ -2919,7 +2919,7 @@ inline QImage renderHudModeHeader(qreal scale,
         const QString leftText = isSuperJump
             ? QStringLiteral("📌 PIN MODE [ALL WS + STASH]: Pick window letter to pin / unpin")
             : QStringLiteral("📌 PIN MODE: Pick window letter to pin / unpin across workspaces");
-        const QString rightText = QStringLiteral("Meta+A : Scope  •  Meta+P / Esc : Exit");
+        const QString rightText = QStringLiteral("Meta+A : Scope  •  Meta+P / Space / Esc : Exit");
 
         QFont titleFont(QStringLiteral("sans-serif"));
         titleFont.setPixelSize((navFontSize > 0) ? qRound(navFontSize * scale) : qMax(10, qRound(13.0 * scale)));
