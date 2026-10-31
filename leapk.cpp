@@ -4774,48 +4774,22 @@ void ActiveWindowOutlineEffect::addWindowToWorkspace(EffectWindow *w, int worksp
     m_stashedWindows.remove(w);
     m_workspaceMinimizedWindows.remove(w);
 
+    const QString appClass = w->windowClass().trimmed();
+    const QString caption = w->caption().trimmed();
+
     if (workspaceIndex >= 1 && workspaceIndex <= m_workspaces.size()) {
-        auto &ws = m_workspaces[workspaceIndex - 1];
-        const QString appClass = w->windowClass().trimmed();
-        const QString caption = w->caption().trimmed();
-
-        const auto desktops = w->desktops();
-        const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
-
-        if (!LeapKWorkspace::matchesWorkspace(ws, appClass, caption, dNum)) {
-            LeapKWorkspace::WindowMatchRule newRule;
-            if (!appClass.isEmpty()) {
-                newRule.matchApp = appClass;
-            } else if (!caption.isEmpty()) {
-                newRule.matchCaption = caption;
-            } else {
-                return;
+        const QString wsId = m_workspaces.at(workspaceIndex - 1).id;
+        LeapKWorkspace::reassignWindowToWorkspace(m_workspaces, wsId, appClass, caption, !appClass.isEmpty(), 0);
+        if (effects && effects->currentDesktop()) {
+            if (workspaceIndex - 1 < m_workspaces.size()) {
+                m_workspaces[workspaceIndex - 1].lastVirtualDesktopId = effects->currentDesktop()->id();
             }
-            newRule.matchDesktop = 0;
-
-            // Remove rule matching this app from other workspaces so it belongs exclusively to this workspace
-            for (int i = 0; i < m_workspaces.size(); ++i) {
-                if (i == workspaceIndex - 1) {
-                    continue;
-                }
-                auto &otherWs = m_workspaces[i];
-                for (int r = otherWs.rules.size() - 1; r >= 0; --r) {
-                    const auto &rule = otherWs.rules.at(r);
-                    if (!appClass.isEmpty() && rule.matchApp.compare(appClass, Qt::CaseInsensitive) == 0 && rule.matchCaption.isEmpty()) {
-                        otherWs.rules.removeAt(r);
-                    }
-                }
-            }
-
-            ws.rules.append(newRule);
-            LeapKWorkspace::saveWorkspaces(m_workspaces);
-        }
-
-        if (effects) {
+            m_workspaceLastVirtualDesktopId[wsId] = effects->currentDesktop()->id();
             effects->windowToDesktops(w, {effects->currentDesktop()});
         }
+        LeapKWorkspace::saveWorkspaces(m_workspaces);
     } else if (workspaceIndex == 0) {
-        if (effects) {
+        if (effects && effects->currentDesktop()) {
             effects->windowToDesktops(w, {effects->currentDesktop()});
         }
     }
@@ -6158,28 +6132,30 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
                     if (isAlt) {
                         // Pin / Pull / Drop
-                        cancelJumpMode(e->key());
+                        const int targetWs = (m_superJumpActive && m_superJumpTargetWorkspace >= 1 && m_superJumpTargetWorkspace <= m_workspaces.size())
+                                             ? m_superJumpTargetWorkspace
+                                             : (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size() ? m_activeHudView : 0);
                         if (m_pinnedWindows.contains(target)) {
-                            unpinWindow(target, m_activeHudView);
-                        } else if (findWorkspaceForWindow(target) == m_activeHudView && target->isOnCurrentDesktop()) {
+                            unpinWindow(target, targetWs);
+                        } else if (!m_superJumpActive && findWorkspaceForWindow(target) == targetWs && target->isOnCurrentDesktop()) {
                             pinWindow(target);
                         } else {
-                            if (m_superJumpActive) {
-                                const int targetWs = m_superJumpTargetWorkspace;
-                                if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
-                                    addWindowToWorkspace(target, targetWs);
-                                }
-                                if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
-                                    applyWorkspaceViewIsolation(targetWs);
-                                }
+                            if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
+                                addWindowToWorkspace(target, targetWs);
+                                applyWorkspaceViewIsolation(targetWs);
+                            } else if (targetWs == 0) {
+                                addWindowToWorkspace(target, 0);
                             }
-                            effects->windowToDesktops(target, {effects->currentDesktop()});
+                            if (effects && effects->currentDesktop()) {
+                                effects->windowToDesktops(target, {effects->currentDesktop()});
+                            }
                             m_workspaceMinimizedWindows.remove(target);
                             m_stashedWindows.remove(target);
                             if (target->isMinimized()) {
                                 target->setMinimized(false);
                             }
                         }
+                        cancelJumpMode(e->key());
                         effects->activateWindow(target);
                         warpCursorToWindow(target);
                         return;
@@ -6782,28 +6758,30 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         if (isAlt) {
             EffectWindow *target = findRecentWindow();
             if (target && !target->isDeleted()) {
-                cancelJumpMode(e->key());
+                const int targetWs = (m_superJumpActive && m_superJumpTargetWorkspace >= 1 && m_superJumpTargetWorkspace <= m_workspaces.size())
+                                     ? m_superJumpTargetWorkspace
+                                     : (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size() ? m_activeHudView : 0);
                 if (m_pinnedWindows.contains(target)) {
-                    unpinWindow(target, m_activeHudView);
-                } else if (findWorkspaceForWindow(target) == m_activeHudView && target->isOnCurrentDesktop()) {
+                    unpinWindow(target, targetWs);
+                } else if (!m_superJumpActive && findWorkspaceForWindow(target) == targetWs && target->isOnCurrentDesktop()) {
                     pinWindow(target);
                 } else {
-                    if (m_superJumpActive) {
-                        const int targetWs = m_superJumpTargetWorkspace;
-                        if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
-                            addWindowToWorkspace(target, targetWs);
-                        }
-                        if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
-                            applyWorkspaceViewIsolation(targetWs);
-                        }
+                    if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
+                        addWindowToWorkspace(target, targetWs);
+                        applyWorkspaceViewIsolation(targetWs);
+                    } else if (targetWs == 0) {
+                        addWindowToWorkspace(target, 0);
                     }
-                    effects->windowToDesktops(target, {effects->currentDesktop()});
+                    if (effects && effects->currentDesktop()) {
+                        effects->windowToDesktops(target, {effects->currentDesktop()});
+                    }
                     m_workspaceMinimizedWindows.remove(target);
                     m_stashedWindows.remove(target);
                     if (target->isMinimized()) {
                         target->setMinimized(false);
                     }
                 }
+                cancelJumpMode(e->key());
                 if (m_tilingActive) {
                     performTilingSwap(target);
                 } else {
@@ -6827,15 +6805,24 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             const auto group = m_groupJumpLetters.value(keyChar);
             if (isAlt) {
                 // Smart Workspace summon: pull all windows in group to current desktop!
-                cancelJumpMode(e->key());
+                const int targetWs = (m_superJumpActive && m_superJumpTargetWorkspace >= 1 && m_superJumpTargetWorkspace <= m_workspaces.size())
+                                     ? m_superJumpTargetWorkspace
+                                     : (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size() ? m_activeHudView : 0);
                 VirtualDesktop *currDesktop = effects->currentDesktop();
                 EffectWindow *topWin = nullptr;
                 for (EffectWindow *w : group) {
                     if (w && !w->isDeleted()) {
                         if (m_pinnedWindows.contains(w)) {
-                            unpinWindow(w, m_activeHudView);
+                            unpinWindow(w, targetWs);
                         } else {
-                            effects->windowToDesktops(w, {currDesktop});
+                            if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
+                                addWindowToWorkspace(w, targetWs);
+                            }
+                            if (currDesktop) {
+                                effects->windowToDesktops(w, {currDesktop});
+                            }
+                            m_workspaceMinimizedWindows.remove(w);
+                            m_stashedWindows.remove(w);
                             if (w->isMinimized()) {
                                 w->setMinimized(false);
                             }
@@ -6845,6 +6832,10 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                         }
                     }
                 }
+                if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
+                    applyWorkspaceViewIsolation(targetWs);
+                }
+                cancelJumpMode(e->key());
                 if (topWin) {
                     effects->activateWindow(topWin);
                     warpCursorToWindow(topWin);
@@ -6931,31 +6922,33 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
                 if (isAlt) {
                     // Pin / Pull / Drop
-                    cancelJumpMode(e->key());
+                    const int targetWs = (m_superJumpActive && m_superJumpTargetWorkspace >= 1 && m_superJumpTargetWorkspace <= m_workspaces.size())
+                                         ? m_superJumpTargetWorkspace
+                                         : (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size() ? m_activeHudView : 0);
                     if (m_pinnedWindows.contains(target)) {
                         // Drop pinned window into current workspace
-                        unpinWindow(target, m_activeHudView);
-                    } else if (findWorkspaceForWindow(target) == m_activeHudView && target->isOnCurrentDesktop()) {
+                        unpinWindow(target, targetWs);
+                    } else if (!m_superJumpActive && findWorkspaceForWindow(target) == targetWs && target->isOnCurrentDesktop()) {
                         // Already in current workspace and desktop -> Pin across all workspaces!
                         pinWindow(target);
                     } else {
                         // Pull from other desktop/workspace to current desktop & workspace
-                        if (m_superJumpActive) {
-                            const int targetWs = m_superJumpTargetWorkspace;
-                            if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
-                                addWindowToWorkspace(target, targetWs);
-                            }
-                            if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
-                                applyWorkspaceViewIsolation(targetWs);
-                            }
+                        if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
+                            addWindowToWorkspace(target, targetWs);
+                            applyWorkspaceViewIsolation(targetWs);
+                        } else if (targetWs == 0) {
+                            addWindowToWorkspace(target, 0);
                         }
-                        effects->windowToDesktops(target, {effects->currentDesktop()});
+                        if (effects && effects->currentDesktop()) {
+                            effects->windowToDesktops(target, {effects->currentDesktop()});
+                        }
                         m_workspaceMinimizedWindows.remove(target);
                         m_stashedWindows.remove(target);
                         if (target->isMinimized()) {
                             target->setMinimized(false);
                         }
                     }
+                    cancelJumpMode(e->key());
                     effects->activateWindow(target);
                     warpCursorToWindow(target);
                     return;

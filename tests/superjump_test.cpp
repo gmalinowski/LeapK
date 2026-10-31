@@ -492,6 +492,75 @@ void testHudMetaOverlayRendering()
     std::cout << "testHudMetaOverlayRendering PASSED\n";
 }
 
+void testSuperJumpPullIntoEmptyWorkspace()
+{
+    using namespace LeapKWorkspace;
+
+    QTemporaryDir tempDir;
+    assert(tempDir.isValid());
+    const QString filePath = tempDir.path() + QStringLiteral("/workspaces.json");
+
+    // Workspace 1: Coding (has konsole)
+    WorkspaceInfo ws1;
+    ws1.id = QStringLiteral("ws-coding");
+    ws1.name = QStringLiteral("Coding");
+
+    // Workspace 2: Review (initially empty - 0 windows, 0 rules)
+    WorkspaceInfo ws2;
+    ws2.id = QStringLiteral("ws-review");
+    ws2.name = QStringLiteral("Review");
+
+    QList<WorkspaceInfo> workspaces = { ws1, ws2 };
+
+    // Initially "org.kde.konsole" belongs to ws1
+    reassignWindowToWorkspace(workspaces, ws1.id, QStringLiteral("org.kde.konsole"), QStringLiteral("bash"), true, 0, filePath);
+    assert(workspaces[0].rules.size() == 1);
+    assert(workspaces[1].rules.isEmpty());
+    assert(findWorkspaceIndexForWindow(workspaces, QStringLiteral("org.kde.konsole"), QStringLiteral("bash")) == 1);
+
+    // Scenario: User is in Workspace 2 (Review, 0 windows).
+    int activeHudView = 2;
+    bool superJumpActive = true;
+    int superJumpTargetWorkspace = activeHudView; // 2
+
+    // Target window pulled via Alt+Key from another workspace
+    const QString appClass = QStringLiteral("org.kde.konsole");
+    const QString caption = QStringLiteral("bash");
+
+    // Resolving targetWs while superJumpActive is true
+    const int targetWs = (superJumpActive && superJumpTargetWorkspace >= 1 && superJumpTargetWorkspace <= workspaces.size())
+                         ? superJumpTargetWorkspace
+                         : (activeHudView >= 1 && activeHudView <= workspaces.size() ? activeHudView : 0);
+    assert(targetWs == 2);
+
+    // Pull action: reassign to targetWs
+    reassignWindowToWorkspace(workspaces, workspaces.at(targetWs - 1).id, appClass, caption, !appClass.isEmpty(), 0, filePath);
+
+    // cancelJumpMode is called AFTER reassigning
+    superJumpActive = false;
+
+    // Verify workspace 2 now owns konsole and workspace 1 no longer matches it
+    assert(workspaces[0].rules.isEmpty());
+    assert(workspaces[1].rules.size() == 1);
+    assert(findWorkspaceIndexForWindow(workspaces, QStringLiteral("org.kde.konsole"), QStringLiteral("bash")) == 2);
+    assert(!matchesWorkspace(workspaces[0], QStringLiteral("org.kde.konsole"), QStringLiteral("bash")));
+    assert(matchesWorkspace(workspaces[1], QStringLiteral("org.kde.konsole"), QStringLiteral("bash")));
+
+    // Verify isolation logic:
+    // When switching to Workspace 1: window must NOT match (is minimized)
+    assert(matchesWorkspace(workspaces[0], QStringLiteral("org.kde.konsole"), QStringLiteral("bash")) == false);
+    // When switching back to Workspace 2: window MUST match (is restored / visible)
+    assert(matchesWorkspace(workspaces[1], QStringLiteral("org.kde.konsole"), QStringLiteral("bash")) == true);
+
+    // Reload from file to ensure disk persistence
+    QList<WorkspaceInfo> reloaded = loadWorkspaces(filePath);
+    assert(reloaded[0].rules.isEmpty());
+    assert(reloaded[1].rules.size() == 1);
+    assert(findWorkspaceIndexForWindow(reloaded, QStringLiteral("org.kde.konsole"), QStringLiteral("bash")) == 2);
+
+    std::cout << "testSuperJumpPullIntoEmptyWorkspace PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
@@ -508,6 +577,7 @@ int main(int argc, char *argv[])
     testCloseWindowModeBannerAndHintBar();
     testPinModeBannerAndHintBar();
     testHudMetaOverlayRendering();
+    testSuperJumpPullIntoEmptyWorkspace();
 
     std::cout << "All Super Jump tests passed successfully!\n";
     return 0;

@@ -267,7 +267,14 @@ inline int removeWindowFromAllWorkspaces(QList<WorkspaceInfo> &workspaces, const
     for (auto &ws : workspaces) {
         for (int i = ws.rules.size() - 1; i >= 0; --i) {
             const auto &r = ws.rules.at(i);
-            if (r.matchApp.trimmed().toLower() == cleanApp) {
+            const QString cleanRuleApp = r.matchApp.trimmed().toLower();
+            bool appMatches = false;
+            if (cleanApp.isEmpty() && cleanRuleApp.isEmpty()) {
+                appMatches = true;
+            } else if (!cleanApp.isEmpty() && !cleanRuleApp.isEmpty()) {
+                appMatches = (cleanApp == cleanRuleApp || cleanApp.contains(cleanRuleApp) || cleanRuleApp.contains(cleanApp));
+            }
+            if (appMatches) {
                 if (caption.isEmpty() || r.matchCaption.isEmpty() || caption.contains(r.matchCaption, Qt::CaseInsensitive)) {
                     ws.rules.removeAt(i);
                     ++removedCount;

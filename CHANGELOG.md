@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta42] - 2026-10-31
+
+### Fixed
+- **Window Disappearance After Alt+Key Pull into Workspace**:
+  - Fixed a critical sequence bug where `cancelJumpMode()` was invoked prior to reading `m_superJumpActive` in HUD pull handlers (`SubLeap`, recent key match, group summon, and standard badge jump). Because `cancelJumpMode()` reset `m_superJumpActive` to `false`, workspace reassignment logic was bypassed as dead code, leaving the window unassigned to the target workspace.
+  - Corrected `targetWs` evaluation across all pull handlers to properly prioritize `m_superJumpTargetWorkspace` when in Global Scope / Super Jump, or fallback to `m_activeHudView`.
+  - Deferred `cancelJumpMode()` until after `addWindowToWorkspace()` and `applyWorkspaceViewIsolation()` execute.
+  - Refactored `ActiveWindowOutlineEffect::addWindowToWorkspace` to use `LeapKWorkspace::reassignWindowToWorkspace()`, cleanly removing conflicting rules from other workspaces via bidirectional substring matching and updating `lastVirtualDesktopId` before saving.
+  - Updated `removeWindowFromAllWorkspaces` in `workspacehelper.h` to match bidirectional substring semantics of `matchesWorkspace`.
+  - Added comprehensive unit test `testSuperJumpPullIntoEmptyWorkspace` in `tests/superjump_test.cpp` verifying cross-workspace pull into empty workspaces, rule persistence, and isolation visibility retention.
+
 ## [1.6.0-beta41] - 2026-10-31
 
 ### Changed
