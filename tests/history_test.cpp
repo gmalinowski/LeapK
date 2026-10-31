@@ -219,11 +219,89 @@ void testFindRecentWindowAndToggle()
     assert(OutlineHistory::findRecentWindow(history, activeWindow, isValid) == &w1);
 }
 
+void testHistoryNavigationCommitOnRelease()
+{
+    MockWindow w1{1};
+    MockWindow w2{2};
+    MockWindow w3{3};
+
+    QList<MockWindow *> history = { &w1, &w2, &w3 };
+    MockWindow *activeWindow = &w1;
+    int navIndex = 0;
+    bool isNavigating = false;
+
+    // Simulate pressing Shift+Meta+,
+    auto onPrevRecent = [&]() {
+        if (!isNavigating) {
+            navIndex = 0;
+            isNavigating = true;
+        }
+        if (navIndex + 1 < history.size()) {
+            navIndex++;
+            activeWindow = history.at(navIndex);
+        }
+    };
+
+    // Simulate key release (Meta or Shift released)
+    auto onKeyRelease = [&]() {
+        if (isNavigating) {
+            if (navIndex >= 0 && navIndex < history.size()) {
+                MockWindow *committed = history.at(navIndex);
+                history.removeAll(committed);
+                history.prepend(committed);
+                activeWindow = committed;
+            }
+            navIndex = 0;
+            isNavigating = false;
+        }
+    };
+
+    // 1. Initial state: history is [w1, w2, w3], active is w1
+    assert(history.at(0) == &w1);
+    assert(history.at(1) == &w2);
+    assert(history.at(2) == &w3);
+
+    // 2. Press Shift+Meta+,: moves to w2
+    onPrevRecent();
+    assert(isNavigating == true);
+    assert(navIndex == 1);
+    assert(activeWindow == &w2);
+    // History list is NOT yet modified during navigation
+    assert(history.at(0) == &w1);
+
+    // 3. Immediately release keys: commits w2 to top of history
+    onKeyRelease();
+    assert(isNavigating == false);
+    assert(navIndex == 0);
+    assert(activeWindow == &w2);
+    assert(history.at(0) == &w2); // w2 is now at top!
+    assert(history.at(1) == &w1);
+    assert(history.at(2) == &w3);
+
+    // 4. Press Shift+Meta+, twice before release: moves w2 -> w1 -> w3
+    onPrevRecent(); // to w1
+    assert(activeWindow == &w1);
+    onPrevRecent(); // to w3
+    assert(activeWindow == &w3);
+    assert(navIndex == 2);
+
+    // 5. Release keys: commits w3 to top of history immediately
+    onKeyRelease();
+    assert(isNavigating == false);
+    assert(activeWindow == &w3);
+    assert(history.at(0) == &w3); // w3 is now top!
+    assert(history.at(1) == &w2);
+    assert(history.at(2) == &w1);
+
+    std::cout << "testHistoryNavigationCommitOnRelease PASSED\n";
+}
+
 int main()
 {
     testRecentWindowsOrderAndLimit();
     testCrossDesktopJumpSuppressesIntermediateActivation();
     testFindRecentWindowAndToggle();
+    testHistoryNavigationCommitOnRelease();
     std::cout << "All history tests passed successfully." << std::endl;
     return 0;
 }

@@ -192,6 +192,7 @@ private Q_SLOTS:
     void slotToggleHudHints();
     void slotTogglePinActiveWindow();
     void slotCycleHudView(int delta = 1);
+    void slotCycleBadge(int delta = 1);
     void slotTriggerJumpMode();
     void slotTriggerCloseWindowMode();
     void slotTriggerPinMode();

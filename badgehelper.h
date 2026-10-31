@@ -2523,6 +2523,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Alt+Key"), QStringLiteral("Pull / Drop here"), QColor(241, 196, 15)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close"), QColor(231, 76, 60)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash"), QColor(46, 204, 113)},
+            {QStringLiteral("< / >"), QStringLiteral("Badges"), QColor(52, 152, 219)},
             {QStringLiteral("␣ / ⌫"), QStringLiteral("Back"), QColor(149, 165, 166)},
             {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
         };
@@ -2531,6 +2532,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Key"), QStringLiteral("Add to workspace"), QColor(46, 204, 113)},
             {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Add to stash"), QColor(46, 204, 113)},
+            {QStringLiteral("< / >"), QStringLiteral("Badges"), QColor(52, 152, 219)},
             {QStringLiteral(", / ."), QStringLiteral("Switch workspace"), QColor(52, 152, 219)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close"), QColor(231, 76, 60)},
             {QStringLiteral("␣ / ⌫"), QStringLiteral("Back"), QColor(149, 165, 166)},
@@ -2541,6 +2543,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Key"), QStringLiteral("Select"), QColor(52, 152, 219)},
             {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
+            {QStringLiteral("< / >"), QStringLiteral("Badges"), QColor(52, 152, 219)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close"), QColor(231, 76, 60)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash"), QColor(46, 204, 113)},
             {QStringLiteral("␣ / ⌫"), QStringLiteral("Back"), QColor(149, 165, 166)},
@@ -2556,6 +2559,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Stash"), QColor(46, 204, 113)},
             {QStringLiteral("Tab"), QStringLiteral("Group"), QColor(155, 89, 182)},
             {QStringLiteral("Hold Meta"), QStringLiteral("Switch mode"), QColor(0, 195, 255)},
+            {QStringLiteral("< / >"), QStringLiteral("Badges"), QColor(52, 152, 219)},
             {QStringLiteral(", / ."), QStringLiteral("Switch"), QColor(52, 152, 219)},
             {QStringLiteral("Esc / ␣ / ⌫"), QStringLiteral("Close"), QColor(231, 76, 60)}
         };

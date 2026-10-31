@@ -561,6 +561,76 @@ void testSuperJumpPullIntoEmptyWorkspace()
     std::cout << "testSuperJumpPullIntoEmptyWorkspace PASSED\n";
 }
 
+void testHudShiftBadgeCycling()
+{
+    // Simulates HUD badge cycling logic in slotCycleBadge
+    struct DummyWindow {
+        QString name;
+    };
+
+    DummyWindow wA{QStringLiteral("Window A")};
+    DummyWindow wS{QStringLiteral("Window S")};
+    DummyWindow wD{QStringLiteral("Window D")};
+
+    QMap<QChar, DummyWindow *> letterMap = {
+        {QChar('A'), &wA},
+        {QChar('S'), &wS},
+        {QChar('D'), &wD}
+    };
+
+    const QString pool = QStringLiteral("ASDFJKL;");
+    QList<DummyWindow *> orderedWindows;
+    for (int i = 0; i < pool.length(); ++i) {
+        const QChar ch = pool.at(i);
+        if (letterMap.contains(ch)) {
+            DummyWindow *w = letterMap.value(ch);
+            if (!orderedWindows.contains(w)) {
+                orderedWindows.append(w);
+            }
+        }
+    }
+
+    assert(orderedWindows.size() == 3);
+    assert(orderedWindows[0] == &wA);
+    assert(orderedWindows[1] == &wS);
+    assert(orderedWindows[2] == &wD);
+
+    DummyWindow *activeWin = &wA;
+
+    auto cycleBadge = [&](int delta) {
+        int currIdx = orderedWindows.indexOf(activeWin);
+        int nextIdx = (currIdx >= 0)
+            ? (currIdx + delta + orderedWindows.size()) % orderedWindows.size()
+            : (delta > 0 ? 0 : orderedWindows.size() - 1);
+        activeWin = orderedWindows.at(nextIdx);
+    };
+
+    // 1. Initial active window is wA
+    assert(activeWin == &wA);
+
+    // 2. Shift + . (>) -> cycles to wS
+    cycleBadge(1);
+    assert(activeWin == &wS);
+
+    // 3. Shift + . (>) -> cycles to wD
+    cycleBadge(1);
+    assert(activeWin == &wD);
+
+    // 4. Shift + . (>) -> wraps around to wA
+    cycleBadge(1);
+    assert(activeWin == &wA);
+
+    // 5. Shift + , (<) -> wraps backwards to wD
+    cycleBadge(-1);
+    assert(activeWin == &wD);
+
+    // 6. Shift + , (<) -> cycles backwards to wS
+    cycleBadge(-1);
+    assert(activeWin == &wS);
+
+    std::cout << "testHudShiftBadgeCycling PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
@@ -578,6 +648,7 @@ int main(int argc, char *argv[])
     testPinModeBannerAndHintBar();
     testHudMetaOverlayRendering();
     testSuperJumpPullIntoEmptyWorkspace();
+    testHudShiftBadgeCycling();
 
     std::cout << "All Super Jump tests passed successfully!\n";
     return 0;

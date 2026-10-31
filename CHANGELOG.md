@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta43] - 2026-10-31
+
+### Added
+- **HUD Badge Cycling with `Shift + ,` (`<`) and `Shift + .` (`>`)**:
+  - In all HUD modes (Standard Jump, Global Scope, Stash, SubLeap, Close, Pin), `Shift + ,` and `Shift + .` cycle focus through visible window badges according to preferred keyboard layout pool order.
+  - Cycling smoothly activates the target window, warps cursor, updates outline highlight, unminimizes and switches desktop if needed, all while keeping the HUD open.
+  - In Search Mode, `Shift + ,` / `Shift + .` cycle through matching search results.
+  - Added `< / > Badges` segment to the HUD action hint bar in `badgehelper.h`.
+
+### Changed
+- **Immediate History Navigation Commit on Shortcut Release**:
+  - In regular mode, `Shift + Meta + ,` and `Shift + Meta + .` now grab keyboard interaction during history navigation.
+  - Releasing `Meta` or `Shift` immediately triggers `slotCommitHistoryNavigation()`, placing the chosen window at the top of history without any delay.
+  - Reduced fallback commit timer to 600ms.
+  - Added unit tests `testHistoryNavigationCommitOnRelease` in `tests/history_test.cpp` and `testHudShiftBadgeCycling` in `tests/superjump_test.cpp`.
+
 ## [1.6.0-beta42] - 2026-10-31
 
 ### Fixed
