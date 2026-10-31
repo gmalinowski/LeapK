@@ -6028,7 +6028,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
-        if (isMetaOnly && e->key() == Qt::Key_X) {
+        if (isMetaOnly && e->key() == Qt::Key_Q) {
             exitSubLeapMode();
             enterCloseWindowMode();
             return;
@@ -6329,7 +6329,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
-        if (isMetaOnly && e->key() == Qt::Key_X) {
+        if (isMetaOnly && e->key() == Qt::Key_Q) {
             exitStashMode();
             enterCloseWindowMode();
             return;
@@ -6432,7 +6432,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
-        if (isMetaOnly && e->key() == Qt::Key_X) {
+        if (isMetaOnly && e->key() == Qt::Key_Q) {
             exitCloseWindowMode();
             return;
         }
@@ -6527,7 +6527,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
-        if (isMetaOnly && e->key() == Qt::Key_X) {
+        if (isMetaOnly && e->key() == Qt::Key_Q) {
             exitPinMode();
             enterCloseWindowMode();
             return;
@@ -6593,7 +6593,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
-    if (isMetaOnly && e->key() == Qt::Key_X) {
+    if (isMetaOnly && e->key() == Qt::Key_Q) {
         enterCloseWindowMode();
         return;
     }

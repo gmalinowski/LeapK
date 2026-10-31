@@ -2478,7 +2478,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Close window (:bd)"), QColor(231, 76, 60)},
             {QStringLiteral("Meta+A"), QStringLiteral("All WS + Stash"), QColor(0, 195, 255)},
-            {QStringLiteral("Meta+X / ⌫"), QStringLiteral("Exit Close Mode"), QColor(149, 165, 166)},
+            {QStringLiteral("Meta+Q / ⌫"), QStringLiteral("Exit Close Mode"), QColor(149, 165, 166)},
             {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
         };
     } else if (isPinMode) {
@@ -2835,7 +2835,7 @@ inline QImage renderHudModeHeader(qreal scale,
         const QString leftText = isSuperJump
             ? QStringLiteral("✕ CLOSE MODE [ALL WS + STASH]: Pick window letter to close")
             : QStringLiteral("✕ CLOSE MODE: Pick window letter to close (batch close)");
-        const QString rightText = QStringLiteral("Meta+A : Scope  •  Meta+X / Esc : Exit");
+        const QString rightText = QStringLiteral("Meta+A : Scope  •  Meta+Q / Esc : Exit");
 
         QFont titleFont(QStringLiteral("sans-serif"));
         titleFont.setPixelSize((navFontSize > 0) ? qRound(navFontSize * scale) : qMax(10, qRound(13.0 * scale)));
@@ -3958,7 +3958,7 @@ inline QImage renderHudMetaOverlayImage(qreal scale,
     const QList<CheatItem> items = {
         {QStringLiteral("Meta+A"), QStringLiteral("Super Jump"), QStringLiteral("Global Scope (All Workspaces + Stash)"), isSuperJump, QColor(0, 195, 255)},
         {QStringLiteral("Meta+S"), QStringLiteral("Stash Mode"), QStringLiteral("Drawer for stashing / un-stashing windows"), isStashMode, QColor(46, 204, 113)},
-        {QStringLiteral("Meta+X"), QStringLiteral("Close Mode"), QStringLiteral("Batch close windows with red badges"), isCloseMode, QColor(231, 76, 60)},
+        {QStringLiteral("Meta+Q"), QStringLiteral("Close Mode"), QStringLiteral("Batch close windows with red badges"), isCloseMode, QColor(231, 76, 60)},
         {QStringLiteral("Meta+U"), QStringLiteral("Audio Mode"), QStringLiteral("Filter windows actively playing sound"), isAudioMode, QColor(241, 196, 15)},
         {QStringLiteral("Meta+P"), QStringLiteral("Pinning Mode"), QStringLiteral("Pin or unpin windows across workspaces"), isPinMode, QColor(245, 166, 35)},
         {QStringLiteral("Meta+T"), QStringLiteral("Tiling Presets"), QStringLiteral("Choose tiling layout preset or slot edit"), isTilingPresets, QColor(52, 152, 219)},

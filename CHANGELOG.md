@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta37] - 2026-10-31
+
+### Changed
+- **Close Window Mode Shortcut Updated to Meta+Q**:
+  - Changed shortcut to enter, toggle, and exit Close Window mode from `Meta+X` to `Meta+Q`.
+  - Updated key routing in HUD across standard jump mode, SubLeap mode, Stash mode, Pin mode, and Close Window mode.
+  - Updated HUD top header banner, action hint bar, and Meta-hold cheat sheet overlay to reflect `Meta+Q`.
+
 ## [1.6.0-beta36] - 2026-10-31
 
 ### Changed
