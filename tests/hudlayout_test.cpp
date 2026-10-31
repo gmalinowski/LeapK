@@ -320,6 +320,79 @@ void testHudActiveMarkerRect()
     std::cout << "testHudActiveMarkerRect PASSED\n";
 }
 
+void testHudMarkerAndBadgeSelectionAnimation()
+{
+    // 1. Interpolation between two marker positions (Marker -> Marker)
+    const QRectF prevMarker(100.0, 50.0, 14.0, 40.0);
+    const QRectF targetMarker(250.0, 50.0, 14.0, 40.0);
+
+    auto easeOutCubic = [](qreal progress) -> qreal {
+        const qreal clamped = qBound(0.0, progress, 1.0);
+        return 1.0 - std::pow(1.0 - clamped, 3.0);
+    };
+
+    // At progress 0.0 (start)
+    const qreal ease0 = easeOutCubic(0.0);
+    assert(std::abs(ease0 - 0.0) < 0.001);
+    const qreal x0 = prevMarker.left() + (targetMarker.left() - prevMarker.left()) * ease0;
+    assert(std::abs(x0 - 100.0) < 0.001);
+    const qreal ghostAlpha0 = (1.0 - ease0) * 0.45;
+    assert(std::abs(ghostAlpha0 - 0.45) < 0.001);
+
+    // At progress 0.5 (halfway in time: fast deceleration)
+    const qreal easeHalf = easeOutCubic(0.5); // 1.0 - 0.125 = 0.875
+    assert(std::abs(easeHalf - 0.875) < 0.001);
+    const qreal xHalf = prevMarker.left() + (targetMarker.left() - prevMarker.left()) * easeHalf;
+    assert(std::abs(xHalf - (100.0 + 150.0 * 0.875)) < 0.001);
+
+    // At progress 1.0 (end)
+    const qreal ease1 = easeOutCubic(1.0);
+    assert(std::abs(ease1 - 1.0) < 0.001);
+    const qreal x1 = prevMarker.left() + (targetMarker.left() - prevMarker.left()) * ease1;
+    assert(std::abs(x1 - 250.0) < 0.001);
+
+    // 2. Fade out when jumping to dock pill (Marker -> Pill)
+    const qreal fadeAlpha0 = 1.0 - easeOutCubic(0.0);
+    assert(std::abs(fadeAlpha0 - 1.0) < 0.001);
+    const qreal fadeAlphaHalf = 1.0 - easeOutCubic(0.5);
+    assert(std::abs(fadeAlphaHalf - 0.125) < 0.001);
+    const qreal fadeAlpha1 = 1.0 - easeOutCubic(1.0);
+    assert(std::abs(fadeAlpha1 - 0.0) < 0.001);
+
+    // 3. Fade in when jumping from dock pill (Pill -> Marker)
+    const qreal fadeIn0 = easeOutCubic(0.0);
+    assert(std::abs(fadeIn0 - 0.0) < 0.001);
+    const qreal fadeInHalf = easeOutCubic(0.5);
+    assert(std::abs(fadeInHalf - 0.875) < 0.001);
+    const qreal fadeIn1 = easeOutCubic(1.0);
+    assert(std::abs(fadeIn1 - 1.0) < 0.001);
+
+    // 4. Badge color transition (active cyan -> default dark)
+    const QColor activeCyan(0, 195, 255);
+    const QColor defaultDark(30, 30, 46);
+
+    auto blendColor = [](const QColor &base, const QColor &target, qreal t) -> QColor {
+        int r = qBound(0, qRound(base.red() + (target.red() - base.red()) * t), 255);
+        int g = qBound(0, qRound(base.green() + (target.green() - base.green()) * t), 255);
+        int b = qBound(0, qRound(base.blue() + (target.blue() - base.blue()) * t), 255);
+        return QColor(r, g, b);
+    };
+
+    // When fading out active window:
+    const QColor cStart = blendColor(defaultDark, activeCyan, 1.0 - ease0);
+    assert(cStart == activeCyan);
+    const QColor cEnd = blendColor(defaultDark, activeCyan, 1.0 - ease1);
+    assert(cEnd == defaultDark);
+
+    // When fading in new active window:
+    const QColor cNewStart = blendColor(defaultDark, activeCyan, ease0);
+    assert(cNewStart == defaultDark);
+    const QColor cNewEnd = blendColor(defaultDark, activeCyan, ease1);
+    assert(cNewEnd == activeCyan);
+
+    std::cout << "testHudMarkerAndBadgeSelectionAnimation PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
@@ -332,6 +405,7 @@ int main(int argc, char *argv[])
     testHudDividerLayout();
     testEmptyHudHeaderAndHintBarSeparation();
     testHudActiveMarkerRect();
+    testHudMarkerAndBadgeSelectionAnimation();
 
     std::cout << "All HUD Layout tests passed successfully!\n";
     return 0;

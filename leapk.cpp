@@ -1185,6 +1185,9 @@ bool ActiveWindowOutlineEffect::isAnimationActive() const
     if (m_jumpMode && m_badgeHudGroupShaderEnabled && (m_breatheEnabled || m_neonFlickerEnabled || (m_customShaderEnabled && !m_activeCustomShaderId.isEmpty()))) {
         return true;
     }
+    if (m_jumpMode && m_hudSelectAnimActive && m_hudSelectAnimTimer.isValid() && m_hudSelectAnimTimer.elapsed() < 250) {
+        return true;
+    }
     const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
     const bool badgePulse = theme.resolveBool(QStringLiteral("$audioPulseBadge"), theme.windowBadge.audioPulseBadge)
         && theme.resolveDouble(QStringLiteral("$audioPulseIntensity"), theme.windowBadge.audioPulseIntensity) > 0.001;
@@ -1255,6 +1258,15 @@ void ActiveWindowOutlineEffect::slotAnimationTick()
     const bool audioPulsingEnabled = badgePulse || cardPulse;
     if (audioPulsingEnabled && m_audioTracker.hasPlayingAudio() && (m_jumpMode || (m_outlineEnabled && m_badgeConfig.windowBadgesEnabled && m_badgeDisplayMode == 1))) {
         effects->addRepaintFull();
+    }
+
+    if (m_jumpMode && m_hudSelectAnimActive) {
+        if (m_hudSelectAnimTimer.isValid() && m_hudSelectAnimTimer.elapsed() < 250) {
+            effects->addRepaintFull();
+        } else {
+            m_hudSelectAnimActive = false;
+            effects->addRepaintFull();
+        }
     }
 
     if (!isAnimationActive() && m_animationTimer->isActive()) {
@@ -1744,6 +1756,9 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
     }
     if (m_hudOriginWindow == w) {
         m_hudOriginWindow.clear();
+    }
+    if (m_hudPrevActiveWindow == w) {
+        m_hudPrevActiveWindow.clear();
     }
     m_recentWindows.removeAll(w);
     m_windowHistory.removeAll(w);
@@ -2425,6 +2440,14 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
     }
 
     if (m_jumpMode) {
+        if (w != m_activeWindow) {
+            m_hudPrevActiveWindow = m_activeWindow;
+            m_hudPrevMarkerRect = m_hudLastDrawnMarkerRect.isValid() ? m_hudLastDrawnMarkerRect : m_hudCurrentMarkerRect;
+            m_hudPrevActiveDockIndex = m_hudCurrentActiveDockIndex;
+            m_hudSelectAnimTimer.restart();
+            m_hudSelectAnimActive = true;
+            updateAnimationTimer();
+        }
         m_activeWindow = w;
         repaintAllOutlines();
         return;
@@ -5249,6 +5272,15 @@ void ActiveWindowOutlineEffect::slotCycleBadge(int delta)
         target->setMinimized(false);
     }
 
+    if (target != m_activeWindow) {
+        m_hudPrevActiveWindow = m_activeWindow;
+        m_hudPrevMarkerRect = m_hudLastDrawnMarkerRect.isValid() ? m_hudLastDrawnMarkerRect : m_hudCurrentMarkerRect;
+        m_hudPrevActiveDockIndex = m_hudCurrentActiveDockIndex;
+        m_hudSelectAnimTimer.restart();
+        m_hudSelectAnimActive = true;
+        updateAnimationTimer();
+    }
+
     m_activeWindow = target;
     if (effects) {
         effects->activateWindow(target);
@@ -5668,6 +5700,13 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
     m_hudTabScreenRects.clear();
     m_hudTargetPillRects.clear();
     m_hudOriginWindow.clear();
+    m_hudSelectAnimActive = false;
+    m_hudPrevActiveWindow.clear();
+    m_hudPrevMarkerRect = QRectF();
+    m_hudCurrentMarkerRect = QRectF();
+    m_hudLastDrawnMarkerRect = QRectF();
+    m_hudCurrentActiveDockIndex = -1;
+    m_hudPrevActiveDockIndex = -1;
     setKdeGlobalShortcutsBlocked(false);
     m_subLeapActive = false;
     m_stashModeActive = false;
@@ -7899,7 +7938,8 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
                                            const QString &customLabel,
                                            EffectWindow *target,
                                            const QString &recentKey,
-                                           bool isRecent)
+                                           bool isRecent,
+                                           qreal opacity)
 {
     const qreal scale = viewport.scale();
     const bool isStashed = isWindowInStash(target);
@@ -8000,11 +8040,13 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
     GLboolean scissorWasEnabled = glIsEnabled(GL_SCISSOR_TEST);
     glDisable(GL_SCISSOR_TEST);
 
-    ShaderBinder binder(ShaderTrait::MapTexture | ShaderTrait::TransformColorspace);
+    ShaderBinder binder(ShaderTrait::MapTexture | ShaderTrait::Modulate | ShaderTrait::TransformColorspace);
     GLShader *shader = binder.shader();
     shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix, viewport.projectionMatrix());
     shader->setUniform(GLShader::Mat4Uniform::TextureMatrix, texture->matrix(NormalizedCoordinates));
     shader->setColorspaceUniforms(ColorDescription::sRGB, renderTarget.colorDescription(), RenderingIntent::Perceptual);
+    const float effAlpha = float(qBound(0.0, opacity, 1.0));
+    shader->setUniform(GLShader::Vec4Uniform::ModulationConstant, QVector4D(effAlpha, effAlpha, effAlpha, effAlpha));
 
     texture->bind();
     vbo->render(GL_TRIANGLES);
@@ -8558,6 +8600,8 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             m_hudTargetPillRects.append({rects.at(i), targets.at(i).second});
         }
     }
+    m_hudCurrentActiveDockIndex = activeDockIndex;
+    m_hudCurrentMarkerRect = activeMarkerRect;
 
     struct GroupFrameItem {
         std::shared_ptr<GLTexture> texture;
@@ -8783,42 +8827,82 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         divTex->unbind();
     }
 
-    // 4. Render active HUD marker line (if active window is on-screen / not in HUD dock)
-    if (activeMarkerRect.isValid() && !activeMarkerRect.isEmpty()) {
-        const bool isVert = (activeMarkerRect.height() >= activeMarkerRect.width());
+    // 4. Render active HUD marker line with smooth transition animation
+    const qint64 animElapsed = (m_hudSelectAnimActive && m_hudSelectAnimTimer.isValid())
+        ? m_hudSelectAnimTimer.elapsed()
+        : 999;
+    const bool isAnimActive = m_jumpMode && m_hudSelectAnimActive && (animElapsed < 250);
+    const qreal progress = isAnimActive ? qBound(0.0, animElapsed / 250.0, 1.0) : 1.0;
+    const qreal easeOut = 1.0 - std::pow(1.0 - progress, 3.0);
+
+    auto drawMarker = [&](const QRectF &mRect, float alpha) {
+        if (!mRect.isValid() || mRect.isEmpty() || alpha <= 0.005f) {
+            return;
+        }
+        const bool isVert = (mRect.height() >= mRect.width());
         const QColor markerColor = hudCfg.activeTheme.resolveColor(
             hudCfg.activeTheme.hudCard.borderActive,
             hudCfg.activeTheme.resolveColor(QStringLiteral("$borderColor"), QColor(0, 195, 255)));
 
-        const QImage markerImg = OutlineBadge::renderHudActiveMarkerLine(activeMarkerRect.size(), scale, markerColor, isVert);
+        const QImage markerImg = OutlineBadge::renderHudActiveMarkerLine(mRect.size(), scale, markerColor, isVert);
         auto markerTex = GLTexture::upload(markerImg);
-        if (markerTex) {
-            markerTex->setFilter(GL_LINEAR);
-            markerTex->setWrapMode(GL_CLAMP_TO_EDGE);
+        if (!markerTex) {
+            return;
+        }
+        markerTex->setFilter(GL_LINEAR);
+        markerTex->setWrapMode(GL_CLAMP_TO_EDGE);
 
-            const float x0 = activeMarkerRect.left() * scale;
-            const float y0 = activeMarkerRect.top() * scale;
-            const float x1 = activeMarkerRect.right() * scale;
-            const float y1 = activeMarkerRect.bottom() * scale;
+        const float x0 = mRect.left() * scale;
+        const float y0 = mRect.top() * scale;
+        const float x1 = mRect.right() * scale;
+        const float y1 = mRect.bottom() * scale;
 
-            const std::array<GLVertex2D, 6> verts = {{
-                {QVector2D(x0, y0), QVector2D(0.0f, 0.0f)},
-                {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
-                {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
-                {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
-                {QVector2D(x1, y1), QVector2D(1.0f, 1.0f)},
-                {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
-            }};
+        const std::array<GLVertex2D, 6> verts = {{
+            {QVector2D(x0, y0), QVector2D(0.0f, 0.0f)},
+            {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+            {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+            {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+            {QVector2D(x1, y1), QVector2D(1.0f, 1.0f)},
+            {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+        }};
 
-            auto vbo = GLVertexBuffer::streamingBuffer();
-            vbo->setVertices(verts);
+        auto vbo = GLVertexBuffer::streamingBuffer();
+        vbo->setVertices(verts);
 
-            shader->setUniform(GLShader::Mat4Uniform::TextureMatrix, markerTex->matrix(NormalizedCoordinates));
-            markerTex->bind();
-            vbo->render(GL_TRIANGLES);
-            markerTex->unbind();
+        shader->setUniform(GLShader::Vec4Uniform::ModulationConstant, QVector4D(alpha, alpha, alpha, alpha));
+        shader->setUniform(GLShader::Mat4Uniform::TextureMatrix, markerTex->matrix(NormalizedCoordinates));
+        markerTex->bind();
+        vbo->render(GL_TRIANGLES);
+        markerTex->unbind();
+    };
+
+    if (isAnimActive) {
+        if (m_hudPrevMarkerRect.isValid() && activeMarkerRect.isValid()) {
+            QRectF animRect;
+            const qreal curX = m_hudPrevMarkerRect.left() + (activeMarkerRect.left() - m_hudPrevMarkerRect.left()) * easeOut;
+            const qreal curY = m_hudPrevMarkerRect.top() + (activeMarkerRect.top() - m_hudPrevMarkerRect.top()) * easeOut;
+            animRect = QRectF(curX, curY, activeMarkerRect.width(), activeMarkerRect.height());
+
+            drawMarker(m_hudPrevMarkerRect, float((1.0 - easeOut) * 0.45));
+            drawMarker(animRect, 1.0f);
+            m_hudLastDrawnMarkerRect = animRect;
+        } else if (m_hudPrevMarkerRect.isValid() && !activeMarkerRect.isValid()) {
+            drawMarker(m_hudPrevMarkerRect, float(1.0 - easeOut));
+            m_hudLastDrawnMarkerRect = m_hudPrevMarkerRect;
+        } else if (!m_hudPrevMarkerRect.isValid() && activeMarkerRect.isValid()) {
+            drawMarker(activeMarkerRect, float(easeOut));
+            m_hudLastDrawnMarkerRect = activeMarkerRect;
+        }
+    } else {
+        if (activeMarkerRect.isValid()) {
+            drawMarker(activeMarkerRect, 1.0f);
+            m_hudLastDrawnMarkerRect = activeMarkerRect;
+        } else {
+            m_hudLastDrawnMarkerRect = QRectF();
         }
     }
+
+    shader->setUniform(GLShader::Vec4Uniform::ModulationConstant, QVector4D(1.0f, 1.0f, 1.0f, 1.0f));
 
     if (scissorWasEnabled) {
         glEnable(GL_SCISSOR_TEST);
@@ -8841,6 +8925,9 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     }
     if (activeMarkerRect.isValid() && !activeMarkerRect.isEmpty()) {
         allPillsBounds = allPillsBounds.isEmpty() ? activeMarkerRect : allPillsBounds.united(activeMarkerRect);
+    }
+    if (m_hudPrevMarkerRect.isValid() && !m_hudPrevMarkerRect.isEmpty()) {
+        allPillsBounds = allPillsBounds.isEmpty() ? m_hudPrevMarkerRect : allPillsBounds.united(m_hudPrevMarkerRect);
     }
     for (const GroupFrameItem &gf : groupFrames) {
         allPillsBounds = allPillsBounds.united(gf.rect);
@@ -10943,6 +11030,13 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             const int jumpH = m_badgeConfig.jumpBadgeSize;
         const QRectF screenRect = viewport.renderRect();
         EffectWindow *hudRefWindow = (m_jumpMode && m_hudOriginWindow) ? m_hudOriginWindow.data() : w;
+        const qint64 hudAnimElapsed = (m_hudSelectAnimActive && m_hudSelectAnimTimer.isValid())
+            ? m_hudSelectAnimTimer.elapsed()
+            : 999;
+        const bool isSelectAnim = m_jumpMode && m_hudSelectAnimActive && (hudAnimElapsed < 250);
+        const qreal animProgress = isSelectAnim ? qBound(0.0, hudAnimElapsed / 250.0, 1.0) : 1.0;
+        const qreal easeOut = 1.0 - std::pow(1.0 - animProgress, 3.0);
+
         QList<QPair<QChar, EffectWindow *>> offscreenTargets;
         QList<QPair<QChar, EffectWindow *>> onscreenTargets;
 
@@ -11053,8 +11147,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                         if (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50) {
                             continue;
                         }
-                        // Force window badge on active window hudRefWindow!
-                        if (target == hudRefWindow) {
+                        // Force window badge on active window hudRefWindow / w or fading previous active window
+                        if (target == hudRefWindow || target == w || (isSelectAnim && target == m_hudPrevActiveWindow.data())) {
                             onscreenTargets.append(qMakePair(letter, target));
                         } else if (m_badgeConfig.windowBadgesEnabled && !isWindowObscured(target)) {
                             onscreenTargets.append(qMakePair(letter, target));
@@ -11073,8 +11167,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                             continue;
                         }
 
-                        // Force window badge on active origin window hudRefWindow
-                        if (target == hudRefWindow) {
+                        // Force window badge on active origin window hudRefWindow / w or fading previous active window
+                        if (target == hudRefWindow || target == w || (isSelectAnim && target == m_hudPrevActiveWindow.data())) {
                             if (target->isOnCurrentDesktop() && !target->isMinimized()) {
                                 onscreenTargets.append(qMakePair(directKey, target));
                             }
@@ -11204,6 +11298,39 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             } else {
                 bgCol = m_badgeConfig.defaultBgColor;
             }
+
+            // Animate smooth transition of badge highlight between windows
+            qreal badgeOpacity = 1.0;
+            if (isSelectAnim) {
+                if (target == m_hudPrevActiveWindow.data() && target != w) {
+                    QColor activeCol = resolveColor(1.0, target);
+                    if (!activeCol.isValid() || activeCol.alpha() == 0) {
+                        activeCol = m_customColor.isValid() ? m_customColor : m_badgeConfig.defaultBgColor;
+                    }
+                    const qreal fade = 1.0 - easeOut; // 1.0 down to 0.0
+                    int r = qBound(0, qRound(bgCol.red() + (activeCol.red() - bgCol.red()) * fade), 255);
+                    int g = qBound(0, qRound(bgCol.green() + (activeCol.green() - bgCol.green()) * fade), 255);
+                    int b = qBound(0, qRound(bgCol.blue() + (activeCol.blue() - bgCol.blue()) * fade), 255);
+                    int a = qBound(0, qRound(bgCol.alpha() + (activeCol.alpha() - bgCol.alpha()) * fade), 255);
+                    bgCol = QColor(r, g, b, a);
+
+                    if (!m_badgeConfig.windowBadgesEnabled) {
+                        badgeOpacity = fade;
+                    }
+                } else if (target == w && m_hudPrevActiveWindow) {
+                    QColor baseCol = m_badgeConfig.defaultBgColor;
+                    const qreal rise = easeOut; // 0.0 up to 1.0
+                    int r = qBound(0, qRound(baseCol.red() + (bgCol.red() - baseCol.red()) * rise), 255);
+                    int g = qBound(0, qRound(baseCol.green() + (bgCol.green() - baseCol.green()) * rise), 255);
+                    int b = qBound(0, qRound(baseCol.blue() + (bgCol.blue() - baseCol.blue()) * rise), 255);
+                    int a = qBound(0, qRound(baseCol.alpha() + (bgCol.alpha() - baseCol.alpha()) * rise), 255);
+                    bgCol = QColor(r, g, b, a);
+
+                    if (!m_badgeConfig.windowBadgesEnabled) {
+                        badgeOpacity = rise;
+                    }
+                }
+            }
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
             QString customLabel = m_markedWindowLabels.value(target);
             if (m_closeWindowModeActive) {
@@ -11220,7 +11347,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             QRectF badgeRect = findBestBadgePositionForWindow(target, visibleWindowGeo, m_badgePosition, jumpW, jumpH, m_badgeMargin, screenRect, hudRects, &foundVisiblePosition);
 
             if (!foundVisiblePosition) {
-                if (target == w || target == hudRefWindow) {
+                if (target == w || target == hudRefWindow || (isSelectAnim && target == m_hudPrevActiveWindow.data())) {
                     badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
                     if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
                     if (badgeRect.right() > screenRect.right() - 4.0) badgeRect.moveRight(screenRect.right() - 4.0);
@@ -11237,7 +11364,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                     continue;
                 }
             }
-            renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, true, m_badgeConfig.jumpBadgeSize, customLabel, target, recentKey, isRecent);
+            renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, true, m_badgeConfig.jumpBadgeSize, customLabel, target, recentKey, isRecent, badgeOpacity);
         }
 
         if (!offscreenTargets.isEmpty()) {

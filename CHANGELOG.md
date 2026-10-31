@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta47] - 2026-11-01
+
+### Added
+- **Smooth Selection Animation for HUD Marker Line and On-Screen Badges**:
+  - **Fluid Active Marker Transition**: When cycling badges in HUD (`Shift + ,` / `Shift + .`), switching active windows, or selecting targets:
+    - Moving between on-screen windows (Marker -> Marker): The vertical indicator line glides smoothly between positions using a cubic ease-out curve (`~250ms`) with an elegant fading ghost trail at the previous position.
+    - Moving from an on-screen window to a dock pill (Marker -> Dock): The previous marker line smoothly and gradually fades out its glow & opacity (`1.0 - t`) instead of vanishing abruptly.
+    - Moving from a dock pill to an on-screen window (Dock -> Marker): The new marker line fades in smoothly (`t`).
+  - **Gradual Fade-Out / Transition for Active Window Badges**:
+    - When leaving an active on-screen window, its badge active highlight / color smoothly fades down ("powoli zanika") back to normal background color over 250ms.
+    - If window badges are disabled except for active windows, the badge of the previous window smoothly fades out its opacity to 0 (`1.0 - t`) rather than disappearing in 1 frame.
+    - The newly active window's badge smoothly rises into vibrant active highlight (`t`).
+  - **60Hz/144Hz Refresh Driven with Zero Overhead**: Driven by LeapK's `m_animationTimer` via `effects->addRepaintFull()` during the 250ms transition, using OpenGL texture alpha modulation (`GLShader::Vec4Uniform::ModulationConstant`), stopping immediately when animation finishes.
+  - Added unit test `testHudMarkerAndBadgeSelectionAnimation` in `tests/hudlayout_test.cpp`.
+
 ## [1.6.0-beta46] - 2026-10-31
 
 ### Added

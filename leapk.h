@@ -306,7 +306,8 @@ private:
                      const QString &customLabel = QString(),
                      EffectWindow *target = nullptr,
                      const QString &recentKey = QString(),
-                     bool isRecent = false);
+                     bool isRecent = false,
+                     qreal opacity = 1.0);
     void renderOffscreenJumpTargets(const RenderTarget &renderTarget,
                                    const RenderViewport &viewport,
                                    const QList<QPair<QChar, EffectWindow *>> &targets,
@@ -589,6 +590,14 @@ private:
     mutable QRectF m_hudHeaderScreenRect;
     mutable QRectF m_hudHintBarScreenRect;
     QList<QPair<QRectF, EffectWindow *>> m_hudTargetPillRects;
+    QElapsedTimer m_hudSelectAnimTimer;
+    bool m_hudSelectAnimActive = false;
+    QRectF m_hudCurrentMarkerRect;
+    QRectF m_hudPrevMarkerRect;
+    QRectF m_hudLastDrawnMarkerRect;
+    int m_hudCurrentActiveDockIndex = -1;
+    int m_hudPrevActiveDockIndex = -1;
+    QPointer<EffectWindow> m_hudPrevActiveWindow;
 
     // Sub-Leap Disambiguation (multi-instance window disambiguation)
     bool m_subLeapActive = false;
