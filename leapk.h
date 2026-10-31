@@ -528,6 +528,7 @@ private:
 
     // Jump to Window
     bool m_jumpMode = false;
+    QPointer<EffectWindow> m_hudOriginWindow;
     int m_jumpTargets = 0; // 0 = All visible windows, 1 = Marked windows only
     int m_cursorWarpMode = 0; // 0 = Disabled, 1 = Center of Window, 2 = Top-Left Titlebar
     bool m_soundFeedbackEnabled = false;

@@ -1742,6 +1742,9 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
             m_windowShowTimer->stop();
         }
     }
+    if (m_hudOriginWindow == w) {
+        m_hudOriginWindow.clear();
+    }
     m_recentWindows.removeAll(w);
     m_windowHistory.removeAll(w);
     m_hudSnapshotHistory.removeAll(w);
@@ -3880,7 +3883,8 @@ void ActiveWindowOutlineEffect::switchToWorkspaceView(int newHudViewIndex)
 
     if (wasInJumpMode) {
         m_jumpMode = true;
-    m_hudSnapshotHistory = m_windowHistory;
+        m_hudOriginWindow = effects ? effects->activeWindow() : m_activeWindow;
+        m_hudSnapshotHistory = m_windowHistory;
         assignJumpLetters();
         if (effects) {
             effects->addRepaintFull();
@@ -5127,40 +5131,86 @@ void ActiveWindowOutlineEffect::slotCycleBadge(int delta)
     }
 
     const auto &letterMap = m_subLeapActive ? m_subLeapLetterToWindow : m_jumpLetterToWindow;
-    if (letterMap.isEmpty()) {
+    if (letterMap.isEmpty() && m_hudTargetPillRects.isEmpty()) {
         return;
     }
 
     QList<EffectWindow *> orderedWindows;
-    if (!m_hudTargetPillRects.isEmpty()) {
-        for (const auto &pair : m_hudTargetPillRects) {
-            EffectWindow *w = pair.second;
-            if (w && !w->isDeleted() && !orderedWindows.contains(w)) {
-                orderedWindows.append(w);
-            }
+    auto addWindow = [&orderedWindows](EffectWindow *w) {
+        if (w && !w->isDeleted() && !orderedWindows.contains(w)) {
+            orderedWindows.append(w);
         }
+    };
+
+    // 1. Windows from HUD dock pills (if present)
+    for (const auto &pair : m_hudTargetPillRects) {
+        addWindow(pair.second);
+    }
+
+    // 2. Windows from letterMap (including on-screen badges)
+    for (auto it = letterMap.constBegin(); it != letterMap.constEnd(); ++it) {
+        addWindow(it.value());
+    }
+
+    // 3. Multi-instance window groups (Mode A)
+    for (auto it = m_letterWindowGroups.constBegin(); it != m_letterWindowGroups.constEnd(); ++it) {
+        for (EffectWindow *w : it.value()) {
+            addWindow(w);
+        }
+    }
+
+    // 4. Origin active window
+    if (m_hudOriginWindow && isEligibleTargetWindow(m_hudOriginWindow.data())) {
+        addWindow(m_hudOriginWindow.data());
     }
 
     if (orderedWindows.isEmpty()) {
-        const auto activeLayout = LeapKKeyboard::detectActiveLayout();
-        const QString pool = LeapKKeyboard::preferredLetterPool(activeLayout);
+        return;
+    }
 
-        for (int i = 0; i < pool.length(); ++i) {
-            const QChar ch = pool.at(i);
-            if (letterMap.contains(ch)) {
-                EffectWindow *w = letterMap.value(ch);
-                if (w && !w->isDeleted() && !orderedWindows.contains(w)) {
-                    orderedWindows.append(w);
-                }
+    // Sort orderedWindows consistently with HUD pills:
+    // Pinned/stashed windows first, then regular windows.
+    // Within each partition, sort by recency rank oldest to newest (rankA > rankB).
+    const auto &history = !m_hudSnapshotHistory.isEmpty() ? m_hudSnapshotHistory : m_windowHistory;
+    auto recencyRank = [&history](EffectWindow *w) -> int {
+        if (!w) return 999999;
+        int idx = history.indexOf(w);
+        return idx >= 0 ? idx : 999999;
+    };
+
+    QList<EffectWindow *> leftGroup;
+    QList<EffectWindow *> rightGroup;
+    if (m_stashModeActive) {
+        for (EffectWindow *w : orderedWindows) {
+            if (isWindowInStash(w)) {
+                rightGroup.append(w);
+            } else {
+                leftGroup.append(w);
             }
         }
-        for (auto it = letterMap.constBegin(); it != letterMap.constEnd(); ++it) {
-            EffectWindow *w = it.value();
-            if (w && !w->isDeleted() && !orderedWindows.contains(w)) {
-                orderedWindows.append(w);
+    } else {
+        for (EffectWindow *w : orderedWindows) {
+            if (isWindowPinned(w)) {
+                leftGroup.append(w);
+            } else {
+                rightGroup.append(w);
             }
         }
     }
+
+    auto sortByRecencyOldestToNewest = [&recencyRank](QList<EffectWindow *> &list) {
+        std::stable_sort(list.begin(), list.end(), [&recencyRank](EffectWindow *a, EffectWindow *b) {
+            int rankA = recencyRank(a);
+            int rankB = recencyRank(b);
+            if (rankA != rankB) {
+                return rankA > rankB; // Older window (higher index) on the left
+            }
+            return false;
+        });
+    };
+    sortByRecencyOldestToNewest(leftGroup);
+    sortByRecencyOldestToNewest(rightGroup);
+    orderedWindows = leftGroup + rightGroup;
 
     if (orderedWindows.isEmpty()) {
         return;
@@ -5168,7 +5218,10 @@ void ActiveWindowOutlineEffect::slotCycleBadge(int delta)
 
     EffectWindow *curr = effects ? effects->activeWindow() : m_activeWindow;
     int currIdx = orderedWindows.indexOf(curr);
-    if (currIdx < 0) {
+    if (currIdx < 0 && m_hudOriginWindow) {
+        currIdx = orderedWindows.indexOf(m_hudOriginWindow.data());
+    }
+    if (currIdx < 0 && m_activeWindow) {
         currIdx = orderedWindows.indexOf(m_activeWindow);
     }
 
@@ -5535,6 +5588,7 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_keyboardGrabActive = true;
 
     m_jumpMode = true;
+    m_hudOriginWindow = effects ? effects->activeWindow() : m_activeWindow;
     m_hudSnapshotHistory = m_windowHistory;
 #ifdef ACTIVE_WINDOW_OUTLINE_HAS_WINDOW_INPUT_MOUSE_EVENT
     effects->startMouseInterception(this, Qt::ArrowCursor);
@@ -5613,6 +5667,7 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
     m_hudTabLocalRects.clear();
     m_hudTabScreenRects.clear();
     m_hudTargetPillRects.clear();
+    m_hudOriginWindow.clear();
     setKdeGlobalShortcutsBlocked(false);
     m_subLeapActive = false;
     m_stashModeActive = false;
@@ -10745,6 +10800,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         } else {
             const int jumpH = m_badgeConfig.jumpBadgeSize;
         const QRectF screenRect = viewport.renderRect();
+        EffectWindow *hudRefWindow = (m_jumpMode && m_hudOriginWindow) ? m_hudOriginWindow.data() : w;
         QList<QPair<QChar, EffectWindow *>> offscreenTargets;
         QList<QPair<QChar, EffectWindow *>> onscreenTargets;
 
@@ -10781,7 +10837,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 cand.isTinyOrOffscreen = (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50);
                 cand.isObscured = isWindowObscured(target);
                 cand.isPinned = isWindowPinned(target);
-                cand.isActiveWindow = (target == w);
+                cand.isActiveWindow = (target == hudRefWindow);
 
                 const auto dist = OutlineBadge::classifySubLeapTarget(cand, m_badgeConfig, m_stashModeActive);
                 if (dist.addToHud) {
@@ -10805,10 +10861,10 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                         continue;
                     }
 
-                    EffectWindow *repWin = (firstWin == w && winList.size() > 1) ? nullptr : firstWin;
+                    EffectWindow *repWin = (firstWin == hudRefWindow && winList.size() > 1) ? nullptr : firstWin;
                     if (!repWin) {
                         for (EffectWindow *target : winList) {
-                            if (target && !target->isDeleted() && target != w) {
+                            if (target && !target->isDeleted() && target != hudRefWindow) {
                                 repWin = target;
                                 break;
                             }
@@ -10820,13 +10876,13 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
 
                     const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(repWin) || m_stashModeActive || m_closeWindowModeActive || m_pinModeActive;
                     if (forceHud) {
-                        if (winList.size() > 1 || firstWin != w || isWindowPinned(repWin) || m_stashModeActive || m_closeWindowModeActive || m_pinModeActive) {
+                        if (winList.size() > 1 || firstWin != hudRefWindow || m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(repWin) || m_stashModeActive || m_closeWindowModeActive || m_pinModeActive) {
                             offscreenTargets.append(qMakePair(letter, repWin));
                         }
                     } else {
                         bool hasOffscreenMember = false;
                         for (EffectWindow *target : winList) {
-                            if (!target || target == w || target->isDeleted()) continue;
+                            if (!target || target == hudRefWindow || target->isDeleted()) continue;
                             if (!target->isOnCurrentDesktop() || target->isMinimized()) {
                                 hasOffscreenMember = true;
                                 break;
@@ -10838,7 +10894,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                                 break;
                             }
                         }
-                        if (hasOffscreenMember && (winList.size() > 1 || firstWin != w)) {
+                        if (hasOffscreenMember && (winList.size() > 1 || firstWin != hudRefWindow)) {
                             offscreenTargets.append(qMakePair(letter, repWin));
                         }
                     }
@@ -10855,8 +10911,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                         if (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50) {
                             continue;
                         }
-                        // Force window badge on active window w!
-                        if (target == w) {
+                        // Force window badge on active window hudRefWindow!
+                        if (target == hudRefWindow) {
                             onscreenTargets.append(qMakePair(letter, target));
                         } else if (m_badgeConfig.windowBadgesEnabled && !isWindowObscured(target)) {
                             onscreenTargets.append(qMakePair(letter, target));
@@ -10875,12 +10931,12 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                             continue;
                         }
 
-                        // Force window badge on active window w
-                        if (target == w) {
+                        // Force window badge on active origin window hudRefWindow
+                        if (target == hudRefWindow) {
                             if (target->isOnCurrentDesktop() && !target->isMinimized()) {
                                 onscreenTargets.append(qMakePair(directKey, target));
                             }
-                            if (isWindowPinned(target) || m_stashModeActive || m_closeWindowModeActive || m_pinModeActive) {
+                            if (m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(target) || m_stashModeActive || m_closeWindowModeActive || m_pinModeActive) {
                                 offscreenTargets.append(qMakePair(directKey, target));
                             }
                             continue;
@@ -11022,7 +11078,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             QRectF badgeRect = findBestBadgePositionForWindow(target, visibleWindowGeo, m_badgePosition, jumpW, jumpH, m_badgeMargin, screenRect, hudRects, &foundVisiblePosition);
 
             if (!foundVisiblePosition) {
-                if (target == w) {
+                if (target == w || target == hudRefWindow) {
                     badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, jumpW, jumpH, m_badgeMargin);
                     if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
                     if (badgeRect.right() > screenRect.right() - 4.0) badgeRect.moveRight(screenRect.right() - 4.0);

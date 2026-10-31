@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta45] - 2026-10-31
+
+### Fixed
+- **Sequential HUD Badge Cycling with `Shift + ,` (`<`) and `Shift + .` (`>`)**:
+  - Fixed an issue where cycling badges with `Shift + ,` or `Shift + .` in HUD jumped to the recent window and bounced between 2 windows instead of advancing sequentially through all badge targets.
+  - Preserved origin active window reference (`m_hudOriginWindow`) so that activating windows during cycling does not dynamically reshape or shuffle `offscreenTargets` (dock pills) and on-screen badges in `paintScreen()`. Dock pills now remain completely stable and stationary while cycling.
+  - Ensured `hudRefWindow` is included in dock pills when `BadgeHudIncludeAll` is enabled or window badges are disabled.
+  - Re-implemented `slotCycleBadge()` to aggregate all badge targets (HUD dock pills, on-screen badges, window groups, and origin window) and sort them identically to the HUD dock (pinned/stashed on left, regular on right, ordered oldest to youngest from left to right).
+  - `Shift + .` (`>`) advances to the next badge to the right (+1 towards younger windows), and `Shift + ,` (`<`) moves to the previous badge to the left (-1 towards older windows), wrapping around cleanly across all badges without looping or getting stuck.
+  - Updated unit test `testHudShiftBadgeCycling` in `tests/superjump_test.cpp`.
+
 ## [1.6.0-beta44] - 2026-10-31
 
 ### Removed

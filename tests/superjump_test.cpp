@@ -566,67 +566,136 @@ void testHudShiftBadgeCycling()
     // Simulates HUD badge cycling logic in slotCycleBadge
     struct DummyWindow {
         QString name;
+        bool isPinned = false;
+        bool isStashed = false;
     };
 
-    DummyWindow wA{QStringLiteral("Window A")};
-    DummyWindow wS{QStringLiteral("Window S")};
-    DummyWindow wD{QStringLiteral("Window D")};
+    DummyWindow wA{QStringLiteral("Window A (Origin)")};
+    DummyWindow wS{QStringLiteral("Window S (Oldest in dock)")};
+    DummyWindow wD{QStringLiteral("Window D (Middle in dock)")};
+    DummyWindow wF{QStringLiteral("Window F (Youngest/Recent in dock)")};
+
+    // History: wA is active (idx 0), wF is recent (idx 1), wD (idx 2), wS (idx 3)
+    QList<DummyWindow *> history = { &wA, &wF, &wD, &wS };
+
+    // Simulating hudTargetPillRects (origin wA was excluded from dock pills)
+    QList<QPair<QRectF, DummyWindow *>> hudTargetPillRects = {
+        {QRectF(0, 0, 100, 30), &wS},
+        {QRectF(110, 0, 100, 30), &wD},
+        {QRectF(220, 0, 100, 30), &wF}
+    };
 
     QMap<QChar, DummyWindow *> letterMap = {
         {QChar('A'), &wA},
         {QChar('S'), &wS},
-        {QChar('D'), &wD}
+        {QChar('D'), &wD},
+        {QChar('F'), &wF}
     };
 
-    const QString pool = QStringLiteral("ASDFJKL;");
+    DummyWindow *originWin = &wA;
+    DummyWindow *activeWin = &wA;
+
+    // Gather all badge windows
     QList<DummyWindow *> orderedWindows;
-    for (int i = 0; i < pool.length(); ++i) {
-        const QChar ch = pool.at(i);
-        if (letterMap.contains(ch)) {
-            DummyWindow *w = letterMap.value(ch);
-            if (!orderedWindows.contains(w)) {
-                orderedWindows.append(w);
-            }
+    auto addWindow = [&orderedWindows](DummyWindow *w) {
+        if (w && !orderedWindows.contains(w)) {
+            orderedWindows.append(w);
         }
+    };
+
+    for (const auto &pair : hudTargetPillRects) {
+        addWindow(pair.second);
+    }
+    for (auto it = letterMap.constBegin(); it != letterMap.constEnd(); ++it) {
+        addWindow(it.value());
+    }
+    if (originWin) {
+        addWindow(originWin);
     }
 
-    assert(orderedWindows.size() == 3);
-    assert(orderedWindows[0] == &wA);
-    assert(orderedWindows[1] == &wS);
-    assert(orderedWindows[2] == &wD);
+    assert(orderedWindows.size() == 4);
 
-    DummyWindow *activeWin = &wA;
+    // Sort orderedWindows consistently with HUD:
+    auto recencyRank = [&history](DummyWindow *w) -> int {
+        if (!w) return 999999;
+        int idx = history.indexOf(w);
+        return idx >= 0 ? idx : 999999;
+    };
+
+    QList<DummyWindow *> leftGroup;
+    QList<DummyWindow *> rightGroup;
+    for (DummyWindow *w : orderedWindows) {
+        if (w->isPinned) {
+            leftGroup.append(w);
+        } else {
+            rightGroup.append(w);
+        }
+    }
+    auto sortByRecency = [&recencyRank](QList<DummyWindow *> &list) {
+        std::stable_sort(list.begin(), list.end(), [&recencyRank](DummyWindow *a, DummyWindow *b) {
+            int rankA = recencyRank(a);
+            int rankB = recencyRank(b);
+            if (rankA != rankB) {
+                return rankA > rankB; // Oldest on left (first)
+            }
+            return false;
+        });
+    };
+    sortByRecency(leftGroup);
+    sortByRecency(rightGroup);
+    orderedWindows = leftGroup + rightGroup;
+
+    // Ordered windows from oldest to newest: wS (rank 3), wD (rank 2), wF (rank 1), wA (rank 0)
+    assert(orderedWindows[0] == &wS);
+    assert(orderedWindows[1] == &wD);
+    assert(orderedWindows[2] == &wF);
+    assert(orderedWindows[3] == &wA);
 
     auto cycleBadge = [&](int delta) {
         int currIdx = orderedWindows.indexOf(activeWin);
+        if (currIdx < 0 && originWin) {
+            currIdx = orderedWindows.indexOf(originWin);
+        }
         int nextIdx = (currIdx >= 0)
             ? (currIdx + delta + orderedWindows.size()) % orderedWindows.size()
             : (delta > 0 ? 0 : orderedWindows.size() - 1);
         activeWin = orderedWindows.at(nextIdx);
     };
 
-    // 1. Initial active window is wA
+    // 1. Initial active window is wA (index 3)
     assert(activeWin == &wA);
 
-    // 2. Shift + . (>) -> cycles to wS
+    // 2. Shift + . (>) -> cycles to wS (index 0, wraps smoothly)
     cycleBadge(1);
     assert(activeWin == &wS);
 
-    // 3. Shift + . (>) -> cycles to wD
+    // 3. Shift + . (>) -> cycles to wD (index 1)
     cycleBadge(1);
     assert(activeWin == &wD);
 
-    // 4. Shift + . (>) -> wraps around to wA
+    // 4. Shift + . (>) -> cycles to wF (index 2)
+    cycleBadge(1);
+    assert(activeWin == &wF);
+
+    // 5. Shift + . (>) -> cycles to wA (index 3)
     cycleBadge(1);
     assert(activeWin == &wA);
 
-    // 5. Shift + , (<) -> wraps backwards to wD
+    // 6. Shift + , (<) -> cycles backwards to wF (index 2)
+    cycleBadge(-1);
+    assert(activeWin == &wF);
+
+    // 7. Shift + , (<) -> cycles backwards to wD (index 1)
     cycleBadge(-1);
     assert(activeWin == &wD);
 
-    // 6. Shift + , (<) -> cycles backwards to wS
+    // 8. Shift + , (<) -> cycles backwards to wS (index 0)
     cycleBadge(-1);
     assert(activeWin == &wS);
+
+    // 9. Shift + , (<) -> cycles backwards to wA (index 3)
+    cycleBadge(-1);
+    assert(activeWin == &wA);
 
     std::cout << "testHudShiftBadgeCycling PASSED\n";
 }
