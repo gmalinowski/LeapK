@@ -1601,6 +1601,78 @@ void testTilingHudComponents()
     assert(header.width() > 200);
 }
 
+void testBadgePreviewDismissHitTesting()
+{
+    auto isInside = [](bool active, bool showWin, bool showHud,
+                       const QList<QRectF> &winRects,
+                       const QRectF &hudBounds,
+                       const QRectF &closeBtn,
+                       const QRectF &header,
+                       const QRectF &hintBar,
+                       const QList<QRectF> &pillRects,
+                       const QPointF &pos) -> bool {
+        if (!active) {
+            return false;
+        }
+        if (showWin) {
+            for (const QRectF &r : winRects) {
+                if (r.isValid() && r.contains(pos)) {
+                    return true;
+                }
+            }
+        }
+        if (showHud) {
+            if (closeBtn.isValid() && closeBtn.contains(pos)) {
+                return true;
+            }
+            if (header.isValid() && header.contains(pos)) {
+                return true;
+            }
+            if (hintBar.isValid() && hintBar.contains(pos)) {
+                return true;
+            }
+            if (hudBounds.isValid() && hudBounds.contains(pos)) {
+                return true;
+            }
+            for (const QRectF &r : pillRects) {
+                if (r.isValid() && r.contains(pos)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+
+    const QRectF winBadge(100, 100, 40, 40);
+    const QRectF hudDock(300, 800, 600, 80);
+    const QRectF closeBtn(880, 805, 18, 18);
+    const QRectF header(300, 760, 600, 36);
+    const QRectF hintBar(300, 885, 600, 30);
+    const QList<QRectF> pills = { QRectF(320, 810, 120, 60), QRectF(460, 810, 120, 60) };
+
+    // 1. Inactive preview: nothing should hit
+    assert(!isInside(false, true, true, {winBadge}, hudDock, closeBtn, header, hintBar, pills, QPointF(110, 110)));
+    assert(!isInside(false, true, true, {winBadge}, hudDock, closeBtn, header, hintBar, pills, QPointF(350, 820)));
+
+    // 2. Active window badges preview only
+    assert(isInside(true, true, false, {winBadge}, hudDock, closeBtn, header, hintBar, pills, QPointF(110, 110)));
+    assert(!isInside(true, true, false, {winBadge}, hudDock, closeBtn, header, hintBar, pills, QPointF(350, 820)));
+    assert(!isInside(true, true, false, {winBadge}, hudDock, closeBtn, header, hintBar, pills, QPointF(90, 90)));
+
+    // 3. Active HUD preview only
+    assert(!isInside(true, false, true, {winBadge}, hudDock, closeBtn, header, hintBar, pills, QPointF(110, 110)));
+    assert(isInside(true, false, true, {winBadge}, hudDock, closeBtn, header, hintBar, pills, QPointF(350, 820)));
+    assert(isInside(true, false, true, {winBadge}, hudDock, closeBtn, header, hintBar, pills, QPointF(885, 810)));
+    assert(isInside(true, false, true, {winBadge}, hudDock, closeBtn, header, hintBar, pills, QPointF(350, 770)));
+    assert(isInside(true, false, true, {winBadge}, hudDock, closeBtn, header, hintBar, pills, QPointF(350, 895)));
+    assert(!isInside(true, false, true, {winBadge}, hudDock, closeBtn, header, hintBar, pills, QPointF(200, 200)));
+
+    // 4. Both active
+    assert(isInside(true, true, true, {winBadge}, hudDock, closeBtn, header, hintBar, pills, QPointF(110, 110)));
+    assert(isInside(true, true, true, {winBadge}, hudDock, closeBtn, header, hintBar, pills, QPointF(350, 820)));
+    assert(!isInside(true, true, true, {winBadge}, hudDock, closeBtn, header, hintBar, pills, QPointF(50, 50)));
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -1635,6 +1707,7 @@ int main(int argc, char *argv[])
     testPillThumbnailClippingAndThemes();
     testSubLeapTargetDistribution();
     testTilingHudComponents();
+    testBadgePreviewDismissHitTesting();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

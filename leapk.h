@@ -113,6 +113,7 @@ public Q_SLOTS:
 
 Q_SIGNALS:
     void stateChanged();
+    void badgePreviewChanged(bool active);
 
 public:
     // The outline is drawn in a screen-level pass (after all windows) rather
@@ -170,6 +171,9 @@ public:
     static bool supported();
 
 private Q_SLOTS:
+    void slotMouseChanged(const QPointF &pos, const QPointF &oldpos,
+                          Qt::MouseButtons buttons, Qt::MouseButtons oldbuttons,
+                          Qt::KeyboardModifiers modifiers, Qt::KeyboardModifiers oldmodifiers);
     void slotWindowActivated(KWin::EffectWindow *w);
     void slotWindowAdded(KWin::EffectWindow *w);
     void slotWindowDeleted(KWin::EffectWindow *w);
@@ -526,10 +530,14 @@ private:
     bool m_badgePreviewActive = false;
     bool m_previewShowWindowBadges = false;
     bool m_previewShowHud = false;
+    bool m_previewMouseIntercepting = false;
+    QList<QRectF> m_previewWindowBadgeRects;
+    QRectF m_previewHudBounds;
     OutlineBadge::BadgeConfig m_previewBadgeConfig;
     int m_previewBadgePosition = 0;
     int m_previewBadgeHudPosition = 0;
     std::unique_ptr<QTimer> m_previewSafetyTimer;
+    bool isPosInsideBadgePreview(const QPointF &pos) const;
 
     // Jump to Window
     bool m_jumpMode = false;

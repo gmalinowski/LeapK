@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta48] - 2026-11-01
+
+### Added
+- **Dismiss Badge Previews by Clicking on Badges or HUD**:
+  - **Click-to-Dismiss on Preview Badges**: When "Preview Window Badges" or "Preview HUD Badges" is enabled, clicking with the mouse on any preview element (floating window badges, HUD dock pills, HUD header, hint bar, close button, or dock bounding box) immediately dismisses the live preview and plays the themed dismiss sound.
+  - **Interactive Hover Cursor**: Hovering the cursor over any preview badge or preview HUD element dynamically displays `Qt::PointingHandCursor` indicating it can be clicked to dismiss.
+  - **Transparent Input Handling**: Other windows and desktop controls—especially the settings dialog itself (sliders, tabs, input fields)—retain full normal interactivity without interference or global event capturing.
+  - **D-Bus UI Synchronization**: LeapK emits `badgePreviewChanged(bool active)` over session D-Bus. The settings dialog (`ActiveWindowOutlineConfig`) receives this signal and immediately unchecks the preview checkboxes (`check_previewWindowBadges` and `check_previewHudBadges`) with `QSignalBlocker` to keep the UI perfectly synchronized.
+  - Added unit test `testBadgePreviewDismissHitTesting` in `tests/badge_test.cpp`.
+
 ## [1.6.0-beta47] - 2026-11-01
 
 ### Added

@@ -612,6 +612,15 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->check_previewWindowBadges, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateBadgePreview);
     connect(m_ui->check_previewHudBadges, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateBadgePreview);
 
+    QDBusConnection::sessionBus().connect(
+        QString(),
+        QStringLiteral("/LeapK"),
+        QStringLiteral("org.kde.LeapK"),
+        QStringLiteral("badgePreviewChanged"),
+        this,
+        SLOT(slotBadgePreviewChanged(bool))
+    );
+
     connect(m_ui->kcfg_BadgePosition, qOverload<int>(&QComboBox::currentIndexChanged), this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeHudPosition, qOverload<int>(&QComboBox::currentIndexChanged), this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
@@ -727,6 +736,16 @@ ActiveWindowOutlineConfig::~ActiveWindowOutlineConfig()
         QDBusConnection::sessionBus().call(msg, QDBus::NoBlock);
     }
     delete m_ui;
+}
+
+void ActiveWindowOutlineConfig::slotBadgePreviewChanged(bool active)
+{
+    if (!active && m_ui) {
+        const QSignalBlocker b1(m_ui->check_previewWindowBadges);
+        const QSignalBlocker b2(m_ui->check_previewHudBadges);
+        m_ui->check_previewWindowBadges->setChecked(false);
+        m_ui->check_previewHudBadges->setChecked(false);
+    }
 }
 
 void ActiveWindowOutlineConfig::updateBadgePreview()

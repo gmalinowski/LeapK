@@ -627,6 +627,8 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
             this, &ActiveWindowOutlineEffect::slotWindowAdded);
     connect(effects, &EffectsHandler::windowDeleted,
             this, &ActiveWindowOutlineEffect::slotWindowDeleted);
+    connect(effects, &EffectsHandler::mouseChanged,
+            this, &ActiveWindowOutlineEffect::slotMouseChanged);
     connect(effects, &EffectsHandler::showingDesktopChanged,
             this, &ActiveWindowOutlineEffect::slotShowingDesktopChanged);
     connect(effects, &EffectsHandler::activeFullScreenEffectChanged,
@@ -3031,6 +3033,10 @@ void ActiveWindowOutlineEffect::setBadgePreview(bool active, bool showWindowBadg
         return;
     }
 
+    if (m_jumpMode) {
+        cancelJumpMode();
+    }
+
     m_badgePreviewActive = true;
     m_previewShowWindowBadges = showWindowBadges;
     m_previewShowHud = showHud;
@@ -3062,6 +3068,7 @@ void ActiveWindowOutlineEffect::setBadgePreview(bool active, bool showWindowBadg
     m_previewSafetyTimer->start(60000);
 
     effects->addRepaintFull();
+    Q_EMIT badgePreviewChanged(true);
 }
 
 void ActiveWindowOutlineEffect::clearBadgePreview()
@@ -3072,13 +3079,102 @@ void ActiveWindowOutlineEffect::clearBadgePreview()
     m_badgePreviewActive = false;
     m_previewShowWindowBadges = false;
     m_previewShowHud = false;
+    m_previewWindowBadgeRects.clear();
+    m_previewHudBounds = QRectF();
+    if (!m_jumpMode) {
+        m_hudTargetPillRects.clear();
+        m_hudCloseButtonScreenRect = QRectF();
+        m_hudHeaderScreenRect = QRectF();
+        m_hudHintBarScreenRect = QRectF();
+    }
+#ifdef ACTIVE_WINDOW_OUTLINE_HAS_WINDOW_INPUT_MOUSE_EVENT
+    if (m_previewMouseIntercepting) {
+        effects->stopMouseInterception(this);
+        m_previewMouseIntercepting = false;
+    }
+#endif
     if (m_previewSafetyTimer && m_previewSafetyTimer->isActive()) {
         m_previewSafetyTimer->stop();
     }
     m_badgeTextureCache.clear();
     m_thumbnailCache.clear();
     m_lastCaptureTimestamp.clear();
-    effects->addRepaintFull();
+    if (effects) {
+        effects->defineCursor(Qt::ArrowCursor);
+        effects->addRepaintFull();
+    }
+    Q_EMIT badgePreviewChanged(false);
+}
+
+bool ActiveWindowOutlineEffect::isPosInsideBadgePreview(const QPointF &pos) const
+{
+    if (!m_badgePreviewActive) {
+        return false;
+    }
+    if (m_previewShowWindowBadges) {
+        for (const QRectF &r : m_previewWindowBadgeRects) {
+            if (r.isValid() && r.contains(pos)) {
+                return true;
+            }
+        }
+    }
+    if (m_previewShowHud) {
+        if (m_hudCloseButtonScreenRect.isValid() && m_hudCloseButtonScreenRect.contains(pos)) {
+            return true;
+        }
+        if (m_hudHeaderScreenRect.isValid() && m_hudHeaderScreenRect.contains(pos)) {
+            return true;
+        }
+        if (m_hudHintBarScreenRect.isValid() && m_hudHintBarScreenRect.contains(pos)) {
+            return true;
+        }
+        if (m_previewHudBounds.isValid() && m_previewHudBounds.contains(pos)) {
+            return true;
+        }
+        for (const auto &pair : m_hudTargetPillRects) {
+            if (pair.first.isValid() && pair.first.contains(pos)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void ActiveWindowOutlineEffect::slotMouseChanged(const QPointF &pos, const QPointF &oldpos,
+                                                Qt::MouseButtons buttons, Qt::MouseButtons oldbuttons,
+                                                Qt::KeyboardModifiers modifiers, Qt::KeyboardModifiers oldmodifiers)
+{
+    Q_UNUSED(oldpos);
+    Q_UNUSED(modifiers);
+    Q_UNUSED(oldmodifiers);
+
+    if (!m_badgePreviewActive) {
+        return;
+    }
+
+    const bool isInside = isPosInsideBadgePreview(pos);
+#ifdef ACTIVE_WINDOW_OUTLINE_HAS_WINDOW_INPUT_MOUSE_EVENT
+    if (isInside && !m_previewMouseIntercepting && !m_jumpMode) {
+        effects->startMouseInterception(this, Qt::PointingHandCursor);
+        m_previewMouseIntercepting = true;
+    } else if (!isInside && m_previewMouseIntercepting && !m_jumpMode) {
+        effects->stopMouseInterception(this);
+        m_previewMouseIntercepting = false;
+        effects->defineCursor(Qt::ArrowCursor);
+    }
+#else
+    if (isInside) {
+        effects->defineCursor(Qt::PointingHandCursor);
+    } else {
+        effects->defineCursor(Qt::ArrowCursor);
+    }
+#endif
+
+    const bool buttonPressed = ((buttons & ~oldbuttons) != Qt::NoButton);
+    if (buttonPressed && isInside) {
+        playThemedSound(OutlineSound::SoundEffect::Dismiss);
+        clearBadgePreview();
+    }
 }
 
 void ActiveWindowOutlineEffect::renderBadgePreview(const RenderTarget &renderTarget,
@@ -3132,6 +3228,7 @@ void ActiveWindowOutlineEffect::renderBadgePreview(const RenderTarget &renderTar
     }
 
     // 1. Render Window Badges if enabled
+    m_previewWindowBadgeRects.clear();
     if (m_previewShowWindowBadges && m_previewBadgeConfig.windowBadgesEnabled) {
         EffectWindow *recentWin = findRecentWindow();
         if (!recentWin && !targetWindows.isEmpty()) {
@@ -3169,6 +3266,7 @@ void ActiveWindowOutlineEffect::renderBadgePreview(const RenderTarget &renderTar
                 continue;
             }
 
+            m_previewWindowBadgeRects.append(badgeRect);
             renderBadge(renderTarget, viewport, badgeRect, winLetters.value(target, 'A'), bgCol, textCol, false, badgeH, customLabel, target, recentKey, isRecent);
         }
     }
@@ -3178,7 +3276,11 @@ void ActiveWindowOutlineEffect::renderBadgePreview(const RenderTarget &renderTar
         renderOffscreenJumpTargets(renderTarget, viewport, hudTargets, m_previewBadgeConfig.hudBadgeSize);
     } else if (m_previewShowHud) {
         const QRectF hintRect = renderHudHintBar(renderTarget, viewport, QRectF());
-        renderHudModeHeader(renderTarget, viewport, QRectF(), hintRect);
+        const QRectF headerRect = renderHudModeHeader(renderTarget, viewport, QRectF(), hintRect);
+        m_previewHudBounds = hintRect.isValid() ? hintRect : QRectF();
+        if (headerRect.isValid()) {
+            m_previewHudBounds = m_previewHudBounds.united(headerRect);
+        }
     }
 }
 
@@ -5546,6 +5648,10 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
         finishKeyboardGrab();
     }
 
+    if (m_badgePreviewActive) {
+        clearBadgePreview();
+    }
+
     if (effects && effects->isScreenLocked()) {
         return;
     }
@@ -5836,6 +5942,37 @@ void ActiveWindowOutlineEffect::enterSubLeapForGroup(QChar keyChar, const QList<
 #ifdef ACTIVE_WINDOW_OUTLINE_HAS_WINDOW_INPUT_MOUSE_EVENT
 void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
 {
+    if (m_badgePreviewActive && !m_jumpMode) {
+        if (e->type() == QEvent::MouseMove) {
+            auto *me = static_cast<QMouseEvent *>(e);
+            if (!isPosInsideBadgePreview(me->position())) {
+                if (m_previewMouseIntercepting) {
+                    effects->stopMouseInterception(this);
+                    m_previewMouseIntercepting = false;
+                    effects->defineCursor(Qt::ArrowCursor);
+                }
+            } else {
+                effects->defineCursor(Qt::PointingHandCursor);
+            }
+            return;
+        }
+        if (e->type() == QEvent::MouseButtonPress) {
+            auto *me = static_cast<QMouseEvent *>(e);
+            if (isPosInsideBadgePreview(me->position())) {
+                playThemedSound(OutlineSound::SoundEffect::Dismiss);
+                clearBadgePreview();
+                return;
+            } else {
+                if (m_previewMouseIntercepting) {
+                    effects->stopMouseInterception(this);
+                    m_previewMouseIntercepting = false;
+                    effects->defineCursor(Qt::ArrowCursor);
+                }
+            }
+        }
+        return;
+    }
+
     if (!m_jumpMode) {
         return;
     }
@@ -8933,7 +9070,20 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         allPillsBounds = allPillsBounds.united(gf.rect);
     }
     const QRectF hintRect = renderHudHintBar(renderTarget, viewport, allPillsBounds);
-    renderHudModeHeader(renderTarget, viewport, allPillsBounds, hintRect);
+    const QRectF headerRect = renderHudModeHeader(renderTarget, viewport, allPillsBounds, hintRect);
+    if (m_badgePreviewActive) {
+        m_previewHudBounds = allPillsBounds;
+        if (headerRect.isValid()) {
+            m_previewHudBounds = m_previewHudBounds.united(headerRect);
+        } else if (m_hudHeaderScreenRect.isValid()) {
+            m_previewHudBounds = m_previewHudBounds.united(m_hudHeaderScreenRect);
+        }
+        if (hintRect.isValid()) {
+            m_previewHudBounds = m_previewHudBounds.united(hintRect);
+        } else if (m_hudHintBarScreenRect.isValid()) {
+            m_previewHudBounds = m_previewHudBounds.united(m_hudHintBarScreenRect);
+        }
+    }
 }
 
 void ActiveWindowOutlineEffect::slotWindowStartUserMovedResized(EffectWindow *w)

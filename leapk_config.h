@@ -33,6 +33,9 @@ public:
     void load() override;
     void defaults() override;
 
+public Q_SLOTS:
+    void slotBadgePreviewChanged(bool active);
+
 private:
     void populateColorTable(const QString &serialized);
     QString serializeColorTable() const;
