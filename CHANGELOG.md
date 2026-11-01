@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta50] - 2026-11-01
+
+### Changed
+- **Swapped Layout for Bottom HUD Position (Badges on Top, Navigation Bar on Bottom)**:
+  - When HUD is set to the Bottom position (`hudPos == 0`), inverted the vertical hierarchy into a true dock paradigm:
+    - **Window Cards / Badges on Top**: Offscreen jump target pills and active marker line are positioned on top, floating above the dock bars and extending upwards towards the center of the screen as rows wrap.
+    - **Action Hint Bar in Middle**: When hints are enabled (`hudShowHints`), the hint bar sits directly below the window cards (with a 12px margin) and 8px above the bottom navigation header.
+    - **Navigation Bar at Bottom**: The HUD header bar (workspace tabs, stash tabs, search indicator, close button) is pinned directly against the screen's bottom margin (`screenRect.bottom() - headerH - 12.0`).
+  - Extracted `ensureHudHintBarTexture` and introduced `computeHudEffectiveMargin` to consistently calculate exact bottom margins across `computeHudPillRects`, `renderOffscreenJumpTargets`, and `renderTilingPresetPills`.
+  - Maintained top-anchored layout for Top HUD (`hudPos == 1`) and side-anchored layouts (`hudPos == 2, 3`) without regressions.
+  - Added unit test `testBottomHudSwappedLayout` in `tests/hudlayout_test.cpp`.
+
 ## [1.6.0-beta49] - 2026-11-01
 
 ### Fixed

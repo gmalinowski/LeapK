@@ -393,6 +393,89 @@ void testHudMarkerAndBadgeSelectionAnimation()
     std::cout << "testHudMarkerAndBadgeSelectionAnimation PASSED\n";
 }
 
+void testBottomHudSwappedLayout()
+{
+    const QRectF screenRect(0, 0, 1920, 1080);
+    const qreal scale = 1.0;
+
+    QList<OutlineBadge::HudModeHeaderView> views;
+    views.append({QStringLiteral("Main"), QColor(52, 152, 219), 0, true, false});
+
+    // 1. Navigation Header
+    QImage headerImg = OutlineBadge::renderHudModeHeader(
+        scale, false, QString(), QColor(), 0, views, 0, false, QString(), false, false, 0,
+        false, QString(), 1, 0, 44, 0);
+    assert(!headerImg.isNull());
+    const qreal headerH = headerImg.height() / scale;
+
+    // Bottom HUD: Header pinned at bottom center
+    const qreal headerY = screenRect.bottom() - headerH - 12.0;
+    const QRectF headerRect(screenRect.center().x() - headerImg.width() / 2.0, headerY, headerImg.width(), headerH);
+    assert(qAbs(headerRect.bottom() - (screenRect.bottom() - 12.0)) < 0.1);
+
+    // 2. Action Hint Bar
+    QImage hintImg = OutlineBadge::renderHudActionHintBar(
+        scale, false, 0, QString(), QColor(), false, false, false, false, 1050.0, 0);
+    assert(!hintImg.isNull());
+    const qreal hintH = hintImg.height() / scale;
+
+    // Bottom HUD: Hint bar placed directly above header (with 8px gap)
+    const qreal hintY = headerRect.top() - hintH - 8.0;
+    const QRectF hintRect(screenRect.center().x() - hintImg.width() / 2.0, hintY, hintImg.width(), hintH);
+    assert(qAbs(hintRect.bottom() - (headerRect.top() - 8.0)) < 0.1);
+    assert(!hintRect.intersects(headerRect));
+
+    // 3. Badges / Pills (Window cards) placed on top
+    const QList<QSizeF> pills = {
+        QSizeF(180, 42),
+        QSizeF(180, 42),
+        QSizeF(180, 42)
+    };
+
+    // Calculate effective margin for Bottom HUD (hudPos = 0)
+    // with hints: bottomSpace = 12.0 + headerH + 8.0 + hintH + 12.0
+    const qreal effMarginWithHints = 12.0 + headerH + 8.0 + hintH + 12.0;
+    QList<QRectF> rectsWithHints = OutlineBadge::computeHudPillPositions(
+        pills, screenRect, 0 /* Bottom */, effMarginWithHints, 12.0);
+    assert(rectsWithHints.size() == 3);
+
+    QRectF pillsBoundsWithHints;
+    for (const QRectF &r : rectsWithHints) {
+        pillsBoundsWithHints = pillsBoundsWithHints.isEmpty() ? r : pillsBoundsWithHints.united(r);
+    }
+
+    // Verify ordering: Badges (Top) -> Hint Bar (Middle) -> Navigation Header (Bottom)
+    assert(pillsBoundsWithHints.bottom() < hintRect.top());
+    assert(qAbs(hintRect.top() - pillsBoundsWithHints.bottom() - 12.0) < 0.1);
+    assert(hintRect.bottom() < headerRect.top());
+    assert(qAbs(headerRect.top() - hintRect.bottom() - 8.0) < 0.1);
+    assert(headerRect.bottom() < screenRect.bottom());
+    assert(qAbs(screenRect.bottom() - headerRect.bottom() - 12.0) < 0.1);
+
+    // No overlaps between any of the components
+    assert(!pillsBoundsWithHints.intersects(hintRect));
+    assert(!pillsBoundsWithHints.intersects(headerRect));
+    assert(!hintRect.intersects(headerRect));
+
+    // 4. Without hints (showHints = false)
+    const qreal effMarginNoHints = 12.0 + headerH + 12.0;
+    QList<QRectF> rectsNoHints = OutlineBadge::computeHudPillPositions(
+        pills, screenRect, 0 /* Bottom */, effMarginNoHints, 12.0);
+    assert(rectsNoHints.size() == 3);
+
+    QRectF pillsBoundsNoHints;
+    for (const QRectF &r : rectsNoHints) {
+        pillsBoundsNoHints = pillsBoundsNoHints.isEmpty() ? r : pillsBoundsNoHints.united(r);
+    }
+
+    // Verify ordering: Badges (Top) -> Navigation Header (Bottom)
+    assert(pillsBoundsNoHints.bottom() < headerRect.top());
+    assert(qAbs(headerRect.top() - pillsBoundsNoHints.bottom() - 12.0) < 0.1);
+    assert(!pillsBoundsNoHints.intersects(headerRect));
+
+    std::cout << "testBottomHudSwappedLayout PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
@@ -406,6 +489,7 @@ int main(int argc, char *argv[])
     testEmptyHudHeaderAndHintBarSeparation();
     testHudActiveMarkerRect();
     testHudMarkerAndBadgeSelectionAnimation();
+    testBottomHudSwappedLayout();
 
     std::cout << "All HUD Layout tests passed successfully!\n";
     return 0;

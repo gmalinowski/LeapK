@@ -326,6 +326,8 @@ private:
                                             const QList<QPair<QChar, EffectWindow *>> &targets,
                                             int dividerAfterIndex,
                                             int hudPos) const;
+    QSizeF ensureHudHintBarTexture(qreal scale, const QRectF &screenRect) const;
+    qreal computeHudEffectiveMargin(int hudPos, qreal scale, const QRectF &screenRect, qreal headerH) const;
     QRectF computeHudHintBarRect(const RenderViewport &viewport,
                                  const QRectF &pillsBounds = QRectF()) const;
     QRectF renderHudHintBar(const RenderTarget &renderTarget,

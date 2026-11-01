@@ -8405,8 +8405,8 @@ QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
     const OutlineBadge::BadgeConfig &hudCfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
     const qreal hudRowGap = (!hudCfg.hudGroupWindows && !m_subLeapActive) ? 40.0 : 12.0;
     const qreal headerH = ensureHudHeaderTexture(scale).height();
-    const qreal topMargin = (hudPos == 1) ? qMax(24.0, 12.0 + headerH + 12.0) : 24.0;
-    return OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, topMargin, 12.0, hudRowGap, dividerAfterIndex, 28.0, outDividerRects);
+    const qreal effMargin = computeHudEffectiveMargin(hudPos, scale, screenRect, headerH);
+    return OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, effMargin, 12.0, hudRowGap, dividerAfterIndex, 28.0, outDividerRects);
 }
 
 QRectF ActiveWindowOutlineEffect::computeActiveMarkerRectForTargets(
@@ -8726,9 +8726,9 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     const OutlineBadge::BadgeConfig &hudCfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
     const qreal hudRowGap = (!hudCfg.hudGroupWindows && !m_subLeapActive) ? 40.0 : 12.0;
     const qreal headerH = ensureHudHeaderTexture(scale).height();
-    const qreal topMargin = (hudPos == 1) ? qMax(24.0, 12.0 + headerH + 12.0) : 24.0;
+    const qreal effMargin = computeHudEffectiveMargin(hudPos, scale, screenRect, headerH);
     QList<QRectF> dividerRects;
-    const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, topMargin, 12.0, hudRowGap, dividerAfterIndex, 28.0, &dividerRects);
+    const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, effMargin, 12.0, hudRowGap, dividerAfterIndex, 28.0, &dividerRects);
     const QRectF activeMarkerRect = computeActiveMarkerRectForTargets(rects, targets, dividerAfterIndex, hudPos);
 
     m_hudTargetPillRects.clear();
@@ -9894,8 +9894,8 @@ void ActiveWindowOutlineEffect::renderTilingPresetPills(const RenderTarget &rend
 
     const int hudPos = m_badgePreviewActive ? m_previewBadgeHudPosition : m_badgeHudPosition;
     const qreal headerH = ensureHudHeaderTexture(scale).height();
-    const qreal topMargin = (hudPos == 1) ? qMax(24.0, 12.0 + headerH + 12.0) : 24.0;
-    const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, topMargin, 12.0, 12.0, -1, 28.0, nullptr);
+    const qreal effMargin = computeHudEffectiveMargin(hudPos, scale, screenRect, headerH);
+    const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, effMargin, 12.0, 12.0, -1, 28.0, nullptr);
 
     m_hudTilingPresetPillRects.clear();
     for (int i = 0; i < presets.size() && i < rects.size(); ++i) {
@@ -9967,16 +9967,12 @@ void ActiveWindowOutlineEffect::renderTilingPresetPills(const RenderTarget &rend
     renderHudModeHeader(renderTarget, viewport, allPillsBounds, hintRect);
 }
 
-QRectF ActiveWindowOutlineEffect::computeHudHintBarRect(const RenderViewport &viewport,
-                                                       const QRectF &pillsBounds) const
+QSizeF ActiveWindowOutlineEffect::ensureHudHintBarTexture(qreal scale, const QRectF &screenRect) const
 {
     const bool showHints = m_badgePreviewActive ? m_previewBadgeConfig.hudShowHints : m_badgeConfig.hudShowHints;
     if (!showHints) {
-        return QRectF();
+        return QSizeF(0, 0);
     }
-
-    const qreal scale = viewport.scale();
-    const QRectF screenRect = viewport.renderRect();
 
     const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
     QString customViewName;
@@ -10030,11 +10026,50 @@ QRectF ActiveWindowOutlineEffect::computeHudHintBarRect(const RenderViewport &vi
     }
 
     if (!m_hudHintBarTexture) {
+        return QSizeF(0, 0);
+    }
+
+    return QSizeF(m_hudHintBarTexture->width() / scale, m_hudHintBarTexture->height() / scale);
+}
+
+qreal ActiveWindowOutlineEffect::computeHudEffectiveMargin(int hudPos, qreal scale, const QRectF &screenRect, qreal headerH) const
+{
+    const qreal effHeaderH = headerH > 0.0 ? headerH : 44.0;
+    if (hudPos == 1) { // Top HUD: badges below header
+        return qMax(24.0, 12.0 + effHeaderH + 12.0);
+    }
+    if (hudPos == 0) { // Bottom HUD: badges on top, hint bar in middle, navigation header pinned at bottom
+        const bool showHints = m_badgePreviewActive ? m_previewBadgeConfig.hudShowHints : m_badgeConfig.hudShowHints;
+        qreal bottomSpace = 12.0 + effHeaderH;
+        if (showHints) {
+            const qreal hintH = ensureHudHintBarTexture(scale, screenRect).height();
+            const qreal effHintH = hintH > 0.0 ? hintH : 28.0;
+            bottomSpace += 8.0 + effHintH;
+        }
+        bottomSpace += 12.0;
+        return qMax(24.0, bottomSpace);
+    }
+    return 24.0;
+}
+
+QRectF ActiveWindowOutlineEffect::computeHudHintBarRect(const RenderViewport &viewport,
+                                                       const QRectF &pillsBounds) const
+{
+    const bool showHints = m_badgePreviewActive ? m_previewBadgeConfig.hudShowHints : m_badgeConfig.hudShowHints;
+    if (!showHints) {
         return QRectF();
     }
 
-    const qreal hintW = m_hudHintBarTexture->width() / scale;
-    const qreal hintH = m_hudHintBarTexture->height() / scale;
+    const qreal scale = viewport.scale();
+    const QRectF screenRect = viewport.renderRect();
+
+    const QSizeF hintSz = ensureHudHintBarTexture(scale, screenRect);
+    if (!m_hudHintBarTexture || hintSz.isEmpty()) {
+        return QRectF();
+    }
+
+    const qreal hintW = hintSz.width();
+    const qreal hintH = hintSz.height();
 
     const QSizeF headerSz = ensureHudHeaderTexture(scale);
     const qreal headerH = headerSz.height() > 0.0 ? headerSz.height() : 44.0;
@@ -10045,23 +10080,20 @@ QRectF ActiveWindowOutlineEffect::computeHudHintBarRect(const RenderViewport &vi
     if (hudPos == 2 || hudPos == 3) {
         // Left (2) and Right (3): Pills are on the side margins, hint bar is pinned below header at top center
         hintY = headerBottom + 12.0;
-    } else if (pillsBounds.isValid() && !pillsBounds.isEmpty()) {
-        if (hudPos == 1) { // Top HUD: place below pills
+    } else if (hudPos == 1) { // Top HUD: place below pills
+        if (pillsBounds.isValid() && !pillsBounds.isEmpty()) {
             hintY = pillsBounds.bottom() + 12.0;
             if (hintY + hintH > screenRect.bottom() - 10.0) {
                 hintY = screenRect.bottom() - hintH - 10.0;
             }
-        } else { // Bottom (0): place above pills
-            hintY = pillsBounds.top() - hintH - 12.0;
-            if (hintY < screenRect.top() + 10.0) {
-                hintY = screenRect.top() + 10.0;
-            }
-        }
-    } else {
-        if (hudPos == 1) { // Top HUD without pills: place below header
+        } else {
             hintY = headerBottom + 12.0;
-        } else { // Default bottom
-            hintY = screenRect.bottom() - hintH - 24.0;
+        }
+    } else { // Bottom (0): place directly above bottom header
+        const qreal headerTop = screenRect.bottom() - headerH - 12.0;
+        hintY = headerTop - hintH - 8.0;
+        if (hintY < screenRect.top() + 10.0) {
+            hintY = screenRect.top() + 10.0;
         }
     }
 
@@ -10322,6 +10354,8 @@ QRectF ActiveWindowOutlineEffect::computeHudHeaderRect(const RenderViewport &vie
                                                       const QRectF &pillsBounds,
                                                       const QRectF &hintBarBounds) const
 {
+    Q_UNUSED(pillsBounds);
+    Q_UNUSED(hintBarBounds);
     const qreal scale = viewport.scale();
     const QRectF screenRect = viewport.renderRect();
 
@@ -10337,14 +10371,8 @@ QRectF ActiveWindowOutlineEffect::computeHudHeaderRect(const RenderViewport &vie
     qreal headerY = 0.0;
     if (hudPos == 1 || hudPos == 2 || hudPos == 3) { // Top (1), Left (2), Right (3): Header pinned at top center
         headerY = screenRect.top() + 12.0;
-    } else { // Bottom (0): place above hint bar
-        if (hintBarBounds.isValid() && !hintBarBounds.isEmpty()) {
-            headerY = hintBarBounds.top() - headerH - 8.0;
-        } else if (pillsBounds.isValid() && !pillsBounds.isEmpty()) {
-            headerY = pillsBounds.top() - headerH - 8.0;
-        } else {
-            headerY = screenRect.bottom() - headerH - 24.0;
-        }
+    } else { // Bottom (0): Header pinned at bottom center
+        headerY = screenRect.bottom() - headerH - 12.0;
         if (headerY < screenRect.top() + 10.0) {
             headerY = screenRect.top() + 10.0;
         }
