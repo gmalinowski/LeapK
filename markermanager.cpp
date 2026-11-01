@@ -732,7 +732,7 @@ public:
         actionLayout->setSpacing(8);
 
         m_searchEdit = new QLineEdit(this);
-        m_searchEdit->setPlaceholderText(QStringLiteral("🔍 Filter rules... [Esc: Nav / Controls, /: Search]"));
+        m_searchEdit->setPlaceholderText(QStringLiteral("🔍 Filter rules... [Esc to close, / to search]"));
         m_searchEdit->setStyleSheet(QStringLiteral(
             "QLineEdit {"
             "  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); border-radius: 8px;"
@@ -796,14 +796,14 @@ public:
         auto *hintLayout = new QHBoxLayout();
         auto *lblHints = new QLabel(QStringLiteral(
             "<span style='color:rgba(255,255,255,0.7); font-size:11.5px;'>"
-            "<b style='color:#3498db;'>[Esc]</b> Search/Nav &bull; "
+            "<b style='color:#3498db;'>[/]</b> Search &bull; "
             "<b style='color:#3498db;'>[J/K]</b> Select &bull; "
             "<b style='color:#2ecc71;'>[T]</b> Toggle &bull; "
             "<b style='color:#f1c40f;'>[E]</b> Edit &bull; "
             "<b style='color:#e74c3c;'>[D]</b> Del &bull; "
             "<b style='color:#9b59b6;'>[N]</b> New &bull; "
             "<b style='color:#2ecc71;'>[W]</b> Assign &bull; "
-            "<b style='color:#e74c3c;'>[Q]</b> Close"
+            "<b style='color:#e74c3c;'>[Esc]</b> Close"
             "</span>"
         ), this);
         lblHints->setTextFormat(Qt::RichText);
@@ -829,8 +829,8 @@ public:
         connect(m_btnClearAll, &QPushButton::clicked, this, &MarkerManagerDialog::onClearAllClicked);
         bottomLayout->addWidget(m_btnClearAll);
 
-        m_btnClose = new QPushButton(QStringLiteral("[Q] Close"), this);
-        m_btnClose->setToolTip(QStringLiteral("Close Marker Manager [Q / Esc]"));
+        m_btnClose = new QPushButton(QStringLiteral("[Esc] Close"), this);
+        m_btnClose->setToolTip(QStringLiteral("Close Marker Manager [Esc]"));
         m_btnClose->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background: rgba(255,255,255,0.12); border-radius: 8px; color: #ffffff; padding: 7px 18px; font-size: 12px; font-weight: bold;"
@@ -852,10 +852,9 @@ public:
     {
         if (obj == m_searchEdit && event->type() == QEvent::KeyPress) {
             auto *ke = static_cast<QKeyEvent *>(event);
-            if (ke->key() == Qt::Key_Escape) {
-                // Esc exits search field to navigate controls
-                m_searchEdit->clearFocus();
-                setFocus();
+            if (ke->key() == Qt::Key_Escape || ((ke->modifiers() & Qt::ControlModifier) && (ke->key() == Qt::Key_W || ke->key() == Qt::Key_Q))) {
+                // Esc closes the Marker Manager window
+                accept();
                 return true;
             }
             if (ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter || ke->key() == Qt::Key_Down) {
@@ -888,26 +887,21 @@ protected:
 
     void keyPressEvent(QKeyEvent *e) override
     {
+        // [Esc] / [Ctrl+W] / [Ctrl+Q] -> Close Marker Manager
+        if (e->key() == Qt::Key_Escape || ((e->modifiers() & Qt::ControlModifier) && (e->key() == Qt::Key_W || e->key() == Qt::Key_Q))) {
+            accept();
+            return;
+        }
+
         if (m_searchEdit && m_searchEdit->hasFocus()) {
-            if (e->key() == Qt::Key_Escape) {
-                m_searchEdit->clearFocus();
-                setFocus();
-                return;
-            }
             QDialog::keyPressEvent(e);
             return;
         }
 
-        // When not in search field: Esc enters the search field
-        if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Slash) {
+        // When not in search field: [/] or [Ctrl+F] enters the search field
+        if (e->key() == Qt::Key_Slash || ((e->modifiers() & Qt::ControlModifier) && e->key() == Qt::Key_F)) {
             m_searchEdit->setFocus();
             m_searchEdit->selectAll();
-            return;
-        }
-
-        // [Q] -> Close Marker Manager
-        if (e->key() == Qt::Key_Q || ((e->modifiers() & Qt::ControlModifier) && (e->key() == Qt::Key_W || e->key() == Qt::Key_Q))) {
-            accept();
             return;
         }
 
@@ -1200,7 +1194,7 @@ private:
             } else {
                 lblEmpty->setText(QStringLiteral("<p style='color:rgba(255,255,255,0.5); font-size:13px; margin-top:30px;'>"
                                                  "No rules match the current search filter.<br><br>"
-                                                 "Press <b>[Esc]</b> to exit search or clear the filter.</p>"));
+                                                 "Press <b>[/]</b> to search, or <b>[Esc]</b> to close.</p>"));
             }
             lblEmpty->setTextFormat(Qt::RichText);
             m_cardsLayout->addWidget(lblEmpty);

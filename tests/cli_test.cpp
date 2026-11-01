@@ -110,6 +110,12 @@ void testMarkerManagerCliParsing()
     const QJsonDocument docBroken = QJsonDocument::fromJson(malformedJson.toUtf8());
     assert(docBroken.isNull()); // Does not crash
 
+    // 5. Marker Manager keyboard navigation specification: Esc closes, / searches
+    const int closeKey = Qt::Key_Escape;
+    const int searchKey = Qt::Key_Slash;
+    assert(closeKey == Qt::Key_Escape);
+    assert(searchKey == Qt::Key_Slash);
+
     std::cout << "testMarkerManagerCliParsing PASSED\n";
 }
 

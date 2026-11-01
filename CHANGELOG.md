@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta59] - 2026-11-01
+
+### Fixed
+- **Marker & Group Manager Close Key Standardized to Esc**:
+  - In Marker & Group Manager (`leapk-marker-manager`), pressing `Esc` now closes the window directly, aligning with standard desktop dialog conventions.
+  - Removed single-key `Q` closing shortcut to prevent unintended window dismissal (standard window closing shortcuts `Ctrl+W` and `Ctrl+Q` remain active).
+  - Search field focus is cleanly dedicated to `[/]` (Slash) and `Ctrl+F` instead of reusing `Esc`.
+  - Updated all dialog UI hints:
+    - Close button updated to `[Esc] Close` (tooltip: `Close Marker Manager [Esc]`).
+    - Bottom shortcut hint strip updated with `[/] Search` and `[Esc] Close`.
+    - Search input placeholder updated to indicate `[/]` to search and `[Esc]` to close.
+    - Filter empty state message updated to `[Esc] to close`.
+
 ## [1.6.0-beta58] - 2026-11-01
 
 ### Changed
