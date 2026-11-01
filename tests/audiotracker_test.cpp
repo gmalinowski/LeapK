@@ -151,6 +151,42 @@ static void testMultiWindowDisambiguation()
     assert(tracker.isWindowPlaying(firefoxPid, winSilent));
 }
 
+static void testAudioShaderTargetingRules()
+{
+    // Mode: "always", "active", "inactive"
+    auto shouldApplyFrameShader = [](const QString &mode, bool isFocus, bool isPlayingAudio, bool ruleEnabled, const QString &shaderId) -> bool {
+        if (!ruleEnabled || shaderId.isEmpty() || !isPlayingAudio) {
+            return false;
+        }
+        if (mode == QLatin1String("active")) {
+            return isFocus;
+        }
+        if (mode == QLatin1String("inactive")) {
+            return !isFocus;
+        }
+        return true; // "always"
+    };
+
+    const QString shaderId = QStringLiteral("neon_glow");
+
+    // Case 1: mode = "always"
+    assert(shouldApplyFrameShader(QStringLiteral("always"), true, true, true, shaderId) == true);
+    assert(shouldApplyFrameShader(QStringLiteral("always"), false, true, true, shaderId) == true);
+    assert(shouldApplyFrameShader(QStringLiteral("always"), true, false, true, shaderId) == false);
+
+    // Case 2: mode = "active"
+    assert(shouldApplyFrameShader(QStringLiteral("active"), true, true, true, shaderId) == true);
+    assert(shouldApplyFrameShader(QStringLiteral("active"), false, true, true, shaderId) == false);
+
+    // Case 3: mode = "inactive"
+    assert(shouldApplyFrameShader(QStringLiteral("inactive"), true, true, true, shaderId) == false);
+    assert(shouldApplyFrameShader(QStringLiteral("inactive"), false, true, true, shaderId) == true);
+
+    // Case 4: Rule disabled or shader empty
+    assert(shouldApplyFrameShader(QStringLiteral("inactive"), false, true, false, shaderId) == false);
+    assert(shouldApplyFrameShader(QStringLiteral("always"), true, true, true, QString()) == false);
+}
+
 int main(int argc, char *argv[])
 {
     Q_UNUSED(argc);
@@ -162,6 +198,7 @@ int main(int argc, char *argv[])
     testDetailedPactlParsing();
     testMediaTitleMatching();
     testMultiWindowDisambiguation();
+    testAudioShaderTargetingRules();
 
     std::cout << "All audiotracker tests passed successfully." << std::endl;
     return 0;

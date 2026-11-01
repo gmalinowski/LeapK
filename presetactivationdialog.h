@@ -246,7 +246,9 @@ public:
                     {QStringLiteral("AudioWindowPulseIntensity"), QStringLiteral("Window Audio Pulse Intensity")},
                     {QStringLiteral("AudioWindowIndicatorScale"), QStringLiteral("Window Audio Indicator Scale")},
                     {QStringLiteral("AudioShaderRuleEnabled"), QStringLiteral("Audio Reactive Frame Shader Rule")},
-                    {QStringLiteral("AudioShaderId"), QStringLiteral("Audio Reactive Shader Effect")}
+                    {QStringLiteral("AudioShaderId"), QStringLiteral("Audio Reactive Shader Effect")},
+                    {QStringLiteral("AudioWindowFrameShaderMode"), QStringLiteral("Audio Window Frame Shader Mode")},
+                    {QStringLiteral("AudioHudShaderEnabled"), QStringLiteral("Audio HUD Shader Rule")}
                 }
             }
         };

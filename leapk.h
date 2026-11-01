@@ -237,6 +237,14 @@ private:
                                   qreal scale,
                                   QList<QVector2D> &verts);
 
+    void ensureAudioShadersCompiled();
+    void renderHudPillAudioShader(const RenderTarget &renderTarget,
+                                  const RenderViewport &viewport,
+                                  const QRectF &rect,
+                                  qreal scale,
+                                  const OutlineBadge::BadgeConfig &hudCfg,
+                                  bool isOutlinePass);
+
     void renderOutline(const RenderTarget &renderTarget,
                        const RenderViewport &viewport,
                        const OutlineCache &cache,
@@ -486,6 +494,8 @@ private:
     bool m_audioShaderRuleEnabled = false;
     QString m_audioShaderId;
     LeapKShader::CustomShaderEffect m_audioShaderEffect;
+    QString m_audioWindowFrameShaderMode = QStringLiteral("always");
+    bool m_audioHudShaderEnabled = true;
 
     // Config - Behavior & Delays
     int m_fadeDuration = 200;

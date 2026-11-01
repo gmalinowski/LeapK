@@ -83,6 +83,7 @@ struct BadgeConfig {
     int hudGroupFontSize = 0; // 0 = auto
     int hudGroupCornerRadius = 8;
     bool hudGroupShaderEnabled = true;
+    bool audioHudShaderEnabled = true;
     int badgeTimeout = 5;
     QString jumpRecentKey = QStringLiteral("Space");
     bool livePreviews = false;
@@ -1789,7 +1790,9 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     } else {
         pillBg = themeBgNormal;
         pillBg.setAlphaF(qBound(0.1, themeBgNormal.alphaF() * themeOpacity, 1.0));
-        borderColor = themeBorderNormal;
+        borderColor = (isPlayingAudio && cfg.audioHudShaderEnabled)
+            ? cfg.activeTheme.resolveColor(cfg.activeTheme.hudCard.audioIndicatorColor, QColor(241, 196, 15))
+            : themeBorderNormal;
         badgeBg = cfg.activeTheme.resolveColor(cfg.activeTheme.windowBadge.bgNormal, themeBgNormal);
         badgeBg.setAlpha(255);
     }

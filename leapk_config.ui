@@ -911,16 +911,16 @@
        <item>
         <widget class="QGroupBox" name="groupAudioShaderRule">
          <property name="title">
-          <string>Audio Reactive Frame Rule</string>
+          <string>Audio Reactive Shader Rules</string>
          </property>
          <layout class="QFormLayout" name="formLayoutAudioShaderRule">
           <item row="0" column="0" colspan="2">
            <widget class="QCheckBox" name="kcfg_AudioShaderRuleEnabled">
             <property name="text">
-             <string>When window plays audio, apply custom shader to window frame</string>
+             <string>When window plays audio, apply custom shader</string>
             </property>
             <property name="toolTip">
-             <string>Automatically renders the selected GLSL shader effect on the frame/glow of windows playing audio.</string>
+             <string>Automatically renders the selected GLSL shader effect on windows playing audio.</string>
             </property>
            </widget>
           </item>
@@ -941,6 +941,33 @@
             </property>
            </widget>
           </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_audioWindowFrameMode">
+            <property name="text">
+             <string>Window frame shader mode:</string>
+            </property>
+            <property name="toolTip">
+             <string>Choose whether the audio shader applies to active windows, inactive windows, or always.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QComboBox" name="comboAudioWindowFrameMode">
+            <property name="toolTip">
+             <string>Choose whether the audio shader applies to active windows, inactive windows, or always.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0" colspan="2">
+           <widget class="QCheckBox" name="kcfg_AudioHudShaderEnabled">
+            <property name="text">
+             <string>Apply shader to audio-playing windows in HUD</string>
+            </property>
+            <property name="toolTip">
+             <string>Automatically renders the GLSL audio shader effect around window cards playing sound in the HUD.</string>
+            </property>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>
@@ -955,6 +982,14 @@
 
        <item>
         <widget class="QLineEdit" name="kcfg_AudioShaderId">
+         <property name="visible">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+
+       <item>
+        <widget class="QLineEdit" name="kcfg_AudioWindowFrameShaderMode">
          <property name="visible">
           <bool>false</bool>
          </property>

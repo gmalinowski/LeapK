@@ -188,6 +188,8 @@ inline QJsonObject getDefaultSettings()
     s[QStringLiteral("AudioWindowIndicatorScale")] = 1.0;
     s[QStringLiteral("AudioShaderRuleEnabled")] = false;
     s[QStringLiteral("AudioShaderId")] = QString();
+    s[QStringLiteral("AudioWindowFrameShaderMode")] = QStringLiteral("always");
+    s[QStringLiteral("AudioHudShaderEnabled")] = true;
 
     return s;
 }

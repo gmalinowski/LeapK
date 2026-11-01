@@ -657,5 +657,11 @@
         <entry name="AudioShaderId" type="String">
             <default></default>
         </entry>
+        <entry name="AudioWindowFrameShaderMode" type="String">
+            <default>always</default>
+        </entry>
+        <entry name="AudioHudShaderEnabled" type="Bool">
+            <default>true</default>
+        </entry>
     </group>
 </kcfg>

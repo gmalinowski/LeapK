@@ -539,6 +539,8 @@ void testPresetAudioSettings()
     assert(defaults[QStringLiteral("AudioWindowIndicatorStyle")].toString() == QStringLiteral("speaker_icon"));
     assert(defaults[QStringLiteral("AudioWindowPulseEnabled")].toBool() == true);
     assert(defaults[QStringLiteral("AudioShaderRuleEnabled")].toBool() == false);
+    assert(defaults[QStringLiteral("AudioWindowFrameShaderMode")].toString() == QStringLiteral("always"));
+    assert(defaults[QStringLiteral("AudioHudShaderEnabled")].toBool() == true);
 
     OutlinePreset::PresetInfo p;
     p.name = QStringLiteral("Audio Master");
@@ -549,6 +551,8 @@ void testPresetAudioSettings()
     p.settings[QStringLiteral("AudioHudPulseSpeed")] = 2.0;
     p.settings[QStringLiteral("AudioShaderRuleEnabled")] = true;
     p.settings[QStringLiteral("AudioShaderId")] = QStringLiteral("audio_spectrum");
+    p.settings[QStringLiteral("AudioWindowFrameShaderMode")] = QStringLiteral("inactive");
+    p.settings[QStringLiteral("AudioHudShaderEnabled")] = true;
 
     const QByteArray json = OutlinePreset::serializePreset(p);
     OutlinePreset::PresetInfo parsed;
@@ -558,6 +562,8 @@ void testPresetAudioSettings()
     assert(parsed.settings[QStringLiteral("AudioHudIndicatorStyle")].toString() == QStringLiteral("soundwave_pulse"));
     assert(parsed.settings[QStringLiteral("AudioShaderRuleEnabled")].toBool() == true);
     assert(parsed.settings[QStringLiteral("AudioShaderId")].toString() == QStringLiteral("audio_spectrum"));
+    assert(parsed.settings[QStringLiteral("AudioWindowFrameShaderMode")].toString() == QStringLiteral("inactive"));
+    assert(parsed.settings[QStringLiteral("AudioHudShaderEnabled")].toBool() == true);
 }
 
 int main(int argc, char *argv[])

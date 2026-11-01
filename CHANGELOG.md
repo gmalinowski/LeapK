@@ -4,6 +4,26 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta64] - 2026-11-02
+
+### Added
+- **Audio Window Frame Shader Targeting Rules**:
+  - Added configurable targeting mode for audio reactive window frames (`AudioWindowFrameShaderMode`):
+    - `always` ("Zawsze (aktywne i nieaktywne)"): Shader applies to window frames of audio-playing windows whether active or inactive.
+    - `active` ("Tylko gdy jest aktywne"): Shader applies to the window frame only when the window is currently active.
+    - `inactive` ("Tylko gdy jest nieaktywne"): Shader applies to the window frame only when the window is inactive (e.g. background music / video playback).
+  - Added rendering pass in `paintScreen` for inactive audio window frames, allowing background windows playing audio to receive their real-time GLSL outline/glow effects even when not explicitly marked, pinned, or in recent history.
+  - Configured `needsContinuousRepaint` to trigger smooth 60+ FPS shader animation for inactive audio window frames when playing sound in background.
+- **HUD Audio Reactive Shader Option**:
+  - Added `AudioHudShaderEnabled` option to apply the custom shader effect directly to audio-playing windows in HUD.
+  - Integrated GPU-accelerated glow pass (behind HUD card) and outline pass (on card borders) according to the shader target (`glow`, `outline`, or `both`).
+  - Added continuous repaint wakeup when HUD is open and any window is playing audio with HUD audio shader enabled.
+  - Added audio indicator color border tint fallback in `renderOffscreenTargetPill` and `BadgeConfig`.
+- **Settings UI & Presets/Packs Integration**:
+  - Added combo box `comboAudioWindowFrameMode` and checkbox `kcfg_AudioHudShaderEnabled` under Audio Reactive Shader Rules in LeapK Settings.
+  - Added synchronization in presets (`presethelper.h`), preset activation categories (`presetactivationdialog.h`), pack manifest (`packhelper.h`), installer defaults (`install-leapk.sh`), and uninstaller cleanup (`uninstall-leapk.sh`).
+  - Added unit test coverage for frame mode rules and HUD audio shader in `tests/audiotracker_test.cpp`, `tests/preset_test.cpp`, and `tests/pack_test.cpp`. All 30/30 CTests pass.
+
 ## [1.6.0-beta63] - 2026-11-02
 
 ### Added

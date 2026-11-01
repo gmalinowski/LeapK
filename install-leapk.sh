@@ -413,6 +413,8 @@ set_default AudioWindowPulseIntensity 1.0
 set_default AudioWindowIndicatorScale 1.0
 set_default AudioShaderRuleEnabled false
 set_default AudioShaderId ""
+set_default AudioWindowFrameShaderMode "always"
+set_default AudioHudShaderEnabled true
 set_default FadeDuration 200
 set_default MenuHideDelay 500
 set_default MenuShowDelay 500

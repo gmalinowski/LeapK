@@ -28,6 +28,8 @@ static void testPackSerializationAndParsing()
     bundle.preset.settings[QStringLiteral("BorderWidth")] = 3;
     bundle.preset.settings[QStringLiteral("AudioShaderRuleEnabled")] = true;
     bundle.preset.settings[QStringLiteral("AudioShaderId")] = QStringLiteral("neon_audio_grid");
+    bundle.preset.settings[QStringLiteral("AudioWindowFrameShaderMode")] = QStringLiteral("active");
+    bundle.preset.settings[QStringLiteral("AudioHudShaderEnabled")] = true;
     bundle.hasPreset = true;
 
     // 3. Shaders
@@ -71,6 +73,8 @@ static void testPackSerializationAndParsing()
     assert(parsed.hasPreset);
     assert(parsed.preset.name == QStringLiteral("Cyberpunk Twitch"));
     assert(parsed.preset.settings[QStringLiteral("AudioShaderRuleEnabled")].toBool() == true);
+    assert(parsed.preset.settings[QStringLiteral("AudioWindowFrameShaderMode")].toString() == QStringLiteral("active"));
+    assert(parsed.preset.settings[QStringLiteral("AudioHudShaderEnabled")].toBool() == true);
 
     assert(parsed.hasShaders);
     assert(parsed.shaders.size() == 1);

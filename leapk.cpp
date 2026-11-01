@@ -975,6 +975,9 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
 
     m_audioShaderRuleEnabled = config.readEntry("AudioShaderRuleEnabled", false);
     m_audioShaderId = config.readEntry("AudioShaderId", QString());
+    m_audioWindowFrameShaderMode = config.readEntry("AudioWindowFrameShaderMode", QStringLiteral("always"));
+    m_audioHudShaderEnabled = config.readEntry("AudioHudShaderEnabled", true);
+    m_badgeConfig.audioHudShaderEnabled = m_audioHudShaderEnabled;
     m_audioGlowShader.reset();
     m_audioOutlineShader.reset();
     m_audioShaderEffect = LeapKShader::CustomShaderEffect();
@@ -1229,12 +1232,15 @@ bool ActiveWindowOutlineEffect::isAnimationActive() const
         && m_delayedHideWindow->isOnCurrentDesktop() && !m_delayedHideWindow->isMinimized()
         && !m_delayedHideWindow->isHiddenByShowDesktop() && m_delayedHideState.isEffectivelyVisible());
     const bool isAudioShaderActive = m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty() && m_audioTracker.hasPlayingAudio();
-    if (m_visibilityState.isEffectivelyVisible() || hasDelayed) {
+    if (m_visibilityState.isEffectivelyVisible() || hasDelayed || (isAudioShaderActive && (m_audioWindowFrameShaderMode == QLatin1String("always") || m_audioWindowFrameShaderMode == QLatin1String("inactive")))) {
         return m_colorCycleEnabled || m_breatheEnabled
             || m_glitchEnabled || m_neonFlickerEnabled || m_flashEnabled
             || m_ambilightInTransition
             || (m_customShaderEnabled && !m_activeCustomShaderId.isEmpty())
             || isAudioShaderActive;
+    }
+    if (m_jumpMode && m_audioHudShaderEnabled && isAudioShaderActive) {
+        return true;
     }
     if (m_jumpMode && m_badgeHudGroupShaderEnabled && (m_breatheEnabled || m_neonFlickerEnabled || (m_customShaderEnabled && !m_activeCustomShaderId.isEmpty()))) {
         return true;
@@ -1471,6 +1477,12 @@ QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity, EffectWindow
         color.setAlphaF(color.alphaF() * m_accentOpacity / 100.0);
     } else {
         color = m_customColor;
+    }
+
+    const bool isPlayingAudio = w ? m_audioTracker.isWindowPlaying(w->pid(), w->caption()) : false;
+    if (!treatAsMarked && !isPinned && !treatAsRecent && isPlayingAudio && m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty()) {
+        color = m_badgeConfig.activeTheme.resolveColor(QStringLiteral("$audioColor"), QColor(241, 196, 15));
+        color.setAlphaF(qBound(0.1, m_visibilityState.visibilityOpacity, 1.0));
     }
 
     if (treatAsRecent) {
@@ -2127,7 +2139,13 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
     }
 
     const bool isPlayingAudio = outlinedWindow ? m_audioTracker.isWindowPlaying(outlinedWindow->pid(), outlinedWindow->caption()) : false;
-    const bool isAudioShader = isPlayingAudio && m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty();
+    bool matchFrameMode = true;
+    if (m_audioWindowFrameShaderMode == QLatin1String("active")) {
+        matchFrameMode = isFocus;
+    } else if (m_audioWindowFrameShaderMode == QLatin1String("inactive")) {
+        matchFrameMode = !isFocus;
+    }
+    const bool isAudioShader = isPlayingAudio && m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty() && matchFrameMode;
     const LeapKShader::CustomShaderEffect &effectiveShader = isAudioShader ? m_audioShaderEffect : m_activeCustomShader;
     const bool customGlow = isAudioShader
         ? (effectiveShader.target == QStringLiteral("glow") || effectiveShader.target == QStringLiteral("both"))
@@ -9059,7 +9077,35 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         gf.texture->unbind();
     }
 
-    // 2. Render HUD pills on top with full modulation
+    // 2a. Render Audio Shader Glow behind audio HUD cards
+    if (m_audioHudShaderEnabled && m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty() && m_audioTracker.hasPlayingAudio()) {
+        for (int i = 0; i < pills.size(); ++i) {
+            const bool pillAudio = (i < targets.size() && targets.at(i).second)
+                ? m_audioTracker.isWindowPlaying(targets.at(i).second->pid(), targets.at(i).second->caption())
+                : false;
+            if (pillAudio) {
+                QRectF rect = rects.at(i);
+                const bool pulseCard = hudCfg.activeTheme.resolveBool(QStringLiteral("$audioPulseBadge"), hudCfg.activeTheme.hudCard.audioPulseBadge);
+                const double pulseIntensity = hudCfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseIntensity"), hudCfg.activeTheme.hudCard.audioPulseIntensity);
+                const double pulseSpeed = hudCfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseSpeed"), hudCfg.activeTheme.hudCard.audioPulseSpeed);
+                if (pulseCard && pulseIntensity > 0.001) {
+                    const qint64 elapsedMs = m_animationClock.isValid() ? m_animationClock.elapsed() : 0;
+                    const qreal elapsedSec = elapsedMs / 1000.0;
+                    const qreal pulse = 1.0 + (0.05 * pulseIntensity) * std::sin(elapsedSec * 8.0 * pulseSpeed);
+                    const QPointF center = rect.center();
+                    const qreal pw = rect.width() * pulse;
+                    const qreal ph = rect.height() * pulse;
+                    rect = QRectF(center.x() - pw / 2.0, center.y() - ph / 2.0, pw, ph);
+                }
+                renderHudPillAudioShader(renderTarget, viewport, rect, scale, hudCfg, false /* isOutlinePass = glow */);
+            }
+        }
+    }
+
+    // 2b. Render HUD pills on top with full modulation
+    ShaderBinder pillBinder(shader);
+    shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix, viewport.projectionMatrix());
+    shader->setColorspaceUniforms(ColorDescription::sRGB, renderTarget.colorDescription(), RenderingIntent::Perceptual);
     shader->setUniform(GLShader::Vec4Uniform::ModulationConstant, QVector4D(1.0f, 1.0f, 1.0f, 1.0f));
     for (int i = 0; i < pills.size(); ++i) {
         const PillItem &item = pills.at(i);
@@ -9102,6 +9148,31 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         item.texture->bind();
         vbo->render(GL_TRIANGLES);
         item.texture->unbind();
+    }
+
+    // 2c. Render Audio Shader Outline on top of audio HUD cards (if outline target)
+    if (m_audioHudShaderEnabled && m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty() && m_audioTracker.hasPlayingAudio()) {
+        for (int i = 0; i < pills.size(); ++i) {
+            const bool pillAudio = (i < targets.size() && targets.at(i).second)
+                ? m_audioTracker.isWindowPlaying(targets.at(i).second->pid(), targets.at(i).second->caption())
+                : false;
+            if (pillAudio) {
+                QRectF rect = rects.at(i);
+                const bool pulseCard = hudCfg.activeTheme.resolveBool(QStringLiteral("$audioPulseBadge"), hudCfg.activeTheme.hudCard.audioPulseBadge);
+                const double pulseIntensity = hudCfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseIntensity"), hudCfg.activeTheme.hudCard.audioPulseIntensity);
+                const double pulseSpeed = hudCfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseSpeed"), hudCfg.activeTheme.hudCard.audioPulseSpeed);
+                if (pulseCard && pulseIntensity > 0.001) {
+                    const qint64 elapsedMs = m_animationClock.isValid() ? m_animationClock.elapsed() : 0;
+                    const qreal elapsedSec = elapsedMs / 1000.0;
+                    const qreal pulse = 1.0 + (0.05 * pulseIntensity) * std::sin(elapsedSec * 8.0 * pulseSpeed);
+                    const QPointF center = rect.center();
+                    const qreal pw = rect.width() * pulse;
+                    const qreal ph = rect.height() * pulse;
+                    rect = QRectF(center.x() - pw / 2.0, center.y() - ph / 2.0, pw, ph);
+                }
+                renderHudPillAudioShader(renderTarget, viewport, rect, scale, hudCfg, true /* isOutlinePass = outline */);
+            }
+        }
     }
 
     // 3. Render HUD divider lines between groups
@@ -11406,11 +11477,15 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             }
         }
     }
+    const bool canDrawAudioInactive = m_outlineEnabled && !inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked
+        && m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty()
+        && (m_audioWindowFrameShaderMode == QLatin1String("always") || m_audioWindowFrameShaderMode == QLatin1String("inactive"))
+        && m_audioTracker.hasPlayingAudio();
 #ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
     std::unique_ptr<OutlineCursorOverlay> cursorOverlay;
     // Only defer the cursor for the ordinary output pass. Transformed/offscreen
     // effects own their own cursor handling and must retain their scene filters.
-    if ((drawOutline || drawDelayed || hasRecentToDraw || hasMarkedToDraw || m_jumpMode) && m_sceneView && m_sceneView->scene() == effects->scene()
+    if ((drawOutline || drawDelayed || hasRecentToDraw || hasMarkedToDraw || canDrawAudioInactive || m_jumpMode) && m_sceneView && m_sceneView->scene() == effects->scene()
         && m_sceneView->logicalOutput() == screen
         && m_sceneView->viewport() == viewport.renderRect()
         && m_sceneView->scale() == viewport.scale()
@@ -11474,7 +11549,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     const bool hasPinnedToDraw = !m_pinnedWindows.isEmpty() && m_outlineEnabled && !inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked;
     const bool hasBadgesToDraw = (showContinuousBadges || (m_outlineEnabled && m_jumpMode) || m_badgePreviewActive || hasPinnedToDraw);
 
-    if ((!m_outlineEnabled && !m_badgePreviewActive) || (!drawOutline && !drawDelayed && !hasRecentToDraw && !hasMarkedToDraw && !hasPinnedToDraw && !hasBadgesToDraw)) {
+    if ((!m_outlineEnabled && !m_badgePreviewActive) || (!drawOutline && !drawDelayed && !hasRecentToDraw && !hasMarkedToDraw && !hasPinnedToDraw && !canDrawAudioInactive && !hasBadgesToDraw)) {
 #ifdef ACTIVE_WINDOW_OUTLINE_BOOL_PAINT_SCREEN
         return true;
 #else
@@ -11561,6 +11636,34 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             const qreal interpolatedOpacity = OutlineColor::computeRecentWindowOpacity(i, m_recentWindowsCount, m_recentWindowOpacity);
             const qreal recentOpacity = interpolatedOpacity * m_visibilityState.visibilityOpacity;
             renderOutline(renderTarget, viewport, m_outlineCache[recent], deviceRegion, recent, recentOpacity);
+        }
+    }
+
+    if (canDrawAudioInactive) {
+        const auto allWindows = effects->stackingOrder();
+        for (EffectWindow *aw : allWindows) {
+            if (!aw || aw == w || aw->isDeleted() || aw->isMinimized()
+                || aw->isHiddenByShowDesktop() || !aw->isOnCurrentDesktop()
+                || (m_hideOnFullScreen && aw->isFullScreen())
+                || isBlockingPopup(aw) || !isEligibleOutlineWindow(aw)) {
+                continue;
+            }
+            if (m_markedWindows.contains(aw) || m_pinnedWindows.contains(aw) || (m_highlightRecentWindow && m_recentWindows.contains(aw))) {
+                continue;
+            }
+            if (!m_audioTracker.isWindowPlaying(aw->pid(), aw->caption())) {
+                continue;
+            }
+
+            const QRectF awGeo = aw->frameGeometry();
+            const qreal awWidth = m_width;
+            if (!m_outlineCache.contains(aw) || m_lastGeometry.value(aw) != awGeo || m_outlineCache.value(aw).borderWidth != awWidth) {
+                cacheWindowOutline(aw, awGeo, awWidth);
+                m_lastGeometry[aw] = awGeo;
+            }
+
+            const qreal inactiveOpacity = m_visibilityState.visibilityOpacity;
+            renderOutline(renderTarget, viewport, m_outlineCache[aw], deviceRegion, aw, inactiveOpacity);
         }
     }
 
@@ -12353,6 +12456,146 @@ void ActiveWindowOutlineEffect::generateRoundedRectStrip(
     QList<QVector2D> &verts)
 {
     OutlineGeometry::buildRoundedRectStrip(outer, outerRadius, inner, innerRadius, scale, verts);
+}
+
+void ActiveWindowOutlineEffect::ensureAudioShadersCompiled()
+{
+    if (!m_audioShaderRuleEnabled || m_audioShaderId.isEmpty()) {
+        return;
+    }
+    const EglContext *context = EglContext::currentContext();
+    const bool isOpenGLES = !epoxy_is_desktop_gl();
+    const bool modern = isOpenGLES
+        ? (context ? context->glslVersion() >= Version(3, 0) : true)
+        : (context ? context->glslVersion() >= Version(1, 40) : true);
+
+    if (!m_audioGlowShader && (m_audioShaderEffect.target == QStringLiteral("glow") || m_audioShaderEffect.target == QStringLiteral("both"))) {
+#ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
+        m_audioGlowShader = ShaderManager::instance()->generateCustomShader(
+            ShaderTrait::UniformColor, glowVertexSource(), LeapKShader::buildGlowFragmentSource(m_audioShaderEffect, modern, isOpenGLES));
+#else
+        m_audioGlowShader = ShaderManager::instance()->generateCustomShader(
+            ShaderTrait::Border, QByteArray(), LeapKShader::buildGlowFragmentSource(m_audioShaderEffect, modern, isOpenGLES));
+#endif
+    }
+    if (!m_audioOutlineShader && (m_audioShaderEffect.target == QStringLiteral("outline") || m_audioShaderEffect.target == QStringLiteral("both"))) {
+#ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
+        m_audioOutlineShader = ShaderManager::instance()->generateCustomShader(
+            ShaderTrait::UniformColor, glowVertexSource(), LeapKShader::buildOutlineFragmentSource(m_audioShaderEffect, modern, isOpenGLES));
+#else
+        m_audioOutlineShader = ShaderManager::instance()->generateCustomShader(
+            ShaderTrait::Border, QByteArray(), LeapKShader::buildOutlineFragmentSource(m_audioShaderEffect, modern, isOpenGLES));
+#endif
+    }
+}
+
+void ActiveWindowOutlineEffect::renderHudPillAudioShader(const RenderTarget &renderTarget,
+                                                         const RenderViewport &viewport,
+                                                         const QRectF &rect,
+                                                         qreal scale,
+                                                         const OutlineBadge::BadgeConfig &hudCfg,
+                                                         bool isOutlinePass)
+{
+    Q_UNUSED(renderTarget);
+    ensureAudioShadersCompiled();
+
+    const bool needGlow = !isOutlinePass && (m_audioShaderEffect.target == QStringLiteral("glow") || m_audioShaderEffect.target == QStringLiteral("both"));
+    const bool needOutline = isOutlinePass && (m_audioShaderEffect.target == QStringLiteral("outline") || m_audioShaderEffect.target == QStringLiteral("both"));
+
+    if (!needGlow && !needOutline) {
+        return;
+    }
+
+    std::unique_ptr<GLShader> &activeShaderPtr = isOutlinePass ? m_audioOutlineShader : m_audioGlowShader;
+#ifdef ACTIVE_WINDOW_OUTLINE_SHADER_POINTER_VALIDITY
+    if (!activeShaderPtr) {
+        return;
+    }
+#else
+    if (!activeShaderPtr || !activeShaderPtr->isValid()) {
+        return;
+    }
+#endif
+
+    const auto box = [scale](const QRectF &r) {
+        return QVector4D(r.center().x() * scale,
+                         r.center().y() * scale,
+                         r.width() * scale / 2.0,
+                         r.height() * scale / 2.0);
+    };
+
+    const qreal reach = isOutlinePass ? 2.5 : qBound(4.0, m_glowRadius * 0.75, 20.0);
+    const qreal cardRadius = (hudCfg.activeTheme.hudCard.cornerRadius > 0)
+        ? hudCfg.activeTheme.hudCard.cornerRadius
+        : ((hudCfg.cornerRadius > 0) ? hudCfg.cornerRadius : 8.0);
+
+    const QRectF outerRect = rect.adjusted(-reach, -reach, reach, reach);
+    const QRectF innerRect = isOutlinePass ? rect : rect.adjusted(1.0, 1.0, -1.0, -1.0);
+
+    QList<QVector2D> vertices;
+    generateRoundedRectStrip(outerRect, cardRadius + reach,
+                             innerRect, qMax<qreal>(0.0, cardRadius),
+                             1.0, vertices);
+    if (vertices.isEmpty()) {
+        return;
+    }
+
+    QList<QVector2D> scaledVerts;
+    scaledVerts.reserve(vertices.size());
+    for (const QVector2D &v : std::as_const(vertices)) {
+        scaledVerts.append(v * scale);
+    }
+
+    static constexpr GLVertexAttrib layout{
+        .attributeIndex = VA_Position,
+        .componentCount = 2,
+        .type = GL_FLOAT,
+        .relativeOffset = 0,
+    };
+
+    auto vbo = GLVertexBuffer::streamingBuffer();
+    auto mapped = vbo->map<QVector2D>(scaledVerts.size());
+    if (!mapped) {
+        return;
+    }
+    memcpy(mapped->data(), scaledVerts.data(), scaledVerts.size() * sizeof(QVector2D));
+    vbo->unmap();
+    vbo->setVertexCount(scaledVerts.size());
+    vbo->setAttribLayout(std::span(&layout, 1), sizeof(QVector2D));
+
+    ShaderBinder binder(activeShaderPtr.get());
+    GLShader *sh = binder.shader();
+    sh->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix, viewport.projectionMatrix());
+    const QColor themeAudio = hudCfg.activeTheme.resolveColor(hudCfg.activeTheme.hudCard.audioIndicatorColor, QColor(241, 196, 15));
+    sh->setUniform(GLShader::ColorUniform::Color, themeAudio);
+    sh->setUniform("outerBox", box(outerRect));
+    sh->setUniform("innerBox", box(innerRect));
+    sh->setUniform("outerRadius", float((cardRadius + reach) * scale));
+    sh->setUniform("innerRadius", float(cardRadius * scale));
+    sh->setUniform("glowRadius", float(reach * scale));
+    sh->setUniform("fadeCorners", 0.0f);
+    sh->setUniform("dashActive", 0.0f);
+    const float elapsedSec = m_animationClock.isValid() ? float(m_animationClock.elapsed() / 1000.0) : 0.0f;
+    sh->setUniform("time", elapsedSec);
+    sh->setUniform("glitchActive", 0.0f);
+
+    for (const auto &param : m_audioShaderEffect.parameters) {
+        const QByteArray uniformName = param.id.toUtf8();
+        if (param.type == QStringLiteral("float")) {
+            sh->setUniform(uniformName.constData(), float(param.currentValue));
+        } else if (param.type == QStringLiteral("int")) {
+            sh->setUniform(uniformName.constData(), int(param.currentValue));
+        } else if (param.type == QStringLiteral("bool")) {
+            sh->setUniform(uniformName.constData(), param.currentValue > 0.5 ? 1.0f : 0.0f);
+        } else if (param.type == QStringLiteral("color")) {
+            const QColor c(param.colorCurrent);
+            sh->setUniform(uniformName.constData(), QVector4D(c.redF(), c.greenF(), c.blueF(), c.alphaF()));
+        }
+    }
+
+    glEnable(GL_BLEND);
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    vbo->render(GL_TRIANGLES);
 }
 
 } // namespace KWin

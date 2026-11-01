@@ -1223,6 +1223,13 @@ void ActiveWindowOutlineConfig::load()
     m_ui->kcfg_AudioShaderRuleEnabled->setChecked(group.readEntry("AudioShaderRuleEnabled", false));
     const QString audioShaderId = group.readEntry("AudioShaderId", QString());
     m_ui->kcfg_AudioShaderId->setText(audioShaderId);
+    const QString frameMode = group.readEntry("AudioWindowFrameShaderMode", QStringLiteral("always"));
+    m_ui->kcfg_AudioWindowFrameShaderMode->setText(frameMode);
+    const int frameModeIdx = m_ui->comboAudioWindowFrameMode->findData(frameMode);
+    if (frameModeIdx >= 0) {
+        m_ui->comboAudioWindowFrameMode->setCurrentIndex(frameModeIdx);
+    }
+    m_ui->kcfg_AudioHudShaderEnabled->setChecked(group.readEntry("AudioHudShaderEnabled", true));
     refreshAudioShaderCombo();
     updateAudioUI();
 
@@ -1318,6 +1325,9 @@ void ActiveWindowOutlineConfig::defaults()
     m_ui->kcfg_AudioHudIndicatorColor->setColor(QColor(QStringLiteral("#f1c40f")));
     m_ui->kcfg_AudioShaderRuleEnabled->setChecked(false);
     m_ui->kcfg_AudioShaderId->clear();
+    m_ui->kcfg_AudioWindowFrameShaderMode->setText(QStringLiteral("always"));
+    m_ui->comboAudioWindowFrameMode->setCurrentIndex(0);
+    m_ui->kcfg_AudioHudShaderEnabled->setChecked(true);
     refreshAudioShaderCombo();
     updateAudioUI();
 
@@ -1703,6 +1713,8 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("AudioHudIndicatorColor")] = m_ui->kcfg_AudioHudIndicatorColor->color().name(QColor::HexRgb);
     s[QStringLiteral("AudioShaderRuleEnabled")] = m_ui->kcfg_AudioShaderRuleEnabled->isChecked();
     s[QStringLiteral("AudioShaderId")] = m_ui->kcfg_AudioShaderId->text();
+    s[QStringLiteral("AudioWindowFrameShaderMode")] = m_ui->comboAudioWindowFrameMode->currentData().toString();
+    s[QStringLiteral("AudioHudShaderEnabled")] = m_ui->kcfg_AudioHudShaderEnabled->isChecked();
 
     return s;
 }
@@ -1970,6 +1982,17 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
     if (s.contains(QStringLiteral("AudioShaderId"))) {
         m_ui->kcfg_AudioShaderId->setText(s[QStringLiteral("AudioShaderId")].toString());
         refreshAudioShaderCombo();
+    }
+    if (s.contains(QStringLiteral("AudioWindowFrameShaderMode"))) {
+        const QString mode = s[QStringLiteral("AudioWindowFrameShaderMode")].toString();
+        m_ui->kcfg_AudioWindowFrameShaderMode->setText(mode);
+        const int idx = m_ui->comboAudioWindowFrameMode->findData(mode);
+        if (idx >= 0) {
+            m_ui->comboAudioWindowFrameMode->setCurrentIndex(idx);
+        }
+    }
+    if (s.contains(QStringLiteral("AudioHudShaderEnabled"))) {
+        m_ui->kcfg_AudioHudShaderEnabled->setChecked(s[QStringLiteral("AudioHudShaderEnabled")].toBool(true));
     }
     updateAudioUI();
 
@@ -2398,6 +2421,8 @@ void ActiveWindowOutlineConfig::save()
     group.writeEntry(QStringLiteral("AudioHudIndicatorColor"), m_ui->kcfg_AudioHudIndicatorColor->color());
     group.writeEntry(QStringLiteral("AudioShaderRuleEnabled"), m_ui->kcfg_AudioShaderRuleEnabled->isChecked());
     group.writeEntry(QStringLiteral("AudioShaderId"), m_ui->kcfg_AudioShaderId->text());
+    group.writeEntry(QStringLiteral("AudioWindowFrameShaderMode"), m_ui->comboAudioWindowFrameMode->currentData().toString());
+    group.writeEntry(QStringLiteral("AudioHudShaderEnabled"), m_ui->kcfg_AudioHudShaderEnabled->isChecked());
     group.writeEntry(QStringLiteral("BreatheEnabled"), false);
     group.writeEntry(QStringLiteral("GlitchEnabled"), false);
     group.writeEntry(QStringLiteral("NeonFlickerEnabled"), false);
@@ -2453,6 +2478,19 @@ void ActiveWindowOutlineConfig::initAudioSection()
         markAsChanged();
     });
 
+    m_ui->comboAudioWindowFrameMode->clear();
+    m_ui->comboAudioWindowFrameMode->addItem(QStringLiteral("Zawsze (aktywne i nieaktywne) / Always (active & inactive)"), QStringLiteral("always"));
+    m_ui->comboAudioWindowFrameMode->addItem(QStringLiteral("Tylko gdy jest aktywne / Only when active"), QStringLiteral("active"));
+    m_ui->comboAudioWindowFrameMode->addItem(QStringLiteral("Tylko gdy jest nieaktywne / Only when inactive"), QStringLiteral("inactive"));
+    connect(m_ui->comboAudioWindowFrameMode, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
+        if (!m_ui->comboAudioWindowFrameMode) return;
+        m_ui->kcfg_AudioWindowFrameShaderMode->setText(m_ui->comboAudioWindowFrameMode->currentData().toString());
+        markAsChanged();
+    });
+    connect(m_ui->kcfg_AudioHudShaderEnabled, &QCheckBox::toggled, this, [this](bool) {
+        markAsChanged();
+    });
+
     connect(m_ui->kcfg_AudioHudIndicatorColorAuto, &QCheckBox::toggled, this, [this](bool isAuto) {
         m_ui->kcfg_AudioHudIndicatorColor->setEnabled(!isAuto);
         markAsChanged();
@@ -2480,7 +2518,10 @@ void ActiveWindowOutlineConfig::initAudioSection()
 
 void ActiveWindowOutlineConfig::updateAudioUI()
 {
-    m_ui->comboAudioShader->setEnabled(m_ui->kcfg_AudioShaderRuleEnabled->isChecked());
+    const bool shaderRule = m_ui->kcfg_AudioShaderRuleEnabled->isChecked();
+    m_ui->comboAudioShader->setEnabled(shaderRule);
+    m_ui->comboAudioWindowFrameMode->setEnabled(shaderRule);
+    m_ui->kcfg_AudioHudShaderEnabled->setEnabled(shaderRule);
     m_ui->kcfg_AudioHudIndicatorColor->setEnabled(!m_ui->kcfg_AudioHudIndicatorColorAuto->isChecked());
     const bool hudPulse = m_ui->kcfg_AudioHudPulseEnabled->isChecked();
     m_ui->kcfg_AudioHudPulseSpeed->setEnabled(hudPulse);
