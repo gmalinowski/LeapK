@@ -417,6 +417,8 @@ private:
     QMap<EffectWindow *, OutlineCache> m_outlineCache;
     std::unique_ptr<GLShader> m_glowShader;
     std::unique_ptr<GLShader> m_fadeCornersShader;
+    std::unique_ptr<GLShader> m_audioGlowShader;
+    std::unique_ptr<GLShader> m_audioOutlineShader;
     QFileSystemWatcher *m_configWatcher = nullptr;
     QTimer *m_configReloadTimer = nullptr;
     QString m_configPath;
@@ -481,6 +483,9 @@ private:
     bool m_customShaderEnabled = false;
     QString m_activeCustomShaderId;
     LeapKShader::CustomShaderEffect m_activeCustomShader;
+    bool m_audioShaderRuleEnabled = false;
+    QString m_audioShaderId;
+    LeapKShader::CustomShaderEffect m_audioShaderEffect;
 
     // Config - Behavior & Delays
     int m_fadeDuration = 200;

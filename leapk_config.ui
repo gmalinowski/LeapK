@@ -909,7 +909,52 @@
        </item>
 
        <item>
+        <widget class="QGroupBox" name="groupAudioShaderRule">
+         <property name="title">
+          <string>Audio Reactive Frame Rule</string>
+         </property>
+         <layout class="QFormLayout" name="formLayoutAudioShaderRule">
+          <item row="0" column="0" colspan="2">
+           <widget class="QCheckBox" name="kcfg_AudioShaderRuleEnabled">
+            <property name="text">
+             <string>When window plays audio, apply custom shader to window frame</string>
+            </property>
+            <property name="toolTip">
+             <string>Automatically renders the selected GLSL shader effect on the frame/glow of windows playing audio.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_audioShader">
+            <property name="text">
+             <string>Audio reactive shader:</string>
+            </property>
+            <property name="toolTip">
+             <string>Select GLSL fragment shader effect to render when a window is actively playing sound.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QComboBox" name="comboAudioShader">
+            <property name="toolTip">
+             <string>Select GLSL fragment shader effect to render when a window is actively playing sound.</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+
+       <item>
         <widget class="QLineEdit" name="kcfg_ActiveCustomShaderId">
+         <property name="visible">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+
+       <item>
+        <widget class="QLineEdit" name="kcfg_AudioShaderId">
          <property name="visible">
           <bool>false</bool>
          </property>
@@ -2308,6 +2353,138 @@
                 </property>
                </widget>
               </item>
+              <item row="10" column="0">
+               <widget class="QLabel" name="label_audioWindowIndicatorStyle">
+                <property name="text">
+                 <string>Audio indicator style:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Visual style for the audio indicator icon on window badges.</string>
+                </property>
+               </widget>
+              </item>
+              <item row="10" column="1">
+               <widget class="QComboBox" name="combo_AudioWindowIndicatorStyle">
+                <property name="toolTip">
+                 <string>Style of the audio icon (Speaker, Soundwave, or Minimal Dot).</string>
+                </property>
+                <item>
+                 <property name="text">
+                  <string>Speaker Icon</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Soundwave Pulse</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Minimal Dot</string>
+                 </property>
+                </item>
+               </widget>
+              </item>
+              <item row="11" column="0" colspan="2">
+               <widget class="QCheckBox" name="kcfg_AudioWindowPulseEnabled">
+                <property name="text">
+                 <string>Pulse window badge when playing audio</string>
+                </property>
+                <property name="checked">
+                 <bool>true</bool>
+                </property>
+                <property name="toolTip">
+                 <string>Animates the window badge with a breathing pulse while the window is playing sound.</string>
+                </property>
+               </widget>
+              </item>
+              <item row="12" column="0">
+               <widget class="QLabel" name="label_audioWindowPulseSpeed">
+                <property name="text">
+                 <string>Audio pulse speed:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Speed multiplier for badge audio pulsing animation.</string>
+                </property>
+               </widget>
+              </item>
+              <item row="12" column="1">
+               <widget class="QDoubleSpinBox" name="kcfg_AudioWindowPulseSpeed">
+                <property name="minimum">
+                 <double>0.200000000000000</double>
+                </property>
+                <property name="maximum">
+                 <double>3.000000000000000</double>
+                </property>
+                <property name="singleStep">
+                 <double>0.100000000000000</double>
+                </property>
+                <property name="value">
+                 <double>1.000000000000000</double>
+                </property>
+                <property name="suffix">
+                 <string>x</string>
+                </property>
+               </widget>
+              </item>
+              <item row="13" column="0">
+               <widget class="QLabel" name="label_audioWindowPulseIntensity">
+                <property name="text">
+                 <string>Audio pulse intensity:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Intensity multiplier for badge audio pulsing animation.</string>
+                </property>
+               </widget>
+              </item>
+              <item row="13" column="1">
+               <widget class="QDoubleSpinBox" name="kcfg_AudioWindowPulseIntensity">
+                <property name="minimum">
+                 <double>0.000000000000000</double>
+                </property>
+                <property name="maximum">
+                 <double>2.500000000000000</double>
+                </property>
+                <property name="singleStep">
+                 <double>0.100000000000000</double>
+                </property>
+                <property name="value">
+                 <double>1.000000000000000</double>
+                </property>
+                <property name="suffix">
+                 <string>x</string>
+                </property>
+               </widget>
+              </item>
+              <item row="14" column="0">
+               <widget class="QLabel" name="label_audioWindowIndicatorScale">
+                <property name="text">
+                 <string>Audio indicator scale:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Relative size scale of the audio indicator inside window badges.</string>
+                </property>
+               </widget>
+              </item>
+              <item row="14" column="1">
+               <widget class="QDoubleSpinBox" name="kcfg_AudioWindowIndicatorScale">
+                <property name="minimum">
+                 <double>0.700000000000000</double>
+                </property>
+                <property name="maximum">
+                 <double>2.000000000000000</double>
+                </property>
+                <property name="singleStep">
+                 <double>0.050000000000000</double>
+                </property>
+                <property name="value">
+                 <double>1.000000000000000</double>
+                </property>
+                <property name="suffix">
+                 <string>x</string>
+                </property>
+               </widget>
+              </item>
              </layout>
             </widget>
            </item>
@@ -2694,6 +2871,140 @@
                  </property>
                  <property name="toolTip">
                   <string>Enables breathing, neon flicker, and shader animations on the group container frame during jump mode.</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="17" column="0">
+                <widget class="QLabel" name="label_audioHudIndicatorStyle">
+                 <property name="text">
+                  <string>HUD audio indicator style:</string>
+                 </property>
+                 <property name="toolTip">
+                  <string>Visual style for the audio indicator icon on HUD cards.</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="17" column="1">
+                <widget class="QComboBox" name="combo_AudioHudIndicatorStyle">
+                 <property name="toolTip">
+                  <string>Style of the audio icon on HUD cards (Speaker, Soundwave, or Minimal Dot).</string>
+                 </property>
+                 <item>
+                  <property name="text">
+                   <string>Speaker Icon</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>Soundwave Pulse</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>Minimal Dot</string>
+                  </property>
+                 </item>
+                </widget>
+               </item>
+               <item row="18" column="0" colspan="2">
+                <widget class="QCheckBox" name="kcfg_AudioHudPulseEnabled">
+                 <property name="text">
+                  <string>Pulse HUD card when window is playing audio</string>
+                 </property>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
+                 <property name="toolTip">
+                  <string>Animates the HUD card with a breathing pulse while its window is playing sound.</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="19" column="0">
+                <widget class="QLabel" name="label_audioHudPulseSpeed">
+                 <property name="text">
+                  <string>HUD audio pulse speed:</string>
+                 </property>
+                 <property name="toolTip">
+                  <string>Speed multiplier for HUD card audio pulsing animation.</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="19" column="1">
+                <widget class="QDoubleSpinBox" name="kcfg_AudioHudPulseSpeed">
+                 <property name="minimum">
+                  <double>0.200000000000000</double>
+                 </property>
+                 <property name="maximum">
+                  <double>3.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.100000000000000</double>
+                 </property>
+                 <property name="value">
+                  <double>1.000000000000000</double>
+                 </property>
+                 <property name="suffix">
+                  <string>x</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="20" column="0">
+                <widget class="QLabel" name="label_audioHudPulseIntensity">
+                 <property name="text">
+                  <string>HUD audio pulse intensity:</string>
+                 </property>
+                 <property name="toolTip">
+                  <string>Intensity multiplier for HUD card audio pulsing animation.</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="20" column="1">
+                <widget class="QDoubleSpinBox" name="kcfg_AudioHudPulseIntensity">
+                 <property name="minimum">
+                  <double>0.000000000000000</double>
+                 </property>
+                 <property name="maximum">
+                  <double>2.500000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.100000000000000</double>
+                 </property>
+                 <property name="value">
+                  <double>1.000000000000000</double>
+                 </property>
+                 <property name="suffix">
+                  <string>x</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="21" column="0" colspan="2">
+                <widget class="QCheckBox" name="kcfg_AudioHudIndicatorColorAuto">
+                 <property name="text">
+                  <string>Auto audio indicator color from active theme ($audioColor)</string>
+                 </property>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="22" column="0">
+                <widget class="QLabel" name="label_audioHudIndicatorColor">
+                 <property name="text">
+                  <string>Custom audio indicator color:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="22" column="1">
+                <widget class="KColorButton" name="kcfg_AudioHudIndicatorColor">
+                 <property name="alphaChannelEnabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="color">
+                  <color alpha="255">
+                   <red>241</red>
+                   <green>196</green>
+                   <blue>15</blue>
+                  </color>
                  </property>
                 </widget>
                </item>
@@ -3352,6 +3663,32 @@
               </property>
               <property name="icon">
                <iconset theme="edit-undo"/>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnInstallPack">
+              <property name="text">
+               <string>Install Pack (.leapkpack)…</string>
+              </property>
+              <property name="icon">
+               <iconset theme="application-x-tar"/>
+              </property>
+              <property name="toolTip">
+               <string>Install a complete LeapK Pack containing Theme, Preset, Shaders, and Shortcuts</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnExportPack">
+              <property name="text">
+               <string>Export Pack…</string>
+              </property>
+              <property name="icon">
+               <iconset theme="archive-insert"/>
+              </property>
+              <property name="toolTip">
+               <string>Export active theme, current preset settings, and shaders into a portable LeapK Pack (.leapkpack)</string>
               </property>
              </widget>
             </item>

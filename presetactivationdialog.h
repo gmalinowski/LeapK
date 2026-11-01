@@ -227,6 +227,27 @@ public:
                     {QStringLiteral("HideOnFullScreen"), QStringLiteral("Hide Outline on Full Screen")},
                     {QStringLiteral("TrayIconEnabled"), QStringLiteral("System Tray Icon")}
                 }
+            },
+            // 8. Audio Tracking & Rules
+            {
+                QStringLiteral("🔊 Audio Tracking & Rules"),
+                QStringLiteral("audio-volume-high"),
+                {
+                    {QStringLiteral("AudioTrackingEnabled"), QStringLiteral("Audio Playback Tracking")},
+                    {QStringLiteral("AudioHudIndicatorStyle"), QStringLiteral("HUD Audio Indicator Style")},
+                    {QStringLiteral("AudioHudPulseEnabled"), QStringLiteral("HUD Card Audio Pulsing")},
+                    {QStringLiteral("AudioHudPulseSpeed"), QStringLiteral("HUD Audio Pulse Speed")},
+                    {QStringLiteral("AudioHudPulseIntensity"), QStringLiteral("HUD Audio Pulse Intensity")},
+                    {QStringLiteral("AudioHudIndicatorColorAuto"), QStringLiteral("HUD Audio Auto Color")},
+                    {QStringLiteral("AudioHudIndicatorColor"), QStringLiteral("HUD Audio Custom Color")},
+                    {QStringLiteral("AudioWindowIndicatorStyle"), QStringLiteral("Window Audio Indicator Style")},
+                    {QStringLiteral("AudioWindowPulseEnabled"), QStringLiteral("Window Badge Audio Pulsing")},
+                    {QStringLiteral("AudioWindowPulseSpeed"), QStringLiteral("Window Audio Pulse Speed")},
+                    {QStringLiteral("AudioWindowPulseIntensity"), QStringLiteral("Window Audio Pulse Intensity")},
+                    {QStringLiteral("AudioWindowIndicatorScale"), QStringLiteral("Window Audio Indicator Scale")},
+                    {QStringLiteral("AudioShaderRuleEnabled"), QStringLiteral("Audio Reactive Frame Shader Rule")},
+                    {QStringLiteral("AudioShaderId"), QStringLiteral("Audio Reactive Shader Effect")}
+                }
             }
         };
     }

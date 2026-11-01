@@ -466,6 +466,11 @@ if(OUTLINE_BUILD_TESTS)
     target_link_libraries(outline-tiling-test PRIVATE Qt6::Core)
     add_test(NAME outline-tiling COMMAND outline-tiling-test)
 
+    add_executable(outline-pack-test tests/pack_test.cpp)
+    target_include_directories(outline-pack-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-pack-test PRIVATE Qt6::Core Qt6::Gui Qt6::Svg)
+    add_test(NAME outline-pack COMMAND outline-pack-test)
+
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
         add_test(NAME outline-config-sync COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/configsync_test.py)

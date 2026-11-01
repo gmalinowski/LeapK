@@ -529,6 +529,37 @@ void testPresetWithEmbeddedShader()
     assert(LeapK::PresetActivationDialog::areValuesEqual(parsed.shader, parsed.shader));
 }
 
+void testPresetAudioSettings()
+{
+    const auto defaults = OutlinePreset::getDefaultSettings();
+    assert(defaults.contains(QStringLiteral("AudioTrackingEnabled")));
+    assert(defaults[QStringLiteral("AudioTrackingEnabled")].toBool() == true);
+    assert(defaults[QStringLiteral("AudioHudIndicatorStyle")].toString() == QStringLiteral("speaker_icon"));
+    assert(defaults[QStringLiteral("AudioHudPulseEnabled")].toBool() == true);
+    assert(defaults[QStringLiteral("AudioWindowIndicatorStyle")].toString() == QStringLiteral("speaker_icon"));
+    assert(defaults[QStringLiteral("AudioWindowPulseEnabled")].toBool() == true);
+    assert(defaults[QStringLiteral("AudioShaderRuleEnabled")].toBool() == false);
+
+    OutlinePreset::PresetInfo p;
+    p.name = QStringLiteral("Audio Master");
+    p.description = QStringLiteral("Audio reactive test preset");
+    p.isBuiltIn = false;
+    p.settings = defaults;
+    p.settings[QStringLiteral("AudioHudIndicatorStyle")] = QStringLiteral("soundwave_pulse");
+    p.settings[QStringLiteral("AudioHudPulseSpeed")] = 2.0;
+    p.settings[QStringLiteral("AudioShaderRuleEnabled")] = true;
+    p.settings[QStringLiteral("AudioShaderId")] = QStringLiteral("audio_spectrum");
+
+    const QByteArray json = OutlinePreset::serializePreset(p);
+    OutlinePreset::PresetInfo parsed;
+    QString err;
+    assert(OutlinePreset::parsePresetJson(json, parsed, &err));
+    assert(parsed.name == QStringLiteral("Audio Master"));
+    assert(parsed.settings[QStringLiteral("AudioHudIndicatorStyle")].toString() == QStringLiteral("soundwave_pulse"));
+    assert(parsed.settings[QStringLiteral("AudioShaderRuleEnabled")].toBool() == true);
+    assert(parsed.settings[QStringLiteral("AudioShaderId")].toString() == QStringLiteral("audio_spectrum"));
+}
+
 int main(int argc, char *argv[])
 {
     Q_UNUSED(argc);
@@ -545,6 +576,7 @@ int main(int argc, char *argv[])
     testPresetFormatValueAndAreValuesEqual();
     testAllBuiltInPresetsConsistency();
     testPresetWithEmbeddedShader();
+    testPresetAudioSettings();
 
     std::cout << "All preset tests passed successfully." << std::endl;
     return 0;

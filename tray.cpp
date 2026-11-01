@@ -267,257 +267,6 @@ private slots:
         QTimer::singleShot(60, this, &OutlineTray::refreshStateFromConfig);
     }
 
-    void onApplyPreset(const QString &presetName)
-    {
-        // Remember active preset name in kwinrc
-        KConfigGroup group = getKWinGroup();
-        group.writeEntry(QStringLiteral("ActivePreset"), presetName);
-        group.sync();
-
-        QDBusMessage msg = QDBusMessage::createMethodCall(
-            QStringLiteral("org.kde.KWin"),
-            QStringLiteral("/LeapK"),
-            QStringLiteral("org.kde.LeapK"),
-            QStringLiteral("applyPreset"));
-        msg << presetName;
-        QDBusReply<void> reply = QDBusConnection::sessionBus().call(msg);
-        if (!reply.isValid()) {
-            msg = QDBusMessage::createMethodCall(
-                QStringLiteral("org.kde.KWin"),
-                QStringLiteral("/KLeap"),
-                QStringLiteral("org.kde.KLeap"),
-                QStringLiteral("applyPreset"));
-            msg << presetName;
-            reply = QDBusConnection::sessionBus().call(msg);
-        }
-        if (!reply.isValid()) {
-            msg = QDBusMessage::createMethodCall(
-                QStringLiteral("org.kde.KWin"),
-                QStringLiteral("/ActiveWindowOutline"),
-                QStringLiteral("org.kde.ActiveWindowOutline"),
-                QStringLiteral("applyPreset"));
-            msg << presetName;
-            reply = QDBusConnection::sessionBus().call(msg);
-        }
-        if (reply.isValid()) {
-            refreshStateFromConfig();
-            return;
-        }
-
-        // Fallback: load preset info directly and write to kwinrc
-        const auto presets = OutlinePreset::loadPresets(OutlinePreset::defaultPresetsDirectory());
-        for (const auto &p : presets) {
-            if (p.name == presetName) {
-                if (!p.shader.isEmpty()) {
-                    LeapKShader::applyShaderBundle(p.shader);
-                } else if (p.settings.contains(QStringLiteral("ShaderEffect"))) {
-                    LeapKShader::applyShaderBundle(p.settings.value(QStringLiteral("ShaderEffect")).toObject());
-                }
-                for (auto it = p.settings.constBegin(); it != p.settings.constEnd(); ++it) {
-                    if (it.key() == QStringLiteral("ShaderEffect")) continue;
-                    group.writeEntry(it.key(), it.value().toVariant());
-                }
-                group.sync();
-                notifyKWinReconfigure();
-                refreshStateFromConfig();
-                break;
-            }
-        }
-    }
-
-    void onCustomizeApplyPreset(const QString &presetName)
-    {
-        const auto presets = OutlinePreset::loadPresets(OutlinePreset::defaultPresetsDirectory());
-        for (const auto &p : presets) {
-            if (p.name == presetName) {
-                KConfigGroup group = getKWinGroup();
-                QJsonObject currentSettings = OutlinePreset::getDefaultSettings();
-                for (auto it = currentSettings.begin(); it != currentSettings.end(); ++it) {
-                    const QString key = it.key();
-                    if (group.hasKey(key)) {
-                        it.value() = QJsonValue::fromVariant(group.readEntry(key, it.value().toVariant()));
-                    }
-                }
-                QJsonObject outSettings;
-                if (LeapK::PresetActivationDialog::selectSettings(nullptr, p, currentSettings, outSettings)) {
-                    if (outSettings.contains(QStringLiteral("ShaderEffect"))) {
-                        LeapKShader::applyShaderBundle(outSettings.value(QStringLiteral("ShaderEffect")).toObject());
-                    } else if (!p.shader.isEmpty() && outSettings.contains(QStringLiteral("CustomShaderEnabled"))) {
-                        LeapKShader::applyShaderBundle(p.shader);
-                    }
-                    for (auto it = outSettings.constBegin(); it != outSettings.constEnd(); ++it) {
-                        if (it.key() == QStringLiteral("ShaderEffect")) continue;
-                        group.writeEntry(it.key(), it.value().toVariant());
-                    }
-                    group.writeEntry(QStringLiteral("ActivePreset"), presetName);
-                    group.sync();
-                    notifyKWinReconfigure();
-                    refreshStateFromConfig();
-                    rebuildPresetsMenu();
-
-                    const int count = outSettings.size();
-                    const QString msg = (count == p.settings.size())
-                        ? QStringLiteral("Activated full preset:\n%1").arg(presetName)
-                        : QStringLiteral("Applied %1 selected options from preset:\n%2").arg(count).arg(presetName);
-
-                    m_trayIcon->showMessage(
-                        QStringLiteral("LeapK"),
-                        msg,
-                        QSystemTrayIcon::Information,
-                        3500
-                    );
-                }
-                break;
-            }
-        }
-    }
-
-    void onSaveCurrentPreset()
-    {
-        const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd_HH-mm-ss"));
-        const QString presetName = QStringLiteral("Preset_%1").arg(timestamp);
-
-        OutlinePreset::PresetInfo p;
-        p.name = presetName;
-        p.description = QStringLiteral("Saved from system tray (%1)").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")));
-        p.isBuiltIn = false;
-
-        KConfigGroup group = getKWinGroup();
-        const QJsonObject defaults = OutlinePreset::getDefaultSettings();
-        for (auto it = defaults.constBegin(); it != defaults.constEnd(); ++it) {
-            const QString key = it.key();
-            if (group.hasKey(key)) {
-                const QVariant val = group.readEntry(key, it.value().toVariant());
-                p.settings[key] = QJsonValue::fromVariant(val);
-            } else {
-                p.settings[key] = it.value();
-            }
-        }
-
-        QString err;
-        if (!OutlinePreset::savePreset(OutlinePreset::defaultPresetsDirectory(), p, &err)) {
-            QMessageBox::warning(nullptr,
-                QStringLiteral("Save Error"),
-                QStringLiteral("Failed to save preset: %1").arg(err));
-            return;
-        }
-
-        group.writeEntry(QStringLiteral("ActivePreset"), presetName);
-        group.sync();
-
-        rebuildPresetsMenu();
-
-        m_trayIcon->showMessage(
-            QStringLiteral("Active Window Outline"),
-            QStringLiteral("Saved new preset:\n%1").arg(presetName),
-            QSystemTrayIcon::Information,
-            3500
-        );
-    }
-
-    void onExportPreset()
-    {
-        const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd_HH-mm-ss"));
-        const QString defaultFileName = QStringLiteral("LeapK_Preset_%1.json").arg(timestamp);
-        const QString docsPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
-        const QString initialPath = docsPath + QLatin1Char('/') + defaultFileName;
-
-        const QString filePath = QFileDialog::getSaveFileName(
-            nullptr,
-            QStringLiteral("Export Current Preset to File"),
-            initialPath,
-            QStringLiteral("JSON Files (*.json)")
-        );
-        if (filePath.isEmpty()) {
-            return;
-        }
-
-        OutlinePreset::PresetInfo p;
-        p.name = QStringLiteral("Exported_%1").arg(timestamp);
-        p.description = QStringLiteral("Exported at: %1").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")));
-        p.isBuiltIn = false;
-
-        KConfigGroup group = getKWinGroup();
-        const QJsonObject defaults = OutlinePreset::getDefaultSettings();
-        for (auto it = defaults.constBegin(); it != defaults.constEnd(); ++it) {
-            const QString key = it.key();
-            if (group.hasKey(key)) {
-                const QVariant val = group.readEntry(key, it.value().toVariant());
-                p.settings[key] = QJsonValue::fromVariant(val);
-            } else {
-                p.settings[key] = it.value();
-            }
-        }
-
-        QFile file(filePath);
-        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-            QMessageBox::warning(nullptr,
-                QStringLiteral("Export Error"),
-                QStringLiteral("Cannot write to file: %1").arg(file.errorString()));
-            return;
-        }
-        file.write(OutlinePreset::serializePreset(p));
-        file.close();
-
-        m_trayIcon->showMessage(
-            QStringLiteral("Active Window Outline"),
-            QStringLiteral("Preset exported successfully!"),
-            QSystemTrayIcon::Information,
-            3000
-        );
-    }
-
-    void onImportPreset()
-    {
-        const QString filePath = QFileDialog::getOpenFileName(
-            nullptr,
-            QStringLiteral("Import Preset File"),
-            QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
-            QStringLiteral("JSON Files (*.json)")
-        );
-        if (filePath.isEmpty()) {
-            return;
-        }
-
-        QFile file(filePath);
-        if (!file.open(QIODevice::ReadOnly)) {
-            QMessageBox::warning(nullptr,
-                QStringLiteral("Import Error"),
-                QStringLiteral("Cannot read file: %1").arg(file.errorString()));
-            return;
-        }
-
-        OutlinePreset::PresetInfo preset;
-        QString err;
-        if (!OutlinePreset::parsePresetJson(file.readAll(), preset, &err)) {
-            QMessageBox::warning(nullptr,
-                QStringLiteral("Import Error"),
-                QStringLiteral("Invalid preset file format: %1").arg(err));
-            return;
-        }
-
-        if (preset.name.isEmpty()) {
-            preset.name = QFileInfo(filePath).baseName();
-        }
-        preset.isBuiltIn = false;
-
-        if (!OutlinePreset::savePreset(OutlinePreset::defaultPresetsDirectory(), preset, &err)) {
-            QMessageBox::warning(nullptr,
-                QStringLiteral("Import Error"),
-                QStringLiteral("Could not save preset: %1").arg(err));
-            return;
-        }
-
-        rebuildPresetsMenu();
-
-        m_trayIcon->showMessage(
-            QStringLiteral("LeapK"),
-            QStringLiteral("Imported preset:\n%1 (added to presets menu)").arg(preset.name),
-            QSystemTrayIcon::Information,
-            3500
-        );
-    }
-
     void onTriggerJumpMode()
     {
         if (callDBusMethod(QStringLiteral("triggerJumpMode"))) {
@@ -845,8 +594,6 @@ private slots:
             : QStringLiteral("LeapK: Disabled\n(Click left mouse button to enable)");
         m_trayIcon->setToolTip(statusText);
 
-        rebuildPresetsMenu();
-        rebuildShadersMenu();
         updateShortcutsMenu();
     }
 
@@ -909,7 +656,7 @@ private:
         connect(m_menu, &QMenu::aboutToShow, this, &OutlineTray::refreshStateFromConfig);
 
         // 1. Title / Header
-        QAction *actHeader = m_menu->addAction(QStringLiteral("🚀 LeapK v1.5"));
+        QAction *actHeader = m_menu->addAction(QStringLiteral("🚀 LeapK v%1").arg(QStringLiteral(ACTIVE_WINDOW_OUTLINE_VERSION)));
         QFont headerFont = actHeader->font();
         headerFont.setBold(true);
         actHeader->setFont(headerFont);
@@ -924,15 +671,7 @@ private:
 
         m_menu->addSeparator();
 
-        // 3. Presets Submenu
-        m_menuPresets = m_menu->addMenu(QStringLiteral("📁 Presets"));
-
-        // 3b. Shaders Submenu
-        m_menuShaders = m_menu->addMenu(QStringLiteral("✨ Shader Effects (GLSL)"));
-
-        m_menu->addSeparator();
-
-        // 4. Keyboard Shortcuts Submenu
+        // 3. Keyboard Shortcuts Submenu
         m_menuShortcuts = m_menu->addMenu(QStringLiteral("⌨️ Keyboard Shortcuts"));
         connect(m_menuShortcuts, &QMenu::aboutToShow, this, &OutlineTray::updateShortcutsMenu);
 
@@ -981,114 +720,6 @@ private:
         updateShortcutsMenu();
     }
 
-    void rebuildPresetsMenu()
-    {
-        if (!m_menuPresets) {
-            return;
-        }
-        m_menuPresets->clear();
-
-        const auto presets = OutlinePreset::loadPresets(OutlinePreset::defaultPresetsDirectory());
-        auto *actionGroup = new QActionGroup(m_menuPresets);
-        actionGroup->setExclusive(true);
-
-        KConfigGroup group = getKWinGroup();
-        const QString activePresetName = group.readEntry(QStringLiteral("ActivePreset"), QString());
-
-        for (const auto &p : presets) {
-            QAction *act = m_menuPresets->addAction(p.name);
-            act->setCheckable(true);
-            actionGroup->addAction(act);
-
-            if (!activePresetName.isEmpty() && p.name == activePresetName) {
-                act->setChecked(true);
-            }
-
-            const QString name = p.name;
-            connect(act, &QAction::triggered, this, [this, name]() {
-                onApplyPreset(name);
-            });
-        }
-
-        m_menuPresets->addSeparator();
-
-        QMenu *customizeMenu = m_menuPresets->addMenu(
-            QStringLiteral("⚙️ Customize & Apply Preset…")
-        );
-        for (const auto &p : presets) {
-            const QString name = p.name;
-            QAction *custAct = customizeMenu->addAction(name);
-            connect(custAct, &QAction::triggered, this, [this, name]() {
-                onCustomizeApplyPreset(name);
-            });
-        }
-
-        m_menuPresets->addSeparator();
-
-        m_menuPresets->addAction(
-            QStringLiteral("💾 Save Current as New Preset (Timestamp)"),
-            this, &OutlineTray::onSaveCurrentPreset);
-
-        m_menuPresets->addAction(
-            QStringLiteral("📤 Export Current Preset..."),
-            this, &OutlineTray::onExportPreset);
-
-        m_menuPresets->addAction(
-            QStringLiteral("📥 Import Preset..."),
-            this, &OutlineTray::onImportPreset);
-    }
-
-    void rebuildShadersMenu()
-    {
-        if (!m_menuShaders) {
-            return;
-        }
-        m_menuShaders->clear();
-
-        KConfigGroup group = getKWinGroup();
-        const bool shaderEnabled = group.readEntry(QStringLiteral("CustomShaderEnabled"), false);
-        const QString activeShaderId = group.readEntry(QStringLiteral("ActiveCustomShaderId"), QString());
-
-        QAction *actToggle = m_menuShaders->addAction(
-            QStringLiteral("Enable Custom Shader"),
-            this, [this, shaderEnabled]() {
-                KConfigGroup g = getKWinGroup();
-                g.writeEntry(QStringLiteral("CustomShaderEnabled"), !shaderEnabled);
-                g.sync();
-                notifyKWinReconfigure();
-                rebuildShadersMenu();
-            }
-        );
-        actToggle->setCheckable(true);
-        actToggle->setChecked(shaderEnabled);
-
-        m_menuShaders->addSeparator();
-
-        const auto shaders = LeapKShader::loadAllShaders();
-        auto *actionGroup = new QActionGroup(m_menuShaders);
-        actionGroup->setExclusive(true);
-
-        for (const auto &s : shaders) {
-            QAction *act = m_menuShaders->addAction(s.name);
-            act->setCheckable(true);
-            actionGroup->addAction(act);
-
-            if (!activeShaderId.isEmpty() && s.id == activeShaderId) {
-                act->setChecked(true);
-            }
-
-            const QString id = s.id;
-            connect(act, &QAction::triggered, this, [this, id]() {
-                KConfigGroup g = getKWinGroup();
-                g.writeEntry(QStringLiteral("CustomShaderEnabled"), true);
-                g.writeEntry(QStringLiteral("ActiveCustomShaderId"), id);
-                g.sync();
-                notifyKWinReconfigure();
-                rebuildShadersMenu();
-            });
-        }
-    }
-
     void initWatcher()
     {
         const QString configDir = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
@@ -1125,8 +756,6 @@ private:
 
     QSystemTrayIcon *m_trayIcon = nullptr;
     QMenu *m_menu = nullptr;
-    QMenu *m_menuPresets = nullptr;
-    QMenu *m_menuShaders = nullptr;
     QMenu *m_menuShortcuts = nullptr;
     QAction *m_actEnable = nullptr;
     QAction *m_actJump = nullptr;

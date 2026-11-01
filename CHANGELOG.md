@@ -4,6 +4,31 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta61] - 2026-11-01
+
+### Added
+- **Audio Tracking & Playing Window Customization in Settings (`leapk-settings` / KCM)**:
+  - Added dedicated Audio configuration controls in LeapK Settings:
+    - **HUD Audio Badge**: configurable indicator style (`speaker_icon`, `soundwave`, `minimal_dot`), pulse animation toggle, pulse speed (0.2x – 3.0x), pulse intensity (0.0x – 2.5x), automatic vs custom badge color picker.
+    - **Window Audio Badge**: indicator style (`speaker_icon`, `soundwave`, `minimal_dot`), pulse animation toggle, pulse speed, pulse intensity, and badge scale (0.7x – 2.0x).
+    - **Audio-Triggered GLSL Shader Rule**: automatically activate a chosen GLSL shader effect (e.g. Neon Pulsar, Audio Wave, Glow) around any window currently outputting audio via PipeWire/PulseAudio.
+  - Dynamically binds and executes shader passes for audio windows in `leapk.cpp` (`m_audioGlowShader` and `m_audioOutlineShader`) with continuous animation rendering.
+- **Architectural Consolidation & LeapK Pack Format (`.leapkpack`)**:
+  - Clear architectural separation between:
+    - **Themes**: Visual appearance, shape geometry, glassmorphism tokens, HUD cards, keycaps, and colors.
+    - **Presets**: Operational behaviors, ergonomics, auto-hide timings, window recency, and tiling layout preferences.
+    - **Shaders**: GPU GLSL fragment programs for window borders and glow rendering.
+    - **LeapK Pack (`.leapkpack`)**: Complete bundle unifying Themes, Presets, Shaders, and KDE Global Shortcuts (`KGlobalAccel`), enabling 1-click sharing, website distribution, and installation.
+  - Added `LeapKPack` engine (`packhelper.h`) with JSON manifest format, bundle serialization/deserialization, integrity validation, and atomic installer.
+  - Added settings UI actions: **"Install Pack (.leapkpack)…"** and **"Export Pack…"** in the Themes tab of `leapk-settings`.
+  - Added CLI and desktop file support: `leapk-settings --install-pack <file.leapkpack>` and direct MIME association `application/x-leapkpack`.
+  - Added comprehensive test suite `outline-pack-test` covering pack serialization, export, import, and component installation.
+
+### Changed
+- **Tray Icon Streamlining (`tray.cpp`)**:
+  - Removed cluttered `📁 Presets` and `✨ Shader Effects (GLSL)` submenus from the system tray menu.
+  - System tray icon is now lightweight, fast, and cleanly focused on quick utilities (Toggle outline, Jump to window, Workspace Manager, Marker Manager, Cheat Sheet, and LeapK Settings).
+
 ## [1.6.0-beta60] - 2026-11-01
 
 ### Added

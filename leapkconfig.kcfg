@@ -603,5 +603,59 @@
         <entry name="ActiveThemeParams" type="String">
             <default></default>
         </entry>
+
+        <!-- Audio Tracking & Indicators -->
+        <entry name="AudioTrackingEnabled" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="AudioHudIndicatorStyle" type="String">
+            <default>speaker_icon</default>
+        </entry>
+        <entry name="AudioHudPulseEnabled" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="AudioHudPulseSpeed" type="Double">
+            <default>1.0</default>
+            <min>0.2</min>
+            <max>3.0</max>
+        </entry>
+        <entry name="AudioHudPulseIntensity" type="Double">
+            <default>1.0</default>
+            <min>0.0</min>
+            <max>2.5</max>
+        </entry>
+        <entry name="AudioHudIndicatorColor" type="Color">
+            <default>#f1c40f</default>
+        </entry>
+        <entry name="AudioHudIndicatorColorAuto" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="AudioWindowIndicatorStyle" type="String">
+            <default>speaker_icon</default>
+        </entry>
+        <entry name="AudioWindowPulseEnabled" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="AudioWindowPulseSpeed" type="Double">
+            <default>1.0</default>
+            <min>0.2</min>
+            <max>3.0</max>
+        </entry>
+        <entry name="AudioWindowPulseIntensity" type="Double">
+            <default>1.0</default>
+            <min>0.0</min>
+            <max>2.5</max>
+        </entry>
+        <entry name="AudioWindowIndicatorScale" type="Double">
+            <default>1.0</default>
+            <min>0.7</min>
+            <max>2.0</max>
+        </entry>
+        <entry name="AudioShaderRuleEnabled" type="Bool">
+            <default>false</default>
+        </entry>
+        <entry name="AudioShaderId" type="String">
+            <default></default>
+        </entry>
     </group>
 </kcfg>

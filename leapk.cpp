@@ -973,6 +973,15 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
         LeapKShader::loadShaderById(m_activeCustomShaderId, m_activeCustomShader);
     }
 
+    m_audioShaderRuleEnabled = config.readEntry("AudioShaderRuleEnabled", false);
+    m_audioShaderId = config.readEntry("AudioShaderId", QString());
+    m_audioGlowShader.reset();
+    m_audioOutlineShader.reset();
+    m_audioShaderEffect = LeapKShader::CustomShaderEffect();
+    if (m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty()) {
+        LeapKShader::loadShaderById(m_audioShaderId, m_audioShaderEffect);
+    }
+
     m_fadeDuration = qBound(0, config.readEntry("FadeDuration", 200), 2000);
     m_menuHideDelay = qBound(0, config.readEntry("MenuHideDelay", 500), 2000);
     m_menuShowDelay = qBound(0, config.readEntry("MenuShowDelay", 500), 2000);
@@ -1071,6 +1080,38 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
         themeOverrides = QJsonDocument::fromJson(m_badgeConfig.activeThemeParamsJson.toUtf8()).object();
     }
     m_badgeConfig.activeTheme = LeapKTheme::findThemeById(m_badgeConfig.activeThemeId, themeOverrides);
+
+    if (config.hasKey("AudioHudIndicatorStyle")) {
+        m_badgeConfig.activeTheme.hudCard.audioIndicatorStyle = config.readEntry("AudioHudIndicatorStyle", m_badgeConfig.activeTheme.hudCard.audioIndicatorStyle);
+    }
+    if (config.hasKey("AudioHudPulseEnabled")) {
+        m_badgeConfig.activeTheme.hudCard.audioPulseBadge = config.readEntry("AudioHudPulseEnabled", m_badgeConfig.activeTheme.hudCard.audioPulseBadge);
+    }
+    if (config.hasKey("AudioHudPulseSpeed")) {
+        m_badgeConfig.activeTheme.hudCard.audioPulseSpeed = config.readEntry("AudioHudPulseSpeed", m_badgeConfig.activeTheme.hudCard.audioPulseSpeed);
+    }
+    if (config.hasKey("AudioHudPulseIntensity")) {
+        m_badgeConfig.activeTheme.hudCard.audioPulseIntensity = config.readEntry("AudioHudPulseIntensity", m_badgeConfig.activeTheme.hudCard.audioPulseIntensity);
+    }
+    if (config.hasKey("AudioHudIndicatorColor") && !config.readEntry("AudioHudIndicatorColorAuto", true)) {
+        m_badgeConfig.activeTheme.hudCard.audioIndicatorColor = config.readEntry("AudioHudIndicatorColor", QColor(QStringLiteral("#f1c40f"))).name();
+    }
+
+    if (config.hasKey("AudioWindowIndicatorStyle")) {
+        m_badgeConfig.activeTheme.windowBadge.audioIndicatorStyle = config.readEntry("AudioWindowIndicatorStyle", m_badgeConfig.activeTheme.windowBadge.audioIndicatorStyle);
+    }
+    if (config.hasKey("AudioWindowPulseEnabled")) {
+        m_badgeConfig.activeTheme.windowBadge.audioPulseBadge = config.readEntry("AudioWindowPulseEnabled", m_badgeConfig.activeTheme.windowBadge.audioPulseBadge);
+    }
+    if (config.hasKey("AudioWindowPulseSpeed")) {
+        m_badgeConfig.activeTheme.windowBadge.audioPulseSpeed = config.readEntry("AudioWindowPulseSpeed", m_badgeConfig.activeTheme.windowBadge.audioPulseSpeed);
+    }
+    if (config.hasKey("AudioWindowPulseIntensity")) {
+        m_badgeConfig.activeTheme.windowBadge.audioPulseIntensity = config.readEntry("AudioWindowPulseIntensity", m_badgeConfig.activeTheme.windowBadge.audioPulseIntensity);
+    }
+    if (config.hasKey("AudioWindowIndicatorScale")) {
+        m_badgeConfig.activeTheme.windowBadge.audioIndicatorScale = config.readEntry("AudioWindowIndicatorScale", m_badgeConfig.activeTheme.windowBadge.audioIndicatorScale);
+    }
 
     m_badgeConfig.iconSize = m_badgeConfig.windowIconSize;
     m_badgeConfig.thumbnailSize = m_badgeConfig.windowThumbnailSize;
@@ -1187,11 +1228,13 @@ bool ActiveWindowOutlineEffect::isAnimationActive() const
     const bool hasDelayed = (m_delayedHideWindow && !m_delayedHideWindow->isDeleted()
         && m_delayedHideWindow->isOnCurrentDesktop() && !m_delayedHideWindow->isMinimized()
         && !m_delayedHideWindow->isHiddenByShowDesktop() && m_delayedHideState.isEffectivelyVisible());
+    const bool isAudioShaderActive = m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty() && m_audioTracker.hasPlayingAudio();
     if (m_visibilityState.isEffectivelyVisible() || hasDelayed) {
         return m_colorCycleEnabled || m_breatheEnabled
             || m_glitchEnabled || m_neonFlickerEnabled || m_flashEnabled
             || m_ambilightInTransition
-            || (m_customShaderEnabled && !m_activeCustomShaderId.isEmpty());
+            || (m_customShaderEnabled && !m_activeCustomShaderId.isEmpty())
+            || isAudioShaderActive;
     }
     if (m_jumpMode && m_badgeHudGroupShaderEnabled && (m_breatheEnabled || m_neonFlickerEnabled || (m_customShaderEnabled && !m_activeCustomShaderId.isEmpty()))) {
         return true;
@@ -2083,12 +2126,18 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
         }
     }
 
-    const bool customGlow = m_customShaderEnabled && !m_activeCustomShaderId.isEmpty()
-        && (m_activeCustomShader.target == QStringLiteral("glow") || m_activeCustomShader.target == QStringLiteral("both"));
+    const bool isPlayingAudio = outlinedWindow ? m_audioTracker.isWindowPlaying(outlinedWindow->pid(), outlinedWindow->caption()) : false;
+    const bool isAudioShader = isPlayingAudio && m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty();
+    const LeapKShader::CustomShaderEffect &effectiveShader = isAudioShader ? m_audioShaderEffect : m_activeCustomShader;
+    const bool customGlow = isAudioShader
+        ? (effectiveShader.target == QStringLiteral("glow") || effectiveShader.target == QStringLiteral("both"))
+        : (m_customShaderEnabled && !m_activeCustomShaderId.isEmpty() && (effectiveShader.target == QStringLiteral("glow") || effectiveShader.target == QStringLiteral("both")));
     const bool enableGlow = isFocus ? (m_glowEnabled || m_glitchEnabled || customGlow) : (m_glowEnabled || customGlow);
 
+    std::unique_ptr<GLShader> &glowShaderPtr = isAudioShader ? m_audioGlowShader : m_glowShader;
+
     if (enableGlow && dynamicColor.alpha() > 0) {
-        if (!m_glowShader) {
+        if (!glowShaderPtr) {
             const EglContext *context = EglContext::currentContext();
             const bool isOpenGLES = !epoxy_is_desktop_gl();
             const bool modern = isOpenGLES
@@ -2097,40 +2146,40 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
 
             if (customGlow) {
 #ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
-                m_glowShader = ShaderManager::instance()->generateCustomShader(
-                    ShaderTrait::UniformColor, glowVertexSource(), LeapKShader::buildGlowFragmentSource(m_activeCustomShader, modern, isOpenGLES));
+                glowShaderPtr = ShaderManager::instance()->generateCustomShader(
+                    ShaderTrait::UniformColor, glowVertexSource(), LeapKShader::buildGlowFragmentSource(effectiveShader, modern, isOpenGLES));
 #else
-                m_glowShader = ShaderManager::instance()->generateCustomShader(
-                    ShaderTrait::Border, QByteArray(), LeapKShader::buildGlowFragmentSource(m_activeCustomShader, modern, isOpenGLES));
+                glowShaderPtr = ShaderManager::instance()->generateCustomShader(
+                    ShaderTrait::Border, QByteArray(), LeapKShader::buildGlowFragmentSource(effectiveShader, modern, isOpenGLES));
 #endif
-                if (!m_glowShader
+                if (!glowShaderPtr
 #ifndef ACTIVE_WINDOW_OUTLINE_SHADER_POINTER_VALIDITY
-                    || !m_glowShader->isValid()
+                    || !glowShaderPtr->isValid()
 #endif
                 ) {
                     qWarning() << "ActiveWindowOutline: Custom glow shader failed to compile, falling back.";
 #ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
-                    m_glowShader = ShaderManager::instance()->generateCustomShader(
+                    glowShaderPtr = ShaderManager::instance()->generateCustomShader(
                         ShaderTrait::UniformColor, glowVertexSource(), glowFragmentSource());
 #else
-                    m_glowShader = ShaderManager::instance()->generateCustomShader(
+                    glowShaderPtr = ShaderManager::instance()->generateCustomShader(
                         ShaderTrait::Border, QByteArray(), glowFragmentSource());
 #endif
                 }
             } else {
 #ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
-                m_glowShader = ShaderManager::instance()->generateCustomShader(
+                glowShaderPtr = ShaderManager::instance()->generateCustomShader(
                     ShaderTrait::UniformColor, glowVertexSource(), glowFragmentSource());
 #else
-                m_glowShader = ShaderManager::instance()->generateCustomShader(
+                glowShaderPtr = ShaderManager::instance()->generateCustomShader(
                     ShaderTrait::Border, QByteArray(), glowFragmentSource());
 #endif
             }
         }
 #ifdef ACTIVE_WINDOW_OUTLINE_SHADER_POINTER_VALIDITY
-        if (m_glowShader) {
+        if (glowShaderPtr) {
 #else
-        if (m_glowShader && m_glowShader->isValid()) {
+        if (glowShaderPtr && glowShaderPtr->isValid()) {
 #endif
             const qreal reach = m_glowRadius;
             const QRectF farOuter = cache.outerRect.adjusted(-reach, -reach, reach, reach);
@@ -2162,7 +2211,7 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
                 vbo->setVertexCount(scaledVerts.size());
                 vbo->setAttribLayout(std::span(&layout, 1), sizeof(QVector2D));
 
-                ShaderBinder glowBinder(m_glowShader.get());
+                ShaderBinder glowBinder(glowShaderPtr.get());
                 GLShader *shader = glowBinder.shader();
                 shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix,
                                    viewport.projectionMatrix());
@@ -2190,7 +2239,7 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
                 shader->setUniform("glitchFrequency", float(m_glitchFrequency));
 
                 if (customGlow) {
-                    for (const auto &param : m_activeCustomShader.parameters) {
+                    for (const auto &param : effectiveShader.parameters) {
                         const QByteArray uniformName = param.id.toUtf8();
                         if (param.type == QStringLiteral("float")) {
                             shader->setUniform(uniformName.constData(), float(param.currentValue));
@@ -2213,11 +2262,13 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
         }
     }
 
-    const bool customOutline = m_customShaderEnabled && !m_activeCustomShaderId.isEmpty()
-        && (m_activeCustomShader.target == QStringLiteral("outline") || m_activeCustomShader.target == QStringLiteral("both"));
+    const bool customOutline = isAudioShader
+        ? (effectiveShader.target == QStringLiteral("outline") || effectiveShader.target == QStringLiteral("both"))
+        : (m_customShaderEnabled && !m_activeCustomShaderId.isEmpty() && (effectiveShader.target == QStringLiteral("outline") || effectiveShader.target == QStringLiteral("both")));
     const bool useCustomShader = m_fadeCorners || isDashed || customOutline;
+    std::unique_ptr<GLShader> &outlineShaderPtr = isAudioShader ? m_audioOutlineShader : m_fadeCornersShader;
     if (useCustomShader) {
-        if (!m_fadeCornersShader) {
+        if (!outlineShaderPtr) {
             const EglContext *context = EglContext::currentContext();
             const bool isOpenGLES = !epoxy_is_desktop_gl();
             const bool modern = isOpenGLES
@@ -2226,32 +2277,32 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
 
             if (customOutline) {
 #ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
-                m_fadeCornersShader = ShaderManager::instance()->generateCustomShader(
-                    ShaderTrait::UniformColor, glowVertexSource(), LeapKShader::buildOutlineFragmentSource(m_activeCustomShader, modern, isOpenGLES));
+                outlineShaderPtr = ShaderManager::instance()->generateCustomShader(
+                    ShaderTrait::UniformColor, glowVertexSource(), LeapKShader::buildOutlineFragmentSource(effectiveShader, modern, isOpenGLES));
 #else
-                m_fadeCornersShader = ShaderManager::instance()->generateCustomShader(
-                    ShaderTrait::Border, QByteArray(), LeapKShader::buildOutlineFragmentSource(m_activeCustomShader, modern, isOpenGLES));
+                outlineShaderPtr = ShaderManager::instance()->generateCustomShader(
+                    ShaderTrait::Border, QByteArray(), LeapKShader::buildOutlineFragmentSource(effectiveShader, modern, isOpenGLES));
 #endif
-                if (!m_fadeCornersShader
+                if (!outlineShaderPtr
 #ifndef ACTIVE_WINDOW_OUTLINE_SHADER_POINTER_VALIDITY
-                    || !m_fadeCornersShader->isValid()
+                    || !outlineShaderPtr->isValid()
 #endif
                 ) {
                     qWarning() << "ActiveWindowOutline: Custom outline shader failed to compile, falling back.";
 #ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
-                    m_fadeCornersShader = ShaderManager::instance()->generateCustomShader(
+                    outlineShaderPtr = ShaderManager::instance()->generateCustomShader(
                         ShaderTrait::UniformColor, glowVertexSource(), outlineFragmentSource());
 #else
-                    m_fadeCornersShader = ShaderManager::instance()->generateCustomShader(
+                    outlineShaderPtr = ShaderManager::instance()->generateCustomShader(
                         ShaderTrait::Border, QByteArray(), outlineFragmentSource());
 #endif
                 }
             } else {
 #ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
-                m_fadeCornersShader = ShaderManager::instance()->generateCustomShader(
+                outlineShaderPtr = ShaderManager::instance()->generateCustomShader(
                     ShaderTrait::UniformColor, glowVertexSource(), outlineFragmentSource());
 #else
-                m_fadeCornersShader = ShaderManager::instance()->generateCustomShader(
+                outlineShaderPtr = ShaderManager::instance()->generateCustomShader(
                     ShaderTrait::Border, QByteArray(), outlineFragmentSource());
 #endif
             }
@@ -2260,9 +2311,9 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
 
     const bool useCustomFade = useCustomShader &&
 #ifdef ACTIVE_WINDOW_OUTLINE_SHADER_POINTER_VALIDITY
-        m_fadeCornersShader;
+        outlineShaderPtr;
 #else
-        m_fadeCornersShader && m_fadeCornersShader->isValid();
+        outlineShaderPtr && outlineShaderPtr->isValid();
 #endif
 
     std::unique_ptr<ShaderBinder> customBinder;
@@ -2270,7 +2321,7 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
     GLShader *activeShader = nullptr;
 
     if (useCustomFade) {
-        customBinder = std::make_unique<ShaderBinder>(m_fadeCornersShader.get());
+        customBinder = std::make_unique<ShaderBinder>(outlineShaderPtr.get());
         activeShader = customBinder->shader();
         activeShader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix,
                                  viewport.projectionMatrix());
@@ -2287,7 +2338,7 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
         if (customOutline) {
             const float elapsedSec = m_animationClock.isValid() ? float(m_animationClock.elapsed() / 1000.0) : 0.0f;
             activeShader->setUniform("time", elapsedSec);
-            for (const auto &param : m_activeCustomShader.parameters) {
+            for (const auto &param : effectiveShader.parameters) {
                 const QByteArray uniformName = param.id.toUtf8();
                 if (param.type == QStringLiteral("float")) {
                     activeShader->setUniform(uniformName.constData(), float(param.currentValue));

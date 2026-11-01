@@ -71,6 +71,9 @@ private:
 
     void initShadersSection();
     void refreshShadersTable();
+    void refreshAudioShaderCombo();
+    void initAudioSection();
+    void updateAudioUI();
     void toggleSelectedShader();
     void toggleShaderAt(int row);
     void setShaderActive(int row, bool active);
@@ -92,6 +95,8 @@ private:
     void importTheme();
     void exportSelectedTheme();
     void resetThemeParameters();
+    void installPack();
+    void exportPack();
     void updateThemeParametersUI();
     void updateThemeParametersUIFor(const QString &id);
     void saveThemeParameterValues();

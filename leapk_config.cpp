@@ -9,6 +9,7 @@
 #include "precedencehelper.h"
 #include "presetactivationdialog.h"
 #include "presethelper.h"
+#include "packhelper.h"
 #include "shadereditordialog.h"
 #include "updatehelper.h"
 
@@ -721,6 +722,9 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     // Themes section
     initThemesTab();
 
+    // Audio section
+    initAudioSection();
+
     load();
 }
 
@@ -1197,6 +1201,31 @@ void ActiveWindowOutlineConfig::load()
     refreshThemesTable();
     updateThemeParametersUI();
 
+    const QString winAudioStyle = group.readEntry("AudioWindowIndicatorStyle", QStringLiteral("speaker_icon"));
+    const int winAudioIdx = m_ui->combo_AudioWindowIndicatorStyle->findData(winAudioStyle);
+    if (winAudioIdx >= 0) m_ui->combo_AudioWindowIndicatorStyle->setCurrentIndex(winAudioIdx);
+
+    const QString hudAudioStyle = group.readEntry("AudioHudIndicatorStyle", QStringLiteral("speaker_icon"));
+    const int hudAudioIdx = m_ui->combo_AudioHudIndicatorStyle->findData(hudAudioStyle);
+    if (hudAudioIdx >= 0) m_ui->combo_AudioHudIndicatorStyle->setCurrentIndex(hudAudioIdx);
+
+    m_ui->kcfg_AudioWindowPulseEnabled->setChecked(group.readEntry("AudioWindowPulseEnabled", true));
+    m_ui->kcfg_AudioWindowPulseSpeed->setValue(group.readEntry("AudioWindowPulseSpeed", 1.0));
+    m_ui->kcfg_AudioWindowPulseIntensity->setValue(group.readEntry("AudioWindowPulseIntensity", 1.0));
+    m_ui->kcfg_AudioWindowIndicatorScale->setValue(group.readEntry("AudioWindowIndicatorScale", 1.0));
+
+    m_ui->kcfg_AudioHudPulseEnabled->setChecked(group.readEntry("AudioHudPulseEnabled", true));
+    m_ui->kcfg_AudioHudPulseSpeed->setValue(group.readEntry("AudioHudPulseSpeed", 1.0));
+    m_ui->kcfg_AudioHudPulseIntensity->setValue(group.readEntry("AudioHudPulseIntensity", 1.0));
+    m_ui->kcfg_AudioHudIndicatorColorAuto->setChecked(group.readEntry("AudioHudIndicatorColorAuto", true));
+    m_ui->kcfg_AudioHudIndicatorColor->setColor(group.readEntry("AudioHudIndicatorColor", QColor(QStringLiteral("#f1c40f"))));
+
+    m_ui->kcfg_AudioShaderRuleEnabled->setChecked(group.readEntry("AudioShaderRuleEnabled", false));
+    const QString audioShaderId = group.readEntry("AudioShaderId", QString());
+    m_ui->kcfg_AudioShaderId->setText(audioShaderId);
+    refreshAudioShaderCombo();
+    updateAudioUI();
+
     setNeedsSave(false);
 }
 
@@ -1275,6 +1304,23 @@ void ActiveWindowOutlineConfig::defaults()
     m_currentDisplayedThemeId.clear();
     refreshThemesTable();
     updateThemeParametersUI();
+
+    m_ui->combo_AudioWindowIndicatorStyle->setCurrentIndex(0);
+    m_ui->combo_AudioHudIndicatorStyle->setCurrentIndex(0);
+    m_ui->kcfg_AudioWindowPulseEnabled->setChecked(true);
+    m_ui->kcfg_AudioWindowPulseSpeed->setValue(1.0);
+    m_ui->kcfg_AudioWindowPulseIntensity->setValue(1.0);
+    m_ui->kcfg_AudioWindowIndicatorScale->setValue(1.0);
+    m_ui->kcfg_AudioHudPulseEnabled->setChecked(true);
+    m_ui->kcfg_AudioHudPulseSpeed->setValue(1.0);
+    m_ui->kcfg_AudioHudPulseIntensity->setValue(1.0);
+    m_ui->kcfg_AudioHudIndicatorColorAuto->setChecked(true);
+    m_ui->kcfg_AudioHudIndicatorColor->setColor(QColor(QStringLiteral("#f1c40f")));
+    m_ui->kcfg_AudioShaderRuleEnabled->setChecked(false);
+    m_ui->kcfg_AudioShaderId->clear();
+    refreshAudioShaderCombo();
+    updateAudioUI();
+
     markAsChanged();
 }
 
@@ -1643,6 +1689,21 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("AmbilightMaxBrightness")] = m_ui->kcfg_AmbilightMaxBrightness->value();
     s[QStringLiteral("AmbilightEnsureContrast")] = m_ui->kcfg_EnsurePerimeterContrast->isChecked();
 
+    // Audio Tracking
+    s[QStringLiteral("AudioWindowIndicatorStyle")] = m_ui->combo_AudioWindowIndicatorStyle->currentData().toString();
+    s[QStringLiteral("AudioHudIndicatorStyle")] = m_ui->combo_AudioHudIndicatorStyle->currentData().toString();
+    s[QStringLiteral("AudioWindowPulseEnabled")] = m_ui->kcfg_AudioWindowPulseEnabled->isChecked();
+    s[QStringLiteral("AudioWindowPulseSpeed")] = m_ui->kcfg_AudioWindowPulseSpeed->value();
+    s[QStringLiteral("AudioWindowPulseIntensity")] = m_ui->kcfg_AudioWindowPulseIntensity->value();
+    s[QStringLiteral("AudioWindowIndicatorScale")] = m_ui->kcfg_AudioWindowIndicatorScale->value();
+    s[QStringLiteral("AudioHudPulseEnabled")] = m_ui->kcfg_AudioHudPulseEnabled->isChecked();
+    s[QStringLiteral("AudioHudPulseSpeed")] = m_ui->kcfg_AudioHudPulseSpeed->value();
+    s[QStringLiteral("AudioHudPulseIntensity")] = m_ui->kcfg_AudioHudPulseIntensity->value();
+    s[QStringLiteral("AudioHudIndicatorColorAuto")] = m_ui->kcfg_AudioHudIndicatorColorAuto->isChecked();
+    s[QStringLiteral("AudioHudIndicatorColor")] = m_ui->kcfg_AudioHudIndicatorColor->color().name(QColor::HexRgb);
+    s[QStringLiteral("AudioShaderRuleEnabled")] = m_ui->kcfg_AudioShaderRuleEnabled->isChecked();
+    s[QStringLiteral("AudioShaderId")] = m_ui->kcfg_AudioShaderId->text();
+
     return s;
 }
 
@@ -1886,6 +1947,31 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
     if (s.contains(QStringLiteral("AmbilightFallbackStrength"))) m_ui->kcfg_AmbilightFallbackStrength->setValue(s[QStringLiteral("AmbilightFallbackStrength")].toInt());
     if (s.contains(QStringLiteral("AmbilightMinBrightness"))) m_ui->kcfg_AmbilightMinBrightness->setValue(s[QStringLiteral("AmbilightMinBrightness")].toInt());
     if (s.contains(QStringLiteral("AmbilightMaxBrightness"))) m_ui->kcfg_AmbilightMaxBrightness->setValue(s[QStringLiteral("AmbilightMaxBrightness")].toInt());
+
+    // Audio Tracking
+    if (s.contains(QStringLiteral("AudioWindowIndicatorStyle"))) {
+        const int idx = m_ui->combo_AudioWindowIndicatorStyle->findData(s[QStringLiteral("AudioWindowIndicatorStyle")].toString());
+        if (idx >= 0) m_ui->combo_AudioWindowIndicatorStyle->setCurrentIndex(idx);
+    }
+    if (s.contains(QStringLiteral("AudioHudIndicatorStyle"))) {
+        const int idx = m_ui->combo_AudioHudIndicatorStyle->findData(s[QStringLiteral("AudioHudIndicatorStyle")].toString());
+        if (idx >= 0) m_ui->combo_AudioHudIndicatorStyle->setCurrentIndex(idx);
+    }
+    if (s.contains(QStringLiteral("AudioWindowPulseEnabled"))) m_ui->kcfg_AudioWindowPulseEnabled->setChecked(s[QStringLiteral("AudioWindowPulseEnabled")].toBool());
+    if (s.contains(QStringLiteral("AudioWindowPulseSpeed"))) m_ui->kcfg_AudioWindowPulseSpeed->setValue(s[QStringLiteral("AudioWindowPulseSpeed")].toDouble(1.0));
+    if (s.contains(QStringLiteral("AudioWindowPulseIntensity"))) m_ui->kcfg_AudioWindowPulseIntensity->setValue(s[QStringLiteral("AudioWindowPulseIntensity")].toDouble(1.0));
+    if (s.contains(QStringLiteral("AudioWindowIndicatorScale"))) m_ui->kcfg_AudioWindowIndicatorScale->setValue(s[QStringLiteral("AudioWindowIndicatorScale")].toDouble(1.0));
+    if (s.contains(QStringLiteral("AudioHudPulseEnabled"))) m_ui->kcfg_AudioHudPulseEnabled->setChecked(s[QStringLiteral("AudioHudPulseEnabled")].toBool());
+    if (s.contains(QStringLiteral("AudioHudPulseSpeed"))) m_ui->kcfg_AudioHudPulseSpeed->setValue(s[QStringLiteral("AudioHudPulseSpeed")].toDouble(1.0));
+    if (s.contains(QStringLiteral("AudioHudPulseIntensity"))) m_ui->kcfg_AudioHudPulseIntensity->setValue(s[QStringLiteral("AudioHudPulseIntensity")].toDouble(1.0));
+    if (s.contains(QStringLiteral("AudioHudIndicatorColorAuto"))) m_ui->kcfg_AudioHudIndicatorColorAuto->setChecked(s[QStringLiteral("AudioHudIndicatorColorAuto")].toBool());
+    if (s.contains(QStringLiteral("AudioHudIndicatorColor"))) m_ui->kcfg_AudioHudIndicatorColor->setColor(QColor(s[QStringLiteral("AudioHudIndicatorColor")].toString()));
+    if (s.contains(QStringLiteral("AudioShaderRuleEnabled"))) m_ui->kcfg_AudioShaderRuleEnabled->setChecked(s[QStringLiteral("AudioShaderRuleEnabled")].toBool());
+    if (s.contains(QStringLiteral("AudioShaderId"))) {
+        m_ui->kcfg_AudioShaderId->setText(s[QStringLiteral("AudioShaderId")].toString());
+        refreshAudioShaderCombo();
+    }
+    updateAudioUI();
 
     // Refresh UI dependencies
     const bool fadeCorners = m_ui->kcfg_FadeCorners->isChecked();
@@ -2299,6 +2385,19 @@ void ActiveWindowOutlineConfig::save()
     const bool customOn = m_ui->kcfg_CustomShaderEnabled->isChecked();
     group.writeEntry(QStringLiteral("CustomShaderEnabled"), customOn);
     group.writeEntry(QStringLiteral("ActiveCustomShaderId"), m_activeShaderId);
+    group.writeEntry(QStringLiteral("AudioWindowIndicatorStyle"), m_ui->combo_AudioWindowIndicatorStyle->currentData().toString());
+    group.writeEntry(QStringLiteral("AudioHudIndicatorStyle"), m_ui->combo_AudioHudIndicatorStyle->currentData().toString());
+    group.writeEntry(QStringLiteral("AudioWindowPulseEnabled"), m_ui->kcfg_AudioWindowPulseEnabled->isChecked());
+    group.writeEntry(QStringLiteral("AudioWindowPulseSpeed"), m_ui->kcfg_AudioWindowPulseSpeed->value());
+    group.writeEntry(QStringLiteral("AudioWindowPulseIntensity"), m_ui->kcfg_AudioWindowPulseIntensity->value());
+    group.writeEntry(QStringLiteral("AudioWindowIndicatorScale"), m_ui->kcfg_AudioWindowIndicatorScale->value());
+    group.writeEntry(QStringLiteral("AudioHudPulseEnabled"), m_ui->kcfg_AudioHudPulseEnabled->isChecked());
+    group.writeEntry(QStringLiteral("AudioHudPulseSpeed"), m_ui->kcfg_AudioHudPulseSpeed->value());
+    group.writeEntry(QStringLiteral("AudioHudPulseIntensity"), m_ui->kcfg_AudioHudPulseIntensity->value());
+    group.writeEntry(QStringLiteral("AudioHudIndicatorColorAuto"), m_ui->kcfg_AudioHudIndicatorColorAuto->isChecked());
+    group.writeEntry(QStringLiteral("AudioHudIndicatorColor"), m_ui->kcfg_AudioHudIndicatorColor->color());
+    group.writeEntry(QStringLiteral("AudioShaderRuleEnabled"), m_ui->kcfg_AudioShaderRuleEnabled->isChecked());
+    group.writeEntry(QStringLiteral("AudioShaderId"), m_ui->kcfg_AudioShaderId->text());
     group.writeEntry(QStringLiteral("BreatheEnabled"), false);
     group.writeEntry(QStringLiteral("GlitchEnabled"), false);
     group.writeEntry(QStringLiteral("NeonFlickerEnabled"), false);
@@ -2334,6 +2433,82 @@ void ActiveWindowOutlineConfig::save()
         QFile::remove(desktopPath);
         QProcess::execute(QStringLiteral("killall"), {QStringLiteral("leapk-tray"), QStringLiteral("kleap-tray"), QStringLiteral("active-window-outline-tray")});
     }
+}
+
+void ActiveWindowOutlineConfig::initAudioSection()
+{
+    m_ui->combo_AudioWindowIndicatorStyle->clear();
+    m_ui->combo_AudioWindowIndicatorStyle->addItem(QStringLiteral("Speaker Icon"), QStringLiteral("speaker_icon"));
+    m_ui->combo_AudioWindowIndicatorStyle->addItem(QStringLiteral("Soundwave Pulse"), QStringLiteral("soundwave_pulse"));
+    m_ui->combo_AudioWindowIndicatorStyle->addItem(QStringLiteral("Minimal Dot"), QStringLiteral("minimal_dot"));
+    connect(m_ui->combo_AudioWindowIndicatorStyle, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
+        markAsChanged();
+    });
+
+    m_ui->combo_AudioHudIndicatorStyle->clear();
+    m_ui->combo_AudioHudIndicatorStyle->addItem(QStringLiteral("Speaker Icon"), QStringLiteral("speaker_icon"));
+    m_ui->combo_AudioHudIndicatorStyle->addItem(QStringLiteral("Soundwave Pulse"), QStringLiteral("soundwave_pulse"));
+    m_ui->combo_AudioHudIndicatorStyle->addItem(QStringLiteral("Minimal Dot"), QStringLiteral("minimal_dot"));
+    connect(m_ui->combo_AudioHudIndicatorStyle, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
+        markAsChanged();
+    });
+
+    connect(m_ui->kcfg_AudioHudIndicatorColorAuto, &QCheckBox::toggled, this, [this](bool isAuto) {
+        m_ui->kcfg_AudioHudIndicatorColor->setEnabled(!isAuto);
+        markAsChanged();
+    });
+    connect(m_ui->kcfg_AudioHudPulseEnabled, &QCheckBox::toggled, this, [this](bool enabled) {
+        m_ui->kcfg_AudioHudPulseSpeed->setEnabled(enabled);
+        m_ui->kcfg_AudioHudPulseIntensity->setEnabled(enabled);
+        markAsChanged();
+    });
+    connect(m_ui->kcfg_AudioWindowPulseEnabled, &QCheckBox::toggled, this, [this](bool enabled) {
+        m_ui->kcfg_AudioWindowPulseSpeed->setEnabled(enabled);
+        m_ui->kcfg_AudioWindowPulseIntensity->setEnabled(enabled);
+        markAsChanged();
+    });
+    connect(m_ui->kcfg_AudioShaderRuleEnabled, &QCheckBox::toggled, this, [this](bool enabled) {
+        m_ui->comboAudioShader->setEnabled(enabled);
+        markAsChanged();
+    });
+    connect(m_ui->comboAudioShader, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
+        if (!m_ui->comboAudioShader) return;
+        m_ui->kcfg_AudioShaderId->setText(m_ui->comboAudioShader->currentData().toString());
+        markAsChanged();
+    });
+}
+
+void ActiveWindowOutlineConfig::updateAudioUI()
+{
+    m_ui->comboAudioShader->setEnabled(m_ui->kcfg_AudioShaderRuleEnabled->isChecked());
+    m_ui->kcfg_AudioHudIndicatorColor->setEnabled(!m_ui->kcfg_AudioHudIndicatorColorAuto->isChecked());
+    const bool hudPulse = m_ui->kcfg_AudioHudPulseEnabled->isChecked();
+    m_ui->kcfg_AudioHudPulseSpeed->setEnabled(hudPulse);
+    m_ui->kcfg_AudioHudPulseIntensity->setEnabled(hudPulse);
+    const bool winPulse = m_ui->kcfg_AudioWindowPulseEnabled->isChecked();
+    m_ui->kcfg_AudioWindowPulseSpeed->setEnabled(winPulse);
+    m_ui->kcfg_AudioWindowPulseIntensity->setEnabled(winPulse);
+}
+
+void ActiveWindowOutlineConfig::refreshAudioShaderCombo()
+{
+    if (!m_ui->comboAudioShader) return;
+    const QString currentId = m_ui->kcfg_AudioShaderId->text();
+    const QSignalBlocker blocker(m_ui->comboAudioShader);
+    m_ui->comboAudioShader->clear();
+    m_ui->comboAudioShader->addItem(QStringLiteral("(Brak / None)"), QString());
+
+    int selectIdx = 0;
+    const auto shaders = LeapKShader::loadAllShaders();
+    for (int i = 0; i < shaders.size(); ++i) {
+        const auto &s = shaders[i];
+        m_ui->comboAudioShader->addItem(s.name, s.id);
+        if (!currentId.isEmpty() && s.id == currentId) {
+            selectIdx = i + 1;
+        }
+    }
+    m_ui->comboAudioShader->setCurrentIndex(selectIdx);
+    m_ui->comboAudioShader->setEnabled(m_ui->kcfg_AudioShaderRuleEnabled->isChecked());
 }
 
 void ActiveWindowOutlineConfig::initShadersSection()
@@ -2585,6 +2760,7 @@ void ActiveWindowOutlineConfig::refreshShadersTable()
     }
 
     updateShaderParametersUIFor(currentId.isEmpty() ? m_activeShaderId : currentId);
+    refreshAudioShaderCombo();
 }
 
 void ActiveWindowOutlineConfig::updateShaderParametersUI()
@@ -2896,6 +3072,8 @@ void ActiveWindowOutlineConfig::initThemesTab()
     connect(m_ui->btnImportTheme, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::importTheme);
     connect(m_ui->btnExportTheme, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::exportSelectedTheme);
     connect(m_ui->btnResetThemeParams, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::resetThemeParameters);
+    connect(m_ui->btnInstallPack, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::installPack);
+    connect(m_ui->btnExportPack, &QPushButton::clicked, this, &ActiveWindowOutlineConfig::exportPack);
 
     connect(m_ui->tableThemes, &QTableWidget::itemSelectionChanged, this, &ActiveWindowOutlineConfig::updateThemeParametersUI);
     connect(m_ui->tableThemes, &QTableWidget::cellDoubleClicked, this, [this](int, int) {
@@ -3180,6 +3358,148 @@ void ActiveWindowOutlineConfig::exportSelectedTheme()
 
     QMessageBox::information(widget(), QStringLiteral("Theme Exported"),
         QStringLiteral("Theme '%1' exported successfully to:\n%2").arg(theme.name, filePath));
+}
+
+void ActiveWindowOutlineConfig::installPack()
+{
+    const QString filePath = QFileDialog::getOpenFileName(
+        widget(),
+        QStringLiteral("Install LeapK Pack"),
+        QString(),
+        QStringLiteral("LeapK Packs (*.leapkpack *.json);;All Files (*)")
+    );
+    if (filePath.isEmpty()) {
+        return;
+    }
+
+    LeapKPack::PackBundle bundle;
+    QString err;
+    if (!LeapKPack::importPackFromFile(filePath, bundle, &err)) {
+        QMessageBox::critical(widget(), QStringLiteral("Pack Error"),
+            QStringLiteral("Failed to read LeapK Pack:\n%1").arg(err));
+        return;
+    }
+
+    QString details;
+    if (bundle.hasTheme) {
+        details += QStringLiteral("• Visual Theme: %1\n").arg(bundle.theme.name);
+    }
+    if (bundle.hasPreset) {
+        details += QStringLiteral("• Settings Preset: %1\n").arg(bundle.preset.name);
+    }
+    if (bundle.hasShaders && !bundle.shaders.isEmpty()) {
+        QStringList names;
+        for (const auto &s : bundle.shaders) {
+            names << s.name;
+        }
+        details += QStringLiteral("• GLSL Shaders: %1\n").arg(names.join(QStringLiteral(", ")));
+    }
+    if (bundle.hasShortcuts && !bundle.shortcuts.isEmpty()) {
+        details += QStringLiteral("• Global Shortcuts: %1 action keybinding(s)\n").arg(bundle.shortcuts.size());
+    }
+
+    const auto reply = QMessageBox::question(
+        widget(),
+        QStringLiteral("Install Pack: %1").arg(bundle.manifest.name.isEmpty() ? bundle.manifest.id : bundle.manifest.name),
+        QStringLiteral("Install complete LeapK Pack '%1' (version %2 by %3)?\n\nIncluded components:\n%4\nDo you want to proceed and activate this pack?")
+            .arg(bundle.manifest.name, bundle.manifest.version,
+                 bundle.manifest.author.isEmpty() ? QStringLiteral("Unknown") : bundle.manifest.author,
+                 details),
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::Yes
+    );
+
+    if (reply != QMessageBox::Yes) {
+        return;
+    }
+
+    LeapKPack::InstallOptions opts;
+    opts.installTheme = bundle.hasTheme;
+    opts.installPreset = bundle.hasPreset;
+    opts.installShaders = bundle.hasShaders;
+    opts.installShortcuts = bundle.hasShortcuts;
+    opts.activateTheme = true;
+    opts.activatePreset = true;
+
+    if (!LeapKPack::installPack(bundle, opts, &err)) {
+        QMessageBox::critical(widget(), QStringLiteral("Installation Error"),
+            QStringLiteral("Failed to install pack components:\n%1").arg(err));
+        return;
+    }
+
+    if (bundle.hasTheme) {
+        m_activeThemeId = bundle.theme.id;
+        refreshThemesTable();
+    }
+    if (bundle.hasPreset) {
+        refreshPresetsTable();
+        applySettings(bundle.preset.settings);
+    }
+    if (bundle.hasShaders) {
+        refreshShadersTable();
+        refreshAudioShaderCombo();
+    }
+
+    markAsChanged();
+
+    QMessageBox::information(widget(), QStringLiteral("Pack Installed"),
+        QStringLiteral("LeapK Pack '%1' has been installed and applied successfully!").arg(bundle.manifest.name));
+}
+
+void ActiveWindowOutlineConfig::exportPack()
+{
+    const QString filePath = QFileDialog::getSaveFileName(
+        widget(),
+        QStringLiteral("Export LeapK Pack"),
+        QDir::homePath() + QStringLiteral("/my-pack.leapkpack"),
+        QStringLiteral("LeapK Packs (*.leapkpack);;JSON Files (*.json)")
+    );
+    if (filePath.isEmpty()) {
+        return;
+    }
+
+    LeapKPack::PackBundle bundle;
+    const QString baseName = QFileInfo(filePath).baseName();
+    bundle.manifest.id = baseName.toLower().replace(QLatin1Char(' '), QLatin1Char('-'));
+    bundle.manifest.name = baseName;
+    bundle.manifest.version = QStringLiteral("1.0.0");
+    bundle.manifest.description = QStringLiteral("Exported complete LeapK Pack");
+
+    // Include current theme
+    if (!m_activeThemeId.isEmpty()) {
+        for (const auto &t : m_themes) {
+            if (t.id == m_activeThemeId) {
+                bundle.theme = t;
+                bundle.hasTheme = true;
+                break;
+            }
+        }
+    }
+
+    // Include current preset settings
+    bundle.preset.name = baseName + QStringLiteral(" Preset");
+    bundle.preset.description = QStringLiteral("Preset settings exported from current configuration");
+    bundle.preset.settings = collectCurrentSettings();
+    bundle.hasPreset = true;
+
+    // Include custom shaders
+    const auto allShaders = LeapKShader::loadAllShaders();
+    for (const auto &s : allShaders) {
+        if (!s.isBuiltIn) {
+            bundle.shaders.append(s);
+        }
+    }
+    bundle.hasShaders = !bundle.shaders.isEmpty();
+
+    QString err;
+    if (!LeapKPack::exportPackToFile(filePath, bundle, &err)) {
+        QMessageBox::critical(widget(), QStringLiteral("Export Error"),
+            QStringLiteral("Could not write pack to file:\n%1").arg(err));
+        return;
+    }
+
+    QMessageBox::information(widget(), QStringLiteral("Pack Exported"),
+        QStringLiteral("LeapK Pack successfully exported to:\n%1").arg(filePath));
 }
 
 #include "leapk_config.moc"

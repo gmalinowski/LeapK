@@ -173,6 +173,22 @@ inline QJsonObject getDefaultSettings()
     s[QStringLiteral("CustomShaderEnabled")] = false;
     s[QStringLiteral("ActiveCustomShaderId")] = QString();
 
+    // Audio Tracking & Rules
+    s[QStringLiteral("AudioTrackingEnabled")] = true;
+    s[QStringLiteral("AudioHudIndicatorStyle")] = QStringLiteral("speaker_icon");
+    s[QStringLiteral("AudioHudPulseEnabled")] = true;
+    s[QStringLiteral("AudioHudPulseSpeed")] = 1.0;
+    s[QStringLiteral("AudioHudPulseIntensity")] = 1.0;
+    s[QStringLiteral("AudioHudIndicatorColorAuto")] = true;
+    s[QStringLiteral("AudioHudIndicatorColor")] = QStringLiteral("#f1c40f");
+    s[QStringLiteral("AudioWindowIndicatorStyle")] = QStringLiteral("speaker_icon");
+    s[QStringLiteral("AudioWindowPulseEnabled")] = true;
+    s[QStringLiteral("AudioWindowPulseSpeed")] = 1.0;
+    s[QStringLiteral("AudioWindowPulseIntensity")] = 1.0;
+    s[QStringLiteral("AudioWindowIndicatorScale")] = 1.0;
+    s[QStringLiteral("AudioShaderRuleEnabled")] = false;
+    s[QStringLiteral("AudioShaderId")] = QString();
+
     return s;
 }
 
