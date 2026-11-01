@@ -4,6 +4,33 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta63] - 2026-11-02
+
+### Added
+- **Dedicated Tab Switching Shortcuts in LeapK Manager**:
+  - Added dedicated keyboard shortcuts to switch and cycle between tabs (`Workspaces` vs `Markers & Groups`):
+    - `[Ctrl+Tab]` / `[Ctrl+Shift+Tab]` / `[Ctrl+Backtab]`: cycle tabs forward / backward.
+    - `[Ctrl+1]` / `[Alt+1]` / `[Ctrl+PageUp]`: direct jump to Workspaces tab.
+    - `[Ctrl+2]` / `[Alt+2]` / `[Ctrl+PageDown]`: direct jump to Markers & Groups tab.
+    - `[[]` and `[]]`: quick bracket switching when not typing in text fields.
+  - Tab switcher buttons in header now explicitly display their shortcut badges (`🗂 Workspaces [Ctrl+1]` and `🏷 Markers & Groups [Ctrl+2]`) with comprehensive tooltips.
+  - Footer shortcut hint strips updated to document `[Ctrl+Tab / Ctrl+1/2] Switch Tab  •  [Tab] Jump Controls`.
+- **Comprehensive Control Tab Navigation with Prominent Focus Outline and Enter Activation**:
+  - Removed plain `Tab` interception from tab switching so that `Tab` and `Shift+Tab` smoothly navigate focus across all interactive controls.
+  - Enabled `Qt::StrongFocus` on all buttons, inputs, and cards:
+    - Tab buttons (`Workspaces`, `Markers & Groups`), Close button (`[Esc] Close`).
+    - Scope switcher buttons (`Application Scope`, `Single Window Scope`).
+    - Workspace cards and marker rule cards, including their inline action buttons (`✏️ Edit`, `❌ Delete`, `● Active / ○ Off`).
+    - Creation and action buttons (`Create with window`, `Create Empty Workspace`, `Unassign`, `Edit`, `Delete`, `Cancel`, `Done`).
+  - Added high-contrast, prominent focus outline styling across all controls:
+    - 2px-2.5px bright solid borders with subtle luminous background highlights (`border: 2px solid #ffffff; outline: none;` on accent widgets, `border: 2px solid #52a9ff;` on neutral widgets, `border: 2px solid #ff7675;` on destructive widgets).
+    - Focused cards prominently light up with `2.5px solid #ffffff` borders, and automatically scroll into view in scroll areas.
+  - Direct `Enter` / `Return` and `Space` activation on focused controls:
+    - Pressing `Enter` / `Return` (or `Space`) while any button has focus calls `btn->animateClick()`, triggering its native action.
+    - Pressing `Enter` / `Return` (or `Space`) while a card has focus toggles its assignment / enabled state.
+    - When no specific button or card has focus, standard global key events (`Enter` for Done / Edit, `Space` for assignment, `1..9` for direct selection) continue to function seamlessly.
+  - Harmonized subdialogs (`CloseWorkspaceDialog`, `EditWorkspaceDialog`, `EditMarkerRuleDialog`) with full `Qt::StrongFocus`, focus outlines, and Enter activation.
+
 ## [1.6.0-beta62] - 2026-11-01
 
 ### Added

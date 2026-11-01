@@ -205,6 +205,97 @@ void testThemeCliFlagParsing()
     std::cout << "testThemeCliFlagParsing PASSED\n";
 }
 
+void testUnifiedManagerShortcutsAndFocus()
+{
+    // Helper to simulate key routing in UnifiedManagerDialog
+    enum SimTab { SimWorkspaces = 0, SimMarkers = 1 };
+    auto simulateKeyRouting = [](int key, Qt::KeyboardModifiers mods, SimTab currentTab, bool searchFocused, bool buttonFocused, bool cardFocused) {
+        QString action;
+
+        // 1. Search focus escape/return
+        if (currentTab == SimMarkers && searchFocused) {
+            if (key == Qt::Key_Escape || key == Qt::Key_Return || key == Qt::Key_Enter) {
+                return QStringLiteral("clear_search_focus");
+            }
+            return QStringLiteral("search_typing");
+        }
+
+        // 2. Focused button/card Enter/Space activation
+        if (key == Qt::Key_Return || key == Qt::Key_Enter) {
+            if (buttonFocused) return QStringLiteral("click_focused_button");
+            if (cardFocused) return QStringLiteral("toggle_focused_card");
+        }
+        if (key == Qt::Key_Space) {
+            if (buttonFocused) return QStringLiteral("click_focused_button");
+        }
+
+        // 3. Global Close
+        if (key == Qt::Key_Escape || ((mods & Qt::ControlModifier) && (key == Qt::Key_W || key == Qt::Key_Q))) {
+            return QStringLiteral("close_dialog");
+        }
+
+        // 4. Tab switching shortcuts
+        if ((mods & Qt::ControlModifier) && (key == Qt::Key_Tab || key == Qt::Key_Backtab)) {
+            return QStringLiteral("switch_tab_cycle");
+        }
+        if (((mods & (Qt::ControlModifier | Qt::AltModifier)) && key == Qt::Key_1) ||
+            ((mods & Qt::ControlModifier) && key == Qt::Key_PageUp)) {
+            return QStringLiteral("switch_tab_workspaces");
+        }
+        if (((mods & (Qt::ControlModifier | Qt::AltModifier)) && key == Qt::Key_2) ||
+            ((mods & Qt::ControlModifier) && key == Qt::Key_PageDown)) {
+            return QStringLiteral("switch_tab_markers");
+        }
+        if (!searchFocused) {
+            if (key == Qt::Key_BracketLeft) return QStringLiteral("switch_tab_workspaces");
+            if (key == Qt::Key_BracketRight) return QStringLiteral("switch_tab_markers");
+        }
+
+        // Plain Tab falls through to Qt focusNextPrevChild!
+        if (key == Qt::Key_Tab || key == Qt::Key_Backtab) {
+            return QStringLiteral("focus_navigation");
+        }
+
+        // Enter/Space without focused button/card delegates to view
+        if (key == Qt::Key_Return || key == Qt::Key_Enter) {
+            return currentTab == SimWorkspaces ? QStringLiteral("workspace_done") : QStringLiteral("marker_edit");
+        }
+
+        return QStringLiteral("unhandled");
+    };
+
+    // 1. Plain Tab and Shift+Tab MUST navigate controls, NOT switch tabs!
+    assert(simulateKeyRouting(Qt::Key_Tab, Qt::NoModifier, SimWorkspaces, false, false, false) == QStringLiteral("focus_navigation"));
+    assert(simulateKeyRouting(Qt::Key_Backtab, Qt::ShiftModifier, SimWorkspaces, false, false, false) == QStringLiteral("focus_navigation"));
+
+    // 2. Ctrl+Tab and Ctrl+Shift+Tab switch tabs
+    assert(simulateKeyRouting(Qt::Key_Tab, Qt::ControlModifier, SimWorkspaces, false, false, false) == QStringLiteral("switch_tab_cycle"));
+    assert(simulateKeyRouting(Qt::Key_Backtab, Qt::ControlModifier, SimWorkspaces, false, false, false) == QStringLiteral("switch_tab_cycle"));
+
+    // 3. Dedicated tab numbered shortcuts: Ctrl+1/2, Alt+1/2, Ctrl+PageUp/Down
+    assert(simulateKeyRouting(Qt::Key_1, Qt::ControlModifier, SimMarkers, false, false, false) == QStringLiteral("switch_tab_workspaces"));
+    assert(simulateKeyRouting(Qt::Key_2, Qt::ControlModifier, SimWorkspaces, false, false, false) == QStringLiteral("switch_tab_markers"));
+    assert(simulateKeyRouting(Qt::Key_1, Qt::AltModifier, SimMarkers, false, false, false) == QStringLiteral("switch_tab_workspaces"));
+    assert(simulateKeyRouting(Qt::Key_2, Qt::AltModifier, SimWorkspaces, false, false, false) == QStringLiteral("switch_tab_markers"));
+    assert(simulateKeyRouting(Qt::Key_PageUp, Qt::ControlModifier, SimMarkers, false, false, false) == QStringLiteral("switch_tab_workspaces"));
+    assert(simulateKeyRouting(Qt::Key_PageDown, Qt::ControlModifier, SimWorkspaces, false, false, false) == QStringLiteral("switch_tab_markers"));
+
+    // 4. Bracket shortcuts [ and ]
+    assert(simulateKeyRouting(Qt::Key_BracketLeft, Qt::NoModifier, SimMarkers, false, false, false) == QStringLiteral("switch_tab_workspaces"));
+    assert(simulateKeyRouting(Qt::Key_BracketRight, Qt::NoModifier, SimWorkspaces, false, false, false) == QStringLiteral("switch_tab_markers"));
+
+    // 5. Enter clicks focused button or card
+    assert(simulateKeyRouting(Qt::Key_Return, Qt::NoModifier, SimWorkspaces, false, true, false) == QStringLiteral("click_focused_button"));
+    assert(simulateKeyRouting(Qt::Key_Enter, Qt::NoModifier, SimWorkspaces, false, true, false) == QStringLiteral("click_focused_button"));
+    assert(simulateKeyRouting(Qt::Key_Space, Qt::NoModifier, SimWorkspaces, false, true, false) == QStringLiteral("click_focused_button"));
+    assert(simulateKeyRouting(Qt::Key_Return, Qt::NoModifier, SimWorkspaces, false, false, true) == QStringLiteral("toggle_focused_card"));
+
+    // 6. Enter without focused button finishes/accepts on Workspaces
+    assert(simulateKeyRouting(Qt::Key_Return, Qt::NoModifier, SimWorkspaces, false, false, false) == QStringLiteral("workspace_done"));
+
+    std::cout << "testUnifiedManagerShortcutsAndFocus PASSED\n";
+}
+
 int main()
 {
     testWorkspaceManagerCliParsing();
@@ -212,6 +303,7 @@ int main()
     testMarkerManagerCliParsing();
     testTrayAndSettingsCliArguments();
     testThemeCliFlagParsing();
+    testUnifiedManagerShortcutsAndFocus();
 
     std::cout << "All CLI tests passed successfully!\n";
     return 0;

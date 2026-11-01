@@ -94,6 +94,9 @@ public:
     explicit CloseWorkspaceDialog(const QString &wsName, const LeapKTheme::Theme &theme, QWidget *parent = nullptr);
     Action selectedAction() const { return m_action; }
 
+protected:
+    void keyPressEvent(QKeyEvent *e) override;
+
 private:
     Action m_action = KeepWindows;
 };
@@ -106,6 +109,9 @@ public:
 
     QString name() const;
     QColor color() const;
+
+protected:
+    void keyPressEvent(QKeyEvent *e) override;
 
 private:
     void updateColorPreview();
@@ -174,14 +180,20 @@ public:
 
     void setAssigned(bool assigned);
     void setSelected(bool selected);
+    void updateCardStyle();
     void updateStatusBadge();
+    void triggerToggle();
 
     std::function<void(int index)> onEditClicked;
     std::function<void(int index)> onDeleteClicked;
     std::function<void(int index)> onToggleAssignment;
+    std::function<void(int index)> onCardFocused;
 
 protected:
     void mousePressEvent(QMouseEvent *e) override;
+    void keyPressEvent(QKeyEvent *e) override;
+    void focusInEvent(QFocusEvent *e) override;
+    void focusOutEvent(QFocusEvent *e) override;
 
 private:
     int m_index;
@@ -217,13 +229,18 @@ public:
     void setSelected(bool selected);
     void updateStyle();
     void updateToggleStyle();
+    void triggerToggle();
 
     std::function<void(const LeapKMarks::PersistentMarkRule &)> onEditClicked;
     std::function<void(const LeapKMarks::PersistentMarkRule &)> onDeleteClicked;
     std::function<void(const LeapKMarks::PersistentMarkRule &)> onToggleEnabled;
+    std::function<void(int cardIndex)> onCardFocused;
 
 protected:
     void mousePressEvent(QMouseEvent *e) override;
+    void keyPressEvent(QKeyEvent *e) override;
+    void focusInEvent(QFocusEvent *e) override;
+    void focusOutEvent(QFocusEvent *e) override;
 
 private:
     LeapKMarks::PersistentMarkRule m_rule;
@@ -295,6 +312,8 @@ private:
     QPushButton *m_btnUnassign = nullptr;
     QPushButton *m_btnEditWs = nullptr;
     QPushButton *m_btnDeleteWs = nullptr;
+    QPushButton *m_btnCancel = nullptr;
+    QPushButton *m_btnDone = nullptr;
 };
 
 // -----------------------------------------------------------------------------
