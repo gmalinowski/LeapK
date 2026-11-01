@@ -489,6 +489,12 @@ void testHudMetaOverlayRendering()
     assert(!overlayHiDpi.isNull());
     assert(overlayHiDpi.width() >= overlayDefault.width() * 1.8);
 
+    // 4. Overlay with Traverse Recent active
+    QImage overlayTraverse = OutlineBadge::renderHudMetaOverlayImage(
+        1.0, LeapKTheme::Theme(), false, false, false, false, false, false, true /* isTraverseRecent */);
+    assert(!overlayTraverse.isNull());
+    assert(overlayTraverse.size() == overlayDefault.size());
+
     std::cout << "testHudMetaOverlayRendering PASSED\n";
 }
 

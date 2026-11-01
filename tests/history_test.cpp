@@ -296,12 +296,108 @@ void testHistoryNavigationCommitOnRelease()
     std::cout << "testHistoryNavigationCommitOnRelease PASSED\n";
 }
 
+void testStepHistoryIndexAndTraverse()
+{
+    // 1. Edge cases: count <= 1
+    assert(OutlineHistory::stepHistoryIndex(0, 1, 0) == 0);
+    assert(OutlineHistory::stepHistoryIndex(0, -1, 0) == 0);
+    assert(OutlineHistory::stepHistoryIndex(0, 1, 1) == 0);
+    assert(OutlineHistory::stepHistoryIndex(0, -1, 1) == 0);
+
+    // 2. Count = 2
+    assert(OutlineHistory::stepHistoryIndex(0, 1, 2) == 1);
+    assert(OutlineHistory::stepHistoryIndex(1, 1, 2) == 0); // wrap forward
+    assert(OutlineHistory::stepHistoryIndex(0, -1, 2) == 1); // wrap backward
+    assert(OutlineHistory::stepHistoryIndex(1, -1, 2) == 0);
+
+    // 3. Count = 5
+    int idx = 0;
+    // Step forward 0 -> 1 -> 2 -> 3 -> 4 -> 0
+    idx = OutlineHistory::stepHistoryIndex(idx, 1, 5);
+    assert(idx == 1);
+    idx = OutlineHistory::stepHistoryIndex(idx, 1, 5);
+    assert(idx == 2);
+    idx = OutlineHistory::stepHistoryIndex(idx, 1, 5);
+    assert(idx == 3);
+    idx = OutlineHistory::stepHistoryIndex(idx, 1, 5);
+    assert(idx == 4);
+    idx = OutlineHistory::stepHistoryIndex(idx, 1, 5);
+    assert(idx == 0); // circular wrap
+
+    // Step backward 0 -> 4 -> 3 -> 2 -> 1 -> 0
+    idx = OutlineHistory::stepHistoryIndex(idx, -1, 5);
+    assert(idx == 4); // circular wrap backward
+    idx = OutlineHistory::stepHistoryIndex(idx, -1, 5);
+    assert(idx == 3);
+    idx = OutlineHistory::stepHistoryIndex(idx, -1, 5);
+    assert(idx == 2);
+    idx = OutlineHistory::stepHistoryIndex(idx, -1, 5);
+    assert(idx == 1);
+    idx = OutlineHistory::stepHistoryIndex(idx, -1, 5);
+    assert(idx == 0);
+
+    // 4. Stateful simulation of Meta-held Space traversing (Alt+Tab style)
+    MockWindow w1{1}, w2{2}, w3{3}, w4{4};
+    QList<MockWindow *> history = {&w1, &w2, &w3, &w4};
+    MockWindow *activeWindow = &w1;
+    bool isTraversing = false;
+    int navIndex = 0;
+
+    auto onTraverse = [&](int direction) {
+        if (!isTraversing) {
+            isTraversing = true;
+            navIndex = 0;
+        }
+        navIndex = OutlineHistory::stepHistoryIndex(navIndex, direction, history.size());
+        activeWindow = history.at(navIndex);
+    };
+
+    auto onCommit = [&]() {
+        if (isTraversing) {
+            MockWindow *committed = history.at(navIndex);
+            history.removeAll(committed);
+            history.prepend(committed);
+            activeWindow = committed;
+            navIndex = 0;
+            isTraversing = false;
+        }
+    };
+
+    // User presses Meta+Space, then Space again (forward): moves to w2
+    onTraverse(1);
+    assert(isTraversing == true);
+    assert(navIndex == 1);
+    assert(activeWindow == &w2);
+
+    // Taps Space again: moves to w3
+    onTraverse(1);
+    assert(navIndex == 2);
+    assert(activeWindow == &w3);
+
+    // Taps Shift+Space (direction -1): moves back to w2
+    onTraverse(-1);
+    assert(navIndex == 1);
+    assert(activeWindow == &w2);
+
+    // Releases Meta: commits w2 to top of history
+    onCommit();
+    assert(isTraversing == false);
+    assert(activeWindow == &w2);
+    assert(history.at(0) == &w2);
+    assert(history.at(1) == &w1);
+    assert(history.at(2) == &w3);
+    assert(history.at(3) == &w4);
+
+    std::cout << "testStepHistoryIndexAndTraverse PASSED\n";
+}
+
 int main()
 {
     testRecentWindowsOrderAndLimit();
     testCrossDesktopJumpSuppressesIntermediateActivation();
     testFindRecentWindowAndToggle();
     testHistoryNavigationCommitOnRelease();
+    testStepHistoryIndexAndTraverse();
     std::cout << "All history tests passed successfully." << std::endl;
     return 0;
 }

@@ -65,4 +65,16 @@ void recordWindowActivation(QList<WindowPtr> &history,
     }
 }
 
+inline int stepHistoryIndex(int currentIndex, int direction, int totalCount)
+{
+    if (totalCount <= 1) {
+        return 0;
+    }
+    if (direction > 0) {
+        return (currentIndex + 1) % totalCount;
+    } else {
+        return (currentIndex - 1 + totalCount) % totalCount;
+    }
+}
+
 } // namespace OutlineHistory

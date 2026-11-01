@@ -212,6 +212,7 @@ private Q_SLOTS:
     void slotPrevRecentWindow();
     void slotNextRecentWindow();
     void slotCommitHistoryNavigation();
+    void traverseRecentWindows(int direction);
     void slotAnimationTick();
 
 private:
@@ -658,6 +659,7 @@ private:
 
     // History Navigation
     bool m_isHistoryNavigating = false;
+    bool m_metaSpaceTraverseActive = false;
     int m_historyNavIndex = 0;
     QList<EffectWindow *> m_windowHistory;
     QList<EffectWindow *> m_hudSnapshotHistory;

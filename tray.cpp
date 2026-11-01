@@ -596,6 +596,7 @@ private slots:
 
         QString rows;
         rows += formatRow(scJump, QStringLiteral("Jump to Window (interactive letter jump)"));
+        rows += formatRow(QStringLiteral("Hold Meta + Space / Shift+Space"), QStringLiteral("Traverse recent windows (Alt+Tab style; release Meta to switch)"));
         rows += formatRow(scJumpRecent, QStringLiteral("Jump to last active window (recent)"));
         if (!scRecent.isEmpty() && scRecent.compare(QStringLiteral("none"), Qt::CaseInsensitive) != 0) {
             rows += formatRow(scRecent, QStringLiteral("Switch to recent window (direct shortcut)"));

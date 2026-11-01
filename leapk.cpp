@@ -2476,7 +2476,7 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
             repaintAllOutlines();
             return;
         }
-        if (m_historyCommitTimer && m_historyCommitTimer->isActive()) {
+        if ((m_historyCommitTimer && m_historyCommitTimer->isActive()) || m_metaSpaceTraverseActive) {
             return;
         }
         m_isHistoryNavigating = false;
@@ -4566,6 +4566,7 @@ void ActiveWindowOutlineEffect::renderHudMetaOverlay(const RenderTarget &renderT
         | (m_pinModeActive ? 8 : 0)
         | (m_audioFilterModeActive ? 16 : 0)
         | (m_tilingPresetsModeActive ? 32 : 0)
+        | (m_metaSpaceTraverseActive ? 64 : 0)
         | (static_cast<qint64>(qRound(scale * 10)) << 8)
         | (static_cast<qint64>(qHash(theme.id) % 1000) << 16);
 
@@ -4573,7 +4574,7 @@ void ActiveWindowOutlineEffect::renderHudMetaOverlay(const RenderTarget &renderT
         const QImage img = OutlineBadge::renderHudMetaOverlayImage(
             scale, theme, m_superJumpActive, m_closeWindowModeActive,
             m_stashModeActive, m_pinModeActive, m_audioFilterModeActive,
-            m_tilingPresetsModeActive);
+            m_tilingPresetsModeActive, m_metaSpaceTraverseActive);
         if (!img.isNull()) {
             auto uploaded = GLTexture::upload(img);
             if (uploaded) {
@@ -5680,6 +5681,12 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
             exitSuperJumpMode();
             return;
         }
+        const bool metaHeld = (QGuiApplication::queryKeyboardModifiers() & Qt::MetaModifier) != 0;
+        if (metaHeld || m_hudMetaHeld) {
+            const bool isShift = (QGuiApplication::queryKeyboardModifiers() & Qt::ShiftModifier) != 0;
+            traverseRecentWindows(isShift ? -1 : 1);
+            return;
+        }
         cancelJumpMode(Qt::Key_Space);
         return;
     }
@@ -5689,6 +5696,7 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_superJumpActive = false;
     m_closeWindowModeActive = false;
     m_pinModeActive = false;
+    m_metaSpaceTraverseActive = false;
     m_hudMetaHeld = (QGuiApplication::queryKeyboardModifiers() & Qt::MetaModifier) != 0;
     m_hudMetaOverlayTexture.reset();
     m_hudMetaOverlayCacheKey = -1;
@@ -5815,6 +5823,7 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
     m_superJumpActive = false;
     m_closeWindowModeActive = false;
     m_pinModeActive = false;
+    m_metaSpaceTraverseActive = false;
     m_hudMetaHeld = false;
     m_hudMetaOverlayTexture.reset();
     m_hudMetaOverlayCacheKey = -1;
@@ -6117,6 +6126,16 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     if (e->type() == QEvent::KeyRelease) {
         if (isMetaKey(e->key()) || !(e->modifiers() & Qt::MetaModifier)) {
+            if (m_metaSpaceTraverseActive) {
+                m_metaSpaceTraverseActive = false;
+                slotCommitHistoryNavigation();
+                warpCursorToWindow(m_activeWindow);
+                cancelJumpMode();
+                if (effects) {
+                    effects->addRepaintFull();
+                }
+                return;
+            }
             if (m_hudMetaHeld) {
                 m_hudMetaHeld = false;
                 if (effects) {
@@ -6278,6 +6297,21 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     const bool isCloseHudKey = (e->key() == Qt::Key_Escape)
         || (isCtrl && (e->key() == Qt::Key_C || e->key() == Qt::Key_BracketRight));
     if (isCloseHudKey) {
+        if (m_metaSpaceTraverseActive) {
+            m_metaSpaceTraverseActive = false;
+            m_isHistoryNavigating = false;
+            m_historyNavIndex = 0;
+            if (m_hudOriginWindow && !m_hudOriginWindow->isDeleted()) {
+                if (!m_hudOriginWindow->isOnCurrentDesktop()) {
+                    const auto desktops = m_hudOriginWindow->desktops();
+                    if (!desktops.isEmpty() && !m_hudOriginWindow->isOnAllDesktops()) {
+                        effects->setCurrentDesktop(desktops.first());
+                    }
+                }
+                effects->activateWindow(m_hudOriginWindow.data());
+                warpCursorToWindow(m_hudOriginWindow.data());
+            }
+        }
         cancelJumpMode(e->key());
         return;
     }
@@ -6996,7 +7030,28 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
-    if (e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter || e->key() == Qt::Key_Space || (isMetaOnly && e->key() == Qt::Key_Space)) {
+    const bool isMetaHeld = (mods & Qt::MetaModifier) || m_hudMetaHeld;
+    if (e->key() == Qt::Key_Space) {
+        if (isMetaHeld) {
+            traverseRecentWindows(isShift ? -1 : 1);
+            return;
+        } else {
+            cancelJumpMode(e->key());
+            return;
+        }
+    }
+
+    if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
+        if (m_metaSpaceTraverseActive) {
+            m_metaSpaceTraverseActive = false;
+            slotCommitHistoryNavigation();
+            warpCursorToWindow(m_activeWindow);
+        }
+        cancelJumpMode(e->key());
+        return;
+    }
+
+    if (e->key() == Qt::Key_Backspace) {
         cancelJumpMode(e->key());
         return;
     }
@@ -7696,6 +7751,86 @@ void ActiveWindowOutlineEffect::slotCommitHistoryNavigation()
         effects->ungrabKeyboard();
         m_keyboardGrabActive = false;
     }
+}
+
+void ActiveWindowOutlineEffect::traverseRecentWindows(int direction)
+{
+    for (auto it = m_windowHistory.begin(); it != m_windowHistory.end(); ) {
+        if (!(*it) || (*it)->isDeleted()) {
+            it = m_windowHistory.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    if (m_windowHistory.size() < 2 && effects) {
+        const auto windows = effects->stackingOrder();
+        for (auto it = windows.rbegin(); it != windows.rend(); ++it) {
+            EffectWindow *w = *it;
+            if (w && !w->isDeleted() && isEligibleOutlineWindow(w) && !m_windowHistory.contains(w)) {
+                m_windowHistory.append(w);
+            }
+        }
+    }
+
+    if (!m_metaSpaceTraverseActive) {
+        m_metaSpaceTraverseActive = true;
+        m_isHistoryNavigating = true;
+        if (m_historyCommitTimer && m_historyCommitTimer->isActive()) {
+            m_historyCommitTimer->stop();
+        }
+        EffectWindow *active = effects ? effects->activeWindow() : m_activeWindow;
+        if (active && isEligibleOutlineWindow(active)) {
+            m_activeWindow = active;
+            m_windowHistory.removeAll(m_activeWindow);
+            m_windowHistory.prepend(m_activeWindow);
+        }
+        m_historyNavIndex = 0;
+    }
+
+    QList<EffectWindow *> validWindows;
+    for (EffectWindow *w : m_windowHistory) {
+        if (w && !w->isDeleted() && isEligibleOutlineWindow(w)) {
+            if (!validWindows.contains(w)) {
+                validWindows.append(w);
+            }
+        }
+    }
+
+    if (validWindows.size() < 2) {
+        return;
+    }
+
+    int currentValidIdx = 0;
+    if (m_historyNavIndex >= 0 && m_historyNavIndex < m_windowHistory.size()) {
+        EffectWindow *currentNavWin = m_windowHistory.at(m_historyNavIndex);
+        currentValidIdx = validWindows.indexOf(currentNavWin);
+        if (currentValidIdx < 0) {
+            currentValidIdx = 0;
+        }
+    }
+
+    const int nextValidIdx = OutlineHistory::stepHistoryIndex(currentValidIdx, direction, validWindows.size());
+    EffectWindow *candidate = validWindows.at(nextValidIdx);
+    m_historyNavIndex = m_windowHistory.indexOf(candidate);
+    m_isHistoryNavigating = true;
+    m_expectedJumpTarget = candidate;
+    if (m_expectedJumpTargetTimer) {
+        m_expectedJumpTargetTimer->start(1000);
+    }
+
+    if (!candidate->isOnCurrentDesktop()) {
+        const auto desktops = candidate->desktops();
+        if (!desktops.isEmpty() && !candidate->isOnAllDesktops()) {
+            effects->setCurrentDesktop(desktops.first());
+        }
+    }
+    if (candidate->isMinimized()) {
+        candidate->setMinimized(false);
+    }
+    effects->activateWindow(candidate);
+    playThemedSound(OutlineSound::SoundEffect::NavTab);
+    effects->addRepaintFull();
 }
 
 bool ActiveWindowOutlineEffect::isWindowObscured(EffectWindow *target) const

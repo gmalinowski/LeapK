@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta54] - 2026-11-01
+
+### Added
+- **Alt+Tab Style Recent Window Traversing via `Hold Meta + Space` / `Shift+Meta+Space`**:
+  - Hold `Meta` and tap `Space` to cycle forward circularly through recent windows.
+  - Hold `Meta` and tap `Shift+Space` (or `Shift+Meta+Space`) to cycle backward.
+  - Releasing `Meta` immediately commits the focused window and exits Leap mode with cursor warping and land sound.
+  - Pressing `Return` or `Enter` immediately commits the selection; pressing `Escape` restores the original window and cancels traversal.
+  - Added `stepHistoryIndex` in `historyhelper.h` with circular wrapping and verified in unit tests (`tests/history_test.cpp`).
+- **Comprehensive Shortcut Cheat Sheet Integration**:
+  - Added `Meta+Space: Traverse Recent` to the HUD Meta-hold cheat sheet overlay (`renderHudMetaOverlayImage`), featuring active green indicator during traversal.
+  - Added `Hold Meta+␣: Traverse recent` to the HUD action hint bar (`renderHudActionHintBar`).
+  - Added shortcut documentation to the LeapK system tray cheat sheet dialog (`tray.cpp`) and `README.md`.
+
 ## [1.6.0-beta53] - 2026-11-01
 
 ### Fixed

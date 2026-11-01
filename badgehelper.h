@@ -2697,6 +2697,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     } else {
         segments = {
             {QStringLiteral("Key"), QStringLiteral("Jump"), QColor(52, 152, 219)},
+            {QStringLiteral("Hold Meta+␣"), QStringLiteral("Traverse recent"), QColor(46, 204, 113)},
             {QStringLiteral("/"), QStringLiteral("Search"), QColor(0, 195, 255)},
             {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
@@ -2706,7 +2707,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Hold Meta"), QStringLiteral("Switch mode"), QColor(0, 195, 255)},
             {QStringLiteral("< / >"), QStringLiteral("Badges"), QColor(52, 152, 219)},
             {QStringLiteral(", / ."), QStringLiteral("Switch"), QColor(52, 152, 219)},
-            {QStringLiteral("Esc / ␣ / ⌫"), QStringLiteral("Close"), QColor(231, 76, 60)}
+            {QStringLiteral("Esc / ⌫"), QStringLiteral("Close"), QColor(231, 76, 60)}
         };
     }
 
@@ -4043,7 +4044,8 @@ inline QImage renderHudMetaOverlayImage(qreal scale,
                                         bool isStashMode,
                                         bool isPinMode,
                                         bool isAudioMode,
-                                        bool isTilingPresets = false)
+                                        bool isTilingPresets = false,
+                                        bool isTraverseRecent = false)
 {
     struct CheatItem {
         QString key;
@@ -4054,6 +4056,7 @@ inline QImage renderHudMetaOverlayImage(qreal scale,
     };
 
     const QList<CheatItem> items = {
+        {QStringLiteral("Meta+Space"), QStringLiteral("Traverse Recent"), QStringLiteral("Hold Meta, tap Space / Shift+Space to cycle recent windows (Alt+Tab)"), isTraverseRecent, QColor(46, 204, 113)},
         {QStringLiteral("Meta+A"), QStringLiteral("Global Scope"), QStringLiteral("Global Scope (All Workspaces + Stash)"), isSuperJump, QColor(0, 195, 255)},
         {QStringLiteral("Meta+S"), QStringLiteral("Stash Mode"), QStringLiteral("Drawer for stashing / un-stashing windows"), isStashMode, QColor(46, 204, 113)},
         {QStringLiteral("Meta+Q"), QStringLiteral("Close Mode"), QStringLiteral("Batch close windows with red badges"), isCloseMode, QColor(231, 76, 60)},
