@@ -3828,27 +3828,26 @@ void ActiveWindowOutlineEffect::refreshWorkspaces()
             }
         }
     }
-    const int totalViews = qMax(1, 3 + m_workspaces.size());
+    const int totalViews = LeapKWorkspace::computeTotalWorkspaceViews(m_workspaces.size());
     if (m_activeHudView >= totalViews || m_activeHudView < 0) {
         m_activeHudView = 0;
+        if (effects && effects->config()) {
+            KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+            primaryConfig.writeEntry("ActiveHudView", m_activeHudView);
+            primaryConfig.sync();
+        }
     }
 }
 
 QString ActiveWindowOutlineEffect::workspaceIdForView(int hudViewIndex) const
 {
-    if (hudViewIndex >= 1 && hudViewIndex <= m_workspaces.size()) {
-        return m_workspaces.at(hudViewIndex - 1).id;
-    }
-    if (hudViewIndex == m_workspaces.size() + 1) {
-        return QStringLiteral("__all__");
-    }
-    return QStringLiteral("__standard__");
+    return LeapKWorkspace::workspaceIdForHudView(hudViewIndex, m_workspaces);
 }
 
 void ActiveWindowOutlineEffect::switchToWorkspaceView(int newHudViewIndex)
 {
     refreshWorkspaces();
-    const int totalViews = qMax(1, 3 + m_workspaces.size());
+    const int totalViews = LeapKWorkspace::computeTotalWorkspaceViews(m_workspaces.size());
     if (newHudViewIndex < 0 || newHudViewIndex >= totalViews) {
         newHudViewIndex = 0;
     }
@@ -5212,7 +5211,7 @@ void ActiveWindowOutlineEffect::slotCycleHudView(int delta)
 {
     playThemedSound(OutlineSound::SoundEffect::NavTab);
     refreshWorkspaces();
-    const int totalViews = m_stashModeActive ? qMax(1, 2 + m_workspaces.size()) : qMax(1, 3 + m_workspaces.size());
+    const int totalViews = LeapKWorkspace::computeTotalWorkspaceViews(m_workspaces.size());
     int targetView = (m_activeHudView + delta) % totalViews;
     if (targetView < 0) {
         targetView += totalViews;

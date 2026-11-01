@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta56] - 2026-11-01
+
+### Fixed
+- **Eliminated Ghost Workspace View and Fixed Workspace Navigation Count**:
+  - Fixed an issue where cycling through workspaces included an invisible 3rd position (with all workspace tabs unselected) when only "Standard" and "All" workspaces existed.
+  - Root cause: `totalViews` was computed as `3 + m_workspaces.size()` (a leftover from when Stash was an in-band tab before becoming a dedicated drawer mode), instead of `2 + m_workspaces.size()`. With 0 custom workspaces, `totalViews` was 3, cycling through index 0 (Standard), index 1 (All), and phantom index 2 where neither tab matched `m_activeHudView`.
+  - Added `computeTotalWorkspaceViews(customCount)` and `workspaceIdForHudView(index, workspaces)` in `workspacehelper.h` to strictly bound total views to `2 + customWorkspaceCount`.
+  - Updated `refreshWorkspaces()`, `switchToWorkspaceView()`, and `slotCycleHudView()` in `leapk.cpp` to use the unified view count calculation and automatically sanitize / persist out-of-bounds `ActiveHudView` values to `kwinrc`.
+  - Added unit test `testWorkspaceViewsAndCycling` in `tests/workspace_test.cpp` verifying view bounds and bidirectional cycling for both 0 and multiple custom workspaces.
+
 ## [1.6.0-beta55] - 2026-11-01
 
 ### Fixed

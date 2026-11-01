@@ -314,4 +314,20 @@ inline bool reassignWindowToWorkspace(QList<WorkspaceInfo> &workspaces, const QS
     return false;
 }
 
+inline int computeTotalWorkspaceViews(int customWorkspaceCount)
+{
+    return qMax(1, 2 + customWorkspaceCount);
+}
+
+inline QString workspaceIdForHudView(int hudViewIndex, const QList<WorkspaceInfo> &workspaces)
+{
+    if (hudViewIndex >= 1 && hudViewIndex <= workspaces.size()) {
+        return workspaces.at(hudViewIndex - 1).id;
+    }
+    if (hudViewIndex == workspaces.size() + 1) {
+        return QStringLiteral("__all__");
+    }
+    return QStringLiteral("__standard__");
+}
+
 } // namespace LeapKWorkspace

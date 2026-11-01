@@ -242,6 +242,65 @@ void testUpdateWorkspace()
     std::cout << "testUpdateWorkspace PASSED\n";
 }
 
+void testWorkspaceViewsAndCycling()
+{
+    using namespace LeapKWorkspace;
+
+    // 1. Zero custom workspaces: only Standard (0) and All (1) exist -> total 2 views
+    {
+        const QList<WorkspaceInfo> emptyWorkspaces;
+        const int totalViews = computeTotalWorkspaceViews(emptyWorkspaces.size());
+        assert(totalViews == 2);
+
+        assert(workspaceIdForHudView(0, emptyWorkspaces) == QStringLiteral("__standard__"));
+        assert(workspaceIdForHudView(1, emptyWorkspaces) == QStringLiteral("__all__"));
+        assert(workspaceIdForHudView(2, emptyWorkspaces) == QStringLiteral("__standard__")); // out of bounds fallback
+
+        int view = 0;
+        view = (view + 1) % totalViews;
+        assert(view == 1); // Advances to All
+        view = (view + 1) % totalViews;
+        assert(view == 0); // Wraps directly back to Standard (no phantom 3rd view!)
+
+        // Backward cycling
+        view = (view - 1 + totalViews) % totalViews;
+        assert(view == 1); // From Standard to All
+        view = (view - 1 + totalViews) % totalViews;
+        assert(view == 0); // From All to Standard
+    }
+
+    // 2. Multiple custom workspaces (e.g. 2 custom workspaces -> total 4 views: 0=Standard, 1=WS1, 2=WS2, 3=All)
+    {
+        WorkspaceInfo ws1;
+        ws1.id = QStringLiteral("ws-web");
+        ws1.name = QStringLiteral("Web");
+        WorkspaceInfo ws2;
+        ws2.id = QStringLiteral("ws-dev");
+        ws2.name = QStringLiteral("Dev");
+
+        const QList<WorkspaceInfo> workspaces = { ws1, ws2 };
+        const int totalViews = computeTotalWorkspaceViews(workspaces.size());
+        assert(totalViews == 4);
+
+        assert(workspaceIdForHudView(0, workspaces) == QStringLiteral("__standard__"));
+        assert(workspaceIdForHudView(1, workspaces) == QStringLiteral("ws-web"));
+        assert(workspaceIdForHudView(2, workspaces) == QStringLiteral("ws-dev"));
+        assert(workspaceIdForHudView(3, workspaces) == QStringLiteral("__all__"));
+
+        int view = 0;
+        view = (view + 1) % totalViews;
+        assert(view == 1);
+        view = (view + 1) % totalViews;
+        assert(view == 2);
+        view = (view + 1) % totalViews;
+        assert(view == 3);
+        view = (view + 1) % totalViews;
+        assert(view == 0); // Wraps cleanly
+    }
+
+    std::cout << "testWorkspaceViewsAndCycling PASSED\n";
+}
+
 int main()
 {
     testRuleSerialization();
@@ -251,6 +310,7 @@ int main()
     testCreateEmptyWorkspace();
     testDeleteWorkspace();
     testUpdateWorkspace();
+    testWorkspaceViewsAndCycling();
     std::cout << "All workspace tests passed successfully!\n";
     return 0;
 }
