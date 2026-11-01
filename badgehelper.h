@@ -230,47 +230,12 @@ inline QChar findNextAvailableLetter(const QList<QChar> &usedLetters)
 
 inline void addThemedShapePath(QPainterPath &path, const QRectF &rect, const QString &shape, int cornerRadius, int chamferSize = 6)
 {
-    if (shape == QStringLiteral("chamfered")) {
-        const qreal c = qBound(2.0, (qreal)chamferSize, qMin(rect.width() / 2.0, rect.height() / 2.0));
-        path.moveTo(rect.left() + c, rect.top());
-        path.lineTo(rect.right() - c, rect.top());
-        path.lineTo(rect.right(), rect.top() + c);
-        path.lineTo(rect.right(), rect.bottom() - c);
-        path.lineTo(rect.right() - c, rect.bottom());
-        path.lineTo(rect.left() + c, rect.bottom());
-        path.lineTo(rect.left(), rect.bottom() - c);
-        path.lineTo(rect.left(), rect.top() + c);
-        path.closeSubpath();
-    } else if (shape == QStringLiteral("sharp")) {
-        path.addRect(rect);
-    } else if (shape == QStringLiteral("pill")) {
-        const qreal maxR = (cornerRadius > 0) ? (qreal)cornerRadius : 14.0;
-        const qreal r = (rect.height() > 44.0) ? qMin(rect.height() / 2.0, maxR) : (rect.height() / 2.0);
-        path.addRoundedRect(rect, r, r);
-    } else if (shape == QStringLiteral("circle")) {
-        path.addEllipse(rect);
-    } else {
-        path.addRoundedRect(rect, cornerRadius, cornerRadius);
-    }
+    LeapKTheme::addThemedShapePath(path, rect, shape, cornerRadius, chamferSize);
 }
 
 inline void drawThemedShape(QPainter &p, const QRectF &rect, const QString &shape, int cornerRadius, int chamferSize = 6)
 {
-    if (shape == QStringLiteral("sharp")) {
-        p.drawRect(rect);
-    } else if (shape == QStringLiteral("pill")) {
-        const qreal maxR = (cornerRadius > 0) ? (qreal)cornerRadius : 14.0;
-        const qreal r = (rect.height() > 44.0) ? qMin(rect.height() / 2.0, maxR) : (rect.height() / 2.0);
-        p.drawRoundedRect(rect, r, r);
-    } else if (shape == QStringLiteral("circle")) {
-        p.drawEllipse(rect);
-    } else if (shape == QStringLiteral("chamfered")) {
-        QPainterPath path;
-        addThemedShapePath(path, rect, shape, cornerRadius, chamferSize);
-        p.drawPath(path);
-    } else {
-        p.drawRoundedRect(rect, cornerRadius, cornerRadius);
-    }
+    LeapKTheme::drawThemedShape(p, rect, shape, cornerRadius, chamferSize);
 }
 
 inline bool isColorTooClose(const QColor &c1, const QColor &c2, qreal minHueDelta = 35.0, qreal minRgbDistance = 65.0)

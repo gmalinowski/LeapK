@@ -303,6 +303,53 @@ static void testSoundThemeSettings()
     assert(std::abs(builtins[1].resolveDouble(QStringLiteral("$soundVolume"), 1.0) - 1.0) < 0.001);
 }
 
+static void testAuxiliaryDialogThemeStyling()
+{
+    // Test 1: retro-terminal styling
+    const Theme retro = findThemeById(QStringLiteral("retro-terminal"));
+    assert(retro.id == QStringLiteral("retro-terminal"));
+    const QColor retroAccent = retro.primaryAccentColor();
+    assert(retroAccent.isValid());
+    assert(retroAccent == QColor(QStringLiteral("#00ff66")));
+    const QColor retroSurf = retro.surfaceBackgroundColor();
+    assert(retroSurf.isValid());
+    assert(retroSurf.alpha() > 200);
+
+    // Test 2: cyberpunk-neon styling
+    const Theme cyber = findThemeById(QStringLiteral("cyberpunk-neon"));
+    const QColor cyberAccent = cyber.primaryAccentColor();
+    assert(cyberAccent.isValid());
+    assert(cyber.hudContainer.shape == QStringLiteral("chamfered"));
+
+    // Test 3: Nordic Frost styling
+    const Theme nordic = findThemeById(QStringLiteral("nordic-frost"));
+    const QColor nordicAccent = nordic.primaryAccentColor();
+    assert(nordicAccent.isValid());
+    assert(nordic.hudContainer.shape == QStringLiteral("pill"));
+
+    // Test 4: generateDialogStyleSheet contains scrollbar and lineedit styling
+    const QString css = generateDialogStyleSheet(retro);
+    assert(css.contains(QStringLiteral("QScrollBar")));
+    assert(css.contains(QStringLiteral("QLineEdit")));
+
+    // Test 5: paintThemedWindowFrame execution on a QImage painter
+    QImage img(400, 300, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+    {
+        QPainter p(&img);
+        paintThemedWindowFrame(&p, img.rect(), retro);
+        paintThemedWindowFrame(&p, img.rect(), cyber);
+        paintThemedWindowFrame(&p, img.rect(), nordic);
+    }
+    assert(!img.isNull());
+
+    // Test 6: loadActiveTheme with override
+    const Theme loadedRetro = loadActiveTheme(QStringLiteral("retro-terminal"));
+    assert(loadedRetro.id == QStringLiteral("retro-terminal"));
+    const Theme loadedCyber = loadActiveTheme(QStringLiteral("cyberpunk-neon"));
+    assert(loadedCyber.id == QStringLiteral("cyberpunk-neon"));
+}
+
 int main(int, char **)
 {
     testThemeParameter();
@@ -313,6 +360,7 @@ int main(int, char **)
     testVariableResolutionAndOverrides();
     testSerializationAndParsing();
     testThemeDiscoveryAndLookup();
+    testAuxiliaryDialogThemeStyling();
 
     std::cout << "All theme tests passed successfully." << std::endl;
     return 0;

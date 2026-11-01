@@ -4,6 +4,7 @@
 */
 
 #include "workspacehelper.h"
+#include "themehelper.h"
 #include <QApplication>
 #include <QDialog>
 #include <QVBoxLayout>
@@ -25,28 +26,27 @@
 class MainWorkspaceFrame : public QFrame
 {
 public:
-    explicit MainWorkspaceFrame(QWidget *parent = nullptr) : QFrame(parent)
+    explicit MainWorkspaceFrame(const LeapKTheme::Theme &theme = LeapKTheme::Theme(), QWidget *parent = nullptr)
+        : QFrame(parent), m_theme(theme)
     {
         setAttribute(Qt::WA_StyledBackground, false);
+    }
+
+    void setTheme(const LeapKTheme::Theme &theme)
+    {
+        m_theme = theme;
+        update();
     }
 
 protected:
     void paintEvent(QPaintEvent *) override
     {
         QPainter p(this);
-        p.setRenderHint(QPainter::Antialiasing, true);
-        const QRectF r = rect().adjusted(1, 1, -1, -1);
-
-        // Dark HUD acrylic body
-        p.setPen(QPen(QColor(255, 255, 255, 45), 1.5));
-        p.setBrush(QColor(18, 21, 26, 248));
-        p.drawRoundedRect(r, 16.0, 16.0);
-
-        // Top accent line (Workspace blue/indigo accent)
-        p.setPen(Qt::NoPen);
-        p.setBrush(QColor(52, 152, 219, 220));
-        p.drawRoundedRect(QRectF(r.left() + 24, r.top(), r.width() - 48, 3), 1.5, 1.5);
+        LeapKTheme::paintThemedWindowFrame(&p, rect(), m_theme);
     }
+
+private:
+    LeapKTheme::Theme m_theme;
 };
 
 class CloseWorkspaceDialog : public QDialog
@@ -59,19 +59,21 @@ public:
         MoveToStash
     };
 
-    explicit CloseWorkspaceDialog(const QString &wsName, QWidget *parent = nullptr)
+    explicit CloseWorkspaceDialog(const QString &wsName, const LeapKTheme::Theme &theme = LeapKTheme::Theme(), QWidget *parent = nullptr)
         : QDialog(parent)
         , m_wsName(wsName)
+        , m_theme(theme)
         , m_selectedAction(Cancel)
     {
         setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
         setAttribute(Qt::WA_TranslucentBackground, true);
         resize(500, 370);
+        setStyleSheet(LeapKTheme::generateDialogStyleSheet(m_theme));
 
         auto *rootLayout = new QVBoxLayout(this);
         rootLayout->setContentsMargins(0, 0, 0, 0);
 
-        auto *frame = new MainWorkspaceFrame(this);
+        auto *frame = new MainWorkspaceFrame(m_theme, this);
         rootLayout->addWidget(frame);
 
         auto *layout = new QVBoxLayout(frame);
@@ -82,12 +84,12 @@ public:
         auto *lblTitle = new QLabel(
             QStringLiteral("🗑 Close Workspace: <b style='color:#e74c3c;'>%1</b>").arg(wsName.toHtmlEscaped()), this);
         lblTitle->setTextFormat(Qt::RichText);
-        lblTitle->setStyleSheet(QStringLiteral("font-size: 17px; color: #ffffff;"));
+        lblTitle->setStyleSheet(QStringLiteral("font-size: 17px; color: %1;").arg(m_theme.textPrimaryColor().name()));
         layout->addWidget(lblTitle);
 
         auto *lblPrompt = new QLabel(
             QStringLiteral("Choose what you want to do with the windows in this workspace:"), this);
-        lblPrompt->setStyleSheet(QStringLiteral("font-size: 13px; color: rgba(255,255,255,0.75);"));
+        lblPrompt->setStyleSheet(QStringLiteral("font-size: 13px; color: %1;").arg(m_theme.textSecondaryColor().name()));
         layout->addWidget(lblPrompt);
 
         layout->addSpacing(4);
@@ -107,7 +109,7 @@ public:
             QStringLiteral("[2]"),
             QStringLiteral("Move to Standard (keep open)"),
             QStringLiteral("Windows stay open and visible on desktop"),
-            QColor(52, 152, 219),
+            m_theme.primaryAccentColor(),
             [this]() { choose(MoveToStandard); }
         );
         layout->addWidget(btnStd);
@@ -128,17 +130,18 @@ public:
         auto *bottomLayout = new QHBoxLayout();
         bottomLayout->addStretch(1);
         auto *btnCancel = new QPushButton(QStringLiteral("Cancel [Esc]"), this);
+        const int btnRadius = qBound(4, m_theme.cardCornerRadius(), 10);
         btnCancel->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background-color: rgba(255, 255, 255, 0.1);"
-            "  border-radius: 8px;"
+            "  border-radius: %1px;"
             "  color: #ffffff;"
             "  padding: 8px 20px;"
             "}"
             "QPushButton:hover {"
             "  background-color: rgba(255, 255, 255, 0.2);"
             "}"
-        ));
+        ).arg(QString::number(btnRadius)));
         connect(btnCancel, &QPushButton::clicked, this, &QDialog::reject);
         bottomLayout->addWidget(btnCancel);
         layout->addLayout(bottomLayout);
@@ -202,11 +205,12 @@ private:
     {
         auto *btn = new QPushButton(this);
         btn->setCursor(Qt::PointingHandCursor);
+        const int radius = qBound(4, m_theme.cardCornerRadius(), 12);
         btn->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background-color: rgba(%1, %2, %3, 0.12);"
             "  border: 1.5px solid rgba(%1, %2, %3, 0.4);"
-            "  border-radius: 10px;"
+            "  border-radius: %4px;"
             "  padding: 8px 12px;"
             "  text-align: left;"
             "}"
@@ -214,7 +218,7 @@ private:
             "  background-color: rgba(%1, %2, %3, 0.25);"
             "  border-color: rgba(%1, %2, %3, 0.8);"
             "}"
-        ).arg(accent.red()).arg(accent.green()).arg(accent.blue()));
+        ).arg(QString::number(accent.red()), QString::number(accent.green()), QString::number(accent.blue()), QString::number(radius)));
 
         auto *hlayout = new QHBoxLayout(btn);
         hlayout->setContentsMargins(6, 4, 6, 4);
@@ -222,18 +226,18 @@ private:
 
         auto *lblKey = new QLabel(keyBadge, btn);
         lblKey->setStyleSheet(QStringLiteral(
-            "background-color: %1; color: #ffffff; font-weight: bold; font-size: 13px; border-radius: 6px; padding: 4px 8px;"
-        ).arg(accent.name(QColor::HexRgb)));
+            "background-color: %1; color: #ffffff; font-weight: bold; font-size: 13px; border-radius: %2px; padding: 4px 8px;"
+        ).arg(accent.name(QColor::HexRgb), QString::number(qBound(2, m_theme.cardCornerRadius(), 6))));
         hlayout->addWidget(lblKey);
 
         auto *vbox = new QVBoxLayout();
         vbox->setSpacing(2);
         auto *lblTitle = new QLabel(title, btn);
-        lblTitle->setStyleSheet(QStringLiteral("font-size: 14px; font-weight: bold; color: #ffffff;"));
+        lblTitle->setStyleSheet(QStringLiteral("font-size: 14px; font-weight: bold; color: %1;").arg(m_theme.textPrimaryColor().name()));
         vbox->addWidget(lblTitle);
 
         auto *lblDesc = new QLabel(desc, btn);
-        lblDesc->setStyleSheet(QStringLiteral("font-size: 11px; color: rgba(255, 255, 255, 0.65);"));
+        lblDesc->setStyleSheet(QStringLiteral("font-size: 11px; color: %1;").arg(m_theme.textSecondaryColor().name()));
         vbox->addWidget(lblDesc);
 
         hlayout->addLayout(vbox, 1);
@@ -243,6 +247,7 @@ private:
     }
 
     QString m_wsName;
+    LeapKTheme::Theme m_theme;
     Action m_selectedAction;
     QPoint m_dragPos;
     bool m_isDragging = false;
@@ -251,19 +256,21 @@ private:
 class EditWorkspaceDialog : public QDialog
 {
 public:
-    EditWorkspaceDialog(const QString &currentName, const QColor &currentColor, int ruleCount, QWidget *parent = nullptr)
+    EditWorkspaceDialog(const QString &currentName, const QColor &currentColor, int ruleCount, const LeapKTheme::Theme &theme = LeapKTheme::Theme(), QWidget *parent = nullptr)
         : QDialog(parent)
         , m_name(currentName)
-        , m_color(currentColor.isValid() ? currentColor : QColor(52, 152, 219))
+        , m_color(currentColor.isValid() ? currentColor : theme.primaryAccentColor())
+        , m_theme(theme)
     {
         setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
         setAttribute(Qt::WA_TranslucentBackground, true);
         resize(460, 360);
+        setStyleSheet(LeapKTheme::generateDialogStyleSheet(m_theme));
 
         auto *rootLayout = new QVBoxLayout(this);
         rootLayout->setContentsMargins(0, 0, 0, 0);
 
-        auto *frame = new MainWorkspaceFrame(this);
+        auto *frame = new MainWorkspaceFrame(m_theme, this);
         rootLayout->addWidget(frame);
 
         auto *layout = new QVBoxLayout(frame);
@@ -272,36 +279,42 @@ public:
 
         // Header
         auto *lblTitle = new QLabel(QStringLiteral("✏️ Edit Workspace"), this);
-        lblTitle->setStyleSheet(QStringLiteral("font-size: 18px; font-weight: bold; color: #ffffff;"));
+        lblTitle->setStyleSheet(QStringLiteral("font-size: 18px; font-weight: bold; color: %1;").arg(m_theme.textPrimaryColor().name()));
         layout->addWidget(lblTitle);
 
         auto *lblPrompt = new QLabel(QStringLiteral("Update workspace name and accent color:"), this);
-        lblPrompt->setStyleSheet(QStringLiteral("font-size: 13px; color: rgba(255,255,255,0.7);"));
+        lblPrompt->setStyleSheet(QStringLiteral("font-size: 13px; color: %1;").arg(m_theme.textSecondaryColor().name()));
         layout->addWidget(lblPrompt);
 
         // Name input
         auto *vboxName = new QVBoxLayout();
         vboxName->setSpacing(4);
         auto *lblNameTag = new QLabel(QStringLiteral("Workspace Name:"), this);
-        lblNameTag->setStyleSheet(QStringLiteral("font-size: 12px; font-weight: bold; color: rgba(255,255,255,0.85);"));
+        lblNameTag->setStyleSheet(QStringLiteral("font-size: 12px; font-weight: bold; color: %1;").arg(m_theme.textPrimaryColor().name()));
         vboxName->addWidget(lblNameTag);
+
+        const QColor cardBg = m_theme.cardBackgroundColor(false);
+        const QColor cardBorder = m_theme.cardBorderColor(false);
+        const QColor accent = m_theme.primaryAccentColor();
+        const int radius = qBound(4, m_theme.cardCornerRadius(), 10);
 
         m_editName = new QLineEdit(m_name, this);
         m_editName->setPlaceholderText(QStringLiteral("e.g. Work, Browsing, Dev"));
         m_editName->setStyleSheet(QStringLiteral(
             "QLineEdit {"
-            "  background-color: rgba(255, 255, 255, 0.08);"
-            "  color: #ffffff;"
+            "  background-color: %1;"
+            "  color: %2;"
             "  font-size: 14px;"
             "  padding: 8px 12px;"
-            "  border: 1.5px solid rgba(255, 255, 255, 0.2);"
-            "  border-radius: 8px;"
+            "  border: 1.5px solid %3;"
+            "  border-radius: %4px;"
             "}"
             "QLineEdit:focus {"
-            "  border-color: #3498db;"
-            "  background-color: rgba(255, 255, 255, 0.12);"
+            "  border-color: %5;"
+            "  background-color: rgba(%6, %7, %8, 0.15);"
             "}"
-        ));
+        ).arg(cardBg.name(QColor::HexArgb), m_theme.textPrimaryColor().name(), cardBorder.name(QColor::HexArgb),
+              QString::number(radius), accent.name(), QString::number(accent.red()), QString::number(accent.green()), QString::number(accent.blue())));
         m_editName->selectAll();
         vboxName->addWidget(m_editName);
         layout->addLayout(vboxName);
@@ -310,7 +323,7 @@ public:
         auto *vboxColor = new QVBoxLayout();
         vboxColor->setSpacing(6);
         auto *lblColorTag = new QLabel(QStringLiteral("Accent Color:"), this);
-        lblColorTag->setStyleSheet(QStringLiteral("font-size: 12px; font-weight: bold; color: rgba(255,255,255,0.85);"));
+        lblColorTag->setStyleSheet(QStringLiteral("font-size: 12px; font-weight: bold; color: %1;").arg(m_theme.textPrimaryColor().name()));
         vboxColor->addWidget(lblColorTag);
 
         auto *colorsLayout = new QHBoxLayout();
@@ -346,7 +359,7 @@ public:
 
         // Rules info
         auto *lblInfo = new QLabel(QStringLiteral("Rules: %1 window filter(s) configured").arg(ruleCount), this);
-        lblInfo->setStyleSheet(QStringLiteral("font-size: 12px; color: rgba(255, 255, 255, 0.5); font-style: italic;"));
+        lblInfo->setStyleSheet(QStringLiteral("font-size: 12px; color: %1; font-style: italic;").arg(m_theme.textSecondaryColor().name()));
         layout->addWidget(lblInfo);
 
         layout->addStretch(1);
@@ -360,30 +373,30 @@ public:
         btnCancel->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background-color: rgba(255, 255, 255, 0.1);"
-            "  border-radius: 8px;"
+            "  border-radius: %1px;"
             "  color: #ffffff;"
             "  padding: 8px 18px;"
             "}"
             "QPushButton:hover {"
             "  background-color: rgba(255, 255, 255, 0.2);"
             "}"
-        ));
+        ).arg(QString::number(radius)));
         connect(btnCancel, &QPushButton::clicked, this, &QDialog::reject);
         btnLayout->addWidget(btnCancel);
 
         auto *btnSave = new QPushButton(QStringLiteral("Save [Enter]"), this);
         btnSave->setStyleSheet(QStringLiteral(
             "QPushButton {"
-            "  background-color: #2ecc71;"
-            "  border-radius: 8px;"
+            "  background-color: %1;"
+            "  border-radius: %2px;"
             "  color: #ffffff;"
             "  font-weight: bold;"
             "  padding: 8px 22px;"
             "}"
             "QPushButton:hover {"
-            "  background-color: #27ae60;"
+            "  background-color: rgba(%3, %4, %5, 0.85);"
             "}"
-        ));
+        ).arg(accent.name(), QString::number(radius), QString::number(accent.red()), QString::number(accent.green()), QString::number(accent.blue())));
         connect(btnSave, &QPushButton::clicked, this, &EditWorkspaceDialog::onSave);
         btnLayout->addWidget(btnSave);
 
@@ -465,6 +478,7 @@ private:
 
     QString m_name;
     QColor m_color;
+    LeapKTheme::Theme m_theme;
     QLineEdit *m_editName = nullptr;
     QList<QPair<QPushButton *, QColor>> m_colorButtons;
     QPoint m_dragPos;
@@ -474,8 +488,8 @@ private:
 class WorkspaceCard : public QFrame
 {
 public:
-    WorkspaceCard(int index, const LeapKWorkspace::WorkspaceInfo &info, bool isAssigned, bool isSelected, QWidget *parent = nullptr)
-        : QFrame(parent), m_index(index), m_info(info), m_isAssigned(isAssigned), m_isSelected(isSelected)
+    WorkspaceCard(int index, const LeapKWorkspace::WorkspaceInfo &info, bool isAssigned, bool isSelected, const LeapKTheme::Theme &theme = LeapKTheme::Theme(), QWidget *parent = nullptr)
+        : QFrame(parent), m_index(index), m_info(info), m_isAssigned(isAssigned), m_isSelected(isSelected), m_theme(theme)
     {
         setObjectName(QStringLiteral("wsCard"));
         setCursor(Qt::PointingHandCursor);
@@ -485,11 +499,14 @@ public:
         layout->setContentsMargins(14, 10, 14, 10);
         layout->setSpacing(12);
 
+        const QColor accent = m_theme.primaryAccentColor();
+        const int keyRadius = qBound(2, m_theme.cardCornerRadius(), 8);
+
         // Shortcut key badge [1], [2], etc.
         m_lblKey = new QLabel(QStringLiteral("[%1]").arg(index + 1), this);
         m_lblKey->setStyleSheet(QStringLiteral(
-            "background-color: #3498db; color: #ffffff; font-weight: bold; font-size: 14px; border-radius: 8px; padding: 4px 10px;"
-        ));
+            "background-color: %1; color: %2; font-weight: bold; font-size: 14px; border-radius: %3px; padding: 4px 10px;"
+        ).arg(accent.name(QColor::HexRgb), m_theme.hintsBar.keyColor, QString::number(keyRadius)));
         layout->addWidget(m_lblKey);
 
         // Color dot
@@ -503,13 +520,13 @@ public:
         auto *vbox = new QVBoxLayout();
         vbox->setSpacing(2);
         auto *lblName = new QLabel(QStringLiteral("<b>%1</b>").arg(info.name.toHtmlEscaped()), this);
-        lblName->setStyleSheet(QStringLiteral("font-size: 15px; color: #ffffff; border: none; background: transparent;"));
+        lblName->setStyleSheet(QStringLiteral("font-size: 15px; color: %1; border: none; background: transparent;").arg(m_theme.textPrimaryColor().name()));
         lblName->setTextFormat(Qt::RichText);
         vbox->addWidget(lblName);
 
         const QString ruleDesc = QStringLiteral("Rules: %1 • Created: %2").arg(info.rules.size()).arg(QDateTime::fromMSecsSinceEpoch(info.createdAt).toString(QStringLiteral("yyyy-MM-dd")));
         auto *lblDesc = new QLabel(ruleDesc, this);
-        lblDesc->setStyleSheet(QStringLiteral("font-size: 12px; color: rgba(255, 255, 255, 0.6); border: none; background: transparent;"));
+        lblDesc->setStyleSheet(QStringLiteral("font-size: 12px; color: %1; border: none; background: transparent;").arg(m_theme.textSecondaryColor().name()));
         vbox->addWidget(lblDesc);
         layout->addLayout(vbox, 1);
 
@@ -525,18 +542,19 @@ public:
         m_btnEdit->setToolTip(QStringLiteral("Edit workspace name and color [F2]"));
         m_btnEdit->setStyleSheet(QStringLiteral(
             "QPushButton {"
-            "  background-color: rgba(52, 152, 219, 0.15);"
-            "  color: #3498db;"
+            "  background-color: rgba(%1, %2, %3, 0.15);"
+            "  color: %4;"
             "  font-size: 13px;"
             "  font-weight: bold;"
-            "  border: 1px solid rgba(52, 152, 219, 0.35);"
-            "  border-radius: 6px;"
+            "  border: 1px solid rgba(%1, %2, %3, 0.35);"
+            "  border-radius: %5px;"
             "}"
             "QPushButton:hover {"
-            "  background-color: rgba(52, 152, 219, 0.4);"
+            "  background-color: rgba(%1, %2, %3, 0.4);"
             "  color: #ffffff;"
             "}"
-        ));
+        ).arg(QString::number(accent.red()), QString::number(accent.green()), QString::number(accent.blue()),
+              accent.name(), QString::number(qBound(2, m_theme.cardCornerRadius(), 6))));
         connect(m_btnEdit, &QPushButton::clicked, this, [this]() {
             if (onEditClicked) {
                 onEditClicked(m_index);
@@ -562,13 +580,13 @@ public:
             "  font-size: 12px;"
             "  font-weight: bold;"
             "  border: 1px solid rgba(231, 76, 60, 0.35);"
-            "  border-radius: 6px;"
+            "  border-radius: %1px;"
             "}"
             "QPushButton:hover {"
             "  background-color: rgba(231, 76, 60, 0.4);"
             "  color: #ffffff;"
             "}"
-        ));
+        ).arg(QString::number(qBound(2, m_theme.cardCornerRadius(), 6))));
         connect(m_btnDelete, &QPushButton::clicked, this, [this]() {
             if (onDeleteClicked) {
                 onDeleteClicked(m_index);
@@ -611,6 +629,12 @@ protected:
 private:
     void updateStyle()
     {
+        const int radius = m_theme.cardCornerRadius();
+        const QColor accent = m_theme.primaryAccentColor();
+        const QColor cardBg = m_theme.cardBackgroundColor(false);
+        const QColor cardBgActive = m_theme.cardBackgroundColor(true);
+        const QColor cardBorder = m_theme.cardBorderColor(false);
+
         if (m_isAssigned) {
             const QString border = m_isSelected
                 ? QStringLiteral("2px solid #2ecc71")
@@ -622,45 +646,49 @@ private:
                 "QFrame#wsCard {"
                 "  background-color: %1;"
                 "  border: %2;"
-                "  border-radius: 12px;"
+                "  border-radius: %3px;"
                 "}"
                 "QFrame#wsCard:hover {"
                 "  background-color: rgba(46, 204, 113, 0.36);"
                 "}"
-            ).arg(bg, border));
+            ).arg(bg, border, QString::number(radius)));
         } else {
             const QString border = m_isSelected
-                ? QStringLiteral("2px solid #3498db")
-                : QStringLiteral("1px solid rgba(255, 255, 255, 0.15)");
+                ? QStringLiteral("2px solid %1").arg(accent.name(QColor::HexRgb))
+                : QStringLiteral("1px solid %1").arg(cardBorder.name(QColor::HexArgb));
             const QString bg = m_isSelected
-                ? QStringLiteral("rgba(52, 152, 219, 0.22)")
-                : QStringLiteral("rgba(255, 255, 255, 0.06)");
+                ? QStringLiteral("rgba(%1, %2, %3, 0.22)").arg(accent.red()).arg(accent.green()).arg(accent.blue())
+                : cardBg.name(QColor::HexArgb);
+            const QString hoverBg = m_isSelected
+                ? QStringLiteral("rgba(%1, %2, %3, 0.32)").arg(accent.red()).arg(accent.green()).arg(accent.blue())
+                : cardBgActive.name(QColor::HexArgb);
             setStyleSheet(QStringLiteral(
                 "QFrame#wsCard {"
                 "  background-color: %1;"
                 "  border: %2;"
-                "  border-radius: 12px;"
+                "  border-radius: %3px;"
                 "}"
                 "QFrame#wsCard:hover {"
-                "  background-color: rgba(255, 255, 255, 0.14);"
-                "  border-color: rgba(255, 255, 255, 0.4);"
+                "  background-color: %4;"
+                "  border-color: %5;"
                 "}"
-            ).arg(bg, border));
+            ).arg(bg, border, QString::number(radius), hoverBg, accent.name(QColor::HexRgb)));
         }
     }
 
     void updateStatusBadge()
     {
+        const int radius = qBound(2, m_theme.cardCornerRadius(), 6);
         if (m_isAssigned) {
             m_lblStatus->setText(QStringLiteral("✓ Assigned"));
             m_lblStatus->setStyleSheet(QStringLiteral(
-                "background-color: #2ecc71; color: #ffffff; font-weight: bold; font-size: 12px; border-radius: 6px; padding: 4px 10px;"
-            ));
+                "background-color: #2ecc71; color: #ffffff; font-weight: bold; font-size: 12px; border-radius: %1px; padding: 4px 10px;"
+            ).arg(QString::number(radius)));
         } else {
             m_lblStatus->setText(QStringLiteral("+ Assign"));
             m_lblStatus->setStyleSheet(QStringLiteral(
-                "background-color: rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.7); font-size: 12px; border-radius: 6px; padding: 4px 8px;"
-            ));
+                "background-color: rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.7); font-size: 12px; border-radius: %1px; padding: 4px 8px;"
+            ).arg(QString::number(radius)));
         }
     }
 
@@ -668,6 +696,7 @@ private:
     LeapKWorkspace::WorkspaceInfo m_info;
     bool m_isAssigned;
     bool m_isSelected = false;
+    LeapKTheme::Theme m_theme;
     QLabel *m_lblKey = nullptr;
     QLabel *m_lblStatus = nullptr;
     QPushButton *m_btnEdit = nullptr;
@@ -683,6 +712,7 @@ public:
                            const QString &desktopName,
                            const QString &assignedWsId,
                            const QList<LeapKWorkspace::WorkspaceInfo> &workspaces,
+                           const LeapKTheme::Theme &theme = LeapKTheme::Theme(),
                            QWidget *parent = nullptr)
         : QDialog(parent)
         , m_appClass(appClass)
@@ -692,10 +722,12 @@ public:
         , m_assignedWsId(assignedWsId)
         , m_workspaces(workspaces)
         , m_groupByApp(true)
+        , m_theme(theme)
     {
         setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
         setAttribute(Qt::WA_TranslucentBackground, true);
         resize(580, 530);
+        setStyleSheet(LeapKTheme::generateDialogStyleSheet(m_theme));
 
         m_selectedCardIndex = -1;
         for (int i = 0; i < m_workspaces.size(); ++i) {
@@ -711,26 +743,30 @@ public:
         auto *rootLayout = new QVBoxLayout(this);
         rootLayout->setContentsMargins(0, 0, 0, 0);
 
-        m_mainFrame = new MainWorkspaceFrame(this);
+        m_mainFrame = new MainWorkspaceFrame(m_theme, this);
         rootLayout->addWidget(m_mainFrame);
 
         auto *mainLayout = new QVBoxLayout(m_mainFrame);
         mainLayout->setContentsMargins(20, 18, 20, 18);
         mainLayout->setSpacing(14);
 
+        const QColor accent = m_theme.primaryAccentColor();
+        const int btnRadius = qBound(4, m_theme.cardCornerRadius(), 10);
+
         // Header
         auto *headerLayout = new QVBoxLayout();
         headerLayout->setSpacing(4);
 
         auto *lblTitle = new QLabel(QStringLiteral("📁 Workspace Manager"), this);
-        lblTitle->setStyleSheet(QStringLiteral("font-size: 18px; font-weight: bold; color: #ffffff;"));
+        lblTitle->setStyleSheet(QStringLiteral("font-size: 18px; font-weight: bold; color: %1;").arg(m_theme.textPrimaryColor().name()));
         headerLayout->addWidget(lblTitle);
 
-        const QString subText = QStringLiteral("Current window: <b style='color:#3498db;'>%1</b> &bull; <span style='color:rgba(255,255,255,0.7);'>%2</span>")
-                .arg(m_appClass.isEmpty() ? QStringLiteral("Unknown") : m_appClass.toHtmlEscaped(), m_windowCaption.left(35).toHtmlEscaped());
+        const QString subText = QStringLiteral("Current window: <b style='color:%1;'>%2</b> &bull; <span style='color:%3;'>%4</span>")
+                .arg(accent.name(), m_appClass.isEmpty() ? QStringLiteral("Unknown") : m_appClass.toHtmlEscaped(),
+                     m_theme.textSecondaryColor().name(), m_windowCaption.left(35).toHtmlEscaped());
         auto *lblSub = new QLabel(subText, this);
         lblSub->setTextFormat(Qt::RichText);
-        lblSub->setStyleSheet(QStringLiteral("font-size: 13px; color: rgba(255, 255, 255, 0.85);"));
+        lblSub->setStyleSheet(QStringLiteral("font-size: 13px; color: %1;").arg(m_theme.textSecondaryColor().name()));
         headerLayout->addWidget(lblSub);
         mainLayout->addLayout(headerLayout);
 
@@ -738,7 +774,7 @@ public:
         auto *scopeLayout = new QHBoxLayout();
         scopeLayout->setSpacing(10);
         auto *lblScopeTitle = new QLabel(QStringLiteral("Rule Scope:"), this);
-        lblScopeTitle->setStyleSheet(QStringLiteral("color: rgba(255, 255, 255, 0.7); font-size: 13px; font-weight: bold;"));
+        lblScopeTitle->setStyleSheet(QStringLiteral("color: %1; font-size: 13px; font-weight: bold;").arg(m_theme.textSecondaryColor().name()));
         scopeLayout->addWidget(lblScopeTitle);
 
         m_btnScopeApp = new QPushButton(QStringLiteral("[A] Entire App"), this);
@@ -784,18 +820,19 @@ public:
         m_btnNewWs = new QPushButton(QStringLiteral("➕ [N] Create with window"), this);
         m_btnNewWs->setStyleSheet(QStringLiteral(
             "QPushButton {"
-            "  background-color: rgba(52, 152, 219, 0.15);"
-            "  border: 1.5px dashed #3498db;"
-            "  border-radius: 12px;"
-            "  color: #3498db;"
+            "  background-color: rgba(%1, %2, %3, 0.15);"
+            "  border: 1.5px dashed %4;"
+            "  border-radius: %5px;"
+            "  color: %4;"
             "  font-weight: bold;"
             "  font-size: 13px;"
             "  padding: 10px;"
             "}"
             "QPushButton:hover {"
-            "  background-color: rgba(52, 152, 219, 0.3);"
+            "  background-color: rgba(%1, %2, %3, 0.3);"
             "}"
-        ));
+        ).arg(QString::number(accent.red()), QString::number(accent.green()), QString::number(accent.blue()),
+              accent.name(), QString::number(btnRadius)));
         connect(m_btnNewWs, &QPushButton::clicked, this, &WorkspaceManagerDialog::onNewWorkspace);
         newWsLayout->addWidget(m_btnNewWs);
 
@@ -804,7 +841,7 @@ public:
             "QPushButton {"
             "  background-color: rgba(46, 204, 113, 0.15);"
             "  border: 1.5px dashed #2ecc71;"
-            "  border-radius: 12px;"
+            "  border-radius: %1px;"
             "  color: #2ecc71;"
             "  font-weight: bold;"
             "  font-size: 13px;"
@@ -813,7 +850,7 @@ public:
             "QPushButton:hover {"
             "  background-color: rgba(46, 204, 113, 0.3);"
             "}"
-        ));
+        ).arg(QString::number(btnRadius)));
         connect(m_btnNewEmptyWs, &QPushButton::clicked, this, &WorkspaceManagerDialog::onNewEmptyWorkspace);
         newWsLayout->addWidget(m_btnNewEmptyWs);
 
@@ -828,7 +865,7 @@ public:
             "QPushButton {"
             "  background-color: rgba(231, 76, 60, 0.12);"
             "  border: 1px solid rgba(231, 76, 60, 0.35);"
-            "  border-radius: 8px;"
+            "  border-radius: %1px;"
             "  color: #e74c3c;"
             "  font-weight: bold;"
             "  padding: 8px 14px;"
@@ -836,24 +873,25 @@ public:
             "QPushButton:hover {"
             "  background-color: rgba(231, 76, 60, 0.25);"
             "}"
-        ));
+        ).arg(QString::number(btnRadius)));
         connect(m_btnUnassign, &QPushButton::clicked, this, &WorkspaceManagerDialog::onUnassign);
         bottomLayout->addWidget(m_btnUnassign);
 
         m_btnEditWs = new QPushButton(QStringLiteral("✏️ Edit [F2]"), this);
         m_btnEditWs->setStyleSheet(QStringLiteral(
             "QPushButton {"
-            "  background-color: rgba(52, 152, 219, 0.15);"
-            "  border: 1px solid rgba(52, 152, 219, 0.4);"
-            "  border-radius: 8px;"
-            "  color: #3498db;"
+            "  background-color: rgba(%1, %2, %3, 0.15);"
+            "  border: 1px solid rgba(%1, %2, %3, 0.4);"
+            "  border-radius: %4px;"
+            "  color: %5;"
             "  font-weight: bold;"
             "  padding: 8px 14px;"
             "}"
             "QPushButton:hover {"
-            "  background-color: rgba(52, 152, 219, 0.3);"
+            "  background-color: rgba(%1, %2, %3, 0.3);"
             "}"
-        ));
+        ).arg(QString::number(accent.red()), QString::number(accent.green()), QString::number(accent.blue()),
+              QString::number(btnRadius), accent.name()));
         connect(m_btnEditWs, &QPushButton::clicked, this, &WorkspaceManagerDialog::editSelectedWorkspace);
         bottomLayout->addWidget(m_btnEditWs);
 
@@ -862,7 +900,7 @@ public:
             "QPushButton {"
             "  background-color: rgba(231, 76, 60, 0.15);"
             "  border: 1px solid rgba(231, 76, 60, 0.4);"
-            "  border-radius: 8px;"
+            "  border-radius: %1px;"
             "  color: #e74c3c;"
             "  font-weight: bold;"
             "  padding: 8px 14px;"
@@ -870,7 +908,7 @@ public:
             "QPushButton:hover {"
             "  background-color: rgba(231, 76, 60, 0.3);"
             "}"
-        ));
+        ).arg(QString::number(btnRadius)));
         connect(m_btnDeleteWs, &QPushButton::clicked, this, &WorkspaceManagerDialog::deleteSelectedOrAssignedWorkspace);
         bottomLayout->addWidget(m_btnDeleteWs);
         bottomLayout->addStretch(1);
@@ -879,14 +917,14 @@ public:
         btnCancel->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background-color: rgba(255, 255, 255, 0.1);"
-            "  border-radius: 8px;"
+            "  border-radius: %1px;"
             "  color: #ffffff;"
             "  padding: 8px 16px;"
             "}"
             "QPushButton:hover {"
             "  background-color: rgba(255, 255, 255, 0.2);"
             "}"
-        ));
+        ).arg(QString::number(btnRadius)));
         connect(btnCancel, &QPushButton::clicked, this, &QDialog::reject);
         bottomLayout->addWidget(btnCancel);
 
@@ -894,7 +932,7 @@ public:
         btnSave->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background-color: #2ecc71;"
-            "  border-radius: 8px;"
+            "  border-radius: %1px;"
             "  color: #ffffff;"
             "  font-weight: bold;"
             "  padding: 8px 24px;"
@@ -902,7 +940,7 @@ public:
             "QPushButton:hover {"
             "  background-color: #27ae60;"
             "}"
-        ));
+        ).arg(QString::number(btnRadius)));
         connect(btnSave, &QPushButton::clicked, this, &QDialog::accept);
         bottomLayout->addWidget(btnSave);
 
@@ -1052,13 +1090,20 @@ private:
         m_btnScopeApp->setChecked(m_groupByApp);
         m_btnScopeSingle->setChecked(!m_groupByApp);
 
+        const QColor accent = m_theme.primaryAccentColor();
+        const QColor textSec = m_theme.textSecondaryColor();
+        const QColor cardBg = m_theme.cardBackgroundColor(false);
+        const QColor cardBorder = m_theme.cardBorderColor(false);
+        const int radius = qBound(4, m_theme.cardCornerRadius(), 8);
+
         const QString activeStyle = QStringLiteral(
-            "QPushButton { background-color: #3498db; color: #ffffff; font-weight: bold; border-radius: 6px; padding: 6px 14px; border: none; }"
-        );
+            "QPushButton { background-color: %1; color: #ffffff; font-weight: bold; border-radius: %2px; padding: 6px 14px; border: 1.5px solid %1; }"
+        ).arg(accent.name(), QString::number(radius));
         const QString inactiveStyle = QStringLiteral(
-            "QPushButton { background-color: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border-radius: 6px; padding: 6px 14px; border: 1px solid rgba(255,255,255,0.15); }"
-            "QPushButton:hover { background-color: rgba(255,255,255,0.15); }"
-        );
+            "QPushButton { background-color: %1; color: %2; border-radius: %3px; padding: 6px 14px; border: 1px solid %4; }"
+            "QPushButton:hover { background-color: rgba(%5, %6, %7, 0.2); border-color: %8; color: #ffffff; }"
+        ).arg(cardBg.name(QColor::HexArgb), textSec.name(), QString::number(radius), cardBorder.name(QColor::HexArgb),
+              QString::number(accent.red()), QString::number(accent.green()), QString::number(accent.blue()), accent.name());
         m_btnScopeApp->setStyleSheet(m_groupByApp ? activeStyle : inactiveStyle);
         m_btnScopeSingle->setStyleSheet(!m_groupByApp ? activeStyle : inactiveStyle);
     }
@@ -1084,7 +1129,7 @@ private:
             const auto &ws = m_workspaces.at(i);
             const bool isAssigned = (ws.id == m_assignedWsId);
             const bool isSelected = (i == m_selectedCardIndex);
-            auto *card = new WorkspaceCard(i, ws, isAssigned, isSelected, m_cardsContainer);
+            auto *card = new WorkspaceCard(i, ws, isAssigned, isSelected, m_theme, m_cardsContainer);
             card->onClicked = [this](int idx) {
                 m_selectedCardIndex = idx;
                 updateCardSelection();
@@ -1148,7 +1193,7 @@ private:
             return;
         }
         auto &ws = m_workspaces[idx];
-        EditWorkspaceDialog dlg(ws.name, ws.color, ws.rules.size(), this);
+        EditWorkspaceDialog dlg(ws.name, ws.color, ws.rules.size(), m_theme, this);
         if (dlg.exec() == QDialog::Accepted) {
             const QString newName = dlg.workspaceName().trimmed();
             if (!newName.isEmpty()) {
@@ -1207,7 +1252,7 @@ private:
             return;
         }
         const auto ws = m_workspaces.at(idx);
-        CloseWorkspaceDialog dlg(ws.name, this);
+        CloseWorkspaceDialog dlg(ws.name, m_theme, this);
         if (dlg.exec() == QDialog::Accepted) {
             const auto act = dlg.selectedAction();
             QString actStr = QStringLiteral("standard");
@@ -1333,6 +1378,7 @@ private:
     QString m_assignedWsId;
     QList<LeapKWorkspace::WorkspaceInfo> m_workspaces;
     bool m_groupByApp;
+    LeapKTheme::Theme m_theme;
 
     QPoint m_dragPos;
     bool m_isDragging = false;
@@ -1409,7 +1455,14 @@ int main(int argc, char *argv[])
         }
 
         const auto ws = workspaces.at(foundIdx);
-        CloseWorkspaceDialog dlg(ws.name);
+        QString themeId;
+        for (int i = 1; i < argc; ++i) {
+            if (QString::fromUtf8(argv[i]) == QLatin1String("--theme") && (i + 1) < argc) {
+                themeId = QString::fromUtf8(argv[++i]).trimmed();
+            }
+        }
+        const auto theme = LeapKTheme::loadActiveTheme(themeId);
+        CloseWorkspaceDialog dlg(ws.name, theme);
         if (dlg.exec() == QDialog::Accepted) {
             const auto act = dlg.selectedAction();
             QString actStr = QStringLiteral("standard");
@@ -1447,16 +1500,29 @@ int main(int argc, char *argv[])
     int desktopNum = 0;
     QString desktopName;
     QString assignedWsId;
+    QString themeId;
 
-    if (argc > 1 && argv[1]) appClass = QString::fromUtf8(argv[1]).trimmed();
-    if (argc > 2 && argv[2]) windowCaption = QString::fromUtf8(argv[2]).trimmed();
-    if (argc > 3 && argv[3]) desktopNum = QString::fromUtf8(argv[3]).toInt();
-    if (argc > 4 && argv[4]) desktopName = QString::fromUtf8(argv[4]).trimmed();
-    if (argc > 5 && argv[5]) assignedWsId = QString::fromUtf8(argv[5]).trimmed();
+    for (int i = 1; i < argc; ++i) {
+        const QString arg = QString::fromUtf8(argv[i]);
+        if (arg == QLatin1String("--theme") && (i + 1) < argc) {
+            themeId = QString::fromUtf8(argv[++i]).trimmed();
+        } else if (appClass.isEmpty()) {
+            appClass = arg.trimmed();
+        } else if (windowCaption.isEmpty()) {
+            windowCaption = arg.trimmed();
+        } else if (desktopNum == 0 && arg.toInt() > 0) {
+            desktopNum = arg.toInt();
+        } else if (desktopName.isEmpty()) {
+            desktopName = arg.trimmed();
+        } else if (assignedWsId.isEmpty()) {
+            assignedWsId = arg.trimmed();
+        }
+    }
 
+    const LeapKTheme::Theme theme = LeapKTheme::loadActiveTheme(themeId);
     QList<LeapKWorkspace::WorkspaceInfo> workspaces = LeapKWorkspace::loadWorkspaces();
 
-    WorkspaceManagerDialog dlg(appClass, windowCaption, desktopNum, desktopName, assignedWsId, workspaces);
+    WorkspaceManagerDialog dlg(appClass, windowCaption, desktopNum, desktopName, assignedWsId, workspaces, theme);
     if (dlg.exec() == QDialog::Accepted) {
         // Save workspaces permanently
         const auto updatedList = dlg.workspaces();

@@ -3726,6 +3726,9 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
         }
 
         QStringList args;
+        if (!m_badgeConfig.activeThemeId.isEmpty()) {
+            args << QStringLiteral("--theme") << m_badgeConfig.activeThemeId;
+        }
         args << initialColor.name(QColor::HexArgb) << QString(initialLetter);
         if (isAlreadyMarked) {
             args << (m_markedWindowLetters.contains(target) ? QStringLiteral("1") : QStringLiteral("0"));
@@ -4059,6 +4062,9 @@ void ActiveWindowOutlineEffect::slotOpenWorkspaceManager()
     }
 
     QStringList args;
+    if (!m_badgeConfig.activeThemeId.isEmpty()) {
+        args << QStringLiteral("--theme") << m_badgeConfig.activeThemeId;
+    }
     args << appClass;
     args << caption;
     args << QString::number(desktopNum);
@@ -4137,6 +4143,9 @@ void ActiveWindowOutlineEffect::slotOpenMarkerManager()
     const QString caption = target ? target->caption() : QString();
 
     QStringList args;
+    if (!m_badgeConfig.activeThemeId.isEmpty()) {
+        args << QStringLiteral("--theme") << m_badgeConfig.activeThemeId;
+    }
     if (target && !target->isDeleted()) {
         args << appClass
              << caption
@@ -5091,6 +5100,9 @@ void ActiveWindowOutlineEffect::slotCreateNewWorkspacePrompt()
     }
 
     QStringList args;
+    if (!m_badgeConfig.activeThemeId.isEmpty()) {
+        args << QStringLiteral("--theme") << m_badgeConfig.activeThemeId;
+    }
     args << QStringLiteral("--prompt-new-workspace");
 
     QProcess *process = new QProcess(this);
@@ -5182,6 +5194,9 @@ void ActiveWindowOutlineEffect::slotCloseActiveWorkspace()
     }
 
     QStringList args;
+    if (!m_badgeConfig.activeThemeId.isEmpty()) {
+        args << QStringLiteral("--theme") << m_badgeConfig.activeThemeId;
+    }
     args << QStringLiteral("--close-workspace") << ws.id;
 
     QProcess *process = new QProcess(this);

@@ -4,6 +4,35 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta60] - 2026-11-01
+
+### Added
+- **Global Visual Theme Integration Across Auxiliary Dialogs**:
+  - The LeapK Theme Engine (`retro-terminal`, `cyberpunk-neon`, `nordic-frost`, `default-breeze`, and custom user themes) now styles all auxiliary windows and dialogs:
+    - **Workspace Manager (`leapk-workspace-manager`)**:
+      - `MainWorkspaceFrame`: adopts theme frame shape (`sharp`, `chamfered`, `pill`, `rounded_rect`), background surface opacity, frame glow, border color, and top accent line.
+      - `WorkspaceCard`: styled with theme card background, borders, card corner radius, dynamic hover highlighting, and keycap accent color matching active theme.
+      - `EditWorkspaceDialog` & `CloseWorkspaceDialog`: styled with active theme colors, themed buttons, and inputs.
+      - Scope switcher buttons (`App` vs `Single Window`) and action buttons adapt to theme accent and card styles.
+    - **Marker & Group Manager (`leapk-marker-manager`)**:
+      - `MainMarkerFrame`: adopts theme frame shape, acrylic glass surface, glow, and border.
+      - `MarkerRuleCard`: themed cards with adaptive corner radius, active phosphor/neon accent colors for active state, dashed frames for disabled state, and themed badges.
+      - `EditMarkerRuleDialog`: dialog background, inputs, combo boxes, and save/cancel buttons inherit theme palette and corner radius.
+      - Search bar and bottom action buttons dynamically match theme accent color.
+    - **Custom Marker & Color Picker (`leapk-custom-marker` / `colorpicker`)**:
+      - `MainMarkerFrame`: paints themed outer frame matching HUD style.
+      - `MarkerOptionCard`: adopts themed card background, borders, and corner radius.
+      - `PatternFilterDialog`: adopts themed acrylic surface, accent border, and themed inputs.
+      - Live preview card, label inputs, and navigation buttons adapt to theme accent colors.
+  - **Shared Theme Engine Helpers in `themehelper.h`**:
+    - Added convenience methods to `LeapKTheme::Theme`: `primaryAccentColor()`, `secondaryAccentColor()`, `surfaceBackgroundColor()`, `cardBackgroundColor()`, `cardBorderColor()`, `cardCornerRadius()`, `textPrimaryColor()`, and `textSecondaryColor()`.
+    - Added `LeapKTheme::paintThemedWindowFrame()` for painting unified window frames supporting shapes (`rounded_rect`, `sharp`, `pill`, `chamfered`), glow, borders, and accent stripes.
+    - Added `LeapKTheme::generateDialogStyleSheet()` for unified scrollbars and input field styling.
+    - Added `LeapKTheme::loadActiveTheme(overrideThemeId)` reading kwinrc configuration with active theme knob overrides.
+  - **KWin Effect Integration & CLI Passing**:
+    - `leapk.cpp` automatically passes `--theme <activeThemeId>` when spawning helper processes for workspace manager, marker manager, and custom marker dialogs, ensuring instant theme synchronization.
+    - Added comprehensive unit tests in `tests/theme_test.cpp` and `tests/cli_test.cpp`.
+
 ## [1.6.0-beta59] - 2026-11-01
 
 ### Fixed

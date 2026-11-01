@@ -30,6 +30,7 @@
 #include <functional>
 #include <iostream>
 #include "badgehelper.h"
+#include "themehelper.h"
 
 static const char* const s_paletteKeys[8] = {"A", "S", "D", "F", "G", "H", "J", "K"};
 static const Qt::Key s_paletteQtKeys[8] = {
@@ -45,37 +46,35 @@ static const Qt::Key s_paletteNumKeys[8] = {
 class MainMarkerFrame : public QFrame
 {
 public:
-    explicit MainMarkerFrame(QWidget *parent = nullptr) : QFrame(parent)
+    explicit MainMarkerFrame(const LeapKTheme::Theme &theme = LeapKTheme::Theme(), QWidget *parent = nullptr)
+        : QFrame(parent), m_theme(theme)
     {
         setAttribute(Qt::WA_StyledBackground, false);
+    }
+
+    void setTheme(const LeapKTheme::Theme &theme)
+    {
+        m_theme = theme;
+        update();
     }
 
 protected:
     void paintEvent(QPaintEvent *) override
     {
         QPainter p(this);
-        p.setRenderHint(QPainter::Antialiasing, true);
-        const QRectF r = rect().adjusted(1, 1, -1, -1);
-
-        // Dark HUD acrylic body
-        p.setPen(QPen(QColor(255, 255, 255, 45), 1.5));
-        p.setBrush(QColor(18, 21, 26, 248));
-        p.drawRoundedRect(r, 16.0, 16.0);
-
-        // Top accent line
-        p.setPen(QPen(QColor(52, 152, 219, 150), 1.5));
-        QPainterPath topPath;
-        topPath.moveTo(r.left() + 16, r.top());
-        topPath.lineTo(r.right() - 16, r.top());
-        p.drawPath(topPath);
+        LeapKTheme::paintThemedWindowFrame(&p, rect(), m_theme);
     }
+
+private:
+    LeapKTheme::Theme m_theme;
 };
 
 // Clickable HUD Option Card
 class MarkerOptionCard : public QFrame
 {
 public:
-    explicit MarkerOptionCard(QWidget *parent = nullptr) : QFrame(parent)
+    explicit MarkerOptionCard(const LeapKTheme::Theme &theme = LeapKTheme::Theme(), QWidget *parent = nullptr)
+        : QFrame(parent), m_theme(theme)
     {
         setCursor(Qt::PointingHandCursor);
         setObjectName(QStringLiteral("hudCard"));
@@ -84,26 +83,33 @@ public:
 
     void setSelected(bool sel)
     {
+        const int radius = m_theme.cardCornerRadius();
+        const QColor accent = m_theme.primaryAccentColor();
         if (sel) {
             setStyleSheet(QStringLiteral(
                 "QFrame#hudCard {"
-                "  background-color: rgba(52, 152, 219, 0.25);"
-                "  border: 1.5px solid #3498db;"
-                "  border-radius: 12px;"
+                "  background-color: rgba(%1, %2, %3, 0.25);"
+                "  border: 1.5px solid %4;"
+                "  border-radius: %5px;"
                 "}"
-            ));
+            ).arg(QString::number(accent.red()), QString::number(accent.green()), QString::number(accent.blue()),
+                  accent.name(), QString::number(radius)));
         } else {
+            const QColor cardBg = m_theme.cardBackgroundColor(false);
+            const QColor cardBorder = m_theme.cardBorderColor(false);
             setStyleSheet(QStringLiteral(
                 "QFrame#hudCard {"
-                "  background-color: rgba(255, 255, 255, 0.06);"
-                "  border: 1px solid rgba(255, 255, 255, 0.15);"
-                "  border-radius: 12px;"
+                "  background-color: %1;"
+                "  border: 1px solid %2;"
+                "  border-radius: %3px;"
                 "}"
                 "QFrame#hudCard:hover {"
-                "  background-color: rgba(255, 255, 255, 0.11);"
-                "  border: 1px solid rgba(52, 152, 219, 0.8);"
+                "  background-color: rgba(%4, %5, %6, 0.15);"
+                "  border: 1px solid %7;"
                 "}"
-            ));
+            ).arg(cardBg.name(QColor::HexArgb), cardBorder.name(QColor::HexArgb), QString::number(radius),
+                  QString::number(accent.red()), QString::number(accent.green()), QString::number(accent.blue()),
+                  accent.name()));
         }
     }
 
@@ -119,19 +125,30 @@ protected:
         }
         QFrame::mouseReleaseEvent(event);
     }
+
+private:
+    LeapKTheme::Theme m_theme;
 };
 
 // Popup dialog for entering child process or caption pattern cleanly
 class PatternFilterDialog : public QDialog
 {
 public:
-    PatternFilterDialog(const QString &currentPattern, QWidget *parent = nullptr)
+    PatternFilterDialog(const QString &currentPattern, const LeapKTheme::Theme &theme = LeapKTheme::Theme(), QWidget *parent = nullptr)
         : QDialog(parent)
         , m_pattern(currentPattern)
+        , m_theme(theme)
     {
         setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
         setAttribute(Qt::WA_TranslucentBackground, true);
         setFixedSize(580, 240);
+        setStyleSheet(LeapKTheme::generateDialogStyleSheet(m_theme));
+
+        const QColor accent = m_theme.primaryAccentColor();
+        const int radius = m_theme.cardCornerRadius();
+        const QColor surfBg = m_theme.surfaceBackgroundColor();
+        const QColor textPrim = m_theme.textPrimaryColor();
+        const QColor textSec = m_theme.textSecondaryColor();
 
         auto *dialogLayout = new QVBoxLayout(this);
         dialogLayout->setContentsMargins(4, 4, 4, 4);
@@ -139,22 +156,22 @@ public:
         auto *card = new QFrame(this);
         card->setStyleSheet(QStringLiteral(
             "QFrame {"
-            "  background-color: rgba(18, 21, 26, 252);"
-            "  border: 1.5px solid #e67e22;"
-            "  border-radius: 14px;"
+            "  background-color: %1;"
+            "  border: 1.5px solid %2;"
+            "  border-radius: %3px;"
             "}"
-        ));
+        ).arg(surfBg.name(QColor::HexArgb), accent.name(), QString::number(radius)));
         auto *layout = new QVBoxLayout(card);
         layout->setContentsMargins(20, 18, 20, 18);
         layout->setSpacing(12);
 
         auto *title = new QLabel(QStringLiteral("<b>Narrow to Child Process or Window Title</b>"), card);
-        title->setStyleSheet(QStringLiteral("font-size: 15px; color: #ffffff; border: none; background: transparent;"));
+        title->setStyleSheet(QStringLiteral("font-size: 15px; color: %1; border: none; background: transparent;").arg(textPrim.name()));
         title->setTextFormat(Qt::RichText);
         layout->addWidget(title);
 
         auto *desc = new QLabel(QStringLiteral("Enter title substring or child process name (e.g. nvim, ssh, vim, dev, bash):"), card);
-        desc->setStyleSheet(QStringLiteral("font-size: 12px; color: rgba(255, 255, 255, 0.75); border: none; background: transparent;"));
+        desc->setStyleSheet(QStringLiteral("font-size: 12px; color: %1; border: none; background: transparent;").arg(textSec.name()));
         desc->setWordWrap(true);
         layout->addWidget(desc);
 
@@ -163,18 +180,22 @@ public:
         m_edit->setClearButtonEnabled(true);
         m_edit->setStyleSheet(QStringLiteral(
             "QLineEdit {"
-            "  background-color: rgba(0, 0, 0, 0.55);"
-            "  border: 1.5px solid rgba(255, 255, 255, 0.3);"
-            "  border-radius: 8px;"
-            "  color: #ffffff;"
+            "  background-color: %1;"
+            "  border: 1.5px solid %2;"
+            "  border-radius: %3px;"
+            "  color: %4;"
             "  padding: 8px 12px;"
             "  font-size: 14px;"
             "  font-weight: bold;"
             "}"
             "QLineEdit:focus {"
-            "  border: 1.5px solid #e67e22;"
+            "  border: 1.5px solid %5;"
             "}"
-        ));
+        ).arg(m_theme.cardBackgroundColor(false).name(QColor::HexArgb),
+              m_theme.cardBorderColor(false).name(QColor::HexArgb),
+              QString::number(radius),
+              textPrim.name(),
+              accent.name()));
         layout->addWidget(m_edit);
 
         auto *btnRow = new QHBoxLayout();
@@ -187,13 +208,13 @@ public:
             "QPushButton {"
             "  background-color: rgba(255, 255, 255, 0.08);"
             "  border: 1px solid rgba(255, 255, 255, 0.2);"
-            "  border-radius: 8px;"
+            "  border-radius: %1px;"
             "  color: #ffffff;"
             "  padding: 8px 16px;"
             "  font-size: 13px;"
             "}"
             "QPushButton:hover { background-color: rgba(255, 255, 255, 0.15); }"
-        ));
+        ).arg(QString::number(qBound(4, radius, 10))));
         connect(btnCancel, &QPushButton::clicked, this, &QDialog::reject);
         btnRow->addWidget(btnCancel);
 
@@ -201,15 +222,16 @@ public:
         btnOk->setFocusPolicy(Qt::NoFocus);
         btnOk->setStyleSheet(QStringLiteral(
             "QPushButton {"
-            "  background-color: #e67e22;"
-            "  border-radius: 8px;"
+            "  background-color: %1;"
+            "  border-radius: %2px;"
             "  color: #ffffff;"
             "  font-weight: bold;"
             "  padding: 8px 20px;"
             "  font-size: 13px;"
             "}"
-            "QPushButton:hover { background-color: #d35400; }"
-        ));
+            "QPushButton:hover { background-color: rgba(%3, %4, %5, 0.85); }"
+        ).arg(accent.name(), QString::number(qBound(4, radius, 10)),
+              QString::number(accent.red()), QString::number(accent.green()), QString::number(accent.blue())));
         connect(btnOk, &QPushButton::clicked, this, &QDialog::accept);
         btnRow->addWidget(btnOk);
 
@@ -244,6 +266,7 @@ protected:
 
 private:
     QString m_pattern;
+    LeapKTheme::Theme m_theme;
     QLineEdit *m_edit;
 };
 
@@ -262,6 +285,7 @@ public:
                        const QString &desktopName,
                        bool isAlreadyMarked,
                        const QJsonObject &usedLettersMap,
+                       const LeapKTheme::Theme &theme = LeapKTheme::Theme(),
                        QWidget *parent = nullptr)
         : QDialog(parent)
         , m_color(initialColor.isValid() ? initialColor : QColor(QStringLiteral("#3498db")))
@@ -282,6 +306,7 @@ public:
         , m_currentStep(0)
         , m_seedOffset(QRandomGenerator::global()->bounded(360))
         , m_rerollCount(0)
+        , m_theme(theme)
         , m_isDragging(false)
     {
         if (m_letter.isEmpty()) {
@@ -536,10 +561,12 @@ protected:
 private:
     void initUI()
     {
+        setStyleSheet(LeapKTheme::generateDialogStyleSheet(m_theme));
+
         auto *dialogLayout = new QVBoxLayout(this);
         dialogLayout->setContentsMargins(6, 6, 6, 6);
 
-        m_mainFrame = new MainMarkerFrame(this);
+        m_mainFrame = new MainMarkerFrame(m_theme, this);
         auto *mainLayout = new QVBoxLayout(m_mainFrame);
         mainLayout->setContentsMargins(20, 16, 20, 14);
         mainLayout->setSpacing(12);
@@ -974,7 +1001,7 @@ private:
         const QString appDisp = m_appClass.isEmpty() ? QStringLiteral("this app") : m_appClass;
 
         // Card A: All App (Key: A or 1)
-        m_cardAllApp = new MarkerOptionCard(page);
+        m_cardAllApp = new MarkerOptionCard(m_theme, page);
         m_cardAllApp->onClicked = [this]() { handleScopeSelected(1); };
 
         auto *c1Layout = new QHBoxLayout(m_cardAllApp);
@@ -1000,7 +1027,7 @@ private:
         layout->addWidget(m_cardAllApp);
 
         // Card S: Process / Caption with clean popup prompt (Key: S or 2)
-        m_cardCaption = new MarkerOptionCard(page);
+        m_cardCaption = new MarkerOptionCard(m_theme, page);
         m_cardCaption->onClicked = [this]() { handleScopeSelected(2); };
 
         auto *c2Layout = new QHBoxLayout(m_cardCaption);
@@ -1029,7 +1056,7 @@ private:
         layout->addWidget(m_cardCaption);
 
         // Card D: Single Window (Key: D or 3)
-        m_cardSingleWindow = new MarkerOptionCard(page);
+        m_cardSingleWindow = new MarkerOptionCard(m_theme, page);
         m_cardSingleWindow->onClicked = [this]() { handleScopeSelected(3); };
 
         auto *c3Layout = new QHBoxLayout(m_cardSingleWindow);
@@ -1087,7 +1114,7 @@ private:
             goToStep(3);
         } else if (scopeType == 2) { // Process / caption
             // Open clean HUD popup without squeezing cards or trapping focus!
-            PatternFilterDialog dlg(m_matchCaption.isEmpty() ? m_detectedCaption : m_matchCaption, this);
+            PatternFilterDialog dlg(m_matchCaption.isEmpty() ? m_detectedCaption : m_matchCaption, m_theme, this);
             if (dlg.exec() == QDialog::Accepted) {
                 m_matchCaption = dlg.pattern();
                 m_groupByApp = true;
@@ -1114,14 +1141,20 @@ private:
         layout->addWidget(lblTitle);
 
         // Live Preview Mockup Card
+        const QColor accent = m_theme.primaryAccentColor();
+        const int radius = m_theme.cardCornerRadius();
+        const QColor cardBg = m_theme.cardBackgroundColor(false);
+        const QColor cardBorder = m_theme.cardBorderColor(false);
+        const QColor textPrim = m_theme.textPrimaryColor();
+
         m_previewCard = new QFrame(page);
         m_previewCard->setStyleSheet(QStringLiteral(
             "QFrame {"
-            "  background-color: rgba(255, 255, 255, 0.08);"
-            "  border: 1.5px solid rgba(255, 255, 255, 0.2);"
-            "  border-radius: 14px;"
+            "  background-color: %1;"
+            "  border: 1.5px solid %2;"
+            "  border-radius: %3px;"
             "}"
-        ));
+        ).arg(cardBg.name(QColor::HexArgb), cardBorder.name(QColor::HexArgb), QString::number(radius)));
         auto *prevLayout = new QHBoxLayout(m_previewCard);
         prevLayout->setSpacing(16);
         prevLayout->setContentsMargins(14, 12, 14, 12);
@@ -1139,12 +1172,12 @@ private:
         prevDetailsLayout->setSpacing(4);
 
         m_previewTitle = new QLabel(m_previewCard);
-        m_previewTitle->setStyleSheet(QStringLiteral("font-size: 15px; font-weight: bold; color: #ffffff;"));
+        m_previewTitle->setStyleSheet(QStringLiteral("font-size: 15px; font-weight: bold; color: %1;").arg(textPrim.name()));
         m_previewTitle->setTextFormat(Qt::RichText);
         prevDetailsLayout->addWidget(m_previewTitle);
 
         m_previewScope = new QLabel(m_previewCard);
-        m_previewScope->setStyleSheet(QStringLiteral("color: rgba(255, 255, 255, 0.85); font-size: 13px;"));
+        m_previewScope->setStyleSheet(QStringLiteral("color: %1; font-size: 13px;").arg(m_theme.textSecondaryColor().name()));
         m_previewScope->setTextFormat(Qt::RichText);
         prevDetailsLayout->addWidget(m_previewScope);
 
@@ -1164,17 +1197,18 @@ private:
         m_labelEdit->installEventFilter(this);
         m_labelEdit->setStyleSheet(QStringLiteral(
             "QLineEdit {"
-            "  background-color: rgba(0, 0, 0, 0.45);"
-            "  border: 1.5px solid rgba(255, 255, 255, 0.25);"
-            "  border-radius: 8px;"
-            "  color: #ffffff;"
+            "  background-color: %1;"
+            "  border: 1.5px solid %2;"
+            "  border-radius: %3px;"
+            "  color: %4;"
             "  padding: 8px 12px;"
             "  font-size: 13px;"
             "}"
             "QLineEdit:focus {"
-            "  border: 1.5px solid #3498db;"
+            "  border: 1.5px solid %5;"
             "}"
-        ));
+        ).arg(cardBg.name(QColor::HexArgb), cardBorder.name(QColor::HexArgb), QString::number(radius),
+              textPrim.name(), accent.name()));
         connect(m_labelEdit, &QLineEdit::textChanged, this, [this](const QString &txt) {
             m_label = txt.trimmed();
             updateStep3Preview();
@@ -1344,20 +1378,23 @@ private:
         auto *btnRow = new QHBoxLayout();
         btnRow->setSpacing(10);
 
+        const QColor accent = m_theme.primaryAccentColor();
+        const int btnRadius = qBound(4, m_theme.cardCornerRadius(), 8);
+
         m_btnBack = new QPushButton(QStringLiteral("❮ Back [Backspace]"), bottomWidget);
         m_btnBack->setFocusPolicy(Qt::NoFocus);
         m_btnBack->setStyleSheet(QStringLiteral(
             "QPushButton {"
             "  background-color: rgba(255, 255, 255, 0.08);"
             "  border: 1px solid rgba(255, 255, 255, 0.18);"
-            "  border-radius: 8px;"
+            "  border-radius: %1px;"
             "  color: #ffffff;"
             "  font-size: 13px;"
             "  padding: 8px 16px;"
             "}"
             "QPushButton:hover { background-color: rgba(255, 255, 255, 0.16); }"
             "QPushButton:disabled { color: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.06); }"
-        ));
+        ).arg(QString::number(btnRadius)));
         connect(m_btnBack, &QPushButton::clicked, this, [this]() {
             if (m_currentStep > 0) {
                 goToStep(m_currentStep - 1);
@@ -1372,14 +1409,14 @@ private:
                 "QPushButton {"
                 "  background-color: rgba(231, 76, 60, 0.22);"
                 "  border: 1.5px solid #e74c3c;"
-                "  border-radius: 8px;"
+                "  border-radius: %1px;"
                 "  color: #e74c3c;"
                 "  font-weight: bold;"
                 "  font-size: 13px;"
                 "  padding: 8px 14px;"
                 "}"
                 "QPushButton:hover { background-color: rgba(231, 76, 60, 0.38); }"
-            ));
+            ).arg(QString::number(btnRadius)));
             connect(m_btnRemove, &QPushButton::clicked, this, [this]() {
                 m_markRemoved = true;
                 accept();
@@ -1393,15 +1430,20 @@ private:
             "QPushButton {"
             "  background-color: rgba(155, 89, 182, 0.15);"
             "  border: 1px solid rgba(155, 89, 182, 0.4);"
-            "  border-radius: 8px;"
+            "  border-radius: %1px;"
             "  color: #d1b2ea;"
             "  font-size: 12px;"
             "  padding: 8px 12px;"
             "}"
             "QPushButton:hover { background-color: rgba(155, 89, 182, 0.3); color: #ffffff; }"
-        ));
+        ).arg(QString::number(btnRadius)));
         connect(btnMgr, &QPushButton::clicked, this, [this]() {
-            QProcess::startDetached(QStringLiteral("leapk-marker-manager"), { m_appClass, m_windowCaption, QString::number(m_desktopNum), m_desktopName });
+            QStringList mgrArgs;
+            if (!m_theme.id.isEmpty()) {
+                mgrArgs << QStringLiteral("--theme") << m_theme.id;
+            }
+            mgrArgs << m_appClass << m_windowCaption << QString::number(m_desktopNum) << m_desktopName;
+            QProcess::startDetached(QStringLiteral("leapk-marker-manager"), mgrArgs);
         });
         btnRow->addWidget(btnMgr);
 
@@ -1413,13 +1455,13 @@ private:
             "QPushButton {"
             "  background-color: rgba(255, 255, 255, 0.06);"
             "  border: 1px solid rgba(255, 255, 255, 0.18);"
-            "  border-radius: 8px;"
+            "  border-radius: %1px;"
             "  color: rgba(255, 255, 255, 0.9);"
             "  font-size: 13px;"
             "  padding: 8px 16px;"
             "}"
             "QPushButton:hover { background-color: rgba(255, 255, 255, 0.12); }"
-        ));
+        ).arg(QString::number(btnRadius)));
         connect(m_btnCancel, &QPushButton::clicked, this, &QDialog::reject);
         btnRow->addWidget(m_btnCancel);
 
@@ -1427,15 +1469,16 @@ private:
         m_btnNext->setFocusPolicy(Qt::NoFocus);
         m_btnNext->setStyleSheet(QStringLiteral(
             "QPushButton {"
-            "  background-color: #3498db;"
-            "  border-radius: 8px;"
+            "  background-color: %1;"
+            "  border-radius: %2px;"
             "  color: #ffffff;"
             "  font-weight: bold;"
             "  font-size: 14px;"
             "  padding: 8px 20px;"
             "}"
-            "QPushButton:hover { background-color: #2980b9; }"
-        ));
+            "QPushButton:hover { background-color: rgba(%3, %4, %5, 0.85); }"
+        ).arg(accent.name(), QString::number(btnRadius),
+              QString::number(accent.red()), QString::number(accent.green()), QString::number(accent.blue())));
         connect(m_btnNext, &QPushButton::clicked, this, [this]() {
             if (m_currentStep < 3) {
                 goToStep(m_currentStep + 1);
@@ -1611,6 +1654,7 @@ private:
     QList<QColor> m_paletteColors;
 
     QPoint m_dragPos;
+    LeapKTheme::Theme m_theme;
     bool m_isDragging;
 
     MainMarkerFrame *m_mainFrame;
@@ -1663,17 +1707,28 @@ int main(int argc, char *argv[])
     app.setApplicationName(QStringLiteral("leapk-custom-marker"));
     app.setApplicationDisplayName(QObject::tr("LeapK - Custom Marker"));
 
+    QString themeId;
+    QList<QString> positionalArgs;
+    for (int i = 1; i < argc; ++i) {
+        const QString arg = QString::fromUtf8(argv[i]);
+        if (arg == QLatin1String("--theme") && (i + 1) < argc) {
+            themeId = QString::fromUtf8(argv[++i]).trimmed();
+        } else {
+            positionalArgs.append(arg);
+        }
+    }
+
     QColor currentColor(QStringLiteral("#3498db"));
-    if (argc > 1 && argv[1]) {
-        const QColor parsed(QString::fromUtf8(argv[1]));
+    if (positionalArgs.size() > 0) {
+        const QColor parsed(positionalArgs.at(0));
         if (parsed.isValid()) {
             currentColor = parsed;
         }
     }
 
     QString currentLetter = QStringLiteral("A");
-    if (argc > 2 && argv[2]) {
-        currentLetter = QString::fromUtf8(argv[2]).trimmed().toUpper();
+    if (positionalArgs.size() > 1) {
+        currentLetter = positionalArgs.at(1).trimmed().toUpper();
         if (currentLetter.isEmpty()) {
             currentLetter = QStringLiteral("A");
         }
@@ -1692,16 +1747,16 @@ int main(int argc, char *argv[])
     bool useColor = settings.value(QStringLiteral("MarkWithColor"), true).toBool();
     bool usePersistent = settings.value(QStringLiteral("MarkPersistent"), true).toBool();
 
-    if (argc > 3 && argv[3]) {
-        const QString arg3 = QString::fromUtf8(argv[3]).trimmed();
+    if (positionalArgs.size() > 2) {
+        const QString arg3 = positionalArgs.at(2).trimmed();
         if (arg3 == QStringLiteral("1") || arg3 == QStringLiteral("true")) {
             useLetter = true;
         } else if (arg3 == QStringLiteral("0") || arg3 == QStringLiteral("false")) {
             useLetter = false;
         }
     }
-    if (argc > 4 && argv[4]) {
-        const QString arg4 = QString::fromUtf8(argv[4]).trimmed();
+    if (positionalArgs.size() > 3) {
+        const QString arg4 = positionalArgs.at(3).trimmed();
         if (arg4 == QStringLiteral("1") || arg4 == QStringLiteral("true")) {
             useColor = true;
         } else if (arg4 == QStringLiteral("0") || arg4 == QStringLiteral("false")) {
@@ -1710,11 +1765,11 @@ int main(int argc, char *argv[])
     }
 
     QString currentLabel;
-    if (argc > 5 && argv[5]) {
-        currentLabel = QString::fromUtf8(argv[5]).trimmed();
+    if (positionalArgs.size() > 4) {
+        currentLabel = positionalArgs.at(4).trimmed();
     }
-    if (argc > 6 && argv[6]) {
-        const QString arg6 = QString::fromUtf8(argv[6]).trimmed();
+    if (positionalArgs.size() > 5) {
+        const QString arg6 = positionalArgs.at(5).trimmed();
         if (arg6 == QStringLiteral("1") || arg6 == QStringLiteral("true")) {
             usePersistent = true;
         } else if (arg6 == QStringLiteral("0") || arg6 == QStringLiteral("false")) {
@@ -1723,34 +1778,34 @@ int main(int argc, char *argv[])
     }
 
     QString appClass;
-    if (argc > 7 && argv[7]) {
-        appClass = QString::fromUtf8(argv[7]).trimmed();
+    if (positionalArgs.size() > 6) {
+        appClass = positionalArgs.at(6).trimmed();
     }
 
     QString windowCaption;
-    if (argc > 8 && argv[8]) {
-        windowCaption = QString::fromUtf8(argv[8]).trimmed();
+    if (positionalArgs.size() > 7) {
+        windowCaption = positionalArgs.at(7).trimmed();
     }
 
     int desktopNum = 0;
-    if (argc > 9 && argv[9]) {
-        desktopNum = QString::fromUtf8(argv[9]).trimmed().toInt();
+    if (positionalArgs.size() > 8) {
+        desktopNum = positionalArgs.at(8).trimmed().toInt();
     }
 
     QString desktopName;
-    if (argc > 10 && argv[10]) {
-        desktopName = QString::fromUtf8(argv[10]).trimmed();
+    if (positionalArgs.size() > 9) {
+        desktopName = positionalArgs.at(9).trimmed();
     }
 
     bool isAlreadyMarked = false;
-    if (argc > 11 && argv[11]) {
-        const QString mStr = QString::fromUtf8(argv[11]).trimmed();
+    if (positionalArgs.size() > 10) {
+        const QString mStr = positionalArgs.at(10).trimmed();
         isAlreadyMarked = (mStr == QStringLiteral("1") || mStr == QStringLiteral("true"));
     }
 
     QJsonObject usedLettersMap;
-    if (argc > 12 && argv[12]) {
-        const QString arg12 = QString::fromUtf8(argv[12]).trimmed();
+    if (positionalArgs.size() > 11) {
+        const QString arg12 = positionalArgs.at(11).trimmed();
         if (arg12.startsWith(QLatin1Char('{'))) {
             const QJsonDocument doc = QJsonDocument::fromJson(arg12.toUtf8());
             if (doc.isObject()) {
@@ -1759,6 +1814,7 @@ int main(int argc, char *argv[])
         }
     }
 
+    const LeapKTheme::Theme theme = LeapKTheme::loadActiveTheme(themeId);
     CustomMarkerDialog dlg(currentColor,
                            currentLetter,
                            useLetter,
@@ -1770,7 +1826,8 @@ int main(int argc, char *argv[])
                            desktopNum,
                            desktopName,
                            isAlreadyMarked,
-                           usedLettersMap);
+                           usedLettersMap,
+                           theme);
 
     if (dlg.exec() == QDialog::Accepted) {
         if (dlg.isMarkRemoved()) {

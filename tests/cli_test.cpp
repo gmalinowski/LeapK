@@ -146,12 +146,64 @@ void testTrayAndSettingsCliArguments()
     std::cout << "testTrayAndSettingsCliArguments PASSED\n";
 }
 
+void testThemeCliFlagParsing()
+{
+    // 1. Workspace manager --theme parsing
+    const QStringList wsArgs = {
+        QStringLiteral("leapk-workspace-manager"),
+        QStringLiteral("--theme"),
+        QStringLiteral("retro-terminal"),
+        QStringLiteral("org.kde.konsole"),
+        QStringLiteral("bash")
+    };
+    QString wsThemeId;
+    QString wsApp;
+    QString wsCaption;
+    for (int i = 1; i < wsArgs.size(); ++i) {
+        if (wsArgs.at(i) == QStringLiteral("--theme") && (i + 1) < wsArgs.size()) {
+            wsThemeId = wsArgs.at(++i);
+        } else if (wsApp.isEmpty()) {
+            wsApp = wsArgs.at(i);
+        } else if (wsCaption.isEmpty()) {
+            wsCaption = wsArgs.at(i);
+        }
+    }
+    assert(wsThemeId == QStringLiteral("retro-terminal"));
+    assert(wsApp == QStringLiteral("org.kde.konsole"));
+    assert(wsCaption == QStringLiteral("bash"));
+
+    // 2. Custom marker / colorpicker positional args extraction with --theme
+    const QStringList cpArgs = {
+        QStringLiteral("leapk-custom-marker"),
+        QStringLiteral("--theme"),
+        QStringLiteral("cyberpunk-neon"),
+        QStringLiteral("#3498db"),
+        QStringLiteral("M")
+    };
+    QString cpThemeId;
+    QList<QString> cpPositional;
+    for (int i = 1; i < cpArgs.size(); ++i) {
+        if (cpArgs.at(i) == QStringLiteral("--theme") && (i + 1) < cpArgs.size()) {
+            cpThemeId = cpArgs.at(++i);
+        } else {
+            cpPositional.append(cpArgs.at(i));
+        }
+    }
+    assert(cpThemeId == QStringLiteral("cyberpunk-neon"));
+    assert(cpPositional.size() == 2);
+    assert(cpPositional.at(0) == QStringLiteral("#3498db"));
+    assert(cpPositional.at(1) == QStringLiteral("M"));
+
+    std::cout << "testThemeCliFlagParsing PASSED\n";
+}
+
 int main()
 {
     testWorkspaceManagerCliParsing();
     testWorkspaceManagerIpcJsonFormats();
     testMarkerManagerCliParsing();
     testTrayAndSettingsCliArguments();
+    testThemeCliFlagParsing();
 
     std::cout << "All CLI tests passed successfully!\n";
     return 0;

@@ -12,9 +12,12 @@
 #include <QJsonValue>
 #include <QList>
 #include <QMap>
+#include <QPainter>
+#include <QPainterPath>
 #include <QPointF>
 #include <QRectF>
 #include <QRegularExpression>
+#include <QSettings>
 #include <QStandardPaths>
 #include <QString>
 #include <QStringList>
@@ -555,6 +558,92 @@ struct Theme {
             return false;
         }
         return fallback;
+    }
+
+    QColor primaryAccentColor() const
+    {
+        QColor c = resolveColor(tokens.value(QStringLiteral("borderColor")));
+        if (c.isValid()) return c;
+        c = resolveColor(QStringLiteral("$accentColor"));
+        if (c.isValid()) return c;
+        c = resolveColor(QStringLiteral("$phosphorColor"));
+        if (c.isValid()) return c;
+        c = resolveColor(QStringLiteral("$frostColor"));
+        if (c.isValid()) return c;
+        c = resolveColor(QStringLiteral("$neonCyan"));
+        if (c.isValid()) return c;
+        return QColor(QStringLiteral("#3daee9"));
+    }
+
+    QColor secondaryAccentColor() const
+    {
+        QColor c = resolveColor(QStringLiteral("$neonMagenta"));
+        if (c.isValid()) return c;
+        c = resolveColor(tokens.value(QStringLiteral("textSecondary")));
+        if (c.isValid()) return c;
+        return primaryAccentColor();
+    }
+
+    QColor surfaceBackgroundColor() const
+    {
+        QColor c = resolveColor(tokens.value(QStringLiteral("bgSurface")));
+        if (!c.isValid()) {
+            c = QColor(18, 21, 26);
+        }
+        const int alpha = qBound(50, int(hudContainer.bgOpacity * 255.0), 255);
+        c.setAlpha(alpha);
+        return c;
+    }
+
+    QColor cardBackgroundColor(bool active = false) const
+    {
+        const QString spec = active ? hudCard.bgActive : hudCard.bgNormal;
+        QColor c = resolveColor(spec);
+        if (!c.isValid()) {
+            c = active ? QColor(40, 46, 54) : QColor(30, 34, 39);
+        }
+        return c;
+    }
+
+    QColor textPrimaryColor() const
+    {
+        QColor c = resolveColor(tokens.value(QStringLiteral("textPrimary")));
+        return c.isValid() ? c : QColor(255, 255, 255);
+    }
+
+    QColor textSecondaryColor() const
+    {
+        QColor c = resolveColor(tokens.value(QStringLiteral("textSecondary")));
+        return c.isValid() ? c : QColor(180, 185, 190);
+    }
+
+    QColor frameBorderColor() const
+    {
+        QColor c = resolveColor(hudContainer.borderColor);
+        if (!c.isValid()) {
+            c = primaryAccentColor();
+        }
+        return c;
+    }
+
+    QColor cardBorderColor(bool active = false) const
+    {
+        const QString spec = active ? hudCard.borderActive : hudCard.borderNormal;
+        QColor c = resolveColor(spec);
+        if (!c.isValid()) {
+            c = active ? primaryAccentColor() : QColor(60, 66, 75);
+        }
+        return c;
+    }
+
+    int cornerRadius() const
+    {
+        return qBound(0, hudContainer.cornerRadius, 32);
+    }
+
+    int cardCornerRadius() const
+    {
+        return qBound(0, hudCard.cornerRadius, 24);
     }
 
     void applyParameterValues(const QJsonObject &userValues)
@@ -1345,6 +1434,164 @@ inline Theme findThemeById(const QString &id, const QJsonObject &userOverrides =
         fallback.applyParameterValues(userOverrides);
     }
     return fallback;
+}
+
+// ============================================================================
+// 6. Shape Drawing & Window Theming Helpers
+// ============================================================================
+
+inline void addThemedShapePath(QPainterPath &path, const QRectF &rect, const QString &shape, int cornerRadius, int chamferSize = 6)
+{
+    if (shape == QStringLiteral("chamfered")) {
+        const qreal c = qBound(2.0, (qreal)chamferSize, qMin(rect.width() / 2.0, rect.height() / 2.0));
+        path.moveTo(rect.left() + c, rect.top());
+        path.lineTo(rect.right() - c, rect.top());
+        path.lineTo(rect.right(), rect.top() + c);
+        path.lineTo(rect.right(), rect.bottom() - c);
+        path.lineTo(rect.right() - c, rect.bottom());
+        path.lineTo(rect.left() + c, rect.bottom());
+        path.lineTo(rect.left(), rect.bottom() - c);
+        path.lineTo(rect.left(), rect.top() + c);
+        path.closeSubpath();
+    } else if (shape == QStringLiteral("sharp")) {
+        path.addRect(rect);
+    } else if (shape == QStringLiteral("pill")) {
+        const qreal maxR = (cornerRadius > 0) ? (qreal)cornerRadius : 14.0;
+        const qreal r = (rect.height() > 44.0) ? qMin(rect.height() / 2.0, maxR) : (rect.height() / 2.0);
+        path.addRoundedRect(rect, r, r);
+    } else if (shape == QStringLiteral("circle")) {
+        path.addEllipse(rect);
+    } else {
+        path.addRoundedRect(rect, cornerRadius, cornerRadius);
+    }
+}
+
+inline void drawThemedShape(QPainter &p, const QRectF &rect, const QString &shape, int cornerRadius, int chamferSize = 6)
+{
+    if (shape == QStringLiteral("sharp")) {
+        p.drawRect(rect);
+    } else if (shape == QStringLiteral("pill")) {
+        const qreal maxR = (cornerRadius > 0) ? (qreal)cornerRadius : 14.0;
+        const qreal r = (rect.height() > 44.0) ? qMin(rect.height() / 2.0, maxR) : (rect.height() / 2.0);
+        p.drawRoundedRect(rect, r, r);
+    } else if (shape == QStringLiteral("circle")) {
+        p.drawEllipse(rect);
+    } else if (shape == QStringLiteral("chamfered")) {
+        QPainterPath path;
+        addThemedShapePath(path, rect, shape, cornerRadius, chamferSize);
+        p.drawPath(path);
+    } else {
+        p.drawRoundedRect(rect, cornerRadius, cornerRadius);
+    }
+}
+
+inline void paintThemedWindowFrame(QPainter *p, const QRectF &rect, const Theme &theme, const QColor &customAccent = QColor())
+{
+    p->setRenderHint(QPainter::Antialiasing, true);
+    const QRectF r = rect.adjusted(1, 1, -1, -1);
+
+    const QColor accent = customAccent.isValid() ? customAccent : theme.primaryAccentColor();
+    const QColor bg = theme.surfaceBackgroundColor();
+    const QColor border = theme.frameBorderColor();
+    const double bWidth = theme.hudContainer.borderWidth > 0 ? theme.hudContainer.borderWidth : 1.5;
+    const int radius = theme.cornerRadius();
+    const QString shape = theme.hudContainer.shape;
+    const int chamfer = theme.hudContainer.chamferSize > 0 ? theme.hudContainer.chamferSize : 8;
+
+    // 1. Soft glow if enabled in theme
+    if (theme.hudContainer.glowEnabled) {
+        const QColor glowCol = theme.resolveColor(theme.hudContainer.glowColor, accent);
+        for (int i = 3; i >= 1; --i) {
+            QPen glowPen(QColor(glowCol.red(), glowCol.green(), glowCol.blue(), 25 / i), bWidth + i * 2.0);
+            p->setPen(glowPen);
+            p->setBrush(Qt::NoBrush);
+            drawThemedShape(*p, r, shape, radius, chamfer);
+        }
+    }
+
+    // 2. Main frame body
+    p->setPen(QPen(border, bWidth));
+    p->setBrush(bg);
+    drawThemedShape(*p, r, shape, radius, chamfer);
+
+    // 3. Top accent stripe
+    p->setPen(Qt::NoPen);
+    p->setBrush(accent);
+    const qreal stripeMargin = (shape == QStringLiteral("sharp") || radius == 0) ? 0.0 : 24.0;
+    const qreal stripeRadius = (shape == QStringLiteral("sharp") || radius == 0) ? 0.0 : 1.5;
+    const QRectF stripeRect(r.left() + stripeMargin, r.top(), r.width() - (stripeMargin * 2.0), 3.0);
+    if (stripeRadius > 0.0) {
+        p->drawRoundedRect(stripeRect, stripeRadius, stripeRadius);
+    } else {
+        p->drawRect(stripeRect);
+    }
+}
+
+inline QString generateDialogStyleSheet(const Theme &theme)
+{
+    const QColor accent = theme.primaryAccentColor();
+    const QColor textPrimary = theme.textPrimaryColor();
+    const QColor cardBg = theme.cardBackgroundColor(false);
+    const QColor cardBorder = theme.cardBorderColor(false);
+    const int cRadius = theme.cardCornerRadius();
+
+    return QStringLiteral(
+        "QScrollArea { border: none; background: transparent; }"
+        "QScrollBar:vertical {"
+        "  background: rgba(255, 255, 255, 0.05); width: 8px; border-radius: 4px;"
+        "}"
+        "QScrollBar::handle:vertical {"
+        "  background: %1; border-radius: 4px; min-height: 24px;"
+        "}"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }"
+        "QLineEdit {"
+        "  background: %2;"
+        "  border: 1px solid %3;"
+        "  border-radius: %4px;"
+        "  color: %5;"
+        "  font-size: 13px; padding: 6px 12px;"
+        "}"
+        "QLineEdit:focus {"
+        "  border: 1.5px solid %6;"
+        "}"
+    ).arg(
+        theme.cardBorderColor(true).name(QColor::HexRgb),
+        cardBg.name(QColor::HexArgb),
+        cardBorder.name(QColor::HexArgb),
+        QString::number(qBound(0, cRadius, 10)),
+        textPrimary.name(QColor::HexRgb),
+        accent.name(QColor::HexRgb)
+    );
+}
+
+inline Theme loadActiveTheme(const QString &overrideThemeId = QString())
+{
+    QString themeId = overrideThemeId.trimmed();
+    QJsonObject userOverrides;
+
+    const QString kwinrcPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + QStringLiteral("/kwinrc");
+    if (QFile::exists(kwinrcPath)) {
+        QSettings settings(kwinrcPath, QSettings::IniFormat);
+        settings.beginGroup(QStringLiteral("Effect-leapk"));
+        if (!settings.contains(QStringLiteral("ActiveThemeId")) && !settings.contains(QStringLiteral("ActiveThemeParams"))) {
+            settings.endGroup();
+            settings.beginGroup(QStringLiteral("Effect-active-window-outline"));
+        }
+        if (themeId.isEmpty()) {
+            themeId = settings.value(QStringLiteral("ActiveThemeId"), QStringLiteral("default-breeze")).toString();
+        }
+        const QString paramsStr = settings.value(QStringLiteral("ActiveThemeParams"), QString()).toString();
+        if (!paramsStr.isEmpty()) {
+            userOverrides = QJsonDocument::fromJson(paramsStr.toUtf8()).object();
+        }
+        settings.endGroup();
+    }
+
+    if (themeId.isEmpty()) {
+        themeId = QStringLiteral("default-breeze");
+    }
+
+    return findThemeById(themeId, userOverrides);
 }
 
 } // namespace LeapKTheme
