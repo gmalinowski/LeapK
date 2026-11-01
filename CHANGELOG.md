@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta49] - 2026-11-01
+
+### Fixed
+- **Ensure Last Badge in HUD Dock is Always Visible**:
+  - Fixed an issue where the active/origin window was omitted from the HUD dock targets list, causing the last badge in the recency timeline to appear missing/invisible even though it was selectable with `Shift + .`.
+  - In both Mode A (grouped cards) and Mode B (direct cards), the active window (`w`, `m_activeWindow`, `hudRefWindow`) is now unconditionally included in `offscreenTargets` so it receives its full pill card in the HUD dock with prominent active highlight styling (`themeBgActive`, `themeBorderActive`).
+  - When cycling badges with `Shift + .` or `Shift + ,`, every window in the sequence (including the last badge) is consistently rendered as a full, visible, navigable card in the dock.
+  - Set default of `BadgeHudIncludeAll` to `true` across `leapkconfig.kcfg`, `install-leapk.sh`, `presethelper.h`, and `leapk.cpp`.
+  - Added unit test in `tests/badge_test.cpp`.
+
 ## [1.6.0-beta48] - 2026-11-01
 
 ### Added

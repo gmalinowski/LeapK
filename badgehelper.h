@@ -153,7 +153,7 @@ inline TargetDistributionResult classifySubLeapTarget(const SubLeapCandidate &ca
     const bool isVisibleOnscreen = cand.isOnCurrentDesktop && !cand.isMinimized && !cand.isTinyOrOffscreen && (!cand.isObscured || cand.isActiveWindow);
 
     TargetDistributionResult res;
-    res.addToHud = forceHud || !isVisibleOnscreen || cand.isPinned;
+    res.addToHud = forceHud || !isVisibleOnscreen || cand.isPinned || cand.isActiveWindow;
     res.addToOnscreen = cfg.windowBadgesEnabled && cand.isOnCurrentDesktop && !cand.isMinimized && !cand.isTinyOrOffscreen && (cand.isActiveWindow || !cand.isObscured);
 
     return res;

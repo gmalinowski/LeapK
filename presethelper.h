@@ -138,7 +138,7 @@ inline QJsonObject getDefaultSettings()
     s[QStringLiteral("BadgeHudNavFontSize")] = 0;
     s[QStringLiteral("BadgeHudHintsFontSize")] = 0;
     s[QStringLiteral("BadgeHudShowHints")] = true;
-    s[QStringLiteral("BadgeHudIncludeAll")] = false;
+    s[QStringLiteral("BadgeHudIncludeAll")] = true;
     s[QStringLiteral("BadgeTimeout")] = 5;
     s[QStringLiteral("JumpRecentKey")] = QStringLiteral("Space");
     s[QStringLiteral("BadgeLivePreviews")] = false;

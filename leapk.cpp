@@ -1036,7 +1036,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_badgeHudShowHints = config.readEntry("BadgeHudShowHints", true);
     m_badgeConfig.hudShowHints = m_badgeHudShowHints;
 
-    m_badgeHudIncludeAll = config.readEntry("BadgeHudIncludeAll", false);
+    m_badgeHudIncludeAll = config.readEntry("BadgeHudIncludeAll", true);
     m_badgeConfig.hudIncludeAll = m_badgeHudIncludeAll;
     m_badgeHudGroupWindows = config.readEntry("BadgeHudGroupWindows", true);
     m_badgeConfig.hudGroupWindows = m_badgeHudGroupWindows;
@@ -11223,7 +11223,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 cand.isTinyOrOffscreen = (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50);
                 cand.isObscured = isWindowObscured(target);
                 cand.isPinned = isWindowPinned(target);
-                cand.isActiveWindow = (target == hudRefWindow);
+                cand.isActiveWindow = (target == hudRefWindow || target == w || target == m_activeWindow);
 
                 const auto dist = OutlineBadge::classifySubLeapTarget(cand, m_badgeConfig, m_stashModeActive);
                 if (dist.addToHud) {
@@ -11247,28 +11247,25 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                         continue;
                     }
 
-                    EffectWindow *repWin = (firstWin == hudRefWindow && winList.size() > 1) ? nullptr : firstWin;
-                    if (!repWin) {
-                        for (EffectWindow *target : winList) {
-                            if (target && !target->isDeleted() && target != hudRefWindow) {
-                                repWin = target;
-                                break;
-                            }
+                    EffectWindow *repWin = firstWin;
+                    for (EffectWindow *target : winList) {
+                        if (target && !target->isDeleted() && (target == w || target == m_activeWindow || target == hudRefWindow)) {
+                            repWin = target;
+                            break;
                         }
-                    }
-                    if (!repWin) {
-                        repWin = firstWin;
                     }
 
                     const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(repWin) || m_stashModeActive || m_closeWindowModeActive || m_pinModeActive;
                     if (forceHud) {
-                        if (winList.size() > 1 || firstWin != hudRefWindow || m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(repWin) || m_stashModeActive || m_closeWindowModeActive || m_pinModeActive) {
-                            offscreenTargets.append(qMakePair(letter, repWin));
-                        }
+                        offscreenTargets.append(qMakePair(letter, repWin));
                     } else {
                         bool hasOffscreenMember = false;
                         for (EffectWindow *target : winList) {
-                            if (!target || target == hudRefWindow || target->isDeleted()) continue;
+                            if (!target || target->isDeleted()) continue;
+                            if (target == w || target == hudRefWindow || target == m_activeWindow) {
+                                hasOffscreenMember = true;
+                                break;
+                            }
                             if (!target->isOnCurrentDesktop() || target->isMinimized()) {
                                 hasOffscreenMember = true;
                                 break;
@@ -11280,7 +11277,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                                 break;
                             }
                         }
-                        if (hasOffscreenMember && (winList.size() > 1 || firstWin != hudRefWindow)) {
+                        if (hasOffscreenMember) {
                             offscreenTargets.append(qMakePair(letter, repWin));
                         }
                     }
@@ -11318,13 +11315,11 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                         }
 
                         // Force window badge on active origin window hudRefWindow / w or fading previous active window
-                        if (target == hudRefWindow || target == w || (isSelectAnim && target == m_hudPrevActiveWindow.data())) {
+                        if (target == hudRefWindow || target == w || target == m_activeWindow || (isSelectAnim && target == m_hudPrevActiveWindow.data())) {
                             if (target->isOnCurrentDesktop() && !target->isMinimized()) {
                                 onscreenTargets.append(qMakePair(directKey, target));
                             }
-                            if (m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(target) || m_stashModeActive || m_closeWindowModeActive || m_pinModeActive) {
-                                offscreenTargets.append(qMakePair(directKey, target));
-                            }
+                            offscreenTargets.append(qMakePair(directKey, target));
                             continue;
                         }
 
