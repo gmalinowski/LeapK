@@ -4,6 +4,28 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta51] - 2026-11-01
+
+### Fixed
+- **Robust Support for Asymmetric Splits and Custom Tiling in KDE Custom (`kde-custom`)**:
+  - Implemented recursive parser `parseKdeTileJson` in `tilinghelper.h` mirroring KWin 6's exact tiling layout engine:
+    - Recursively parses nested horizontal, vertical, and floating layouts without flattening them.
+    - Accurately computes normalized `[0.0, 1.0]` coordinates for asymmetric splits (e.g., 1 on right with 3 on left, 1 on left with 3 on right, or complex nested sub-splits).
+  - Preserved genuine custom tile JSON (`kdePreset.kdeJson`) across LeapK preset activations and serialization so custom setups in `kwinrc` are never overwritten or lost when experimenting with built-in presets.
+  - Automatically backs up and restores the user's custom layout to/from `kwinrc` (`[Tiling]`) and `Effect-leapk` settings upon activating `kde-custom`.
+- **Intelligent Master/Priority Window-to-Slot Allocation**:
+  - Implemented `computeSlotPriorityOrder` in `tilinghelper.h`:
+    - Automatically ranks tile slots by area and geometric position.
+    - In asymmetric layouts (such as 1-right-3-left or Master & Stack), the largest slot (Master) is prioritized for the active window.
+    - When there are fewer windows than slots (e.g. 2 windows in a 4-slot layout), windows are placed across primary zones (e.g. 1 on right, 1 on left) instead of squishing all windows into tiny slices on one side and leaving the other side empty.
+- **Full Support for Floating Tiles and Floating Windows**:
+  - Added support for KWin 6 floating tile layouts (`layoutDirection: "floating"`, explicit `x, y, width, height` geometries).
+  - Added dedicated window-level floating management (`m_floatingWindows`):
+    - Floating windows are excluded from being swallowed by tile slots during preset activation or window creation.
+    - Floating windows remain raised above tiled slot backgrounds so they are never buried.
+    - Added global shortcut `Meta+Shift+F` ("LeapK: Toggle Window Float/Tile") and method `slotToggleActiveWindowFloating()` to seamlessly toggle any active window between tiled and floating mode.
+  - Added comprehensive unit tests in `tests/tiling_test.cpp` (`testParseKdeTileJson`, `testComputeSlotPriorityOrder`).
+
 ## [1.6.0-beta50] - 2026-11-01
 
 ### Changed

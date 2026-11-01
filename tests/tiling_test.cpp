@@ -229,6 +229,129 @@ void testKdeCustomPreset()
     std::cout << "testKdeCustomPreset PASSED\n";
 }
 
+void testParseKdeTileJson()
+{
+    using namespace LeapKTiling;
+
+    // Case 1: 1 on left, 3 on right (from user's kwinrc)
+    const char *json1 = R"({"layoutDirection":"horizontal","tiles":[{"width":0.5},{"layoutDirection":"vertical","tiles":[{"height":0.5},{"height":0.25},{"height":0.25}],"width":0.5}]})";
+    const auto doc1 = QJsonDocument::fromJson(json1);
+    const auto slots1 = parseKdeTileJson(doc1.object());
+    assert(slots1.size() == 4);
+    assert(qAbs(slots1[0].relativeRect.x() - 0.0) < 0.001);
+    assert(qAbs(slots1[0].relativeRect.width() - 0.5) < 0.001);
+    assert(qAbs(slots1[0].relativeRect.height() - 1.0) < 0.001);
+
+    assert(qAbs(slots1[1].relativeRect.x() - 0.5) < 0.001);
+    assert(qAbs(slots1[1].relativeRect.y() - 0.0) < 0.001);
+    assert(qAbs(slots1[1].relativeRect.height() - 0.5) < 0.001);
+
+    assert(qAbs(slots1[2].relativeRect.x() - 0.5) < 0.001);
+    assert(qAbs(slots1[2].relativeRect.y() - 0.5) < 0.001);
+    assert(qAbs(slots1[2].relativeRect.height() - 0.25) < 0.001);
+
+    assert(qAbs(slots1[3].relativeRect.x() - 0.5) < 0.001);
+    assert(qAbs(slots1[3].relativeRect.y() - 0.75) < 0.001);
+    assert(qAbs(slots1[3].relativeRect.height() - 0.25) < 0.001);
+
+    // Case 2: 1 on right, 3 on left
+    const char *json2 = R"({"layoutDirection":"horizontal","tiles":[{"layoutDirection":"vertical","tiles":[{"height":0.5},{"height":0.25},{"height":0.25}],"width":0.5},{"width":0.5}]})";
+    const auto doc2 = QJsonDocument::fromJson(json2);
+    const auto slots2 = parseKdeTileJson(doc2.object());
+    assert(slots2.size() == 4);
+    assert(qAbs(slots2[0].relativeRect.x() - 0.0) < 0.001);
+    assert(qAbs(slots2[0].relativeRect.y() - 0.0) < 0.001);
+    assert(qAbs(slots2[0].relativeRect.height() - 0.5) < 0.001);
+
+    assert(qAbs(slots2[1].relativeRect.x() - 0.0) < 0.001);
+    assert(qAbs(slots2[1].relativeRect.y() - 0.5) < 0.001);
+    assert(qAbs(slots2[1].relativeRect.height() - 0.25) < 0.001);
+
+    assert(qAbs(slots2[2].relativeRect.x() - 0.0) < 0.001);
+    assert(qAbs(slots2[2].relativeRect.y() - 0.75) < 0.001);
+    assert(qAbs(slots2[2].relativeRect.height() - 0.25) < 0.001);
+
+    assert(qAbs(slots2[3].relativeRect.x() - 0.5) < 0.001);
+    assert(qAbs(slots2[3].relativeRect.y() - 0.0) < 0.001);
+    assert(qAbs(slots2[3].relativeRect.width() - 0.5) < 0.001);
+    assert(qAbs(slots2[3].relativeRect.height() - 1.0) < 0.001);
+
+    // Case 3: Floating tile inside right column
+    const char *json3 = R"({"layoutDirection":"horizontal","tiles":[{"width":0.5},{"layoutDirection":"floating","tiles":[{"x":0.55,"y":0.1,"width":0.35,"height":0.4}],"width":0.5}]})";
+    const auto doc3 = QJsonDocument::fromJson(json3);
+    const auto slots3 = parseKdeTileJson(doc3.object());
+    assert(slots3.size() == 2);
+    assert(qAbs(slots3[0].relativeRect.width() - 0.5) < 0.001);
+    assert(qAbs(slots3[1].relativeRect.x() - 0.55) < 0.001);
+    assert(qAbs(slots3[1].relativeRect.y() - 0.10) < 0.001);
+    assert(qAbs(slots3[1].relativeRect.width() - 0.35) < 0.001);
+    assert(qAbs(slots3[1].relativeRect.height() - 0.40) < 0.001);
+
+    // Case 4: Root is floating layout
+    const char *json4 = R"({"layoutDirection":"floating","tiles":[{"x":0.05,"y":0.05,"width":0.4,"height":0.8},{"x":0.55,"y":0.05,"width":0.4,"height":0.8}]})";
+    const auto doc4 = QJsonDocument::fromJson(json4);
+    const auto slots4 = parseKdeTileJson(doc4.object());
+    assert(slots4.size() == 2);
+    assert(qAbs(slots4[0].relativeRect.x() - 0.05) < 0.001);
+    assert(qAbs(slots4[0].relativeRect.width() - 0.40) < 0.001);
+    assert(qAbs(slots4[1].relativeRect.x() - 0.55) < 0.001);
+    assert(qAbs(slots4[1].relativeRect.width() - 0.40) < 0.001);
+
+    // Test createKdeCustomPreset from JSON directly
+    const auto presetFromDoc = createKdeCustomPreset(doc2.object());
+    assert(presetFromDoc.id == QStringLiteral("kde-custom"));
+    assert(presetFromDoc.tileSlots.size() == 4);
+    assert(!presetFromDoc.kdeJson.isEmpty());
+    assert(presetFromDoc.toKdeJson() == doc2.object());
+
+    std::cout << "testParseKdeTileJson PASSED\n";
+}
+
+void testComputeSlotPriorityOrder()
+{
+    using namespace LeapKTiling;
+
+    // 1 on right, 3 on left: Slot 3 (the big 1 on the right) must have priority 0!
+    QList<TileSlot> slotsRight1Left3 = {
+        TileSlot{QRectF(0.0, 0.0, 0.5, 0.5)},   // Slot 0: area 0.25
+        TileSlot{QRectF(0.0, 0.5, 0.5, 0.25)},  // Slot 1: area 0.125
+        TileSlot{QRectF(0.0, 0.75, 0.5, 0.25)}, // Slot 2: area 0.125
+        TileSlot{QRectF(0.5, 0.0, 0.5, 1.0)}    // Slot 3: area 0.50 (Master!)
+    };
+    const auto order = computeSlotPriorityOrder(slotsRight1Left3);
+    assert(order.size() == 4);
+    assert(order[0] == 3); // Master slot gets active window first!
+    assert(order[1] == 0); // Largest left slot gets second window
+    assert(order[2] == 1);
+    assert(order[3] == 2);
+
+    // 1 on left, 3 on right: Slot 0 (the big 1 on the left) must have priority 0!
+    QList<TileSlot> slotsLeft1Right3 = {
+        TileSlot{QRectF(0.0, 0.0, 0.5, 1.0)},   // Slot 0: area 0.50 (Master!)
+        TileSlot{QRectF(0.5, 0.0, 0.5, 0.5)},   // Slot 1: area 0.25
+        TileSlot{QRectF(0.5, 0.5, 0.5, 0.25)},  // Slot 2: area 0.125
+        TileSlot{QRectF(0.5, 0.75, 0.5, 0.25)}  // Slot 3: area 0.125
+    };
+    const auto orderLeft1 = computeSlotPriorityOrder(slotsLeft1Right3);
+    assert(orderLeft1.size() == 4);
+    assert(orderLeft1[0] == 0); // Master slot gets active window
+    assert(orderLeft1[1] == 1);
+    assert(orderLeft1[2] == 2);
+    assert(orderLeft1[3] == 3);
+
+    // Two equal columns: priority 0 is slot 0, priority 1 is slot 1
+    QList<TileSlot> slotsCols2 = {
+        TileSlot{QRectF(0.0, 0.0, 0.5, 1.0)},
+        TileSlot{QRectF(0.5, 0.0, 0.5, 1.0)}
+    };
+    const auto orderCols2 = computeSlotPriorityOrder(slotsCols2);
+    assert(orderCols2.size() == 2);
+    assert(orderCols2[0] == 0);
+    assert(orderCols2[1] == 1);
+
+    std::cout << "testComputeSlotPriorityOrder PASSED\n";
+}
+
 void testTilingWindowRuleConfig()
 {
     using namespace LeapKTiling;
@@ -666,6 +789,8 @@ int main()
     testJsonPersistence();
     testToKdeJson();
     testKdeCustomPreset();
+    testParseKdeTileJson();
+    testComputeSlotPriorityOrder();
     testTilingWindowRuleConfig();
     testTilingSwapStackingPreservation();
     testHudPreservationOnWorkspaceTilingSwitch();

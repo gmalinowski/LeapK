@@ -67,13 +67,117 @@ struct TilingPreset
     }
 };
 
-inline TilingPreset createKdeCustomPreset(const QList<QRectF> &slotGeometries)
+inline void parseKdeTileJsonInternal(const QJsonValue &val, const QRectF &availableArea, const QString &parentDir, QList<TileSlot> &outSlots)
+{
+    if (availableArea.isEmpty()) {
+        return;
+    }
+
+    if (val.isObject()) {
+        const QJsonObject obj = val.toObject();
+        QRectF rect = availableArea;
+
+        if (parentDir == QStringLiteral("horizontal")) {
+            if (obj.contains(QStringLiteral("width")) && obj.value(QStringLiteral("width")).isDouble()) {
+                rect.setWidth(std::min(obj.value(QStringLiteral("width")).toDouble(), availableArea.width()));
+            }
+        } else if (parentDir == QStringLiteral("vertical")) {
+            if (obj.contains(QStringLiteral("height")) && obj.value(QStringLiteral("height")).isDouble()) {
+                rect.setHeight(std::min(obj.value(QStringLiteral("height")).toDouble(), availableArea.height()));
+            }
+        } else if (parentDir == QStringLiteral("floating")) {
+            const qreal x = obj.value(QStringLiteral("x")).toDouble(availableArea.x());
+            const qreal y = obj.value(QStringLiteral("y")).toDouble(availableArea.y());
+            const qreal w = obj.value(QStringLiteral("width")).toDouble(availableArea.width());
+            const qreal h = obj.value(QStringLiteral("height")).toDouble(availableArea.height());
+            rect = QRectF(x, y, w, h);
+        }
+
+        if (obj.contains(QStringLiteral("tiles")) && obj.value(QStringLiteral("tiles")).isArray()) {
+            const QJsonArray children = obj.value(QStringLiteral("tiles")).toArray();
+            if (!children.isEmpty()) {
+                const QString dir = obj.value(QStringLiteral("layoutDirection")).toString(QStringLiteral("floating"));
+                parseKdeTileJsonInternal(children, rect, dir, outSlots);
+                return;
+            }
+        }
+
+        // Leaf tile
+        if (rect.isValid() && rect.width() > 0.02 && rect.height() > 0.02) {
+            outSlots.append(TileSlot{rect});
+        }
+    } else if (val.isArray()) {
+        const QJsonArray arr = val.toArray();
+        QRectF avail = availableArea;
+        for (int i = 0; i < arr.size(); ++i) {
+            const int countBefore = outSlots.size();
+            QRectF childAvail = avail;
+            if (i == arr.size() - 1 && parentDir != QStringLiteral("floating")) {
+                if (parentDir == QStringLiteral("horizontal")) {
+                    childAvail.setRight(availableArea.right());
+                } else if (parentDir == QStringLiteral("vertical")) {
+                    childAvail.setBottom(availableArea.bottom());
+                }
+            }
+            parseKdeTileJsonInternal(arr.at(i), childAvail, parentDir, outSlots);
+
+            // Advance available area for sibling layout
+            if (outSlots.size() > countBefore) {
+                const QRectF lastRect = outSlots.last().relativeRect;
+                if (parentDir == QStringLiteral("horizontal")) {
+                    avail.setLeft(lastRect.right());
+                } else if (parentDir == QStringLiteral("vertical")) {
+                    avail.setTop(lastRect.bottom());
+                }
+            }
+        }
+    }
+}
+
+inline QList<TileSlot> parseKdeTileJson(const QJsonObject &rootObj)
+{
+    QList<TileSlot> slotList;
+    const QString dir = rootObj.value(QStringLiteral("layoutDirection")).toString(QStringLiteral("horizontal"));
+    const QJsonValue tilesVal = rootObj.value(QStringLiteral("tiles"));
+    parseKdeTileJsonInternal(tilesVal, QRectF(0.0, 0.0, 1.0, 1.0), dir, slotList);
+    return slotList;
+}
+
+inline QList<int> computeSlotPriorityOrder(const QList<TileSlot> &tileSlotsList)
+{
+    QList<int> order;
+    for (int i = 0; i < tileSlotsList.size(); ++i) {
+        order.append(i);
+    }
+
+    std::stable_sort(order.begin(), order.end(), [&](int a, int b) {
+        const QRectF &ra = tileSlotsList[a].relativeRect;
+        const QRectF &rb = tileSlotsList[b].relativeRect;
+        const qreal areaA = ra.width() * ra.height();
+        const qreal areaB = rb.width() * rb.height();
+        // 1. Significantly larger area takes precedence (Master window)
+        if (std::abs(areaA - areaB) > 0.03) {
+            return areaA > areaB;
+        }
+        // 2. Otherwise geometric order (top-to-bottom, left-to-right)
+        if (std::abs(ra.top() - rb.top()) > 0.02) {
+            return ra.top() < rb.top();
+        }
+        return ra.left() < rb.left();
+    });
+
+    return order;
+}
+
+inline TilingPreset createKdeCustomPreset(const QList<QRectF> &slotGeometries, const QJsonObject &rawKdeJson = QJsonObject())
 {
     TilingPreset p;
     p.id = QStringLiteral("kde-custom");
     p.name = QStringLiteral("KDE Custom");
     p.triggerKey = QLatin1Char('C');
     p.iconDiagram = QStringLiteral("▨");
+    p.kdeJson = rawKdeJson;
+
     const int count = slotGeometries.size();
     if (count == 2) {
         p.iconDiagram = QStringLiteral("▌▌");
@@ -89,6 +193,16 @@ inline TilingPreset createKdeCustomPreset(const QList<QRectF> &slotGeometries)
         p.tileSlots.append(TileSlot{r});
     }
     return p;
+}
+
+inline TilingPreset createKdeCustomPreset(const QJsonObject &rawKdeJson)
+{
+    const QList<TileSlot> parsedSlots = parseKdeTileJson(rawKdeJson);
+    QList<QRectF> rects;
+    for (const auto &s : parsedSlots) {
+        rects.append(s.relativeRect);
+    }
+    return createKdeCustomPreset(rects, rawKdeJson);
 }
 
 inline QList<TilingPreset> defaultPresets()
@@ -653,6 +767,30 @@ inline QJsonObject toKdeJson(const TilingPreset &preset)
         QJsonObject t1;
         t1[QStringLiteral("width")] = 1.0;
         tiles.append(t1);
+        root[QStringLiteral("tiles")] = tiles;
+        return root;
+    }
+
+    bool hasNonHorizontal = false;
+    for (const auto &slot : preset.tileSlots) {
+        if (slot.relativeRect.top() > 0.01 || slot.relativeRect.height() < 0.98) {
+            hasNonHorizontal = true;
+            break;
+        }
+    }
+
+    if (hasNonHorizontal) {
+        // Use floating layout in KWin: preserves exact x, y, width, height for arbitrary / vertical splits
+        root[QStringLiteral("layoutDirection")] = QStringLiteral("floating");
+        QJsonArray tiles;
+        for (const auto &slot : preset.tileSlots) {
+            QJsonObject t;
+            t[QStringLiteral("x")] = slot.relativeRect.x();
+            t[QStringLiteral("y")] = slot.relativeRect.y();
+            t[QStringLiteral("width")] = slot.relativeRect.width();
+            t[QStringLiteral("height")] = slot.relativeRect.height();
+            tiles.append(t);
+        }
         root[QStringLiteral("tiles")] = tiles;
         return root;
     }

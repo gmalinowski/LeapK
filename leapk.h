@@ -355,6 +355,7 @@ private:
     void exitTilingPresetsMode();
     void refreshTilingPresetsWithKdeCustom();
     void slotOpenKdeTileEditor();
+    void slotToggleActiveWindowFloating();
     void activateTilingPreset(const LeapKTiling::TilingPreset &preset, bool preserveJumpMode = false);
     void deactivateTiling(EffectWindow *skipRestoreWindow = nullptr, bool preserveWorkspaceState = false);
     bool isWindowInTileSlot(EffectWindow *w) const;
@@ -633,6 +634,8 @@ private:
     bool m_tilingEditModeActive = false;
     int m_tilingEditMultiplier = 0;
     QList<QPair<QRectF, LeapKTiling::TilingPreset>> m_hudTilingPresetPillRects;
+    QSet<EffectWindow *> m_floatingWindows;
+    QJsonObject m_savedKdeCustomTilesJson;
 
     // Persistent Marks (saved across desktop sessions)
     QList<LeapKMarks::PersistentMarkRule> m_persistentMarks;

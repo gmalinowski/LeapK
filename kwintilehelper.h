@@ -18,6 +18,12 @@ class RootTile;
 class Tile : public QObject
 {
 public:
+    enum class LayoutDirection {
+        Floating = 0,
+        Horizontal = 1,
+        Vertical = 2
+    };
+
     bool manage(Window *window);
     bool unmanage(Window *window);
     QList<Tile *> childTiles() const;
@@ -29,12 +35,14 @@ public:
     int childCount() const;
     Tile *childTile(int row);
     void destroyChild(Tile *tile);
+    Tile *parentTile() const;
 };
 
 class CustomTile : public Tile
 {
 public:
     void remove();
+    Tile::LayoutDirection layoutDirection() const;
 };
 
 class RootTile : public CustomTile
