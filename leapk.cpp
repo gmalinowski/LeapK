@@ -3553,15 +3553,6 @@ void ActiveWindowOutlineEffect::slotMarkWindowWithColor()
     if (customPicker.isEmpty()) {
         customPicker = QStandardPaths::findExecutable(QStringLiteral("leapk-colorpicker"), candidateDirs);
     }
-    if (customPicker.isEmpty()) {
-        customPicker = QStandardPaths::findExecutable(QStringLiteral("kleap-custom-marker"), candidateDirs);
-    }
-    if (customPicker.isEmpty()) {
-        customPicker = QStandardPaths::findExecutable(QStringLiteral("kleap-colorpicker"), candidateDirs);
-    }
-    if (customPicker.isEmpty()) {
-        customPicker = QStandardPaths::findExecutable(QStringLiteral("active-window-outline-colorpicker"), candidateDirs);
-    }
     if (!customPicker.isEmpty()) {
         QProcess *process = new QProcess(this);
         connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
@@ -4086,13 +4077,6 @@ void ActiveWindowOutlineEffect::slotOpenWorkspaceManager()
 
     QString wsManagerExe = QStandardPaths::findExecutable(QStringLiteral("leapk-workspace-manager"), candidateDirs);
     if (wsManagerExe.isEmpty()) {
-        wsManagerExe = QStandardPaths::findExecutable(QStringLiteral("kleap-workspace-manager"), candidateDirs);
-    }
-    if (wsManagerExe.isEmpty()) {
-        wsManagerExe = QStandardPaths::findExecutable(QStringLiteral("active-window-outline-workspace-manager"), candidateDirs);
-    }
-
-    if (wsManagerExe.isEmpty()) {
         return;
     }
 
@@ -4176,13 +4160,6 @@ void ActiveWindowOutlineEffect::slotOpenMarkerManager()
                   << QStringLiteral("/usr/bin");
 
     QString markerManagerExe = QStandardPaths::findExecutable(QStringLiteral("leapk-marker-manager"), candidateDirs);
-    if (markerManagerExe.isEmpty()) {
-        markerManagerExe = QStandardPaths::findExecutable(QStringLiteral("kleap-marker-manager"), candidateDirs);
-    }
-    if (markerManagerExe.isEmpty()) {
-        markerManagerExe = QStandardPaths::findExecutable(QStringLiteral("active-window-outline-marker-manager"), candidateDirs);
-    }
-
     if (markerManagerExe.isEmpty()) {
         return;
     }
@@ -5141,12 +5118,6 @@ void ActiveWindowOutlineEffect::slotCreateNewWorkspacePrompt()
 
     QString wsManagerExe = QStandardPaths::findExecutable(QStringLiteral("leapk-workspace-manager"), candidateDirs);
     if (wsManagerExe.isEmpty()) {
-        wsManagerExe = QStandardPaths::findExecutable(QStringLiteral("kleap-workspace-manager"), candidateDirs);
-    }
-    if (wsManagerExe.isEmpty()) {
-        wsManagerExe = QStandardPaths::findExecutable(QStringLiteral("active-window-outline-workspace-manager"), candidateDirs);
-    }
-    if (wsManagerExe.isEmpty()) {
         return;
     }
 
@@ -5234,12 +5205,6 @@ void ActiveWindowOutlineEffect::slotCloseActiveWorkspace()
                   << QStringLiteral("/usr/bin");
 
     QString wsManagerExe = QStandardPaths::findExecutable(QStringLiteral("leapk-workspace-manager"), candidateDirs);
-    if (wsManagerExe.isEmpty()) {
-        wsManagerExe = QStandardPaths::findExecutable(QStringLiteral("kleap-workspace-manager"), candidateDirs);
-    }
-    if (wsManagerExe.isEmpty()) {
-        wsManagerExe = QStandardPaths::findExecutable(QStringLiteral("active-window-outline-workspace-manager"), candidateDirs);
-    }
     if (wsManagerExe.isEmpty()) {
         return;
     }

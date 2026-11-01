@@ -285,59 +285,14 @@ install(FILES leapk.svg
     DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps
 )
 
-# Backwards compatibility targets / symlinks
-add_custom_target(kleap-tray ALL
-    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-tray kleap-tray
-    DEPENDS leapk-tray
-)
-add_custom_target(active-window-outline-tray ALL
-    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-tray active-window-outline-tray
-    DEPENDS leapk-tray
-)
-add_custom_target(kleap-settings ALL
-    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-settings kleap-settings
-    DEPENDS leapk-settings
-)
-add_custom_target(active-window-outline-settings ALL
-    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-settings active-window-outline-settings
+# Convenient CLI aliases
+add_custom_target(leapk-cli ALL
+    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-settings leapk
     DEPENDS leapk-settings
 )
 add_custom_target(leapk-colorpicker ALL
     COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-custom-marker leapk-colorpicker
     DEPENDS leapk-custom-marker
-)
-add_custom_target(kleap-custom-marker ALL
-    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-custom-marker kleap-custom-marker
-    DEPENDS leapk-custom-marker
-)
-add_custom_target(kleap-colorpicker ALL
-    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-custom-marker kleap-colorpicker
-    DEPENDS leapk-custom-marker
-)
-add_custom_target(active-window-outline-colorpicker ALL
-    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-custom-marker active-window-outline-colorpicker
-    DEPENDS leapk-custom-marker
-)
-add_custom_target(kleap-workspace-manager ALL
-    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-workspace-manager kleap-workspace-manager
-    DEPENDS leapk-workspace-manager
-)
-add_custom_target(active-window-outline-workspace-manager ALL
-    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-workspace-manager active-window-outline-workspace-manager
-    DEPENDS leapk-workspace-manager
-)
-add_custom_target(kleap-marker-manager ALL
-    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-marker-manager kleap-marker-manager
-    DEPENDS leapk-marker-manager
-)
-add_custom_target(active-window-outline-marker-manager ALL
-    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-marker-manager active-window-outline-marker-manager
-    DEPENDS leapk-marker-manager
-)
-add_custom_target(leapk-cli ALL
-    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-settings leapk
-    COMMAND ${CMAKE_COMMAND} -E create_symlink leapk-settings kleap
-    DEPENDS leapk-settings
 )
 
 option(OUTLINE_BUILD_TESTS "Build popup and cursor regression tests" OFF)

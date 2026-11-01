@@ -23,6 +23,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Empty workspace creation shortcut updated to `[C]` ("✨ [C] Create Empty Workspace", with `Shift+N` also supported).
 - **Marker Manager Search Defocus on Escape**:
   - Pressing `Esc` while the search input (`m_searchEdit`) has focus now clears focus and returns control to the manager without closing the dialog. A subsequent `Esc` closes the window as expected.
+- **Purge of Legacy Compatibility Targets and Names**:
+  - Removed all obsolete `kleap-*` and `active-window-outline-*` custom targets from `CMakeLists.txt`.
+  - Cleaned up executable lookup paths in `leapk.cpp` to strictly reference native `leapk-*` binaries.
+  - Cleaned up icon aliases in `resources.qrc` and stale symlinks in `install-leapk.sh`.
 
 ## [1.6.0-beta61] - 2026-11-01
 
