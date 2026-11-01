@@ -297,6 +297,56 @@ void testParseKdeTileJson()
     assert(qAbs(slots4[1].relativeRect.x() - 0.55) < 0.001);
     assert(qAbs(slots4[1].relativeRect.width() - 0.40) < 0.001);
 
+    // Case 5: 3 on left, 2 on right (User's 5-slot layout from kwinrc)
+    const char *json5 = R"({"layoutDirection":"horizontal","tiles":[{"layoutDirection":"vertical","tiles":[{"height":0.5},{"height":0.25},{"height":0.25}],"width":0.5},{"layoutDirection":"vertical","tiles":[{"height":0.5},{"height":0.5}],"width":0.5}]})";
+    const auto doc5 = QJsonDocument::fromJson(json5);
+    const auto slots5 = parseKdeTileJson(doc5.object());
+    assert(slots5.size() == 5);
+    assert(qAbs(slots5[0].relativeRect.x() - 0.0) < 0.001);
+    assert(qAbs(slots5[0].relativeRect.y() - 0.0) < 0.001);
+    assert(qAbs(slots5[0].relativeRect.width() - 0.5) < 0.001);
+    assert(qAbs(slots5[0].relativeRect.height() - 0.5) < 0.001);
+
+    assert(qAbs(slots5[1].relativeRect.x() - 0.0) < 0.001);
+    assert(qAbs(slots5[1].relativeRect.y() - 0.5) < 0.001);
+    assert(qAbs(slots5[1].relativeRect.width() - 0.5) < 0.001);
+    assert(qAbs(slots5[1].relativeRect.height() - 0.25) < 0.001);
+
+    assert(qAbs(slots5[2].relativeRect.x() - 0.0) < 0.001);
+    assert(qAbs(slots5[2].relativeRect.y() - 0.75) < 0.001);
+    assert(qAbs(slots5[2].relativeRect.width() - 0.5) < 0.001);
+    assert(qAbs(slots5[2].relativeRect.height() - 0.25) < 0.001);
+
+    assert(qAbs(slots5[3].relativeRect.x() - 0.5) < 0.001);
+    assert(qAbs(slots5[3].relativeRect.y() - 0.0) < 0.001);
+    assert(qAbs(slots5[3].relativeRect.width() - 0.5) < 0.001);
+    assert(qAbs(slots5[3].relativeRect.height() - 0.5) < 0.001);
+
+    assert(qAbs(slots5[4].relativeRect.x() - 0.5) < 0.001);
+    assert(qAbs(slots5[4].relativeRect.y() - 0.5) < 0.001);
+    assert(qAbs(slots5[4].relativeRect.width() - 0.5) < 0.001);
+    assert(qAbs(slots5[4].relativeRect.height() - 0.5) < 0.001);
+
+    // Compute pixel geometries on 1920x1080 screen with 6px gaps and 6px margins
+    const auto preset5 = createKdeCustomPreset(doc5.object());
+    const QRectF workArea(0, 0, 1920, 1080);
+    const auto geos5 = computeSlotGeometries(preset5, workArea, 6, 6);
+    assert(geos5.size() == 5);
+    for (int i = 0; i < 5; ++i) {
+        assert(geos5[i].left() >= 6.0);
+        assert(geos5[i].top() >= 6.0);
+        assert(geos5[i].right() <= 1914.0 + 0.01);
+        assert(geos5[i].bottom() <= 1074.0 + 0.01);
+    }
+    // Verify priority order
+    const auto order5 = computeSlotPriorityOrder(preset5.tileSlots);
+    assert(order5.size() == 5);
+    assert(order5[0] == 0); // (0, 0, 0.5, 0.5)
+    assert(order5[1] == 3); // (0.5, 0, 0.5, 0.5)
+    assert(order5[2] == 4); // (0.5, 0.5, 0.5, 0.5)
+    assert(order5[3] == 1); // (0, 0.5, 0.5, 0.25)
+    assert(order5[4] == 2); // (0, 0.75, 0.5, 0.25)
+
     // Test createKdeCustomPreset from JSON directly
     const auto presetFromDoc = createKdeCustomPreset(doc2.object());
     assert(presetFromDoc.id == QStringLiteral("kde-custom"));

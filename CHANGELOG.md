@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta52] - 2026-11-01
+
+### Fixed
+- **Eliminated KWin Wayland Tile Conflict and Fixed Window Resizing**:
+  - Unified all window placement into `applyWindowToTilingSlot(EffectWindow *ew, const QRectF &geo)`:
+    - Automatically detaches windows from KWin's internal Wayland `Tile` state machine (`tile->unmanage(win)`, `win->setTileCompatibility(nullptr)`, `win->requestTile(nullptr)`).
+    - Prevents KWin Wayland from rejecting `moveResize()` calls, which previously left windows at full screen width (e.g. 1914px extending off-screen to 2877px) or height (e.g. 1042px extending down past the screen).
+    - Restores maximized windows (`setMaximize(false, false)`) and evaluates window rules before resizing into exact tile slots.
+  - Removed all obsolete `leafTiles[slotIdx]->manage(w->window())` calls across `activateTilingPreset`, `slotWindowAdded`, `slotToggleActiveWindowFloating`, `swapWindowIntoTilingSlot`, and `performTileSlotSwap`.
+  - Removed erroneous `leafTiles[i]->windowGeometry()` override that was corrupting slot geometries with stale or asynchronous KWin tile coordinates.
+- **Support for All 5 Slots and Arbitrary Asymmetric Custom Layouts**:
+  - Added 4th priority pass during window collection in `activateTilingPreset`: if open visible windows are fewer than slot count, remaining slots are populated by unminimizing eligible windows on the current desktop/workspace.
+  - Improved recursive sibling layout advance in `parseKdeTileJsonInternal` by computing `maxRight` / `maxBottom` across all slots in a split branch and snapping boundary edges to eliminate 1px rounding gaps.
+  - Added unit test in `tests/tiling_test.cpp` verifying the exact 5-slot layout (3 left, 2 right) with workArea boundaries and priority order.
+
 ## [1.6.0-beta51] - 2026-11-01
 
 ### Fixed

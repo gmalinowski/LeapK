@@ -81,9 +81,15 @@ inline void parseKdeTileJsonInternal(const QJsonValue &val, const QRectF &availa
             if (obj.contains(QStringLiteral("width")) && obj.value(QStringLiteral("width")).isDouble()) {
                 rect.setWidth(std::min(obj.value(QStringLiteral("width")).toDouble(), availableArea.width()));
             }
+            if (std::abs(rect.right() - availableArea.right()) < 0.02) {
+                rect.setRight(availableArea.right());
+            }
         } else if (parentDir == QStringLiteral("vertical")) {
             if (obj.contains(QStringLiteral("height")) && obj.value(QStringLiteral("height")).isDouble()) {
                 rect.setHeight(std::min(obj.value(QStringLiteral("height")).toDouble(), availableArea.height()));
+            }
+            if (std::abs(rect.bottom() - availableArea.bottom()) < 0.02) {
+                rect.setBottom(availableArea.bottom());
             }
         } else if (parentDir == QStringLiteral("floating")) {
             const qreal x = obj.value(QStringLiteral("x")).toDouble(availableArea.x());
@@ -123,11 +129,18 @@ inline void parseKdeTileJsonInternal(const QJsonValue &val, const QRectF &availa
 
             // Advance available area for sibling layout
             if (outSlots.size() > countBefore) {
-                const QRectF lastRect = outSlots.last().relativeRect;
                 if (parentDir == QStringLiteral("horizontal")) {
-                    avail.setLeft(lastRect.right());
+                    qreal maxRight = avail.left();
+                    for (int k = countBefore; k < outSlots.size(); ++k) {
+                        maxRight = std::max(maxRight, outSlots[k].relativeRect.right());
+                    }
+                    avail.setLeft(maxRight);
                 } else if (parentDir == QStringLiteral("vertical")) {
-                    avail.setTop(lastRect.bottom());
+                    qreal maxBottom = avail.top();
+                    for (int k = countBefore; k < outSlots.size(); ++k) {
+                        maxBottom = std::max(maxBottom, outSlots[k].relativeRect.bottom());
+                    }
+                    avail.setTop(maxBottom);
                 }
             }
         }

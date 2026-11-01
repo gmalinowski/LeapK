@@ -358,6 +358,7 @@ private:
     void slotToggleActiveWindowFloating();
     void activateTilingPreset(const LeapKTiling::TilingPreset &preset, bool preserveJumpMode = false);
     void deactivateTiling(EffectWindow *skipRestoreWindow = nullptr, bool preserveWorkspaceState = false);
+    void applyWindowToTilingSlot(EffectWindow *ew, const QRectF &geo);
     bool isWindowInTileSlot(EffectWindow *w) const;
     int findTileSlotIndexForWindow(EffectWindow *w) const;
     void performTilingSwap(EffectWindow *target);
