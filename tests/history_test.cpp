@@ -363,30 +363,44 @@ void testStepHistoryIndexAndTraverse()
         }
     };
 
+    bool hudMetaHeld = true;
+    auto isCheatsheetVisible = [&]() {
+        return hudMetaHeld && !isTraversing;
+    };
+
+    // Initially Meta is held in Leap Mode before first space traversal: cheatsheet is visible
+    assert(isCheatsheetVisible() == true);
+
     // User presses Meta+Space, then Space again (forward): moves to w2
     onTraverse(1);
     assert(isTraversing == true);
     assert(navIndex == 1);
     assert(activeWindow == &w2);
+    // After first space press, cheatsheet MUST disappear so it does not obscure the screen
+    assert(isCheatsheetVisible() == false);
 
     // Taps Space again: moves to w3
     onTraverse(1);
     assert(navIndex == 2);
     assert(activeWindow == &w3);
+    assert(isCheatsheetVisible() == false);
 
     // Taps Shift+Space (direction -1): moves back to w2
     onTraverse(-1);
     assert(navIndex == 1);
     assert(activeWindow == &w2);
+    assert(isCheatsheetVisible() == false);
 
     // Releases Meta: commits w2 to top of history
     onCommit();
+    hudMetaHeld = false;
     assert(isTraversing == false);
     assert(activeWindow == &w2);
     assert(history.at(0) == &w2);
     assert(history.at(1) == &w1);
     assert(history.at(2) == &w3);
     assert(history.at(3) == &w4);
+    assert(isCheatsheetVisible() == false);
 
     std::cout << "testStepHistoryIndexAndTraverse PASSED\n";
 }

@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta57] - 2026-11-01
+
+### Changed
+- **Auto-Dismiss Meta Cheatsheet Overlay on Recent Windows Traversal (`Meta + Space Space`)**:
+  - Automatically hides the centered Meta-hold shortcut cheatsheet overlay (`renderHudMetaOverlay`) as soon as recent windows traversal begins on the first `Space` press (`m_metaSpaceTraverseActive == true`).
+  - Ensures the user has an unobstructed view of the windows being cycled through (Alt+Tab style) while keeping Meta held.
+  - The cheatsheet remains hidden across subsequent `Space` / `Shift+Space` taps and resets cleanly upon releasing Meta or exiting Leap mode.
+  - Updated unit test in `tests/history_test.cpp` verifying cheatsheet visibility transitions during traversal.
+
 ## [1.6.0-beta56] - 2026-11-01
 
 ### Fixed

@@ -4556,6 +4556,9 @@ void ActiveWindowOutlineEffect::slotTriggerPinMode()
 void ActiveWindowOutlineEffect::renderHudMetaOverlay(const RenderTarget &renderTarget,
                                                      const RenderViewport &viewport)
 {
+    if (m_metaSpaceTraverseActive) {
+        return;
+    }
     const qreal scale = viewport.scale();
     const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
 
@@ -12011,7 +12014,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             renderHudModeHeader(renderTarget, viewport, QRectF(), hintRect);
         }
 
-        if (m_hudMetaHeld) {
+        if (m_hudMetaHeld && !m_metaSpaceTraverseActive) {
             renderHudMetaOverlay(renderTarget, viewport);
         }
         }
