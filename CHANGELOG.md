@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta65] - 2026-11-02
+
+### Fixed
+- **Minimized and Shrunk Windows in LeapK HUD**:
+  - Fixed an issue where minimized windows on the current desktop were excluded from HUD candidate matching when `JumpTargets` was set to 0. Now minimized windows are always retained and assigned jump letters, displaying as cards in the HUD dock.
+  - Jumping or clicking on a minimized window card in the HUD automatically restores and unminimizes it (`candidate->setMinimized(false)`), bringing it to the foreground with proper focus.
+  - Added dedicated location indicator `"Minimized"` in `getWindowLocationString` so minimized window cards in the HUD clearly show their status.
+  - Fixed Standard workspace window count (`standardCount`) to include minimized windows on the current desktop rather than dropping them when minimized.
+  - Reduced minimum window size eligibility cutoff in `isEligibleTargetWindow` from 30px to 10px so smaller or shrunk floating windows are never prematurely filtered out.
+
 ## [1.6.0-beta64] - 2026-11-02
 
 ### Added

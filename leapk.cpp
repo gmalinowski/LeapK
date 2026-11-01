@@ -5469,7 +5469,7 @@ bool ActiveWindowOutlineEffect::isEligibleTargetWindow(EffectWindow *w) const
     }
     if (!w->isMinimized()) {
         const QRectF geo = w->frameGeometry();
-        if (geo.width() < 30 || geo.height() < 30) {
+        if (geo.width() < 10 || geo.height() < 10) {
             return false;
         }
     }
@@ -5565,14 +5565,7 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
                     if (!isMarked) {
                         continue;
                     }
-                } else if (m_jumpTargets == 0) { // Current desktop visible + marked all desktops
-                    if (!onCurrent && !isMarked) {
-                        continue;
-                    }
-                    if (w->isMinimized() && !isMarked) {
-                        continue;
-                    }
-                } else if (m_jumpTargets == 1) { // Current desktop all windows (visible & minimized) + marked all desktops
+                } else if (m_jumpTargets == 0 || m_jumpTargets == 1) { // Current desktop all windows (visible & minimized) + marked all desktops
                     if (!onCurrent && !isMarked) {
                         continue;
                     }
@@ -8528,6 +8521,8 @@ QString ActiveWindowOutlineEffect::getWindowLocationString(EffectWindow *target)
             const uint num = desktops.isEmpty() ? 0 : desktops.first()->x11DesktopNumber();
             loc = QStringLiteral("Desktop %1").arg(num);
         }
+    } else if (target->isMinimized()) {
+        loc = QStringLiteral("Minimized");
     } else if (m_badgePreviewActive || target->isVisible()) {
         loc = QStringLiteral("Current Desktop");
     } else {
@@ -10792,7 +10787,7 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
 
         targetWorkspaceName = formatWsName(m_activeHudView);
 
-        // 1. Standard count: windows eligible on current desktop (visible or unminimized, not in stash)
+        // 1. Standard count: windows eligible on current desktop (not in stash)
         int standardCount = 0;
         for (EffectWindow *w : windows) {
             if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
@@ -10801,8 +10796,7 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
             if (isWindowInStash(w)) {
                 continue;
             }
-            const bool isUnminimizedOrIsoMinimized = !w->isMinimized() || m_workspaceMinimizedWindows.contains(w);
-            if (w->isOnCurrentDesktop() && isUnminimizedOrIsoMinimized) {
+            if (w->isOnCurrentDesktop()) {
                 standardCount++;
             }
         }
