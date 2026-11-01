@@ -1045,7 +1045,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_badgeHudShowHints = config.readEntry("BadgeHudShowHints", true);
     m_badgeConfig.hudShowHints = m_badgeHudShowHints;
 
-    m_badgeHudIncludeAll = config.readEntry("BadgeHudIncludeAll", true);
+    m_badgeHudIncludeAll = config.readEntry("BadgeHudIncludeAll", false);
     m_badgeConfig.hudIncludeAll = m_badgeHudIncludeAll;
     m_badgeHudGroupWindows = config.readEntry("BadgeHudGroupWindows", true);
     m_badgeConfig.hudGroupWindows = m_badgeHudGroupWindows;
@@ -7828,6 +7828,14 @@ void ActiveWindowOutlineEffect::traverseRecentWindows(int direction)
     if (candidate->isMinimized()) {
         candidate->setMinimized(false);
     }
+    if (candidate != m_activeWindow) {
+        m_hudPrevActiveWindow = m_activeWindow;
+        m_hudPrevMarkerRect = m_hudLastDrawnMarkerRect.isValid() ? m_hudLastDrawnMarkerRect : m_hudCurrentMarkerRect;
+        m_hudPrevActiveDockIndex = m_hudCurrentActiveDockIndex;
+        m_hudSelectAnimTimer.restart();
+        m_hudSelectAnimActive = true;
+        updateAnimationTimer();
+    }
     effects->activateWindow(candidate);
     playThemedSound(OutlineSound::SoundEffect::NavTab);
     effects->addRepaintFull();
@@ -11731,37 +11739,37 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                     }
 
                     EffectWindow *repWin = firstWin;
-                    for (EffectWindow *target : winList) {
-                        if (target && !target->isDeleted() && (target == w || target == m_activeWindow || target == hudRefWindow)) {
-                            repWin = target;
-                            break;
-                        }
-                    }
-
                     const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(repWin) || m_stashModeActive || m_closeWindowModeActive || m_pinModeActive;
                     if (forceHud) {
+                        for (EffectWindow *target : winList) {
+                            if (target && !target->isDeleted() && (target == w || target == m_activeWindow || target == hudRefWindow)) {
+                                repWin = target;
+                                break;
+                            }
+                        }
                         offscreenTargets.append(qMakePair(letter, repWin));
                     } else {
                         bool hasOffscreenMember = false;
+                        EffectWindow *offscreenRep = nullptr;
                         for (EffectWindow *target : winList) {
                             if (!target || target->isDeleted()) continue;
-                            if (target == w || target == hudRefWindow || target == m_activeWindow) {
+                            const bool onCurrent = target->isOnCurrentDesktop();
+                            const bool min = target->isMinimized();
+                            if (!onCurrent || min) {
                                 hasOffscreenMember = true;
-                                break;
-                            }
-                            if (!target->isOnCurrentDesktop() || target->isMinimized()) {
-                                hasOffscreenMember = true;
+                                offscreenRep = target;
                                 break;
                             }
                             const QRectF geo = target->frameGeometry();
                             const QRectF visibleWindowGeo = geo.intersected(screenRect);
                             if (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50 || isWindowObscured(target)) {
                                 hasOffscreenMember = true;
+                                offscreenRep = target;
                                 break;
                             }
                         }
-                        if (hasOffscreenMember) {
-                            offscreenTargets.append(qMakePair(letter, repWin));
+                        if (hasOffscreenMember && offscreenRep) {
+                            offscreenTargets.append(qMakePair(letter, offscreenRep));
                         }
                     }
 
@@ -11802,7 +11810,9 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                             if (target->isOnCurrentDesktop() && !target->isMinimized()) {
                                 onscreenTargets.append(qMakePair(directKey, target));
                             }
-                            offscreenTargets.append(qMakePair(directKey, target));
+                            if (m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(target) || m_stashModeActive || m_closeWindowModeActive || m_pinModeActive) {
+                                offscreenTargets.append(qMakePair(directKey, target));
+                            }
                             continue;
                         }
 

@@ -428,7 +428,7 @@ set_default BadgeDisplayMode 0
 set_default BadgeWindowBadgesEnabled true
 set_default BadgePosition 1
 set_default BadgeHudPosition 0
-set_default BadgeHudIncludeAll true
+set_default BadgeHudIncludeAll false
 set_default BadgeHudGroupWindows true
 set_default BadgeHudGroupBorderWidth 2.0
 set_default BadgeHudGroupFontSize 0

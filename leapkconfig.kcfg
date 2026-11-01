@@ -277,7 +277,7 @@
             <max>3</max>
         </entry>
         <entry name="BadgeHudIncludeAll" type="Bool">
-            <default>true</default>
+            <default>false</default>
         </entry>
         <entry name="BadgeHudGroupWindows" type="Bool">
             <default>true</default>

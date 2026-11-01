@@ -1170,7 +1170,7 @@ void ActiveWindowOutlineConfig::load()
         m_ui->combo_BadgeLocationFont->setCurrentFont(QFont(locFont.trimmed()));
     }
     m_ui->kcfg_BadgeWindowBadgesEnabled->setChecked(group.readEntry("BadgeWindowBadgesEnabled", true));
-    m_ui->kcfg_BadgeHudIncludeAll->setChecked(group.readEntry("BadgeHudIncludeAll", true));
+    m_ui->kcfg_BadgeHudIncludeAll->setChecked(group.readEntry("BadgeHudIncludeAll", false));
     m_ui->kcfg_BadgeHudGroupWindows->setChecked(group.readEntry("BadgeHudGroupWindows", true));
     m_ui->kcfg_BadgeHudGroupBorderWidth->setValue(group.readEntry("BadgeHudGroupBorderWidth", 2.0));
     m_ui->kcfg_BadgeHudGroupFontSize->setValue(group.readEntry("BadgeHudGroupFontSize", 0));
@@ -1245,7 +1245,7 @@ void ActiveWindowOutlineConfig::defaults()
     m_ui->kcfg_BadgeCaptionFontSize->setValue(0);
     m_ui->kcfg_BadgeLocationFontSize->setValue(0);
     m_ui->kcfg_BadgeWindowBadgesEnabled->setChecked(true);
-    m_ui->kcfg_BadgeHudIncludeAll->setChecked(true);
+    m_ui->kcfg_BadgeHudIncludeAll->setChecked(false);
     m_ui->kcfg_BadgeHudGroupWindows->setChecked(true);
     m_ui->kcfg_BadgeHudGroupBorderWidth->setValue(2.0);
     m_ui->kcfg_BadgeHudGroupFontSize->setValue(0);

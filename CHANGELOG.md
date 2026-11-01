@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta55] - 2026-11-01
+
+### Fixed
+- **Restored Animated Recency Marker Line Between HUD Badges**:
+  - Fixed an issue where the animated vertical glowing recency marker line (`renderHudActiveMarkerLine`) between HUD badges disappeared when cycling through windows via `Shift + ,` / `Shift + .` or `Meta + Space`.
+  - Root cause: In `v1.6.0-beta49`, the active window was unconditionally added to `offscreenTargets` in Leap mode. `computeActiveMarkerRectForTargets()` immediately returned `QRectF()` when the active window was found inside `targets`, permanently suppressing the line between badges.
+  - In `badgehelper.h`, reverted `cand.isActiveWindow` from unconditionally forcing `res.addToHud = true` when `BadgeHudIncludeAll` is false.
+  - In `leapk.cpp`, restored conditional inclusion of offscreen targets in Mode A and Mode B: on-screen visible windows are not added to `offscreenTargets` when `BadgeHudIncludeAll` is false unless special modes (Pin, Stash, Close) are active.
+  - Connected `traverseRecentWindows` (`Meta + Space`) to `m_hudSelectAnimTimer` and `m_hudSelectAnimActive` so the recency marker line animates smoothly during recent windows traversal.
+  - Set default `BadgeHudIncludeAll` to `false` across KConfig schema (`leapkconfig.kcfg`), settings UI (`leapk_config.cpp`), preset defaults (`presethelper.h`), and installer script (`install-leapk.sh`).
+  - Updated unit tests in `tests/badge_test.cpp` verifying target candidate distribution when `hudIncludeAll = false`.
+
 ## [1.6.0-beta54] - 2026-11-01
 
 ### Added

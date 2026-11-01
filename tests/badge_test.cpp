@@ -1564,13 +1564,13 @@ void testSubLeapTargetDistribution()
     auto resStash = classifySubLeapTarget(win1, cfgDefault, true);
     assert(resStash.addToHud);
 
-    // 5. Active window must always be included in HUD even when hudIncludeAll is false
+    // 5. Active window when hudIncludeAll is false
     BadgeConfig cfgNoIncludeAll;
     cfgNoIncludeAll.hudIncludeAll = false;
     cfgNoIncludeAll.hudGroupWindows = false;
     cfgNoIncludeAll.windowBadgesEnabled = true;
     auto resActive = classifySubLeapTarget(win1, cfgNoIncludeAll);
-    assert(resActive.addToHud);
+    assert(!resActive.addToHud);
     assert(resActive.addToOnscreen);
 }
 
