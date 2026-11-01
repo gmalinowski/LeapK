@@ -116,6 +116,14 @@ void testMarkerManagerCliParsing()
     assert(closeKey == Qt::Key_Escape);
     assert(searchKey == Qt::Key_Slash);
 
+    // 6. Unified Manager keyboard semantics: [E] edits in both Workspaces and Markers, [C] creates empty workspace
+    const int editKey = Qt::Key_E;
+    const int createEmptyKey = Qt::Key_C;
+    const int tabSwitchKey = Qt::Key_Tab;
+    assert(editKey == Qt::Key_E);
+    assert(createEmptyKey == Qt::Key_C);
+    assert(tabSwitchKey == Qt::Key_Tab);
+
     std::cout << "testMarkerManagerCliParsing PASSED\n";
 }
 

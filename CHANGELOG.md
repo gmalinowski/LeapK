@@ -4,6 +4,26 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta62] - 2026-11-01
+
+### Added
+- **Unified Manager Application (`UnifiedManagerDialog`)**:
+  - Consolidated Workspace Manager and Marker & Group Manager into a single, cohesive, dual-tabbed application:
+    - **Tab 1: Workspaces (`🗂 Workspaces`)**: Manage virtual workspaces, window/application scope assignment, stash, and creation.
+    - **Tab 2: Markers & Groups (`🏷 Markers & Groups`)**: Manage persistent letter marks, window rules, criteria, and live open windows.
+  - Seamless tab switching via clicking tabs, pressing `Tab` / `Ctrl+Tab`, or pressing `Ctrl+1` / `Ctrl+2`.
+  - Both helper binaries (`leapk-workspace-manager` and `leapk-marker-manager`) now launch the unified interface preselected to their respective tabs, maintaining full backwards compatibility with all CLI options, scripts, and KWin HUD shortcuts (`Meta+W` and `Meta+M`).
+  - Dynamic footer shortcut hint strip adapting to the active tab's capabilities and keys.
+- **Wider Manager Window Geometry**:
+  - Expanded dialog dimensions to `850px x 650px` (with `800px x 560px` minimum bounds), providing generous horizontal breathing room for marker criteria, titles, and live matching open window indicators.
+
+### Changed
+- **Workspace Manager Edit Shortcut Changed to [E]**:
+  - Changed workspace edit shortcut from `F2` to `[E]` (with `[R]` and legacy `[F2]` retained as aliases), harmonizing edit semantics across both Workspaces and Markers (`[E]` edits the selected item in both tabs).
+  - Empty workspace creation shortcut updated to `[C]` ("✨ [C] Create Empty Workspace", with `Shift+N` also supported).
+- **Marker Manager Search Defocus on Escape**:
+  - Pressing `Esc` while the search input (`m_searchEdit`) has focus now clears focus and returns control to the manager without closing the dialog. A subsequent `Esc` closes the window as expected.
+
 ## [1.6.0-beta61] - 2026-11-01
 
 ### Added

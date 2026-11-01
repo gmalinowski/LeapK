@@ -199,17 +199,23 @@ install(TARGETS leapk-custom-marker
 )
 
 # --- Standalone Workspace Manager helper ---
-add_executable(leapk-workspace-manager workspacemanager.cpp)
+set(MANAGER_COMMON_SRCS unifiedmanagerdialog.cpp)
+
+add_executable(leapk-workspace-manager workspacemanager.cpp ${MANAGER_COMMON_SRCS})
 target_link_libraries(leapk-workspace-manager PRIVATE
     Qt6::Widgets
     Qt6::Svg
+    Qt6::DBus
 )
 install(TARGETS leapk-workspace-manager
     DESTINATION ${KDE_INSTALL_LIBEXECDIR}
 )
+install(TARGETS leapk-workspace-manager
+    DESTINATION ${KDE_INSTALL_BINDIR}
+)
 
 # --- Standalone Marker Manager helper ---
-add_executable(leapk-marker-manager markermanager.cpp)
+add_executable(leapk-marker-manager markermanager.cpp ${MANAGER_COMMON_SRCS})
 target_link_libraries(leapk-marker-manager PRIVATE
     Qt6::Widgets
     Qt6::Svg
