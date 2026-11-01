@@ -829,6 +829,60 @@ void testResizeSlotGeometries()
         assert(qAbs(tileGeos[3].height() - 485.0) < 0.001);
     }
 
+    // Test 5: 5-Slot Layout (3 left, 2 right) local interactive divider resizing
+    {
+        QList<QRectF> geos = {
+            QRectF(6, 6, 951, 531),    // Slot 0: left top (bottom: 537)
+            QRectF(6, 543, 951, 264),  // Slot 1: left mid (top: 543, bottom: 807)
+            QRectF(6, 813, 951, 267),  // Slot 2: left bot (top: 813, bottom: 1080)
+            QRectF(963, 6, 951, 531),  // Slot 3: right top (bottom: 537)
+            QRectF(963, 543, 951, 537) // Slot 4: right bot (top: 543, bottom: 1080)
+        };
+
+        // Test calculateDividerMove helper when dragging Slot 0 right by +50px
+        ResizeDirection dir;
+        qreal delta = 0.0;
+        QRectF movedGeo0 = geos[0];
+        movedGeo0.setRight(movedGeo0.right() + 50.0);
+        bool detected = calculateDividerMove(geos, 0, movedGeo0, dir, delta);
+        assert(detected);
+        assert(dir == ResizeDirection::Right);
+        assert(qAbs(delta - 50.0) < 0.001);
+
+        // Apply resize with localOnly=true
+        bool ok = resizeSlotGeometries(geos, 0, dir, delta, 100.0, true);
+        assert(ok);
+        // All left slots expanded by +50px
+        assert(qAbs(geos[0].width() - 1001.0) < 0.001);
+        assert(qAbs(geos[1].width() - 1001.0) < 0.001);
+        assert(qAbs(geos[2].width() - 1001.0) < 0.001);
+        // All right slots shrunk from left by 50px
+        assert(qAbs(geos[3].left() - 1013.0) < 0.001);
+        assert(qAbs(geos[3].width() - 901.0) < 0.001);
+        assert(qAbs(geos[4].left() - 1013.0) < 0.001);
+        assert(qAbs(geos[4].width() - 901.0) < 0.001);
+
+        // Test calculateDividerMove when dragging bottom of Slot 3 down by +40px
+        QRectF movedGeo3 = geos[3];
+        movedGeo3.setBottom(movedGeo3.bottom() + 40.0);
+        detected = calculateDividerMove(geos, 3, movedGeo3, dir, delta);
+        assert(detected);
+        assert(dir == ResizeDirection::Down);
+        assert(qAbs(delta - 40.0) < 0.001);
+
+        // Apply local resize: ONLY Slot 3 and Slot 4 should be modified!
+        ok = resizeSlotGeometries(geos, 3, dir, delta, 100.0, true);
+        assert(ok);
+        assert(qAbs(geos[3].height() - 571.0) < 0.001);
+        assert(qAbs(geos[4].top() - 583.0) < 0.001);
+        assert(qAbs(geos[4].height() - 497.0) < 0.001);
+        assert(qAbs(geos[4].top() - geos[3].bottom() - 6.0) < 0.001);
+        // Crucial check: Left column must remain completely untouched!
+        assert(qAbs(geos[0].height() - 531.0) < 0.001);
+        assert(qAbs(geos[1].height() - 264.0) < 0.001);
+        assert(qAbs(geos[2].height() - 267.0) < 0.001);
+    }
+
     std::cout << "testResizeSlotGeometries PASSED\n";
 }
 

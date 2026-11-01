@@ -370,7 +370,7 @@ enum class ResizeDirection {
 
 constexpr const char *kTileEditKeys = "ABCDEFGRTVWXYZ";
 
-inline bool resizeSlotGeometries(QList<QRectF> &geometries, int activeIdx, ResizeDirection dir, qreal delta, qreal minSize = 100.0)
+inline bool resizeSlotGeometries(QList<QRectF> &geometries, int activeIdx, ResizeDirection dir, qreal delta, qreal minSize = 100.0, bool localOnly = false)
 {
     if (activeIdx < 0 || activeIdx >= geometries.size() || geometries.size() < 2 || delta <= 0.0) {
         return false;
@@ -478,6 +478,18 @@ inline bool resizeSlotGeometries(QList<QRectF> &geometries, int activeIdx, Resiz
         // and groupR to only those that overlap vertically with at least one in groupL
         QList<int> filteredL;
         for (int l : groupL) {
+            if (localOnly && !verticalOverlap(geometries[l], cur) && l != activeIdx) {
+                bool sharesCol = false;
+                for (int otherL : groupL) {
+                    if (otherL == activeIdx || verticalOverlap(geometries[otherL], cur)) {
+                        if (qAbs(geometries[l].left() - geometries[otherL].left()) <= tol) {
+                            sharesCol = true;
+                            break;
+                        }
+                    }
+                }
+                if (!sharesCol) continue;
+            }
             for (int r : groupR) {
                 if (verticalOverlap(geometries[l], geometries[r])) {
                     filteredL.append(l);
@@ -487,6 +499,18 @@ inline bool resizeSlotGeometries(QList<QRectF> &geometries, int activeIdx, Resiz
         }
         QList<int> filteredR;
         for (int r : groupR) {
+            if (localOnly && !verticalOverlap(geometries[r], cur) && r != activeIdx) {
+                bool sharesCol = false;
+                for (int otherR : groupR) {
+                    if (otherR == activeIdx || verticalOverlap(geometries[otherR], cur)) {
+                        if (qAbs(geometries[r].right() - geometries[otherR].right()) <= tol) {
+                            sharesCol = true;
+                            break;
+                        }
+                    }
+                }
+                if (!sharesCol) continue;
+            }
             for (int l : groupL) {
                 if (verticalOverlap(geometries[l], geometries[r])) {
                     filteredR.append(r);
@@ -623,6 +647,9 @@ inline bool resizeSlotGeometries(QList<QRectF> &geometries, int activeIdx, Resiz
         // and groupB to only those that overlap horizontally with at least one in groupT
         QList<int> filteredT;
         for (int t : groupT) {
+            if (localOnly && !horizontalOverlap(geometries[t], cur) && t != activeIdx) {
+                continue;
+            }
             for (int b : groupB) {
                 if (horizontalOverlap(geometries[t], geometries[b])) {
                     filteredT.append(t);
@@ -632,6 +659,9 @@ inline bool resizeSlotGeometries(QList<QRectF> &geometries, int activeIdx, Resiz
         }
         QList<int> filteredB;
         for (int b : groupB) {
+            if (localOnly && !horizontalOverlap(geometries[b], cur) && b != activeIdx) {
+                continue;
+            }
             for (int t : groupT) {
                 if (horizontalOverlap(geometries[t], geometries[b])) {
                     filteredB.append(b);
@@ -678,6 +708,47 @@ inline bool resizeSlotGeometries(QList<QRectF> &geometries, int activeIdx, Resiz
             return false;
         }
     }
+}
+
+inline bool calculateDividerMove(const QList<QRectF> &geometries, int slotIdx, const QRectF &newGeo, ResizeDirection &outDir, qreal &outDelta)
+{
+    if (slotIdx < 0 || slotIdx >= geometries.size()) {
+        return false;
+    }
+    const QRectF cur = geometries[slotIdx];
+    const qreal tol = 2.0;
+
+    qreal dRight = newGeo.right() - cur.right();
+    qreal dLeft = newGeo.left() - cur.left();
+    qreal dBottom = newGeo.bottom() - cur.bottom();
+    qreal dTop = newGeo.top() - cur.top();
+
+    qreal maxDisp = 0.0;
+    ResizeDirection bestDir = ResizeDirection::Right;
+
+    if (qAbs(dRight) > tol && qAbs(dRight) > maxDisp) {
+        maxDisp = qAbs(dRight);
+        bestDir = (dRight > 0.0) ? ResizeDirection::Right : ResizeDirection::Left;
+    }
+    if (qAbs(dLeft) > tol && qAbs(dLeft) > maxDisp) {
+        maxDisp = qAbs(dLeft);
+        bestDir = (dLeft > 0.0) ? ResizeDirection::Right : ResizeDirection::Left;
+    }
+    if (qAbs(dBottom) > tol && qAbs(dBottom) > maxDisp) {
+        maxDisp = qAbs(dBottom);
+        bestDir = (dBottom > 0.0) ? ResizeDirection::Down : ResizeDirection::Up;
+    }
+    if (qAbs(dTop) > tol && qAbs(dTop) > maxDisp) {
+        maxDisp = qAbs(dTop);
+        bestDir = (dTop > 0.0) ? ResizeDirection::Down : ResizeDirection::Up;
+    }
+
+    if (maxDisp > tol) {
+        outDir = bestDir;
+        outDelta = maxDisp;
+        return true;
+    }
+    return false;
 }
 
 inline QJsonObject toKdeJson(const TilingPreset &preset)

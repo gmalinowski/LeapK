@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta53] - 2026-11-01
+
+### Fixed
+- **Seamless KDE KWin Tile Integration & Bidirectional Gap / Border Resizing**:
+  - Re-integrated tiled windows with KWin's native `Tile` hierarchy via `applyWindowToTilingSlot(ew, geo, targetTile)` and `getLiveKdeLeafTiles()`:
+    - Automatically links tiled windows to KWin's Wayland `Tile` state machine (`targetTile->manage(win)`).
+    - Enables KDE's native gap resizing: hovering over the gap between two tiled windows reveals the resize handle and dragging it resizes both tiles and windows simultaneously.
+    - Window borders between tiles now trigger co-operative tile resizing instead of detaching as isolated floating windows.
+  - Connected `EffectWindow::windowStepUserMovedResized` and upgraded `slotWindowFinishUserMovedResized`:
+    - Synchronizes live window and tile geometries during interactive dragging in real-time.
+    - On release, persists updated tile proportions into `kwinrc` via `TileManager::saveSettings()` and synchronizes custom preset backups.
+  - Implemented `calculateDividerMove` and `localOnly` component isolation in `tilinghelper.h`:
+    - Prevents horizontal divider resizing in one column (e.g. dragging between Slot 3 and Slot 4 in the right column) from inappropriately altering dividers in adjacent columns (Slot 0 and Slot 1 in the left column).
+    - Added comprehensive unit test in `tests/tiling_test.cpp` verifying edge movement detection and column-isolated divider resizing for the 5-slot layout.
+
 ## [1.6.0-beta52] - 2026-11-01
 
 ### Fixed

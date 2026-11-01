@@ -54,6 +54,9 @@ class SceneView;
 class GLFramebuffer;
 class GLTexture;
 class VirtualDesktop;
+class Tile;
+class TileManager;
+class RootTile;
 
 #ifdef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
 using OutlineRegion = QRegion;
@@ -184,6 +187,7 @@ private Q_SLOTS:
     void slotWindowFullScreenChanged(KWin::EffectWindow *w);
     void slotWindowDamaged(KWin::EffectWindow *w);
     void slotWindowStartUserMovedResized(KWin::EffectWindow *w);
+    void slotWindowStepUserMovedResized(KWin::EffectWindow *w, const QRectF &geometry);
     void slotWindowFinishUserMovedResized(KWin::EffectWindow *w);
     void slotShowingDesktopChanged();
     void slotActiveFullScreenEffectChanged();
@@ -358,7 +362,10 @@ private:
     void slotToggleActiveWindowFloating();
     void activateTilingPreset(const LeapKTiling::TilingPreset &preset, bool preserveJumpMode = false);
     void deactivateTiling(EffectWindow *skipRestoreWindow = nullptr, bool preserveWorkspaceState = false);
-    void applyWindowToTilingSlot(EffectWindow *ew, const QRectF &geo);
+    QList<Tile *> getLiveKdeLeafTiles() const;
+    void applyWindowToTilingSlot(EffectWindow *ew, const QRectF &geo, Tile *targetTile = nullptr);
+    void handleTiledWindowResized(EffectWindow *w, const QRectF &newGeo);
+    void syncActiveTilingSlotsToKdeTiles();
     bool isWindowInTileSlot(EffectWindow *w) const;
     int findTileSlotIndexForWindow(EffectWindow *w) const;
     void performTilingSwap(EffectWindow *target);

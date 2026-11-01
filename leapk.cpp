@@ -617,6 +617,8 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
                 this, &ActiveWindowOutlineEffect::slotWindowDamaged);
         connect(w, &EffectWindow::windowStartUserMovedResized,
                 this, &ActiveWindowOutlineEffect::slotWindowStartUserMovedResized);
+        connect(w, &EffectWindow::windowStepUserMovedResized,
+                this, &ActiveWindowOutlineEffect::slotWindowStepUserMovedResized);
         connect(w, &EffectWindow::windowFinishUserMovedResized,
                 this, &ActiveWindowOutlineEffect::slotWindowFinishUserMovedResized);
     }
@@ -1521,6 +1523,8 @@ void ActiveWindowOutlineEffect::slotWindowAdded(EffectWindow *w)
             this, &ActiveWindowOutlineEffect::slotWindowDamaged);
     connect(w, &EffectWindow::windowStartUserMovedResized,
             this, &ActiveWindowOutlineEffect::slotWindowStartUserMovedResized);
+    connect(w, &EffectWindow::windowStepUserMovedResized,
+            this, &ActiveWindowOutlineEffect::slotWindowStepUserMovedResized);
     connect(w, &EffectWindow::windowFinishUserMovedResized,
             this, &ActiveWindowOutlineEffect::slotWindowFinishUserMovedResized);
 
@@ -9085,13 +9089,18 @@ void ActiveWindowOutlineEffect::slotWindowStartUserMovedResized(EffectWindow *w)
     }
 }
 
+void ActiveWindowOutlineEffect::slotWindowStepUserMovedResized(EffectWindow *w, const QRectF &geometry)
+{
+    if (m_tilingActive && w && w->isUserResize()) {
+        handleTiledWindowResized(w, geometry);
+    }
+}
+
 void ActiveWindowOutlineEffect::slotWindowFinishUserMovedResized(EffectWindow *w)
 {
     if (m_tilingActive && w && w->isUserResize()) {
-        const int slotIdx = findTileSlotIndexForWindow(w);
-        if (slotIdx >= 0 && slotIdx < m_activeTilingSlots.size()) {
-            m_activeTilingSlots[slotIdx].geometry = w->frameGeometry();
-        }
+        handleTiledWindowResized(w, w->frameGeometry());
+        syncActiveTilingSlotsToKdeTiles();
     }
 }
 
@@ -9579,7 +9588,24 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
     }
 }
 
-void ActiveWindowOutlineEffect::applyWindowToTilingSlot(EffectWindow *ew, const QRectF &geo)
+QList<Tile *> ActiveWindowOutlineEffect::getLiveKdeLeafTiles() const
+{
+    QList<Tile *> leafTiles;
+    LogicalOutput *activeOutput = effects ? effects->activeScreen() : nullptr;
+    VirtualDesktop *currentDesktop = effects ? effects->currentDesktop() : nullptr;
+    TileManager *tileMgr = (workspace() && activeOutput) ? workspace()->tileManager(activeOutput) : nullptr;
+    RootTile *rootTile = (tileMgr && currentDesktop) ? tileMgr->rootTile(currentDesktop) : nullptr;
+    if (rootTile) {
+        for (Tile *t : rootTile->descendants()) {
+            if (!t->isLayout()) {
+                leafTiles.append(t);
+            }
+        }
+    }
+    return leafTiles;
+}
+
+void ActiveWindowOutlineEffect::applyWindowToTilingSlot(EffectWindow *ew, const QRectF &geo, Tile *targetTile)
 {
     if (!ew || ew->isDeleted() || !ew->window()) {
         return;
@@ -9588,16 +9614,141 @@ void ActiveWindowOutlineEffect::applyWindowToTilingSlot(EffectWindow *ew, const 
     if (ew->isMinimized()) {
         ew->setMinimized(false);
     }
-    if (Tile *tile = win->tile()) {
-        tile->unmanage(win);
-    }
-    win->setTileCompatibility(nullptr);
-    win->requestTile(nullptr);
     if (win->maximizeMode() != MaximizeRestore) {
         win->setMaximize(false, false);
     }
     win->evaluateWindowRules();
+
+    if (!targetTile && m_tilingActive) {
+        const int slotIdx = findTileSlotIndexForWindow(ew);
+        if (slotIdx >= 0) {
+            const auto leafTiles = getLiveKdeLeafTiles();
+            if (slotIdx < leafTiles.size()) {
+                targetTile = leafTiles[slotIdx];
+            }
+        }
+    }
+
+    if (targetTile) {
+        if (win->tile() != targetTile) {
+            targetTile->manage(win);
+        }
+    } else {
+        if (Tile *tile = win->tile()) {
+            tile->unmanage(win);
+        }
+        win->setTileCompatibility(nullptr);
+        win->requestTile(nullptr);
+    }
     win->moveResize(geo);
+}
+
+void ActiveWindowOutlineEffect::handleTiledWindowResized(EffectWindow *w, const QRectF &newGeo)
+{
+    if (!m_tilingActive || !w || m_activeTilingSlots.isEmpty()) {
+        return;
+    }
+
+    const int slotIdx = findTileSlotIndexForWindow(w);
+    if (slotIdx < 0 || slotIdx >= m_activeTilingSlots.size()) {
+        return;
+    }
+
+    const bool hasNativeTile = (w->window() && w->window()->tile() != nullptr);
+    const auto leafTiles = getLiveKdeLeafTiles();
+
+    if (hasNativeTile && slotIdx < leafTiles.size()) {
+        // KWin's native TileManager already resizes tiles and manages co-operative window resizing.
+        // Synchronize our internal slot geometries from KWin's leaf tiles and window frames.
+        m_activeTilingSlots[slotIdx].geometry = newGeo;
+        for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
+            if (i != slotIdx) {
+                if (i < leafTiles.size() && leafTiles[i]) {
+                    const QRectF tileGeo = leafTiles[i]->windowGeometry();
+                    if (tileGeo.isValid() && !tileGeo.isEmpty()) {
+                        m_activeTilingSlots[i].geometry = tileGeo;
+                    }
+                } else if (m_activeTilingSlots[i].window && !m_activeTilingSlots[i].window->isDeleted()) {
+                    m_activeTilingSlots[i].geometry = m_activeTilingSlots[i].window->frameGeometry();
+                }
+            }
+        }
+    } else {
+        // Window is not managed by KWin tile (e.g. custom layout or fallback).
+        // LeapK co-operatively resizes adjacent slots and neighboring windows in real-time.
+        QList<QRectF> geos;
+        for (const auto &s : m_activeTilingSlots) {
+            geos.append(s.geometry);
+        }
+
+        LeapKTiling::ResizeDirection dir;
+        qreal delta = 0.0;
+        if (LeapKTiling::calculateDividerMove(geos, slotIdx, newGeo, dir, delta)) {
+            if (LeapKTiling::resizeSlotGeometries(geos, slotIdx, dir, delta, 100.0, true)) {
+                for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
+                    m_activeTilingSlots[i].geometry = geos[i];
+                    if (i != slotIdx) {
+                        EffectWindow *neighbor = m_activeTilingSlots[i].window.data();
+                        if (neighbor && !neighbor->isDeleted() && neighbor->window()) {
+                            Tile *targetTile = (i < leafTiles.size()) ? leafTiles[i] : nullptr;
+                            applyWindowToTilingSlot(neighbor, geos[i], targetTile);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::syncActiveTilingSlotsToKdeTiles()
+{
+    LogicalOutput *activeOutput = effects ? effects->activeScreen() : nullptr;
+    VirtualDesktop *currentDesktop = effects ? effects->currentDesktop() : nullptr;
+    TileManager *tileMgr = (workspace() && activeOutput) ? workspace()->tileManager(activeOutput) : nullptr;
+
+    if (tileMgr) {
+        tileMgr->saveSettings();
+    }
+
+    const auto leafTiles = getLiveKdeLeafTiles();
+    for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
+        if (i < leafTiles.size() && leafTiles[i]) {
+            const QRectF tileGeo = leafTiles[i]->windowGeometry();
+            if (tileGeo.isValid() && !tileGeo.isEmpty()) {
+                m_activeTilingSlots[i].geometry = tileGeo;
+            }
+        } else if (m_activeTilingSlots[i].window && !m_activeTilingSlots[i].window->isDeleted()) {
+            m_activeTilingSlots[i].geometry = m_activeTilingSlots[i].window->frameGeometry();
+        }
+    }
+
+    // If active preset is kde-custom, reload and persist custom JSON backup
+    if (m_activeTilingPreset.id == QStringLiteral("kde-custom") && activeOutput && currentDesktop && effects && effects->config()) {
+        const QString outUuid = activeOutput->uuid();
+        const QString deskId = currentDesktop->id();
+        KConfigGroup cg = effects->config()->group(QStringLiteral("Tiling"));
+        KConfigGroup deskGroup(&cg, deskId);
+        KConfigGroup outTileGroup(&deskGroup, outUuid);
+        const QString tilesJsonStr = outTileGroup.readEntry("tiles", QString());
+        if (!tilesJsonStr.isEmpty()) {
+            QJsonObject kdeObj = QJsonDocument::fromJson(tilesJsonStr.toUtf8()).object();
+            if (!kdeObj.isEmpty()) {
+                m_savedKdeCustomTilesJson = kdeObj;
+                m_activeTilingPreset.kdeJson = kdeObj;
+                KConfigGroup leapkCg = effects->config()->group(QStringLiteral("Effect-leapk"));
+                leapkCg.writeEntry(QStringLiteral("CustomTilingBackup_%1_%2").arg(deskId, outUuid), tilesJsonStr);
+                leapkCg.sync();
+            }
+        }
+    }
+
+    if (effects) {
+        effects->addRepaintFull();
+    }
 }
 
 void ActiveWindowOutlineEffect::deactivateTiling(EffectWindow *skipRestoreWindow, bool preserveWorkspaceState)
@@ -9958,6 +10109,7 @@ void ActiveWindowOutlineEffect::performTilingResize(LeapKTiling::ResizeDirection
                 applyWindowToTilingSlot(w, geos[i]);
             }
         }
+        syncActiveTilingSlotsToKdeTiles();
         playThemedSound(OutlineSound::SoundEffect::NavTab);
         if (effects) {
             effects->addRepaintFull();
