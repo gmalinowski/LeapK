@@ -1222,7 +1222,13 @@ void testStashBadgeStyling()
                                                                        32, 1.0, QString(), QIcon(), QImage(), true, QString(), false, 0, true);
     assert(!pillStashed.isNull());
 
-    // 2. Normal vs Stashed window badge
+    // 2. Unmarked stashed pill with prominent emerald dashed frame
+    const QImage pillUnmarkedStashed = OutlineBadge::renderOffscreenTargetPill(cfg, QChar('Z'), QColor(), QColor(),
+                                                                               QStringLiteral("📦 Stash"), QStringLiteral("Dolphin"),
+                                                                               32, 1.0, QString(), QIcon(), QImage(), false, QString(), false, 0, true);
+    assert(!pillUnmarkedStashed.isNull());
+
+    // 3. Normal vs Stashed window badge
     const QImage badgeNormal = OutlineBadge::renderBadgeImage(cfg, QChar('K'), vibrantOrange, Qt::white, false, 28, 1.0,
                                                               QString(), QIcon(), QImage(), QString(), false, false);
     assert(!badgeNormal.isNull());
@@ -1230,9 +1236,18 @@ void testStashBadgeStyling()
     const QImage badgeStashed = OutlineBadge::renderBadgeImage(cfg, QChar('K'), vibrantOrange, Qt::white, false, 28, 1.0,
                                                                QString(), QIcon(), QImage(), QString(), false, true);
     assert(!badgeStashed.isNull());
-
-    // Verify dimensions match
     assert(badgeNormal.size() == badgeStashed.size());
+
+    // 4. Stashed window badge with package icon
+    const QImage badgeStashedWithIcon = OutlineBadge::renderBadgeImage(cfg, QChar('K'), vibrantOrange, Qt::white, false, 28, 1.0,
+                                                                       QStringLiteral("📦"), QIcon(), QImage(), QString(), false, true);
+    assert(!badgeStashedWithIcon.isNull());
+    assert(badgeStashedWithIcon.width() > badgeNormal.width());
+
+    // 5. Stashed window badge unmarked
+    const QImage badgeUnmarkedStashed = OutlineBadge::renderBadgeImage(cfg, QChar('K'), QColor(), QColor(), true, 28, 1.0,
+                                                                       QStringLiteral("📦"), QIcon(), QImage(), QString(), false, true);
+    assert(!badgeUnmarkedStashed.isNull());
 }
 
 void testPinDotBadgeAspectAndContrast()

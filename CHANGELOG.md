@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta58] - 2026-11-01
+
+### Changed
+- **High-Contrast Prominent Dashed Frame & Emerald Stash Styling for Stashed Badges**:
+  - Significantly enhanced visual distinction of stashed window badges and HUD dock pills so they stand out clearly:
+    - **Bold Dashed Outer Frame**: Stashed HUD pills and on-screen badges now feature a prominent `2.0 * scale` (pill) and `2.4 * scale` (jump badge) dashed stroke with crisp `{5, 3}` pattern.
+    - **Luminous Emerald Stash Theme**: Unmarked stashed pills and badges feature vibrant Emerald Green (`#2ecc71` / `rgba(46, 204, 113, 235)`) borders and inner strokes instead of dull washed-out grey.
+    - **Stash Container Background**: Tinted pill backgrounds with a subtle dark emerald glass tone (`#102218`) and rich dark emerald letter badge container (`#183826`).
+    - **Vibrant Header Text**: Location text ("📦 Stash" / "📦 Schowek") is rendered in bright emerald green (`QColor(46, 204, 113)`).
+    - **Stash Icon Badge Prefix**: On-screen window badges and custom labels for stashed windows are automatically tagged with the `📦` icon prefix.
+    - **Dashed Thumbnail Frame**: Stashed window thumbnails in HUD pills feature a matching emerald dashed border (`{4, 2}`).
+  - Updated unit tests in `tests/badge_test.cpp` verifying unmarked and marked stashed badges and HUD pills.
+
 ## [1.6.0-beta57] - 2026-11-01
 
 ### Changed

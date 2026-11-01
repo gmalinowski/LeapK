@@ -8829,6 +8829,8 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             customLabel = isPinned ? QStringLiteral("📌") : QStringLiteral("+📌");
         } else if (isPinned && !customLabel.isEmpty()) {
             customLabel = QStringLiteral("● %1").arg(customLabel);
+        } else if (isStashed && !customLabel.isEmpty()) {
+            customLabel = QStringLiteral("📦 %1").arg(customLabel);
         }
 
         const bool showIconOnHud = cfg.hudShowIcon;
@@ -11979,6 +11981,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 customLabel = isWindowPinned(target) ? QStringLiteral("📌") : QStringLiteral("+📌");
             } else if (isWindowPinned(target)) {
                 customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
+            } else if (isWindowInStash(target)) {
+                customLabel = customLabel.isEmpty() ? QStringLiteral("📦") : QStringLiteral("📦 %1").arg(customLabel);
             }
             const bool isPlayingAudio = target ? m_audioTracker.isWindowPlaying(target->pid(), target->caption()) : false;
             const qreal jumpW = OutlineBadge::computeBadgeWidth(m_badgeConfig, jumpH, customLabel, recentKey, true, isPlayingAudio);
