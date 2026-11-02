@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta67] - 2026-11-02
+
+### Refactored
+- **Core Architecture & Subsystem Modularization**:
+  - Refactored the monolithic `leapk.cpp` (12,662 lines) into 8 dedicated, high-cohesion subsystems:
+    - `leapk.cpp` (~1,900 lines): Core plugin lifecycle, configuration management, KWin window event slots, popup filtering, and DBus interface.
+    - `leapk_shaders.cpp` (~1,000 lines): GLSL shaders generation & compilation (glow, outline, audio reactive), vertex geometry generation, and outline rendering.
+    - `leapk_color.cpp` (~580 lines): Real-time ambilight screen edge sampling, color cycling, and visual animations (breathe, glitch, neon, flash).
+    - `leapk_paint.cpp` (~1,290 lines): KWin screen and window paint passes (`prePaintScreen`, `paintScreen`, `paintWindow`, `drawWindow`, and live window thumbnail capture).
+    - `leapk_tiling.cpp` (~1,240 lines): Tiling engine, slot management, preset activation, KWin native leaf tile synchronization, interactive keyboard resizing/swapping, and edit overlays.
+    - `leapk_hud.cpp` (~2,460 lines): HUD layout computation, dock/pill geometry calculation, badge letters rendering, hint bars, mode headers, and meta overlays.
+    - `leapk_input.cpp` (~2,300 lines): Modal keyboard event grabber (`grabbedKeyboardEvent`), mouse interaction, and mode state machines (Jump, SubLeap, SuperJump, CloseWindow, Pin, Search, Audio filter).
+    - `leapk_workspaces.cpp` (~1,910 lines): Smart Workspaces, virtual desktop isolation, window tagging & marks, persistent marks, pin/stash management, and history navigation.
+    - `leapk_internal.h`: Unified internal header with forward declarations and includes for all effect translation units.
+  - Enabled multi-core parallel compilation in CMake for `leapk.so`, dramatically speeding up build times.
+  - Updated build ID hash calculation in `CMakeLists.txt` to cover all subsystem translation units.
+  - All 30/30 unit tests pass.
+
 ## [1.6.0-beta66] - 2026-11-02
 
 ### Fixed

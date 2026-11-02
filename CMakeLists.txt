@@ -60,7 +60,15 @@ endif()
 
 # --- Effect plugin ---
 kcoreaddons_add_plugin(leapk
-    SOURCES leapk.cpp
+    SOURCES
+        leapk.cpp
+        leapk_shaders.cpp
+        leapk_color.cpp
+        leapk_paint.cpp
+        leapk_tiling.cpp
+        leapk_hud.cpp
+        leapk_input.cpp
+        leapk_workspaces.cpp
     INSTALL_NAMESPACE "${KWIN_EFFECT_NAMESPACE}"
 )
 target_link_libraries(leapk PRIVATE
@@ -72,14 +80,22 @@ target_link_libraries(leapk PRIVATE
 )
 # Identify the loaded library, including uncommitted test builds.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    leapk.cpp leapk.h popupfilter.h cursoroverlay.h visibilitystate.h ambilightalgorithm.h keyboardlayouthelper.h persistentmarkhelper.h audiotracker.h tilinghelper.h kwintilehelper.h)
+    leapk.cpp leapk_shaders.cpp leapk_color.cpp leapk_paint.cpp leapk_tiling.cpp leapk_hud.cpp leapk_input.cpp leapk_workspaces.cpp leapk_internal.h leapk.h popupfilter.h cursoroverlay.h visibilitystate.h ambilightalgorithm.h keyboardlayouthelper.h persistentmarkhelper.h audiotracker.h tilinghelper.h kwintilehelper.h)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk.cpp" OUTLINE_CPP_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk_shaders.cpp" OUTLINE_SHADERS_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk_color.cpp" OUTLINE_COLOR_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk_paint.cpp" OUTLINE_PAINT_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk_tiling.cpp" OUTLINE_TILING_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk_hud.cpp" OUTLINE_HUD_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk_input.cpp" OUTLINE_INPUT_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk_workspaces.cpp" OUTLINE_WORKSPACES_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk_internal.h" OUTLINE_INTERNAL_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk.h" OUTLINE_HEADER_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/popupfilter.h" OUTLINE_POPUP_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/cursoroverlay.h" OUTLINE_CURSOR_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/visibilitystate.h" OUTLINE_VISIBILITY_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/ambilightalgorithm.h" OUTLINE_AMBILIGHT_HASH)
-string(SHA256 OUTLINE_BUILD_HASH "${OUTLINE_CPP_HASH}${OUTLINE_HEADER_HASH}${OUTLINE_POPUP_HASH}${OUTLINE_CURSOR_HASH}${OUTLINE_VISIBILITY_HASH}${OUTLINE_AMBILIGHT_HASH}")
+string(SHA256 OUTLINE_BUILD_HASH "${OUTLINE_CPP_HASH}${OUTLINE_SHADERS_HASH}${OUTLINE_COLOR_HASH}${OUTLINE_PAINT_HASH}${OUTLINE_TILING_HASH}${OUTLINE_HUD_HASH}${OUTLINE_INPUT_HASH}${OUTLINE_WORKSPACES_HASH}${OUTLINE_INTERNAL_HASH}${OUTLINE_HEADER_HASH}${OUTLINE_POPUP_HASH}${OUTLINE_CURSOR_HASH}${OUTLINE_VISIBILITY_HASH}${OUTLINE_AMBILIGHT_HASH}")
 string(SUBSTRING "${OUTLINE_BUILD_HASH}" 0 12 OUTLINE_BUILD_ID)
 target_compile_definitions(leapk PRIVATE
     ACTIVE_WINDOW_OUTLINE_VERSION="${PROJECT_VERSION}"

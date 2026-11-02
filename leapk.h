@@ -216,7 +216,11 @@ private Q_SLOTS:
     void slotAnimationTick();
 
 private:
+    // --- Subsystem: Paint & Screen Pipeline (leapk_paint.cpp) ---
     void prepareScreenPaint(ScreenPrePaintData &data);
+    QRectF expandedGeometryFor(EffectWindow *w) const;
+
+    // --- Subsystem: Core Lifecycle & Popups (leapk.cpp) ---
     void initShortcuts();
     bool shouldOutlineWindow(EffectWindow *w) const;
     bool isEligibleOutlineWindow(EffectWindow *w) const;
@@ -230,8 +234,7 @@ private:
     OutlineRegion panelOcclusionRegion(EffectWindow *w, QString *source = nullptr) const;
     void repaintAllOutlines();
 
-    QRectF expandedGeometryFor(EffectWindow *w) const;
-
+    // --- Subsystem: Shaders & OpenGL Geometry (leapk_shaders.cpp) ---
     void generateRoundedRectStrip(const QRectF &outer, qreal outerRadius,
                                   const QRectF &inner, qreal innerRadius,
                                   qreal scale,
@@ -364,6 +367,8 @@ private:
     void slotCreateNewWorkspacePrompt();
     void slotCloseActiveWorkspace();
     void applyWorkspaceDeletion(const QString &deletedWorkspaceId, const QString &windowAction);
+
+    // --- Subsystem: Tiling Engine (leapk_tiling.cpp) ---
     void enterTilingPresetsMode();
     void exitTilingPresetsMode();
     void refreshTilingPresetsWithKdeCustom();
@@ -389,14 +394,19 @@ private:
     void renderTilingPresetPills(const RenderTarget &renderTarget,
                                 const RenderViewport &viewport,
                                 const QList<LeapKTiling::TilingPreset> &presets);
+
+    // --- Subsystem: HUD Badge Preview (leapk_hud.cpp) ---
     void renderBadgePreview(const RenderTarget &renderTarget,
                             const RenderViewport &viewport);
+
+    // --- Subsystem: Thumbnail Capture (leapk_paint.cpp) ---
     QImage captureWindowThumbnail(EffectWindow *target,
                                   const RenderTarget &renderTarget,
                                   const RenderViewport &viewport,
                                   const QSize &targetSize = QSize(120, 75),
                                   bool forceBlit = false);
 
+    // --- Subsystem: Color, Ambilight & Animations (leapk_color.cpp) ---
     QColor resolveColor(qreal windowOpacity = 1.0, EffectWindow *w = nullptr) const;
     QColor currentCycleColor(qreal elapsedSec);
     QColor currentAmbilightColor(qreal elapsedSec);
