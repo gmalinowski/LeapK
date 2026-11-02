@@ -821,6 +821,43 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
     effects->addRepaintFull();
 }
 
+void ActiveWindowOutlineEffect::activateJumpTargetWindow(EffectWindow *target, int keyToPass)
+{
+    if (!target || target->isDeleted()) {
+        cancelJumpMode(keyToPass);
+        return;
+    }
+
+    cancelJumpMode(keyToPass);
+    m_expectedJumpTarget = target;
+    if (m_expectedJumpTargetTimer) {
+        m_expectedJumpTargetTimer->start(1000);
+    }
+
+    const int targetWs = findWorkspaceForWindow(target);
+    if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
+        switchToWorkspaceView(targetWs);
+    }
+
+    if (!target->isOnCurrentDesktop()) {
+        const auto desktops = target->desktops();
+        if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
+            effects->setCurrentDesktop(desktops.first());
+        }
+    }
+    m_workspaceMinimizedWindows.remove(target);
+    m_stashedWindows.remove(target);
+    if (target->isMinimized()) {
+        target->setMinimized(false);
+    }
+    if (m_tilingActive) {
+        performTilingSwap(target);
+    } else {
+        effects->activateWindow(target);
+    }
+    warpCursorToWindow(target);
+}
+
 #ifdef ACTIVE_WINDOW_OUTLINE_HAS_WINDOW_INPUT_MOUSE_EVENT
 void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
 {
@@ -1306,6 +1343,26 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
+        if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
+            if (m_subLeapLetterToWindow.size() == 1) {
+                EffectWindow *target = m_subLeapLetterToWindow.first();
+                if (target && !target->isDeleted()) {
+                    exitSubLeapMode();
+                    activateJumpTargetWindow(target, e->key());
+                    return;
+                }
+            } else if (m_subLeapWindows.size() == 1) {
+                EffectWindow *target = m_subLeapWindows.first();
+                if (target && !target->isDeleted()) {
+                    exitSubLeapMode();
+                    activateJumpTargetWindow(target, e->key());
+                    return;
+                }
+            }
+            exitSubLeapMode();
+            return;
+        }
+
         if (isMetaOnly && e->key() == Qt::Key_A) {
             exitSubLeapMode();
             toggleSuperJumpMode();
@@ -1423,32 +1480,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     }
 
                     // Plain letter: normal jump & activate (switches workspace if window is in another workspace)
-                    cancelJumpMode(e->key());
-                    m_expectedJumpTarget = target;
-                    if (m_expectedJumpTargetTimer) {
-                        m_expectedJumpTargetTimer->start(1000);
-                    }
-                    const int targetWs = findWorkspaceForWindow(target);
-                    if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
-                        switchToWorkspaceView(targetWs);
-                    }
-                    if (!target->isOnCurrentDesktop()) {
-                        const auto desktops = target->desktops();
-                        if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
-                            effects->setCurrentDesktop(desktops.first());
-                        }
-                    }
-                    m_workspaceMinimizedWindows.remove(target);
-                    m_stashedWindows.remove(target);
-                    if (target->isMinimized()) {
-                        target->setMinimized(false);
-                    }
-                    if (m_tilingActive) {
-                        performTilingSwap(target);
-                    } else {
-                        effects->activateWindow(target);
-                    }
-                    warpCursorToWindow(target);
+                    activateJumpTargetWindow(target, e->key());
                     return;
                 }
             }
@@ -1512,32 +1544,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             if (!m_searchMatches.isEmpty() && m_searchSelectedIndex >= 0 && m_searchSelectedIndex < m_searchMatches.size()) {
                 EffectWindow *target = reinterpret_cast<EffectWindow *>(m_searchMatches.at(m_searchSelectedIndex).windowPtr);
                 if (target && !target->isDeleted()) {
-                    cancelJumpMode(e->key());
-                    m_expectedJumpTarget = target;
-                    if (m_expectedJumpTargetTimer) {
-                        m_expectedJumpTargetTimer->start(1000);
-                    }
-                    const int targetWs = findWorkspaceForWindow(target);
-                    if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
-                        switchToWorkspaceView(targetWs);
-                    }
-                    if (!target->isOnCurrentDesktop()) {
-                        const auto desktops = target->desktops();
-                        if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
-                            effects->setCurrentDesktop(desktops.first());
-                        }
-                    }
-                    m_workspaceMinimizedWindows.remove(target);
-                    m_stashedWindows.remove(target);
-                    if (target->isMinimized()) {
-                        target->setMinimized(false);
-                    }
-                    if (m_tilingActive) {
-                        performTilingSwap(target);
-                    } else {
-                        effects->activateWindow(target);
-                    }
-                    warpCursorToWindow(target);
+                    activateJumpTargetWindow(target, e->key());
                     return;
                 }
             }
@@ -1550,28 +1557,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             if (!altChar.isEmpty() && m_jumpLetterToWindow.contains(altChar.at(0))) {
                 EffectWindow *target = m_jumpLetterToWindow.value(altChar.at(0));
                 if (target && !target->isDeleted()) {
-                    cancelJumpMode(e->key());
-                    const int targetWs = findWorkspaceForWindow(target);
-                    if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
-                        switchToWorkspaceView(targetWs);
-                    }
-                    if (!target->isOnCurrentDesktop()) {
-                        const auto desktops = target->desktops();
-                        if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
-                            effects->setCurrentDesktop(desktops.first());
-                        }
-                    }
-                    m_workspaceMinimizedWindows.remove(target);
-                    m_stashedWindows.remove(target);
-                    if (target->isMinimized()) {
-                        target->setMinimized(false);
-                    }
-                    if (m_tilingActive) {
-                        performTilingSwap(target);
-                    } else {
-                        effects->activateWindow(target);
-                    }
-                    warpCursorToWindow(target);
+                    activateJumpTargetWindow(target, e->key());
                     return;
                 }
             }
@@ -1941,7 +1927,24 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             m_metaSpaceTraverseActive = false;
             slotCommitHistoryNavigation();
             warpCursorToWindow(m_activeWindow);
+            cancelJumpMode(e->key());
+            return;
         }
+
+        // When there is only one card/badge to choose in HUD, Enter selects it!
+        if (m_jumpLetterToWindow.size() == 1) {
+            const QChar keyChar = m_jumpLetterToWindow.firstKey();
+            if (m_groupJumpLetters.contains(keyChar) && m_groupJumpLetters.value(keyChar).size() > 1) {
+                enterSubLeapForGroup(keyChar, m_groupJumpLetters.value(keyChar));
+                return;
+            }
+            EffectWindow *target = m_jumpLetterToWindow.first();
+            if (target && !target->isDeleted()) {
+                activateJumpTargetWindow(target, e->key());
+                return;
+            }
+        }
+
         cancelJumpMode(e->key());
         return;
     }
@@ -2237,34 +2240,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                 }
 
                 // Normal jump & activate: switch to the window's workspace and desktop!
-                cancelJumpMode(e->key());
-                m_expectedJumpTarget = target;
-                if (m_expectedJumpTargetTimer) {
-                    m_expectedJumpTargetTimer->start(1000);
-                }
-
-                const int targetWs = findWorkspaceForWindow(target);
-                if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
-                    switchToWorkspaceView(targetWs);
-                }
-
-                if (!target->isOnCurrentDesktop()) {
-                    const auto desktops = target->desktops();
-                    if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
-                        effects->setCurrentDesktop(desktops.first());
-                    }
-                }
-                m_workspaceMinimizedWindows.remove(target);
-                m_stashedWindows.remove(target);
-                if (target->isMinimized()) {
-                    target->setMinimized(false);
-                }
-                if (m_tilingActive) {
-                    performTilingSwap(target);
-                } else {
-                    effects->activateWindow(target);
-                }
-                warpCursorToWindow(target);
+                activateJumpTargetWindow(target, e->key());
                 return;
             }
         }

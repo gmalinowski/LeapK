@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta69] - 2026-11-02
+
+### Added
+- **Single Card/Badge Selection via Enter Key in HUD**:
+  - In HUD / Jump Mode, when only one card/badge is available to choose (`m_jumpLetterToWindow.size() == 1`), pressing `Enter` (`Key_Return` or `Key_Enter`) now automatically selects and activates that window.
+  - Specifically supports `Meta + U` (Audio Filter mode): when only one window is playing audio, pressing `Enter` immediately switches to that window without needing to press its jump badge letter.
+  - Also applies across all HUD scopes (e.g. SubLeap with 1 candidate, filtered workspace views, Stash view, SuperJump) whenever a single target window is present.
+  - Unified jump activation into helper method `activateJumpTargetWindow()`, handling desktop/workspace switching, unminimizing, tiling swap, cursor warping, and clean jump mode exit.
+  - Updated the HUD action hint bar (`renderHudActionHintBar`) to dynamically display `Enter / Key` highlighted in green when `candidateCount == 1`, visually guiding the user that `Enter` selects the single available window.
+  - Added unit test assertions in `tests/badge_test.cpp` verifying hint bar rendering for single candidate HUD modes.
+
 ## [1.6.0-beta68] - 2026-11-02
 
 ### Fixed

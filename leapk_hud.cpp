@@ -1987,6 +1987,7 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHintBarTexture(qreal scale, const QRe
         ? qMin(qreal(screenRect.width() - 80.0), qreal(1050.0 + (hintsFontSize - 12) * 50.0))
         : 1050.0;
     const qreal maxHintBarWidth = qMin(qreal(screenRect.width() - 80.0), maxAllowedForFont) * scale;
+    const int candCount = m_subLeapActive ? m_subLeapLetterToWindow.size() : m_jumpLetterToWindow.size();
     const int nameHash = (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) ? (qHash(m_workspaces.at(m_activeHudView - 1).name) % 10000) : 0;
     const int hintBarKey = (m_subLeapActive ? 100000 : 0) + (m_stashModeActive ? 500000 : 0) + (m_superJumpActive ? 700000 : 0)
         + (m_audioFilterModeActive ? 900000 : 0)
@@ -1994,10 +1995,15 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHintBarTexture(qreal scale, const QRe
         + (m_tilingPresetsModeActive ? 1300000 : 0)
         + (m_closeWindowModeActive ? 1500000 : 0)
         + (m_pinModeActive ? 1700000 : 0)
+        + (candCount == 1 ? 2500000 : 0)
         + m_activeHudView * 1000 + nameHash + qRound(scale * 10) + (qRound(maxHintBarWidth) % 5000)
         + hintsFontSize * 19 + themeHash;
     if (!m_hudHintBarTexture || m_hudHintBarCacheKey != hintBarKey) {
-        const QImage hintImg = OutlineBadge::renderHudActionHintBar(scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor, m_stashModeActive, m_superJumpActive, m_audioFilterModeActive, m_searchModeActive, maxHintBarWidth, hintsFontSize, theme, m_tilingPresetsModeActive, m_closeWindowModeActive, m_pinModeActive);
+        const QImage hintImg = OutlineBadge::renderHudActionHintBar(
+            scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor,
+            m_stashModeActive, m_superJumpActive, m_audioFilterModeActive, m_searchModeActive,
+            maxHintBarWidth, hintsFontSize, theme, m_tilingPresetsModeActive,
+            m_closeWindowModeActive, m_pinModeActive, candCount);
         auto uploaded = GLTexture::upload(hintImg);
         if (uploaded) {
             uploaded->setFilter(GL_LINEAR);

@@ -269,6 +269,7 @@ private:
     QMap<QChar, EffectWindow *> assignJumpLetters() const;
     void cancelJumpMode();
     void cancelJumpMode(int keyToRelease);
+    void activateJumpTargetWindow(EffectWindow *target, int keyToPass = 0);
     void finishKeyboardGrab();
     void enterSubLeapForGroup(QChar keyChar, const QList<EffectWindow *> &group);
     void exitSubLeapMode();

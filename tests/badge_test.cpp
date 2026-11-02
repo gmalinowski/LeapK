@@ -1097,6 +1097,19 @@ void testHudActionHintBar()
     assert(!barLarge32.isNull());
     assert(barLarge32.height() > barLarge24.height());
     assert(qAlpha(barLarge32.pixel(0, 0)) == 0);
+
+    // 9. Single candidate / Enter to select Hint Bar
+    QImage barSingleAudio = OutlineBadge::renderHudActionHintBar(1.0, false, 0, QString(), QColor(), false, false, true, false, 0.0, 0, LeapKTheme::Theme(), false, false, false, 1);
+    assert(!barSingleAudio.isNull());
+    assert(barSingleAudio.width() > 100);
+
+    QImage barSingleJump = OutlineBadge::renderHudActionHintBar(1.0, false, 0, QString(), QColor(), false, false, false, false, 0.0, 0, LeapKTheme::Theme(), false, false, false, 1);
+    assert(!barSingleJump.isNull());
+    assert(barSingleJump.width() > 100);
+
+    QImage barMultiAudio = OutlineBadge::renderHudActionHintBar(1.0, false, 0, QString(), QColor(), false, false, true, false, 0.0, 0, LeapKTheme::Theme(), false, false, false, 3);
+    assert(!barMultiAudio.isNull());
+    assert(barMultiAudio.width() > 100);
 }
 
 void testHudModeHeader()

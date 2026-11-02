@@ -2588,7 +2588,7 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
     return img;
 }
 
-inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false, bool isSearchMode = false, qreal maxAllowedWidth = 0.0, int hintsFontSize = 0, const LeapKTheme::Theme &theme = LeapKTheme::Theme(), bool isTilingPresets = false, bool isCloseMode = false, bool isPinMode = false)
+inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false, bool isSearchMode = false, qreal maxAllowedWidth = 0.0, int hintsFontSize = 0, const LeapKTheme::Theme &theme = LeapKTheme::Theme(), bool isTilingPresets = false, bool isCloseMode = false, bool isPinMode = false, int candidateCount = 0)
 {
     Q_UNUSED(customViewName);
     Q_UNUSED(customViewColor);
@@ -2603,14 +2603,14 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     QList<Segment> segments;
     if (isCloseMode) {
         segments = {
-            {QStringLiteral("Key"), QStringLiteral("Close window"), QColor(231, 76, 60)},
+            {candidateCount == 1 ? QStringLiteral("Enter / Key") : QStringLiteral("Key"), QStringLiteral("Close window"), QColor(231, 76, 60)},
             {QStringLiteral("Meta+A"), QStringLiteral("All WS + Stash"), QColor(0, 195, 255)},
             {QStringLiteral("Meta+Q / ␣ / ⌫"), QStringLiteral("Exit Close Mode"), QColor(149, 165, 166)},
             {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
         };
     } else if (isPinMode) {
         segments = {
-            {QStringLiteral("Key"), QStringLiteral("Toggle pin state"), QColor(245, 166, 35)},
+            {candidateCount == 1 ? QStringLiteral("Enter / Key") : QStringLiteral("Key"), QStringLiteral("Toggle pin state"), QColor(245, 166, 35)},
             {QStringLiteral("Meta+A"), QStringLiteral("All WS + Stash"), QColor(0, 195, 255)},
             {QStringLiteral("Meta+P / ␣ / ⌫"), QStringLiteral("Exit Pin Mode"), QColor(149, 165, 166)},
             {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
@@ -2635,7 +2635,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
         };
     } else if (isAudioFilter) {
         segments = {
-            {QStringLiteral("Key"), QStringLiteral("Jump to audio window"), QColor(255, 107, 107)},
+            {candidateCount == 1 ? QStringLiteral("Enter / Key") : QStringLiteral("Key"), QStringLiteral("Jump to audio window"), candidateCount == 1 ? QColor(46, 204, 113) : QColor(255, 107, 107)},
             {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close"), QColor(231, 76, 60)},
@@ -2644,7 +2644,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
         };
     } else if (isSuperJump) {
         segments = {
-            {QStringLiteral("Key"), QStringLiteral("Jump to workspace"), QColor(0, 195, 255)},
+            {candidateCount == 1 ? QStringLiteral("Enter / Key") : QStringLiteral("Key"), QStringLiteral("Jump to workspace"), candidateCount == 1 ? QColor(46, 204, 113) : QColor(0, 195, 255)},
             {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pull / Drop here"), QColor(241, 196, 15)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close"), QColor(231, 76, 60)},
@@ -2655,7 +2655,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
         };
     } else if (isStashMode) {
         segments = {
-            {QStringLiteral("Key"), QStringLiteral("Add to workspace"), QColor(46, 204, 113)},
+            {candidateCount == 1 ? QStringLiteral("Enter / Key") : QStringLiteral("Key"), QStringLiteral("Add to workspace"), candidateCount == 1 ? QColor(46, 204, 113) : QColor(46, 204, 113)},
             {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Ctrl+Key"), QStringLiteral("Add to stash"), QColor(46, 204, 113)},
             {QStringLiteral("< / >"), QStringLiteral("Badges"), QColor(52, 152, 219)},
@@ -2666,7 +2666,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
         };
     } else if (isSubLeap) {
         segments = {
-            {QStringLiteral("Key"), QStringLiteral("Select"), QColor(52, 152, 219)},
+            {candidateCount == 1 ? QStringLiteral("Enter / Key") : QStringLiteral("Key"), QStringLiteral("Select"), candidateCount == 1 ? QColor(46, 204, 113) : QColor(52, 152, 219)},
             {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
             {QStringLiteral("< / >"), QStringLiteral("Badges"), QColor(52, 152, 219)},
@@ -2677,7 +2677,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
         };
     } else {
         segments = {
-            {QStringLiteral("Key"), QStringLiteral("Jump"), QColor(52, 152, 219)},
+            {candidateCount == 1 ? QStringLiteral("Enter / Key") : QStringLiteral("Key"), QStringLiteral("Jump"), candidateCount == 1 ? QColor(46, 204, 113) : QColor(52, 152, 219)},
             {QStringLiteral("Hold Meta+␣"), QStringLiteral("Traverse recent"), QColor(46, 204, 113)},
             {QStringLiteral("/"), QStringLiteral("Search"), QColor(0, 195, 255)},
             {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
