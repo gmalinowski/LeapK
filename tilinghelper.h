@@ -53,6 +53,7 @@ struct TilingPreset
     QString description;   // e.g. "2 slots • 50/50"
     QList<TileSlot> tileSlots;
     QJsonObject kdeJson;   // Custom KDE built-in tiling layout JSON representation
+    bool isCustom = false; // User-defined or customized preset
 
     bool isFloatAction() const
     {
@@ -942,6 +943,33 @@ inline QString defaultPresetsFilePath()
     return base + QStringLiteral("/leapk/tiling_presets.json");
 }
 
+inline QString generateIconDiagram(const QList<TileSlot> &tileSlots)
+{
+    const int count = tileSlots.size();
+    if (count == 0) return QStringLiteral("✕");
+    if (count == 1) return QStringLiteral("🗖");
+    if (count == 2) {
+        if (tileSlots.size() >= 2 && std::abs(tileSlots[0].relativeRect.top() - tileSlots[1].relativeRect.top()) < 0.05) {
+            return QStringLiteral("▌▌");
+        } else {
+            return QStringLiteral("〓");
+        }
+    }
+    if (count == 3) {
+        bool allCols = true;
+        for (int i = 1; i < tileSlots.size(); ++i) {
+            if (std::abs(tileSlots[i].relativeRect.top() - tileSlots[0].relativeRect.top()) > 0.05) {
+                allCols = false;
+                break;
+            }
+        }
+        if (allCols) return QStringLiteral("▌▌▌");
+        return QStringLiteral("▌☰");
+    }
+    if (count == 4) return QStringLiteral("⊞");
+    return QStringLiteral("%1▤").arg(count);
+}
+
 inline QJsonObject presetToJson(const TilingPreset &preset)
 {
     QJsonObject obj;
@@ -950,6 +978,7 @@ inline QJsonObject presetToJson(const TilingPreset &preset)
     obj[QStringLiteral("triggerKey")] = QString(preset.triggerKey);
     obj[QStringLiteral("iconDiagram")] = preset.iconDiagram;
     obj[QStringLiteral("description")] = preset.description;
+    obj[QStringLiteral("isCustom")] = preset.isCustom;
 
     QJsonArray slotsArr;
     for (const auto &s : preset.tileSlots) {
@@ -976,6 +1005,7 @@ inline TilingPreset jsonToPreset(const QJsonObject &obj)
     p.triggerKey = keyStr.isEmpty() ? QChar() : keyStr.at(0).toUpper();
     p.iconDiagram = obj.value(QStringLiteral("iconDiagram")).toString();
     p.description = obj.value(QStringLiteral("description")).toString();
+    p.isCustom = obj.value(QStringLiteral("isCustom")).toBool(false);
     if (obj.contains(QStringLiteral("kdeJson"))) {
         p.kdeJson = obj.value(QStringLiteral("kdeJson")).toObject();
     }
@@ -990,34 +1020,6 @@ inline TilingPreset jsonToPreset(const QJsonObject &obj)
         p.tileSlots.append(TileSlot{QRectF(x, y, w, h)});
     }
     return p;
-}
-
-inline QList<TilingPreset> loadPresets(const QString &filePath = QString())
-{
-    const QString path = filePath.isEmpty() ? defaultPresetsFilePath() : filePath;
-    QFile file(path);
-    if (!file.exists() || !file.open(QIODevice::ReadOnly)) {
-        return defaultPresets();
-    }
-
-    const QByteArray data = file.readAll();
-    const QJsonDocument doc = QJsonDocument::fromJson(data);
-    if (!doc.isArray()) {
-        return defaultPresets();
-    }
-
-    QList<TilingPreset> presets;
-    const QJsonArray arr = doc.array();
-    for (const auto &val : arr) {
-        if (val.isObject()) {
-            presets.append(jsonToPreset(val.toObject()));
-        }
-    }
-
-    if (presets.isEmpty()) {
-        return defaultPresets();
-    }
-    return presets;
 }
 
 inline bool savePresets(const QList<TilingPreset> &presets, const QString &filePath = QString())
@@ -1039,6 +1041,105 @@ inline bool savePresets(const QList<TilingPreset> &presets, const QString &fileP
     file.write(QJsonDocument(arr).toJson(QJsonDocument::Indented));
     file.close();
     return true;
+}
+
+inline QList<TilingPreset> loadPresets(const QString &filePath = QString())
+{
+    const QString path = filePath.isEmpty() ? defaultPresetsFilePath() : filePath;
+    QFile file(path);
+    if (!file.exists() || !file.open(QIODevice::ReadOnly)) {
+        const auto defs = defaultPresets();
+        savePresets(defs, path);
+        return defs;
+    }
+
+    const QByteArray data = file.readAll();
+    const QJsonDocument doc = QJsonDocument::fromJson(data);
+    if (!doc.isArray()) {
+        const auto defs = defaultPresets();
+        savePresets(defs, path);
+        return defs;
+    }
+
+    QList<TilingPreset> presets;
+    const QJsonArray arr = doc.array();
+    for (const auto &val : arr) {
+        if (val.isObject()) {
+            presets.append(jsonToPreset(val.toObject()));
+        }
+    }
+
+    if (presets.isEmpty()) {
+        const auto defs = defaultPresets();
+        savePresets(defs, path);
+        return defs;
+    }
+
+    // Ensure Float action is always present at the end
+    bool hasFloat = false;
+    for (const auto &p : presets) {
+        if (p.isFloatAction()) {
+            hasFloat = true;
+            break;
+        }
+    }
+    if (!hasFloat) {
+        TilingPreset fl;
+        fl.id = QStringLiteral("float");
+        fl.name = QStringLiteral("Float / Turn Off");
+        fl.triggerKey = QLatin1Char('X');
+        fl.iconDiagram = QStringLiteral("✕");
+        fl.description = QStringLiteral("Return windows to floating");
+        presets.append(fl);
+    }
+
+    return presets;
+}
+
+inline bool removePresetByKey(QList<TilingPreset> &presets, const QChar &key)
+{
+    if (key.isNull()) {
+        return false;
+    }
+    const QChar targetKey = key.toUpper();
+    for (int i = 0; i < presets.size(); ++i) {
+        if (presets[i].triggerKey.toUpper() == targetKey) {
+            if (presets[i].isFloatAction()) {
+                return false; // Protect Float action
+            }
+            presets.removeAt(i);
+            return true;
+        }
+    }
+    return false;
+}
+
+inline void upsertPreset(QList<TilingPreset> &presets, const TilingPreset &newPreset)
+{
+    const QChar targetKey = newPreset.triggerKey.toUpper();
+    for (int i = 0; i < presets.size(); ++i) {
+        if (presets[i].triggerKey.toUpper() == targetKey) {
+            presets[i] = newPreset;
+            return;
+        }
+    }
+
+    // Insert before float action if present, else append
+    int insertIdx = presets.size();
+    for (int i = 0; i < presets.size(); ++i) {
+        if (presets[i].isFloatAction()) {
+            insertIdx = i;
+            break;
+        }
+    }
+    presets.insert(insertIdx, newPreset);
+}
+
+inline QList<TilingPreset> resetToDefaultPresets(const QString &filePath = QString())
+{
+    const auto defs = defaultPresets();
+    savePresets(defs, filePath);
+    return defs;
 }
 
 } // namespace LeapKTiling

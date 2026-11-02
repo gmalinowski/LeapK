@@ -1066,6 +1066,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         }
 
         const Qt::KeyboardModifiers mods = e->modifiers();
+        if ((mods & Qt::ControlModifier) && e->key() == Qt::Key_S) {
+            slotSaveCurrentTilingLayout();
+            return;
+        }
+
         if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter
             || ((mods & Qt::MetaModifier) && (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter))) {
             exitTilingEditMode();
@@ -1290,7 +1295,17 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     // 0. If currently in Tiling Presets mode:
     if (m_tilingPresetsModeActive) {
-        if (e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Space || (isMetaOnly && (e->key() == Qt::Key_T || e->key() == Qt::Key_Space)) || (isShift && (e->key() == Qt::Key_T || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('T') || e->text().at(0) == QLatin1Char('t')))))) {
+        if ((e->modifiers() & Qt::ControlModifier) && e->key() == Qt::Key_S) {
+            slotSaveCurrentTilingLayout();
+            return;
+        }
+
+        if ((e->modifiers() & Qt::ControlModifier) && e->key() == Qt::Key_R) {
+            resetTilingPresetsToDefaults();
+            return;
+        }
+
+        if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Space || (isMetaOnly && (e->key() == Qt::Key_T || e->key() == Qt::Key_Space))) {
             exitTilingPresetsMode();
             return;
         }
@@ -1310,6 +1325,18 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             if (!m_tilingPresets.isEmpty()) {
                 activateTilingPreset(m_tilingPresets.first());
                 return;
+            }
+        }
+
+        // Shift + <Key>: Delete layout
+        if (isShift) {
+            const QString text = extractKeyChar();
+            if (!text.isEmpty()) {
+                const QChar keyChar = text.at(0).toUpper();
+                if (keyChar != QLatin1Char('X')) {
+                    deleteTilingPreset(keyChar);
+                    return;
+                }
             }
         }
 

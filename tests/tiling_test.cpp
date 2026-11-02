@@ -1014,6 +1014,88 @@ void testMasterStackRepeatedResize()
     std::cout << "testMasterStackRepeatedResize PASSED\n";
 }
 
+void testCustomLayoutUpsertAndDelete()
+{
+    using namespace LeapKTiling;
+
+    auto presets = defaultPresets();
+    const int initialCount = presets.size();
+
+    // 1. generateIconDiagram
+    assert(generateIconDiagram({}) == QStringLiteral("✕"));
+    assert(generateIconDiagram({TileSlot{QRectF(0, 0, 1, 1)}}) == QStringLiteral("🗖"));
+    assert(generateIconDiagram({TileSlot{QRectF(0, 0, 0.5, 1)}, TileSlot{QRectF(0.5, 0, 0.5, 1)}}) == QStringLiteral("▌▌"));
+    assert(generateIconDiagram({TileSlot{QRectF(0, 0, 1, 0.5)}, TileSlot{QRectF(0, 0.5, 1, 0.5)}}) == QStringLiteral("〓"));
+    assert(generateIconDiagram({TileSlot{QRectF(0, 0, 0.33, 1)}, TileSlot{QRectF(0.33, 0, 0.33, 1)}, TileSlot{QRectF(0.66, 0, 0.34, 1)}}) == QStringLiteral("▌▌▌"));
+
+    // 2. Insert new custom preset
+    TilingPreset custom1;
+    custom1.id = QStringLiteral("custom-H");
+    custom1.name = QStringLiteral("Dev 3-Split");
+    custom1.triggerKey = QLatin1Char('H');
+    custom1.isCustom = true;
+    custom1.tileSlots = {
+        TileSlot{QRectF(0, 0, 0.33, 1)},
+        TileSlot{QRectF(0.33, 0, 0.33, 1)},
+        TileSlot{QRectF(0.66, 0, 0.34, 1)}
+    };
+    custom1.iconDiagram = generateIconDiagram(custom1.tileSlots);
+    custom1.description = QStringLiteral("3 slots • Custom");
+
+    upsertPreset(presets, custom1);
+    assert(presets.size() == initialCount + 1);
+
+    // Verify Float action remains at the very end
+    assert(presets.last().isFloatAction());
+
+    // 3. JSON persistence roundtrip with isCustom
+    const QJsonObject json = presetToJson(custom1);
+    assert(json.value(QStringLiteral("isCustom")).toBool() == true);
+    const TilingPreset deserialized = jsonToPreset(json);
+    assert(deserialized.id == custom1.id);
+    assert(deserialized.triggerKey == custom1.triggerKey);
+    assert(deserialized.isCustom == true);
+
+    // 4. Overwrite existing preset with new slots
+    TilingPreset custom1Updated = custom1;
+    custom1Updated.name = QStringLiteral("Dev 3-Split Renamed");
+    upsertPreset(presets, custom1Updated);
+    assert(presets.size() == initialCount + 1); // Size unchanged!
+    bool foundUpdated = false;
+    for (const auto &p : presets) {
+        if (p.triggerKey == QLatin1Char('H')) {
+            assert(p.name == QStringLiteral("Dev 3-Split Renamed"));
+            foundUpdated = true;
+            break;
+        }
+    }
+    assert(foundUpdated);
+
+    // 5. Delete preset by key
+    bool deleted = removePresetByKey(presets, QLatin1Char('H'));
+    assert(deleted);
+    assert(presets.size() == initialCount);
+
+    // 6. Protection: Float action ('X') cannot be deleted
+    bool deletedFloat = removePresetByKey(presets, QLatin1Char('X'));
+    assert(!deletedFloat);
+    assert(presets.size() == initialCount);
+
+    // 7. Delete default preset 'A' (Two Columns)
+    bool deletedA = removePresetByKey(presets, QLatin1Char('A'));
+    assert(deletedA);
+    assert(presets.size() == initialCount - 1);
+
+    // 8. Reset to default presets
+    const QString tempFile = QDir::tempPath() + QStringLiteral("/leapk_tiling_reset_test_%1.json").arg(QDateTime::currentMSecsSinceEpoch());
+    auto restored = resetToDefaultPresets(tempFile);
+    assert(restored.size() == initialCount);
+    assert(restored[0].triggerKey == QLatin1Char('A'));
+    QFile::remove(tempFile);
+
+    std::cout << "testCustomLayoutUpsertAndDelete PASSED\n";
+}
+
 int main()
 {
     testDefaultPresets();
@@ -1030,6 +1112,7 @@ int main()
     testResizeSlotGeometries();
     testResizePresetRelativeRectSync();
     testMasterStackRepeatedResize();
+    testCustomLayoutUpsertAndDelete();
 
     std::cout << "All LeapKTiling tests passed successfully!\n";
     return 0;

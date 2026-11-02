@@ -187,6 +187,7 @@ void ActiveWindowOutlineEffect::slotToggleActiveWindowFloating()
 void ActiveWindowOutlineEffect::enterTilingPresetsMode()
 {
     m_tilingPresetsModeActive = true;
+    m_tilingPresets = LeapKTiling::loadPresets();
     refreshTilingPresetsWithKdeCustom();
     m_hudHeaderTexture.reset();
     m_hudHeaderCacheKey = -1;
@@ -203,6 +204,253 @@ void ActiveWindowOutlineEffect::enterTilingPresetsMode()
 void ActiveWindowOutlineEffect::exitTilingPresetsMode()
 {
     m_tilingPresetsModeActive = false;
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    m_badgeTextureCache.clear();
+    m_hudTilingPresetPillRects.clear();
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+QList<LeapKTiling::TileSlot> ActiveWindowOutlineEffect::captureCurrentLayoutSlots() const
+{
+    QRectF workArea;
+    if (effects) {
+        workArea = effects->clientArea(MaximizeArea, effects->activeScreen(), effects->currentDesktop());
+        if (workArea.isEmpty()) {
+            workArea = effects->virtualScreenGeometry();
+        }
+    }
+    if (workArea.isEmpty()) {
+        workArea = QRectF(0, 0, 1920, 1080);
+    }
+    const qreal waW = workArea.width() > 0 ? workArea.width() : 1920.0;
+    const qreal waH = workArea.height() > 0 ? workArea.height() : 1080.0;
+
+    // 1. If tiling is currently active and slots are populated
+    if (m_tilingActive && !m_activeTilingSlots.isEmpty()) {
+        QList<LeapKTiling::TileSlot> tileSlotList;
+        for (const auto &s : m_activeTilingSlots) {
+            QRectF rel(
+                qBound(0.0, (s.geometry.x() - workArea.x()) / waW, 1.0),
+                qBound(0.0, (s.geometry.y() - workArea.y()) / waH, 1.0),
+                qBound(0.05, s.geometry.width() / waW, 1.0),
+                qBound(0.05, s.geometry.height() / waH, 1.0)
+            );
+            tileSlotList.append(LeapKTiling::TileSlot{rel});
+        }
+        return tileSlotList;
+    }
+
+    // 2. If KDE Custom JSON is available
+    if (!m_savedKdeCustomTilesJson.isEmpty()) {
+        const QList<LeapKTiling::TileSlot> parsed = LeapKTiling::parseKdeTileJson(m_savedKdeCustomTilesJson);
+        if (!parsed.isEmpty()) {
+            return parsed;
+        }
+    }
+
+    // 3. Fallback: check live KDE TileManager rootTile
+    LogicalOutput *activeOutput = effects ? effects->activeScreen() : nullptr;
+    VirtualDesktop *currentDesktop = effects ? effects->currentDesktop() : nullptr;
+    TileManager *tileMgr = (workspace() && activeOutput) ? workspace()->tileManager(activeOutput) : nullptr;
+    RootTile *rootTile = (tileMgr && currentDesktop) ? tileMgr->rootTile(currentDesktop) : nullptr;
+    if (rootTile) {
+        QList<LeapKTiling::TileSlot> tileSlotList;
+        for (Tile *t : rootTile->descendants()) {
+            if (!t->isLayout()) {
+                const QRectF rel = t->relativeGeometry();
+                if (rel.isValid() && rel.width() > 0.02 && rel.height() > 0.02) {
+                    tileSlotList.append(LeapKTiling::TileSlot{rel});
+                }
+            }
+        }
+        if (!tileSlotList.isEmpty()) {
+            return tileSlotList;
+        }
+    }
+
+    // 4. Default: fallback to first default preset (Two Columns)
+    return LeapKTiling::defaultPresets().first().tileSlots;
+}
+
+void ActiveWindowOutlineEffect::slotSaveCurrentTilingLayout()
+{
+    QStringList candidateDirs;
+    candidateDirs << QDir::homePath() + QStringLiteral("/.local/bin")
+                  << QDir::homePath() + QStringLiteral("/.local/libexec")
+                  << QCoreApplication::applicationDirPath()
+                  << QStringLiteral("/tmp/build-leapk")
+                  << QStringLiteral("/usr/local/bin")
+                  << QStringLiteral("/usr/bin")
+                  << QStringLiteral("/usr/libexec")
+                  << QStringLiteral("/usr/lib/libexec");
+
+    QString layoutExe = QStandardPaths::findExecutable(QStringLiteral("leapk-custom-layout"), candidateDirs);
+    if (layoutExe.isEmpty()) {
+        qWarning() << "leapk-custom-layout helper not found in:" << candidateDirs;
+        return;
+    }
+
+    const QList<LeapKTiling::TileSlot> tileSlotList = captureCurrentLayoutSlots();
+
+    // Collect existing keys
+    QJsonObject existingKeys;
+    for (const auto &p : m_tilingPresets) {
+        if (!p.triggerKey.isNull()) {
+            existingKeys[QString(p.triggerKey.toUpper())] = p.name;
+        }
+    }
+
+    // Find suggested key: if active preset is set and has a key, use that; else find first free key
+    QChar defaultKey;
+    if (m_tilingActive && !m_activeTilingPreset.triggerKey.isNull() && m_activeTilingPreset.triggerKey.toUpper() != QLatin1Char('X')) {
+        defaultKey = m_activeTilingPreset.triggerKey.toUpper();
+    } else {
+        for (char c = 'A'; c <= 'Z'; ++c) {
+            if (c == 'E' || c == 'X' || c == 'T') continue;
+            QChar qch = QLatin1Char(c);
+            if (!existingKeys.contains(QString(qch))) {
+                defaultKey = qch;
+                break;
+            }
+        }
+        if (defaultKey.isNull()) {
+            defaultKey = QLatin1Char('H');
+        }
+    }
+
+    QString defaultName;
+    if (m_tilingActive && !m_activeTilingPreset.name.isEmpty() && !m_activeTilingPreset.isFloatAction()) {
+        defaultName = m_activeTilingPreset.name;
+    } else {
+        defaultName = QStringLiteral("Layout %1 Slots").arg(tileSlotList.size());
+    }
+
+    QJsonArray slotsArr;
+    for (const auto &s : tileSlotList) {
+        QJsonObject sObj;
+        sObj[QStringLiteral("x")] = s.relativeRect.x();
+        sObj[QStringLiteral("y")] = s.relativeRect.y();
+        sObj[QStringLiteral("w")] = s.relativeRect.width();
+        sObj[QStringLiteral("h")] = s.relativeRect.height();
+        slotsArr.append(sObj);
+    }
+
+    QStringList args;
+    args << QStringLiteral("--slots") << QString::fromUtf8(QJsonDocument(slotsArr).toJson(QJsonDocument::Compact));
+    args << QStringLiteral("--name") << defaultName;
+    args << QStringLiteral("--key") << QString(defaultKey);
+    args << QStringLiteral("--existing") << QString::fromUtf8(QJsonDocument(existingKeys).toJson(QJsonDocument::Compact));
+
+    QProcess *process = new QProcess(this);
+    connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
+            this, [this, process, tileSlotList](int exitCode, QProcess::ExitStatus exitStatus) {
+        process->deleteLater();
+        if (exitStatus == QProcess::NormalExit && exitCode == 0) {
+            const QString out = QString::fromUtf8(process->readAllStandardOutput()).trimmed();
+            const QJsonDocument doc = QJsonDocument::fromJson(out.toUtf8());
+            if (doc.isObject()) {
+                const QJsonObject obj = doc.object();
+                const QString name = obj.value(QStringLiteral("name")).toString().trimmed();
+                const QString keyStr = obj.value(QStringLiteral("triggerKey")).toString().trimmed();
+                const QChar trigKey = keyStr.isEmpty() ? QChar() : keyStr.at(0).toUpper();
+
+                if (!name.isEmpty() && !trigKey.isNull()) {
+                    upsertTilingPreset(name, trigKey, tileSlotList);
+                }
+            }
+        }
+    });
+
+    process->start(layoutExe, args);
+}
+
+void ActiveWindowOutlineEffect::upsertTilingPreset(const QString &name, QChar triggerKey, const QList<LeapKTiling::TileSlot> &tileSlots)
+{
+    if (name.isEmpty() || triggerKey.isNull()) {
+        return;
+    }
+
+    LeapKTiling::TilingPreset newPreset;
+    newPreset.id = QStringLiteral("custom-") + QString(triggerKey.toUpper());
+    newPreset.name = name;
+    newPreset.triggerKey = triggerKey.toUpper();
+    newPreset.iconDiagram = LeapKTiling::generateIconDiagram(tileSlots);
+    newPreset.description = QStringLiteral("%1 slots • Custom").arg(tileSlots.size());
+    newPreset.tileSlots = tileSlots;
+    newPreset.kdeJson = LeapKTiling::toKdeJson(newPreset);
+    newPreset.isCustom = true;
+
+    LeapKTiling::upsertPreset(m_tilingPresets, newPreset);
+    LeapKTiling::savePresets(m_tilingPresets);
+
+    if (m_tilingActive) {
+        m_activeTilingPreset = newPreset;
+        LogicalOutput *activeOutput = effects ? effects->activeScreen() : nullptr;
+        VirtualDesktop *currentDesktop = effects ? effects->currentDesktop() : nullptr;
+        TileManager *tileMgr = (workspace() && activeOutput) ? workspace()->tileManager(activeOutput) : nullptr;
+        RootTile *rootTile = (tileMgr && currentDesktop) ? tileMgr->rootTile(currentDesktop) : nullptr;
+
+        if (activeOutput && currentDesktop && effects && effects->config()) {
+            const QString outUuid = activeOutput->uuid();
+            const QString deskId = currentDesktop->id();
+            const QByteArray jsonBytes = QJsonDocument(newPreset.toKdeJson()).toJson(QJsonDocument::Compact);
+
+            KConfigGroup cg = effects->config()->group(QStringLiteral("Tiling"));
+            KConfigGroup deskGroup(&cg, deskId);
+            KConfigGroup outTileGroup(&deskGroup, outUuid);
+            outTileGroup.writeEntry("tiles", jsonBytes);
+            outTileGroup.writeEntry("padding", m_tilingGaps);
+            cg.sync();
+        }
+        if (tileMgr && rootTile) {
+            tileMgr->readSettings(rootTile);
+        }
+    }
+
+    playThemedSound(OutlineSound::SoundEffect::NavTab);
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    m_badgeTextureCache.clear();
+    m_hudTilingPresetPillRects.clear();
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::deleteTilingPreset(QChar triggerKey)
+{
+    if (triggerKey.isNull() || triggerKey.toUpper() == QLatin1Char('X')) {
+        return; // Float is protected
+    }
+
+    bool removed = LeapKTiling::removePresetByKey(m_tilingPresets, triggerKey);
+    if (removed) {
+        LeapKTiling::savePresets(m_tilingPresets);
+        playThemedSound(OutlineSound::SoundEffect::Dismiss);
+        m_hudHeaderTexture.reset();
+        m_hudHeaderCacheKey = -1;
+        m_hudHintBarTexture.reset();
+        m_hudHintBarCacheKey = -1;
+        m_badgeTextureCache.clear();
+        m_hudTilingPresetPillRects.clear();
+        if (effects) {
+            effects->addRepaintFull();
+        }
+    }
+}
+
+void ActiveWindowOutlineEffect::resetTilingPresetsToDefaults()
+{
+    m_tilingPresets = LeapKTiling::resetToDefaultPresets();
+    refreshTilingPresetsWithKdeCustom();
+    playThemedSound(OutlineSound::SoundEffect::NavTab);
     m_hudHeaderTexture.reset();
     m_hudHeaderCacheKey = -1;
     m_hudHintBarTexture.reset();
@@ -1099,8 +1347,8 @@ void ActiveWindowOutlineEffect::renderTilingEditOverlay(const RenderTarget &rend
     const qreal barH = 42.0;
     const QRectF barRect(screenRect.center().x() - barW / 2.0, screenRect.bottom() - barH - 24.0, barW, barH);
     const QString hintText = (m_tilingEditMultiplier > 0)
-        ? QStringLiteral("Multiplier: %1x  •  [H/←: Left  L/→: Right  K/↑: Up  J/↓: Down]  •  [Backspace: Clear]  •  [Enter: Finish]").arg(m_tilingEditMultiplier)
-        : QStringLiteral("[H/←: ◀ Left  L/→: ▶ Right  K/↑: ▲ Up  J/↓: ▼ Down]  •  [1-9: Step]  •  [Letters: Swap]  •  [Enter / Esc: Done]");
+        ? QStringLiteral("Multiplier: %1x  •  [H/←: Left  L/→: Right  K/↑: Up  J/↓: Down]  •  [Ctrl+S: Save]  •  [Backspace: Clear]  •  [Enter: Finish]").arg(m_tilingEditMultiplier)
+        : QStringLiteral("[H/J/K/L: Resize]  •  [Ctrl+S: Save layout]  •  [1-9: Step]  •  [Letters: Swap]  •  [Enter / Esc: Done]");
     const QColor barBg(25, 25, 30, 235);
     renderBadge(renderTarget, viewport, barRect, QChar(), barBg, QColor(255, 255, 255), false, 36, hintText, nullptr);
 }

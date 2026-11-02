@@ -214,6 +214,19 @@ install(TARGETS leapk-custom-marker
     DESTINATION ${KDE_INSTALL_LIBEXECDIR}
 )
 
+# --- Standalone Custom Layout helper ---
+add_executable(leapk-custom-layout customlayoutmain.cpp)
+target_link_libraries(leapk-custom-layout PRIVATE
+    Qt6::Widgets
+    Qt6::Svg
+)
+install(TARGETS leapk-custom-layout
+    DESTINATION ${KDE_INSTALL_LIBEXECDIR}
+)
+install(TARGETS leapk-custom-layout
+    DESTINATION ${KDE_INSTALL_BINDIR}
+)
+
 # --- Standalone Workspace Manager helper ---
 set(MANAGER_COMMON_SRCS unifiedmanagerdialog.cpp)
 

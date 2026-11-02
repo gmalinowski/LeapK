@@ -311,6 +311,7 @@ cp "$project_dir/leapk.svg" "$HOME/.local/share/icons/hicolor/scalable/apps/leap
 # Install/update user binaries in ~/.local/bin if present
 if [[ -d "$HOME/.local/bin" ]]; then
   cp -f "$build_dir/leapk-custom-marker" "$HOME/.local/bin/leapk-custom-marker" 2>/dev/null || true
+  cp -f "$build_dir/leapk-custom-layout" "$HOME/.local/bin/leapk-custom-layout" 2>/dev/null || true
   cp -f "$build_dir/leapk-workspace-manager" "$HOME/.local/bin/leapk-workspace-manager" 2>/dev/null || true
   cp -f "$build_dir/leapk-marker-manager" "$HOME/.local/bin/leapk-marker-manager" 2>/dev/null || true
   cp -f "$build_dir/leapk-tray" "$HOME/.local/bin/leapk-tray" 2>/dev/null || true

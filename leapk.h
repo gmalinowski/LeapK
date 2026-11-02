@@ -373,6 +373,11 @@ private:
     void enterTilingPresetsMode();
     void exitTilingPresetsMode();
     void refreshTilingPresetsWithKdeCustom();
+    void slotSaveCurrentTilingLayout();
+    void deleteTilingPreset(QChar triggerKey);
+    void resetTilingPresetsToDefaults();
+    QList<LeapKTiling::TileSlot> captureCurrentLayoutSlots() const;
+    void upsertTilingPreset(const QString &name, QChar triggerKey, const QList<LeapKTiling::TileSlot> &tileSlots);
     void slotOpenKdeTileEditor();
     void slotToggleActiveWindowFloating();
     void activateTilingPreset(const LeapKTiling::TilingPreset &preset, bool preserveJumpMode = false);

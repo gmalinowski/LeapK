@@ -87,13 +87,13 @@ done < <(qt_plugin_dirs)
 # System libexec and bin candidates
 for prefix in /usr /usr/local; do
   for libexec_dir in "$prefix/libexec" "$prefix/lib/libexec" "$prefix/lib/x86_64-linux-gnu/libexec"; do
-    for bin_name in leapk-custom-marker leapk-workspace-manager leapk-marker-manager leapk-colorpicker \
+    for bin_name in leapk-custom-marker leapk-custom-layout leapk-workspace-manager leapk-marker-manager leapk-colorpicker \
                     kleap-custom-marker kleap-workspace-manager kleap-marker-manager kleap-colorpicker \
                     active-window-outline-colorpicker active-window-outline-workspace-manager active-window-outline-marker-manager; do
       system_files+=("$libexec_dir/$bin_name")
     done
   done
-  for bin_name in leapk leapk-tray leapk-settings leapk-marker-manager leapk-workspace-manager leapk-custom-marker leapk-colorpicker \
+  for bin_name in leapk leapk-tray leapk-settings leapk-marker-manager leapk-workspace-manager leapk-custom-marker leapk-custom-layout leapk-colorpicker \
                   kleap kleap-tray kleap-settings kleap-marker-manager kleap-workspace-manager kleap-custom-marker kleap-colorpicker \
                   active-window-outline-settings active-window-outline-tray active-window-outline-marker-manager active-window-outline-workspace-manager active-window-outline-colorpicker; do
     system_files+=("$prefix/bin/$bin_name")
@@ -127,6 +127,7 @@ rm -f "$HOME/.local/bin/leapk" \
       "$HOME/.local/bin/leapk-marker-manager" \
       "$HOME/.local/bin/leapk-workspace-manager" \
       "$HOME/.local/bin/leapk-custom-marker" \
+      "$HOME/.local/bin/leapk-custom-layout" \
       "$HOME/.local/bin/leapk-colorpicker" \
       "$HOME/.local/bin/kleap" \
       "$HOME/.local/bin/kleap-tray" \

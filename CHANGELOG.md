@@ -4,6 +4,30 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta70] - 2026-11-02
+
+### Added
+- **Custom Tiling Layouts Creation & Management Engine (`leapk-custom-layout`)**:
+  - Implemented dynamic creation and persistence of custom tiling presets via `Ctrl + S`:
+    - `Ctrl + S` is active strictly in **Tiling Presets mode** (`Meta + T`) and **Tile Edit mode** (`Meta + Enter`), leaving standard application file-saving shortcuts completely untouched.
+    - Captures the exact live layout: if tiling is currently active or edited, it calculates normalized slot geometries from active windows/slots; if not active, it captures custom divisions directly from KDE's `TileManager::rootTile()` and `kwinrc [Tiling]`.
+  - Created standalone themed helper binary `leapk-custom-layout` (`customlayoutmain.cpp`):
+    - Modern dark acrylic dialog matching LeapK's design system.
+    - Interactive schematic tile preview widget (`TilePreviewWidget`) visualizing slot proportions and numbering.
+    - Name/Label input field (`QLineEdit`) and manual single-letter trigger key input (`QLineEdit` A–Z).
+    - Real-time collision status indicator informing whether the chosen key creates a new layout or safely overwrites an existing preset.
+    - Standard keyboard controls: `Enter` to save, `Esc` to cancel.
+  - Implemented layout deletion via **`Shift + <Letter>`**:
+    - In Tiling Presets mode (`Meta + T`), pressing `Shift + <Key>` immediately removes the matching preset from `m_tilingPresets` and updates `~/.config/leapk/tiling_presets.json`.
+    - Automatically plays `Dismiss` sound and refreshes HUD pill cards.
+    - The `Float / Turn Off` (`X`) system action is protected against deletion.
+  - Added factory preset restoration via **`Ctrl + R`** (Reset to Defaults).
+  - Synchronized custom layouts with KDE KWin: activating any custom preset persists it to `kwinrc [Tiling]` and live `TileManager::rootTile()`, ensuring complete compatibility with KDE's native Shift-drag tiling and native editor (`E`).
+  - Updated HUD action hint bar in Tiling Presets mode:
+    `▤ TILING: Select [A–Z] • [Ctrl+S] Save • [Shift+Key] Delete • [E] KDE • [X] Float • N presets`
+  - Updated Tile Edit mode hint bar to include `[Ctrl+S: Save layout]`.
+  - Added unit test suite `testCustomLayoutUpsertAndDelete` in `tests/tiling_test.cpp` and CLI tests in `tests/cli_test.cpp`.
+
 ## [1.6.0-beta69] - 2026-11-02
 
 ### Added

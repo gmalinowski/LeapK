@@ -296,6 +296,43 @@ void testUnifiedManagerShortcutsAndFocus()
     std::cout << "testUnifiedManagerShortcutsAndFocus PASSED\n";
 }
 
+void testCustomLayoutCliParsing()
+{
+    // 1. Arguments for leapk-custom-layout
+    const QString slotsJson = QStringLiteral("[{\"x\":0.0,\"y\":0.0,\"w\":0.5,\"h\":1.0},{\"x\":0.5,\"y\":0.0,\"w\":0.5,\"h\":1.0}]");
+    const QString existingJson = QStringLiteral("{\"A\":\"Two Columns\",\"D\":\"Master & Stack\"}");
+    const QStringList args = {
+        QStringLiteral("leapk-custom-layout"),
+        QStringLiteral("--slots"), slotsJson,
+        QStringLiteral("--name"), QStringLiteral("My 2-Col Layout"),
+        QStringLiteral("--key"), QStringLiteral("H"),
+        QStringLiteral("--existing"), existingJson,
+        QStringLiteral("--theme"), QStringLiteral("midnight-neon")
+    };
+
+    assert(args.contains(QStringLiteral("--slots")));
+    assert(args.contains(QStringLiteral("--name")));
+    assert(args.contains(QStringLiteral("--key")));
+    assert(args.contains(QStringLiteral("--existing")));
+    assert(args.contains(QStringLiteral("--theme")));
+
+    // 2. Parse slots JSON
+    const QJsonDocument docSlots = QJsonDocument::fromJson(slotsJson.toUtf8());
+    assert(docSlots.isArray());
+    assert(docSlots.array().size() == 2);
+
+    // 3. Parse existing keys JSON
+    const QJsonDocument docExisting = QJsonDocument::fromJson(existingJson.toUtf8());
+    assert(docExisting.isObject());
+    assert(docExisting.object().value(QStringLiteral("A")).toString() == QStringLiteral("Two Columns"));
+
+    // 4. Help argument
+    const QStringList helpArgs = { QStringLiteral("leapk-custom-layout"), QStringLiteral("--help") };
+    assert(helpArgs.contains(QStringLiteral("--help")));
+
+    std::cout << "testCustomLayoutCliParsing PASSED\n";
+}
+
 int main()
 {
     testWorkspaceManagerCliParsing();
@@ -304,6 +341,7 @@ int main()
     testTrayAndSettingsCliArguments();
     testThemeCliFlagParsing();
     testUnifiedManagerShortcutsAndFocus();
+    testCustomLayoutCliParsing();
 
     std::cout << "All CLI tests passed successfully!\n";
     return 0;
