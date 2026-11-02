@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta68] - 2026-11-02
+
+### Fixed
+- **Tiling Resize Window Pop-out & Off-Screen Overflow Elimination**:
+  - Fixed a critical bug in tiling resize where shrinking the master window or repeatedly pressing resize keys (`H`/`L`/`J`/`K`) caused stack windows to change size and stick out beyond the screen edge ("okna z stack zmieniają rozmiar i wystają poza ekran").
+  - Diagnosed and resolved the underlying KWin Wayland conflict: KWin's internal `Window::checkWorkspacePosition` / `Window::ensureSpecialStateGeometry` unconditionally snaps windows associated with a native `KWin::Tile` back to `tile->windowGeometry().x()`. When LeapK's co-operative resizing shifted stack windows to the left while enlarging their width, KWin forced their X coordinate back to the static native tile position (e.g. `1153px`) while applying the new enlarged width (e.g. `950px`), pushing the window 183px past the edge of a 1920px screen (`1153 + 950 = 2103px`).
+  - Decoupled LeapK tiled windows from KWin's native `Tile` hierarchy in `applyWindowToTilingSlot`: cleanly detaches windows from KWin's quick-tiling state machine (`tile->unmanage(win)`, `win->setTileCompatibility(nullptr)`, `win->requestTile(nullptr)`), giving LeapK full control over window geometries without KWin snapping them back or triggering premature unmanage `geometryRestore()`.
+  - Cleanly decoupled LeapK's real-time divider resizing engine: `handleTiledWindowResized` and `syncActiveTilingSlotsToKdeTiles` now directly read and manage actual window frame geometries rather than reading stale `leafTiles[i]->windowGeometry()`.
+  - Normalized vertical child heights (`h1 + h2 == 1.0`) in `toKdeJson()` inside `tilinghelper.h` for container stacks (`master-stack` and `grid-4`), ensuring KDE's underlying configuration remains mathematically consistent.
+  - Added automated test suite `testMasterStackRepeatedResize` in `tests/tiling_test.cpp` verifying that repeated resizing in `master-stack` strictly anchors outer screen boundaries, preserves gaps, and never pushes stack windows outside the screen.
+
 ## [1.6.0-beta67] - 2026-11-02
 
 ### Refactored

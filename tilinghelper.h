@@ -816,10 +816,12 @@ inline QJsonObject toKdeJson(const TilingPreset &preset)
         stack[QStringLiteral("width")] = w2;
         QJsonArray stackTiles;
         QJsonObject s1, s2;
-        const double h1 = (preset.tileSlots.size() >= 2 && preset.tileSlots[1].relativeRect.height() > 0.01)
-            ? preset.tileSlots[1].relativeRect.height() : 0.50;
-        const double h2 = (preset.tileSlots.size() >= 3 && preset.tileSlots[2].relativeRect.height() > 0.01)
-            ? preset.tileSlots[2].relativeRect.height() : (1.0 - h1);
+        const double totalH = (preset.tileSlots.size() >= 3)
+            ? (preset.tileSlots[1].relativeRect.height() + preset.tileSlots[2].relativeRect.height())
+            : 1.0;
+        const double h1 = (preset.tileSlots.size() >= 2 && totalH > 0.01)
+            ? (preset.tileSlots[1].relativeRect.height() / totalH) : 0.50;
+        const double h2 = 1.0 - h1;
         s1[QStringLiteral("height")] = h1;
         s2[QStringLiteral("height")] = h2;
         stackTiles.append(s1);
@@ -840,15 +842,19 @@ inline QJsonObject toKdeJson(const TilingPreset &preset)
         const double wCol2 = (preset.tileSlots.size() >= 2 && preset.tileSlots[1].relativeRect.width() > 0.01)
             ? preset.tileSlots[1].relativeRect.width() : (1.0 - wCol1);
 
-        const double hCol1Top = (preset.tileSlots.size() >= 1 && preset.tileSlots[0].relativeRect.height() > 0.01)
-            ? preset.tileSlots[0].relativeRect.height() : 0.50;
-        const double hCol1Bot = (preset.tileSlots.size() >= 3 && preset.tileSlots[2].relativeRect.height() > 0.01)
-            ? preset.tileSlots[2].relativeRect.height() : (1.0 - hCol1Top);
+        const double totalCol1H = (preset.tileSlots.size() >= 3)
+            ? (preset.tileSlots[0].relativeRect.height() + preset.tileSlots[2].relativeRect.height())
+            : 1.0;
+        const double hCol1Top = (preset.tileSlots.size() >= 1 && totalCol1H > 0.01)
+            ? (preset.tileSlots[0].relativeRect.height() / totalCol1H) : 0.50;
+        const double hCol1Bot = 1.0 - hCol1Top;
 
-        const double hCol2Top = (preset.tileSlots.size() >= 2 && preset.tileSlots[1].relativeRect.height() > 0.01)
-            ? preset.tileSlots[1].relativeRect.height() : 0.50;
-        const double hCol2Bot = (preset.tileSlots.size() >= 4 && preset.tileSlots[3].relativeRect.height() > 0.01)
-            ? preset.tileSlots[3].relativeRect.height() : (1.0 - hCol2Top);
+        const double totalCol2H = (preset.tileSlots.size() >= 4)
+            ? (preset.tileSlots[1].relativeRect.height() + preset.tileSlots[3].relativeRect.height())
+            : 1.0;
+        const double hCol2Top = (preset.tileSlots.size() >= 2 && totalCol2H > 0.01)
+            ? (preset.tileSlots[1].relativeRect.height() / totalCol2H) : 0.50;
+        const double hCol2Bot = 1.0 - hCol2Top;
 
         QJsonObject col1;
         col1[QStringLiteral("layoutDirection")] = QStringLiteral("vertical");

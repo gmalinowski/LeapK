@@ -927,6 +927,93 @@ void testResizePresetRelativeRectSync()
     std::cout << "testResizePresetRelativeRectSync PASSED\n";
 }
 
+void testMasterStackRepeatedResize()
+{
+    using namespace LeapKTiling;
+
+    const auto presets = defaultPresets();
+    auto msPreset = presets[2]; // master-stack
+    const QRectF workArea(0, 0, 1920, 1080);
+    const int gaps = 8;
+    auto geos = computeSlotGeometries(msPreset, workArea, gaps, gaps);
+    assert(geos.size() == 3);
+
+    const qreal initialMasterLeft = geos[0].left();
+    const qreal initialStackRight = geos[1].right();
+    assert(qAbs(initialStackRight - geos[2].right()) < 0.001);
+
+    // Initial check: all slots fit inside workArea
+    for (int i = 0; i < 3; ++i) {
+        assert(geos[i].left() >= workArea.left() - 0.001);
+        assert(geos[i].right() <= workArea.right() + 0.001);
+        assert(geos[i].top() >= workArea.top() - 0.001);
+        assert(geos[i].bottom() <= workArea.bottom() + 0.001);
+    }
+
+    const qreal stepDelta = workArea.width() * 0.05; // 96px
+
+    // Press 1: Shrink master left ('h')
+    const qreal w0_before1 = geos[0].width();
+    const qreal w1_before1 = geos[1].width();
+    bool ok1 = resizeSlotGeometries(geos, 0, ResizeDirection::Left, stepDelta, 100.0);
+    assert(ok1);
+    assert(qAbs(geos[0].width() - (w0_before1 - stepDelta)) < 0.001);
+    assert(qAbs(geos[1].width() - (w1_before1 + stepDelta)) < 0.001);
+    assert(qAbs(geos[2].width() - (w1_before1 + stepDelta)) < 0.001);
+    // Outer boundaries must remain strictly anchored!
+    assert(qAbs(geos[0].left() - initialMasterLeft) < 0.001);
+    assert(qAbs(geos[1].right() - initialStackRight) < 0.001);
+    assert(qAbs(geos[2].right() - initialStackRight) < 0.001);
+    assert(geos[1].right() <= workArea.right());
+    assert(geos[2].right() <= workArea.right());
+
+    // Press 2: Shrink master left again ('h') - user's reported failure point
+    const qreal w0_before2 = geos[0].width();
+    const qreal w1_before2 = geos[1].width();
+    bool ok2 = resizeSlotGeometries(geos, 0, ResizeDirection::Left, stepDelta, 100.0);
+    assert(ok2);
+    assert(qAbs(geos[0].width() - (w0_before2 - stepDelta)) < 0.001);
+    assert(qAbs(geos[1].width() - (w1_before2 + stepDelta)) < 0.001);
+    assert(qAbs(geos[2].width() - (w1_before2 + stepDelta)) < 0.001);
+    // Crucial check: stack windows must NOT stick out beyond the screen!
+    assert(qAbs(geos[0].left() - initialMasterLeft) < 0.001);
+    assert(qAbs(geos[1].right() - initialStackRight) < 0.001);
+    assert(qAbs(geos[2].right() - initialStackRight) < 0.001);
+    assert(geos[1].right() <= workArea.right());
+    assert(geos[2].right() <= workArea.right());
+
+    // Press 3 to 10: Repeat until minSize is reached
+    for (int p = 3; p <= 15; ++p) {
+        resizeSlotGeometries(geos, 0, ResizeDirection::Left, stepDelta, 100.0);
+        assert(geos[0].left() >= workArea.left() - 0.001);
+        assert(geos[1].right() <= workArea.right() + 0.001);
+        assert(geos[2].right() <= workArea.right() + 0.001);
+        assert(geos[0].width() >= 100.0);
+    }
+
+    // Now test expanding master right ('l') repeatedly
+    for (int p = 0; p < 8; ++p) {
+        resizeSlotGeometries(geos, 0, ResizeDirection::Right, stepDelta, 100.0);
+        assert(geos[0].left() >= workArea.left() - 0.001);
+        assert(geos[1].right() <= workArea.right() + 0.001);
+        assert(geos[2].right() <= workArea.right() + 0.001);
+        assert(geos[1].width() >= 100.0);
+    }
+
+    // Test vertical stack resizing ('j' / 'k' inside stack)
+    const qreal masterGeoBeforeVert = geos[0].width();
+    const qreal h1_before = geos[1].height();
+    const qreal h2_before = geos[2].height();
+    bool vertOk = resizeSlotGeometries(geos, 1, ResizeDirection::Down, 50.0, 100.0);
+    assert(vertOk);
+    assert(qAbs(geos[1].height() - (h1_before + 50.0)) < 0.001);
+    assert(qAbs(geos[2].height() - (h2_before - 50.0)) < 0.001);
+    // Master column must be completely untouched by vertical stack resizing!
+    assert(qAbs(geos[0].width() - masterGeoBeforeVert) < 0.001);
+
+    std::cout << "testMasterStackRepeatedResize PASSED\n";
+}
+
 int main()
 {
     testDefaultPresets();
@@ -942,6 +1029,7 @@ int main()
     testTilingWorkspaceWindowIsolation();
     testResizeSlotGeometries();
     testResizePresetRelativeRectSync();
+    testMasterStackRepeatedResize();
 
     std::cout << "All LeapKTiling tests passed successfully!\n";
     return 0;
