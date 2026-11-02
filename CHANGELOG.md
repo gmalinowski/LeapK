@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta66] - 2026-11-02
+
+### Fixed
+- **Tiling Resize Occlusion and Full-Screen Stretch Fix**:
+  - Fixed an issue in Tiling Edit mode where resizing tiles (e.g. `J`/`L` or arrow keys) broke the layout, causing the active window to expand across the full screen (`1904x1032`) and occlude other tiles.
+  - Added strict guard checking `leafTiles.size() == m_activeTilingSlots.size()` in `applyWindowToTilingSlot`, `handleTiledWindowResized`, and `syncActiveTilingSlotsToKdeTiles`. When KWin's native tiling configuration has a tile count mismatch (such as a single full-screen root tile), windows are not bound to mismatched native leaf tiles, preventing KWin from forcing windows into 100% full-screen geometry.
+  - In `performTilingResize`, removed the premature call to `syncActiveTilingSlotsToKdeTiles()` which was overwriting resized slot geometries with stale native tile bounds.
+  - Synchronized resized slot proportions in real-time to `m_activeTilingPreset.tileSlots` relative rects, and updated `toKdeJson()` across presets (`columns-2`, `columns-3`, `master-stack`, `grid-4`) to serialize actual relative proportions instead of hardcoded defaults.
+  - On exiting Tiling Edit mode (`exitTilingEditMode`), updated layout geometry is persisted into `kwinrc` under `[Tiling]` and reloaded via `tileMgr->readSettings(rootTile)`.
+  - Improved keyboard controls and hints in Tiling Edit mode:
+    - Added `I` key for resizing Up.
+    - Added automatic fallback for `J` to resize Left when the active layout is purely horizontal (e.g. 2 or 3 columns), accommodating both Vim (`H/J/K/L`) and directional (`I/J/K/L`) key habits.
+    - Updated bottom overlay hint bar: `[H/←: ◀ Left  L/→: ▶ Right  K/↑: ▲ Up  J/↓: ▼ Down]  •  [1-9: Step]  •  [Letters: Swap]  •  [Enter / Esc: Done]`.
+
 ## [1.6.0-beta65] - 2026-11-02
 
 ### Fixed

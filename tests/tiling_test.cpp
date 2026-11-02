@@ -886,6 +886,47 @@ void testResizeSlotGeometries()
     std::cout << "testResizeSlotGeometries PASSED\n";
 }
 
+void testResizePresetRelativeRectSync()
+{
+    using namespace LeapKTiling;
+
+    auto presets = defaultPresets();
+    auto &preset2 = presets[0]; // columns-2 (50/50)
+    const QRectF workArea(0, 0, 1920, 1080);
+    auto geos = computeSlotGeometries(preset2, workArea, 0, 0); // 960 and 960
+    assert(geos.size() == 2);
+    assert(qAbs(geos[0].width() - 960.0) < 0.001);
+    assert(qAbs(geos[1].width() - 960.0) < 0.001);
+
+    // Resize slot 0 right by 100px: slot 0 becomes 1060px, slot 1 becomes 860px
+    bool ok = resizeSlotGeometries(geos, 0, ResizeDirection::Right, 100.0, 100.0);
+    assert(ok);
+    assert(qAbs(geos[0].width() - 1060.0) < 0.001);
+    assert(qAbs(geos[1].width() - 860.0) < 0.001);
+
+    // Synchronize relative rects as done in performTilingResize
+    for (int i = 0; i < geos.size() && i < preset2.tileSlots.size(); ++i) {
+        preset2.tileSlots[i].relativeRect = QRectF(
+            qBound(0.0, (geos[i].x() - workArea.x()) / workArea.width(), 1.0),
+            qBound(0.0, (geos[i].y() - workArea.y()) / workArea.height(), 1.0),
+            qBound(0.05, geos[i].width() / workArea.width(), 1.0),
+            qBound(0.05, geos[i].height() / workArea.height(), 1.0)
+        );
+    }
+
+    assert(qAbs(preset2.tileSlots[0].relativeRect.width() - (1060.0 / 1920.0)) < 0.001);
+    assert(qAbs(preset2.tileSlots[1].relativeRect.width() - (860.0 / 1920.0)) < 0.001);
+
+    // Check toKdeJson reflects the new proportions
+    const auto kdeJson = preset2.toKdeJson();
+    const auto tiles = kdeJson.value(QStringLiteral("tiles")).toArray();
+    assert(tiles.size() == 2);
+    assert(qAbs(tiles[0].toObject().value(QStringLiteral("width")).toDouble() - (1060.0 / 1920.0)) < 0.001);
+    assert(qAbs(tiles[1].toObject().value(QStringLiteral("width")).toDouble() - (860.0 / 1920.0)) < 0.001);
+
+    std::cout << "testResizePresetRelativeRectSync PASSED\n";
+}
+
 int main()
 {
     testDefaultPresets();
@@ -900,6 +941,7 @@ int main()
     testHudPreservationOnWorkspaceTilingSwitch();
     testTilingWorkspaceWindowIsolation();
     testResizeSlotGeometries();
+    testResizePresetRelativeRectSync();
 
     std::cout << "All LeapKTiling tests passed successfully!\n";
     return 0;

@@ -6232,6 +6232,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             break;
         case Qt::Key_K:
         case Qt::Key_Up:
+        case Qt::Key_I:
             isResizeKey = true;
             dir = LeapKTiling::ResizeDirection::Up;
             break;
@@ -6239,6 +6240,23 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         case Qt::Key_Down:
             isResizeKey = true;
             dir = LeapKTiling::ResizeDirection::Down;
+            // If the layout is purely horizontal (e.g. 2 columns or 3 columns with no vertical splits),
+            // pressing J in an IJKL mindset (J=Left, L=Right) should naturally resize Left!
+            if (e->key() == Qt::Key_J && m_activeTilingSlots.size() >= 2) {
+                bool hasVerticalSplit = false;
+                const qreal refTop = m_activeTilingSlots[0].geometry.top();
+                const qreal refBottom = m_activeTilingSlots[0].geometry.bottom();
+                for (int s = 1; s < m_activeTilingSlots.size(); ++s) {
+                    if (qAbs(m_activeTilingSlots[s].geometry.top() - refTop) > 10.0 ||
+                        qAbs(m_activeTilingSlots[s].geometry.bottom() - refBottom) > 10.0) {
+                        hasVerticalSplit = true;
+                        break;
+                    }
+                }
+                if (!hasVerticalSplit) {
+                    dir = LeapKTiling::ResizeDirection::Left;
+                }
+            }
             break;
         default:
             break;
@@ -9867,7 +9885,10 @@ void ActiveWindowOutlineEffect::applyWindowToTilingSlot(EffectWindow *ew, const 
         const int slotIdx = findTileSlotIndexForWindow(ew);
         if (slotIdx >= 0) {
             const auto leafTiles = getLiveKdeLeafTiles();
-            if (slotIdx < leafTiles.size()) {
+            // ONLY associate with native leaf tile if the leafTiles hierarchy EXACTLY matches the slot count!
+            // If leafTiles has 1 tile while m_activeTilingSlots has multiple slots, associating slot 0 with leafTiles[0]
+            // causes the window to stretch to full screen covering all other slots.
+            if (leafTiles.size() == m_activeTilingSlots.size() && slotIdx < leafTiles.size()) {
                 targetTile = leafTiles[slotIdx];
             }
         }
@@ -9901,7 +9922,7 @@ void ActiveWindowOutlineEffect::handleTiledWindowResized(EffectWindow *w, const 
     const bool hasNativeTile = (w->window() && w->window()->tile() != nullptr);
     const auto leafTiles = getLiveKdeLeafTiles();
 
-    if (hasNativeTile && slotIdx < leafTiles.size()) {
+    if (hasNativeTile && slotIdx < leafTiles.size() && leafTiles.size() == m_activeTilingSlots.size()) {
         // KWin's native TileManager already resizes tiles and manages co-operative window resizing.
         // Synchronize our internal slot geometries from KWin's leaf tiles and window frames.
         m_activeTilingSlots[slotIdx].geometry = newGeo;
@@ -9934,7 +9955,7 @@ void ActiveWindowOutlineEffect::handleTiledWindowResized(EffectWindow *w, const 
                     if (i != slotIdx) {
                         EffectWindow *neighbor = m_activeTilingSlots[i].window.data();
                         if (neighbor && !neighbor->isDeleted() && neighbor->window()) {
-                            Tile *targetTile = (i < leafTiles.size()) ? leafTiles[i] : nullptr;
+                            Tile *targetTile = (i < leafTiles.size() && leafTiles.size() == m_activeTilingSlots.size()) ? leafTiles[i] : nullptr;
                             applyWindowToTilingSlot(neighbor, geos[i], targetTile);
                         }
                     }
@@ -9959,14 +9980,21 @@ void ActiveWindowOutlineEffect::syncActiveTilingSlotsToKdeTiles()
     }
 
     const auto leafTiles = getLiveKdeLeafTiles();
-    for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
-        if (i < leafTiles.size() && leafTiles[i]) {
-            const QRectF tileGeo = leafTiles[i]->windowGeometry();
-            if (tileGeo.isValid() && !tileGeo.isEmpty()) {
-                m_activeTilingSlots[i].geometry = tileGeo;
+    if (leafTiles.size() == m_activeTilingSlots.size()) {
+        for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
+            if (leafTiles[i]) {
+                const QRectF tileGeo = leafTiles[i]->windowGeometry();
+                if (tileGeo.isValid() && !tileGeo.isEmpty()) {
+                    m_activeTilingSlots[i].geometry = tileGeo;
+                }
             }
-        } else if (m_activeTilingSlots[i].window && !m_activeTilingSlots[i].window->isDeleted()) {
-            m_activeTilingSlots[i].geometry = m_activeTilingSlots[i].window->frameGeometry();
+        }
+    } else {
+        // Fallback: synchronize from actual window frame geometries, never from mismatched leafTiles!
+        for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
+            if (m_activeTilingSlots[i].window && !m_activeTilingSlots[i].window->isDeleted()) {
+                m_activeTilingSlots[i].geometry = m_activeTilingSlots[i].window->frameGeometry();
+            }
         }
     }
 
@@ -10274,6 +10302,29 @@ void ActiveWindowOutlineEffect::exitTilingEditMode()
     m_tilingEditModeActive = false;
     m_tilingEditMultiplier = 0;
     finishKeyboardGrab();
+
+    // Synchronize resized layout to KWin native tiles and kwinrc
+    LogicalOutput *activeOutput = effects ? effects->activeScreen() : nullptr;
+    VirtualDesktop *currentDesktop = effects ? effects->currentDesktop() : nullptr;
+    TileManager *tileMgr = (workspace() && activeOutput) ? workspace()->tileManager(activeOutput) : nullptr;
+    RootTile *rootTile = (tileMgr && currentDesktop) ? tileMgr->rootTile(currentDesktop) : nullptr;
+
+    if (activeOutput && currentDesktop && effects && effects->config()) {
+        const QString outUuid = activeOutput->uuid();
+        const QString deskId = currentDesktop->id();
+        const QByteArray jsonBytes = QJsonDocument(m_activeTilingPreset.toKdeJson()).toJson(QJsonDocument::Compact);
+
+        KConfigGroup cg = effects->config()->group(QStringLiteral("Tiling"));
+        KConfigGroup deskGroup(&cg, deskId);
+        KConfigGroup outTileGroup(&deskGroup, outUuid);
+        outTileGroup.writeEntry("tiles", jsonBytes);
+        outTileGroup.writeEntry("padding", m_tilingGaps);
+        cg.sync();
+        if (tileMgr && rootTile) {
+            tileMgr->readSettings(rootTile);
+        }
+    }
+
     playThemedSound(OutlineSound::SoundEffect::Dismiss);
     if (effects) {
         effects->addRepaintFull();
@@ -10353,7 +10404,21 @@ void ActiveWindowOutlineEffect::performTilingResize(LeapKTiling::ResizeDirection
                 applyWindowToTilingSlot(w, geos[i]);
             }
         }
-        syncActiveTilingSlotsToKdeTiles();
+
+        // Update active tiling preset slot proportions so state is kept in sync
+        const qreal waW = workArea.width() > 0 ? workArea.width() : 1920.0;
+        const qreal waH = workArea.height() > 0 ? workArea.height() : 1080.0;
+        for (int i = 0; i < m_activeTilingSlots.size() && i < m_activeTilingPreset.tileSlots.size(); ++i) {
+            m_activeTilingPreset.tileSlots[i].relativeRect = QRectF(
+                qBound(0.0, (geos[i].x() - workArea.x()) / waW, 1.0),
+                qBound(0.0, (geos[i].y() - workArea.y()) / waH, 1.0),
+                qBound(0.05, geos[i].width() / waW, 1.0),
+                qBound(0.05, geos[i].height() / waH, 1.0)
+            );
+        }
+        const QString curWsId = workspaceIdForView(m_activeHudView);
+        m_workspaceTilingPreset[curWsId] = m_activeTilingPreset;
+
         playThemedSound(OutlineSound::SoundEffect::NavTab);
         if (effects) {
             effects->addRepaintFull();
@@ -10404,8 +10469,8 @@ void ActiveWindowOutlineEffect::renderTilingEditOverlay(const RenderTarget &rend
     const qreal barH = 42.0;
     const QRectF barRect(screenRect.center().x() - barW / 2.0, screenRect.bottom() - barH - 24.0, barW, barH);
     const QString hintText = (m_tilingEditMultiplier > 0)
-        ? QStringLiteral("Multiplier: %1x  •  [H/J/K/L / Arrows: Resize]  •  [Backspace: Clear]  •  [Enter: Finish]").arg(m_tilingEditMultiplier)
-        : QStringLiteral("[Badge Letters: Swap Slot]  •  [1-9 + H/J/K/L: Resize (5% step)]  •  [Enter / Esc: Finish]");
+        ? QStringLiteral("Multiplier: %1x  •  [H/←: Left  L/→: Right  K/↑: Up  J/↓: Down]  •  [Backspace: Clear]  •  [Enter: Finish]").arg(m_tilingEditMultiplier)
+        : QStringLiteral("[H/←: ◀ Left  L/→: ▶ Right  K/↑: ▲ Up  J/↓: ▼ Down]  •  [1-9: Step]  •  [Letters: Swap]  •  [Enter / Esc: Done]");
     const QColor barBg(25, 25, 30, 235);
     renderBadge(renderTarget, viewport, barRect, QChar(), barBg, QColor(255, 255, 255), false, 36, hintText, nullptr);
 }
