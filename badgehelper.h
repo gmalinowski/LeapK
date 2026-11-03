@@ -2950,6 +2950,7 @@ inline QImage renderHudModeHeader(qreal scale,
                                   bool isCloseMode = false,
                                   bool isPinMode = false)
 {
+    Q_UNUSED(tilingPresetsCount);
     if (outCloseButtonLocalRect) {
         *outCloseButtonLocalRect = QRectF();
     }
