@@ -41,108 +41,93 @@ void ActiveWindowOutlineEffect::refreshTilingPresetsWithKdeCustom()
     TileManager *tileMgr = (workspace() && activeOutput) ? workspace()->tileManager(activeOutput) : nullptr;
     RootTile *rootTile = (tileMgr && currentDesktop) ? tileMgr->rootTile(currentDesktop) : nullptr;
 
-    QJsonObject customTileJson;
     const QString outUuid = activeOutput ? activeOutput->uuid() : QString();
     const QString deskId = currentDesktop ? currentDesktop->id() : QString();
 
-    auto matchesAnyPresetJson = [&](const QJsonObject &json) -> bool {
-        if (json.isEmpty()) {
-            return false;
-        }
-        for (const auto &p : m_tilingPresets) {
-            if (p.id == QStringLiteral("kde-custom")) continue;
-            if (!p.kdeJson.isEmpty() && p.kdeJson == json) {
-                return true;
-            }
-            if (p.toKdeJson() == json) {
-                return true;
-            }
-        }
-        for (const auto &dp : LeapKTiling::defaultPresets()) {
-            if (dp.toKdeJson() == json) {
-                return true;
-            }
-        }
-        return false;
-    };
-
-    if (effects && effects->config()) {
-        effects->config()->reparseConfiguration();
-
-        // 1. Try reading from active output and desktop in kwinrc [Tiling]
-        KConfigGroup tilingCg = effects->config()->group(QStringLiteral("Tiling"));
-        QString tilesStr;
-
-        // Try [Tiling][deskId][outUuid]
-        if (!deskId.isEmpty() && !outUuid.isEmpty() && tilingCg.hasGroup(deskId)) {
-            KConfigGroup deskGroup(&tilingCg, deskId);
-            if (deskGroup.hasGroup(outUuid)) {
-                KConfigGroup outGroup(&deskGroup, outUuid);
-                tilesStr = outGroup.readEntry("tiles", QString());
-            }
-        }
-        // Try [Tiling][outUuid][deskId]
-        if (tilesStr.isEmpty() && !outUuid.isEmpty() && !deskId.isEmpty() && tilingCg.hasGroup(outUuid)) {
-            KConfigGroup outGroup(&tilingCg, outUuid);
-            if (outGroup.hasGroup(deskId)) {
-                KConfigGroup deskGroup(&outGroup, deskId);
-                tilesStr = deskGroup.readEntry("tiles", QString());
-            }
-        }
-        // Try [Tiling][outUuid]
-        if (tilesStr.isEmpty() && !outUuid.isEmpty() && tilingCg.hasGroup(outUuid)) {
-            KConfigGroup outGroup(&tilingCg, outUuid);
-            tilesStr = outGroup.readEntry("tiles", QString());
-        }
-
-        if (!tilesStr.isEmpty()) {
-            const QJsonDocument doc = QJsonDocument::fromJson(tilesStr.toUtf8());
-            if (doc.isObject()) {
-                customTileJson = doc.object();
-            }
-        }
-
-        // 2. If not found or if kwinrc currently contains a known LeapK preset and we have a custom backup, check backup
-        KConfigGroup leapkCg = effects->config()->group(QStringLiteral("Effect-leapk"));
-        const QString backupKey = QStringLiteral("CustomTilingBackup_%1_%2").arg(deskId, outUuid);
-        if (leapkCg.hasKey(backupKey.toUtf8().constData())) {
-            const QString backupStr = leapkCg.readEntry(backupKey, QString());
-            const QJsonDocument bDoc = QJsonDocument::fromJson(backupStr.toUtf8());
-            if (bDoc.isObject()) {
-                const bool isKnownPreset = matchesAnyPresetJson(customTileJson);
-                if (customTileJson.isEmpty() || isKnownPreset) {
-                    customTileJson = bDoc.object();
-                }
-            }
-        }
-    }
-
-
     LeapKTiling::TilingPreset kdePreset;
-    if (!customTileJson.isEmpty()) {
-        m_savedKdeCustomTilesJson = customTileJson;
-        if (effects && effects->config() && !deskId.isEmpty() && !outUuid.isEmpty()) {
-            KConfigGroup leapkCg = effects->config()->group(QStringLiteral("Effect-leapk"));
-            leapkCg.writeEntry(QStringLiteral("CustomTilingBackup_%1_%2").arg(deskId, outUuid),
-                               QJsonDocument(customTileJson).toJson(QJsonDocument::Compact));
-            leapkCg.sync();
-        }
-        kdePreset = LeapKTiling::createKdeCustomPreset(customTileJson);
-    }
 
-    // Fallback: extract relative rects directly from live rootTile descendants
-    if (kdePreset.tileSlots.isEmpty() && rootTile) {
-        QList<QRectF> kdeRelativeRects;
-        for (Tile *t : rootTile->descendants()) {
-            if (!t->isLayout()) {
-                const QRectF rel = t->relativeGeometry();
-                if (rel.isValid() && rel.width() > 0.02 && rel.height() > 0.02) {
-                    kdeRelativeRects.append(rel);
+    const bool isLeapkTilingWithOtherPreset = m_tilingActive && (m_activeTilingPreset.id != QStringLiteral("kde-custom"));
+
+    if (isLeapkTilingWithOtherPreset) {
+        QJsonObject backupJson = m_savedKdeCustomTilesJson;
+        if (backupJson.isEmpty() && effects && effects->config() && !deskId.isEmpty() && !outUuid.isEmpty()) {
+            KConfigGroup leapkCg = effects->config()->group(QStringLiteral("Effect-leapk"));
+            const QString backupStr = leapkCg.readEntry(QStringLiteral("CustomTilingBackup_%1_%2").arg(deskId, outUuid), QString());
+            if (!backupStr.isEmpty()) {
+                backupJson = QJsonDocument::fromJson(backupStr.toUtf8()).object();
+            }
+        }
+        if (!backupJson.isEmpty()) {
+            kdePreset = LeapKTiling::createKdeCustomPreset(backupJson);
+        }
+    } else {
+        // Priority 1: live rootTile leaf tiles
+        QList<QRectF> liveRects;
+        if (rootTile) {
+            for (Tile *t : rootTile->descendants()) {
+                if (!t->isLayout()) {
+                    const QRectF rel = t->relativeGeometry();
+                    if (rel.isValid() && rel.width() > 0.02 && rel.height() > 0.02) {
+                        liveRects.append(rel);
+                    }
                 }
             }
         }
-        if (!kdeRelativeRects.isEmpty()) {
-            kdePreset = LeapKTiling::createKdeCustomPreset(kdeRelativeRects, customTileJson);
+        if (!liveRects.isEmpty()) {
+            std::stable_sort(liveRects.begin(), liveRects.end(), [](const QRectF &a, const QRectF &b) {
+                if (std::abs(a.top() - b.top()) > 0.04) {
+                    return a.top() < b.top();
+                }
+                return a.left() < b.left();
+            });
+            kdePreset = LeapKTiling::createKdeCustomPreset(liveRects);
+        }
+
+        // Priority 2: kwinrc [Tiling]
+        if (kdePreset.tileSlots.isEmpty()) {
+            QJsonObject customTileJson;
+            if (effects && effects->config()) {
+                effects->config()->reparseConfiguration();
+                KConfigGroup tilingCg = effects->config()->group(QStringLiteral("Tiling"));
+                QString tilesStr;
+                if (!deskId.isEmpty() && !outUuid.isEmpty() && tilingCg.hasGroup(deskId)) {
+                    KConfigGroup deskGroup(&tilingCg, deskId);
+                    if (deskGroup.hasGroup(outUuid)) {
+                        tilesStr = deskGroup.group(outUuid).readEntry("tiles", QString());
+                    }
+                }
+                if (tilesStr.isEmpty() && !outUuid.isEmpty() && !deskId.isEmpty() && tilingCg.hasGroup(outUuid)) {
+                    KConfigGroup outGroup(&tilingCg, outUuid);
+                    if (outGroup.hasGroup(deskId)) {
+                        tilesStr = outGroup.group(deskId).readEntry("tiles", QString());
+                    }
+                }
+                if (tilesStr.isEmpty() && !outUuid.isEmpty() && tilingCg.hasGroup(outUuid)) {
+                    tilesStr = tilingCg.group(outUuid).readEntry("tiles", QString());
+                }
+                if (!tilesStr.isEmpty()) {
+                    customTileJson = QJsonDocument::fromJson(tilesStr.toUtf8()).object();
+                }
+            }
+            if (!customTileJson.isEmpty()) {
+                kdePreset = LeapKTiling::createKdeCustomPreset(customTileJson);
+            }
+        }
+
+        // Priority 3: in-memory or persisted backup
+        if (kdePreset.tileSlots.isEmpty()) {
+            if (!m_savedKdeCustomTilesJson.isEmpty()) {
+                kdePreset = LeapKTiling::createKdeCustomPreset(m_savedKdeCustomTilesJson);
+            } else if (effects && effects->config() && !deskId.isEmpty() && !outUuid.isEmpty()) {
+                KConfigGroup leapkCg = effects->config()->group(QStringLiteral("Effect-leapk"));
+                const QString backupStr = leapkCg.readEntry(QStringLiteral("CustomTilingBackup_%1_%2").arg(deskId, outUuid), QString());
+                if (!backupStr.isEmpty()) {
+                    QJsonObject bObj = QJsonDocument::fromJson(backupStr.toUtf8()).object();
+                    if (!bObj.isEmpty()) {
+                        kdePreset = LeapKTiling::createKdeCustomPreset(bObj);
+                    }
+                }
+            }
         }
     }
 
@@ -160,7 +145,7 @@ void ActiveWindowOutlineEffect::refreshTilingPresetsWithKdeCustom()
     // Insert [K] KDE Custom immediately before Float [X] action
     int insertIdx = m_tilingPresets.size();
     for (int i = 0; i < m_tilingPresets.size(); ++i) {
-        if (m_tilingPresets[i].isFloatAction()) {
+        if (m_tilingPresets[i].isFloatAction() || m_tilingPresets[i].triggerKey.toUpper() == QLatin1Char('X')) {
             insertIdx = i;
             break;
         }
@@ -594,7 +579,18 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
         targetWindows.append(m_activeWindow);
     }
 
-    // 1b. Second priority: windows from m_windowHistory that belong to the CURRENT WORKSPACE
+    // 1b. Second priority: windows that were already tiled in active slots (preserves current tiling layout windows)
+    for (const auto &slot : m_activeTilingSlots) {
+        if (targetWindows.size() >= slotCount) {
+            break;
+        }
+        EffectWindow *w = slot.window.data();
+        if (w && isEligibleForCurrentWorkspaceTiling(w) && !targetWindows.contains(w)) {
+            targetWindows.append(w);
+        }
+    }
+
+    // 1c. Third priority: windows from m_windowHistory that belong to the CURRENT WORKSPACE
     for (EffectWindow *w : m_windowHistory) {
         if (targetWindows.size() >= slotCount) {
             break;
@@ -604,7 +600,7 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
         }
     }
 
-    // 1c. Third priority: remaining windows on the CURRENT WORKSPACE from stackingOrder (top-to-bottom)
+    // 1d. Fourth priority: remaining windows on the CURRENT WORKSPACE from stackingOrder (top-to-bottom)
     if (targetWindows.size() < slotCount && effects) {
         const auto stacking = effects->stackingOrder();
         for (auto it = stacking.rbegin(); it != stacking.rend(); ++it) {
@@ -618,7 +614,7 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
         }
     }
 
-    // 1d. Fourth priority: if slots remain unfilled, include minimized windows on the CURRENT WORKSPACE
+    // 1e. Fifth priority: if slots remain unfilled, include minimized windows on the CURRENT WORKSPACE
     if (targetWindows.size() < slotCount && effects) {
         auto isEligibleMinimized = [this, currentDesktop](EffectWindow *win) -> bool {
             if (!win || win->isDeleted() || !isEligibleOutlineWindow(win)) {
@@ -704,7 +700,7 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
             tileMgr->readSettings(rootTile);
         }
     } else {
-        // When activating kde-custom: restore custom layout from preset.kdeJson or backup into kwinrc and live rootTile!
+        // When activating kde-custom: restore custom layout into kwinrc and live rootTile if not already matching!
         if (activeOutput && currentDesktop && effects && effects->config()) {
             const QString outUuid = activeOutput->uuid();
             const QString deskId = currentDesktop->id();
@@ -719,8 +715,35 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
                     kdeObj = QJsonDocument::fromJson(backup.toUtf8()).object();
                 }
             }
+            if (kdeObj.isEmpty()) {
+                kdeObj = preset.toKdeJson();
+            }
 
-            if (!kdeObj.isEmpty()) {
+            // Check if live rootTile already matches preset slots to avoid destroying fresh tiles from KDE tiles editor
+            bool rootMatches = false;
+            if (rootTile && rootTile->childCount() > 0) {
+                QList<QRectF> curLeafRects;
+                for (Tile *t : rootTile->descendants()) {
+                    if (!t->isLayout() && t->relativeGeometry().isValid()) {
+                        curLeafRects.append(t->relativeGeometry());
+                    }
+                }
+                if (curLeafRects.size() == preset.tileSlots.size()) {
+                    bool allMatch = true;
+                    for (int s = 0; s < curLeafRects.size(); ++s) {
+                        const QRectF &r1 = curLeafRects[s];
+                        const QRectF &r2 = preset.tileSlots[s].relativeRect;
+                        if (qAbs(r1.x() - r2.x()) > 0.03 || qAbs(r1.y() - r2.y()) > 0.03
+                            || qAbs(r1.width() - r2.width()) > 0.03 || qAbs(r1.height() - r2.height()) > 0.03) {
+                            allMatch = false;
+                            break;
+                        }
+                    }
+                    rootMatches = allMatch;
+                }
+            }
+
+            if (!rootMatches && !kdeObj.isEmpty()) {
                 if (rootTile) {
                     while (rootTile->childCount() > 0) {
                         Tile *child = rootTile->childTile(0);
@@ -1399,34 +1422,30 @@ void ActiveWindowOutlineEffect::renderTilingEditOverlay(const RenderTarget &rend
         const QRectF geo = m_activeTilingSlots[i].geometry;
         EffectWindow *w = m_activeTilingSlots[i].window.data();
         if (i == activeSlotIdx) {
-            // Active slot indicator
-            const qreal badgeW = 96.0;
-            const qreal badgeH = 52.0;
-            const QRectF bRect(geo.center().x() - badgeW / 2.0, geo.center().y() - badgeH / 2.0, badgeW, badgeH);
+            // Active slot indicator: crisp floating pill
             const QString label = (m_tilingEditMultiplier > 0)
                 ? QString::number(m_tilingEditMultiplier) + QLatin1Char('x')
                 : QStringLiteral("EDIT");
-            const QColor bgCol = (m_tilingEditMultiplier > 0) ? QColor(255, 170, 0, 240) : QColor(0, 180, 216, 230);
-            renderBadge(renderTarget, viewport, bRect, QChar(), bgCol, QColor(255, 255, 255), false, 48, label, w);
+            const QColor bgCol = (m_tilingEditMultiplier > 0) ? QColor(255, 150, 0, 245) : QColor(0, 160, 220, 245);
+            renderFloatingPill(renderTarget, viewport, label, geo.center(), bgCol, Qt::white, 14);
         } else {
-            // Other slot: swap target badge with distinct letter
+            // Other slot: swap target badge with distinct letter (1.35 aspect ratio for crisp non-distorted rendering)
             const QChar letter = LeapKTiling::kTileEditKeys[i % numKeys];
-            const qreal bSize = 64.0;
-            const QRectF bRect(geo.center().x() - bSize / 2.0, geo.center().y() - bSize / 2.0, bSize, bSize);
+            const qreal bH = 50.0;
+            const qreal bW = qRound(bH * 1.35); // 68px, matching native texture aspect ratio
+            const QRectF bRect(geo.center().x() - bW / 2.0, geo.center().y() - bH / 2.0, bW, bH);
             const QColor bgCol(0, 122, 255, 240); // Bright iOS/KDE system blue
-            renderBadge(renderTarget, viewport, bRect, letter, bgCol, QColor(255, 255, 255), true, 64, QString(), w);
+            renderBadge(renderTarget, viewport, bRect, letter, bgCol, QColor(255, 255, 255), true, 50, QString(), w);
         }
     }
 
-    // 2. Render bottom hint bar pill
-    const qreal barW = qMin(screenRect.width() - 40.0, 780.0);
-    const qreal barH = 42.0;
-    const QRectF barRect(screenRect.center().x() - barW / 2.0, screenRect.bottom() - barH - 24.0, barW, barH);
+    // 2. Render bottom hint bar pill with crisp 1:1 pixel rendering
     const QString hintText = (m_tilingEditMultiplier > 0)
         ? QStringLiteral("Multiplier: %1x  •  [H/←: Narrower  L/→: Wider  K/↑: Shorter  J/↓: Taller]  •  [Ctrl+S: Save]  •  [Enter: Finish]").arg(m_tilingEditMultiplier)
         : QStringLiteral("[H/←: Narrower  L/→: Wider  K/↑: Shorter  J/↓: Taller]  •  [+/-: Size]  •  [Ctrl+S: Save layout]  •  [Letters: Swap]  •  [Enter: Done]");
-    const QColor barBg(25, 25, 30, 235);
-    renderBadge(renderTarget, viewport, barRect, QChar(), barBg, QColor(255, 255, 255), false, 36, hintText, nullptr);
+    const QPointF barCenter(screenRect.center().x(), screenRect.bottom() - 36.0);
+    const QColor barBg(20, 24, 32, 242);
+    renderFloatingPill(renderTarget, viewport, hintText, barCenter, barBg, QColor(245, 245, 250), 12, screenRect.width() - 40.0);
 }
 
 void ActiveWindowOutlineEffect::renderTilingPresetPills(const RenderTarget &renderTarget,
@@ -1576,15 +1595,86 @@ void ActiveWindowOutlineEffect::checkKdeTilesEditorState()
 
 void ActiveWindowOutlineEffect::onKdeTilesEditorClosed()
 {
-    refreshTilingPresetsWithKdeCustom();
+    LogicalOutput *activeOutput = effects ? effects->activeScreen() : nullptr;
+    VirtualDesktop *currentDesktop = effects ? effects->currentDesktop() : nullptr;
+    TileManager *tileMgr = (workspace() && activeOutput) ? workspace()->tileManager(activeOutput) : nullptr;
+    RootTile *rootTile = (tileMgr && currentDesktop) ? tileMgr->rootTile(currentDesktop) : nullptr;
+    const QString outUuid = activeOutput ? activeOutput->uuid() : QString();
+    const QString deskId = currentDesktop ? currentDesktop->id() : QString();
 
-    LeapKTiling::TilingPreset kdePreset;
-    for (const auto &p : m_tilingPresets) {
-        if (p.id == QStringLiteral("kde-custom")) {
-            kdePreset = p;
-            break;
+    if (tileMgr) {
+        tileMgr->saveSettings();
+    }
+
+    QList<QRectF> liveRects;
+    if (rootTile) {
+        for (Tile *t : rootTile->descendants()) {
+            if (!t->isLayout()) {
+                const QRectF rel = t->relativeGeometry();
+                if (rel.isValid() && rel.width() > 0.02 && rel.height() > 0.02) {
+                    liveRects.append(rel);
+                }
+            }
         }
     }
+
+    std::stable_sort(liveRects.begin(), liveRects.end(), [](const QRectF &a, const QRectF &b) {
+        if (std::abs(a.top() - b.top()) > 0.04) {
+            return a.top() < b.top();
+        }
+        return a.left() < b.left();
+    });
+
+    QJsonObject liveJson;
+    if (effects && effects->config()) {
+        effects->config()->reparseConfiguration();
+        KConfigGroup tilingCg = effects->config()->group(QStringLiteral("Tiling"));
+        QString tilesStr;
+        if (!deskId.isEmpty() && !outUuid.isEmpty() && tilingCg.hasGroup(deskId)) {
+            KConfigGroup deskGroup(&tilingCg, deskId);
+            if (deskGroup.hasGroup(outUuid)) {
+                tilesStr = deskGroup.group(outUuid).readEntry("tiles", QString());
+            }
+        }
+        if (tilesStr.isEmpty() && !outUuid.isEmpty() && !deskId.isEmpty() && tilingCg.hasGroup(outUuid)) {
+            KConfigGroup outGroup(&tilingCg, outUuid);
+            if (outGroup.hasGroup(deskId)) {
+                tilesStr = outGroup.group(deskId).readEntry("tiles", QString());
+            }
+        }
+        if (tilesStr.isEmpty() && !outUuid.isEmpty() && tilingCg.hasGroup(outUuid)) {
+            tilesStr = tilingCg.group(outUuid).readEntry("tiles", QString());
+        }
+        if (!tilesStr.isEmpty()) {
+            liveJson = QJsonDocument::fromJson(tilesStr.toUtf8()).object();
+        }
+    }
+
+    LeapKTiling::TilingPreset kdePreset;
+    if (!liveRects.isEmpty()) {
+        kdePreset = LeapKTiling::createKdeCustomPreset(liveRects, liveJson);
+    } else if (!liveJson.isEmpty()) {
+        kdePreset = LeapKTiling::createKdeCustomPreset(liveJson);
+    } else {
+        kdePreset = LeapKTiling::createKdeCustomPreset({
+            QRectF(0.0, 0.0, 0.5, 1.0),
+            QRectF(0.5, 0.0, 0.5, 1.0)
+        });
+    }
+
+    kdePreset.id = QStringLiteral("kde-custom");
+    kdePreset.name = QStringLiteral("KDE Custom");
+    kdePreset.triggerKey = QLatin1Char('K');
+
+    m_savedKdeCustomTilesJson = !liveJson.isEmpty() ? liveJson : kdePreset.toKdeJson();
+    if (effects && effects->config() && !deskId.isEmpty() && !outUuid.isEmpty()) {
+        KConfigGroup leapkCg = effects->config()->group(QStringLiteral("Effect-leapk"));
+        leapkCg.writeEntry(QStringLiteral("CustomTilingBackup_%1_%2").arg(deskId, outUuid),
+                           QJsonDocument(m_savedKdeCustomTilesJson).toJson(QJsonDocument::Compact));
+        leapkCg.sync();
+    }
+
+    refreshTilingPresetsWithKdeCustom();
 
     if (!kdePreset.tileSlots.isEmpty()) {
         activateTilingPreset(kdePreset, false);
@@ -1620,12 +1710,9 @@ void ActiveWindowOutlineEffect::renderTilingToast(const RenderTarget &renderTarg
     }
 
     const QRectF screenRect = viewport.renderRect();
-    const qreal toastW = qMin(screenRect.width() - 40.0, 760.0);
-    const qreal toastH = 42.0;
-    const QRectF toastRect(screenRect.center().x() - toastW / 2.0, screenRect.bottom() - toastH - 36.0, toastW, toastH);
-    const QColor toastBg(20, 24, 32, 238);
-
-    renderBadge(renderTarget, viewport, toastRect, QChar(), toastBg, QColor(255, 255, 255), false, 36, m_tilingToastMessage, nullptr);
+    const QPointF toastCenter(screenRect.center().x(), screenRect.bottom() - 48.0);
+    const QColor toastBg(20, 24, 32, 242);
+    renderFloatingPill(renderTarget, viewport, m_tilingToastMessage, toastCenter, toastBg, QColor(245, 245, 250), 12, screenRect.width() - 40.0);
 }
 
 } // namespace KWin

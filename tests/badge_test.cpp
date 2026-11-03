@@ -1636,6 +1636,29 @@ void testTilingHudComponents()
     const QImage header = renderHudModeHeader(1.0, false, QString(), QColor(), 0, {}, -1, false, QString(), false, false, 0, false, QString(), 1, 0, 44, 0, LeapKTheme::Theme(), nullptr, true, presets.size());
     assert(!header.isNull());
     assert(header.width() > 200);
+
+    // 5. Floating Pill rendering for Toast and Edit Hint Bar
+    using OutlineBadge::renderFloatingPillImage;
+    const QString toastMsg = QStringLiteral("▤ Layout updated: [K] KDE Custom  •  Press [Ctrl+S] in edit mode to save");
+    const QImage imgToast = renderFloatingPillImage(toastMsg, 1.0, QColor(20, 24, 32, 240), QColor(245, 245, 250), 12);
+    assert(!imgToast.isNull());
+    assert(imgToast.width() > 300); // Un-truncated, full width measured
+    assert(imgToast.height() >= 26);
+
+    const QString editHint = QStringLiteral("[H/←: Narrower  L/→: Wider  K/↑: Shorter  J/↓: Taller]  •  [+/-: Size]  •  [Ctrl+S: Save layout]  •  [Letters: Swap]  •  [Enter: Done]");
+    const QImage imgEditHint = renderFloatingPillImage(editHint, 1.0, QColor(20, 24, 32, 240), QColor(245, 245, 250), 12);
+    assert(!imgEditHint.isNull());
+    assert(imgEditHint.width() > 500); // Full hint bar without 160px truncation!
+
+    const QImage imgEditBadge = renderFloatingPillImage(QStringLiteral("EDIT"), 1.0, QColor(0, 160, 220), Qt::white, 14);
+    assert(!imgEditBadge.isNull());
+    assert(imgEditBadge.width() >= 40);
+    assert(imgEditBadge.height() >= 24);
+
+    // HiDPI scale check
+    const QImage imgToast2x = renderFloatingPillImage(toastMsg, 2.0, QColor(20, 24, 32, 240), QColor(245, 245, 250), 12);
+    assert(!imgToast2x.isNull());
+    assert(imgToast2x.width() > imgToast.width());
 }
 
 void testBadgePreviewDismissHitTesting()

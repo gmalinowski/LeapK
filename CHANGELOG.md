@@ -4,6 +4,25 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta75] - 2026-11-03
+
+### Fixed
+- **Crisp 1:1 Pixel Floating Pill Renderer (`renderFloatingPillImage` & `renderFloatingPill`)**:
+  - Eliminated blurriness, resolution distortion, and horizontal text truncation in Tile Edit mode (`Meta + Enter`) and HUD toasts.
+  - Removed inappropriate `renderBadge` usage for hint bars, active slot indicators, and toasts: `renderBadge`'s hardcoded 160px text elision cap caused long shortcut instructions and toasts to be truncated and stretched across 760–780px wide OpenGL quads.
+  - Introduced `OutlineBadge::renderFloatingPillImage` and `ActiveWindowOutlineEffect::renderFloatingPill`, which dynamically measure text using `QFontMetrics`, parse bracketed shortcut keycaps (e.g. `[Ctrl+S]`, `[K]`, `[Enter]`) into styled bold cyan tags, and render crisp rounded pills at exact 1:1 pixel coordinates with zero stretching.
+  - Fixed tile swap letter badge aspect ratio (1.35) in `renderTilingEditOverlay` so swap letters are no longer squished horizontally onto square quads.
+  - Updated `ActiveWindowOutlineEffect::renderBadge` to always map vertices using the native texture dimensions centered on the target rect, guaranteeing aspect ratio preservation and 1:1 pixel accuracy across all HUD badges.
+- **Direct Live `RootTile` Layout Synchronization on KDE Tiles Editor Exit**:
+  - Fixed bug where exiting the KDE Tile Editor failed to apply layout changes because `refreshTilingPresetsWithKdeCustom` fell back to stale `kwinrc` or old backup entries instead of reading the editor's live in-memory tiles.
+  - `onKdeTilesEditorClosed` now flushes `tileMgr->saveSettings()`, extracts leaf tile geometries directly from live `rootTile->descendants()`, geometrically sorts them in reading order, updates `[K] KDE Custom`, and synchronizes the fresh layout into `CustomTilingBackup`.
+  - Added matching check in `activateTilingPreset`: if `rootTile` already contains the user's fresh layout, in-memory tiles are preserved without wiping or re-reading from disk.
+  - Prioritized existing tiled windows in `m_activeTilingSlots` during window placement so windows immediately snap and rearrange into the new KDE layout upon exiting the editor.
+
+### Added
+- **Unit Test Coverage for Floating Pill & Hint Bar Typography**:
+  - Added unit test assertions in `tests/badge_test.cpp` verifying `renderFloatingPillImage` produces sharp, non-elided full-length images, handles styled keycaps, and scales appropriately for HiDPI displays. All 30/30 CTests pass (100%).
+
 ## [1.6.0-beta74] - 2026-11-03
 
 ### Added

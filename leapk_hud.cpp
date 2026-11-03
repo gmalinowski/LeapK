@@ -1034,7 +1034,11 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
         m_badgeTextureCache[key] = texture;
     }
 
-    QRectF finalBadgeRect = badgeRect;
+    const qreal texW = texture->width() / scale;
+    const qreal texH = texture->height() / scale;
+    const QPointF bCenter = badgeRect.center();
+    QRectF finalBadgeRect(bCenter.x() - texW / 2.0, bCenter.y() - texH / 2.0, texW, texH);
+
     const bool pulseBadge = cfg.activeTheme.resolveBool(QStringLiteral("$audioPulseBadge"), cfg.activeTheme.windowBadge.audioPulseBadge);
     const double pulseIntensity = cfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseIntensity"), cfg.activeTheme.windowBadge.audioPulseIntensity);
     const double pulseSpeed = cfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseSpeed"), cfg.activeTheme.windowBadge.audioPulseSpeed);
@@ -1042,10 +1046,9 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
         const qint64 elapsedMs = m_animationClock.isValid() ? m_animationClock.elapsed() : 0;
         const qreal elapsedSec = elapsedMs / 1000.0;
         const qreal pulse = 1.0 + (0.08 * pulseIntensity) * std::sin(elapsedSec * 8.0 * pulseSpeed);
-        const QPointF center = badgeRect.center();
-        const qreal pw = badgeRect.width() * pulse;
-        const qreal ph = badgeRect.height() * pulse;
-        finalBadgeRect = QRectF(center.x() - pw / 2.0, center.y() - ph / 2.0, pw, ph);
+        const qreal pw = texW * pulse;
+        const qreal ph = texH * pulse;
+        finalBadgeRect = QRectF(bCenter.x() - pw / 2.0, bCenter.y() - ph / 2.0, pw, ph);
     }
 
     const float x0 = finalBadgeRect.left() * scale;
@@ -1089,6 +1092,85 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
     texture->bind();
     vbo->render(GL_TRIANGLES);
     texture->unbind();
+
+    if (scissorWasEnabled) {
+        glEnable(GL_SCISSOR_TEST);
+    }
+
+    glBlendFuncSeparate(previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha);
+    if (blendWasEnabled) {
+        glEnable(GL_BLEND);
+    } else {
+        glDisable(GL_BLEND);
+    }
+}
+
+void ActiveWindowOutlineEffect::renderFloatingPill(const RenderTarget &renderTarget,
+                                                  const RenderViewport &viewport,
+                                                  const QString &text,
+                                                  const QPointF &centerPos,
+                                                  const QColor &bgColor,
+                                                  const QColor &textColor,
+                                                  int fontSizePt,
+                                                  qreal maxAllowedWidth)
+{
+    if (text.trimmed().isEmpty()) {
+        return;
+    }
+
+    const qreal scale = viewport.scale();
+    const QImage img = OutlineBadge::renderFloatingPillImage(text, scale, bgColor, textColor, fontSizePt, maxAllowedWidth);
+    auto uploaded = GLTexture::upload(img);
+    if (!uploaded) {
+        return;
+    }
+    uploaded->setFilter(GL_LINEAR);
+    uploaded->setWrapMode(GL_CLAMP_TO_EDGE);
+
+    const qreal w = img.width() / scale;
+    const qreal h = img.height() / scale;
+    const QRectF destRect(centerPos.x() - w / 2.0, centerPos.y() - h / 2.0, w, h);
+
+    const float x0 = destRect.left() * scale;
+    const float y0 = destRect.top() * scale;
+    const float x1 = destRect.right() * scale;
+    const float y1 = destRect.bottom() * scale;
+
+    const std::array<GLVertex2D, 6> verts = {{
+        {QVector2D(x0, y0), QVector2D(0.0f, 0.0f)},
+        {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+        {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+        {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+        {QVector2D(x1, y1), QVector2D(1.0f, 1.0f)},
+        {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+    }};
+
+    auto vbo = GLVertexBuffer::streamingBuffer();
+    vbo->setVertices(verts);
+
+    GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
+    GLint previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha;
+    glGetIntegerv(GL_BLEND_SRC_RGB, &previousSrcRgb);
+    glGetIntegerv(GL_BLEND_DST_RGB, &previousDstRgb);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &previousSrcAlpha);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &previousDstAlpha);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+    GLboolean scissorWasEnabled = glIsEnabled(GL_SCISSOR_TEST);
+    glDisable(GL_SCISSOR_TEST);
+
+    ShaderBinder binder(ShaderTrait::MapTexture | ShaderTrait::Modulate | ShaderTrait::TransformColorspace);
+    GLShader *shader = binder.shader();
+    shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix, viewport.projectionMatrix());
+    shader->setUniform(GLShader::Mat4Uniform::TextureMatrix, uploaded->matrix(NormalizedCoordinates));
+    shader->setColorspaceUniforms(ColorDescription::sRGB, renderTarget.colorDescription(), RenderingIntent::Perceptual);
+    shader->setUniform(GLShader::Vec4Uniform::ModulationConstant, QVector4D(1.0f, 1.0f, 1.0f, 1.0f));
+
+    uploaded->bind();
+    vbo->render(GL_TRIANGLES);
+    uploaded->unbind();
 
     if (scissorWasEnabled) {
         glEnable(GL_SCISSOR_TEST);

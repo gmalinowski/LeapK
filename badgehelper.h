@@ -2120,6 +2120,138 @@ inline QImage renderTilingPresetPill(const BadgeConfig &cfg,
     return renderOffscreenTargetPill(cfg, preset.triggerKey, bgCol, Qt::white, locText, capText, cfg.hudBadgeSize, scale, customLabel, QIcon(), QImage(), isActive, QString(), false, 0, false, false, false, isSelected);
 }
 
+inline QImage renderFloatingPillImage(const QString &text,
+                                     qreal scale,
+                                     const QColor &bgColor,
+                                     const QColor &textColor = QColor(240, 240, 245),
+                                     int fontSizePt = 12,
+                                     qreal maxAllowedWidth = 0.0)
+{
+    const QString fontFam = QStringLiteral("sans-serif");
+    QFont font(fontFam);
+    const int px = qMax(10, qRound(fontSizePt * scale));
+    font.setPixelSize(px);
+    font.setWeight(QFont::Medium);
+    QFontMetrics fm(font);
+
+    QFont keyFont(fontFam);
+    keyFont.setPixelSize(px);
+    keyFont.setBold(true);
+    QFontMetrics fmKey(keyFont);
+
+    struct Chunk {
+        QString text;
+        bool isKey;
+        bool isSep;
+        int width;
+    };
+    QList<Chunk> chunks;
+
+    int idx = 0;
+    const int len = text.length();
+    int totalContentWidth = 0;
+
+    while (idx < len) {
+        if (text[idx] == QLatin1Char('[')) {
+            int closeIdx = text.indexOf(QLatin1Char(']'), idx);
+            if (closeIdx != -1) {
+                QString keyStr = text.mid(idx, closeIdx - idx + 1);
+                int w = fmKey.horizontalAdvance(keyStr);
+                chunks.append({keyStr, true, false, w});
+                totalContentWidth += w;
+                idx = closeIdx + 1;
+                continue;
+            }
+        }
+
+        if (text[idx] == QChar(0x2022) || text[idx] == QLatin1Char(0xB7)) { // • or ·
+            QString sepStr = QString(text[idx]);
+            int w = fm.horizontalAdvance(sepStr);
+            chunks.append({sepStr, false, true, w});
+            totalContentWidth += w;
+            idx++;
+            continue;
+        }
+
+        int nextSpecial = len;
+        int n1 = text.indexOf(QLatin1Char('['), idx);
+        int n2 = text.indexOf(QChar(0x2022), idx);
+        int n3 = text.indexOf(QLatin1Char(0xB7), idx);
+        if (n1 != -1 && n1 < nextSpecial) nextSpecial = n1;
+        if (n2 != -1 && n2 < nextSpecial) nextSpecial = n2;
+        if (n3 != -1 && n3 < nextSpecial) nextSpecial = n3;
+
+        QString regStr = text.mid(idx, nextSpecial - idx);
+        int w = fm.horizontalAdvance(regStr);
+        chunks.append({regStr, false, false, w});
+        totalContentWidth += w;
+        idx = nextSpecial;
+    }
+
+    const int padX = qRound(20 * scale);
+    const int padY = qRound(9 * scale);
+    const int lineH = qMax(fm.height(), fmKey.height());
+
+    int imgW = totalContentWidth + 2 * padX;
+    if (maxAllowedWidth > 0.0 && imgW > qRound(maxAllowedWidth)) {
+        imgW = qRound(maxAllowedWidth);
+    }
+    const int imgH = lineH + 2 * padY;
+
+    QImage img(qMax(1, imgW), qMax(1, imgH), QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+
+    QPainter p(&img);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+
+    const qreal margin = 1.5 * scale;
+    const QRectF rect(margin, margin, imgW - 2 * margin, imgH - 2 * margin);
+    const qreal radius = rect.height() / 2.0;
+
+    // Drop shadow
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(0, 0, 0, 110));
+    p.drawRoundedRect(rect.translated(0, 2.0 * scale), radius, radius);
+
+    // Pill background
+    p.setBrush(bgColor);
+    p.setPen(QPen(QColor(255, 255, 255, 45), 1.0 * scale));
+    p.drawRoundedRect(rect, radius, radius);
+
+    // Clip to pill interior
+    p.save();
+    QPainterPath clipPath;
+    clipPath.addRoundedRect(rect.adjusted(padX / 2.0, 0, -padX / 2.0, 0), radius, radius);
+    p.setClipPath(clipPath);
+
+    int curX = padX;
+    const int baseLineY = padY + fm.ascent();
+
+    const QColor effTextColor = textColor.isValid() ? textColor : QColor(240, 240, 245);
+    const QColor keyColor(80, 215, 255); // Vibrant cyan keycap highlight
+    const QColor sepColor(140, 150, 165);
+
+    for (const Chunk &c : chunks) {
+        if (c.isKey) {
+            p.setFont(keyFont);
+            p.setPen(keyColor);
+        } else if (c.isSep) {
+            p.setFont(font);
+            p.setPen(sepColor);
+        } else {
+            p.setFont(font);
+            p.setPen(effTextColor);
+        }
+        p.drawText(curX, baseLineY, c.text);
+        curX += c.width;
+    }
+    p.restore();
+    p.end();
+
+    return img;
+}
+
 inline QImage renderHudDividerLine(const QSizeF &size, qreal scale, bool isVertical = true)
 {
     const int w = qMax(1, qRound(size.width() * scale));

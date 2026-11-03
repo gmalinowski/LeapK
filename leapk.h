@@ -329,6 +329,14 @@ private:
                      const QString &recentKey = QString(),
                      bool isRecent = false,
                      qreal opacity = 1.0);
+    void renderFloatingPill(const RenderTarget &renderTarget,
+                            const RenderViewport &viewport,
+                            const QString &text,
+                            const QPointF &centerPos,
+                            const QColor &bgColor,
+                            const QColor &textColor = QColor(240, 240, 245),
+                            int fontSizePt = 12,
+                            qreal maxAllowedWidth = 0.0);
     void renderOffscreenJumpTargets(const RenderTarget &renderTarget,
                                    const RenderViewport &viewport,
                                    const QList<QPair<QChar, EffectWindow *>> &targets,
