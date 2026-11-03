@@ -80,3 +80,35 @@
 #include <KSharedConfig>
 #include <cmath>
 #include <utility>
+
+namespace LeapKCompat
+{
+
+template<typename Handler, typename Option, typename Screen, typename Desktop>
+inline QRectF clientArea(Handler *handler, Option opt, Screen *screen, Desktop *desktop)
+{
+    if (!handler) {
+        return QRectF();
+    }
+    if constexpr (requires { handler->clientArea(opt, screen, desktop); }) {
+        auto r = handler->clientArea(opt, screen, desktop);
+        return QRectF(r.x(), r.y(), r.width(), r.height());
+    } else if constexpr (requires { handler->clientArea(opt, screen); }) {
+        auto r = handler->clientArea(opt, screen);
+        return QRectF(r.x(), r.y(), r.width(), r.height());
+    } else {
+        return QRectF();
+    }
+}
+
+template<typename Handler>
+inline QRectF virtualScreenGeometry(Handler *handler)
+{
+    if (!handler) {
+        return QRectF();
+    }
+    auto g = handler->virtualScreenGeometry();
+    return QRectF(g.x(), g.y(), g.width(), g.height());
+}
+
+} // namespace LeapKCompat

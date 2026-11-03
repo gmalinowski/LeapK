@@ -244,9 +244,9 @@ QList<LeapKTiling::TileSlot> ActiveWindowOutlineEffect::captureCurrentLayoutSlot
 {
     QRectF workArea;
     if (effects) {
-        workArea = effects->clientArea(MaximizeArea, effects->activeScreen(), effects->currentDesktop());
+        workArea = LeapKCompat::clientArea(effects, MaximizeArea, effects->activeScreen(), effects->currentDesktop());
         if (workArea.isEmpty()) {
-            workArea = effects->virtualScreenGeometry();
+            workArea = LeapKCompat::virtualScreenGeometry(effects);
         }
     }
     if (workArea.isEmpty()) {
@@ -522,9 +522,9 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
 
     QRectF workArea;
     if (effects) {
-        workArea = effects->clientArea(MaximizeArea, effects->activeScreen(), effects->currentDesktop());
+        workArea = LeapKCompat::clientArea(effects, MaximizeArea, effects->activeScreen(), effects->currentDesktop());
         if (workArea.isEmpty()) {
-            workArea = effects->virtualScreenGeometry();
+            workArea = LeapKCompat::virtualScreenGeometry(effects);
         }
     }
     if (workArea.isEmpty()) {
@@ -935,7 +935,7 @@ void ActiveWindowOutlineEffect::syncActiveTilingSlotsToKdeTiles()
     // Update active tiling preset slot proportions so state is kept in sync
     QRectF workArea;
     if (effects) {
-        workArea = effects->clientArea(MaximizeArea, effects->activeScreen(), effects->currentDesktop());
+        workArea = LeapKCompat::clientArea(effects, MaximizeArea, effects->activeScreen(), effects->currentDesktop());
     }
     if (workArea.isEmpty()) {
         workArea = QRectF(0, 0, 1920, 1080);
@@ -1367,7 +1367,7 @@ void ActiveWindowOutlineEffect::performTilingResize(LeapKTiling::ResizeDirection
 
     QRectF workArea;
     if (effects) {
-        workArea = effects->clientArea(MaximizeArea, effects->activeScreen(), effects->currentDesktop());
+        workArea = LeapKCompat::clientArea(effects, MaximizeArea, effects->activeScreen(), effects->currentDesktop());
     }
     if (workArea.isEmpty()) {
         workArea = QRectF(0, 0, 1920, 1080);

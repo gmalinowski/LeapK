@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta79] - 2026-11-03
+
+### Fixed
+- **Forward Compatibility with KDE Plasma 6.9 / KWin Git Master**:
+  - Added `LeapKCompat::clientArea` using C++20 `if constexpr (requires { ... })` to seamlessly adapt to KWin 6.9's updated `EffectsHandler::clientArea` signature (where the `VirtualDesktop*` parameter was dropped in favor of `clientArea(option, screen)`).
+  - Supported modern `KWin::Rect` and `KWin::RectF` geometric primitives, ensuring safe conversion to `QRectF` across `clientArea` and `virtualScreenGeometry`.
+  - Added `qt6-svg-dev` dependency into `install-leapk.sh` for Ubuntu, Debian, and KDE Neon distros. All 30/30 CTests pass (100%).
+
 ## [1.6.0-beta78] - 2026-11-03
 
 ### Fixed
