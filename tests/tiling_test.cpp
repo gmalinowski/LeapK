@@ -214,6 +214,9 @@ void testKdeCustomPreset()
     const auto p3 = createKdeCustomPreset(slots3);
     assert(p3.iconDiagram == QStringLiteral("▌▌▌"));
     assert(p3.tileSlots.size() == 3);
+    const auto p3Kde = p3.toKdeJson();
+    assert(p3Kde.value(QStringLiteral("layoutDirection")).toString() == QStringLiteral("horizontal"));
+    assert(p3Kde.value(QStringLiteral("tiles")).toArray().size() == 3);
 
     // Test with 4 slots
     QList<QRectF> slots4 = {
@@ -225,6 +228,28 @@ void testKdeCustomPreset()
     const auto p4 = createKdeCustomPreset(slots4);
     assert(p4.iconDiagram == QStringLiteral("⊞"));
     assert(p4.tileSlots.size() == 4);
+    const auto p4Kde = p4.toKdeJson();
+    assert(p4Kde.value(QStringLiteral("layoutDirection")).toString() == QStringLiteral("horizontal"));
+    const auto p4Cols = p4Kde.value(QStringLiteral("tiles")).toArray();
+    assert(p4Cols.size() == 2);
+    assert(p4Cols[0].toObject().value(QStringLiteral("layoutDirection")).toString() == QStringLiteral("vertical"));
+    assert(p4Cols[1].toObject().value(QStringLiteral("layoutDirection")).toString() == QStringLiteral("vertical"));
+
+    // Test with 3 slots master-stack (left 1/2, right split 1/2 and 1/2)
+    QList<QRectF> slotsMaster = {
+        QRectF(0.004, 0.007, 0.490, 0.984),
+        QRectF(0.541, 0.007, 0.458, 0.489),
+        QRectF(0.592, 0.502, 0.407, 0.497)
+    };
+    const auto pMaster = createKdeCustomPreset(slotsMaster);
+    const auto pMasterKde = pMaster.toKdeJson();
+    assert(pMasterKde.value(QStringLiteral("layoutDirection")).toString() == QStringLiteral("horizontal"));
+    const auto pMasterCols = pMasterKde.value(QStringLiteral("tiles")).toArray();
+    assert(pMasterCols.size() == 2);
+    assert(pMasterCols[0].toObject().contains(QStringLiteral("width")));
+    assert(pMasterCols[1].toObject().value(QStringLiteral("layoutDirection")).toString() == QStringLiteral("vertical"));
+    const auto pMasterRows = pMasterCols[1].toObject().value(QStringLiteral("tiles")).toArray();
+    assert(pMasterRows.size() == 2);
 
     std::cout << "testKdeCustomPreset PASSED\n";
 }

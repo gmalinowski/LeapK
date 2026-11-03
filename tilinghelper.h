@@ -190,7 +190,8 @@ inline TilingPreset createKdeCustomPreset(const QList<QRectF> &slotGeometries, c
     p.name = QStringLiteral("KDE Custom");
     p.triggerKey = QLatin1Char('K');
     p.iconDiagram = QStringLiteral("▨");
-    p.kdeJson = rawKdeJson;
+    const QString dir = rawKdeJson.value(QStringLiteral("layoutDirection")).toString();
+    p.kdeJson = (dir == QStringLiteral("horizontal") || dir == QStringLiteral("vertical")) ? rawKdeJson : QJsonObject();
 
     const int count = slotGeometries.size();
     if (count == 2) {
@@ -794,10 +795,247 @@ inline bool calculateDividerMove(const QList<QRectF> &geometries, int slotIdx, c
     return calculateDividerMove(geometries, slotIdx, newGeo, outDir, outDelta, edge);
 }
 
+inline QJsonObject buildKdeTileTreeInternal(const QList<QRectF> &rects, const QRectF &bounds)
+{
+    if (rects.isEmpty()) {
+        return QJsonObject();
+    }
+    if (rects.size() == 1) {
+        return QJsonObject();
+    }
+
+    const qreal eps = 0.04;
+
+    // 1. Check for Vertical Cut Lines (splitting along X into columns)
+    QList<qreal> xCuts;
+    for (const auto &r : rects) {
+        const qreal candidateX = r.right();
+        if (candidateX > bounds.left() + eps && candidateX < bounds.right() - eps) {
+            bool valid = true;
+            for (const auto &other : rects) {
+                if (other.left() < candidateX - eps && other.right() > candidateX + eps) {
+                    valid = false;
+                    break;
+                }
+            }
+            if (valid) {
+                bool dup = false;
+                for (qreal c : xCuts) {
+                    if (std::abs(c - candidateX) < eps) {
+                        dup = true;
+                        break;
+                    }
+                }
+                if (!dup) {
+                    xCuts.append(candidateX);
+                }
+            }
+        }
+    }
+
+    if (!xCuts.isEmpty()) {
+        std::sort(xCuts.begin(), xCuts.end());
+        QJsonObject root;
+        root[QStringLiteral("layoutDirection")] = QStringLiteral("horizontal");
+        QJsonArray tilesArr;
+
+        qreal prevX = bounds.left();
+        const int numSegments = xCuts.size() + 1;
+        for (int i = 0; i < numSegments; ++i) {
+            const qreal curX = (i < xCuts.size()) ? xCuts[i] : bounds.right();
+            const QRectF colBounds(prevX, bounds.top(), std::max(0.01, curX - prevX), bounds.height());
+
+            QList<QRectF> colRects;
+            for (const auto &r : rects) {
+                if (r.center().x() >= prevX - eps && r.center().x() <= curX + eps) {
+                    colRects.append(r);
+                }
+            }
+
+            const double colWidthFraction = bounds.width() > 0.001
+                ? (colBounds.width() / bounds.width())
+                : (1.0 / numSegments);
+
+            if (colRects.size() <= 1) {
+                QJsonObject leafObj;
+                leafObj[QStringLiteral("width")] = colWidthFraction;
+                tilesArr.append(leafObj);
+            } else {
+                QJsonObject subTree = buildKdeTileTreeInternal(colRects, colBounds);
+                subTree[QStringLiteral("width")] = colWidthFraction;
+                tilesArr.append(subTree);
+            }
+
+            prevX = curX;
+        }
+
+        // Normalize widths so they sum to exactly 1.0
+        double totalW = 0.0;
+        for (int i = 0; i < tilesArr.size(); ++i) {
+            totalW += tilesArr[i].toObject().value(QStringLiteral("width")).toDouble();
+        }
+        if (totalW > 0.001) {
+            QJsonArray norm;
+            double acc = 0.0;
+            for (int i = 0; i < tilesArr.size(); ++i) {
+                QJsonObject c = tilesArr[i].toObject();
+                if (i == tilesArr.size() - 1) {
+                    c[QStringLiteral("width")] = std::max(0.05, 1.0 - acc);
+                } else {
+                    double nw = c.value(QStringLiteral("width")).toDouble() / totalW;
+                    c[QStringLiteral("width")] = nw;
+                    acc += nw;
+                }
+                norm.append(c);
+            }
+            tilesArr = norm;
+        }
+
+        root[QStringLiteral("tiles")] = tilesArr;
+        return root;
+    }
+
+    // 2. Check for Horizontal Cut Lines (splitting along Y into rows)
+    QList<qreal> yCuts;
+    for (const auto &r : rects) {
+        const qreal candidateY = r.bottom();
+        if (candidateY > bounds.top() + eps && candidateY < bounds.bottom() - eps) {
+            bool valid = true;
+            for (const auto &other : rects) {
+                if (other.top() < candidateY - eps && other.bottom() > candidateY + eps) {
+                    valid = false;
+                    break;
+                }
+            }
+            if (valid) {
+                bool dup = false;
+                for (qreal c : yCuts) {
+                    if (std::abs(c - candidateY) < eps) {
+                        dup = true;
+                        break;
+                    }
+                }
+                if (!dup) {
+                    yCuts.append(candidateY);
+                }
+            }
+        }
+    }
+
+    if (!yCuts.isEmpty()) {
+        std::sort(yCuts.begin(), yCuts.end());
+        QJsonObject root;
+        root[QStringLiteral("layoutDirection")] = QStringLiteral("vertical");
+        QJsonArray tilesArr;
+
+        qreal prevY = bounds.top();
+        const int numSegments = yCuts.size() + 1;
+        for (int i = 0; i < numSegments; ++i) {
+            const qreal curY = (i < yCuts.size()) ? yCuts[i] : bounds.bottom();
+            const QRectF rowBounds(bounds.left(), prevY, bounds.width(), std::max(0.01, curY - prevY));
+
+            QList<QRectF> rowRects;
+            for (const auto &r : rects) {
+                if (r.center().y() >= prevY - eps && r.center().y() <= curY + eps) {
+                    rowRects.append(r);
+                }
+            }
+
+            const double rowHeightFraction = bounds.height() > 0.001
+                ? (rowBounds.height() / bounds.height())
+                : (1.0 / numSegments);
+
+            if (rowRects.size() <= 1) {
+                QJsonObject leafObj;
+                leafObj[QStringLiteral("height")] = rowHeightFraction;
+                tilesArr.append(leafObj);
+            } else {
+                QJsonObject subTree = buildKdeTileTreeInternal(rowRects, rowBounds);
+                subTree[QStringLiteral("height")] = rowHeightFraction;
+                tilesArr.append(subTree);
+            }
+
+            prevY = curY;
+        }
+
+        // Normalize heights so they sum to exactly 1.0
+        double totalH = 0.0;
+        for (int i = 0; i < tilesArr.size(); ++i) {
+            totalH += tilesArr[i].toObject().value(QStringLiteral("height")).toDouble();
+        }
+        if (totalH > 0.001) {
+            QJsonArray norm;
+            double acc = 0.0;
+            for (int i = 0; i < tilesArr.size(); ++i) {
+                QJsonObject c = tilesArr[i].toObject();
+                if (i == tilesArr.size() - 1) {
+                    c[QStringLiteral("height")] = std::max(0.05, 1.0 - acc);
+                } else {
+                    double nh = c.value(QStringLiteral("height")).toDouble() / totalH;
+                    c[QStringLiteral("height")] = nh;
+                    acc += nh;
+                }
+                norm.append(c);
+            }
+            tilesArr = norm;
+        }
+
+        root[QStringLiteral("tiles")] = tilesArr;
+        return root;
+    }
+
+    // 3. Fallback: split horizontally into equal columns (guarantees shared dividers, NEVER "floating")
+    QJsonObject root;
+    root[QStringLiteral("layoutDirection")] = QStringLiteral("horizontal");
+    QJsonArray tilesArr;
+    const int count = rects.size();
+    const double w = count > 0 ? (1.0 / count) : 1.0;
+    for (int i = 0; i < count; ++i) {
+        QJsonObject leafObj;
+        leafObj[QStringLiteral("width")] = w;
+        tilesArr.append(leafObj);
+    }
+    root[QStringLiteral("tiles")] = tilesArr;
+    return root;
+}
+
+inline QJsonObject buildKdeTileTree(const QList<TileSlot> &tileSlots)
+{
+    if (tileSlots.isEmpty() || tileSlots.size() == 1) {
+        QJsonObject root;
+        root[QStringLiteral("layoutDirection")] = QStringLiteral("horizontal");
+        QJsonArray tiles;
+        QJsonObject t;
+        t[QStringLiteral("width")] = 1.0;
+        tiles.append(t);
+        root[QStringLiteral("tiles")] = tiles;
+        return root;
+    }
+
+    QList<QRectF> rects;
+    for (const auto &s : tileSlots) {
+        rects.append(s.relativeRect);
+    }
+
+    qreal minX = 1.0, minY = 1.0, maxX = 0.0, maxY = 0.0;
+    for (const auto &r : rects) {
+        minX = std::min(minX, r.left());
+        minY = std::min(minY, r.top());
+        maxX = std::max(maxX, r.right());
+        maxY = std::max(maxY, r.bottom());
+    }
+    const QRectF bounds(minX, minY, std::max(0.1, maxX - minX), std::max(0.1, maxY - minY));
+
+    return buildKdeTileTreeInternal(rects, bounds);
+}
+
 inline QJsonObject toKdeJson(const TilingPreset &preset)
 {
     if (!preset.kdeJson.isEmpty()) {
-        return preset.kdeJson;
+        const QString dir = preset.kdeJson.value(QStringLiteral("layoutDirection")).toString();
+        if (dir == QStringLiteral("horizontal") || dir == QStringLiteral("vertical")) {
+            return preset.kdeJson;
+        }
     }
 
     QJsonObject root;
@@ -937,41 +1175,8 @@ inline QJsonObject toKdeJson(const TilingPreset &preset)
         return root;
     }
 
-    bool hasNonHorizontal = false;
-    for (const auto &slot : preset.tileSlots) {
-        if (slot.relativeRect.top() > 0.01 || slot.relativeRect.height() < 0.98) {
-            hasNonHorizontal = true;
-            break;
-        }
-    }
-
-    if (hasNonHorizontal) {
-        // Use floating layout in KWin: preserves exact x, y, width, height for arbitrary / vertical splits
-        root[QStringLiteral("layoutDirection")] = QStringLiteral("floating");
-        QJsonArray tiles;
-        for (const auto &slot : preset.tileSlots) {
-            QJsonObject t;
-            t[QStringLiteral("x")] = slot.relativeRect.x();
-            t[QStringLiteral("y")] = slot.relativeRect.y();
-            t[QStringLiteral("width")] = slot.relativeRect.width();
-            t[QStringLiteral("height")] = slot.relativeRect.height();
-            tiles.append(t);
-        }
-        root[QStringLiteral("tiles")] = tiles;
-        return root;
-    }
-
-    root[QStringLiteral("layoutDirection")] = QStringLiteral("horizontal");
-    QJsonArray tiles;
-    const int count = preset.tileSlots.size();
-    const double w = count > 0 ? (1.0 / count) : 1.0;
-    for (int i = 0; i < count; ++i) {
-        QJsonObject t;
-        t[QStringLiteral("width")] = preset.tileSlots[i].relativeRect.width() > 0 ? preset.tileSlots[i].relativeRect.width() : w;
-        tiles.append(t);
-    }
-    root[QStringLiteral("tiles")] = tiles;
-    return root;
+    // For any custom layout or dynamically created slots, build a genuine split tree (NEVER "floating")
+    return buildKdeTileTree(preset.tileSlots);
 }
 
 inline QJsonObject TilingPreset::toKdeJson() const

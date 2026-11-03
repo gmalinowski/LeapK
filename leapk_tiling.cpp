@@ -715,13 +715,13 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
                     kdeObj = QJsonDocument::fromJson(backup.toUtf8()).object();
                 }
             }
-            if (kdeObj.isEmpty()) {
+            if (kdeObj.isEmpty() || (kdeObj.value(QStringLiteral("layoutDirection")).toString() == QStringLiteral("floating") && !preset.tileSlots.isEmpty())) {
                 kdeObj = preset.toKdeJson();
             }
 
             // Check if live rootTile already matches preset slots to avoid destroying fresh tiles from KDE tiles editor
             bool rootMatches = false;
-            if (rootTile && rootTile->childCount() > 0) {
+            if (rootTile && rootTile->childCount() > 0 && rootTile->layoutDirection() != Tile::LayoutDirection::Floating) {
                 QList<QRectF> curLeafRects;
                 for (Tile *t : rootTile->descendants()) {
                     if (!t->isLayout() && t->relativeGeometry().isValid()) {
@@ -963,12 +963,22 @@ void ActiveWindowOutlineEffect::syncActiveTilingSlotsToKdeTiles()
         const QString tilesJsonStr = outTileGroup.readEntry("tiles", QString());
         if (!tilesJsonStr.isEmpty()) {
             QJsonObject kdeObj = QJsonDocument::fromJson(tilesJsonStr.toUtf8()).object();
-            if (!kdeObj.isEmpty()) {
+            if (!kdeObj.isEmpty() && kdeObj.value(QStringLiteral("layoutDirection")).toString() != QStringLiteral("floating")) {
                 m_savedKdeCustomTilesJson = kdeObj;
                 m_activeTilingPreset.kdeJson = kdeObj;
                 KConfigGroup leapkCg = effects->config()->group(QStringLiteral("Effect-leapk"));
                 leapkCg.writeEntry(QStringLiteral("CustomTilingBackup_%1_%2").arg(deskId, outUuid), tilesJsonStr);
                 leapkCg.sync();
+            } else if (!kdeObj.isEmpty() && kdeObj.value(QStringLiteral("layoutDirection")).toString() == QStringLiteral("floating")) {
+                const QJsonObject treeJson = m_activeTilingPreset.toKdeJson();
+                m_savedKdeCustomTilesJson = treeJson;
+                m_activeTilingPreset.kdeJson = treeJson;
+                const QByteArray treeBytes = QJsonDocument(treeJson).toJson(QJsonDocument::Compact);
+                KConfigGroup leapkCg = effects->config()->group(QStringLiteral("Effect-leapk"));
+                leapkCg.writeEntry(QStringLiteral("CustomTilingBackup_%1_%2").arg(deskId, outUuid), treeBytes);
+                leapkCg.sync();
+                outTileGroup.writeEntry("tiles", treeBytes);
+                cg.sync();
             }
         }
     } else if (activeOutput && currentDesktop && effects && effects->config()) {
@@ -1656,6 +1666,14 @@ void ActiveWindowOutlineEffect::onKdeTilesEditorClosed()
         }
     }
 
+    // Sanitize: never accept floating layout from kwinrc or live editor
+    if (!liveJson.isEmpty()) {
+        const QString dir = liveJson.value(QStringLiteral("layoutDirection")).toString();
+        if (dir != QStringLiteral("horizontal") && dir != QStringLiteral("vertical")) {
+            liveJson = QJsonObject();
+        }
+    }
+
     LeapKTiling::TilingPreset kdePreset;
     if (!liveRects.isEmpty()) {
         kdePreset = LeapKTiling::createKdeCustomPreset(liveRects, liveJson);
@@ -1673,11 +1691,30 @@ void ActiveWindowOutlineEffect::onKdeTilesEditorClosed()
     kdePreset.triggerKey = QLatin1Char('K');
 
     m_savedKdeCustomTilesJson = !liveJson.isEmpty() ? liveJson : kdePreset.toKdeJson();
+    kdePreset.kdeJson = m_savedKdeCustomTilesJson;
+
     if (effects && effects->config() && !deskId.isEmpty() && !outUuid.isEmpty()) {
+        const QByteArray jsonBytes = QJsonDocument(m_savedKdeCustomTilesJson).toJson(QJsonDocument::Compact);
         KConfigGroup leapkCg = effects->config()->group(QStringLiteral("Effect-leapk"));
-        leapkCg.writeEntry(QStringLiteral("CustomTilingBackup_%1_%2").arg(deskId, outUuid),
-                           QJsonDocument(m_savedKdeCustomTilesJson).toJson(QJsonDocument::Compact));
+        leapkCg.writeEntry(QStringLiteral("CustomTilingBackup_%1_%2").arg(deskId, outUuid), jsonBytes);
         leapkCg.sync();
+
+        // Also sanitize [Tiling][deskId][outUuid] if it was floating
+        KConfigGroup tilingCg = effects->config()->group(QStringLiteral("Tiling"));
+        KConfigGroup deskGroup(&tilingCg, deskId);
+        KConfigGroup outTileGroup(&deskGroup, outUuid);
+        const QString curTilesStr = outTileGroup.readEntry("tiles", QString());
+        if (curTilesStr.contains(QStringLiteral("\"floating\""))) {
+            outTileGroup.writeEntry("tiles", jsonBytes);
+            tilingCg.sync();
+        }
+    }
+
+    if (rootTile && rootTile->layoutDirection() == Tile::LayoutDirection::Floating && tileMgr) {
+        while (rootTile->childCount() > 0) {
+            rootTile->destroyChild(rootTile->childTile(0));
+        }
+        tileMgr->readSettings(rootTile);
     }
 
     refreshTilingPresetsWithKdeCustom();

@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta78] - 2026-11-03
+
+### Fixed
+- **Native Recursive KDE Split Trees Instead of Floating Tiles (`buildKdeTileTree`)**:
+  - Fixed tile editor behavior where adjacent tiles had independent margins and could overlap rather than sharing a single synchronized resize divider.
+  - Eliminated the fallback to `"layoutDirection": "floating"` in `toKdeJson()`.
+  - Implemented recursive binary/n-ary space partitioning (`buildKdeTileTree`) that converts arbitrary tile slot geometries into native KDE Plasma 6 hierarchical trees (`"horizontal"` and `"vertical"` containers with leaf tiles summing to 1.0).
+  - Added proactive sanitization in `activateTilingPreset`, `syncActiveTilingSlotsToKdeTiles`, and `onKdeTilesEditorClosed` to purge any stale `"floating"` layout entries from `~/.config/kwinrc` and in-memory caches.
+  - Added unit test coverage in `tests/tiling_test.cpp` verifying recursive split trees for 3-column, 2x2 grid, and master-stack layouts. All 30/30 CTests pass (100%).
+
 ## [1.6.0-beta77] - 2026-11-03
 
 ### Added
