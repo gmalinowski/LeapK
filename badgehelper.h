@@ -2129,14 +2129,16 @@ inline QImage renderFloatingPillImage(const QString &text,
 {
     const QString fontFam = QStringLiteral("sans-serif");
     QFont font(fontFam);
-    const int px = qMax(10, qRound(fontSizePt * scale));
+    const int px = qMax(12, qRound(fontSizePt * 1.25 * scale));
     font.setPixelSize(px);
     font.setWeight(QFont::Medium);
+    font.setStyleStrategy(QFont::PreferAntialias);
     QFontMetrics fm(font);
 
     QFont keyFont(fontFam);
     keyFont.setPixelSize(px);
     keyFont.setBold(true);
+    keyFont.setStyleStrategy(QFont::PreferAntialias);
     QFontMetrics fmKey(keyFont);
 
     struct Chunk {
@@ -2188,11 +2190,14 @@ inline QImage renderFloatingPillImage(const QString &text,
         idx = nextSpecial;
     }
 
-    const int padX = qRound(20 * scale);
+    const int padX = (text.length() <= 2) ? qRound(14 * scale) : qRound(22 * scale);
     const int padY = qRound(9 * scale);
     const int lineH = qMax(fm.height(), fmKey.height());
 
     int imgW = totalContentWidth + 2 * padX;
+    if (text.length() <= 2) {
+        imgW = qMax(imgW, lineH + 2 * padY);
+    }
     if (maxAllowedWidth > 0.0 && imgW > qRound(maxAllowedWidth)) {
         imgW = qRound(maxAllowedWidth);
     }
@@ -2204,6 +2209,7 @@ inline QImage renderFloatingPillImage(const QString &text,
     QPainter p(&img);
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::TextAntialiasing, true);
+    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
 
     const qreal margin = 1.5 * scale;
     const QRectF rect(margin, margin, imgW - 2 * margin, imgH - 2 * margin);
@@ -2225,8 +2231,8 @@ inline QImage renderFloatingPillImage(const QString &text,
     clipPath.addRoundedRect(rect.adjusted(padX / 2.0, 0, -padX / 2.0, 0), radius, radius);
     p.setClipPath(clipPath);
 
-    int curX = padX;
-    const int baseLineY = padY + fm.ascent();
+    int curX = qMax(padX, (imgW - totalContentWidth) / 2);
+    const int baseLineY = (imgH - lineH) / 2 + fm.ascent();
 
     const QColor effTextColor = textColor.isValid() ? textColor : QColor(240, 240, 245);
     const QColor keyColor(80, 215, 255); // Vibrant cyan keycap highlight

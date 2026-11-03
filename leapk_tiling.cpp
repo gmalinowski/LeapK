@@ -1420,22 +1420,18 @@ void ActiveWindowOutlineEffect::renderTilingEditOverlay(const RenderTarget &rend
     const int numKeys = 14;
     for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
         const QRectF geo = m_activeTilingSlots[i].geometry;
-        EffectWindow *w = m_activeTilingSlots[i].window.data();
         if (i == activeSlotIdx) {
             // Active slot indicator: crisp floating pill
             const QString label = (m_tilingEditMultiplier > 0)
                 ? QString::number(m_tilingEditMultiplier) + QLatin1Char('x')
                 : QStringLiteral("EDIT");
             const QColor bgCol = (m_tilingEditMultiplier > 0) ? QColor(255, 150, 0, 245) : QColor(0, 160, 220, 245);
-            renderFloatingPill(renderTarget, viewport, label, geo.center(), bgCol, Qt::white, 14);
+            renderFloatingPill(renderTarget, viewport, label, geo.center(), bgCol, Qt::white, 16);
         } else {
-            // Other slot: swap target badge with distinct letter (1.35 aspect ratio for crisp non-distorted rendering)
+            // Other slot: swap target badge with distinct bold letter (circular crisp floating pill)
             const QChar letter = LeapKTiling::kTileEditKeys[i % numKeys];
-            const qreal bH = 50.0;
-            const qreal bW = qRound(bH * 1.35); // 68px, matching native texture aspect ratio
-            const QRectF bRect(geo.center().x() - bW / 2.0, geo.center().y() - bH / 2.0, bW, bH);
             const QColor bgCol(0, 122, 255, 240); // Bright iOS/KDE system blue
-            renderBadge(renderTarget, viewport, bRect, letter, bgCol, QColor(255, 255, 255), true, 50, QString(), w);
+            renderFloatingPill(renderTarget, viewport, QString(letter), geo.center(), bgCol, Qt::white, 20);
         }
     }
 

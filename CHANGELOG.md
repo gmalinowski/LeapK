@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta76] - 2026-11-03
+
+### Fixed
+- **Uniform High-DPI Floating Pill Badges in Tile Edit Mode (`renderFloatingPill`)**:
+  - Replaced legacy `renderBadge` with dedicated `renderFloatingPill` for tile swap letter targets ('A', 'B', etc.) in `renderTilingEditOverlay`.
+  - Eliminated distortion and stretching caused by `renderBadge` incorporating target window icons/thumbnails and falling back to cached window badges.
+  - Added square/circular aspect ratio auto-expansion for 1–2 character floating pills (`imgW = qMax(imgW, lineH + 2 * padY)`).
+  - Enhanced font rendering with `QFont::PreferAntialias`, `QPainter::SmoothPixmapTransform`, and increased font pixel scaling (`1.25 * scale`) for ultra-sharp typography at high DPI.
+  - Refined horizontal and vertical baseline alignment to center single-letter swap badges perfectly within pill boundaries.
+
+### Added
+- **Unit Test Coverage for Single-Letter Swap Pills**:
+  - Added test case assertions in `tests/badge_test.cpp` verifying single-letter floating pills render with circular/pill geometry and sharp anti-aliasing. All 30/30 CTests pass (100%).
+
 ## [1.6.0-beta75] - 2026-11-03
 
 ### Fixed

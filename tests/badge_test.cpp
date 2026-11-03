@@ -1655,6 +1655,11 @@ void testTilingHudComponents()
     assert(imgEditBadge.width() >= 40);
     assert(imgEditBadge.height() >= 24);
 
+    const QImage imgSwapBadge = renderFloatingPillImage(QStringLiteral("A"), 1.0, QColor(0, 122, 255), Qt::white, 20);
+    assert(!imgSwapBadge.isNull());
+    assert(imgSwapBadge.width() >= imgSwapBadge.height()); // Circular or rounded pill
+    assert(imgSwapBadge.height() >= 30);
+
     // HiDPI scale check
     const QImage imgToast2x = renderFloatingPillImage(toastMsg, 2.0, QColor(20, 24, 32, 240), QColor(245, 245, 250), 12);
     assert(!imgToast2x.isNull());
