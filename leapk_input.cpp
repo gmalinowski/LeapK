@@ -1103,11 +1103,17 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         switch (e->key()) {
         case Qt::Key_H:
         case Qt::Key_Left:
+        case Qt::Key_Minus:
+        case Qt::Key_Underscore:
+        case Qt::Key_BracketLeft:
             isResizeKey = true;
             dir = LeapKTiling::ResizeDirection::Left;
             break;
         case Qt::Key_L:
         case Qt::Key_Right:
+        case Qt::Key_Plus:
+        case Qt::Key_Equal:
+        case Qt::Key_BracketRight:
             isResizeKey = true;
             dir = LeapKTiling::ResizeDirection::Right;
             break;
@@ -1121,20 +1127,22 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         case Qt::Key_Down:
             isResizeKey = true;
             dir = LeapKTiling::ResizeDirection::Down;
-            // If the layout is purely horizontal (e.g. 2 columns or 3 columns with no vertical splits),
-            // pressing J in an IJKL mindset (J=Left, L=Right) should naturally resize Left!
+            // If the active slot has no vertical neighbors (e.g. 2 or 3 columns, or Master in Master & Stack),
+            // pressing J in an IJKL mindset (J=Left, L=Right) should naturally shrink/resize Left!
             if (e->key() == Qt::Key_J && m_activeTilingSlots.size() >= 2) {
-                bool hasVerticalSplit = false;
-                const qreal refTop = m_activeTilingSlots[0].geometry.top();
-                const qreal refBottom = m_activeTilingSlots[0].geometry.bottom();
-                for (int s = 1; s < m_activeTilingSlots.size(); ++s) {
-                    if (qAbs(m_activeTilingSlots[s].geometry.top() - refTop) > 10.0 ||
-                        qAbs(m_activeTilingSlots[s].geometry.bottom() - refBottom) > 10.0) {
-                        hasVerticalSplit = true;
+                int activeSlotIdx = findTileSlotIndexForWindow(m_activeWindow);
+                if (activeSlotIdx < 0) activeSlotIdx = 0;
+                const QRectF activeGeo = m_activeTilingSlots[activeSlotIdx].geometry;
+                bool hasVerticalNeighbor = false;
+                for (int s = 0; s < m_activeTilingSlots.size(); ++s) {
+                    if (s == activeSlotIdx) continue;
+                    const QRectF &other = m_activeTilingSlots[s].geometry;
+                    if (qMax(activeGeo.left(), other.left()) < qMin(activeGeo.right(), other.right()) - 2.0) {
+                        hasVerticalNeighbor = true;
                         break;
                     }
                 }
-                if (!hasVerticalSplit) {
+                if (!hasVerticalNeighbor) {
                     dir = LeapKTiling::ResizeDirection::Left;
                 }
             }
@@ -1146,7 +1154,14 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         if (isResizeKey) {
             int count = m_tilingEditMultiplier > 0 ? m_tilingEditMultiplier : 1;
             m_tilingEditMultiplier = 0;
-            performTilingResize(dir, count);
+            LeapKTiling::TileEdge edge = LeapKTiling::TileEdge::Auto;
+            if (e->modifiers() & Qt::ShiftModifier) {
+                if (dir == LeapKTiling::ResizeDirection::Left) edge = LeapKTiling::TileEdge::Left;
+                else if (dir == LeapKTiling::ResizeDirection::Right) edge = LeapKTiling::TileEdge::Right;
+                else if (dir == LeapKTiling::ResizeDirection::Up) edge = LeapKTiling::TileEdge::Top;
+                else if (dir == LeapKTiling::ResizeDirection::Down) edge = LeapKTiling::TileEdge::Bottom;
+            }
+            performTilingResize(dir, count, edge);
             return;
         }
 

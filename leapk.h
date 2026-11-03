@@ -394,7 +394,7 @@ private:
     void enterTilingEditMode();
     void exitTilingEditMode();
     void performTileSlotSwap(int idx1, int idx2);
-    void performTilingResize(LeapKTiling::ResizeDirection dir, int count);
+    void performTilingResize(LeapKTiling::ResizeDirection dir, int count, LeapKTiling::TileEdge edge = LeapKTiling::TileEdge::Auto);
     void renderTilingEditOverlay(const RenderTarget &renderTarget,
                                  const RenderViewport &viewport);
     void renderTilingPresetPills(const RenderTarget &renderTarget,

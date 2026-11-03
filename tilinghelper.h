@@ -439,147 +439,143 @@ inline bool resizeSlotGeometries(QList<QRectF> &geometries, int activeIdx, Resiz
             leftDivL = cur.left() - bestLeftGap;
         }
 
-        // Determine which divider to use and direction of shift
-        // shiftSign: +1 means shift divider right (+X), -1 means shift divider left (-X)
-        qreal chosenDivL = 0.0;
-        qreal chosenDivR = 0.0;
-        int shiftSign = 0;
+        auto shiftHorizontalDivider = [&](qreal divL, qreal divR, qreal dShift) -> bool {
+            if (qAbs(dShift) < 0.5) {
+                return false;
+            }
+            QList<int> groupL;
+            QList<int> groupR;
+            for (int i = 0; i < geometries.size(); ++i) {
+                if (qAbs(geometries[i].right() - divL) <= tol) {
+                    groupL.append(i);
+                }
+                if (qAbs(geometries[i].left() - divR) <= tol) {
+                    groupR.append(i);
+                }
+            }
+
+            QList<int> filteredL;
+            for (int l : groupL) {
+                if (localOnly && !verticalOverlap(geometries[l], cur) && l != activeIdx) {
+                    bool sharesCol = false;
+                    for (int otherL : groupL) {
+                        if (otherL == activeIdx || verticalOverlap(geometries[otherL], cur)) {
+                            if (qAbs(geometries[l].left() - geometries[otherL].left()) <= tol) {
+                                sharesCol = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!sharesCol) continue;
+                }
+                for (int r : groupR) {
+                    if (verticalOverlap(geometries[l], geometries[r])) {
+                        filteredL.append(l);
+                        break;
+                    }
+                }
+            }
+            QList<int> filteredR;
+            for (int r : groupR) {
+                if (localOnly && !verticalOverlap(geometries[r], cur) && r != activeIdx) {
+                    bool sharesCol = false;
+                    for (int otherR : groupR) {
+                        if (otherR == activeIdx || verticalOverlap(geometries[otherR], cur)) {
+                            if (qAbs(geometries[r].right() - geometries[otherR].right()) <= tol) {
+                                sharesCol = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!sharesCol) continue;
+                }
+                for (int l : groupL) {
+                    if (verticalOverlap(geometries[l], geometries[r])) {
+                        filteredR.append(r);
+                        break;
+                    }
+                }
+            }
+
+            if (filteredL.isEmpty() || filteredR.isEmpty()) {
+                return false;
+            }
+
+            if (dShift > 0.0) {
+                // Divider moves right (+X): Group L expands, Group R shrinks
+                qreal eff = dShift;
+                for (int r : filteredR) {
+                    eff = qMin(eff, geometries[r].width() - minSize);
+                }
+                if (eff > 0.5) {
+                    for (int l : filteredL) {
+                        geometries[l].setRight(geometries[l].right() + eff);
+                    }
+                    for (int r : filteredR) {
+                        geometries[r].setLeft(geometries[r].left() + eff);
+                    }
+                    return true;
+                }
+            } else {
+                // Divider moves left (-X): Group L shrinks, Group R expands
+                qreal eff = -dShift;
+                for (int l : filteredL) {
+                    eff = qMin(eff, geometries[l].width() - minSize);
+                }
+                if (eff > 0.5) {
+                    for (int l : filteredL) {
+                        geometries[l].setRight(geometries[l].right() - eff);
+                    }
+                    for (int r : filteredR) {
+                        geometries[r].setLeft(geometries[r].left() - eff);
+                    }
+                    return true;
+                }
+            }
+            return false;
+        };
 
         if (targetEdge == TileEdge::Right) {
             if (hasRightDivider) {
-                chosenDivL = rightDivL;
-                chosenDivR = rightDivR;
-                shiftSign = (dir == ResizeDirection::Right) ? +1 : -1;
+                const qreal shift = (dir == ResizeDirection::Right) ? delta : -delta;
+                return shiftHorizontalDivider(rightDivL, rightDivR, shift);
             }
         } else if (targetEdge == TileEdge::Left) {
             if (hasLeftDivider) {
-                chosenDivL = leftDivL;
-                chosenDivR = leftDivR;
-                shiftSign = (dir == ResizeDirection::Right) ? +1 : -1;
+                const qreal shift = (dir == ResizeDirection::Right) ? delta : -delta;
+                return shiftHorizontalDivider(leftDivL, leftDivR, shift);
             }
         } else {
-            // targetEdge == TileEdge::Auto (fallback for keyboard navigation)
-            if (dir == ResizeDirection::Right) {
-                if (hasRightDivider) {
-                    chosenDivL = rightDivL;
-                    chosenDivR = rightDivR;
-                    shiftSign = +1;
-                } else if (hasLeftDivider) {
-                    chosenDivL = leftDivL;
-                    chosenDivR = leftDivR;
-                    shiftSign = +1;
+            // targetEdge == TileEdge::Auto (standard keyboard resize navigation)
+            if (hasLeftDivider && hasRightDivider) {
+                // Middle slot: both borders move symmetrically so window grows/shrinks cleanly
+                if (dir == ResizeDirection::Right) {
+                    // Expand width (+delta): Left divider moves left (-delta/2), Right divider moves right (+delta/2)
+                    const qreal half = delta / 2.0;
+                    bool rOk = shiftHorizontalDivider(rightDivL, rightDivR, half);
+                    bool lOk = shiftHorizontalDivider(leftDivL, leftDivR, -half);
+                    return rOk || lOk;
+                } else {
+                    // Shrink width (-delta): Left divider moves right (+delta/2), Right divider moves left (-delta/2)
+                    const qreal maxShrink = cur.width() - minSize;
+                    const qreal d = qMin(delta, maxShrink);
+                    if (d < 1.0) return false;
+                    const qreal half = d / 2.0;
+                    bool rOk = shiftHorizontalDivider(rightDivL, rightDivR, -half);
+                    bool lOk = shiftHorizontalDivider(leftDivL, leftDivR, half);
+                    return rOk || lOk;
                 }
-            } else { // ResizeDirection::Left
-                if (hasLeftDivider) {
-                    chosenDivL = leftDivL;
-                    chosenDivR = leftDivR;
-                    shiftSign = -1;
-                } else if (hasRightDivider) {
-                    chosenDivL = rightDivL;
-                    chosenDivR = rightDivR;
-                    shiftSign = -1;
-                }
+            } else if (hasRightDivider || hasLeftDivider) {
+                // Boundary slot with one divider:
+                // Right: divider moves right (+delta)
+                // Left:  divider moves left (-delta)
+                const qreal dL = hasRightDivider ? rightDivL : leftDivL;
+                const qreal dR = hasRightDivider ? rightDivR : leftDivR;
+                const qreal shift = (dir == ResizeDirection::Right) ? delta : -delta;
+                return shiftHorizontalDivider(dL, dR, shift);
             }
         }
-
-        if (shiftSign == 0) {
-            return false;
-        }
-
-        // Collect Group L (right edge at chosenDivL) and Group R (left edge at chosenDivR)
-        QList<int> groupL;
-        QList<int> groupR;
-        for (int i = 0; i < geometries.size(); ++i) {
-            if (qAbs(geometries[i].right() - chosenDivL) <= tol) {
-                groupL.append(i);
-            }
-            if (qAbs(geometries[i].left() - chosenDivR) <= tol) {
-                groupR.append(i);
-            }
-        }
-
-        // Filter groupL to only those that overlap vertically with at least one in groupR
-        // and groupR to only those that overlap vertically with at least one in groupL
-        QList<int> filteredL;
-        for (int l : groupL) {
-            if (localOnly && !verticalOverlap(geometries[l], cur) && l != activeIdx) {
-                bool sharesCol = false;
-                for (int otherL : groupL) {
-                    if (otherL == activeIdx || verticalOverlap(geometries[otherL], cur)) {
-                        if (qAbs(geometries[l].left() - geometries[otherL].left()) <= tol) {
-                            sharesCol = true;
-                            break;
-                        }
-                    }
-                }
-                if (!sharesCol) continue;
-            }
-            for (int r : groupR) {
-                if (verticalOverlap(geometries[l], geometries[r])) {
-                    filteredL.append(l);
-                    break;
-                }
-            }
-        }
-        QList<int> filteredR;
-        for (int r : groupR) {
-            if (localOnly && !verticalOverlap(geometries[r], cur) && r != activeIdx) {
-                bool sharesCol = false;
-                for (int otherR : groupR) {
-                    if (otherR == activeIdx || verticalOverlap(geometries[otherR], cur)) {
-                        if (qAbs(geometries[r].right() - geometries[otherR].right()) <= tol) {
-                            sharesCol = true;
-                            break;
-                        }
-                    }
-                }
-                if (!sharesCol) continue;
-            }
-            for (int l : groupL) {
-                if (verticalOverlap(geometries[l], geometries[r])) {
-                    filteredR.append(r);
-                    break;
-                }
-            }
-        }
-
-        if (filteredL.isEmpty() || filteredR.isEmpty()) {
-            return false;
-        }
-
-        if (shiftSign > 0) {
-            // Divider moves right: Group L expands, Group R shrinks
-            qreal effectiveDelta = delta;
-            for (int r : filteredR) {
-                effectiveDelta = qMin(effectiveDelta, geometries[r].width() - minSize);
-            }
-            if (effectiveDelta > 1.0) {
-                for (int l : filteredL) {
-                    geometries[l].setRight(geometries[l].right() + effectiveDelta);
-                }
-                for (int r : filteredR) {
-                    geometries[r].setLeft(geometries[r].left() + effectiveDelta);
-                }
-                return true;
-            }
-            return false;
-        } else {
-            // Divider moves left: Group L shrinks, Group R expands
-            qreal effectiveDelta = delta;
-            for (int l : filteredL) {
-                effectiveDelta = qMin(effectiveDelta, geometries[l].width() - minSize);
-            }
-            if (effectiveDelta > 1.0) {
-                for (int l : filteredL) {
-                    geometries[l].setRight(geometries[l].right() - effectiveDelta);
-                }
-                for (int r : filteredR) {
-                    geometries[r].setLeft(geometries[r].left() - effectiveDelta);
-                }
-                return true;
-            }
-            return false;
-        }
+        return false;
     } else { // Up or Down
         // Find candidate horizontal dividers (divT is bottom edge of top group, divB is top edge of bottom group)
 
@@ -623,129 +619,125 @@ inline bool resizeSlotGeometries(QList<QRectF> &geometries, int activeIdx, Resiz
             topDivT = cur.top() - bestTopGap;
         }
 
-        // Determine which divider to use and direction of shift
-        // shiftSign: +1 means shift divider down (+Y), -1 means shift divider up (-Y)
-        qreal chosenDivT = 0.0;
-        qreal chosenDivB = 0.0;
-        int shiftSign = 0;
+        auto shiftVerticalDivider = [&](qreal divT, qreal divB, qreal dShift) -> bool {
+            if (qAbs(dShift) < 0.5) {
+                return false;
+            }
+            QList<int> groupT;
+            QList<int> groupB;
+            for (int i = 0; i < geometries.size(); ++i) {
+                if (qAbs(geometries[i].bottom() - divT) <= tol) {
+                    groupT.append(i);
+                }
+                if (qAbs(geometries[i].top() - divB) <= tol) {
+                    groupB.append(i);
+                }
+            }
+
+            QList<int> filteredT;
+            for (int t : groupT) {
+                if (localOnly && !horizontalOverlap(geometries[t], cur) && t != activeIdx) {
+                    continue;
+                }
+                for (int b : groupB) {
+                    if (horizontalOverlap(geometries[t], geometries[b])) {
+                        filteredT.append(t);
+                        break;
+                    }
+                }
+            }
+            QList<int> filteredB;
+            for (int b : groupB) {
+                if (localOnly && !horizontalOverlap(geometries[b], cur) && b != activeIdx) {
+                    continue;
+                }
+                for (int t : groupT) {
+                    if (horizontalOverlap(geometries[t], geometries[b])) {
+                        filteredB.append(b);
+                        break;
+                    }
+                }
+            }
+
+            if (filteredT.isEmpty() || filteredB.isEmpty()) {
+                return false;
+            }
+
+            if (dShift > 0.0) {
+                // Divider moves down (+Y): Group T expands, Group B shrinks
+                qreal eff = dShift;
+                for (int b : filteredB) {
+                    eff = qMin(eff, geometries[b].height() - minSize);
+                }
+                if (eff > 0.5) {
+                    for (int t : filteredT) {
+                        geometries[t].setBottom(geometries[t].bottom() + eff);
+                    }
+                    for (int b : filteredB) {
+                        geometries[b].setTop(geometries[b].top() + eff);
+                    }
+                    return true;
+                }
+            } else {
+                // Divider moves up (-Y): Group T shrinks, Group B expands
+                qreal eff = -dShift;
+                for (int t : filteredT) {
+                    eff = qMin(eff, geometries[t].height() - minSize);
+                }
+                if (eff > 0.5) {
+                    for (int t : filteredT) {
+                        geometries[t].setBottom(geometries[t].bottom() - eff);
+                    }
+                    for (int b : filteredB) {
+                        geometries[b].setTop(geometries[b].top() - eff);
+                    }
+                    return true;
+                }
+            }
+            return false;
+        };
 
         if (targetEdge == TileEdge::Bottom) {
             if (hasBottomDivider) {
-                chosenDivT = bottomDivT;
-                chosenDivB = bottomDivB;
-                shiftSign = (dir == ResizeDirection::Down) ? +1 : -1;
+                const qreal shift = (dir == ResizeDirection::Down) ? delta : -delta;
+                return shiftVerticalDivider(bottomDivT, bottomDivB, shift);
             }
         } else if (targetEdge == TileEdge::Top) {
             if (hasTopDivider) {
-                chosenDivT = topDivT;
-                chosenDivB = topDivB;
-                shiftSign = (dir == ResizeDirection::Down) ? +1 : -1;
+                const qreal shift = (dir == ResizeDirection::Down) ? delta : -delta;
+                return shiftVerticalDivider(topDivT, topDivB, shift);
             }
         } else {
             // targetEdge == TileEdge::Auto (fallback for keyboard navigation)
-            if (dir == ResizeDirection::Down) {
-                if (hasBottomDivider) {
-                    chosenDivT = bottomDivT;
-                    chosenDivB = bottomDivB;
-                    shiftSign = +1;
-                } else if (hasTopDivider) {
-                    chosenDivT = topDivT;
-                    chosenDivB = topDivB;
-                    shiftSign = +1;
+            if (hasTopDivider && hasBottomDivider) {
+                // Vertical middle slot: symmetric expansion/contraction
+                if (dir == ResizeDirection::Down) {
+                    // Expand height (+delta): Top moves up (-delta/2), Bottom moves down (+delta/2)
+                    const qreal half = delta / 2.0;
+                    bool bOk = shiftVerticalDivider(bottomDivT, bottomDivB, half);
+                    bool tOk = shiftVerticalDivider(topDivT, topDivB, -half);
+                    return bOk || tOk;
+                } else {
+                    // Shrink height (-delta): Top moves down (+delta/2), Bottom moves up (-delta/2)
+                    const qreal maxShrink = cur.height() - minSize;
+                    const qreal d = qMin(delta, maxShrink);
+                    if (d < 1.0) return false;
+                    const qreal half = d / 2.0;
+                    bool bOk = shiftVerticalDivider(bottomDivT, bottomDivB, -half);
+                    bool tOk = shiftVerticalDivider(topDivT, topDivB, half);
+                    return bOk || tOk;
                 }
-            } else { // ResizeDirection::Up
-                if (hasTopDivider) {
-                    chosenDivT = topDivT;
-                    chosenDivB = topDivB;
-                    shiftSign = -1;
-                } else if (hasBottomDivider) {
-                    chosenDivT = bottomDivT;
-                    chosenDivB = bottomDivB;
-                    shiftSign = -1;
-                }
+            } else if (hasBottomDivider || hasTopDivider) {
+                // Boundary slot with one vertical divider:
+                // Down: divider moves down (+delta)
+                // Up:   divider moves up (-delta)
+                const qreal dT = hasBottomDivider ? bottomDivT : topDivT;
+                const qreal dB = hasBottomDivider ? bottomDivB : topDivB;
+                const qreal shift = (dir == ResizeDirection::Down) ? delta : -delta;
+                return shiftVerticalDivider(dT, dB, shift);
             }
         }
-
-        if (shiftSign == 0) {
-            return false;
-        }
-
-        // Collect Group T (bottom edge at chosenDivT) and Group B (top edge at chosenDivB)
-        QList<int> groupT;
-        QList<int> groupB;
-        for (int i = 0; i < geometries.size(); ++i) {
-            if (qAbs(geometries[i].bottom() - chosenDivT) <= tol) {
-                groupT.append(i);
-            }
-            if (qAbs(geometries[i].top() - chosenDivB) <= tol) {
-                groupB.append(i);
-            }
-        }
-
-        // Filter groupT to only those that overlap horizontally with at least one in groupB
-        // and groupB to only those that overlap horizontally with at least one in groupT
-        QList<int> filteredT;
-        for (int t : groupT) {
-            if (localOnly && !horizontalOverlap(geometries[t], cur) && t != activeIdx) {
-                continue;
-            }
-            for (int b : groupB) {
-                if (horizontalOverlap(geometries[t], geometries[b])) {
-                    filteredT.append(t);
-                    break;
-                }
-            }
-        }
-        QList<int> filteredB;
-        for (int b : groupB) {
-            if (localOnly && !horizontalOverlap(geometries[b], cur) && b != activeIdx) {
-                continue;
-            }
-            for (int t : groupT) {
-                if (horizontalOverlap(geometries[t], geometries[b])) {
-                    filteredB.append(b);
-                    break;
-                }
-            }
-        }
-
-        if (filteredT.isEmpty() || filteredB.isEmpty()) {
-            return false;
-        }
-
-        if (shiftSign > 0) {
-            // Divider moves down: Group T expands, Group B shrinks
-            qreal effectiveDelta = delta;
-            for (int b : filteredB) {
-                effectiveDelta = qMin(effectiveDelta, geometries[b].height() - minSize);
-            }
-            if (effectiveDelta > 1.0) {
-                for (int t : filteredT) {
-                    geometries[t].setBottom(geometries[t].bottom() + effectiveDelta);
-                }
-                for (int b : filteredB) {
-                    geometries[b].setTop(geometries[b].top() + effectiveDelta);
-                }
-                return true;
-            }
-            return false;
-        } else {
-            // Divider moves up: Group T shrinks, Group B expands
-            qreal effectiveDelta = delta;
-            for (int t : filteredT) {
-                effectiveDelta = qMin(effectiveDelta, geometries[t].height() - minSize);
-            }
-            if (effectiveDelta > 1.0) {
-                for (int t : filteredT) {
-                    geometries[t].setBottom(geometries[t].bottom() - effectiveDelta);
-                }
-                for (int b : filteredB) {
-                    geometries[b].setTop(geometries[b].top() - effectiveDelta);
-                }
-                return true;
-            }
-            return false;
-        }
+        return false;
     }
 }
 

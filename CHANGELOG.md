@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta73] - 2026-11-03
+
+### Fixed
+- **Symmetric Keyboard Resizing for Middle Tiles (`tilinghelper.h`)**:
+  - Fixed critical bug where resizing internal tiles (such as the middle column in a 3-column split) caused both adjacent columns 1 and 3 to suddenly crush and collapse.
+  - Implemented symmetric divider adjustment for middle slots with dividers on both sides (`hasLeftDivider && hasRightDivider`):
+    - Expanding (`L`, `Right`, `+`, `=`) widens the active middle tile by `delta` by shifting the left divider left (`-delta/2`) and the right divider right (`+delta/2`), evenly distributing space from both neighbors.
+    - Shrinking (`H`, `Left`, `-`, `_`) narrows the active middle tile by `delta` by shifting the left divider right (`+delta/2`) and the right divider left (`-delta/2`), evenly distributing space back to both neighbors.
+    - Resizing is fully reversible: expanding and then shrinking returns tiles precisely to their original geometries without drift or boundary overflow.
+    - Middle rows with top and bottom dividers (`hasTopDivider && hasBottomDivider`) now expand and shrink symmetrically vertically.
+- **Context-Aware `J` Key & Intuitive Resize Controls (`leapk_input.cpp`, `leapk_tiling.cpp`)**:
+  - Context-aware `J` handling: if the active slot has no vertical neighbors (e.g. middle column in 3 columns, or Master in Master & Stack), `J` acts as `Left` (Narrower/Shrink) to match IJKL user navigation habits; if vertical neighbors exist, `J` expands height (`Down`).
+  - Added dedicated size shortcuts: `+` / `=` / `]` for Wider, `-` / `_` / `[` for Narrower.
+  - Added `Shift` edge targeting modifier: holding `Shift` with navigation keys targets specific dividers (`Shift + Left`, `Shift + Right`, etc.).
+  - Updated Tile Edit HUD hint bar: `[H/←: Narrower  L/→: Wider  K/↑: Shorter  J/↓: Taller]  •  [+/-: Size]  •  [Ctrl+S: Save layout]  •  [Letters: Swap]  •  [Enter: Done]`.
+- **Automated Regression Suite (`tests/tiling_test.cpp`)**:
+  - Added `testThreeColumnsMiddleSlotResize` unit test verifying 3-column middle tile keyboard resizing, symmetrical expansion and shrinkage, exact reversibility, minSize boundary clamping, and targeted edge modifiers (`TileEdge::Right` and `TileEdge::Left`).
+
 ## [1.6.0-beta72] - 2026-11-03
 
 ### Fixed

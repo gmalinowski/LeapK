@@ -1153,6 +1153,91 @@ void testCustomLayoutUpsertAndDelete()
     std::cout << "testCustomLayoutUpsertAndDelete PASSED\n";
 }
 
+void testThreeColumnsMiddleSlotResize()
+{
+    using namespace LeapKTiling;
+
+    // 3 Columns layout:
+    // Slot 0: [0, 0, 600, 1080]
+    // Slot 1: [610, 0, 700, 1080]  (Middle slot, has left divider at 605 and right divider at 1315)
+    // Slot 2: [1320, 0, 600, 1080]
+    QList<QRectF> geos = {
+        QRectF(0, 0, 600, 1080),
+        QRectF(610, 0, 700, 1080),
+        QRectF(1320, 0, 600, 1080)
+    };
+
+    const qreal initialW0 = geos[0].width();
+    const qreal initialW1 = geos[1].width();
+    const qreal initialW2 = geos[2].width();
+    const qreal delta = 60.0;
+
+    // 1. Expand middle slot right ('l' / Right / '+')
+    // Auto mode: left divider shifts -delta/2 (-30), right divider shifts +delta/2 (+30)
+    // geos[1].left() becomes 610 - 30 = 580
+    // geos[1].right() becomes 1310 + 30 = 1340 -> width becomes 700 + 60 = 760
+    // geos[0].right() becomes 600 - 30 = 570 -> width becomes 600 - 30 = 570
+    // geos[2].left() becomes 1320 + 30 = 1350 -> width becomes 600 - 30 = 570
+    bool ok = resizeSlotGeometries(geos, 1, ResizeDirection::Right, delta, 100.0);
+    assert(ok);
+    assert(qAbs(geos[1].width() - (initialW1 + delta)) < 0.001);
+    assert(qAbs(geos[0].width() - (initialW0 - delta / 2.0)) < 0.001);
+    assert(qAbs(geos[2].width() - (initialW2 - delta / 2.0)) < 0.001);
+    assert(qAbs(geos[1].left() - geos[0].right() - 10.0) < 0.001);
+    assert(qAbs(geos[2].left() - geos[1].right() - 10.0) < 0.001);
+    assert(qAbs(geos[0].left() - 0.0) < 0.001);
+    assert(qAbs(geos[2].right() - 1920.0) < 0.001);
+
+    // 2. Shrink middle slot left ('h' / Left / '-')
+    // Fully reversible back to original dimensions!
+    ok = resizeSlotGeometries(geos, 1, ResizeDirection::Left, delta, 100.0);
+    assert(ok);
+    assert(qAbs(geos[1].width() - initialW1) < 0.001);
+    assert(qAbs(geos[0].width() - initialW0) < 0.001);
+    assert(qAbs(geos[2].width() - initialW2) < 0.001);
+    assert(qAbs(geos[1].left() - geos[0].right() - 10.0) < 0.001);
+    assert(qAbs(geos[2].left() - geos[1].right() - 10.0) < 0.001);
+
+    // 3. Shrink middle slot further ('h' / Left / '-')
+    // Middle slot narrows symmetrically, left and right expand symmetrically
+    ok = resizeSlotGeometries(geos, 1, ResizeDirection::Left, delta, 100.0);
+    assert(ok);
+    assert(qAbs(geos[1].width() - (initialW1 - delta)) < 0.001);
+    assert(qAbs(geos[0].width() - (initialW0 + delta / 2.0)) < 0.001);
+    assert(qAbs(geos[2].width() - (initialW2 + delta / 2.0)) < 0.001);
+    assert(qAbs(geos[1].left() - geos[0].right() - 10.0) < 0.001);
+    assert(qAbs(geos[2].left() - geos[1].right() - 10.0) < 0.001);
+
+    // 4. Repeated shrink until minSize (100.0)
+    for (int i = 0; i < 20; ++i) {
+        resizeSlotGeometries(geos, 1, ResizeDirection::Left, 50.0, 100.0);
+        assert(geos[1].width() >= 100.0);
+        assert(geos[0].left() >= -0.001);
+        assert(geos[2].right() <= 1920.001);
+    }
+    assert(qAbs(geos[1].width() - 100.0) < 0.001);
+
+    // 5. Targeted edge resizing: TileEdge::Right
+    // geos[1].width is currently 100.0. Expand right edge only (+50.0)
+    const qreal w0_beforeTarget = geos[0].width();
+    const qreal w2_beforeTarget = geos[2].width();
+    ok = resizeSlotGeometries(geos, 1, ResizeDirection::Right, 50.0, 100.0, false, TileEdge::Right);
+    assert(ok);
+    assert(qAbs(geos[1].width() - 150.0) < 0.001);
+    assert(qAbs(geos[0].width() - w0_beforeTarget) < 0.001); // Slot 0 completely untouched!
+    assert(qAbs(geos[2].width() - (w2_beforeTarget - 50.0)) < 0.001); // Slot 2 shrunk by 50
+
+    // 6. Targeted edge resizing: TileEdge::Left
+    // Shift left edge to the right (+50.0), narrowing slot 1 and expanding slot 0
+    ok = resizeSlotGeometries(geos, 1, ResizeDirection::Right, 50.0, 100.0, false, TileEdge::Left);
+    assert(ok);
+    assert(qAbs(geos[1].width() - 100.0) < 0.001);
+    assert(qAbs(geos[0].width() - (w0_beforeTarget + 50.0)) < 0.001); // Slot 0 expanded by 50
+    assert(qAbs(geos[2].width() - (w2_beforeTarget - 50.0)) < 0.001); // Slot 2 untouched
+
+    std::cout << "testThreeColumnsMiddleSlotResize PASSED\n";
+}
+
 int main()
 {
     testDefaultPresets();
@@ -1170,6 +1255,7 @@ int main()
     testResizePresetRelativeRectSync();
     testMasterStackRepeatedResize();
     testCustomLayoutUpsertAndDelete();
+    testThreeColumnsMiddleSlotResize();
 
     std::cout << "All LeapKTiling tests passed successfully!\n";
     return 0;

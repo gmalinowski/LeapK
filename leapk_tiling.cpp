@@ -1317,7 +1317,7 @@ void ActiveWindowOutlineEffect::performTileSlotSwap(int idx1, int idx2)
     }
 }
 
-void ActiveWindowOutlineEffect::performTilingResize(LeapKTiling::ResizeDirection dir, int count)
+void ActiveWindowOutlineEffect::performTilingResize(LeapKTiling::ResizeDirection dir, int count, LeapKTiling::TileEdge edge)
 {
     if (m_activeTilingSlots.size() < 2) {
         return;
@@ -1346,7 +1346,7 @@ void ActiveWindowOutlineEffect::performTilingResize(LeapKTiling::ResizeDirection
         geos.append(slot.geometry);
     }
 
-    if (LeapKTiling::resizeSlotGeometries(geos, activeSlotIdx, dir, delta, 100.0)) {
+    if (LeapKTiling::resizeSlotGeometries(geos, activeSlotIdx, dir, delta, 100.0, false, edge)) {
         for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
             m_activeTilingSlots[i].geometry = geos[i];
             EffectWindow *w = m_activeTilingSlots[i].window.data();
@@ -1419,8 +1419,8 @@ void ActiveWindowOutlineEffect::renderTilingEditOverlay(const RenderTarget &rend
     const qreal barH = 42.0;
     const QRectF barRect(screenRect.center().x() - barW / 2.0, screenRect.bottom() - barH - 24.0, barW, barH);
     const QString hintText = (m_tilingEditMultiplier > 0)
-        ? QStringLiteral("Multiplier: %1x  •  [H/←: Left  L/→: Right  K/↑: Up  J/↓: Down]  •  [Ctrl+S: Save]  •  [Backspace: Clear]  •  [Enter: Finish]").arg(m_tilingEditMultiplier)
-        : QStringLiteral("[H/J/K/L: Resize]  •  [Ctrl+S: Save layout]  •  [1-9: Step]  •  [Letters: Swap]  •  [Enter / Esc: Done]");
+        ? QStringLiteral("Multiplier: %1x  •  [H/←: Narrower  L/→: Wider  K/↑: Shorter  J/↓: Taller]  •  [Ctrl+S: Save]  •  [Enter: Finish]").arg(m_tilingEditMultiplier)
+        : QStringLiteral("[H/←: Narrower  L/→: Wider  K/↑: Shorter  J/↓: Taller]  •  [+/-: Size]  •  [Ctrl+S: Save layout]  •  [Letters: Swap]  •  [Enter: Done]");
     const QColor barBg(25, 25, 30, 235);
     renderBadge(renderTarget, viewport, barRect, QChar(), barBg, QColor(255, 255, 255), false, 36, hintText, nullptr);
 }
