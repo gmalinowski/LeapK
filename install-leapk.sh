@@ -96,7 +96,7 @@ fi
 packages=()
 package_manager=""
 case "${ID:-}" in
-  debian|ubuntu) package_manager=apt ;;
+  debian|ubuntu|neon) package_manager=apt ;;
   fedora|rhel) package_manager=dnf ;;
   arch|archlinux|cachyos) package_manager=pacman ;;
   opensuse*|suse|sles) package_manager=zypper ;;
@@ -113,25 +113,25 @@ fi
 case "$package_manager" in
   apt)
     packages=(build-essential cmake extra-cmake-modules pkg-config
-      qt6-base-dev qt6-declarative-dev qt6-tools-dev-tools
+      qt6-base-dev qt6-declarative-dev qt6-tools-dev-tools qt6-svg-dev
       libkf6coreaddons-dev libkf6config-dev libkf6configwidgets-dev
       libkf6kcmutils-dev libkf6globalaccel-dev libvulkan-dev libdrm-dev kwin-wayland kwin-dev)
     ;;
   dnf)
     packages=(gcc-c++ cmake extra-cmake-modules pkgconf-pkg-config
-      qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qttools-devel
+      qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qttools-devel qt6-qtsvg-devel
       kf6-kcoreaddons-devel kf6-kconfig-devel kf6-kconfigwidgets-devel
       kf6-kcmutils-devel kf6-kglobalaccel-devel vulkan-headers libdrm-devel kwin-devel)
     ;;
   pacman)
     packages=(base-devel cmake extra-cmake-modules pkgconf
-      qt6-base qt6-declarative qt6-tools
+      qt6-base qt6-declarative qt6-tools qt6-svg
       kcoreaddons kconfig kconfigwidgets kcmutils kglobalaccel
       vulkan-headers libdrm kwin)
     ;;
   zypper)
     packages=(gcc-c++ cmake extra-cmake-modules pkgconf-pkg-config
-      qt6-base-devel qt6-declarative-devel qt6-tools
+      qt6-base-devel qt6-declarative-devel qt6-tools qt6-svg-devel
       kf6-kcoreaddons-devel kf6-kconfig-devel kf6-kconfigwidgets-devel
       kf6-kcmutils-devel kf6-kglobalaccel-devel vulkan-headers libdrm-devel kwin6-devel)
     ;;
