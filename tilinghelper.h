@@ -369,9 +369,17 @@ enum class ResizeDirection {
     Down
 };
 
+enum class TileEdge {
+    Auto,
+    Left,
+    Right,
+    Top,
+    Bottom
+};
+
 constexpr const char *kTileEditKeys = "ABCDEFGRTVWXYZ";
 
-inline bool resizeSlotGeometries(QList<QRectF> &geometries, int activeIdx, ResizeDirection dir, qreal delta, qreal minSize = 100.0, bool localOnly = false)
+inline bool resizeSlotGeometries(QList<QRectF> &geometries, int activeIdx, ResizeDirection dir, qreal delta, qreal minSize = 100.0, bool localOnly = false, TileEdge targetEdge = TileEdge::Auto)
 {
     if (activeIdx < 0 || activeIdx >= geometries.size() || geometries.size() < 2 || delta <= 0.0) {
         return false;
@@ -437,25 +445,40 @@ inline bool resizeSlotGeometries(QList<QRectF> &geometries, int activeIdx, Resiz
         qreal chosenDivR = 0.0;
         int shiftSign = 0;
 
-        if (dir == ResizeDirection::Right) {
+        if (targetEdge == TileEdge::Right) {
             if (hasRightDivider) {
                 chosenDivL = rightDivL;
                 chosenDivR = rightDivR;
-                shiftSign = +1;
-            } else if (hasLeftDivider) {
-                chosenDivL = leftDivL;
-                chosenDivR = leftDivR;
-                shiftSign = +1;
+                shiftSign = (dir == ResizeDirection::Right) ? +1 : -1;
             }
-        } else { // ResizeDirection::Left
+        } else if (targetEdge == TileEdge::Left) {
             if (hasLeftDivider) {
                 chosenDivL = leftDivL;
                 chosenDivR = leftDivR;
-                shiftSign = -1;
-            } else if (hasRightDivider) {
-                chosenDivL = rightDivL;
-                chosenDivR = rightDivR;
-                shiftSign = -1;
+                shiftSign = (dir == ResizeDirection::Right) ? +1 : -1;
+            }
+        } else {
+            // targetEdge == TileEdge::Auto (fallback for keyboard navigation)
+            if (dir == ResizeDirection::Right) {
+                if (hasRightDivider) {
+                    chosenDivL = rightDivL;
+                    chosenDivR = rightDivR;
+                    shiftSign = +1;
+                } else if (hasLeftDivider) {
+                    chosenDivL = leftDivL;
+                    chosenDivR = leftDivR;
+                    shiftSign = +1;
+                }
+            } else { // ResizeDirection::Left
+                if (hasLeftDivider) {
+                    chosenDivL = leftDivL;
+                    chosenDivR = leftDivR;
+                    shiftSign = -1;
+                } else if (hasRightDivider) {
+                    chosenDivL = rightDivL;
+                    chosenDivR = rightDivR;
+                    shiftSign = -1;
+                }
             }
         }
 
@@ -606,25 +629,40 @@ inline bool resizeSlotGeometries(QList<QRectF> &geometries, int activeIdx, Resiz
         qreal chosenDivB = 0.0;
         int shiftSign = 0;
 
-        if (dir == ResizeDirection::Down) {
+        if (targetEdge == TileEdge::Bottom) {
             if (hasBottomDivider) {
                 chosenDivT = bottomDivT;
                 chosenDivB = bottomDivB;
-                shiftSign = +1;
-            } else if (hasTopDivider) {
-                chosenDivT = topDivT;
-                chosenDivB = topDivB;
-                shiftSign = +1;
+                shiftSign = (dir == ResizeDirection::Down) ? +1 : -1;
             }
-        } else { // ResizeDirection::Up
+        } else if (targetEdge == TileEdge::Top) {
             if (hasTopDivider) {
                 chosenDivT = topDivT;
                 chosenDivB = topDivB;
-                shiftSign = -1;
-            } else if (hasBottomDivider) {
-                chosenDivT = bottomDivT;
-                chosenDivB = bottomDivB;
-                shiftSign = -1;
+                shiftSign = (dir == ResizeDirection::Down) ? +1 : -1;
+            }
+        } else {
+            // targetEdge == TileEdge::Auto (fallback for keyboard navigation)
+            if (dir == ResizeDirection::Down) {
+                if (hasBottomDivider) {
+                    chosenDivT = bottomDivT;
+                    chosenDivB = bottomDivB;
+                    shiftSign = +1;
+                } else if (hasTopDivider) {
+                    chosenDivT = topDivT;
+                    chosenDivB = topDivB;
+                    shiftSign = +1;
+                }
+            } else { // ResizeDirection::Up
+                if (hasTopDivider) {
+                    chosenDivT = topDivT;
+                    chosenDivB = topDivB;
+                    shiftSign = -1;
+                } else if (hasBottomDivider) {
+                    chosenDivT = bottomDivT;
+                    chosenDivB = bottomDivB;
+                    shiftSign = -1;
+                }
             }
         }
 
@@ -711,7 +749,7 @@ inline bool resizeSlotGeometries(QList<QRectF> &geometries, int activeIdx, Resiz
     }
 }
 
-inline bool calculateDividerMove(const QList<QRectF> &geometries, int slotIdx, const QRectF &newGeo, ResizeDirection &outDir, qreal &outDelta)
+inline bool calculateDividerMove(const QList<QRectF> &geometries, int slotIdx, const QRectF &newGeo, ResizeDirection &outDir, qreal &outDelta, TileEdge &outEdge)
 {
     if (slotIdx < 0 || slotIdx >= geometries.size()) {
         return false;
@@ -726,30 +764,42 @@ inline bool calculateDividerMove(const QList<QRectF> &geometries, int slotIdx, c
 
     qreal maxDisp = 0.0;
     ResizeDirection bestDir = ResizeDirection::Right;
+    TileEdge bestEdge = TileEdge::Auto;
 
     if (qAbs(dRight) > tol && qAbs(dRight) > maxDisp) {
         maxDisp = qAbs(dRight);
         bestDir = (dRight > 0.0) ? ResizeDirection::Right : ResizeDirection::Left;
+        bestEdge = TileEdge::Right;
     }
     if (qAbs(dLeft) > tol && qAbs(dLeft) > maxDisp) {
         maxDisp = qAbs(dLeft);
         bestDir = (dLeft > 0.0) ? ResizeDirection::Right : ResizeDirection::Left;
+        bestEdge = TileEdge::Left;
     }
     if (qAbs(dBottom) > tol && qAbs(dBottom) > maxDisp) {
         maxDisp = qAbs(dBottom);
         bestDir = (dBottom > 0.0) ? ResizeDirection::Down : ResizeDirection::Up;
+        bestEdge = TileEdge::Bottom;
     }
     if (qAbs(dTop) > tol && qAbs(dTop) > maxDisp) {
         maxDisp = qAbs(dTop);
         bestDir = (dTop > 0.0) ? ResizeDirection::Down : ResizeDirection::Up;
+        bestEdge = TileEdge::Top;
     }
 
     if (maxDisp > tol) {
         outDir = bestDir;
         outDelta = maxDisp;
+        outEdge = bestEdge;
         return true;
     }
     return false;
+}
+
+inline bool calculateDividerMove(const QList<QRectF> &geometries, int slotIdx, const QRectF &newGeo, ResizeDirection &outDir, qreal &outDelta)
+{
+    TileEdge edge = TileEdge::Auto;
+    return calculateDividerMove(geometries, slotIdx, newGeo, outDir, outDelta, edge);
 }
 
 inline QJsonObject toKdeJson(const TilingPreset &preset)

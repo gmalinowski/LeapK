@@ -874,8 +874,9 @@ void ActiveWindowOutlineEffect::handleTiledWindowResized(EffectWindow *w, const 
 
     LeapKTiling::ResizeDirection dir;
     qreal delta = 0.0;
-    if (LeapKTiling::calculateDividerMove(geos, slotIdx, newGeo, dir, delta)) {
-        if (LeapKTiling::resizeSlotGeometries(geos, slotIdx, dir, delta, 100.0, true)) {
+    LeapKTiling::TileEdge edge = LeapKTiling::TileEdge::Auto;
+    if (LeapKTiling::calculateDividerMove(geos, slotIdx, newGeo, dir, delta, edge)) {
+        if (LeapKTiling::resizeSlotGeometries(geos, slotIdx, dir, delta, 100.0, true, edge)) {
             for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
                 m_activeTilingSlots[i].geometry = geos[i];
                 if (i != slotIdx) {

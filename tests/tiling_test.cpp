@@ -883,6 +883,63 @@ void testResizeSlotGeometries()
         assert(qAbs(geos[2].height() - 267.0) < 0.001);
     }
 
+    // Test 6: 3-Column Layout divider targeting (Fixes regression where shrinking middle slot moves left neighbor)
+    {
+        QList<QRectF> geos = {
+            QRectF(0, 0, 480, 1080),    // Slot 0: Firefox (Left)
+            QRectF(480, 0, 960, 1080),  // Slot 1: Terminal (Middle, right: 1440)
+            QRectF(1440, 0, 480, 1080)  // Slot 2: Right window (Right, right: 1920)
+        };
+
+        // User grabs right edge of middle slot and drags left by 100px (shrinking middle from right)
+        QRectF movedGeo1 = geos[1];
+        movedGeo1.setRight(1340.0);
+        ResizeDirection dir;
+        qreal delta = 0.0;
+        TileEdge edge = TileEdge::Auto;
+        bool detected = calculateDividerMove(geos, 1, movedGeo1, dir, delta, edge);
+        assert(detected);
+        assert(dir == ResizeDirection::Left);
+        assert(edge == TileEdge::Right);
+        assert(qAbs(delta - 100.0) < 0.001);
+
+        bool ok = resizeSlotGeometries(geos, 1, dir, delta, 100.0, true, edge);
+        assert(ok);
+        // Slot 0 (Firefox) MUST remain completely untouched!
+        assert(qAbs(geos[0].left() - 0.0) < 0.001);
+        assert(qAbs(geos[0].width() - 480.0) < 0.001);
+        // Slot 1 (Terminal) shrunk from right
+        assert(qAbs(geos[1].left() - 480.0) < 0.001);
+        assert(qAbs(geos[1].right() - 1340.0) < 0.001);
+        assert(qAbs(geos[1].width() - 860.0) < 0.001);
+        // Slot 2 (Right) expanded from left
+        assert(qAbs(geos[2].left() - 1340.0) < 0.001);
+        assert(qAbs(geos[2].width() - 580.0) < 0.001);
+
+        // Now user grabs left edge of middle slot and drags right by 80px (shrinking middle from left)
+        QRectF movedGeo1_left = geos[1];
+        movedGeo1_left.setLeft(560.0);
+        detected = calculateDividerMove(geos, 1, movedGeo1_left, dir, delta, edge);
+        assert(detected);
+        assert(dir == ResizeDirection::Right);
+        assert(edge == TileEdge::Left);
+        assert(qAbs(delta - 80.0) < 0.001);
+
+        ok = resizeSlotGeometries(geos, 1, dir, delta, 100.0, true, edge);
+        assert(ok);
+        // Slot 0 (Firefox) expanded from right
+        assert(qAbs(geos[0].left() - 0.0) < 0.001);
+        assert(qAbs(geos[0].right() - 560.0) < 0.001);
+        assert(qAbs(geos[0].width() - 560.0) < 0.001);
+        // Slot 1 (Terminal) shrunk from left
+        assert(qAbs(geos[1].left() - 560.0) < 0.001);
+        assert(qAbs(geos[1].right() - 1340.0) < 0.001);
+        assert(qAbs(geos[1].width() - 780.0) < 0.001);
+        // Slot 2 (Right) MUST remain completely untouched!
+        assert(qAbs(geos[2].left() - 1340.0) < 0.001);
+        assert(qAbs(geos[2].width() - 580.0) < 0.001);
+    }
+
     std::cout << "testResizeSlotGeometries PASSED\n";
 }
 

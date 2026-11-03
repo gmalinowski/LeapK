@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta72] - 2026-11-03
+
+### Fixed
+- **Multi-Column Mouse Tiling Resize & Boundary Divider Targeting**:
+  - Fixed regression in interactive tiling mouse resize where resizing the middle slot in multi-column layouts (such as 3 columns) caused unrelated adjacent slots (e.g. Firefox on the left) to jump and collapse.
+  - Introduced `TileEdge` targeting in `calculateDividerMove` and `resizeSlotGeometries` (`tilinghelper.h`):
+    - Differentiates between dragging the left, right, top, or bottom border of a window.
+    - When shrinking or expanding a middle slot from its right border, LeapK strictly moves the divider between the middle slot and its right neighbor (`TileEdge::Right`), leaving the left neighbor completely untouched.
+    - Preserves symmetric fallback behavior for keyboard navigation shortcuts (`performTilingResize`).
+  - Added comprehensive automated test case in `tests/tiling_test.cpp` verifying 3-column boundary divider targeting.
+
 ## [1.6.0-beta71] - 2026-11-03
 
 ### Fixed
