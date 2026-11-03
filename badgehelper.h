@@ -3542,7 +3542,7 @@ inline QImage renderHudModeHeader(qreal scale,
     }
 
     if (isTilingPresets) {
-        const QString leftText = QStringLiteral("▤ TILING: Select [A–Z] • [Ctrl+S] Save • [Shift+Key] Delete • [E] KDE • [X] Float • %1 presets").arg(tilingPresetsCount);
+        const QString leftText = QStringLiteral("▤ TILING: Select [A–Z] • [K] KDE Custom • [Ctrl+S] Save • [Ctrl+E] KDE Editor • [Shift+Key] Delete • [X] Float");
         const QString rightText = QStringLiteral("Meta+T / Esc : Back");
 
         QFont titleFont(QStringLiteral("sans-serif"));

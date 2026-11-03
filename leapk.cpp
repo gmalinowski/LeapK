@@ -317,10 +317,21 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
         this,
         QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals
     );
+
+    m_kdeTilesEditorWatchTimer = new QTimer(this);
+    m_kdeTilesEditorWatchTimer->setInterval(100);
+    connect(m_kdeTilesEditorWatchTimer, &QTimer::timeout, this, &ActiveWindowOutlineEffect::checkKdeTilesEditorState);
+    m_kdeTilesEditorWatchTimer->start();
 }
 
 ActiveWindowOutlineEffect::~ActiveWindowOutlineEffect()
 {
+    if (m_kdeTilesEditorWatchTimer) {
+        m_kdeTilesEditorWatchTimer->stop();
+    }
+    if (m_tilingToastClearTimer) {
+        m_tilingToastClearTimer->stop();
+    }
     QDBusConnection::sessionBus().unregisterObject(QStringLiteral("/LeapK"));
     QDBusConnection::sessionBus().unregisterObject(QStringLiteral("/KLeap"));
     QDBusConnection::sessionBus().unregisterObject(QStringLiteral("/ActiveWindowOutline"));

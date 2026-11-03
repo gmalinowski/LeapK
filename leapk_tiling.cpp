@@ -11,6 +11,12 @@ namespace KWin
 
 void ActiveWindowOutlineEffect::slotOpenKdeTileEditor()
 {
+    if (m_tilingEditModeActive) {
+        exitTilingEditMode();
+    }
+    if (m_tilingPresetsModeActive) {
+        exitTilingPresetsMode();
+    }
     if (m_jumpMode) {
         cancelJumpMode();
     }
@@ -111,35 +117,8 @@ void ActiveWindowOutlineEffect::refreshTilingPresetsWithKdeCustom()
         }
     }
 
-    auto matchesExisting = [&](const LeapKTiling::TilingPreset &candidate) -> bool {
-        for (const auto &existing : m_tilingPresets) {
-            if (existing.id == candidate.id || existing.id == QStringLiteral("kde-custom")) {
-                continue;
-            }
-            if (!candidate.kdeJson.isEmpty() && !existing.kdeJson.isEmpty() && candidate.kdeJson == existing.kdeJson) {
-                return true;
-            }
-            if (candidate.tileSlots.size() == existing.tileSlots.size() && !candidate.tileSlots.isEmpty()) {
-                bool allMatch = true;
-                for (int i = 0; i < candidate.tileSlots.size(); ++i) {
-                    const QRectF r1 = candidate.tileSlots[i].relativeRect;
-                    const QRectF r2 = existing.tileSlots[i].relativeRect;
-                    if (std::abs(r1.x() - r2.x()) > 0.03 ||
-                        std::abs(r1.y() - r2.y()) > 0.03 ||
-                        std::abs(r1.width() - r2.width()) > 0.03 ||
-                        std::abs(r1.height() - r2.height()) > 0.03) {
-                        allMatch = false;
-                        break;
-                    }
-                }
-                if (allMatch) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    };
 
+    LeapKTiling::TilingPreset kdePreset;
     if (!customTileJson.isEmpty()) {
         m_savedKdeCustomTilesJson = customTileJson;
         if (effects && effects->config() && !deskId.isEmpty() && !outUuid.isEmpty()) {
@@ -148,18 +127,11 @@ void ActiveWindowOutlineEffect::refreshTilingPresetsWithKdeCustom()
                                QJsonDocument(customTileJson).toJson(QJsonDocument::Compact));
             leapkCg.sync();
         }
-
-        LeapKTiling::TilingPreset kdePreset = LeapKTiling::createKdeCustomPreset(customTileJson);
-        if (!kdePreset.tileSlots.isEmpty()) {
-            if (!matchesExisting(kdePreset)) {
-                m_tilingPresets.prepend(kdePreset);
-            }
-            return;
-        }
+        kdePreset = LeapKTiling::createKdeCustomPreset(customTileJson);
     }
 
     // Fallback: extract relative rects directly from live rootTile descendants
-    if (rootTile) {
+    if (kdePreset.tileSlots.isEmpty() && rootTile) {
         QList<QRectF> kdeRelativeRects;
         for (Tile *t : rootTile->descendants()) {
             if (!t->isLayout()) {
@@ -169,14 +141,31 @@ void ActiveWindowOutlineEffect::refreshTilingPresetsWithKdeCustom()
                 }
             }
         }
-
-        if (kdeRelativeRects.size() >= 1) {
-            LeapKTiling::TilingPreset kdePreset = LeapKTiling::createKdeCustomPreset(kdeRelativeRects, customTileJson);
-            if (!matchesExisting(kdePreset)) {
-                m_tilingPresets.prepend(kdePreset);
-            }
+        if (!kdeRelativeRects.isEmpty()) {
+            kdePreset = LeapKTiling::createKdeCustomPreset(kdeRelativeRects, customTileJson);
         }
     }
+
+    if (kdePreset.tileSlots.isEmpty()) {
+        kdePreset = LeapKTiling::createKdeCustomPreset({
+            QRectF(0.0, 0.0, 0.5, 1.0),
+            QRectF(0.5, 0.0, 0.5, 1.0)
+        });
+    }
+
+    kdePreset.id = QStringLiteral("kde-custom");
+    kdePreset.name = QStringLiteral("KDE Custom");
+    kdePreset.triggerKey = QLatin1Char('K');
+
+    // Insert [K] KDE Custom immediately before Float [X] action
+    int insertIdx = m_tilingPresets.size();
+    for (int i = 0; i < m_tilingPresets.size(); ++i) {
+        if (m_tilingPresets[i].isFloatAction()) {
+            insertIdx = i;
+            break;
+        }
+    }
+    m_tilingPresets.insert(insertIdx, kdePreset);
 }
 
 void ActiveWindowOutlineEffect::slotToggleActiveWindowFloating()
@@ -362,18 +351,21 @@ void ActiveWindowOutlineEffect::slotSaveCurrentTilingLayout()
     // Collect existing keys
     QJsonObject existingKeys;
     for (const auto &p : m_tilingPresets) {
-        if (!p.triggerKey.isNull() && p.id != QStringLiteral("kde-custom")) {
+        if (!p.triggerKey.isNull() && p.id != QStringLiteral("kde-custom") && p.triggerKey.toUpper() != QLatin1Char('K')) {
             existingKeys[QString(p.triggerKey.toUpper())] = p.name;
         }
     }
 
     // Find suggested key: if active preset is set and has a key, use that; else find first free key
     QChar defaultKey;
-    if (m_tilingActive && !m_activeTilingPreset.triggerKey.isNull() && m_activeTilingPreset.triggerKey.toUpper() != QLatin1Char('X')) {
+    if (m_tilingActive && !m_activeTilingPreset.triggerKey.isNull()
+        && m_activeTilingPreset.triggerKey.toUpper() != QLatin1Char('X')
+        && m_activeTilingPreset.triggerKey.toUpper() != QLatin1Char('K')
+        && m_activeTilingPreset.id != QStringLiteral("kde-custom")) {
         defaultKey = m_activeTilingPreset.triggerKey.toUpper();
     } else {
         for (char c = 'A'; c <= 'Z'; ++c) {
-            if (c == 'X') continue;
+            if (c == 'X' || c == 'K') continue;
             QChar qch = QLatin1Char(c);
             if (!existingKeys.contains(QString(qch))) {
                 defaultKey = qch;
@@ -474,6 +466,9 @@ void ActiveWindowOutlineEffect::upsertTilingPreset(const QString &name, QChar tr
             cg.sync();
         }
         if (tileMgr && rootTile) {
+            while (rootTile->childCount() > 0) {
+                rootTile->destroyChild(rootTile->childTile(0));
+            }
             tileMgr->readSettings(rootTile);
         }
     }
@@ -492,8 +487,8 @@ void ActiveWindowOutlineEffect::upsertTilingPreset(const QString &name, QChar tr
 
 void ActiveWindowOutlineEffect::deleteTilingPreset(QChar triggerKey)
 {
-    if (triggerKey.isNull() || triggerKey.toUpper() == QLatin1Char('X')) {
-        return; // Float is protected
+    if (triggerKey.isNull() || triggerKey.toUpper() == QLatin1Char('X') || triggerKey.toUpper() == QLatin1Char('K')) {
+        return; // Float ('X') and KDE Custom bridge ('K') are protected
     }
 
     m_tilingPresets.removeIf([](const LeapKTiling::TilingPreset &p) {
@@ -703,6 +698,9 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
 
         // Reload settings into live KDE TileManager
         if (tileMgr && rootTile) {
+            while (rootTile->childCount() > 0) {
+                rootTile->destroyChild(rootTile->childTile(0));
+            }
             tileMgr->readSettings(rootTile);
         }
     } else {
@@ -964,6 +962,9 @@ void ActiveWindowOutlineEffect::syncActiveTilingSlotsToKdeTiles()
         outTileGroup.writeEntry("padding", m_tilingGaps);
         cg.sync();
         if (tileMgr && rootTile) {
+            while (rootTile->childCount() > 0) {
+                rootTile->destroyChild(rootTile->childTile(0));
+            }
             tileMgr->readSettings(rootTile);
         }
     }
@@ -1271,6 +1272,9 @@ void ActiveWindowOutlineEffect::exitTilingEditMode()
         outTileGroup.writeEntry("padding", m_tilingGaps);
         cg.sync();
         if (tileMgr && rootTile) {
+            while (rootTile->childCount() > 0) {
+                rootTile->destroyChild(rootTile->childTile(0));
+            }
             tileMgr->readSettings(rootTile);
         }
     }
@@ -1546,5 +1550,82 @@ void ActiveWindowOutlineEffect::renderTilingPresetPills(const RenderTarget &rend
     renderHudModeHeader(renderTarget, viewport, allPillsBounds, hintRect);
 }
 
+void ActiveWindowOutlineEffect::checkKdeTilesEditorState()
+{
+    const bool isActive = (effects && effects->isEffectActive(QStringLiteral("tileseditor")));
+    if (isActive) {
+        if (!m_kdeTilesEditorWasActive) {
+            m_kdeTilesEditorWasActive = true;
+            if (m_tilingEditModeActive) {
+                exitTilingEditMode();
+            }
+            if (m_tilingPresetsModeActive) {
+                exitTilingPresetsMode();
+            }
+            if (m_jumpMode) {
+                cancelJumpMode();
+            }
+        }
+    } else {
+        if (m_kdeTilesEditorWasActive) {
+            m_kdeTilesEditorWasActive = false;
+            onKdeTilesEditorClosed();
+        }
+    }
+}
+
+void ActiveWindowOutlineEffect::onKdeTilesEditorClosed()
+{
+    refreshTilingPresetsWithKdeCustom();
+
+    LeapKTiling::TilingPreset kdePreset;
+    for (const auto &p : m_tilingPresets) {
+        if (p.id == QStringLiteral("kde-custom")) {
+            kdePreset = p;
+            break;
+        }
+    }
+
+    if (!kdePreset.tileSlots.isEmpty()) {
+        activateTilingPreset(kdePreset, false);
+        showTilingToast(QStringLiteral("▤ Layout updated: [K] KDE Custom  •  Press [Ctrl+S] in edit mode to save"));
+    }
+}
+
+void ActiveWindowOutlineEffect::showTilingToast(const QString &message)
+{
+    m_tilingToastMessage = message;
+    m_tilingToastTimer.restart();
+    if (!m_tilingToastClearTimer) {
+        m_tilingToastClearTimer = new QTimer(this);
+        m_tilingToastClearTimer->setSingleShot(true);
+        connect(m_tilingToastClearTimer, &QTimer::timeout, this, [this]() {
+            m_tilingToastMessage.clear();
+            if (effects) {
+                effects->addRepaintFull();
+            }
+        });
+    }
+    m_tilingToastClearTimer->start(4500);
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::renderTilingToast(const RenderTarget &renderTarget,
+                                                  const RenderViewport &viewport)
+{
+    if (m_tilingToastMessage.isEmpty()) {
+        return;
+    }
+
+    const QRectF screenRect = viewport.renderRect();
+    const qreal toastW = qMin(screenRect.width() - 40.0, 760.0);
+    const qreal toastH = 42.0;
+    const QRectF toastRect(screenRect.center().x() - toastW / 2.0, screenRect.bottom() - toastH - 36.0, toastW, toastH);
+    const QColor toastBg(20, 24, 32, 238);
+
+    renderBadge(renderTarget, viewport, toastRect, QChar(), toastBg, QColor(255, 255, 255), false, 36, m_tilingToastMessage, nullptr);
+}
 
 } // namespace KWin

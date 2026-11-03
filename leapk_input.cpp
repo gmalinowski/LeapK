@@ -1071,12 +1071,6 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
-        if ((mods & Qt::ControlModifier) && e->key() == Qt::Key_E) {
-            exitTilingEditMode();
-            slotOpenKdeTileEditor();
-            return;
-        }
-
         if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter
             || ((mods & Qt::MetaModifier) && (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter))) {
             exitTilingEditMode();
@@ -1360,7 +1354,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             const QString text = extractKeyChar();
             if (!text.isEmpty()) {
                 const QChar keyChar = text.at(0).toUpper();
-                if (keyChar != QLatin1Char('X')) {
+                if (keyChar != QLatin1Char('X') && keyChar != QLatin1Char('K')) {
                     deleteTilingPreset(keyChar);
                     return;
                 }

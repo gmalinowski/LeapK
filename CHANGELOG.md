@@ -4,6 +4,29 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta74] - 2026-11-03
+
+### Added
+- **Dedicated `[K] KDE Custom` Bridge & Reactive Tile Editor Integration**:
+  - Reassigned the KDE Custom live bridge shortcut from `C` to **`K`** (`[K] KDE Custom`). Key `K` is permanently protected against deletion and reserved in `leapk-custom-layout`.
+  - `[K] KDE Custom` is guaranteed to be permanently present in the Tiling Presets list (`Meta + T`), serving as a live bidirectional bridge to KDE's native `TileManager::rootTile()`.
+- **Automatic Re-tiling & Non-intrusive Toast Hint on KDE Editor Exit**:
+  - Added background watcher for KWin's built-in `tileseditor` effect.
+  - When the KDE Tile Editor opens (either via `Ctrl + E` in `Meta + T` or via KDE's native shortcut), LeapK cleanly yields focus, releases keyboard grab, and hides all overlays/HUDs to avoid UI conflict.
+  - When the KDE Tile Editor is closed (`Esc` or apply), LeapK instantly:
+    - Reads the freshly configured grid from KDE's `RootTile`.
+    - Updates `[K] KDE Custom` with the new slot geometries.
+    - Automatically retiles and arranges open windows on the current desktop into the new layout.
+    - Displays a non-intrusive, sleek HUD toast notification:
+      `▤ Layout updated: [K] KDE Custom • Press [Ctrl+S] in edit mode to save as preset`.
+- **Save Flow & Overwrite Existing Preset Support**:
+  - In `Ctrl + S` (`SaveLayoutDialog`), if the active preset is a user layout (e.g. `M`), the dialog pre-fills key `M` and name so pressing Enter immediately updates/overwrites that preset with the new structure.
+  - If the active preset is `[K] KDE Custom`, the dialog pre-fills the first free letter (e.g. `H`), preserving `[K]` as the bridge.
+- **Eliminated KWin TileManager Ghost Tile Accumulation**:
+  - Cleared existing child tiles via `rootTile->destroyChild()` before calling `tileMgr->readSettings(rootTile)` across all resize and layout sync operations, eliminating conflicting ghost and nested tiles.
+- **Removed `Ctrl + E` from Tile Edit Mode (`Meta + Enter`)**:
+  - Streamlined `Meta + Enter` strictly to in-place live window resizing (HJKL/arrows/+/-), window swapping (letters), and saving (`Ctrl + S`), eliminating the conflicting transition to the KDE editor.
+
 ## [1.6.0-beta73] - 2026-11-03
 
 ### Fixed

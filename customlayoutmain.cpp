@@ -299,6 +299,13 @@ private:
             return;
         }
 
+        if (key == QStringLiteral("K")) {
+            m_statusLabel->setText(QStringLiteral("Key 'K' is reserved for [K] KDE Custom bridge"));
+            m_statusLabel->setStyleSheet(QStringLiteral("color: #e74c3c; font-size: 11px;"));
+            m_btnSave->setEnabled(false);
+            return;
+        }
+
         m_btnSave->setEnabled(true);
         if (m_existingKeys.contains(key)) {
             const QString existName = m_existingKeys.value(key);

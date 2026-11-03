@@ -191,7 +191,7 @@ void testKdeCustomPreset()
     };
     const auto p2 = createKdeCustomPreset(slots2);
     assert(p2.id == QStringLiteral("kde-custom"));
-    assert(p2.triggerKey == 'C');
+    assert(p2.triggerKey == 'K');
     assert(p2.iconDiagram == QStringLiteral("▌▌"));
     assert(p2.tileSlots.size() == 2);
     assert(!p2.isFloatAction());
@@ -1133,9 +1133,11 @@ void testCustomLayoutUpsertAndDelete()
     assert(deleted);
     assert(presets.size() == initialCount);
 
-    // 6. Protection: Float action ('X') cannot be deleted
+    // 6. Protection: Float action ('X') and KDE Custom ('K') cannot be deleted
     bool deletedFloat = removePresetByKey(presets, QLatin1Char('X'));
     assert(!deletedFloat);
+    bool deletedKde = removePresetByKey(presets, QLatin1Char('K'));
+    assert(!deletedKde);
     assert(presets.size() == initialCount);
 
     // 7. Delete default preset 'A' (Two Columns)

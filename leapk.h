@@ -400,6 +400,11 @@ private:
     void renderTilingPresetPills(const RenderTarget &renderTarget,
                                 const RenderViewport &viewport,
                                 const QList<LeapKTiling::TilingPreset> &presets);
+    void renderTilingToast(const RenderTarget &renderTarget,
+                           const RenderViewport &viewport);
+    void showTilingToast(const QString &message);
+    void checkKdeTilesEditorState();
+    void onKdeTilesEditorClosed();
 
     // --- Subsystem: HUD Badge Preview (leapk_hud.cpp) ---
     void renderBadgePreview(const RenderTarget &renderTarget,
@@ -676,6 +681,11 @@ private:
     QList<QPair<QRectF, LeapKTiling::TilingPreset>> m_hudTilingPresetPillRects;
     QSet<EffectWindow *> m_floatingWindows;
     QJsonObject m_savedKdeCustomTilesJson;
+    bool m_kdeTilesEditorWasActive = false;
+    QTimer *m_kdeTilesEditorWatchTimer = nullptr;
+    QElapsedTimer m_tilingToastTimer;
+    QString m_tilingToastMessage;
+    QTimer *m_tilingToastClearTimer = nullptr;
 
     // Persistent Marks (saved across desktop sessions)
     QList<LeapKMarks::PersistentMarkRule> m_persistentMarks;

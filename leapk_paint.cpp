@@ -1267,6 +1267,10 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         renderBadgePreview(renderTarget, viewport);
     }
 
+    if (m_tilingToastTimer.isValid() && m_tilingToastTimer.elapsed() < 4500 && !m_tilingToastMessage.isEmpty() && !inhibited) {
+        renderTilingToast(renderTarget, viewport);
+    }
+
     if (m_badgeLivePreviews && hasBadgesToDraw && wantThumbnail && !inhibited) {
         effects->addRepaintFull();
     }

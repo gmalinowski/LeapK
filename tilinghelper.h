@@ -188,7 +188,7 @@ inline TilingPreset createKdeCustomPreset(const QList<QRectF> &slotGeometries, c
     TilingPreset p;
     p.id = QStringLiteral("kde-custom");
     p.name = QStringLiteral("KDE Custom");
-    p.triggerKey = QLatin1Char('C');
+    p.triggerKey = QLatin1Char('K');
     p.iconDiagram = QStringLiteral("▨");
     p.kdeJson = rawKdeJson;
 
@@ -1150,10 +1150,13 @@ inline bool removePresetByKey(QList<TilingPreset> &presets, const QChar &key)
         return false;
     }
     const QChar targetKey = key.toUpper();
+    if (targetKey == QLatin1Char('X') || targetKey == QLatin1Char('K')) {
+        return false; // Protect Float action ('X') and KDE Custom bridge ('K')
+    }
     for (int i = 0; i < presets.size(); ++i) {
         if (presets[i].triggerKey.toUpper() == targetKey) {
-            if (presets[i].isFloatAction()) {
-                return false; // Protect Float action
+            if (presets[i].isFloatAction() || presets[i].id == QStringLiteral("kde-custom")) {
+                return false; // Protect Float action and KDE Custom
             }
             presets.removeAt(i);
             return true;
