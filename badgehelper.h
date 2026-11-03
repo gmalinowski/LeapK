@@ -2617,9 +2617,10 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
         };
     } else if (isTilingPresets) {
         segments = {
-            {QStringLiteral("C"), QStringLiteral("KDE Custom"), QColor(142, 68, 173)},
-            {QStringLiteral("Key"), QStringLiteral("Select preset (A-G)"), QColor(52, 152, 219)},
-            {QStringLiteral("E"), QStringLiteral("Edit in KDE"), QColor(241, 196, 15)},
+            {QStringLiteral("Key"), QStringLiteral("Select preset"), QColor(52, 152, 219)},
+            {QStringLiteral("Ctrl+S"), QStringLiteral("Save current"), QColor(46, 204, 113)},
+            {QStringLiteral("Ctrl+E"), QStringLiteral("KDE Editor"), QColor(241, 196, 15)},
+            {QStringLiteral("Shift+Key"), QStringLiteral("Delete layout"), QColor(231, 76, 60)},
             {QStringLiteral("X"), QStringLiteral("Float / Turn off"), QColor(231, 76, 60)},
             {QStringLiteral("␣ / ⌫"), QStringLiteral("Back"), QColor(149, 165, 166)},
             {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}

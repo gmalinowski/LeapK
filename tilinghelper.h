@@ -1035,6 +1035,9 @@ inline bool savePresets(const QList<TilingPreset> &presets, const QString &fileP
 
     QJsonArray arr;
     for (const auto &p : presets) {
+        if (p.id == QStringLiteral("kde-custom")) {
+            continue; // Transient dynamic layout; do not persist to JSON
+        }
         arr.append(presetToJson(p));
     }
 
@@ -1065,7 +1068,10 @@ inline QList<TilingPreset> loadPresets(const QString &filePath = QString())
     const QJsonArray arr = doc.array();
     for (const auto &val : arr) {
         if (val.isObject()) {
-            presets.append(jsonToPreset(val.toObject()));
+            const auto p = jsonToPreset(val.toObject());
+            if (p.id != QStringLiteral("kde-custom")) {
+                presets.append(p);
+            }
         }
     }
 

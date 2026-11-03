@@ -26,6 +26,9 @@ void ActiveWindowOutlineEffect::slotOpenKdeTileEditor()
 void ActiveWindowOutlineEffect::refreshTilingPresetsWithKdeCustom()
 {
     m_tilingPresets = LeapKTiling::loadPresets();
+    m_tilingPresets.removeIf([](const LeapKTiling::TilingPreset &p) {
+        return p.id == QStringLiteral("kde-custom");
+    });
 
     LogicalOutput *activeOutput = effects ? effects->activeScreen() : nullptr;
     VirtualDesktop *currentDesktop = effects ? effects->currentDesktop() : nullptr;
@@ -35,6 +38,27 @@ void ActiveWindowOutlineEffect::refreshTilingPresetsWithKdeCustom()
     QJsonObject customTileJson;
     const QString outUuid = activeOutput ? activeOutput->uuid() : QString();
     const QString deskId = currentDesktop ? currentDesktop->id() : QString();
+
+    auto matchesAnyPresetJson = [&](const QJsonObject &json) -> bool {
+        if (json.isEmpty()) {
+            return false;
+        }
+        for (const auto &p : m_tilingPresets) {
+            if (p.id == QStringLiteral("kde-custom")) continue;
+            if (!p.kdeJson.isEmpty() && p.kdeJson == json) {
+                return true;
+            }
+            if (p.toKdeJson() == json) {
+                return true;
+            }
+        }
+        for (const auto &dp : LeapKTiling::defaultPresets()) {
+            if (dp.toKdeJson() == json) {
+                return true;
+            }
+        }
+        return false;
+    };
 
     if (effects && effects->config()) {
         effects->config()->reparseConfiguration();
@@ -72,26 +96,49 @@ void ActiveWindowOutlineEffect::refreshTilingPresetsWithKdeCustom()
             }
         }
 
-        // 2. If not found or if kwinrc currently contains a LeapK preset and we have a custom backup, check backup
+        // 2. If not found or if kwinrc currently contains a known LeapK preset and we have a custom backup, check backup
         KConfigGroup leapkCg = effects->config()->group(QStringLiteral("Effect-leapk"));
         const QString backupKey = QStringLiteral("CustomTilingBackup_%1_%2").arg(deskId, outUuid);
         if (leapkCg.hasKey(backupKey.toUtf8().constData())) {
             const QString backupStr = leapkCg.readEntry(backupKey, QString());
             const QJsonDocument bDoc = QJsonDocument::fromJson(backupStr.toUtf8());
             if (bDoc.isObject()) {
-                bool isDefaultPreset = false;
-                for (const auto &dp : LeapKTiling::defaultPresets()) {
-                    if (customTileJson == dp.toKdeJson()) {
-                        isDefaultPreset = true;
-                        break;
-                    }
-                }
-                if (customTileJson.isEmpty() || isDefaultPreset) {
+                const bool isKnownPreset = matchesAnyPresetJson(customTileJson);
+                if (customTileJson.isEmpty() || isKnownPreset) {
                     customTileJson = bDoc.object();
                 }
             }
         }
     }
+
+    auto matchesExisting = [&](const LeapKTiling::TilingPreset &candidate) -> bool {
+        for (const auto &existing : m_tilingPresets) {
+            if (existing.id == candidate.id || existing.id == QStringLiteral("kde-custom")) {
+                continue;
+            }
+            if (!candidate.kdeJson.isEmpty() && !existing.kdeJson.isEmpty() && candidate.kdeJson == existing.kdeJson) {
+                return true;
+            }
+            if (candidate.tileSlots.size() == existing.tileSlots.size() && !candidate.tileSlots.isEmpty()) {
+                bool allMatch = true;
+                for (int i = 0; i < candidate.tileSlots.size(); ++i) {
+                    const QRectF r1 = candidate.tileSlots[i].relativeRect;
+                    const QRectF r2 = existing.tileSlots[i].relativeRect;
+                    if (std::abs(r1.x() - r2.x()) > 0.03 ||
+                        std::abs(r1.y() - r2.y()) > 0.03 ||
+                        std::abs(r1.width() - r2.width()) > 0.03 ||
+                        std::abs(r1.height() - r2.height()) > 0.03) {
+                        allMatch = false;
+                        break;
+                    }
+                }
+                if (allMatch) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
 
     if (!customTileJson.isEmpty()) {
         m_savedKdeCustomTilesJson = customTileJson;
@@ -104,7 +151,9 @@ void ActiveWindowOutlineEffect::refreshTilingPresetsWithKdeCustom()
 
         LeapKTiling::TilingPreset kdePreset = LeapKTiling::createKdeCustomPreset(customTileJson);
         if (!kdePreset.tileSlots.isEmpty()) {
-            m_tilingPresets.prepend(kdePreset);
+            if (!matchesExisting(kdePreset)) {
+                m_tilingPresets.prepend(kdePreset);
+            }
             return;
         }
     }
@@ -123,7 +172,9 @@ void ActiveWindowOutlineEffect::refreshTilingPresetsWithKdeCustom()
 
         if (kdeRelativeRects.size() >= 1) {
             LeapKTiling::TilingPreset kdePreset = LeapKTiling::createKdeCustomPreset(kdeRelativeRects, customTileJson);
-            m_tilingPresets.prepend(kdePreset);
+            if (!matchesExisting(kdePreset)) {
+                m_tilingPresets.prepend(kdePreset);
+            }
         }
     }
 }
@@ -297,10 +348,21 @@ void ActiveWindowOutlineEffect::slotSaveCurrentTilingLayout()
 
     const QList<LeapKTiling::TileSlot> tileSlotList = captureCurrentLayoutSlots();
 
+    // Release keyboard grab before launching the dialog
+    if (m_tilingEditModeActive) {
+        exitTilingEditMode();
+    }
+    if (m_tilingPresetsModeActive) {
+        exitTilingPresetsMode();
+    }
+    if (m_jumpMode) {
+        cancelJumpMode();
+    }
+
     // Collect existing keys
     QJsonObject existingKeys;
     for (const auto &p : m_tilingPresets) {
-        if (!p.triggerKey.isNull()) {
+        if (!p.triggerKey.isNull() && p.id != QStringLiteral("kde-custom")) {
             existingKeys[QString(p.triggerKey.toUpper())] = p.name;
         }
     }
@@ -311,7 +373,7 @@ void ActiveWindowOutlineEffect::slotSaveCurrentTilingLayout()
         defaultKey = m_activeTilingPreset.triggerKey.toUpper();
     } else {
         for (char c = 'A'; c <= 'Z'; ++c) {
-            if (c == 'E' || c == 'X' || c == 'T') continue;
+            if (c == 'X') continue;
             QChar qch = QLatin1Char(c);
             if (!existingKeys.contains(QString(qch))) {
                 defaultKey = qch;
@@ -375,6 +437,10 @@ void ActiveWindowOutlineEffect::upsertTilingPreset(const QString &name, QChar tr
         return;
     }
 
+    m_tilingPresets.removeIf([](const LeapKTiling::TilingPreset &p) {
+        return p.id == QStringLiteral("kde-custom");
+    });
+
     LeapKTiling::TilingPreset newPreset;
     newPreset.id = QStringLiteral("custom-") + QString(triggerKey.toUpper());
     newPreset.name = name;
@@ -430,9 +496,14 @@ void ActiveWindowOutlineEffect::deleteTilingPreset(QChar triggerKey)
         return; // Float is protected
     }
 
+    m_tilingPresets.removeIf([](const LeapKTiling::TilingPreset &p) {
+        return p.id == QStringLiteral("kde-custom");
+    });
+
     bool removed = LeapKTiling::removePresetByKey(m_tilingPresets, triggerKey);
     if (removed) {
         LeapKTiling::savePresets(m_tilingPresets);
+        refreshTilingPresetsWithKdeCustom();
         playThemedSound(OutlineSound::SoundEffect::Dismiss);
         m_hudHeaderTexture.reset();
         m_hudHeaderCacheKey = -1;

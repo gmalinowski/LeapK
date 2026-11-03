@@ -16,6 +16,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QKeyEvent>
+#include <QShowEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <iostream>
@@ -126,7 +127,7 @@ public:
                      QWidget *parent = nullptr)
         : QDialog(parent), m_tileSlots(tileSlots), m_existingKeys(existingKeys), m_theme(theme)
     {
-        setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
+        setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
         setAttribute(Qt::WA_TranslucentBackground);
         setStyleSheet(LeapKTheme::generateDialogStyleSheet(m_theme));
         resize(380, 360);
@@ -245,6 +246,17 @@ public:
     QString triggerKey() const { return m_keyEdit->text().trimmed().toUpper(); }
 
 protected:
+    void showEvent(QShowEvent *event) override
+    {
+        QDialog::showEvent(event);
+        activateWindow();
+        raise();
+        if (m_nameEdit) {
+            m_nameEdit->setFocus(Qt::ActiveWindowFocusReason);
+            m_nameEdit->selectAll();
+        }
+    }
+
     void keyPressEvent(QKeyEvent *e) override
     {
         if (e->key() == Qt::Key_Escape) {
@@ -371,6 +383,9 @@ int main(int argc, char *argv[])
 
     LeapKTheme::Theme theme = LeapKTheme::findThemeById(themeId);
     SaveLayoutDialog dlg(tileSlotList, defaultName, defaultKey, existingKeys, theme);
+    dlg.show();
+    dlg.raise();
+    dlg.activateWindow();
 
     if (dlg.exec() == QDialog::Accepted) {
         QJsonObject resp;

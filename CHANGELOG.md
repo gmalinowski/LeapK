@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta71] - 2026-11-03
+
+### Fixed
+- **Dialog Focus & Grab Release in Tile Edit & Presets Mode**:
+  - Fixed keyboard grab issue when opening `leapk-custom-layout` via `Ctrl + S`: `slotSaveCurrentTilingLayout()` now immediately releases KWin's keyboard grab (`exitTilingEditMode()`, `cancelJumpMode()`) so the save dialog receives keyboard focus and user input without blocking.
+  - Added `Qt::WindowStaysOnTopHint` to `SaveLayoutDialog`, along with `showEvent` window activation, `raise()`, and auto-focusing `m_nameEdit` with full text selection.
+- **KDE Custom Layout Deduplication & Dynamic Sync**:
+  - Fixed bug where saving a custom preset (e.g. key `I`) caused duplicate layout cards and ghost `[C]` entries:
+    - Ensured dynamic layout `kde-custom` is strictly in-memory and never written to or loaded from `~/.config/leapk/tiling_presets.json`.
+    - Added comprehensive layout comparison in `refreshTilingPresetsWithKdeCustom()` against all presets (KDE JSON structure and slot geometry tolerance). If KWin's active layout already matches any user preset, `[C] KDE Custom` is omitted.
+    - Cleaned transient entries when saving and deleting presets.
+- **KDE Tile Editor Shortcut Migrated to `Ctrl + E`**:
+  - Replaced single-key `E` shortcut with two-key combo `Ctrl + E` in both Tiling Presets mode (`Meta + T`) and Tile Edit mode (`Meta + Enter`).
+  - Freed single letter `E` so user custom layouts assigned to key `E` can be activated directly without conflict.
+  - Updated HUD action hint bar to display `[Ctrl+E] KDE Editor` and `[Ctrl+S] Save current`.
+
 ## [1.6.0-beta70] - 2026-11-02
 
 ### Added
