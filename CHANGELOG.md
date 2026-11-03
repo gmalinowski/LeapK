@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta77] - 2026-11-03
+
+### Added
+- **Full LeapK Theme Engine Integration in Tile Edit Mode & Toasts**:
+  - Connected `LeapKTheme::Theme` (`activeTheme`) into `renderFloatingPillImage`, `renderFloatingPill`, `renderTilingEditOverlay`, and `renderTilingToast`.
+  - Tile swap target badges ('A', 'B', ...) and active slot badges ('EDIT') now inherit theme accent colors (`theme.primaryAccentColor()`, `theme.secondaryAccentColor()`), contrast-aware text styling (`contrastingTextColor`), and custom badge shapes (`pill`, `rounded_rect`, `chamfered`, `sharp`, `circle`) defined in `theme.windowBadge.shape`.
+  - The bottom hint bar and toast notifications now adopt `theme.surfaceBackgroundColor()`, `theme.hudContainer.borderColor`, `theme.hudContainer.borderWidth`, `theme.hudContainer.shadowEnabled`, keycap colors from `theme.hintsBar.keyColor`, and container shapes from `theme.hudContainer.shape`.
+  - Added unit test coverage in `tests/badge_test.cpp` verifying themed floating pill rendering with chamfered and sharp shapes and custom accent tokens. All 30/30 CTests pass (100%).
+
 ## [1.6.0-beta76] - 2026-11-03
 
 ### Fixed

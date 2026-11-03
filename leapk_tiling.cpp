@@ -1410,38 +1410,48 @@ void ActiveWindowOutlineEffect::renderTilingEditOverlay(const RenderTarget &rend
         return;
     }
 
+    const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
     const QRectF screenRect = viewport.renderRect();
     int activeSlotIdx = findTileSlotIndexForWindow(m_activeWindow);
     if (activeSlotIdx < 0 || activeSlotIdx >= m_activeTilingSlots.size()) {
         activeSlotIdx = 0;
     }
 
-    // 1. Render badge on other tile slots (target for swap)
+    const QColor themeAccent = theme.primaryAccentColor();
+    const QColor themeSecondary = theme.secondaryAccentColor();
+    const QString &badgeShape = theme.windowBadge.shape;
+
+    // 1. Render badge on tile slots (active slot indicator & swap targets)
     const int numKeys = 14;
     for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
         const QRectF geo = m_activeTilingSlots[i].geometry;
         if (i == activeSlotIdx) {
-            // Active slot indicator: crisp floating pill
+            // Active slot indicator: crisp themed floating pill
             const QString label = (m_tilingEditMultiplier > 0)
                 ? QString::number(m_tilingEditMultiplier) + QLatin1Char('x')
                 : QStringLiteral("EDIT");
-            const QColor bgCol = (m_tilingEditMultiplier > 0) ? QColor(255, 150, 0, 245) : QColor(0, 160, 220, 245);
-            renderFloatingPill(renderTarget, viewport, label, geo.center(), bgCol, Qt::white, 16);
+            const QColor bgCol = (m_tilingEditMultiplier > 0)
+                ? QColor(255, 150, 0, 245)
+                : (themeSecondary.isValid() ? themeSecondary : QColor(0, 160, 220, 245));
+            const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
+            renderFloatingPill(renderTarget, viewport, label, geo.center(), bgCol, textCol, 16, 0.0, badgeShape);
         } else {
-            // Other slot: swap target badge with distinct bold letter (circular crisp floating pill)
+            // Other slot: swap target badge with distinct bold letter (themed shape floating pill)
             const QChar letter = LeapKTiling::kTileEditKeys[i % numKeys];
-            const QColor bgCol(0, 122, 255, 240); // Bright iOS/KDE system blue
-            renderFloatingPill(renderTarget, viewport, QString(letter), geo.center(), bgCol, Qt::white, 20);
+            const QColor bgCol = themeAccent.isValid() ? themeAccent : QColor(0, 122, 255, 240);
+            const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
+            renderFloatingPill(renderTarget, viewport, QString(letter), geo.center(), bgCol, textCol, 20, 0.0, badgeShape);
         }
     }
 
-    // 2. Render bottom hint bar pill with crisp 1:1 pixel rendering
+    // 2. Render bottom hint bar pill with crisp 1:1 pixel rendering and active theme styling
     const QString hintText = (m_tilingEditMultiplier > 0)
         ? QStringLiteral("Multiplier: %1x  •  [H/←: Narrower  L/→: Wider  K/↑: Shorter  J/↓: Taller]  •  [Ctrl+S: Save]  •  [Enter: Finish]").arg(m_tilingEditMultiplier)
         : QStringLiteral("[H/←: Narrower  L/→: Wider  K/↑: Shorter  J/↓: Taller]  •  [+/-: Size]  •  [Ctrl+S: Save layout]  •  [Letters: Swap]  •  [Enter: Done]");
     const QPointF barCenter(screenRect.center().x(), screenRect.bottom() - 36.0);
-    const QColor barBg(20, 24, 32, 242);
-    renderFloatingPill(renderTarget, viewport, hintText, barCenter, barBg, QColor(245, 245, 250), 12, screenRect.width() - 40.0);
+    const QColor barBg = theme.surfaceBackgroundColor();
+    const QColor barText = theme.textSecondaryColor();
+    renderFloatingPill(renderTarget, viewport, hintText, barCenter, barBg, barText, 12, screenRect.width() - 40.0, theme.hudContainer.shape);
 }
 
 void ActiveWindowOutlineEffect::renderTilingPresetPills(const RenderTarget &renderTarget,
@@ -1705,10 +1715,12 @@ void ActiveWindowOutlineEffect::renderTilingToast(const RenderTarget &renderTarg
         return;
     }
 
+    const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
     const QRectF screenRect = viewport.renderRect();
     const QPointF toastCenter(screenRect.center().x(), screenRect.bottom() - 48.0);
-    const QColor toastBg(20, 24, 32, 242);
-    renderFloatingPill(renderTarget, viewport, m_tilingToastMessage, toastCenter, toastBg, QColor(245, 245, 250), 12, screenRect.width() - 40.0);
+    const QColor toastBg = theme.surfaceBackgroundColor();
+    const QColor toastText = theme.textPrimaryColor();
+    renderFloatingPill(renderTarget, viewport, m_tilingToastMessage, toastCenter, toastBg, toastText, 12, screenRect.width() - 40.0, theme.hudContainer.shape);
 }
 
 } // namespace KWin

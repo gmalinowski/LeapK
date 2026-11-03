@@ -333,10 +333,11 @@ private:
                             const RenderViewport &viewport,
                             const QString &text,
                             const QPointF &centerPos,
-                            const QColor &bgColor,
-                            const QColor &textColor = QColor(240, 240, 245),
+                            const QColor &bgColor = QColor(),
+                            const QColor &textColor = QColor(),
                             int fontSizePt = 12,
-                            qreal maxAllowedWidth = 0.0);
+                            qreal maxAllowedWidth = 0.0,
+                            const QString &shapeOverride = QString());
     void renderOffscreenJumpTargets(const RenderTarget &renderTarget,
                                    const RenderViewport &viewport,
                                    const QList<QPair<QChar, EffectWindow *>> &targets,

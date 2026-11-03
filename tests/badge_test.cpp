@@ -1664,6 +1664,22 @@ void testTilingHudComponents()
     const QImage imgToast2x = renderFloatingPillImage(toastMsg, 2.0, QColor(20, 24, 32, 240), QColor(245, 245, 250), 12);
     assert(!imgToast2x.isNull());
     assert(imgToast2x.width() > imgToast.width());
+
+    // 6. Theme integration in Floating Pill (shapes: chamfered, sharp; theme colors)
+    LeapKTheme::Theme customTheme;
+    customTheme.windowBadge.shape = QStringLiteral("chamfered");
+    customTheme.hudContainer.shape = QStringLiteral("sharp");
+    customTheme.tokens[QStringLiteral("accentColor")] = QStringLiteral("#00ffff");
+    customTheme.tokens[QStringLiteral("bgSurface")] = QStringLiteral("#111827");
+
+    const QImage imgChamferBadge = renderFloatingPillImage(QStringLiteral("B"), 1.0, QColor(), QColor(), 20, 0.0, customTheme);
+    assert(!imgChamferBadge.isNull());
+    assert(imgChamferBadge.width() >= 30);
+    assert(imgChamferBadge.height() >= 30);
+
+    const QImage imgSharpHint = renderFloatingPillImage(editHint, 1.0, QColor(), QColor(), 12, 0.0, customTheme);
+    assert(!imgSharpHint.isNull());
+    assert(imgSharpHint.width() > 500);
 }
 
 void testBadgePreviewDismissHitTesting()

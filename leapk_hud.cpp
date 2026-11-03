@@ -1112,14 +1112,16 @@ void ActiveWindowOutlineEffect::renderFloatingPill(const RenderTarget &renderTar
                                                   const QColor &bgColor,
                                                   const QColor &textColor,
                                                   int fontSizePt,
-                                                  qreal maxAllowedWidth)
+                                                  qreal maxAllowedWidth,
+                                                  const QString &shapeOverride)
 {
     if (text.trimmed().isEmpty()) {
         return;
     }
 
     const qreal scale = viewport.scale();
-    const QImage img = OutlineBadge::renderFloatingPillImage(text, scale, bgColor, textColor, fontSizePt, maxAllowedWidth);
+    const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
+    const QImage img = OutlineBadge::renderFloatingPillImage(text, scale, bgColor, textColor, fontSizePt, maxAllowedWidth, theme, shapeOverride);
     auto uploaded = GLTexture::upload(img);
     if (!uploaded) {
         return;

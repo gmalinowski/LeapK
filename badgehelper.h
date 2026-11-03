@@ -2122,10 +2122,12 @@ inline QImage renderTilingPresetPill(const BadgeConfig &cfg,
 
 inline QImage renderFloatingPillImage(const QString &text,
                                      qreal scale,
-                                     const QColor &bgColor,
-                                     const QColor &textColor = QColor(240, 240, 245),
+                                     const QColor &bgColor = QColor(),
+                                     const QColor &textColor = QColor(),
                                      int fontSizePt = 12,
-                                     qreal maxAllowedWidth = 0.0)
+                                     qreal maxAllowedWidth = 0.0,
+                                     const LeapKTheme::Theme &theme = LeapKTheme::Theme(),
+                                     const QString &shapeOverride = QString())
 {
     const QString fontFam = QStringLiteral("sans-serif");
     QFont font(fontFam);
@@ -2190,12 +2192,13 @@ inline QImage renderFloatingPillImage(const QString &text,
         idx = nextSpecial;
     }
 
-    const int padX = (text.length() <= 2) ? qRound(14 * scale) : qRound(22 * scale);
+    const bool isShortBadge = (text.length() <= 2);
+    const int padX = isShortBadge ? qRound(14 * scale) : qRound(22 * scale);
     const int padY = qRound(9 * scale);
     const int lineH = qMax(fm.height(), fmKey.height());
 
     int imgW = totalContentWidth + 2 * padX;
-    if (text.length() <= 2) {
+    if (isShortBadge) {
         imgW = qMax(imgW, lineH + 2 * padY);
     }
     if (maxAllowedWidth > 0.0 && imgW > qRound(maxAllowedWidth)) {
@@ -2213,30 +2216,80 @@ inline QImage renderFloatingPillImage(const QString &text,
 
     const qreal margin = 1.5 * scale;
     const QRectF rect(margin, margin, imgW - 2 * margin, imgH - 2 * margin);
-    const qreal radius = rect.height() / 2.0;
+
+    // Resolve shape from theme or override
+    QString effShape = shapeOverride;
+    if (effShape.isEmpty()) {
+        effShape = isShortBadge
+            ? (theme.windowBadge.shape.isEmpty() ? QStringLiteral("pill") : theme.windowBadge.shape)
+            : (theme.hudContainer.shape.isEmpty() ? QStringLiteral("pill") : theme.hudContainer.shape);
+    }
+
+    const int chamferPx = qRound(((isShortBadge ? theme.windowBadge.chamferSize : theme.hudContainer.chamferSize) > 0
+                                  ? (isShortBadge ? theme.windowBadge.chamferSize : theme.hudContainer.chamferSize)
+                                  : 6) * scale);
+    const int cornerRadiusPx = qRound(((isShortBadge ? theme.windowBadge.cornerRadius : theme.hudContainer.cornerRadius) > 0
+                                       ? (isShortBadge ? theme.windowBadge.cornerRadius : theme.hudContainer.cornerRadius)
+                                       : 8) * scale);
+    const qreal radius = (effShape == QStringLiteral("sharp"))
+        ? 0.0
+        : ((effShape == QStringLiteral("pill") || effShape == QStringLiteral("circle"))
+            ? (rect.height() / 2.0)
+            : cornerRadiusPx);
+
+    // Effective background color & contrast
+    const QColor effectiveBg = bgColor.isValid() ? bgColor : theme.surfaceBackgroundColor();
+    const bool isLightBg = (perceivedLuminance(effectiveBg) > 0.53);
 
     // Drop shadow
-    p.setPen(Qt::NoPen);
-    p.setBrush(QColor(0, 0, 0, 110));
-    p.drawRoundedRect(rect.translated(0, 2.0 * scale), radius, radius);
+    if (theme.hudContainer.shadowEnabled) {
+        p.setPen(Qt::NoPen);
+        const QColor shadowCol = theme.resolveColor(theme.hudContainer.shadowColor, QColor(0, 0, 0, 110));
+        p.setBrush(shadowCol);
+        drawThemedShape(p, rect.translated(0, 2.0 * scale), effShape, radius, chamferPx);
+    }
 
-    // Pill background
-    p.setBrush(bgColor);
-    p.setPen(QPen(QColor(255, 255, 255, 45), 1.0 * scale));
-    p.drawRoundedRect(rect, radius, radius);
+    // Border color and width
+    QColor borderColor = theme.resolveColor(isShortBadge ? theme.windowBadge.borderColor : theme.hudContainer.borderColor);
+    if (!borderColor.isValid()) {
+        borderColor = isLightBg ? QColor(0, 0, 0, 45) : QColor(255, 255, 255, 45);
+    }
+    const qreal bw = qMax(1.0, ((isShortBadge ? theme.windowBadge.borderWidth : theme.hudContainer.borderWidth) > 0.0
+                                ? (isShortBadge ? theme.windowBadge.borderWidth : theme.hudContainer.borderWidth)
+                                : 1.0) * scale);
 
-    // Clip to pill interior
+    // Pill background & themed shape
+    p.setBrush(effectiveBg);
+    p.setPen(QPen(borderColor, bw));
+    drawThemedShape(p, rect, effShape, radius, chamferPx);
+
+    // Clip to shape interior
     p.save();
     QPainterPath clipPath;
-    clipPath.addRoundedRect(rect.adjusted(padX / 2.0, 0, -padX / 2.0, 0), radius, radius);
+    LeapKTheme::addThemedShapePath(clipPath, rect.adjusted(padX / 2.0, 0, -padX / 2.0, 0), effShape, radius, chamferPx);
     p.setClipPath(clipPath);
 
     int curX = qMax(padX, (imgW - totalContentWidth) / 2);
     const int baseLineY = (imgH - lineH) / 2 + fm.ascent();
 
-    const QColor effTextColor = textColor.isValid() ? textColor : QColor(240, 240, 245);
-    const QColor keyColor(80, 215, 255); // Vibrant cyan keycap highlight
-    const QColor sepColor(140, 150, 165);
+    // Text & Keycap typography colors
+    QColor effTextColor = textColor;
+    if (!effTextColor.isValid()) {
+        effTextColor = theme.resolveColor(QStringLiteral("$textPrimary"), isLightBg ? QColor(25, 30, 40) : QColor(240, 240, 245));
+    }
+
+    QColor keyColor = theme.resolveColor(theme.hintsBar.keyColor);
+    if (!keyColor.isValid()) {
+        keyColor = theme.primaryAccentColor();
+    }
+    if (!keyColor.isValid()) {
+        keyColor = QColor(80, 215, 255); // Vibrant cyan keycap highlight
+    }
+    if (isLightBg && contrastRatio(effectiveBg, keyColor) < 3.0) {
+        keyColor = theme.resolveColor(QStringLiteral("$accentColor"), QColor(20, 110, 190));
+    }
+
+    const QColor sepColor = isLightBg ? QColor(76, 86, 106, 160) : QColor(140, 150, 165);
 
     for (const Chunk &c : chunks) {
         if (c.isKey) {
