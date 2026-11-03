@@ -546,6 +546,33 @@ if command -v kreadconfig6 >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/nul
   migrate_shortcut "NextRecentWindow" "none" "LeapK: Next Recent Window"
 fi
 
+# Ensure universal no-minimum-size window rule for optimal tiling (e.g. Firefox)
+rule_id="a9e701bc-6258-4903-a185-3b95a8bfb621"
+if command -v kwriteconfig6 >/dev/null 2>&1; then
+  current_rules="$(kreadconfig6 --file kwinrulesrc --group General --key rules --default '' 2>/dev/null || true)"
+  if [[ "$current_rules" != *"$rule_id"* ]]; then
+    if [[ -n "$current_rules" ]]; then
+      new_rules="$rule_id,$current_rules"
+    else
+      new_rules="$rule_id"
+    fi
+    kwriteconfig6 --file kwinrulesrc --group General --key rules "$new_rules"
+    count="$(awk -F',' '{print NF}' <<< "$new_rules" 2>/dev/null || echo 1)"
+    kwriteconfig6 --file kwinrulesrc --group General --key count "$count"
+  fi
+  kwriteconfig6 --file kwinrulesrc --group "$rule_id" --key description "LeapK Tiling: No minimum size limit"
+  kwriteconfig6 --file kwinrulesrc --group "$rule_id" --key minsize "1,1"
+  kwriteconfig6 --file kwinrulesrc --group "$rule_id" --key minsizerule "2"
+  kwriteconfig6 --file kwinrulesrc --group "$rule_id" --key ignoregeometry "true"
+  kwriteconfig6 --file kwinrulesrc --group "$rule_id" --key ignoregeometryrule "2"
+  kwriteconfig6 --file kwinrulesrc --group "$rule_id" --key strictgeometry "false"
+  kwriteconfig6 --file kwinrulesrc --group "$rule_id" --key strictgeometryrule "2"
+  kwriteconfig6 --file kwinrulesrc --group "$rule_id" --key types "1"
+  kwriteconfig6 --file kwinrulesrc --group "$rule_id" --key wmclass ""
+  kwriteconfig6 --file kwinrulesrc --group "$rule_id" --key wmclasscomplete "false"
+  kwriteconfig6 --file kwinrulesrc --group "$rule_id" --key wmclassmatch "0"
+fi
+
 if command -v qdbus6 >/dev/null 2>&1; then
   qdbus6 org.kde.KWin /KWin reconfigure >/dev/null 2>&1 || true
   qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects.unloadEffect \

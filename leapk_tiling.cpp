@@ -1096,6 +1096,10 @@ int ActiveWindowOutlineEffect::findTileSlotIndexForWindow(EffectWindow *w) const
 void ActiveWindowOutlineEffect::ensureTilingNoMinSizeRule()
 {
     using namespace LeapKTiling;
+    if (!m_tilingRemoveMinSizeLimit) {
+        return;
+    }
+
     const QString ruleId = QString::fromLatin1(kNoMinSizeRuleId);
     auto rulesConfig = KSharedConfig::openConfig(QStringLiteral("kwinrulesrc"));
     KConfigGroup generalGroup(rulesConfig, QStringLiteral("General"));
@@ -1116,6 +1120,8 @@ void ActiveWindowOutlineEffect::ensureTilingNoMinSizeRule()
         || ruleGroup.readEntry(QStringLiteral("minsizerule"), 0) != defRule.minsizerule
         || ruleGroup.readEntry(QStringLiteral("ignoregeometry"), false) != defRule.ignoregeometry
         || ruleGroup.readEntry(QStringLiteral("ignoregeometryrule"), 0) != defRule.ignoregeometryrule
+        || ruleGroup.readEntry(QStringLiteral("strictgeometry"), true) != defRule.strictgeometry
+        || ruleGroup.readEntry(QStringLiteral("strictgeometryrule"), 0) != defRule.strictgeometryrule
         || ruleGroup.readEntry(QStringLiteral("types"), 0) != defRule.types
         || !ruleGroup.hasKey(QStringLiteral("wmclass"))
         || ruleGroup.readEntry(QStringLiteral("wmclasscomplete"), true) != defRule.wmclasscomplete
@@ -1126,6 +1132,8 @@ void ActiveWindowOutlineEffect::ensureTilingNoMinSizeRule()
         ruleGroup.writeEntry(QStringLiteral("minsizerule"), defRule.minsizerule);
         ruleGroup.writeEntry(QStringLiteral("ignoregeometry"), defRule.ignoregeometry);
         ruleGroup.writeEntry(QStringLiteral("ignoregeometryrule"), defRule.ignoregeometryrule);
+        ruleGroup.writeEntry(QStringLiteral("strictgeometry"), defRule.strictgeometry);
+        ruleGroup.writeEntry(QStringLiteral("strictgeometryrule"), defRule.strictgeometryrule);
         ruleGroup.writeEntry(QStringLiteral("types"), defRule.types);
         ruleGroup.writeEntry(QStringLiteral("wmclass"), defRule.wmclass);
         ruleGroup.writeEntry(QStringLiteral("wmclasscomplete"), defRule.wmclasscomplete);
@@ -1137,6 +1145,20 @@ void ActiveWindowOutlineEffect::ensureTilingNoMinSizeRule()
         rulesConfig->sync();
         if (workspace() && workspace()->rulebook()) {
             workspace()->rulebook()->load();
+        }
+        QDBusMessage msg = QDBusMessage::createMethodCall(
+            QStringLiteral("org.kde.KWin"),
+            QStringLiteral("/KWin"),
+            QStringLiteral("org.kde.KWin"),
+            QStringLiteral("reconfigure"));
+        QDBusConnection::sessionBus().send(msg);
+
+        if (effects) {
+            for (EffectWindow *w : effects->stackingOrder()) {
+                if (w && !w->isDeleted() && w->window()) {
+                    w->window()->evaluateWindowRules();
+                }
+            }
         }
     }
 }

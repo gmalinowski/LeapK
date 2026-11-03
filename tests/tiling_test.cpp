@@ -437,6 +437,8 @@ void testTilingWindowRuleConfig()
     assert(rule.minsizerule == 2); // Force
     assert(rule.ignoregeometry == true);
     assert(rule.ignoregeometryrule == 2); // Force
+    assert(rule.strictgeometry == false);
+    assert(rule.strictgeometryrule == 2); // Force
     assert(rule.types == 1); // Normal window
     assert(rule.wmclass.isEmpty());
     assert(rule.wmclasscomplete == false);

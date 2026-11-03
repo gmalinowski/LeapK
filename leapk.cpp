@@ -822,8 +822,11 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_persistentMarks = LeapKMarks::loadPersistentMarks();
     m_tilingGaps = qBound(0, config.readEntry("TilingGaps", 6), 64);
     m_tilingMargins = qBound(0, config.readEntry("TilingMargins", 8), 64);
+    m_tilingRemoveMinSizeLimit = config.readEntry("TilingRemoveMinSizeLimit", true);
     m_tilingPresets = LeapKTiling::loadPresets();
-    ensureTilingNoMinSizeRule();
+    if (m_tilingRemoveMinSizeLimit) {
+        ensureTilingNoMinSizeRule();
+    }
     refreshWorkspaces();
     for (EffectWindow *w : effects->stackingOrder()) {
         applyPersistentMarksToWindow(w);

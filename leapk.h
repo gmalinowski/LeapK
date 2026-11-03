@@ -685,6 +685,7 @@ private:
     QList<LeapKTiling::TilingPreset> m_tilingPresets;
     int m_tilingGaps = 6;
     int m_tilingMargins = 8;
+    bool m_tilingRemoveMinSizeLimit = true;
     bool m_tilingEditModeActive = false;
     int m_tilingEditMultiplier = 0;
     QList<QPair<QRectF, LeapKTiling::TilingPreset>> m_hudTilingPresetPillRects;

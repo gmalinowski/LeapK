@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta80] - 2026-11-03
+
+### Fixed
+- **Enforce No Minimum Window Size Limits for Tiling (`strictgeometry=false`, `minsize=1,1`)**:
+  - Eliminated window protruding issues (e.g. Firefox protruding outside tile boundaries) caused by applications enforcing internal minimum window size constraints.
+  - Enhanced the universal KWin tiling rule (`a9e701bc-6258-4903-a185-3b95a8bfb621`) with `strictgeometry=false` (`strictgeometryrule=2`) and `minsize=1,1` (`minsizerule=2`).
+  - Added immediate re-evaluation of window rules for all active windows (`win->evaluateWindowRules()`) and KWin D-Bus reload trigger.
+  - Added automated rule provisioning directly to `install-leapk.sh` for clean KDE installations.
+  - Added `TilingRemoveMinSizeLimit` setting (enabled by default: `true`). All 30/30 CTests pass (100%).
+
 ## [1.6.0-beta79] - 2026-11-03
 
 ### Fixed

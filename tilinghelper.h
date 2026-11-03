@@ -28,6 +28,8 @@ struct TilingWindowRuleConfig
     int minsizerule = 2; // Force
     bool ignoregeometry = true;
     int ignoregeometryrule = 2; // Force
+    bool strictgeometry = false;
+    int strictgeometryrule = 2; // Force
     int types = 1; // Normal window
     QString wmclass;
     bool wmclasscomplete = false;
