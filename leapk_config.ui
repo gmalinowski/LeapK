@@ -3435,6 +3435,23 @@
             </property>
            </widget>
           </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_keyboardFontFamily">
+            <property name="text">
+             <string>Font family:</string>
+            </property>
+            <property name="toolTip">
+             <string>Font family for spatial keyboard keycaps, target badge letters, and labels (leave empty to use system or theme font).</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QFontComboBox" name="kcfg_KeyboardOverlayFontFamily">
+            <property name="toolTip">
+             <string>Font family for spatial keyboard keycaps, target badge letters, and labels.</string>
+            </property>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>
@@ -3529,6 +3546,103 @@
             </property>
             <property name="suffix">
              <string> pt</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="label_keyboardTargetLabelFontSize">
+            <property name="text">
+             <string>Target label font size:</string>
+            </property>
+            <property name="toolTip">
+             <string>Font size of the window application name / label tag displayed underneath each target badge.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QSpinBox" name="kcfg_KeyboardOverlayTargetLabelFontSize">
+            <property name="minimum">
+             <number>6</number>
+            </property>
+            <property name="maximum">
+             <number>24</number>
+            </property>
+            <property name="singleStep">
+             <number>1</number>
+            </property>
+            <property name="value">
+             <number>10</number>
+            </property>
+            <property name="suffix">
+             <string> pt</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+
+       <item>
+        <widget class="QGroupBox" name="groupSpatialKeyboardStacking">
+         <property name="title">
+          <string>Window Occlusion &amp; Stacking Badges</string>
+         </property>
+         <layout class="QFormLayout" name="formLayoutSpatialStacking">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_keyboardStackScaleReduction">
+            <property name="text">
+             <string>Stacked badge size reduction:</string>
+            </property>
+            <property name="toolTip">
+             <string>Degree to which target badges on occluded windows underneath are scaled down (higher values make deeper windows smaller).</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QSpinBox" name="kcfg_KeyboardOverlayStackScaleReduction">
+            <property name="minimum">
+             <number>0</number>
+            </property>
+            <property name="maximum">
+             <number>70</number>
+            </property>
+            <property name="singleStep">
+             <number>5</number>
+            </property>
+            <property name="value">
+             <number>35</number>
+            </property>
+            <property name="suffix">
+             <string> %</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_keyboardStackOpacityReduction">
+            <property name="text">
+             <string>Stacked badge opacity reduction:</string>
+            </property>
+            <property name="toolTip">
+             <string>Degree to which target badges on occluded windows underneath fade in opacity (higher values make deeper windows more transparent).</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QSpinBox" name="kcfg_KeyboardOverlayStackOpacityReduction">
+            <property name="minimum">
+             <number>0</number>
+            </property>
+            <property name="maximum">
+             <number>70</number>
+            </property>
+            <property name="singleStep">
+             <number>5</number>
+            </property>
+            <property name="value">
+             <number>40</number>
+            </property>
+            <property name="suffix">
+             <string> %</string>
             </property>
            </widget>
           </item>

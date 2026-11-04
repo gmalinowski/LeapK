@@ -65,6 +65,18 @@ struct OverlayDisplayConfig {
     qreal lineWidth = 3.4;
     qreal badgeRadius = 18.0;
     int badgeFontSize = 13;
+    int targetLabelFontSize = 10;
+    QString fontFamily;
+    QString targetBadgeShape = QStringLiteral("circle");
+    double stackScaleReduction = 0.35;   // 0.0 to 0.70
+    double stackOpacityReduction = 0.40; // 0.0 to 0.70
+    double stackBadgeGap = 8.0;
+    bool targetLabelVisible = true;
+    QColor targetLabelBg;
+    QColor targetLabelTextColor;
+    bool laserGlow = true;
+    double laserGlowIntensity = 1.0;
+    QString laserDashStyle = QStringLiteral("solid");
 };
 
 struct WindowTargetItem {
@@ -73,6 +85,7 @@ struct WindowTargetItem {
     QChar preferredKey;
     QString title;
     QString appClass;
+    QString customLabel;
     bool isVisibleOnScreen = true;
     bool isCurrentFocused = false;
     QRectF hudCardRect;
@@ -165,10 +178,24 @@ inline KeyboardOverlayLayout computeOverlayGeometry(const QRectF &screenRect,
     return geom;
 }
 
-// Spatial key matching:
-// Assigns keys based on the spatial positions of windows on the screen,
-// so that left windows get left keys, right windows get right keys, top windows get top row.
-// Prevents criss-crossing arrows!
+inline bool segmentsIntersect(const QPointF &p1, const QPointF &p2, const QPointF &p3, const QPointF &p4)
+{
+    auto ccw = [](const QPointF &a, const QPointF &b, const QPointF &c) -> qreal {
+        return (b.x() - a.x()) * (c.y() - a.y()) - (b.y() - a.y()) * (c.x() - a.x());
+    };
+    const qreal cp1 = ccw(p1, p2, p3);
+    const qreal cp2 = ccw(p1, p2, p4);
+    const qreal cp3 = ccw(p3, p4, p1);
+    const qreal cp4 = ccw(p3, p4, p2);
+
+    if (((cp1 > 0 && cp2 < 0) || (cp1 < 0 && cp2 > 0)) &&
+        ((cp3 > 0 && cp4 < 0) || (cp3 < 0 && cp4 > 0))) {
+        return true;
+    }
+    return false;
+}
+
+// Spatial key matching with Planar Untangling (eliminates crossing laser lines)
 inline QMap<QChar, WindowTargetItem> assignSpatialKeys(const QList<WindowTargetItem> &windows, const QRectF &screenRect)
 {
     QMap<QChar, WindowTargetItem> assigned;
@@ -180,6 +207,14 @@ inline QMap<QChar, WindowTargetItem> assignSpatialKeys(const QList<WindowTargetI
     QSet<QChar> usedKeys;
     QList<WindowTargetItem> pendingWindows;
 
+    struct AssignmentEntry {
+        QChar key;
+        WindowTargetItem item;
+        QPointF targetCenter;
+        bool isUserLocked = false;
+    };
+    QList<AssignmentEntry> assignedList;
+
     // 1. Process explicit user marks / preferred keys first
     for (const auto &win : windows) {
         if (!win.preferredKey.isNull() && win.preferredKey.isLetter()) {
@@ -188,18 +223,15 @@ inline QMap<QChar, WindowTargetItem> assignSpatialKeys(const QList<WindowTargetI
                 usedKeys.insert(upperKey);
                 WindowTargetItem item = win;
                 item.preferredKey = upperKey;
-                if (!item.customColor.isValid()) {
-                    item.customColor = palette[assigned.size() % palette.size()];
+                QPointF center = item.geometry.center();
+                if (!item.isVisibleOnScreen && item.hudCardRect.isValid()) {
+                    center = item.hudCardRect.center();
                 }
-                assigned.insert(upperKey, item);
+                assignedList.append({upperKey, item, center, true});
                 continue;
             }
         }
         pendingWindows.append(win);
-    }
-
-    if (pendingWindows.isEmpty()) {
-        return assigned;
     }
 
     // Normalized ideal coordinates (0.0 .. 1.0) for each key in QWERTY layout
@@ -235,7 +267,10 @@ inline QMap<QChar, WindowTargetItem> assignSpatialKeys(const QList<WindowTargetI
     });
 
     for (const auto &win : pendingWindows) {
-        const QPointF center = win.geometry.center();
+        QPointF center = win.geometry.center();
+        if (!win.isVisibleOnScreen && win.hudCardRect.isValid()) {
+            center = win.hudCardRect.center();
+        }
         const qreal winNormX = qBound(0.0, (center.x() - screenRect.left()) / sW, 1.0);
         const qreal winNormY = qBound(0.0, (center.y() - screenRect.top()) / sH, 1.0);
 
@@ -246,7 +281,6 @@ inline QMap<QChar, WindowTargetItem> assignSpatialKeys(const QList<WindowTargetI
             if (usedKeys.contains(kpos.key)) {
                 continue;
             }
-            // Weight horizontal alignment slightly more to maintain left-to-right order
             const qreal dx = winNormX - kpos.normX;
             const qreal dy = winNormY - kpos.normY;
             const qreal distSq = (dx * dx * 1.6) + (dy * dy * 1.0);
@@ -260,11 +294,60 @@ inline QMap<QChar, WindowTargetItem> assignSpatialKeys(const QList<WindowTargetI
             usedKeys.insert(bestKey);
             WindowTargetItem item = win;
             item.preferredKey = bestKey;
-            if (!item.customColor.isValid()) {
-                item.customColor = palette[assigned.size() % palette.size()];
-            }
-            assigned.insert(bestKey, item);
+            assignedList.append({bestKey, item, center, false});
         }
+    }
+
+    if (assignedList.isEmpty()) {
+        return assigned;
+    }
+
+    // 2-opt Planar Untangling Algorithm (eliminates crossing laser lines)
+    const KeyboardOverlayLayout layout = computeOverlayGeometry(screenRect);
+    auto keyStartPt = [&](const QChar &k) -> QPointF {
+        if (layout.keyMap.contains(k)) {
+            const auto &kg = layout.keyMap.value(k);
+            return QPointF(kg.rect.center().x(), kg.rect.top() + 3.0);
+        }
+        return QPointF();
+    };
+
+    bool untangled = true;
+    int pass = 0;
+    while (untangled && pass < 80) {
+        untangled = false;
+        pass++;
+        for (int i = 0; i < assignedList.size(); ++i) {
+            for (int j = i + 1; j < assignedList.size(); ++j) {
+                if (assignedList[i].isUserLocked && assignedList[j].isUserLocked) {
+                    continue;
+                }
+                const QPointF pKa = keyStartPt(assignedList[i].key);
+                const QPointF pWa = assignedList[i].targetCenter;
+                const QPointF pKb = keyStartPt(assignedList[j].key);
+                const QPointF pWb = assignedList[j].targetCenter;
+
+                const bool intersect = segmentsIntersect(pKa, pWa, pKb, pWb);
+                const qreal curDist = QLineF(pKa, pWa).length() + QLineF(pKb, pWb).length();
+                const qreal swapDist = QLineF(pKa, pWb).length() + QLineF(pKb, pWa).length();
+
+                // Swap keys if laser lines intersect, or if swapping reduces total line length
+                if (intersect || (swapDist < curDist - 2.0 && !assignedList[i].isUserLocked && !assignedList[j].isUserLocked)) {
+                    if (!assignedList[i].isUserLocked && !assignedList[j].isUserLocked) {
+                        std::swap(assignedList[i].key, assignedList[j].key);
+                        untangled = true;
+                    }
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < assignedList.size(); ++i) {
+        assignedList[i].item.preferredKey = assignedList[i].key;
+        if (!assignedList[i].item.customColor.isValid()) {
+            assignedList[i].item.customColor = palette[i % palette.size()];
+        }
+        assigned.insert(assignedList[i].key, assignedList[i].item);
     }
 
     return assigned;
@@ -275,15 +358,16 @@ struct TargetBadgePlacement {
     WindowTargetItem item;
     QPointF center;
     qreal radius = 18.0;
+    qreal opacity = 1.0;
     int stackLevel = 0; // 0 = deepest underneath in stack
     int stackTotal = 1; // total stacked windows in cluster
 };
 
 // Computes side-by-side placements and sizes for window target badges.
 // If windows are occluded or stacked:
-// - The deepest window underneath (lowest z-order) is positioned on the far left with the smallest badge.
-// - The frontmost window on surface (highest z-order) is positioned on the far right with the largest badge.
-// - Intermediate windows are spaced side-by-side with monotonically increasing sizes.
+// - The deepest window underneath (lowest z-order) is positioned on the far left with the smallest badge and faded opacity.
+// - The frontmost window on surface (highest z-order) is positioned on the far right with the largest badge and full opacity.
+// - Intermediate windows are spaced side-by-side with monotonically increasing sizes and opacities.
 inline QMap<QChar, TargetBadgePlacement> computeTargetBadgePlacements(
     const QMap<QChar, WindowTargetItem> &assignedWindows,
     const QRectF &screenRect,
@@ -344,6 +428,7 @@ inline QMap<QChar, TargetBadgePlacement> computeTargetBadgePlacements(
             bp.item = item;
             bp.center = item.geometry.center();
             bp.radius = cfg.badgeRadius;
+            bp.opacity = 1.0;
             bp.stackLevel = 0;
             bp.stackTotal = 1;
             bp.center.setX(qBound(screenRect.left() + 25.0, bp.center.x(), screenRect.right() - 25.0));
@@ -366,16 +451,24 @@ inline QMap<QChar, TargetBadgePlacement> computeTargetBadgePlacements(
             return itemA.geometry.center().x() < itemB.geometry.center().x();
         });
 
-        // Radius scales monotonically from bottommost (smallest) to topmost (largest)
-        const qreal minRadius = (qAbs(cfg.badgeRadius - 18.0) < 0.001) ? 12.0 : qMax(8.0, cfg.badgeRadius * (12.0 / 18.0));
-        const qreal maxRadius = (qAbs(cfg.badgeRadius - 18.0) < 0.001) ? 21.0 : qMax(minRadius + 4.0, cfg.badgeRadius * (21.0 / 18.0));
-        const qreal badgeGap = 8.0;
+        // Radius & Opacity scale monotonically from bottommost (smallest, faded) to topmost (largest, opaque)
+        const qreal maxRadius = (qAbs(cfg.badgeRadius - 18.0) < 0.001)
+            ? 21.0
+            : qMax(10.0, cfg.badgeRadius * (21.0 / 18.0));
+        const qreal scaleFactor = qBound(0.0, cfg.stackScaleReduction, 0.70);
+        const qreal minRadius = (qAbs(cfg.stackScaleReduction - 0.35) < 0.001 && qAbs(cfg.badgeRadius - 18.0) < 0.001)
+            ? 12.0
+            : qMax(6.0, maxRadius * (1.0 - scaleFactor));
+        const qreal badgeGap = (cfg.stackBadgeGap > 0.0) ? cfg.stackBadgeGap : 8.0;
 
         QVector<qreal> radii(clusterSize);
+        QVector<qreal> opacities(clusterSize);
+        const qreal opacityFactor = qBound(0.0, cfg.stackOpacityReduction, 0.70);
         qreal totalWidth = 0.0;
         for (int i = 0; i < clusterSize; ++i) {
             const qreal progress = static_cast<qreal>(i) / static_cast<qreal>(clusterSize - 1);
             radii[i] = minRadius + progress * (maxRadius - minRadius);
+            opacities[i] = (1.0 - opacityFactor) + progress * opacityFactor;
             totalWidth += 2.0 * radii[i];
             if (i > 0) {
                 totalWidth += badgeGap;
@@ -404,7 +497,7 @@ inline QMap<QChar, TargetBadgePlacement> computeTargetBadgePlacements(
         qreal currLeft = clampedCenterX - totalWidth / 2.0;
         for (int i = 0; i < clusterSize; ++i) {
             const QChar key = keys[sortedCluster[i]];
-            const WindowTargetItem &item = assignedWindows.value(key);
+            const WindowTargetItem &item = assignedWindows.value(keys[sortedCluster[i]]);
             const qreal r = radii[i];
             const qreal cx = currLeft + r;
             const qreal cy = clampedCenterY;
@@ -414,6 +507,7 @@ inline QMap<QChar, TargetBadgePlacement> computeTargetBadgePlacements(
             bp.item = item;
             bp.center = QPointF(cx, cy);
             bp.radius = r;
+            bp.opacity = opacities[i];
             bp.stackLevel = i;
             bp.stackTotal = clusterSize;
             placements.insert(key, bp);
@@ -444,6 +538,8 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
     p.setRenderHint(QPainter::TextAntialiasing, true);
     p.setRenderHint(QPainter::SmoothPixmapTransform, true);
 
+    const QString effFontFamily = cfg.fontFamily.isEmpty() ? QStringLiteral("sans-serif") : cfg.fontFamily;
+
     // -------------------------------------------------------------
     // 1. Draw Keyboard Dock Panel
     // -------------------------------------------------------------
@@ -463,7 +559,7 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
     p.drawRoundedRect(pr, 18.0, 18.0);
 
     // Header hint bar text
-    QFont headerFont(QStringLiteral("sans-serif"), 8, QFont::DemiBold);
+    QFont headerFont(effFontFamily, 8, QFont::DemiBold);
     p.setFont(headerFont);
     p.setPen(QColor(170, 185, 210, 190));
     const QRectF headerRect(pr.left(), pr.top() + 6.0, pr.width(), 20.0);
@@ -477,9 +573,9 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
     // 2. Draw All 26 Keycaps (Unassigned = Translucent, Assigned = Glowing)
     // -------------------------------------------------------------
     const int effKeyFontSize = qBound(8, cfg.keyFontSize, 28);
-    QFont keyFont(QStringLiteral("sans-serif"), effKeyFontSize, QFont::Bold);
+    QFont keyFont(effFontFamily, effKeyFontSize, QFont::Bold);
     keyFont.setStyleStrategy(QFont::PreferAntialias);
-    QFont subFont(QStringLiteral("sans-serif"), qMax(6, effKeyFontSize / 2), QFont::Bold);
+    QFont subFont(effFontFamily, qMax(6, effKeyFontSize / 2), QFont::Bold);
     subFont.setStyleStrategy(QFont::PreferAntialias);
 
     for (const KeycapGeometry &kg : layout.keycaps) {
@@ -551,6 +647,9 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
     // -------------------------------------------------------------
     const auto placements = computeTargetBadgePlacements(assignedWindows, screenRect, layout, cfg);
     const qreal effLineWidth = qBound(1.0, cfg.lineWidth, 10.0);
+    const Qt::PenStyle lineStyle = (cfg.laserDashStyle == QStringLiteral("dashed"))
+        ? Qt::DashLine
+        : ((cfg.laserDashStyle == QStringLiteral("dotted")) ? Qt::DotLine : Qt::SolidLine);
 
     for (auto it = placements.constBegin(); it != placements.constEnd(); ++it) {
         const QChar key = it.key();
@@ -567,15 +666,17 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
         const KeycapGeometry &kg = layout.keyMap.value(key);
         // Point 5: Emerge from the top edge of the keycap so the letter in the center is completely unobstructed
         const QPointF pStart(kg.rect.center().x(), kg.rect.top() + 3.0);
-        const QColor arrowCol = bp.item.customColor.isValid() ? bp.item.customColor : QColor(0, 229, 255);
+        const QColor baseArrowCol = bp.item.customColor.isValid() ? bp.item.customColor : QColor(0, 229, 255);
+        const qreal effOpacity = qBound(0.2, bp.opacity, 1.0);
+        const QColor arrowCol(baseArrowCol.red(), baseArrowCol.green(), baseArrowCol.blue(), qRound(baseArrowCol.alpha() * effOpacity));
 
         // Draw glowing launch anchor node right on top accent bar
         p.setPen(Qt::NoPen);
-        p.setBrush(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), 160));
+        p.setBrush(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), qRound(160 * effOpacity)));
         p.drawEllipse(pStart, 5.0, 5.0);
         p.setBrush(arrowCol);
         p.drawEllipse(pStart, 3.0, 3.0);
-        p.setBrush(Qt::white);
+        p.setBrush(QColor(255, 255, 255, qRound(255 * effOpacity)));
         p.drawEllipse(pStart, 1.5, 1.5);
 
         QPointF pEnd = bp.center;
@@ -599,13 +700,21 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
             // Arrow line stops at the perimeter of the target badge
             const QPointF pTargetPerimeter(pEnd.x() - ux * bp.radius, pEnd.y() - uy * bp.radius);
 
+            // Ambient Laser Glow (if enabled by theme)
+            if (cfg.laserGlow) {
+                QPen glowPen(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), qRound(50 * effOpacity * cfg.laserGlowIntensity)),
+                             effLineWidth + 6.0, lineStyle, Qt::RoundCap, Qt::RoundJoin);
+                p.setPen(glowPen);
+                p.drawLine(pStart, pTargetPerimeter);
+            }
+
             // Pass A: Contrast drop-shadow for clear visibility across wallpaper and windows
-            QPen shadowPen(QColor(0, 0, 0, 200), effLineWidth + 3.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+            QPen shadowPen(QColor(0, 0, 0, qRound(190 * effOpacity)), effLineWidth + 3.0, lineStyle, Qt::RoundCap, Qt::RoundJoin);
             p.setPen(shadowPen);
             p.drawLine(pStart, pTargetPerimeter);
 
             // Pass B: Vibrant neon laser arrow line
-            QPen colorPen(arrowCol, effLineWidth, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+            QPen colorPen(arrowCol, effLineWidth, lineStyle, Qt::RoundCap, Qt::RoundJoin);
             p.setPen(colorPen);
             p.drawLine(pStart, pTargetPerimeter);
 
@@ -623,7 +732,7 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
             QPolygonF arrowHead;
             arrowHead << tip << leftBase << centerNotch << rightBase;
 
-            p.setPen(QPen(QColor(0, 0, 0, 210), 2.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+            p.setPen(QPen(QColor(0, 0, 0, qRound(200 * effOpacity)), 2.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
             p.setBrush(arrowCol);
             p.drawPolygon(arrowHead);
         }
@@ -639,11 +748,11 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
                 const qreal huy = hdy / hdist;
                 const QPointF pFrom(bp.center.x() + hux * bp.radius, bp.center.y() + huy * bp.radius);
 
-                QPen extShadow(QColor(0, 0, 0, 180), effLineWidth + 1.8, Qt::DashLine, Qt::RoundCap, Qt::RoundJoin);
+                QPen extShadow(QColor(0, 0, 0, qRound(180 * effOpacity)), effLineWidth + 1.8, Qt::DashLine, Qt::RoundCap, Qt::RoundJoin);
                 p.setPen(extShadow);
                 p.drawLine(pFrom, pHud);
 
-                QPen extCol(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), 200), qMax(1.5, effLineWidth * 0.70), Qt::DashLine, Qt::RoundCap, Qt::RoundJoin);
+                QPen extCol(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), qRound(200 * effOpacity)), qMax(1.5, effLineWidth * 0.70), Qt::DashLine, Qt::RoundCap, Qt::RoundJoin);
                 p.setPen(extCol);
                 p.drawLine(pFrom, pHud);
 
@@ -656,45 +765,87 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
 
         // Target badge at window target position (or HUD card position if offscreen)
         const qreal ringRadius = bp.radius;
+        const QRectF badgeRect(pEnd.x() - ringRadius, pEnd.y() - ringRadius, ringRadius * 2.0, ringRadius * 2.0);
 
         // Outer ambient glow
-        p.setPen(Qt::NoPen);
-        p.setBrush(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), 60));
-        p.drawEllipse(pEnd, ringRadius + 5.0, ringRadius + 5.0);
+        if (cfg.laserGlow) {
+            p.setPen(Qt::NoPen);
+            p.setBrush(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), qRound(60 * effOpacity * cfg.laserGlowIntensity)));
+            p.drawEllipse(pEnd, ringRadius + 5.0, ringRadius + 5.0);
+        }
 
-        // Dark circular glass backing
-        p.setPen(QPen(arrowCol, 2.6));
-        p.setBrush(QColor(14, 18, 26, 245));
-        p.drawEllipse(pEnd, ringRadius, ringRadius);
+        // Target badge backing & border based on cfg.targetBadgeShape
+        QColor badgeBg(14, 18, 26, qRound(245 * effOpacity));
+        QPen badgeBorderPen(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), qRound(255 * effOpacity)), 2.6);
+        p.setPen(badgeBorderPen);
+        p.setBrush(badgeBg);
+
+        if (cfg.targetBadgeShape == QStringLiteral("ring")) {
+            p.setBrush(QColor(14, 18, 26, qRound(150 * effOpacity)));
+            badgeBorderPen.setWidthF(3.2);
+            p.setPen(badgeBorderPen);
+            p.drawEllipse(pEnd, ringRadius, ringRadius);
+        } else if (cfg.targetBadgeShape == QStringLiteral("rounded_rect")) {
+            p.drawRoundedRect(badgeRect, 6.0, 6.0);
+        } else if (cfg.targetBadgeShape == QStringLiteral("pill")) {
+            p.drawRoundedRect(badgeRect, ringRadius, ringRadius);
+        } else if (cfg.targetBadgeShape == QStringLiteral("sharp")) {
+            p.drawRect(badgeRect);
+        } else if (cfg.targetBadgeShape == QStringLiteral("chamfered")) {
+            const qreal ch = qBound(3.0, ringRadius * 0.35, 7.0);
+            QPolygonF poly;
+            poly << QPointF(badgeRect.left() + ch, badgeRect.top())
+                 << QPointF(badgeRect.right() - ch, badgeRect.top())
+                 << QPointF(badgeRect.right(), badgeRect.top() + ch)
+                 << QPointF(badgeRect.right(), badgeRect.bottom() - ch)
+                 << QPointF(badgeRect.right() - ch, badgeRect.bottom())
+                 << QPointF(badgeRect.left() + ch, badgeRect.bottom())
+                 << QPointF(badgeRect.left(), badgeRect.bottom() - ch)
+                 << QPointF(badgeRect.left(), badgeRect.top() + ch);
+            p.drawPolygon(poly);
+        } else {
+            // Default "circle"
+            p.drawEllipse(pEnd, ringRadius, ringRadius);
+        }
 
         // Key letter inside target badge (font scaled proportionally to badge radius or config)
-        p.setPen(Qt::white);
+        p.setPen(QColor(255, 255, 255, qRound(255 * effOpacity)));
         const int effBadgeFontSize = (cfg.badgeFontSize > 0) ? cfg.badgeFontSize : qBound(9, qRound(ringRadius * 0.72), 16);
-        QFont letterFont(QStringLiteral("sans-serif"), effBadgeFontSize, QFont::Bold);
+        QFont letterFont(effFontFamily, effBadgeFontSize, QFont::Bold);
         letterFont.setStyleStrategy(QFont::PreferAntialias);
         p.setFont(letterFont);
         const QRectF badgeTextRect(pEnd.x() - ringRadius, pEnd.y() - ringRadius, ringRadius * 2.0, ringRadius * 2.0);
         p.drawText(badgeTextRect, Qt::AlignCenter, QString(key));
 
-        // App class caption pill below target badge
-        if (!bp.item.appClass.isEmpty() && drawTargetBadgeAtWindow) {
-            QString appTag = bp.item.appClass.toUpper();
-            if (bp.stackTotal > 1 && appTag.length() > 4) {
-                appTag = appTag.left(4);
-            }
-            QFont tagFont(QStringLiteral("sans-serif"), 7, QFont::Bold);
+        // Window full label (Point 1: Full name, not truncated, configurable font size & font family)
+        const QString fullLabel = !bp.item.customLabel.isEmpty()
+            ? bp.item.customLabel
+            : (!bp.item.title.isEmpty() ? bp.item.title : bp.item.appClass);
+
+        if (!fullLabel.isEmpty() && drawTargetBadgeAtWindow && cfg.targetLabelVisible) {
+            const int effLabelFontSize = qBound(6, cfg.targetLabelFontSize, 24);
+            QFont tagFont(effFontFamily, effLabelFontSize, QFont::Bold);
+            tagFont.setStyleStrategy(QFont::PreferAntialias);
             p.setFont(tagFont);
             QFontMetrics fm(tagFont);
-            const int tagW = fm.horizontalAdvance(appTag) + 10;
-            const int tagH = 16;
-            const QRectF tagRect(pEnd.x() - tagW / 2.0, pEnd.y() + ringRadius + 3.0, tagW, tagH);
 
-            p.setPen(QPen(arrowCol, 1.2));
-            p.setBrush(QColor(12, 15, 22, 235));
+            const qreal maxLabelW = qMax(180.0, bp.item.geometry.width() > 50.0 ? bp.item.geometry.width() * 0.85 : 220.0);
+            const QString displayLabel = fm.elidedText(fullLabel, Qt::ElideMiddle, maxLabelW);
+            const int tagW = fm.horizontalAdvance(displayLabel) + 14;
+            const int tagH = fm.height() + 6;
+            const QRectF tagRect(pEnd.x() - tagW / 2.0, pEnd.y() + ringRadius + 4.0, tagW, tagH);
+
+            QColor labelBg = cfg.targetLabelBg.isValid() ? cfg.targetLabelBg : QColor(12, 15, 22, 235);
+            labelBg.setAlphaF(qBound(0.2, labelBg.alphaF() * effOpacity, 1.0));
+
+            p.setPen(QPen(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), qRound(220 * effOpacity)), 1.2));
+            p.setBrush(labelBg);
             p.drawRoundedRect(tagRect, 4.0, 4.0);
 
-            p.setPen(arrowCol);
-            p.drawText(tagRect, Qt::AlignCenter, appTag);
+            QColor labelTextCol = cfg.targetLabelTextColor.isValid() ? cfg.targetLabelTextColor : arrowCol;
+            labelTextCol.setAlphaF(qBound(0.3, labelTextCol.alphaF() * effOpacity, 1.0));
+            p.setPen(labelTextCol);
+            p.drawText(tagRect, Qt::AlignCenter, displayLabel);
         }
     }
 

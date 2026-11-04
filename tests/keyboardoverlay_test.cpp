@@ -318,6 +318,128 @@ void testSpatialKeyboardCustomDisplayAndExtensions()
     std::cout << "testSpatialKeyboardCustomDisplayAndExtensions PASSED\n";
 }
 
+void testUntanglingLaserLines()
+{
+    using namespace LeapKKeyboardOverlay;
+
+    const QRectF screenRect(0, 0, 1920, 1080);
+    const KeyboardOverlayLayout layout = computeOverlayGeometry(screenRect);
+
+    // Scenario 1: Two windows, one on far left, one on far right
+    WindowTargetItem wLeft;
+    wLeft.geometry = QRectF(100, 200, 400, 300);
+    wLeft.appClass = QStringLiteral("kate");
+
+    WindowTargetItem wRight;
+    wRight.geometry = QRectF(1400, 200, 400, 300);
+    wRight.appClass = QStringLiteral("firefox");
+
+    const auto assigned2 = assignSpatialKeys({wLeft, wRight}, screenRect);
+    assert(assigned2.size() == 2);
+
+    QChar keyLeft, keyRight;
+    for (auto it = assigned2.constBegin(); it != assigned2.constEnd(); ++it) {
+        if (it.value().appClass == QStringLiteral("kate")) keyLeft = it.key();
+        else if (it.value().appClass == QStringLiteral("firefox")) keyRight = it.key();
+    }
+    assert(!keyLeft.isNull() && !keyRight.isNull());
+
+    const QPointF pKeyLeft(layout.keyMap.value(keyLeft).rect.center().x(), layout.keyMap.value(keyLeft).rect.top() + 3.0);
+    const QPointF pKeyRight(layout.keyMap.value(keyRight).rect.center().x(), layout.keyMap.value(keyRight).rect.top() + 3.0);
+    const QPointF pTargetLeft = wLeft.geometry.center();
+    const QPointF pTargetRight = wRight.geometry.center();
+
+    // The key on the left must be assigned to the window on the left!
+    assert(pKeyLeft.x() < pKeyRight.x());
+
+    // Laser lines must NOT intersect!
+    assert(!segmentsIntersect(pKeyLeft, pTargetLeft, pKeyRight, pTargetRight));
+
+    // Scenario 2: 4 windows in a 2x2 grid
+    WindowTargetItem wTL; wTL.geometry = QRectF(80, 80, 500, 350); wTL.appClass = QStringLiteral("tl");
+    WindowTargetItem wTR; wTR.geometry = QRectF(1300, 80, 500, 350); wTR.appClass = QStringLiteral("tr");
+    WindowTargetItem wBL; wBL.geometry = QRectF(80, 500, 500, 350); wBL.appClass = QStringLiteral("bl");
+    WindowTargetItem wBR; wBR.geometry = QRectF(1300, 500, 500, 350); wBR.appClass = QStringLiteral("br");
+
+    const auto assigned4 = assignSpatialKeys({wTL, wTR, wBL, wBR}, screenRect);
+    assert(assigned4.size() == 4);
+
+    QList<QPair<QPointF, QPointF>> segments;
+    for (auto it = assigned4.constBegin(); it != assigned4.constEnd(); ++it) {
+        const QPointF pStart(layout.keyMap.value(it.key()).rect.center().x(), layout.keyMap.value(it.key()).rect.top() + 3.0);
+        const QPointF pEnd = it.value().geometry.center();
+        segments.append({pStart, pEnd});
+    }
+
+    // Verify pairwise non-crossing between all 4 laser lines!
+    for (int i = 0; i < segments.size(); ++i) {
+        for (int j = i + 1; j < segments.size(); ++j) {
+            assert(!segmentsIntersect(segments[i].first, segments[i].second, segments[j].first, segments[j].second));
+        }
+    }
+
+    std::cout << "testUntanglingLaserLines PASSED\n";
+}
+
+void testLabelAndStackTheming()
+{
+    using namespace LeapKKeyboardOverlay;
+
+    const QRectF screenRect(0, 0, 1920, 1080);
+
+    OverlayDisplayConfig cfg;
+    cfg.fontFamily = QStringLiteral("monospace");
+    cfg.targetLabelFontSize = 11;
+    cfg.stackScaleReduction = 0.50; // 50% scale reduction
+    cfg.stackOpacityReduction = 0.60; // 60% opacity reduction
+    cfg.targetBadgeShape = QStringLiteral("chamfered");
+
+    const KeyboardOverlayLayout layout = computeOverlayGeometry(screenRect, QRectF(), cfg);
+
+    WindowTargetItem wStackedUnder;
+    wStackedUnder.geometry = QRectF(400, 300, 500, 350);
+    wStackedUnder.zOrder = 1;
+    wStackedUnder.isOccluded = true;
+    wStackedUnder.customLabel = QStringLiteral("Full Custom Window Title");
+
+    WindowTargetItem wStackedTop;
+    wStackedTop.geometry = QRectF(410, 305, 500, 350);
+    wStackedTop.zOrder = 10;
+    wStackedTop.isOccluded = false;
+    wStackedTop.appClass = QStringLiteral("systemsettings");
+
+    QMap<QChar, WindowTargetItem> assigned;
+    assigned.insert(QChar('A'), wStackedUnder);
+    assigned.insert(QChar('B'), wStackedTop);
+
+    const auto placements = computeTargetBadgePlacements(assigned, screenRect, layout, cfg);
+    assert(placements.size() == 2);
+
+    const auto &pUnder = placements.value(QChar('A'));
+    const auto &pTop = placements.value(QChar('B'));
+
+    // Check stack scale reduction and opacity reduction
+    assert(pUnder.radius < pTop.radius);
+    assert(pUnder.opacity < pTop.opacity);
+    assert(std::abs(pUnder.opacity - 0.40) < 0.05); // 1.0 - 0.60 = 0.40
+    assert(std::abs(pTop.opacity - 1.0) < 0.001);
+
+    // Test all badge shapes
+    const QString shapes[] = {
+        QStringLiteral("circle"), QStringLiteral("rounded_rect"),
+        QStringLiteral("pill"), QStringLiteral("sharp"),
+        QStringLiteral("chamfered"), QStringLiteral("ring")
+    };
+
+    for (const auto &sh : shapes) {
+        cfg.targetBadgeShape = sh;
+        const QImage img = renderOverlayImage(layout, assigned, screenRect, 1.0, cfg);
+        assert(!img.isNull());
+    }
+
+    std::cout << "testLabelAndStackTheming PASSED\n";
+}
+
 int main(int argc, char **argv)
 {
     QGuiApplication app(argc, argv);
@@ -329,6 +451,8 @@ int main(int argc, char **argv)
     testOccludedTargetBadgePlacements();
     testOverlayImageRendering();
     testSpatialKeyboardCustomDisplayAndExtensions();
+    testUntanglingLaserLines();
+    testLabelAndStackTheming();
 
     std::cout << "All LeapK Keyboard Overlay tests passed successfully!\n";
     return 0;

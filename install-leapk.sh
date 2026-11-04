@@ -462,6 +462,10 @@ set_default KeyboardOverlayKeyFontSize 14
 set_default KeyboardOverlayLineWidth 3.4
 set_default KeyboardOverlayBadgeRadius 18
 set_default KeyboardOverlayBadgeFontSize 13
+set_default KeyboardOverlayFontFamily ""
+set_default KeyboardOverlayTargetLabelFontSize 10
+set_default KeyboardOverlayStackScaleReduction 35
+set_default KeyboardOverlayStackOpacityReduction 40
 set_default BadgeSize 28
 set_default BadgeMargin 0
 set_default BadgeShowIcon false

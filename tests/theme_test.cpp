@@ -106,6 +106,41 @@ static void testBuiltInThemes()
     assert(nordic.hudNav.allIcon == QStringLiteral("○"));
     assert(nordic.hudNav.stashIcon == QStringLiteral("📥"));
     assert(nordic.hudNav.tabShape == QStringLiteral("pill"));
+
+    // Spatial keyboard component verification
+    assert(breeze.spatialKeyboard.keycapShape == QStringLiteral("rounded_rect"));
+    assert(breeze.spatialKeyboard.targetBadgeShape == QStringLiteral("circle"));
+    assert(cyber.spatialKeyboard.keycapShape == QStringLiteral("chamfered"));
+    assert(cyber.spatialKeyboard.targetBadgeShape == QStringLiteral("ring"));
+    assert(term.spatialKeyboard.keycapShape == QStringLiteral("sharp"));
+    assert(term.spatialKeyboard.fontFamily == QStringLiteral("monospace"));
+    assert(nordic.spatialKeyboard.keycapShape == QStringLiteral("pill"));
+    assert(nordic.spatialKeyboard.targetBadgeShape == QStringLiteral("pill"));
+}
+
+static void testSpatialKeyboardThemeSettings()
+{
+    SpatialKeyboardTheme skt;
+    assert(skt.keycapShape == QStringLiteral("rounded_rect"));
+    assert(skt.targetBadgeShape == QStringLiteral("circle"));
+    assert(std::abs(skt.stackScaleReduction - 0.35) < 0.001);
+    assert(std::abs(skt.stackOpacityReduction - 0.40) < 0.001);
+
+    skt.fontFamily = QStringLiteral("Fira Code");
+    skt.keycapShape = QStringLiteral("chamfered");
+    skt.targetBadgeShape = QStringLiteral("ring");
+    skt.stackScaleReduction = 0.50;
+    skt.stackOpacityReduction = 0.60;
+    skt.laserDashStyle = QStringLiteral("dashed");
+
+    const QJsonObject json = skt.toJson();
+    const SpatialKeyboardTheme parsed = SpatialKeyboardTheme::fromJson(json);
+    assert(parsed.fontFamily == QStringLiteral("Fira Code"));
+    assert(parsed.keycapShape == QStringLiteral("chamfered"));
+    assert(parsed.targetBadgeShape == QStringLiteral("ring"));
+    assert(std::abs(parsed.stackScaleReduction - 0.50) < 0.001);
+    assert(std::abs(parsed.stackOpacityReduction - 0.60) < 0.001);
+    assert(parsed.laserDashStyle == QStringLiteral("dashed"));
 }
 
 static void testHudNavThemeSettings()
@@ -357,6 +392,7 @@ int main(int, char **)
     testAudioThemeSettings();
     testSoundThemeSettings();
     testHudNavThemeSettings();
+    testSpatialKeyboardThemeSettings();
     testVariableResolutionAndOverrides();
     testSerializationAndParsing();
     testThemeDiscoveryAndLookup();

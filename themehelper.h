@@ -469,6 +469,96 @@ struct SoundTheme {
     }
 };
 
+struct SpatialKeyboardTheme {
+    QString fontFamily;
+    QString keycapShape = QStringLiteral("rounded_rect"); // "rounded_rect", "pill", "chamfered", "sharp"
+    int keycapCornerRadius = 6;
+    QString keycapBg = QStringLiteral("$bgCard");
+    QString keycapBorder = QStringLiteral("$borderNormal");
+    QString keycapTextColor = QStringLiteral("$textPrimary");
+    QString panelShape = QStringLiteral("rounded_rect");
+    int panelCornerRadius = 12;
+    QString panelBg = QStringLiteral("$bgSurface");
+    QString panelBorder = QStringLiteral("$borderColor");
+    bool laserGlow = true;
+    double laserGlowIntensity = 1.0;
+    QString laserDashStyle = QStringLiteral("solid"); // "solid", "dashed", "dotted"
+    QString targetBadgeShape = QStringLiteral("circle"); // "circle", "rounded_rect", "pill", "chamfered", "ring"
+    int targetBadgeCornerRadius = 8;
+    QString targetBadgeBg = QStringLiteral("$bgCard");
+    QString targetBadgeBorder = QStringLiteral("$borderColor");
+    double targetBadgeBorderWidth = 2.0;
+    bool targetLabelVisible = true;
+    int targetLabelFontSize = 9;
+    QString targetLabelBg = QStringLiteral("#0c0f16eb");
+    QString targetLabelTextColor = QStringLiteral("$textPrimary");
+    double stackScaleReduction = 0.35;   // 0.0 .. 0.70 (degree of badge size reduction for stacked/occluded windows)
+    double stackOpacityReduction = 0.40; // 0.0 .. 0.70 (degree of opacity reduction for lower stacked levels)
+    double stackBadgeGap = 8.0;
+
+    QJsonObject toJson() const
+    {
+        QJsonObject o;
+        if (!fontFamily.isEmpty()) o[QStringLiteral("fontFamily")] = fontFamily;
+        o[QStringLiteral("keycapShape")] = keycapShape;
+        o[QStringLiteral("keycapCornerRadius")] = keycapCornerRadius;
+        o[QStringLiteral("keycapBg")] = keycapBg;
+        o[QStringLiteral("keycapBorder")] = keycapBorder;
+        o[QStringLiteral("keycapTextColor")] = keycapTextColor;
+        o[QStringLiteral("panelShape")] = panelShape;
+        o[QStringLiteral("panelCornerRadius")] = panelCornerRadius;
+        o[QStringLiteral("panelBg")] = panelBg;
+        o[QStringLiteral("panelBorder")] = panelBorder;
+        o[QStringLiteral("laserGlow")] = laserGlow;
+        o[QStringLiteral("laserGlowIntensity")] = laserGlowIntensity;
+        o[QStringLiteral("laserDashStyle")] = laserDashStyle;
+        o[QStringLiteral("targetBadgeShape")] = targetBadgeShape;
+        o[QStringLiteral("targetBadgeCornerRadius")] = targetBadgeCornerRadius;
+        o[QStringLiteral("targetBadgeBg")] = targetBadgeBg;
+        o[QStringLiteral("targetBadgeBorder")] = targetBadgeBorder;
+        o[QStringLiteral("targetBadgeBorderWidth")] = targetBadgeBorderWidth;
+        o[QStringLiteral("targetLabelVisible")] = targetLabelVisible;
+        o[QStringLiteral("targetLabelFontSize")] = targetLabelFontSize;
+        o[QStringLiteral("targetLabelBg")] = targetLabelBg;
+        o[QStringLiteral("targetLabelTextColor")] = targetLabelTextColor;
+        o[QStringLiteral("stackScaleReduction")] = stackScaleReduction;
+        o[QStringLiteral("stackOpacityReduction")] = stackOpacityReduction;
+        o[QStringLiteral("stackBadgeGap")] = stackBadgeGap;
+        return o;
+    }
+
+    static SpatialKeyboardTheme fromJson(const QJsonObject &o)
+    {
+        SpatialKeyboardTheme k;
+        k.fontFamily = o.value(QStringLiteral("fontFamily")).toString(k.fontFamily);
+        k.keycapShape = o.value(QStringLiteral("keycapShape")).toString(k.keycapShape);
+        k.keycapCornerRadius = o.value(QStringLiteral("keycapCornerRadius")).toInt(k.keycapCornerRadius);
+        k.keycapBg = o.value(QStringLiteral("keycapBg")).toString(k.keycapBg);
+        k.keycapBorder = o.value(QStringLiteral("keycapBorder")).toString(k.keycapBorder);
+        k.keycapTextColor = o.value(QStringLiteral("keycapTextColor")).toString(k.keycapTextColor);
+        k.panelShape = o.value(QStringLiteral("panelShape")).toString(k.panelShape);
+        k.panelCornerRadius = o.value(QStringLiteral("panelCornerRadius")).toInt(k.panelCornerRadius);
+        k.panelBg = o.value(QStringLiteral("panelBg")).toString(k.panelBg);
+        k.panelBorder = o.value(QStringLiteral("panelBorder")).toString(k.panelBorder);
+        k.laserGlow = o.value(QStringLiteral("laserGlow")).toBool(k.laserGlow);
+        k.laserGlowIntensity = o.value(QStringLiteral("laserGlowIntensity")).toDouble(k.laserGlowIntensity);
+        k.laserDashStyle = o.value(QStringLiteral("laserDashStyle")).toString(k.laserDashStyle);
+        k.targetBadgeShape = o.value(QStringLiteral("targetBadgeShape")).toString(k.targetBadgeShape);
+        k.targetBadgeCornerRadius = o.value(QStringLiteral("targetBadgeCornerRadius")).toInt(k.targetBadgeCornerRadius);
+        k.targetBadgeBg = o.value(QStringLiteral("targetBadgeBg")).toString(k.targetBadgeBg);
+        k.targetBadgeBorder = o.value(QStringLiteral("targetBadgeBorder")).toString(k.targetBadgeBorder);
+        k.targetBadgeBorderWidth = o.value(QStringLiteral("targetBadgeBorderWidth")).toDouble(k.targetBadgeBorderWidth);
+        k.targetLabelVisible = o.value(QStringLiteral("targetLabelVisible")).toBool(k.targetLabelVisible);
+        k.targetLabelFontSize = o.value(QStringLiteral("targetLabelFontSize")).toInt(k.targetLabelFontSize);
+        k.targetLabelBg = o.value(QStringLiteral("targetLabelBg")).toString(k.targetLabelBg);
+        k.targetLabelTextColor = o.value(QStringLiteral("targetLabelTextColor")).toString(k.targetLabelTextColor);
+        k.stackScaleReduction = o.value(QStringLiteral("stackScaleReduction")).toDouble(k.stackScaleReduction);
+        k.stackOpacityReduction = o.value(QStringLiteral("stackOpacityReduction")).toDouble(k.stackOpacityReduction);
+        k.stackBadgeGap = o.value(QStringLiteral("stackBadgeGap")).toDouble(k.stackBadgeGap);
+        return k;
+    }
+};
+
 // ============================================================================
 // 3. Complete LeapK Theme Structure
 // ============================================================================
@@ -492,6 +582,7 @@ struct Theme {
     HintsBarTheme hintsBar;
     HudNavTheme hudNav;
     SoundTheme sound;
+    SpatialKeyboardTheme spatialKeyboard;
 
     // Helper: resolves a value that may reference a parameter ($id) or token
     QString resolveVar(const QString &val) const
@@ -712,6 +803,7 @@ struct Theme {
         comps[QStringLiteral("hintsBar")] = hintsBar.toJson();
         comps[QStringLiteral("hudNav")] = hudNav.toJson();
         comps[QStringLiteral("sound")] = sound.toJson();
+        comps[QStringLiteral("spatialKeyboard")] = spatialKeyboard.toJson();
         root[QStringLiteral("components")] = comps;
 
         return root;
@@ -760,6 +852,9 @@ struct Theme {
         }
         if (comps.contains(QStringLiteral("sound"))) {
             t.sound = SoundTheme::fromJson(comps.value(QStringLiteral("sound")).toObject());
+        }
+        if (comps.contains(QStringLiteral("spatialKeyboard"))) {
+            t.spatialKeyboard = SpatialKeyboardTheme::fromJson(comps.value(QStringLiteral("spatialKeyboard")).toObject());
         }
 
         return t;
@@ -907,6 +1002,14 @@ inline QList<Theme> builtInThemes()
         t.hudNav.arrowRight = QStringLiteral(". ▸");
         t.hudNav.tabShape = QStringLiteral("pill");
         t.hudNav.tabCornerRadius = 12;
+
+        t.spatialKeyboard.keycapShape = QStringLiteral("rounded_rect");
+        t.spatialKeyboard.keycapCornerRadius = 6;
+        t.spatialKeyboard.targetBadgeShape = QStringLiteral("circle");
+        t.spatialKeyboard.laserGlow = true;
+        t.spatialKeyboard.laserGlowIntensity = 1.0;
+        t.spatialKeyboard.stackScaleReduction = 0.35;
+        t.spatialKeyboard.stackOpacityReduction = 0.40;
 
         list.append(t);
     }
@@ -1062,6 +1165,14 @@ inline QList<Theme> builtInThemes()
         t.hudNav.tabShape = QStringLiteral("chamfered");
         t.hudNav.tabChamferSize = 5;
 
+        t.spatialKeyboard.keycapShape = QStringLiteral("chamfered");
+        t.spatialKeyboard.targetBadgeShape = QStringLiteral("ring");
+        t.spatialKeyboard.laserGlow = true;
+        t.spatialKeyboard.laserGlowIntensity = 1.7;
+        t.spatialKeyboard.laserDashStyle = QStringLiteral("solid");
+        t.spatialKeyboard.stackScaleReduction = 0.30;
+        t.spatialKeyboard.stackOpacityReduction = 0.45;
+
         list.append(t);
     }
 
@@ -1182,6 +1293,14 @@ inline QList<Theme> builtInThemes()
         t.hudNav.arrowRight = QStringLiteral(". >");
         t.hudNav.tabShape = QStringLiteral("sharp");
         t.hudNav.tabCornerRadius = 0;
+
+        t.spatialKeyboard.fontFamily = QStringLiteral("monospace");
+        t.spatialKeyboard.keycapShape = QStringLiteral("sharp");
+        t.spatialKeyboard.targetBadgeShape = QStringLiteral("sharp");
+        t.spatialKeyboard.laserGlow = false;
+        t.spatialKeyboard.laserDashStyle = QStringLiteral("dashed");
+        t.spatialKeyboard.stackScaleReduction = 0.40;
+        t.spatialKeyboard.stackOpacityReduction = 0.50;
 
         list.append(t);
     }
@@ -1309,6 +1428,13 @@ inline QList<Theme> builtInThemes()
         t.hudNav.arrowRight = QStringLiteral(". ›");
         t.hudNav.tabShape = QStringLiteral("pill");
         t.hudNav.tabCornerRadius = 14;
+
+        t.spatialKeyboard.keycapShape = QStringLiteral("pill");
+        t.spatialKeyboard.targetBadgeShape = QStringLiteral("pill");
+        t.spatialKeyboard.laserGlow = true;
+        t.spatialKeyboard.laserGlowIntensity = 1.2;
+        t.spatialKeyboard.stackScaleReduction = 0.35;
+        t.spatialKeyboard.stackOpacityReduction = 0.35;
 
         list.append(t);
     }

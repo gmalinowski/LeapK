@@ -773,6 +773,10 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_keyboardOverlayLineWidth = qBound(1.0, config.readEntry("KeyboardOverlayLineWidth", 3.4), 10.0);
     m_keyboardOverlayBadgeRadius = qBound(10, config.readEntry("KeyboardOverlayBadgeRadius", 18), 40);
     m_keyboardOverlayBadgeFontSize = qBound(8, config.readEntry("KeyboardOverlayBadgeFontSize", 13), 24);
+    m_keyboardOverlayFontFamily = config.readEntry("KeyboardOverlayFontFamily", QString());
+    m_keyboardOverlayTargetLabelFontSize = qBound(6, config.readEntry("KeyboardOverlayTargetLabelFontSize", 10), 24);
+    m_keyboardOverlayStackScaleReduction = qBound(0, config.readEntry("KeyboardOverlayStackScaleReduction", 35), 70);
+    m_keyboardOverlayStackOpacityReduction = qBound(0, config.readEntry("KeyboardOverlayStackOpacityReduction", 40), 70);
     m_cursorWarpMode = qBound(0, config.readEntry("CursorWarpMode", 0), 2);
     m_soundFeedbackEnabled = config.readEntry("SoundFeedbackEnabled", false);
     m_soundFeedbackVolume = qBound(0, config.readEntry("SoundFeedbackVolume", 30), 100);

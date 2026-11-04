@@ -284,6 +284,24 @@
             <min>8</min>
             <max>24</max>
         </entry>
+        <entry name="KeyboardOverlayFontFamily" type="String">
+            <default></default>
+        </entry>
+        <entry name="KeyboardOverlayTargetLabelFontSize" type="Int">
+            <default>10</default>
+            <min>6</min>
+            <max>24</max>
+        </entry>
+        <entry name="KeyboardOverlayStackScaleReduction" type="Int">
+            <default>35</default>
+            <min>0</min>
+            <max>70</max>
+        </entry>
+        <entry name="KeyboardOverlayStackOpacityReduction" type="Int">
+            <default>40</default>
+            <min>0</min>
+            <max>70</max>
+        </entry>
         <entry name="JumpTargets" type="Int">
             <default>0</default>
             <min>0</min>

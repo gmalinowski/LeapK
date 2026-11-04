@@ -333,6 +333,10 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemDouble(QStringLiteral("KeyboardOverlayLineWidth"), *new double, 3.4);
     m_configSkeleton->addItemInt(QStringLiteral("KeyboardOverlayBadgeRadius"), *new int, 18);
     m_configSkeleton->addItemInt(QStringLiteral("KeyboardOverlayBadgeFontSize"), *new int, 13);
+    m_configSkeleton->addItemString(QStringLiteral("KeyboardOverlayFontFamily"), *new QString, QString());
+    m_configSkeleton->addItemInt(QStringLiteral("KeyboardOverlayTargetLabelFontSize"), *new int, 10);
+    m_configSkeleton->addItemInt(QStringLiteral("KeyboardOverlayStackScaleReduction"), *new int, 35);
+    m_configSkeleton->addItemInt(QStringLiteral("KeyboardOverlayStackOpacityReduction"), *new int, 40);
     m_configSkeleton->addItemBool(QStringLiteral("SoundFeedbackEnabled"), *new bool, false);
     m_configSkeleton->addItemInt(QStringLiteral("SoundFeedbackVolume"), *new int, 30);
 

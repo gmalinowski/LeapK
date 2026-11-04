@@ -685,19 +685,25 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
         unassignedCandidates.append(w);
     }
 
-    if (m_keyboardOverlayEnabled && !unassignedCandidates.isEmpty()) {
+    if (m_keyboardOverlayEnabled && !candidates.isEmpty()) {
         QRectF screenGeo(0, 0, 1920, 1080);
         if (effects && effects->activeScreen()) {
             screenGeo = QRectF(QRect(effects->activeScreen()->geometry()));
         }
         const auto stacking = effects ? effects->stackingOrder() : QList<EffectWindow *>();
         QList<LeapKKeyboardOverlay::WindowTargetItem> items;
-        for (EffectWindow *w : unassignedCandidates) {
+        for (EffectWindow *w : candidates) {
             LeapKKeyboardOverlay::WindowTargetItem item;
             item.windowId = w;
             item.geometry = w->frameGeometry();
             item.title = w->caption();
             item.appClass = w->windowClass().split(QLatin1Char(' ')).first().toLower();
+            if (m_markedWindowLetters.contains(w)) {
+                item.preferredKey = m_markedWindowLetters.value(w).toUpper();
+            }
+            if (m_markedWindowLabels.contains(w)) {
+                item.customLabel = m_markedWindowLabels.value(w);
+            }
             item.zOrder = stacking.indexOf(w);
             item.isOccluded = isWindowObscured(w);
             items.append(item);
@@ -2741,6 +2747,9 @@ void ActiveWindowOutlineEffect::renderKeyboardArrowsOverlay(const RenderTarget &
         }
     }
 
+    const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
+    const auto &st = theme.spatialKeyboard;
+
     LeapKKeyboardOverlay::OverlayDisplayConfig cfg;
     cfg.enabled = m_keyboardOverlayEnabled;
     cfg.extendToHud = m_keyboardOverlayExtendToHud;
@@ -2749,6 +2758,22 @@ void ActiveWindowOutlineEffect::renderKeyboardArrowsOverlay(const RenderTarget &
     cfg.lineWidth = m_keyboardOverlayLineWidth;
     cfg.badgeRadius = m_keyboardOverlayBadgeRadius;
     cfg.badgeFontSize = m_keyboardOverlayBadgeFontSize;
+    cfg.targetLabelFontSize = m_keyboardOverlayTargetLabelFontSize;
+    cfg.fontFamily = !m_keyboardOverlayFontFamily.isEmpty() ? m_keyboardOverlayFontFamily : st.fontFamily;
+    cfg.targetBadgeShape = !st.targetBadgeShape.isEmpty() ? st.targetBadgeShape : QStringLiteral("circle");
+    cfg.stackScaleReduction = (m_keyboardOverlayStackScaleReduction >= 0)
+        ? (m_keyboardOverlayStackScaleReduction / 100.0)
+        : st.stackScaleReduction;
+    cfg.stackOpacityReduction = (m_keyboardOverlayStackOpacityReduction >= 0)
+        ? (m_keyboardOverlayStackOpacityReduction / 100.0)
+        : st.stackOpacityReduction;
+    cfg.stackBadgeGap = st.stackBadgeGap > 0.0 ? st.stackBadgeGap : 8.0;
+    cfg.targetLabelVisible = st.targetLabelVisible;
+    cfg.laserGlow = st.laserGlow;
+    cfg.laserGlowIntensity = st.laserGlowIntensity;
+    cfg.laserDashStyle = st.laserDashStyle;
+    cfg.targetLabelBg = theme.resolveColor(st.targetLabelBg, QColor(12, 15, 22, 235));
+    cfg.targetLabelTextColor = theme.resolveColor(st.targetLabelTextColor, QColor(255, 255, 255));
 
     m_keyboardOverlayLayout = LeapKKeyboardOverlay::computeOverlayGeometry(screenRect, hudBounds, cfg);
     m_keyboardOverlayWindowMap.clear();
@@ -2774,6 +2799,7 @@ void ActiveWindowOutlineEffect::renderKeyboardArrowsOverlay(const RenderTarget &
         item.preferredKey = key;
         item.title = w->caption();
         item.appClass = w->windowClass().split(QLatin1Char(' ')).first().toLower();
+        item.customLabel = m_markedWindowLabels.value(w);
         item.isVisibleOnScreen = w->isOnCurrentDesktop() && !w->isMinimized() && item.geometry.intersects(screenRect);
         item.isCurrentFocused = (w == currActive);
         item.zOrder = stacking.indexOf(w);

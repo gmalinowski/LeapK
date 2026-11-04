@@ -660,6 +660,10 @@ private:
     qreal m_keyboardOverlayLineWidth = 3.4;
     int m_keyboardOverlayBadgeRadius = 18;
     int m_keyboardOverlayBadgeFontSize = 13;
+    QString m_keyboardOverlayFontFamily;
+    int m_keyboardOverlayTargetLabelFontSize = 10;
+    int m_keyboardOverlayStackScaleReduction = 35;
+    int m_keyboardOverlayStackOpacityReduction = 40;
     LeapKKeyboardOverlay::KeyboardOverlayLayout m_keyboardOverlayLayout;
     QMap<QChar, EffectWindow *> m_keyboardOverlayWindowMap;
     QChar m_invalidJumpKey;
