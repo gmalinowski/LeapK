@@ -80,7 +80,7 @@ target_link_libraries(leapk PRIVATE
 )
 # Identify the loaded library, including uncommitted test builds.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    leapk.cpp leapk_shaders.cpp leapk_color.cpp leapk_paint.cpp leapk_tiling.cpp leapk_hud.cpp leapk_input.cpp leapk_workspaces.cpp leapk_internal.h leapk.h popupfilter.h cursoroverlay.h visibilitystate.h ambilightalgorithm.h keyboardlayouthelper.h persistentmarkhelper.h audiotracker.h tilinghelper.h kwintilehelper.h)
+    leapk.cpp leapk_shaders.cpp leapk_color.cpp leapk_paint.cpp leapk_tiling.cpp leapk_hud.cpp leapk_input.cpp leapk_workspaces.cpp leapk_internal.h leapk.h popupfilter.h cursoroverlay.h visibilitystate.h ambilightalgorithm.h keyboardlayouthelper.h persistentmarkhelper.h audiotracker.h tilinghelper.h kwintilehelper.h keyboardoverlayhelper.h)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk.cpp" OUTLINE_CPP_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk_shaders.cpp" OUTLINE_SHADERS_HASH)
 file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk_color.cpp" OUTLINE_COLOR_HASH)
@@ -390,6 +390,11 @@ if(OUTLINE_BUILD_TESTS)
     target_include_directories(outline-keyboardlayout-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(outline-keyboardlayout-test PRIVATE Qt6::Core)
     add_test(NAME outline-keyboardlayout COMMAND outline-keyboardlayout-test)
+
+    add_executable(outline-keyboardoverlay-test tests/keyboardoverlay_test.cpp)
+    target_include_directories(outline-keyboardoverlay-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-keyboardoverlay-test PRIVATE Qt6::Core Qt6::Gui)
+    add_test(NAME outline-keyboardoverlay COMMAND outline-keyboardoverlay-test)
 
     add_executable(outline-persistentmark-test tests/persistentmark_test.cpp)
     target_include_directories(outline-persistentmark-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta84-exp] - 2026-11-04
+
+### Added
+- **Experimental Spatial Keyboard Overlay with Window Directional Arrows (`Meta + Space`)**:
+  - Displays a glassmorphic QWERTY keyboard layout dock (`QWERTYUIOP`, `ASDFGHJKL`, `ZXCVBNM`) on the screen upon pressing `Meta + Space`.
+  - Keys without any assigned window are rendered strongly semi-transparent / ghosted (`QColor(28, 32, 42, 55)` with faint letters).
+  - Keys assigned to active windows are brightly illuminated with glowing borders and distinct neon colors from a 26-color high-contrast palette.
+  - From each active key, a neon laser arrow line with drop-shadow outline and swept-back arrowhead originates and points directly to the center of its assigned window.
+  - Every arrow is guaranteed a distinct, unique color (`każda strzałka musi mieć inny kolor`).
+  - At each window center, a circular target ring with the letter and an app class caption pill is rendered.
+  - Spatial key matching algorithm (`assignSpatialKeys`): automatically assigns windows to keys corresponding to their physical screen position (left windows -> left keys, right windows -> right keys, top windows -> top row) to prevent arrow lines from crossing.
+  - Interactive mouse and keyboard support: pressing the key or clicking the key on the keyboard overlay immediately focuses, raises, and jumps to that window.
+  - Added dedicated unit tests in `tests/keyboardoverlay_test.cpp` verifying color uniqueness, layout computation, spatial assignment, and image rendering. All 31/31 CTests pass (100%).
+
 ## [1.6.0-beta83] - 2026-11-04
 
 ### Fixed

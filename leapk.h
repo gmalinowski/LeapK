@@ -42,6 +42,7 @@
 #include "persistentmarkhelper.h"
 #include "workspacehelper.h"
 #include "tilinghelper.h"
+#include "keyboardoverlayhelper.h"
 
 class QFileSystemWatcher;
 
@@ -338,6 +339,8 @@ private:
                             int fontSizePt = 12,
                             qreal maxAllowedWidth = 0.0,
                             const QString &shapeOverride = QString());
+    void renderKeyboardArrowsOverlay(const RenderTarget &renderTarget,
+                                    const RenderViewport &viewport);
     void renderOffscreenJumpTargets(const RenderTarget &renderTarget,
                                    const RenderViewport &viewport,
                                    const QList<QPair<QChar, EffectWindow *>> &targets,
@@ -650,6 +653,9 @@ private:
     int m_searchScope = 1;
     int m_searchSelectedIndex = 0;
     QList<OutlineFuzzy::SearchCandidate> m_searchMatches;
+    bool m_keyboardOverlayEnabled = true;
+    LeapKKeyboardOverlay::KeyboardOverlayLayout m_keyboardOverlayLayout;
+    QMap<QChar, EffectWindow *> m_keyboardOverlayWindowMap;
     bool m_globalShortcutsBlocked = false;
     bool m_mouseIntercepting = false;
     bool m_keyboardGrabActive = false;

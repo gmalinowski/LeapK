@@ -685,6 +685,34 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
         unassignedCandidates.append(w);
     }
 
+    if (m_keyboardOverlayEnabled && !unassignedCandidates.isEmpty()) {
+        QRectF screenGeo(0, 0, 1920, 1080);
+        if (effects && effects->activeScreen()) {
+            screenGeo = QRectF(QRect(effects->activeScreen()->geometry()));
+        }
+        QList<LeapKKeyboardOverlay::WindowTargetItem> items;
+        for (EffectWindow *w : unassignedCandidates) {
+            LeapKKeyboardOverlay::WindowTargetItem item;
+            item.windowId = w;
+            item.geometry = w->frameGeometry();
+            item.title = w->caption();
+            item.appClass = w->windowClass().split(QLatin1Char(' ')).first().toLower();
+            items.append(item);
+        }
+        const auto spatialMap = LeapKKeyboardOverlay::assignSpatialKeys(items, screenGeo);
+        for (auto sit = spatialMap.constBegin(); sit != spatialMap.constEnd(); ++sit) {
+            const QChar key = sit.key();
+            EffectWindow *targetWin = reinterpret_cast<EffectWindow *>(sit.value().windowId);
+            if (targetWin && !assignedLetters.contains(key)) {
+                assignedLetters.insert(key);
+                m_letterWindowGroups[key].append(targetWin);
+                map[key] = targetWin;
+                m_windowToDirectLetter[targetWin] = key;
+                unassignedCandidates.removeAll(targetWin);
+            }
+        }
+    }
+
     const auto activeLayout = LeapKKeyboard::detectActiveLayout();
     const QString pool = LeapKKeyboard::preferredLetterPool(activeLayout);
     int poolIdx = 0;
@@ -2696,5 +2724,104 @@ QRectF ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &render
     return headerRect;
 }
 
+void ActiveWindowOutlineEffect::renderKeyboardArrowsOverlay(const RenderTarget &renderTarget,
+                                                            const RenderViewport &viewport)
+{
+    const qreal scale = viewport.scale();
+    const QRectF screenRect = viewport.renderRect();
+
+    m_keyboardOverlayLayout = LeapKKeyboardOverlay::computeOverlayGeometry(screenRect);
+    m_keyboardOverlayWindowMap.clear();
+
+    const auto &palette = LeapKKeyboardOverlay::distinctArrowColors();
+    int colorIdx = 0;
+
+    QMap<QChar, LeapKKeyboardOverlay::WindowTargetItem> assignedMap;
+
+    for (auto it = m_jumpLetterToWindow.constBegin(); it != m_jumpLetterToWindow.constEnd(); ++it) {
+        const QChar key = it.key().toUpper();
+        EffectWindow *w = it.value();
+        if (!w || w->isDeleted() || !isEligibleTargetWindow(w)) {
+            continue;
+        }
+        m_keyboardOverlayWindowMap.insert(key, w);
+
+        LeapKKeyboardOverlay::WindowTargetItem item;
+        item.windowId = w;
+        item.geometry = w->frameGeometry();
+        item.preferredKey = key;
+        item.title = w->caption();
+        item.appClass = w->windowClass().split(QLatin1Char(' ')).first().toLower();
+        item.isVisibleOnScreen = w->isOnCurrentDesktop() && !w->isMinimized() && item.geometry.intersects(screenRect);
+
+        if (m_markedWindows.contains(w) && m_markedWindows.value(w).isValid()) {
+            item.customColor = m_markedWindows.value(w);
+        } else {
+            item.customColor = palette[colorIdx % palette.size()];
+            colorIdx++;
+        }
+        assignedMap.insert(key, item);
+    }
+
+    const QImage img = LeapKKeyboardOverlay::renderOverlayImage(m_keyboardOverlayLayout, assignedMap, screenRect, scale);
+
+    auto uploaded = GLTexture::upload(img);
+    if (!uploaded) {
+        return;
+    }
+    uploaded->setFilter(GL_LINEAR);
+    uploaded->setWrapMode(GL_CLAMP_TO_EDGE);
+
+    const float x0 = screenRect.left() * scale;
+    const float y0 = screenRect.top() * scale;
+    const float x1 = screenRect.right() * scale;
+    const float y1 = screenRect.bottom() * scale;
+
+    const std::array<GLVertex2D, 6> verts = {{
+        {QVector2D(x0, y0), QVector2D(0.0f, 0.0f)},
+        {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+        {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+        {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+        {QVector2D(x1, y1), QVector2D(1.0f, 1.0f)},
+        {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+    }};
+
+    auto vbo = GLVertexBuffer::streamingBuffer();
+    vbo->setVertices(verts);
+
+    GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
+    GLint previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha;
+    glGetIntegerv(GL_BLEND_SRC_RGB, &previousSrcRgb);
+    glGetIntegerv(GL_BLEND_DST_RGB, &previousDstRgb);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &previousSrcAlpha);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &previousDstAlpha);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+    GLboolean scissorWasEnabled = glIsEnabled(GL_SCISSOR_TEST);
+    glDisable(GL_SCISSOR_TEST);
+
+    ShaderBinder binder(ShaderTrait::MapTexture | ShaderTrait::Modulate | ShaderTrait::TransformColorspace);
+    GLShader *shader = binder.shader();
+    shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix, viewport.projectionMatrix());
+    shader->setUniform(GLShader::Mat4Uniform::TextureMatrix, uploaded->matrix(NormalizedCoordinates));
+    shader->setColorspaceUniforms(ColorDescription::sRGB, renderTarget.colorDescription(), RenderingIntent::Perceptual);
+    shader->setUniform(GLShader::Vec4Uniform::ModulationConstant, QVector4D(1.0f, 1.0f, 1.0f, 1.0f));
+
+    uploaded->bind();
+    vbo->render(GL_TRIANGLES);
+    uploaded->unbind();
+
+    if (scissorWasEnabled) {
+        glEnable(GL_SCISSOR_TEST);
+    }
+    glBlendFuncSeparate(previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha);
+    if (blendWasEnabled) {
+        glEnable(GL_BLEND);
+    } else {
+        glDisable(GL_BLEND);
+    }
+}
 
 } // namespace KWin

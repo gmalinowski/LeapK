@@ -903,6 +903,13 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
 
         if (m_hudCloseButtonScreenRect.isValid() && m_hudCloseButtonScreenRect.contains(pos)) {
             isHoveringClickable = true;
+        } else if (m_keyboardOverlayEnabled) {
+            for (const auto &kg : m_keyboardOverlayLayout.keycaps) {
+                if (kg.rect.contains(pos) && m_keyboardOverlayWindowMap.contains(kg.key)) {
+                    isHoveringClickable = true;
+                    break;
+                }
+            }
         } else if (m_tilingPresetsModeActive) {
             for (const auto &pair : m_hudTilingPresetPillRects) {
                 if (pair.first.isValid() && pair.first.contains(pos)) {
@@ -944,6 +951,21 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
             if (m_hudCloseButtonScreenRect.isValid() && m_hudCloseButtonScreenRect.contains(pos)) {
                 cancelJumpMode();
                 return;
+            }
+
+            // Keyboard overlay key click
+            if (m_keyboardOverlayEnabled) {
+                for (const auto &kg : m_keyboardOverlayLayout.keycaps) {
+                    if (kg.rect.contains(pos)) {
+                        if (m_keyboardOverlayWindowMap.contains(kg.key)) {
+                            EffectWindow *target = m_keyboardOverlayWindowMap.value(kg.key);
+                            if (target && !target->isDeleted()) {
+                                activateJumpTargetWindow(target, Qt::Key_Space);
+                                return;
+                            }
+                        }
+                    }
+                }
             }
 
             // If in tiling presets mode, check clicks on preset pills:
