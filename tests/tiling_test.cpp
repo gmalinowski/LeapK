@@ -439,7 +439,7 @@ void testTilingWindowRuleConfig()
     assert(rule.ignoregeometryrule == 2); // Force
     assert(rule.strictgeometry == false);
     assert(rule.strictgeometryrule == 2); // Force
-    assert(rule.types == 1); // Normal window
+    assert(rule.types == -1); // Match all window types (Normal, Dialog, Utility, Splash, etc.)
     assert(rule.wmclass.isEmpty());
     assert(rule.wmclasscomplete == false);
     assert(rule.wmclassmatch == 0); // Unimportant match
@@ -1321,6 +1321,109 @@ void testDynamicSplitMergeDelete()
     std::cout << "testDynamicSplitMergeDelete PASSED\n";
 }
 
+void testShiftAndBoundaryEdgeResize()
+{
+    using namespace LeapKTiling;
+
+    // 1. Three Horizontal Columns: Left (0), Middle (1), Right (2)
+    // Left slot: touches left wall -> only has right divider.
+    // Middle slot: has both left and right dividers.
+    // Right slot: touches right wall -> only has left divider.
+    QList<QRectF> geos = {
+        QRectF(0, 0, 600, 1080),    // Slot 0 (Left, right: 600)
+        QRectF(600, 0, 720, 1080),  // Slot 1 (Middle, left: 600, right: 1320)
+        QRectF(1320, 0, 600, 1080)  // Slot 2 (Right, left: 1320, right: 1920)
+    };
+
+    // Slot 0 (Left boundary):
+    // Default (Auto): operates on right divider (widen with Right, shrink with Left)
+    bool ok = resizeSlotGeometries(geos, 0, ResizeDirection::Right, 50.0, 100.0, true, TileEdge::Auto);
+    assert(ok);
+    assert(qAbs(geos[0].width() - 650.0) < 0.001);
+    assert(qAbs(geos[1].left() - 650.0) < 0.001);
+    assert(qAbs(geos[1].width() - 670.0) < 0.001);
+
+    // Slot 0 with Shift (TileEdge::Left):
+    // Left edge has no divider (screen wall), so it falls back to operating on right divider!
+    ok = resizeSlotGeometries(geos, 0, ResizeDirection::Left, 50.0, 100.0, true, TileEdge::Left);
+    assert(ok);
+    assert(qAbs(geos[0].width() - 600.0) < 0.001);
+    assert(qAbs(geos[1].left() - 600.0) < 0.001);
+    assert(qAbs(geos[1].width() - 720.0) < 0.001);
+
+    // Slot 2 (Right boundary):
+    // Default (Auto): operates on left divider (widen with Left, shrink with Right)
+    ok = resizeSlotGeometries(geos, 2, ResizeDirection::Left, 50.0, 100.0, true, TileEdge::Auto);
+    assert(ok);
+    assert(qAbs(geos[2].left() - 1270.0) < 0.001);
+    assert(qAbs(geos[2].width() - 650.0) < 0.001);
+    assert(qAbs(geos[1].width() - 670.0) < 0.001);
+
+    // Slot 2 with Shift (TileEdge::Left):
+    // Shift also operates on left divider!
+    ok = resizeSlotGeometries(geos, 2, ResizeDirection::Right, 50.0, 100.0, true, TileEdge::Left);
+    assert(ok);
+    assert(qAbs(geos[2].left() - 1320.0) < 0.001);
+    assert(qAbs(geos[2].width() - 600.0) < 0.001);
+    assert(qAbs(geos[1].width() - 720.0) < 0.001);
+
+    // Slot 1 (Middle window):
+    // Default (Auto): operates on right divider
+    // 'l' (Right) widens right divider to the right:
+    ok = resizeSlotGeometries(geos, 1, ResizeDirection::Right, 40.0, 100.0, true, TileEdge::Auto);
+    assert(ok);
+    assert(qAbs(geos[0].width() - 600.0) < 0.001); // Left slot untouched!
+    assert(qAbs(geos[1].width() - 760.0) < 0.001); // Middle slot widened right
+    assert(qAbs(geos[2].left() - 1360.0) < 0.001); // Right slot shrunk from left
+    assert(qAbs(geos[2].width() - 560.0) < 0.001);
+
+    // Middle window with Shift (TileEdge::Left):
+    // Operates on left divider!
+    // Shift + 'h' (Left) widens left divider to the left:
+    ok = resizeSlotGeometries(geos, 1, ResizeDirection::Left, 40.0, 100.0, true, TileEdge::Left);
+    assert(ok);
+    assert(qAbs(geos[0].width() - 560.0) < 0.001); // Left slot shrunk
+    assert(qAbs(geos[1].left() - 560.0) < 0.001); // Middle slot moved left
+    assert(qAbs(geos[1].width() - 800.0) < 0.001); // Middle slot widened left (+40)
+    assert(qAbs(geos[2].width() - 560.0) < 0.001); // Right slot untouched!
+
+    // Shift + 'l' (Right) narrows left divider to the right:
+    ok = resizeSlotGeometries(geos, 1, ResizeDirection::Right, 40.0, 100.0, true, TileEdge::Left);
+    assert(ok);
+    assert(qAbs(geos[0].width() - 600.0) < 0.001); // Left slot expanded back
+    assert(qAbs(geos[1].left() - 600.0) < 0.001);
+    assert(qAbs(geos[1].width() - 760.0) < 0.001);
+    assert(qAbs(geos[2].width() - 560.0) < 0.001);
+
+    // 2. Three Vertical Rows: Top (0), Middle (1), Bottom (2)
+    QList<QRectF> vgeos = {
+        QRectF(0, 0, 1920, 300),    // Slot 0 (Top, bottom: 300)
+        QRectF(0, 300, 1920, 480),  // Slot 1 (Middle, top: 300, bottom: 780)
+        QRectF(0, 780, 1920, 300)   // Slot 2 (Bottom, top: 780, bottom: 1080)
+    };
+
+    // Slot 1 (Middle vertical):
+    // Default (Auto): operates on bottom divider
+    // Down ('j') moves bottom divider down:
+    ok = resizeSlotGeometries(vgeos, 1, ResizeDirection::Down, 50.0, 100.0, true, TileEdge::Auto);
+    assert(ok);
+    assert(qAbs(vgeos[0].height() - 300.0) < 0.001); // Top untouched
+    assert(qAbs(vgeos[1].height() - 530.0) < 0.001); // Middle taller
+    assert(vgeos[2].top() == 830.0);
+    assert(qAbs(vgeos[2].height() - 250.0) < 0.001); // Bottom shorter
+
+    // Shift (TileEdge::Top): operates on top divider!
+    // Up ('k') moves top divider up:
+    ok = resizeSlotGeometries(vgeos, 1, ResizeDirection::Up, 50.0, 100.0, true, TileEdge::Top);
+    assert(ok);
+    assert(qAbs(vgeos[0].height() - 250.0) < 0.001); // Top shorter
+    assert(vgeos[1].top() == 250.0);
+    assert(qAbs(vgeos[1].height() - 580.0) < 0.001); // Middle taller from top
+    assert(qAbs(vgeos[2].height() - 250.0) < 0.001); // Bottom untouched!
+
+    std::cout << "testShiftAndBoundaryEdgeResize PASSED\n";
+}
+
 int main()
 {
     testDefaultPresets();
@@ -1340,6 +1443,7 @@ int main()
     testCustomLayoutUpsertAndDelete();
     testThreeColumnsMiddleSlotResize();
     testDynamicSplitMergeDelete();
+    testShiftAndBoundaryEdgeResize();
 
     std::cout << "All LeapKTiling tests passed successfully!\n";
     return 0;

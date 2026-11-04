@@ -30,7 +30,7 @@ struct TilingWindowRuleConfig
     int ignoregeometryrule = 2; // Force
     bool strictgeometry = false;
     int strictgeometryrule = 2; // Force
-    int types = 1; // Normal window
+    int types = -1; // Match ALL window types (Normal, Dialog, Utility, Splash, etc.)
     QString wmclass;
     bool wmclasscomplete = false;
     int wmclassmatch = 0; // Unimportant match
@@ -538,47 +538,48 @@ inline bool resizeSlotGeometries(QList<QRectF> &geometries, int activeIdx, Resiz
             return false;
         };
 
-        if (targetEdge == TileEdge::Right) {
-            if (hasRightDivider) {
-                const qreal shift = (dir == ResizeDirection::Right) ? delta : -delta;
-                return shiftHorizontalDivider(rightDivL, rightDivR, shift);
+        // Select horizontal divider to operate on:
+        // Default (Auto):
+        // - At left wall: Right divider
+        // - At right wall: Left divider
+        // - In middle: Right divider
+        // Shift (targetEdge == TileEdge::Left):
+        // - In middle: Left divider
+        // - At right wall: Left divider
+        // - At left wall: fallback to Right divider
+        TileEdge activeTarget = targetEdge;
+        if (activeTarget == TileEdge::Auto) {
+            activeTarget = hasRightDivider ? TileEdge::Right : TileEdge::Left;
+        } else if (activeTarget == TileEdge::Left && !hasLeftDivider && hasRightDivider) {
+            activeTarget = TileEdge::Right;
+        } else if (activeTarget == TileEdge::Right && !hasRightDivider && hasLeftDivider) {
+            activeTarget = TileEdge::Left;
+        }
+
+        if (activeTarget == TileEdge::Right && hasRightDivider) {
+            // Right edge:
+            // Right (L) -> moves right (+delta) -> widens window
+            // Left  (H) -> moves left (-delta) -> narrows window
+            const qreal shift = (dir == ResizeDirection::Right) ? delta : -delta;
+            if (shiftHorizontalDivider(rightDivL, rightDivR, shift)) {
+                return true;
             }
-        } else if (targetEdge == TileEdge::Left) {
             if (hasLeftDivider) {
-                const qreal shift = (dir == ResizeDirection::Right) ? delta : -delta;
-                return shiftHorizontalDivider(leftDivL, leftDivR, shift);
+                return shiftHorizontalDivider(leftDivL, leftDivR, -shift);
             }
-        } else {
-            // targetEdge == TileEdge::Auto (standard keyboard resize navigation)
-            if (hasLeftDivider && hasRightDivider) {
-                // Middle slot: shift one divider in the resize direction (asymmetric single-border movement)
-                if (dir == ResizeDirection::Right) {
-                    // Expand width right (+delta): shift right divider right (+delta)
-                    // If right divider cannot shift (hit boundary/minSize), fallback to shifting left divider left (-delta)
-                    if (shiftHorizontalDivider(rightDivL, rightDivR, delta)) {
-                        return true;
-                    }
-                    return shiftHorizontalDivider(leftDivL, leftDivR, -delta);
-                } else {
-                    // Shrink width from right (-delta): shift right divider left (-delta)
-                    // If right divider cannot shift, fallback to shifting left divider right (+delta)
-                    const qreal maxShrink = cur.width() - minSize;
-                    const qreal d = qMin(delta, maxShrink);
-                    if (d < 1.0) return false;
-                    if (shiftHorizontalDivider(rightDivL, rightDivR, -d)) {
-                        return true;
-                    }
-                    return shiftHorizontalDivider(leftDivL, leftDivR, d);
-                }
-            } else if (hasRightDivider || hasLeftDivider) {
-                // Boundary slot with one divider:
-                // Right: divider moves right (+delta)
-                // Left:  divider moves left (-delta)
-                const qreal dL = hasRightDivider ? rightDivL : leftDivL;
-                const qreal dR = hasRightDivider ? rightDivR : leftDivR;
-                const qreal shift = (dir == ResizeDirection::Right) ? delta : -delta;
-                return shiftHorizontalDivider(dL, dR, shift);
+            return false;
+        } else if (activeTarget == TileEdge::Left && hasLeftDivider) {
+            // Left edge:
+            // Left  (H) -> moves left (-delta) -> widens window from left
+            // Right (L) -> moves right (+delta) -> narrows window from left
+            const qreal shift = (dir == ResizeDirection::Right) ? delta : -delta;
+            if (shiftHorizontalDivider(leftDivL, leftDivR, shift)) {
+                return true;
             }
+            if (hasRightDivider) {
+                return shiftHorizontalDivider(rightDivL, rightDivR, -shift);
+            }
+            return false;
         }
         return false;
     } else { // Up or Down
@@ -702,47 +703,48 @@ inline bool resizeSlotGeometries(QList<QRectF> &geometries, int activeIdx, Resiz
             return false;
         };
 
-        if (targetEdge == TileEdge::Bottom) {
-            if (hasBottomDivider) {
-                const qreal shift = (dir == ResizeDirection::Down) ? delta : -delta;
-                return shiftVerticalDivider(bottomDivT, bottomDivB, shift);
+        // Select vertical divider to operate on:
+        // Default (Auto):
+        // - At top wall: Bottom divider
+        // - At bottom wall: Top divider
+        // - In middle: Bottom divider
+        // Shift (targetEdge == TileEdge::Top):
+        // - In middle: Top divider
+        // - At bottom wall: Top divider
+        // - At top wall: fallback to Bottom divider
+        TileEdge activeTarget = targetEdge;
+        if (activeTarget == TileEdge::Auto) {
+            activeTarget = hasBottomDivider ? TileEdge::Bottom : TileEdge::Top;
+        } else if (activeTarget == TileEdge::Top && !hasTopDivider && hasBottomDivider) {
+            activeTarget = TileEdge::Bottom;
+        } else if (activeTarget == TileEdge::Bottom && !hasBottomDivider && hasTopDivider) {
+            activeTarget = TileEdge::Top;
+        }
+
+        if (activeTarget == TileEdge::Bottom && hasBottomDivider) {
+            // Bottom edge:
+            // Down (J) -> moves down (+delta) -> taller
+            // Up   (K) -> moves up   (-delta) -> shorter
+            const qreal shift = (dir == ResizeDirection::Down) ? delta : -delta;
+            if (shiftVerticalDivider(bottomDivT, bottomDivB, shift)) {
+                return true;
             }
-        } else if (targetEdge == TileEdge::Top) {
             if (hasTopDivider) {
-                const qreal shift = (dir == ResizeDirection::Down) ? delta : -delta;
-                return shiftVerticalDivider(topDivT, topDivB, shift);
+                return shiftVerticalDivider(topDivT, topDivB, -shift);
             }
-        } else {
-            // targetEdge == TileEdge::Auto (fallback for keyboard navigation)
-            if (hasTopDivider && hasBottomDivider) {
-                // Vertical middle slot: shift one divider in the resize direction (asymmetric single-border movement)
-                if (dir == ResizeDirection::Down) {
-                    // Expand height down (+delta): shift bottom divider down (+delta)
-                    // If bottom divider cannot shift, fallback to shifting top divider up (-delta)
-                    if (shiftVerticalDivider(bottomDivT, bottomDivB, delta)) {
-                        return true;
-                    }
-                    return shiftVerticalDivider(topDivT, topDivB, -delta);
-                } else {
-                    // Shrink height from bottom (-delta): shift bottom divider up (-delta)
-                    // If bottom divider cannot shift, fallback to shifting top divider down (+delta)
-                    const qreal maxShrink = cur.height() - minSize;
-                    const qreal d = qMin(delta, maxShrink);
-                    if (d < 1.0) return false;
-                    if (shiftVerticalDivider(bottomDivT, bottomDivB, -d)) {
-                        return true;
-                    }
-                    return shiftVerticalDivider(topDivT, topDivB, d);
-                }
-            } else if (hasBottomDivider || hasTopDivider) {
-                // Boundary slot with one vertical divider:
-                // Down: divider moves down (+delta)
-                // Up:   divider moves up (-delta)
-                const qreal dT = hasBottomDivider ? bottomDivT : topDivT;
-                const qreal dB = hasBottomDivider ? bottomDivB : topDivB;
-                const qreal shift = (dir == ResizeDirection::Down) ? delta : -delta;
-                return shiftVerticalDivider(dT, dB, shift);
+            return false;
+        } else if (activeTarget == TileEdge::Top && hasTopDivider) {
+            // Top edge:
+            // Up   (K) -> moves up   (-delta) -> taller from top
+            // Down (J) -> moves down (+delta) -> shorter from top
+            const qreal shift = (dir == ResizeDirection::Down) ? delta : -delta;
+            if (shiftVerticalDivider(topDivT, topDivB, shift)) {
+                return true;
             }
+            if (hasBottomDivider) {
+                return shiftVerticalDivider(bottomDivT, bottomDivB, -shift);
+            }
+            return false;
         }
         return false;
     }

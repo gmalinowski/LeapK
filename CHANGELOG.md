@@ -4,6 +4,29 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta83] - 2026-11-04
+
+### Fixed
+- **Tile Edit Mode Resize Overhaul with Shift Edge Selection**:
+  - `h` (Left) and `l` (Right) widen or narrow the active tile slot from one edge, while `Shift + h` and `Shift + l` widen or narrow from the opposite edge.
+  - Windows touching the right screen boundary default to operating on their left divider (`h` widens to the left, `l` narrows to the right).
+  - Windows touching the left screen boundary default to operating on their right divider (`l` widens to the right, `h` narrows to the left).
+  - Pressing `Shift` inverts which edge/divider is operated on: middle windows default to their right divider, while `Shift` targets the left divider. If a window touches a boundary without a divider on that side, it safely falls back to the existing divider.
+  - Symmetric logic for vertical height resizing: `j` (Down) and `k` (Up) default to the bottom divider, while `Shift + j` and `Shift + k` operate on the top divider. Windows touching the screen top operate on their bottom divider, and windows touching the screen bottom operate on their top divider.
+  - Updated tile edit HUD hint bar to clearly indicate: `[H/L: Width  J/K: Height (Shift: other edge)]`.
+- **Universal Window Rule for Minimum Size (`types=-1`, `ignoregeometry=true`)**:
+  - Fixed issue where dialog windows and setup utilities (e.g. CachyOS Hello `cachyos-hello`) refused to shrink below default minimum dimensions because `types=1` in `kwinrulesrc` only matched `NET::NormalMask` windows, ignoring `NET::DialogMask` (32), `NET::UtilityMask` (256), and `NET::SplashMask` (512).
+  - Changed `types` to `-1` (`NET::AllTypesMask`) in `tilinghelper.h`, `install-leapk.sh`, and `~/.config/kwinrulesrc` so rules match all application window types.
+  - Added `ignoregeometry=true` (`ignoregeometryrule=2`) alongside `strictgeometry=false` (`strictgeometryrule=2`) and `minsize=1,1` (`minsizerule=2`) to force KWin to bypass client-specified minimum and strict geometry constraints.
+- **Aggressive Window Badge Placement (Avoid HUD as Last Resort)**:
+  - Partially covered windows during Super+J navigation no longer prematurely fail discrete anchor positions and get banished to the HUD dock.
+  - Implemented multi-phase geometric `QRegion unoccluded` subtraction in `badgehelper.h` and `leapk_hud.cpp`: subtracts higher stacking-order occluding windows and active HUD collision rectangles from the candidate window geometry.
+  - Phase A: Finds the largest unoccluded rectangle accommodating badge dimensions and centers the badge within it.
+  - Phase B: Evaluates 5 anchor points in all visible unoccluded rectangles having at least 80% badge dimensions.
+  - Phase C: Tests the unoccluded region's bounding rectangle center.
+  - Phase D: Fallback for windows with at least 1.2x badge area visible. Banishing to the HUD dock is strictly preserved as an absolute last resort when the window is completely covered.
+  - Added unit test coverage in `tests/badge_test.cpp` (Case 6) and `tests/tiling_test.cpp` (`testShiftAndBoundaryEdgeResize`). All 30/30 CTests pass (100%).
+
 ## [1.6.0-beta82] - 2026-11-04
 
 ### Fixed

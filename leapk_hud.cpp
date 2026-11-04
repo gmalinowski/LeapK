@@ -954,6 +954,139 @@ QRectF ActiveWindowOutlineEffect::findBestBadgePositionForWindow(
         }
     }
 
+    // 3. Aggressive unoccluded visible region search:
+    // When the 9 standard points are obstructed, compute the exact unoccluded visible region
+    // of the window and place the badge inside the largest available unoccluded rectangle.
+    QRegion unoccluded(visibleWindowGeo.toAlignedRect());
+    bool above = false;
+    const auto stacking = effects->stackingOrder();
+    for (EffectWindow *candidate : stacking) {
+        if (candidate == target) {
+            above = true;
+            continue;
+        }
+        if (!above) {
+            continue;
+        }
+        if (!candidate || candidate->isDeleted() || !candidate->isVisible()
+            || candidate->isMinimized() || !candidate->isOnCurrentDesktop()
+            || candidate->isHiddenByShowDesktop() || candidate->isOutline()
+            || candidate->isDesktop() || candidate->isDock()
+            || candidate->isNotification() || candidate->isPopupWindow()
+            || candidate->isTooltip() || candidate->isLockScreen()
+            || candidate->isInputMethod()
+            || candidate->opacity() <= 0.05
+            || candidate->frameGeometry().width() < 10
+            || candidate->frameGeometry().height() < 10) {
+            continue;
+        }
+        unoccluded -= candidate->frameGeometry().toAlignedRect();
+    }
+
+    // Also subtract active HUD collision geometries
+    for (const QRectF &hr : hudRects) {
+        if (hr.isValid() && !hr.isEmpty()) {
+            unoccluded -= hr.toAlignedRect();
+        }
+    }
+    const bool hudActive = m_jumpMode || (m_badgePreviewActive && m_previewShowHud);
+    if (hudActive) {
+        if (m_hudHeaderScreenRect.isValid() && !m_hudHeaderScreenRect.isEmpty()) {
+            unoccluded -= m_hudHeaderScreenRect.toAlignedRect();
+        }
+        if (m_hudHintBarScreenRect.isValid() && !m_hudHintBarScreenRect.isEmpty()) {
+            unoccluded -= m_hudHintBarScreenRect.toAlignedRect();
+        }
+    }
+
+    // A) Search for largest unoccluded rectangle that can contain the badge
+    QRect bestSubRect;
+    int maxArea = 0;
+    for (const QRect &r : unoccluded) {
+        if (r.width() >= badgeW && r.height() >= badgeH) {
+            int area = r.width() * r.height();
+            if (area > maxArea) {
+                maxArea = area;
+                bestSubRect = r;
+            }
+        }
+    }
+    if (!bestSubRect.isEmpty()) {
+        qreal bx = bestSubRect.center().x() - (badgeW / 2.0);
+        qreal by = bestSubRect.center().y() - (badgeH / 2.0);
+        QRectF candidateRect = clampRect(QRectF(bx, by, badgeW, badgeH), screenRect);
+        if (!isBadgeOccluded(target, candidateRect, hudRects)) {
+            if (outFoundVisible) {
+                *outFoundVisible = true;
+            }
+            return candidateRect;
+        }
+    }
+
+    // B) Sample 5 anchor points in all visible rectangles that are at least 80% of badge dimensions
+    for (const QRect &r : unoccluded) {
+        if (r.width() >= badgeW * 0.8 && r.height() >= badgeH * 0.8) {
+            const QPoint anchors[] = {
+                r.center(),
+                QPoint(r.left() + qRound(badgeW / 2.0) + 2, r.top() + qRound(badgeH / 2.0) + 2),
+                QPoint(r.right() - qRound(badgeW / 2.0) - 2, r.top() + qRound(badgeH / 2.0) + 2),
+                QPoint(r.left() + qRound(badgeW / 2.0) + 2, r.bottom() - qRound(badgeH / 2.0) - 2),
+                QPoint(r.right() - qRound(badgeW / 2.0) - 2, r.bottom() - qRound(badgeH / 2.0) - 2)
+            };
+            for (const QPoint &pt : anchors) {
+                QRectF testRect(pt.x() - badgeW / 2.0, pt.y() - badgeH / 2.0, badgeW, badgeH);
+                testRect = clampRect(testRect, screenRect);
+                if (!isBadgeOccluded(target, testRect, hudRects)) {
+                    if (outFoundVisible) {
+                        *outFoundVisible = true;
+                    }
+                    return testRect;
+                }
+            }
+        }
+    }
+
+    // C) Check center of the overall bounding rect of unoccluded visible region
+    const QRect unoccludedBounds = unoccluded.boundingRect();
+    if (!unoccludedBounds.isEmpty() && (unoccludedBounds.width() >= badgeW || unoccludedBounds.height() >= badgeH)) {
+        qreal bx = qBound(screenRect.left() + 4.0, (qreal)unoccludedBounds.center().x() - (badgeW / 2.0), screenRect.right() - badgeW - 4.0);
+        qreal by = qBound(screenRect.top() + 4.0, (qreal)unoccludedBounds.center().y() - (badgeH / 2.0), screenRect.bottom() - badgeH - 4.0);
+        QRectF candidateRect(bx, by, badgeW, badgeH);
+        if (candidateRect.intersects(visibleWindowGeo) && !isBadgeOccluded(target, candidateRect, hudRects)) {
+            if (outFoundVisible) {
+                *outFoundVisible = true;
+            }
+            return candidateRect;
+        }
+    }
+
+    // D) Fallback if substantial visible area remains (HUD is absolute last resort)
+    if (!unoccluded.isEmpty()) {
+        int totalVisibleArea = 0;
+        for (const QRect &r : unoccluded) {
+            totalVisibleArea += r.width() * r.height();
+        }
+        if (totalVisibleArea >= badgeW * badgeH * 1.2) {
+            QRect bestR;
+            int maxA = 0;
+            for (const QRect &r : unoccluded) {
+                if (r.width() * r.height() > maxA) {
+                    maxA = r.width() * r.height();
+                    bestR = r;
+                }
+            }
+            if (!bestR.isEmpty()) {
+                qreal bx = bestR.center().x() - (badgeW / 2.0);
+                qreal by = bestR.center().y() - (badgeH / 2.0);
+                QRectF candidateRect = clampRect(QRectF(bx, by, badgeW, badgeH), screenRect);
+                if (outFoundVisible) {
+                    *outFoundVisible = true;
+                }
+                return candidateRect;
+            }
+        }
+    }
+
     if (outFoundVisible) {
         *outFoundVisible = false;
     }

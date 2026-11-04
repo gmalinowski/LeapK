@@ -567,7 +567,7 @@ if command -v kwriteconfig6 >/dev/null 2>&1; then
   kwriteconfig6 --file kwinrulesrc --group "$rule_id" --key ignoregeometryrule "2"
   kwriteconfig6 --file kwinrulesrc --group "$rule_id" --key strictgeometry "false"
   kwriteconfig6 --file kwinrulesrc --group "$rule_id" --key strictgeometryrule "2"
-  kwriteconfig6 --file kwinrulesrc --group "$rule_id" --key types "1"
+  kwriteconfig6 --file kwinrulesrc --group "$rule_id" --key types -- "-1"
   kwriteconfig6 --file kwinrulesrc --group "$rule_id" --key wmclass ""
   kwriteconfig6 --file kwinrulesrc --group "$rule_id" --key wmclasscomplete "false"
   kwriteconfig6 --file kwinrulesrc --group "$rule_id" --key wmclassmatch "0"

@@ -985,7 +985,7 @@ void testBackgroundWindowBadgeOcclusionAvoidance()
     assert(bottomFallbackBadge.bottom() > 1000.0);
     assert(!bottomCenterObstacle.intersects(bottomFallbackBadge));
 
-    // Case 5: Complete occlusion of all 9 zones
+    // Case 5: Complete occlusion of entire window
     QList<QRectF> fullObstacles = {
         QRectF(0, 0, 960, 540),       // Top-Left quadrant
         QRectF(960, 0, 960, 540),     // Top-Right quadrant
@@ -997,6 +997,32 @@ void testBackgroundWindowBadgeOcclusionAvoidance()
         backgroundWindowGeo, 4 /* Center */, badgeW, badgeH, 12.0, screenRect,
         fullObstacles, {}, &foundVisible);
     assert(!foundVisible);
+
+    // Case 6: Aggressive unoccluded visible region search
+    // Block all 9 standard discrete anchor zones, but leave an unoccluded visible patch:
+    // e.g. obstacle covers top border, bottom border, right border, center, and left margin,
+    // leaving a clear patch at (200, 300, 200, 150)
+    QList<QRectF> partialObstacles = {
+        QRectF(0, 0, 1920, 200),        // Blocks TopLeft, Top, TopRight
+        QRectF(0, 880, 1920, 200),      // Blocks BottomLeft, Bottom, BottomRight
+        QRectF(0, 200, 150, 680),       // Blocks Left
+        QRectF(1400, 200, 520, 680),    // Blocks Right
+        QRectF(500, 200, 900, 680)      // Blocks Center and central areas
+    };
+    // Remaining unoccluded patch is in range x: [150, 500], y: [200, 880] (size: 350x680)
+    foundVisible = false;
+    QRectF aggressiveBadge = findBestBadgePosition(
+        backgroundWindowGeo, 4 /* Center */, badgeW, badgeH, 12.0, screenRect,
+        partialObstacles, {}, &foundVisible);
+    assert(foundVisible);
+    // Must be completely inside the unoccluded patch and not occluded by any obstacle
+    assert(aggressiveBadge.left() >= 150.0);
+    assert(aggressiveBadge.right() <= 500.0);
+    assert(aggressiveBadge.top() >= 200.0);
+    assert(aggressiveBadge.bottom() <= 880.0);
+    for (const QRectF &obs : partialObstacles) {
+        assert(!obs.intersects(aggressiveBadge));
+    }
 }
 
 void testWindowBadgesEnabledConfig()

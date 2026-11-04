@@ -1209,10 +1209,14 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             m_tilingEditMultiplier = 0;
             LeapKTiling::TileEdge edge = LeapKTiling::TileEdge::Auto;
             if (e->modifiers() & Qt::ShiftModifier) {
-                if (dir == LeapKTiling::ResizeDirection::Left) edge = LeapKTiling::TileEdge::Left;
-                else if (dir == LeapKTiling::ResizeDirection::Right) edge = LeapKTiling::TileEdge::Right;
-                else if (dir == LeapKTiling::ResizeDirection::Up) edge = LeapKTiling::TileEdge::Top;
-                else if (dir == LeapKTiling::ResizeDirection::Down) edge = LeapKTiling::TileEdge::Bottom;
+                // Shift inverts the active edge:
+                // For width: operates on the left edge (instead of default right)
+                // For height: operates on the top edge (instead of default bottom)
+                if (dir == LeapKTiling::ResizeDirection::Left || dir == LeapKTiling::ResizeDirection::Right) {
+                    edge = LeapKTiling::TileEdge::Left;
+                } else {
+                    edge = LeapKTiling::TileEdge::Top;
+                }
             }
             performTilingResize(dir, count, edge);
             return;

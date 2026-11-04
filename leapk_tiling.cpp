@@ -1835,7 +1835,7 @@ void ActiveWindowOutlineEffect::renderTilingEditOverlay(const RenderTarget &rend
     } else if (m_tilingEditMultiplier > 0) {
         hintText = QStringLiteral("Multiplier: %1x  •  [H/←: Narrower  L/→: Wider  K/↑: Shorter  J/↓: Taller]  •  [Ctrl+S: Save]  •  [Enter: Finish]").arg(m_tilingEditMultiplier);
     } else {
-        hintText = QStringLiteral("[H/←: Narrower  L/→: Wider  K/↑: Shorter  J/↓: Taller]  •  [Ctrl+V/H: Split V/H]  •  [Ctrl+M: Merge  Ctrl+F: Float  Ctrl+D: Delete]  •  [Letters: Swap]  •  [Enter: Done]");
+        hintText = QStringLiteral("[H/L: Width  J/K: Height (Shift: other edge)]  •  [Ctrl+V/H: Split]  •  [Ctrl+M: Merge  Ctrl+F: Float  Ctrl+D: Delete]  •  [Letters: Swap]  •  [Enter: Done]");
     }
     const QPointF barCenter(screenRect.center().x(), screenRect.bottom() - 36.0);
     const QColor barBg = theme.surfaceBackgroundColor();
