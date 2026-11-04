@@ -191,7 +191,7 @@ rm -rf "$HOME/.config/leapk" \
        "$HOME/.cache/leapk_sounds" \
        "$HOME/.cache/leapk" 2>/dev/null || true
 
-echo "[4/5] Removing effect settings and system shortcuts…"
+echo "[4/5] Removing effect settings, window rules, and system shortcuts…"
 for key in UseAccentColor AccentOpacity CustomColor EnsurePerimeterContrast BorderWidth OutlineGap \
            AmbilightEnabled AmbilightMode AmbilightOpacity AmbilightFrequency AmbilightDuration AmbilightSaturationBoost AmbilightSaturationLeveling AmbilightFallbackStrength AmbilightMinBrightness AmbilightMaxBrightness AmbilightEnsureContrast \
            BorderRadius FadeCorners DrawInside SmoothEdges GlowEnabled GlowRadius HideOnFullScreen TrayIconEnabled ActivePreset \
@@ -205,14 +205,126 @@ for key in UseAccentColor AccentOpacity CustomColor EnsurePerimeterContrast Bord
            AudioWindowIndicatorStyle AudioWindowPulseEnabled AudioWindowPulseSpeed AudioWindowPulseIntensity AudioWindowIndicatorScale AudioShaderRuleEnabled AudioShaderId AudioWindowFrameShaderMode AudioHudShaderEnabled \
            FadeDuration MenuHideDelay MenuShowDelay WindowHideDelay WindowShowDelay \
            MarkDefaultColor MarkSmartAdaptive MarkRandomColor StylePrecedence MarkInactiveDashGap MarkInactiveWidthReduction MarkInactiveDashed MarkInactiveDashSmooth MarkShowLetterBadges BadgesAlwaysVisible BadgeDisplayMode BadgeWindowBadgesEnabled BadgePosition BadgeHudPosition BadgeSize BadgeMargin BadgeShowIcon BadgeShowThumbnail BadgeWindowShowIcon BadgeWindowShowThumbnail BadgeWindowIconSize BadgeWindowThumbnailWidth BadgeWindowThumbnailHeight BadgeWindowLetterFontSize BadgeWindowLabelFontSize BadgeHudShowIcon BadgeHudShowThumbnail BadgeHudIconSize BadgeHudThumbnailWidth BadgeHudThumbnailHeight BadgeHudLetterFontSize BadgeHudCaptionFontSize BadgeHudLocationFontSize BadgeHudNavFontSize BadgeHudHintsFontSize BadgeHudShowHints BadgeHudIncludeAll BadgeHudGroupWindows BadgeHudGroupBorderWidth BadgeHudGroupFontSize BadgeHudGroupCornerRadius BadgeHudGroupShaderEnabled BadgeLivePreviews BadgeTimeout JumpRecentKey BadgeJumpSize BadgeHudSize BadgeIconSize BadgeThumbnailWidth BadgeThumbnailHeight BadgeWindowThumbnailSize BadgeHudThumbnailSize BadgeCornerRadius BadgeOpacity BadgeHudMarkColorMode BadgeDefaultColor BadgeLetterColorAuto BadgeLetterColor BadgeLabelColorAuto BadgeLabelUnmarkedColor BadgeCaptionColorAuto BadgeCaptionColor BadgeLocationColorAuto BadgeLocationColor BadgeLetterFont BadgeLabelFont BadgeCaptionFont BadgeLocationFont BadgeLetterFontSize BadgeLabelFontSize BadgeCaptionFontSize BadgeLocationFontSize JumpTargets CursorWarpMode SoundFeedbackEnabled SoundFeedbackVolume \
-           HighlightRecentWindow RecentWindowsCount RecentWindowColorMode RecentWindowCustomColor RecentWindowOpacity RecentWindowHueShift RecentWindowSaturation RecentWindowWidthReduction RecentWindowDashed RecentWindowGapGrowth RecentWindowDashSmooth; do
+           HighlightRecentWindow RecentWindowsCount RecentWindowColorMode RecentWindowCustomColor RecentWindowOpacity RecentWindowHueShift RecentWindowSaturation RecentWindowWidthReduction RecentWindowDashed RecentWindowGapGrowth RecentWindowDashSmooth \
+           TilingGaps TilingMargins TilingRemoveMinSizeLimit StandardTilingPresetId StandardLastVirtualDesktopId OutlineEnabled; do
   kwriteconfig6 --file kwinrc --group "$config_group" --key "$key" --delete '' 2>/dev/null || true
   kwriteconfig6 --file kwinrc --group "Effect-active-window-outline" --key "$key" --delete '' 2>/dev/null || true
 done
 kwriteconfig6 --file kwinrc --group Plugins --key "leapkEnabled" --delete '' 2>/dev/null || true
 kwriteconfig6 --file kwinrc --group Plugins --key "active-window-outlineEnabled" --delete '' 2>/dev/null || true
 
-# Clean up all global shortcuts registered under kwin
+# Completely strip [Effect-leapk] and [Effect-active-window-outline] sections from kwinrc
+kwinrc_path="$HOME/.config/kwinrc"
+if [[ -f "$kwinrc_path" ]] && command -v python3 >/dev/null 2>&1; then
+  python3 -c '
+import sys
+from pathlib import Path
+
+kwinrc_file = Path(sys.argv[1]).expanduser()
+targets = set(sys.argv[2:])
+
+if kwinrc_file.exists():
+    try:
+        lines = kwinrc_file.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True)
+        filtered = []
+        in_target = False
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("[") and stripped.endswith("]"):
+                sec = stripped[1:-1].strip()
+                in_target = (sec in targets)
+                if in_target:
+                    continue
+            if not in_target:
+                filtered.append(line)
+        kwinrc_file.write_text("".join(filtered), encoding="utf-8")
+    except Exception:
+        pass
+' "$kwinrc_path" "$config_group" "Effect-active-window-outline"
+fi
+
+# Remove universal no-minimum-size window rule from kwinrulesrc
+rule_id="a9e701bc-6258-4903-a185-3b95a8bfb621"
+kwinrules_path="$HOME/.config/kwinrulesrc"
+
+if [[ -f "$kwinrules_path" ]]; then
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c '
+import sys
+from pathlib import Path
+
+rules_file = Path(sys.argv[1]).expanduser()
+target_rule_id = sys.argv[2]
+
+if rules_file.exists():
+    try:
+        content = rules_file.read_text(encoding="utf-8", errors="replace")
+        lines = content.splitlines(keepends=True)
+
+        filtered = []
+        in_target = False
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("[") and stripped.endswith("]"):
+                sec = stripped[1:-1].strip()
+                in_target = (sec == target_rule_id)
+                if in_target:
+                    continue
+            if not in_target:
+                filtered.append(line)
+
+        final = []
+        in_general = False
+        rules_count = None
+        for line in filtered:
+            stripped = line.strip()
+            if stripped.startswith("[") and stripped.endswith("]"):
+                sec = stripped[1:-1].strip()
+                in_general = (sec == "General")
+                final.append(line)
+                continue
+            if in_general:
+                if stripped.startswith("rules="):
+                    prefix, _, val = line.partition("=")
+                    rule_list = [r.strip() for r in val.strip().split(",") if r.strip() and r.strip() != target_rule_id]
+                    rules_count = len(rule_list)
+                    final.append(prefix + "=" + ",".join(rule_list) + "\n")
+                    continue
+                elif stripped.startswith("count="):
+                    continue
+            final.append(line)
+
+        if rules_count is not None:
+            for i, line in enumerate(final):
+                stripped = line.strip()
+                if stripped.startswith("[") and stripped.endswith("]"):
+                    in_gen = (stripped[1:-1].strip() == "General")
+                if in_gen and stripped.startswith("rules="):
+                    final.insert(i + 1, f"count={rules_count}\n")
+                    break
+
+        rules_file.write_text("".join(final), encoding="utf-8")
+    except Exception:
+        pass
+' "$kwinrules_path" "$rule_id"
+  fi
+
+  # Fallback using kwriteconfig6/kreadconfig6
+  if command -v kreadconfig6 >/dev/null 2>&1 && command -v kwriteconfig6 >/dev/null 2>&1; then
+    current_rules="$(kreadconfig6 --file kwinrulesrc --group General --key rules --default '' 2>/dev/null || true)"
+    if [[ "$current_rules" == *"$rule_id"* ]]; then
+      new_rules="$(echo "$current_rules" | awk -v id="$rule_id" 'BEGIN{RS=",";ORS=","} $0!=id && NF{print}' | sed 's/,$//')"
+      kwriteconfig6 --file kwinrulesrc --group General --key rules "$new_rules"
+      new_count="$(echo "$new_rules" | awk -F',' '{if ($0=="") print 0; else print NF}')"
+      kwriteconfig6 --file kwinrulesrc --group General --key count "$new_count"
+    fi
+    for rk in description minsize minsizerule ignoregeometry ignoregeometryrule strictgeometry strictgeometryrule types wmclass wmclasscomplete wmclassmatch; do
+      kwriteconfig6 --file kwinrulesrc --group "$rule_id" --key "$rk" --delete '' 2>/dev/null || true
+    done
+  fi
+fi
+
+# Clean up all global shortcuts registered under kwin, leapk, and legacy active-window-outline
 global_shortcuts=(
   "ToggleActiveWindowOutline"
   "MarkActiveWindow"
@@ -229,10 +341,44 @@ global_shortcuts=(
   "NextRecentWindow"
   "ToggleTilingPresets"
   "ToggleTilingEdit"
+  "ToggleActiveWindowFloating"
+  "ToggleAiPrompt"
 )
 for sc in "${global_shortcuts[@]}"; do
   kwriteconfig6 --file kglobalshortcutsrc --group kwin --key "$sc" --delete '' 2>/dev/null || true
+  kwriteconfig6 --file kglobalshortcutsrc --group leapk --key "$sc" --delete '' 2>/dev/null || true
+  kwriteconfig6 --file kglobalshortcutsrc --group active-window-outline --key "$sc" --delete '' 2>/dev/null || true
 done
+
+# Strip any residual [leapk] or [active-window-outline] sections from kglobalshortcutsrc
+kglobal_path="$HOME/.config/kglobalshortcutsrc"
+if [[ -f "$kglobal_path" ]] && command -v python3 >/dev/null 2>&1; then
+  python3 -c '
+import sys
+from pathlib import Path
+
+kglobal_file = Path(sys.argv[1]).expanduser()
+targets = set(sys.argv[2:])
+
+if kglobal_file.exists():
+    try:
+        lines = kglobal_file.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True)
+        filtered = []
+        in_target = False
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("[") and stripped.endswith("]"):
+                sec = stripped[1:-1].strip()
+                in_target = (sec in targets)
+                if in_target:
+                    continue
+            if not in_target:
+                filtered.append(line)
+        kglobal_file.write_text("".join(filtered), encoding="utf-8")
+    except Exception:
+        pass
+' "$kglobal_path" "leapk" "active-window-outline"
+fi
 
 # Reload KGlobalAccel to free shortcuts immediately
 if command -v qdbus6 >/dev/null 2>&1; then

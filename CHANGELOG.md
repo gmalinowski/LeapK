@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta81] - 2026-11-04
+
+### Fixed
+- **Comprehensive Uninstaller Cleanup (`uninstall-leapk.sh` / `uninstall.sh`)**:
+  - Automatically and cleanly purges the universal tiling window rule (`a9e701bc-6258-4903-a185-3b95a8bfb621`) from `~/.config/kwinrulesrc`, safely removing the rule section, updating `rules=` in `[General]`, and adjusting `count=`.
+  - Completely strips all LeapK configuration sections (`[Effect-leapk]`, `[Effect-active-window-outline]`) from `~/.config/kwinrc` to eliminate orphan section headers and dynamic backup entries (`CustomTilingBackup_*`).
+  - Added cleanup for all registered shortcuts in `~/.config/kglobalshortcutsrc`, including `ToggleActiveWindowFloating` and `ToggleAiPrompt`, purging residual shortcut groups and reloading `KGlobalAccel` via D-Bus.
+  - Added real-time notification to running KWin instances via D-Bus (`org.kde.KWin /KWin reconfigure`) during uninstallation to immediately unload window rules and refresh system state.
+  - Added test coverage in `tests/configsync_test.py` verifying uninstaller coverage for window rules and shortcuts. All 30/30 CTests pass (100%).
+
 ## [1.6.0-beta80] - 2026-11-03
 
 ### Fixed

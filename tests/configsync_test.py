@@ -65,7 +65,18 @@ def main():
             print(f"FAIL: Key '{key}' defined in {kcfg_file.name} is missing cleanup in {uninstall_file.name}", file=sys.stderr)
             failures += 1
 
-    # 4. Check VERSION matches metadata.json Version
+    # 4. Check critical shortcuts and rules in uninstaller
+    critical_cleanups = [
+        ("a9e701bc-6258-4903-a185-3b95a8bfb621", "kwinrulesrc tiling window rule UUID"),
+        ("ToggleActiveWindowFloating", "Window Float/Tile shortcut"),
+        ("Effect-leapk", "KWin config section header"),
+    ]
+    for pattern_str, desc in critical_cleanups:
+        if pattern_str not in uninstall_content:
+            print(f"FAIL: Uninstaller {uninstall_file.name} is missing cleanup for {desc} ('{pattern_str}')", file=sys.stderr)
+            failures += 1
+
+    # 5. Check VERSION matches metadata.json Version
     if version_file.exists() and metadata_file.exists():
         version = version_file.read_text(encoding="utf-8").strip()
         metadata_json = json.loads(metadata_file.read_text(encoding="utf-8"))
