@@ -1497,6 +1497,14 @@ void ActiveWindowOutlineEffect::slotJumpToRecentWindow()
 
 void ActiveWindowOutlineEffect::slotJumpToRecentWindow(int keyToRelease)
 {
+    EffectWindow *target = findRecentWindow();
+    if (!target || target->isDeleted()) {
+        if (m_jumpMode) {
+            cancelJumpMode(keyToRelease != 0 ? keyToRelease : Qt::Key_Space);
+        }
+        return;
+    }
+
     if (m_jumpMode) {
         cancelJumpMode(keyToRelease != 0 ? keyToRelease : Qt::Key_Space);
     }
@@ -1504,11 +1512,6 @@ void ActiveWindowOutlineEffect::slotJumpToRecentWindow(int keyToRelease)
     m_isHistoryNavigating = false;
     if (m_historyCommitTimer && m_historyCommitTimer->isActive()) {
         m_historyCommitTimer->stop();
-    }
-
-    EffectWindow *target = findRecentWindow();
-    if (!target || target->isDeleted()) {
-        return;
     }
 
     m_expectedJumpTarget = target;
@@ -1537,6 +1540,7 @@ void ActiveWindowOutlineEffect::slotJumpToRecentWindow(int keyToRelease)
     } else {
         effects->activateWindow(target);
     }
+    m_activeWindow = target;
     warpCursorToWindow(target);
 }
 
@@ -1632,16 +1636,24 @@ void ActiveWindowOutlineEffect::slotPrevRecentWindow()
                 m_expectedJumpTargetTimer->start(1000);
             }
 
+            const int targetWs = findWorkspaceForWindow(candidate);
+            if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
+                switchToWorkspaceView(targetWs);
+            }
+
             if (!candidate->isOnCurrentDesktop()) {
                 const auto desktops = candidate->desktops();
                 if (!desktops.isEmpty() && !candidate->isOnAllDesktops()) {
                     effects->setCurrentDesktop(desktops.first());
                 }
             }
+            m_workspaceMinimizedWindows.remove(candidate);
+            m_stashedWindows.remove(candidate);
             if (candidate->isMinimized()) {
                 candidate->setMinimized(false);
             }
             effects->activateWindow(candidate);
+            m_activeWindow = candidate;
             break;
         } else {
             nextIdx++;
@@ -1678,16 +1690,24 @@ void ActiveWindowOutlineEffect::slotNextRecentWindow()
                 m_expectedJumpTargetTimer->start(1000);
             }
 
+            const int targetWs = findWorkspaceForWindow(candidate);
+            if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
+                switchToWorkspaceView(targetWs);
+            }
+
             if (!candidate->isOnCurrentDesktop()) {
                 const auto desktops = candidate->desktops();
                 if (!desktops.isEmpty() && !candidate->isOnAllDesktops()) {
                     effects->setCurrentDesktop(desktops.first());
                 }
             }
+            m_workspaceMinimizedWindows.remove(candidate);
+            m_stashedWindows.remove(candidate);
             if (candidate->isMinimized()) {
                 candidate->setMinimized(false);
             }
             effects->activateWindow(candidate);
+            m_activeWindow = candidate;
             break;
         } else {
             prevIdx--;
@@ -1710,6 +1730,29 @@ void ActiveWindowOutlineEffect::slotCommitHistoryNavigation()
         if (committedWindow && !committedWindow->isDeleted()) {
             m_windowHistory.removeAll(committedWindow);
             m_windowHistory.prepend(committedWindow);
+            m_activeWindow = committedWindow;
+
+            const int targetWs = findWorkspaceForWindow(committedWindow);
+            if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
+                switchToWorkspaceView(targetWs);
+            }
+
+            if (!committedWindow->isOnCurrentDesktop()) {
+                const auto desktops = committedWindow->desktops();
+                if (!desktops.isEmpty() && !committedWindow->isOnAllDesktops()) {
+                    effects->setCurrentDesktop(desktops.first());
+                }
+            }
+            m_workspaceMinimizedWindows.remove(committedWindow);
+            m_stashedWindows.remove(committedWindow);
+            if (committedWindow->isMinimized()) {
+                committedWindow->setMinimized(false);
+            }
+            if (m_tilingActive) {
+                performTilingSwap(committedWindow);
+            } else if (effects) {
+                effects->activateWindow(committedWindow);
+            }
             m_activeWindow = committedWindow;
         }
     }
@@ -1788,12 +1831,19 @@ void ActiveWindowOutlineEffect::traverseRecentWindows(int direction)
         m_expectedJumpTargetTimer->start(1000);
     }
 
+    const int targetWs = findWorkspaceForWindow(candidate);
+    if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
+        switchToWorkspaceView(targetWs);
+    }
+
     if (!candidate->isOnCurrentDesktop()) {
         const auto desktops = candidate->desktops();
         if (!desktops.isEmpty() && !candidate->isOnAllDesktops()) {
             effects->setCurrentDesktop(desktops.first());
         }
     }
+    m_workspaceMinimizedWindows.remove(candidate);
+    m_stashedWindows.remove(candidate);
     if (candidate->isMinimized()) {
         candidate->setMinimized(false);
     }
@@ -1806,6 +1856,7 @@ void ActiveWindowOutlineEffect::traverseRecentWindows(int direction)
         updateAnimationTimer();
     }
     effects->activateWindow(candidate);
+    m_activeWindow = candidate;
     playThemedSound(OutlineSound::SoundEffect::NavTab);
     effects->addRepaintFull();
 }

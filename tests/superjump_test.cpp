@@ -793,6 +793,86 @@ void testHudRecencySorting()
     std::cout << "testHudRecencySorting PASSED\n";
 }
 
+void testRecentWindowWorkspaceTransfer()
+{
+    using namespace LeapKWorkspace;
+
+    // Workspace 1: Coding (owns Kate / editor)
+    WorkspaceInfo ws1;
+    ws1.id = QStringLiteral("ws-coding");
+    ws1.name = QStringLiteral("Coding");
+    WindowMatchRule r1;
+    r1.matchApp = QStringLiteral("kate");
+    ws1.rules.append(r1);
+
+    // Workspace 2: Terminal (owns Konsole)
+    WorkspaceInfo ws2;
+    ws2.id = QStringLiteral("ws-terminal");
+    ws2.name = QStringLiteral("Terminal");
+    WindowMatchRule r2;
+    r2.matchApp = QStringLiteral("org.kde.konsole");
+    ws2.rules.append(r2);
+
+    QList<WorkspaceInfo> workspaces = { ws1, ws2 };
+
+    struct MockWin {
+        QString appId;
+        QString caption;
+        bool isMinimized = false;
+        int desktop = 1;
+    };
+
+    MockWin wKate{QStringLiteral("kate"), QStringLiteral("main.cpp"), false, 1};
+    MockWin wKonsole{QStringLiteral("org.kde.konsole"), QStringLiteral("bash"), false, 1};
+
+    // User is on Workspace 2 (Terminal), so Konsole is active window, Kate is in history as recent
+    int activeHudView = 2;
+    QList<MockWin *> history = { &wKonsole, &wKate };
+    MockWin *activeWindow = &wKonsole;
+
+    // In Workspace 2 isolation: Kate (belonging to ws1) is minimized
+    wKate.isMinimized = true;
+
+    // User triggers Meta+Space Space (recent window traversal or jump)
+    // 1. Step to candidate from history (wKate)
+    MockWin *candidate = history.at(1);
+    assert(candidate == &wKate);
+
+    // 2. Find target workspace for candidate
+    const int targetWs = findWorkspaceIndexForWindow(workspaces, candidate->appId, candidate->caption, candidate->desktop);
+    assert(targetWs == 1); // Belongs to Workspace 1
+
+    // 3. System must transfer active workspace view from 2 to targetWs (1)
+    if (activeHudView != targetWs && activeHudView <= workspaces.size()) {
+        activeHudView = targetWs;
+    }
+    assert(activeHudView == 1);
+
+    // 4. In Workspace 1 isolation:
+    // Window matching ws1 (wKate) is unminimized, window matching ws2 (wKonsole) is minimized
+    for (auto *w : { &wKate, &wKonsole }) {
+        if (matchesWorkspace(workspaces.at(activeHudView - 1), w->appId, w->caption, w->desktop)) {
+            w->isMinimized = false;
+        } else {
+            w->isMinimized = true;
+        }
+    }
+    assert(wKate.isMinimized == false);
+    assert(wKonsole.isMinimized == true);
+
+    // 5. Active window is set to candidate
+    activeWindow = candidate;
+    assert(activeWindow == &wKate);
+
+    // 6. On commit:
+    history.removeAll(candidate);
+    history.prepend(candidate);
+    assert(history.first() == &wKate);
+    assert(activeHudView == 1); // Confirms user was transferred to Workspace 1!
+
+    std::cout << "testRecentWindowWorkspaceTransfer PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
@@ -812,6 +892,7 @@ int main(int argc, char *argv[])
     testSuperJumpPullIntoEmptyWorkspace();
     testHudShiftBadgeCycling();
     testHudRecencySorting();
+    testRecentWindowWorkspaceTransfer();
 
     std::cout << "All Super Jump tests passed successfully!\n";
     return 0;

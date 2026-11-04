@@ -740,7 +740,9 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
     }
     m_jumpMode = false;
     m_hudSnapshotHistory.clear();
-    EffectWindow *curr = effects ? effects->activeWindow() : m_activeWindow;
+    EffectWindow *curr = (m_activeWindow && !m_activeWindow->isDeleted() && isEligibleOutlineWindow(m_activeWindow))
+        ? m_activeWindow
+        : (effects ? effects->activeWindow() : nullptr);
     if (curr && isEligibleOutlineWindow(curr)) {
         m_windowHistory.removeAll(curr);
         m_windowHistory.prepend(curr);
@@ -1342,6 +1344,10 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             m_isHistoryNavigating = false;
             m_historyNavIndex = 0;
             if (m_hudOriginWindow && !m_hudOriginWindow->isDeleted()) {
+                const int originWs = findWorkspaceForWindow(m_hudOriginWindow.data());
+                if (m_activeHudView != originWs && m_activeHudView <= m_workspaces.size()) {
+                    switchToWorkspaceView(originWs);
+                }
                 if (!m_hudOriginWindow->isOnCurrentDesktop()) {
                     const auto desktops = m_hudOriginWindow->desktops();
                     if (!desktops.isEmpty() && !m_hudOriginWindow->isOnAllDesktops()) {
@@ -1349,6 +1355,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     }
                 }
                 effects->activateWindow(m_hudOriginWindow.data());
+                m_activeWindow = m_hudOriginWindow.data();
                 warpCursorToWindow(m_hudOriginWindow.data());
             }
         }
