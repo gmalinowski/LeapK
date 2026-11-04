@@ -402,6 +402,11 @@ private:
     void slotToggleTilingEditMode();
     void enterTilingEditMode();
     void exitTilingEditMode();
+    void refreshTilingSlotWindows();
+    EffectWindow *findWindowInSlot(int slotIdx) const;
+    void splitActiveTileSlot(Qt::Orientation orientation);
+    void mergeTileSlots(int idx1, int idx2);
+    void deleteTileSlot(int slotIdx);
     void performTileSlotSwap(int idx1, int idx2);
     void performTilingResize(LeapKTiling::ResizeDirection dir, int count, LeapKTiling::TileEdge edge = LeapKTiling::TileEdge::Auto);
     void renderTilingEditOverlay(const RenderTarget &renderTarget,
@@ -687,6 +692,7 @@ private:
     int m_tilingMargins = 8;
     bool m_tilingRemoveMinSizeLimit = true;
     bool m_tilingEditModeActive = false;
+    bool m_tilingMergeModeActive = false;
     int m_tilingEditMultiplier = 0;
     QList<QPair<QRectF, LeapKTiling::TilingPreset>> m_hudTilingPresetPillRects;
     QSet<EffectWindow *> m_floatingWindows;

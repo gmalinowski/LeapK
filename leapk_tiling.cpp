@@ -1090,7 +1090,107 @@ int ActiveWindowOutlineEffect::findTileSlotIndexForWindow(EffectWindow *w) const
             return i;
         }
     }
-    return -1;
+    // Geometric fallback if pointer is unlinked or detached
+    const QRectF wGeo = w->frameGeometry();
+    const QPointF wCenter = wGeo.center();
+    int bestIdx = -1;
+    qreal maxOverlap = 0.0;
+    for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
+        const QRectF &slotGeo = m_activeTilingSlots[i].geometry;
+        if (slotGeo.contains(wCenter)) {
+            return i;
+        }
+        const QRectF inter = slotGeo.intersected(wGeo);
+        const qreal area = inter.width() * inter.height();
+        if (area > maxOverlap) {
+            maxOverlap = area;
+            bestIdx = i;
+        }
+    }
+    return bestIdx;
+}
+
+EffectWindow *ActiveWindowOutlineEffect::findWindowInSlot(int slotIdx) const
+{
+    if (slotIdx < 0 || slotIdx >= m_activeTilingSlots.size()) {
+        return nullptr;
+    }
+    EffectWindow *ew = m_activeTilingSlots[slotIdx].window.data();
+    if (ew && !ew->isDeleted() && ew->isVisible() && !ew->isMinimized() && ew->isOnCurrentDesktop()) {
+        return ew;
+    }
+    if (!effects) {
+        return nullptr;
+    }
+    const QRectF slotGeo = m_activeTilingSlots[slotIdx].geometry;
+    EffectWindow *bestWin = nullptr;
+    qreal maxOverlap = 0.0;
+    const auto windows = effects->stackingOrder();
+    for (EffectWindow *w : windows) {
+        if (!w || w->isDeleted() || !w->isVisible() || w->isMinimized() || !w->isOnCurrentDesktop() || !isEligibleTargetWindow(w)) {
+            continue;
+        }
+        const QRectF inter = slotGeo.intersected(w->frameGeometry());
+        const qreal area = inter.width() * inter.height();
+        if (area > maxOverlap) {
+            maxOverlap = area;
+            bestWin = w;
+        }
+    }
+    return bestWin;
+}
+
+void ActiveWindowOutlineEffect::refreshTilingSlotWindows()
+{
+    if (!effects || m_activeTilingSlots.isEmpty()) {
+        return;
+    }
+
+    const auto windows = effects->stackingOrder();
+    QList<EffectWindow *> candidates;
+    for (EffectWindow *w : windows) {
+        if (!w || w->isDeleted() || !w->isVisible() || w->isMinimized() || !w->isOnCurrentDesktop() || !isEligibleTargetWindow(w)) {
+            continue;
+        }
+        if (m_floatingWindows.contains(w)) {
+            continue;
+        }
+        candidates.append(w);
+    }
+
+    QSet<EffectWindow *> assigned;
+    for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
+        EffectWindow *current = m_activeTilingSlots[i].window.data();
+        if (current && candidates.contains(current) && !assigned.contains(current)) {
+            assigned.insert(current);
+        } else {
+            m_activeTilingSlots[i].window = nullptr;
+        }
+    }
+
+    for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
+        if (m_activeTilingSlots[i].window) {
+            continue;
+        }
+        const QRectF slotGeo = m_activeTilingSlots[i].geometry;
+        EffectWindow *bestWin = nullptr;
+        qreal maxOverlap = 0.0;
+        for (EffectWindow *w : candidates) {
+            if (assigned.contains(w)) {
+                continue;
+            }
+            const QRectF inter = slotGeo.intersected(w->frameGeometry());
+            const qreal area = inter.width() * inter.height();
+            if (area > maxOverlap) {
+                maxOverlap = area;
+                bestWin = w;
+            }
+        }
+        if (bestWin) {
+            m_activeTilingSlots[i].window = bestWin;
+            assigned.insert(bestWin);
+        }
+    }
 }
 
 void ActiveWindowOutlineEffect::ensureTilingNoMinSizeRule()
@@ -1288,11 +1388,14 @@ void ActiveWindowOutlineEffect::enterTilingEditMode()
         cancelJumpMode();
     }
 
+    refreshTilingSlotWindows();
+
     if (!effects->grabKeyboard(this)) {
         return;
     }
     m_keyboardGrabActive = true;
     m_tilingEditModeActive = true;
+    m_tilingMergeModeActive = false;
     m_tilingEditMultiplier = 0;
     playThemedSound(OutlineSound::SoundEffect::EnterJump);
     if (effects) {
@@ -1306,6 +1409,7 @@ void ActiveWindowOutlineEffect::exitTilingEditMode()
         return;
     }
     m_tilingEditModeActive = false;
+    m_tilingMergeModeActive = false;
     m_tilingEditMultiplier = 0;
     finishKeyboardGrab();
 
@@ -1346,20 +1450,37 @@ void ActiveWindowOutlineEffect::performTileSlotSwap(int idx1, int idx2)
         return;
     }
 
+    refreshTilingSlotWindows();
+
     EffectWindow *w1 = m_activeTilingSlots[idx1].window.data();
     EffectWindow *w2 = m_activeTilingSlots[idx2].window.data();
+
+    if (!w1) {
+        w1 = findWindowInSlot(idx1);
+    }
+    if (!w2) {
+        w2 = findWindowInSlot(idx2);
+    }
 
     m_activeTilingSlots[idx1].window = w2;
     m_activeTilingSlots[idx2].window = w1;
 
-    applyWindowToTilingSlot(w1, m_activeTilingSlots[idx2].geometry);
-    applyWindowToTilingSlot(w2, m_activeTilingSlots[idx1].geometry);
+    const QRectF geo1 = m_activeTilingSlots[idx1].geometry;
+    const QRectF geo2 = m_activeTilingSlots[idx2].geometry;
+
+    if (w1) {
+        applyWindowToTilingSlot(w1, geo2);
+    }
+    if (w2) {
+        applyWindowToTilingSlot(w2, geo1);
+    }
 
     if (workspace()) {
-        for (const auto &slot : m_activeTilingSlots) {
-            if (slot.window && !slot.window->isDeleted() && slot.window->window()) {
-                workspace()->raiseWindow(slot.window->window());
-            }
+        if (w2 && !w2->isDeleted() && w2->window()) {
+            workspace()->raiseWindow(w2->window());
+        }
+        if (w1 && !w1->isDeleted() && w1->window()) {
+            workspace()->raiseWindow(w1->window());
         }
     }
 
@@ -1371,6 +1492,233 @@ void ActiveWindowOutlineEffect::performTileSlotSwap(int idx1, int idx2)
     }
 
     playThemedSound(OutlineSound::SoundEffect::LandWindow);
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::splitActiveTileSlot(Qt::Orientation orientation)
+{
+    if (m_activeTilingSlots.isEmpty()) {
+        return;
+    }
+
+    refreshTilingSlotWindows();
+
+    int activeSlotIdx = findTileSlotIndexForWindow(m_activeWindow);
+    if (activeSlotIdx < 0 || activeSlotIdx >= m_activeTilingSlots.size()) {
+        activeSlotIdx = 0;
+    }
+
+    const QRectF r = (activeSlotIdx < m_activeTilingPreset.tileSlots.size())
+        ? m_activeTilingPreset.tileSlots[activeSlotIdx].relativeRect
+        : QRectF(0.0, 0.0, 1.0, 1.0);
+    const QRectF g = m_activeTilingSlots[activeSlotIdx].geometry;
+    EffectWindow *origWin = m_activeTilingSlots[activeSlotIdx].window.data();
+
+    QRectF r1, r2, g1, g2;
+    if (orientation == Qt::Vertical) {
+        // Vertical split: Top and bottom halves
+        r1 = QRectF(r.left(), r.top(), r.width(), r.height() / 2.0);
+        r2 = QRectF(r.left(), r.top() + r.height() / 2.0, r.width(), r.height() / 2.0);
+        g1 = QRectF(g.left(), g.top(), g.width(), g.height() / 2.0);
+        g2 = QRectF(g.left(), g.top() + g.height() / 2.0, g.width(), g.height() / 2.0);
+    } else {
+        // Horizontal split: Left and right halves
+        r1 = QRectF(r.left(), r.top(), r.width() / 2.0, r.height());
+        r2 = QRectF(r.left() + r.width() / 2.0, r.top(), r.width() / 2.0, r.height());
+        g1 = QRectF(g.left(), g.top(), g.width() / 2.0, g.height());
+        g2 = QRectF(g.left() + g.width() / 2.0, g.top(), g.width() / 2.0, g.height());
+    }
+
+    if (activeSlotIdx < m_activeTilingPreset.tileSlots.size()) {
+        m_activeTilingPreset.tileSlots[activeSlotIdx].relativeRect = r1;
+    } else {
+        m_activeTilingPreset.tileSlots.append(LeapKTiling::TileSlot{r1});
+    }
+    m_activeTilingSlots[activeSlotIdx].geometry = g1;
+
+    LeapKTiling::TileSlot newSlot;
+    newSlot.relativeRect = r2;
+    m_activeTilingPreset.tileSlots.insert(activeSlotIdx + 1, newSlot);
+
+    ActiveTilingSlot newActiveSlot;
+    newActiveSlot.geometry = g2;
+    newActiveSlot.window = nullptr;
+    m_activeTilingSlots.insert(activeSlotIdx + 1, newActiveSlot);
+
+    m_activeTilingPreset.id = QStringLiteral("custom-layout");
+    m_activeTilingPreset.name = QStringLiteral("Custom Layout");
+    m_activeTilingPreset.kdeJson = QJsonObject();
+
+    if (origWin && !origWin->isDeleted()) {
+        applyWindowToTilingSlot(origWin, g1);
+    }
+
+    refreshTilingSlotWindows();
+    if (m_activeTilingSlots[activeSlotIdx + 1].window) {
+        applyWindowToTilingSlot(m_activeTilingSlots[activeSlotIdx + 1].window.data(), g2);
+    }
+
+    syncActiveTilingSlotsToKdeTiles();
+    playThemedSound(OutlineSound::SoundEffect::LandWindow);
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::mergeTileSlots(int idx1, int idx2)
+{
+    if (idx1 < 0 || idx1 >= m_activeTilingSlots.size() || idx2 < 0 || idx2 >= m_activeTilingSlots.size() || idx1 == idx2) {
+        return;
+    }
+
+    refreshTilingSlotWindows();
+
+    const QRectF r1 = (idx1 < m_activeTilingPreset.tileSlots.size()) ? m_activeTilingPreset.tileSlots[idx1].relativeRect : QRectF();
+    const QRectF r2 = (idx2 < m_activeTilingPreset.tileSlots.size()) ? m_activeTilingPreset.tileSlots[idx2].relativeRect : QRectF();
+    const QRectF g1 = m_activeTilingSlots[idx1].geometry;
+    const QRectF g2 = m_activeTilingSlots[idx2].geometry;
+
+    EffectWindow *w1 = m_activeTilingSlots[idx1].window.data();
+    EffectWindow *w2 = m_activeTilingSlots[idx2].window.data();
+
+    if (!w1) w1 = findWindowInSlot(idx1);
+    if (!w2) w2 = findWindowInSlot(idx2);
+
+    if (w2 && !w2->isDeleted()) {
+        if (w2->window()) {
+            if (Tile *tile = w2->window()->tile()) {
+                tile->unmanage(w2->window());
+            }
+            w2->window()->setTileCompatibility(nullptr);
+            w2->window()->requestTile(nullptr);
+        }
+        m_floatingWindows.insert(w2);
+    }
+
+    const QRectF mergedRel = r1.united(r2);
+    const QRectF mergedGeo = g1.united(g2);
+
+    if (idx1 < m_activeTilingPreset.tileSlots.size()) {
+        m_activeTilingPreset.tileSlots[idx1].relativeRect = mergedRel;
+    }
+    m_activeTilingSlots[idx1].geometry = mergedGeo;
+
+    if (idx2 < m_activeTilingPreset.tileSlots.size()) {
+        m_activeTilingPreset.tileSlots.removeAt(idx2);
+    }
+    m_activeTilingSlots.removeAt(idx2);
+
+    m_activeTilingPreset.id = QStringLiteral("custom-layout");
+    m_activeTilingPreset.name = QStringLiteral("Custom Layout");
+    m_activeTilingPreset.kdeJson = QJsonObject();
+
+    const int adjIdx1 = (idx1 > idx2) ? (idx1 - 1) : idx1;
+    if (w1 && !w1->isDeleted()) {
+        applyWindowToTilingSlot(w1, m_activeTilingSlots[adjIdx1].geometry);
+    }
+
+    syncActiveTilingSlotsToKdeTiles();
+    playThemedSound(OutlineSound::SoundEffect::LandWindow);
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::deleteTileSlot(int slotIdx)
+{
+    if (m_activeTilingSlots.size() <= 1 || slotIdx < 0 || slotIdx >= m_activeTilingSlots.size()) {
+        return;
+    }
+
+    refreshTilingSlotWindows();
+
+    const QRectF delRel = (slotIdx < m_activeTilingPreset.tileSlots.size())
+        ? m_activeTilingPreset.tileSlots[slotIdx].relativeRect
+        : QRectF();
+    const QRectF delGeo = m_activeTilingSlots[slotIdx].geometry;
+    EffectWindow *delWin = m_activeTilingSlots[slotIdx].window.data();
+    if (!delWin) {
+        delWin = findWindowInSlot(slotIdx);
+    }
+
+    if (delWin && !delWin->isDeleted()) {
+        if (delWin->window()) {
+            if (Tile *tile = delWin->window()->tile()) {
+                tile->unmanage(delWin->window());
+            }
+            delWin->window()->setTileCompatibility(nullptr);
+            delWin->window()->requestTile(nullptr);
+        }
+        m_floatingWindows.insert(delWin);
+    }
+
+    // Find best adjacent neighbor to absorb delRel
+    int bestNeighbor = -1;
+    qreal bestScore = -1.0;
+    const qreal tol = 0.03;
+
+    for (int i = 0; i < m_activeTilingPreset.tileSlots.size(); ++i) {
+        if (i == slotIdx) continue;
+        const QRectF &nRel = m_activeTilingPreset.tileSlots[i].relativeRect;
+
+        // Vertical stack neighbor (same X bounds, touching vertically)
+        const bool sameXSpan = (std::abs(nRel.left() - delRel.left()) < tol && std::abs(nRel.width() - delRel.width()) < tol);
+        const bool touchesY = (std::abs(nRel.bottom() - delRel.top()) < tol || std::abs(nRel.top() - delRel.bottom()) < tol);
+        if (sameXSpan && touchesY) {
+            bestNeighbor = i;
+            break;
+        }
+
+        // Horizontal column neighbor (same Y bounds, touching horizontally)
+        const bool sameYSpan = (std::abs(nRel.top() - delRel.top()) < tol && std::abs(nRel.height() - delRel.height()) < tol);
+        const bool touchesX = (std::abs(nRel.right() - delRel.left()) < tol || std::abs(nRel.left() - delRel.right()) < tol);
+        if (sameYSpan && touchesX) {
+            bestNeighbor = i;
+            break;
+        }
+
+        qreal sharedEdge = 0.0;
+        if (std::abs(nRel.bottom() - delRel.top()) < tol || std::abs(nRel.top() - delRel.bottom()) < tol) {
+            sharedEdge = std::max(0.0, std::min(nRel.right(), delRel.right()) - std::max(nRel.left(), delRel.left()));
+        }
+        if (std::abs(nRel.right() - delRel.left()) < tol || std::abs(nRel.left() - delRel.right()) < tol) {
+            sharedEdge = std::max(sharedEdge, std::max(0.0, std::min(nRel.bottom(), delRel.bottom()) - std::max(nRel.top(), delRel.top())));
+        }
+        if (sharedEdge > bestScore) {
+            bestScore = sharedEdge;
+            bestNeighbor = i;
+        }
+    }
+
+    if (bestNeighbor < 0) {
+        bestNeighbor = (slotIdx == 0) ? 1 : 0;
+    }
+
+    QRectF newRel = m_activeTilingPreset.tileSlots[bestNeighbor].relativeRect.united(delRel);
+    QRectF newGeo = m_activeTilingSlots[bestNeighbor].geometry.united(delGeo);
+
+    m_activeTilingPreset.tileSlots[bestNeighbor].relativeRect = newRel;
+    m_activeTilingSlots[bestNeighbor].geometry = newGeo;
+
+    if (slotIdx < m_activeTilingPreset.tileSlots.size()) {
+        m_activeTilingPreset.tileSlots.removeAt(slotIdx);
+    }
+    m_activeTilingSlots.removeAt(slotIdx);
+
+    m_activeTilingPreset.id = QStringLiteral("custom-layout");
+    m_activeTilingPreset.name = QStringLiteral("Custom Layout");
+    m_activeTilingPreset.kdeJson = QJsonObject();
+
+    const int adjNeighbor = (bestNeighbor > slotIdx) ? (bestNeighbor - 1) : bestNeighbor;
+    EffectWindow *nWin = m_activeTilingSlots[adjNeighbor].window.data();
+    if (nWin && !nWin->isDeleted()) {
+        applyWindowToTilingSlot(nWin, m_activeTilingSlots[adjNeighbor].geometry);
+    }
+
+    syncActiveTilingSlotsToKdeTiles();
+    playThemedSound(OutlineSound::SoundEffect::Dismiss);
     if (effects) {
         effects->addRepaintFull();
     }
@@ -1459,12 +1807,16 @@ void ActiveWindowOutlineEffect::renderTilingEditOverlay(const RenderTarget &rend
         const QRectF geo = m_activeTilingSlots[i].geometry;
         if (i == activeSlotIdx) {
             // Active slot indicator: crisp themed floating pill
-            const QString label = (m_tilingEditMultiplier > 0)
-                ? QString::number(m_tilingEditMultiplier) + QLatin1Char('x')
-                : QStringLiteral("EDIT");
-            const QColor bgCol = (m_tilingEditMultiplier > 0)
-                ? QColor(255, 150, 0, 245)
-                : (themeSecondary.isValid() ? themeSecondary : QColor(0, 160, 220, 245));
+            const QString label = m_tilingMergeModeActive
+                ? QStringLiteral("MERGE")
+                : ((m_tilingEditMultiplier > 0)
+                    ? QString::number(m_tilingEditMultiplier) + QLatin1Char('x')
+                    : QStringLiteral("EDIT"));
+            const QColor bgCol = m_tilingMergeModeActive
+                ? QColor(230, 80, 0, 250)
+                : ((m_tilingEditMultiplier > 0)
+                    ? QColor(255, 150, 0, 245)
+                    : (themeSecondary.isValid() ? themeSecondary : QColor(0, 160, 220, 245)));
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
             renderFloatingPill(renderTarget, viewport, label, geo.center(), bgCol, textCol, 16, 0.0, badgeShape);
         } else {
@@ -1477,9 +1829,14 @@ void ActiveWindowOutlineEffect::renderTilingEditOverlay(const RenderTarget &rend
     }
 
     // 2. Render bottom hint bar pill with crisp 1:1 pixel rendering and active theme styling
-    const QString hintText = (m_tilingEditMultiplier > 0)
-        ? QStringLiteral("Multiplier: %1x  •  [H/←: Narrower  L/→: Wider  K/↑: Shorter  J/↓: Taller]  •  [Ctrl+S: Save]  •  [Enter: Finish]").arg(m_tilingEditMultiplier)
-        : QStringLiteral("[H/←: Narrower  L/→: Wider  K/↑: Shorter  J/↓: Taller]  •  [+/-: Size]  •  [Ctrl+S: Save layout]  •  [Letters: Swap]  •  [Enter: Done]");
+    QString hintText;
+    if (m_tilingMergeModeActive) {
+        hintText = QStringLiteral("Merge with tile: [Press Letter of adjacent tile to merge]  •  [Esc: Cancel]");
+    } else if (m_tilingEditMultiplier > 0) {
+        hintText = QStringLiteral("Multiplier: %1x  •  [H/←: Narrower  L/→: Wider  K/↑: Shorter  J/↓: Taller]  •  [Ctrl+S: Save]  •  [Enter: Finish]").arg(m_tilingEditMultiplier);
+    } else {
+        hintText = QStringLiteral("[H/←: Narrower  L/→: Wider  K/↑: Shorter  J/↓: Taller]  •  [Ctrl+V/H: Split V/H]  •  [Ctrl+M: Merge  Ctrl+F: Float  Ctrl+D: Delete]  •  [Letters: Swap]  •  [Enter: Done]");
+    }
     const QPointF barCenter(screenRect.center().x(), screenRect.bottom() - 36.0);
     const QColor barBg = theme.surfaceBackgroundColor();
     const QColor barText = theme.textSecondaryColor();

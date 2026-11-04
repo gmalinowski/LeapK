@@ -1065,10 +1065,69 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
-        const Qt::KeyboardModifiers mods = e->modifiers();
-        if ((mods & Qt::ControlModifier) && e->key() == Qt::Key_S) {
-            slotSaveCurrentTilingLayout();
+        // Sub-mode: Merge slot selection (Ctrl+M was pressed)
+        if (m_tilingMergeModeActive) {
+            if (e->key() == Qt::Key_Escape) {
+                m_tilingMergeModeActive = false;
+                playThemedSound(OutlineSound::SoundEffect::Dismiss);
+                if (effects) {
+                    effects->addRepaintFull();
+                }
+                return;
+            }
+
+            QString keyText = e->text().toUpper();
+            QChar pressedChar = keyText.isEmpty() ? QChar(e->key()).toUpper() : keyText.at(0).toUpper();
+
+            int activeSlotIdx = findTileSlotIndexForWindow(m_activeWindow);
+            if (activeSlotIdx < 0 && !m_activeTilingSlots.isEmpty()) {
+                activeSlotIdx = 0;
+            }
+
+            const int numKeys = 14;
+            for (int i = 0; i < m_activeTilingSlots.size(); ++i) {
+                if (i == activeSlotIdx) continue;
+                QChar slotChar = LeapKTiling::kTileEditKeys[i % numKeys];
+                if (slotChar == pressedChar) {
+                    m_tilingMergeModeActive = false;
+                    mergeTileSlots(activeSlotIdx, i);
+                    return;
+                }
+            }
             return;
+        }
+
+        const Qt::KeyboardModifiers mods = e->modifiers();
+        if (mods & Qt::ControlModifier) {
+            if (e->key() == Qt::Key_S) {
+                slotSaveCurrentTilingLayout();
+                return;
+            } else if (e->key() == Qt::Key_V) {
+                splitActiveTileSlot(Qt::Vertical);
+                return;
+            } else if (e->key() == Qt::Key_H) {
+                splitActiveTileSlot(Qt::Horizontal);
+                return;
+            } else if (e->key() == Qt::Key_M) {
+                if (m_activeTilingSlots.size() >= 2) {
+                    m_tilingMergeModeActive = true;
+                    playThemedSound(OutlineSound::SoundEffect::EnterJump);
+                    if (effects) {
+                        effects->addRepaintFull();
+                    }
+                }
+                return;
+            } else if (e->key() == Qt::Key_F) {
+                slotToggleActiveWindowFloating();
+                return;
+            } else if (e->key() == Qt::Key_D) {
+                if (m_activeTilingSlots.size() >= 2) {
+                    int idx = findTileSlotIndexForWindow(m_activeWindow);
+                    if (idx < 0) idx = 0;
+                    deleteTileSlot(idx);
+                }
+                return;
+            }
         }
 
         if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter

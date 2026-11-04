@@ -4,6 +4,29 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta82] - 2026-11-04
+
+### Fixed
+- **Badge Position "Bottom" Fallback Fix**:
+  - Excluded dock windows (`candidate->isDock()`), notifications, popup windows, tooltips, lock screen, and input method windows from `isBadgeOccluded`. KDE Plasma's panel dock at the bottom of the screen no longer falsely occludes window badges and forces them to center.
+  - Restricted `m_hudHeaderScreenRect` and `m_hudHintBarScreenRect` collision checks in `isBadgeOccluded` to only occur when HUD is actively rendered or in HUD preview.
+  - Implemented smart alternative position ordering in `findBestBadgePositionForWindow` and `OutlineBadge::findBestBadgePosition`: windows configured with Bottom positions (`Bottom`, `Bottom-Left`, `Bottom-Right`) now prefer neighboring bottom positions first rather than immediately jumping to `Center`.
+- **Accurate Window Swapping in Tile Edit Mode**:
+  - Implemented `refreshTilingSlotWindows()` and `findWindowInSlot()` to dynamically associate slots with visible application windows based on maximum geometric intersection area.
+  - Resolved window overlapping/covering bug when pressing slot letters in edit mode: both windows (`w1` and `w2`) are correctly retrieved, swapped, positioned in their new slots, and raised in the window manager.
+- **Asymmetric Middle Window Resizing in Tile Edit Mode**:
+  - Updated `resizeSlotGeometries` in `tilinghelper.h`: middle slots with both left and right dividers now move a single divider in the direction requested (Right moves the right divider right, Left moves the right divider left with fallback to the left divider) rather than dividing delta symmetrically. Vertical middle slots similarly move a single divider down or up.
+
+### Added
+- **Dynamic Split, Merge, Float, and Delete in Tile Edit Mode**:
+  - `Ctrl + V`: Split active tile slot vertically into top and bottom halves (`splitActiveTileSlot(Qt::Vertical)`).
+  - `Ctrl + H`: Split active tile slot horizontally into left and right halves (`splitActiveTileSlot(Qt::Horizontal)`).
+  - `Ctrl + M`: Interactive merge mode (`m_tilingMergeModeActive`) allowing the user to press the letter of an adjacent tile slot to merge them into a single bounding rect (`mergeTileSlots()`), with `Esc` to cancel.
+  - `Ctrl + F`: Toggle floating window for the active window in tile edit mode (`slotToggleActiveWindowFloating()`).
+  - `Ctrl + D`: Delete active tile slot (`deleteTileSlot()`), cleanly floating any occupant and expanding the best adjacent neighbor to absorb the vacated space.
+  - Updated tile edit overlay HUD hint bar to display `[Ctrl+V/H: Split V/H] • [Ctrl+M: Merge  Ctrl+F: Float  Ctrl+D: Delete]`.
+  - Added unit test `testDynamicSplitMergeDelete` and updated `testThreeColumnsMiddleSlotResize` and `testHudObstacleBadgeAvoidance`. All 30/30 CTests pass (100%).
+
 ## [1.6.0-beta81] - 2026-11-04
 
 ### Fixed

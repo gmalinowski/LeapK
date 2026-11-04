@@ -965,7 +965,27 @@ void testBackgroundWindowBadgeOcclusionAvoidance()
     assert(!fullWidthTopHeader.intersects(bestPosFullTop));
     assert(bestPosFullTop.top() >= 160.0);
 
-    // Case 3: Complete occlusion of all 9 zones
+    // Case 4: Default position 7 (Bottom) without occlusion stays at bottom
+    foundVisible = false;
+    QRectF bottomBadge = findBestBadgePosition(
+        backgroundWindowGeo, 7 /* Bottom */, badgeW, badgeH, 12.0, screenRect,
+        {}, {}, &foundVisible);
+    assert(foundVisible);
+    assert(bottomBadge.bottom() > 1000.0); // Placed near bottom of screen
+    assert(bottomBadge.top() > 900.0);    // NOT pushed to center (540)!
+
+    // When Bottom (7) is specifically occluded by a small obstacle at bottom-center:
+    const QRectF bottomCenterObstacle(800, 1000, 320, 80);
+    foundVisible = false;
+    QRectF bottomFallbackBadge = findBestBadgePosition(
+        backgroundWindowGeo, 7 /* Bottom */, badgeW, badgeH, 12.0, screenRect,
+        { bottomCenterObstacle }, {}, &foundVisible);
+    assert(foundVisible);
+    // Should fallback to BottomLeft (6) or BottomRight (8), staying at bottom!
+    assert(bottomFallbackBadge.bottom() > 1000.0);
+    assert(!bottomCenterObstacle.intersects(bottomFallbackBadge));
+
+    // Case 5: Complete occlusion of all 9 zones
     QList<QRectF> fullObstacles = {
         QRectF(0, 0, 960, 540),       // Top-Left quadrant
         QRectF(960, 0, 960, 540),     // Top-Right quadrant

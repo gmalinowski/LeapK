@@ -551,22 +551,24 @@ inline bool resizeSlotGeometries(QList<QRectF> &geometries, int activeIdx, Resiz
         } else {
             // targetEdge == TileEdge::Auto (standard keyboard resize navigation)
             if (hasLeftDivider && hasRightDivider) {
-                // Middle slot: both borders move symmetrically so window grows/shrinks cleanly
+                // Middle slot: shift one divider in the resize direction (asymmetric single-border movement)
                 if (dir == ResizeDirection::Right) {
-                    // Expand width (+delta): Left divider moves left (-delta/2), Right divider moves right (+delta/2)
-                    const qreal half = delta / 2.0;
-                    bool rOk = shiftHorizontalDivider(rightDivL, rightDivR, half);
-                    bool lOk = shiftHorizontalDivider(leftDivL, leftDivR, -half);
-                    return rOk || lOk;
+                    // Expand width right (+delta): shift right divider right (+delta)
+                    // If right divider cannot shift (hit boundary/minSize), fallback to shifting left divider left (-delta)
+                    if (shiftHorizontalDivider(rightDivL, rightDivR, delta)) {
+                        return true;
+                    }
+                    return shiftHorizontalDivider(leftDivL, leftDivR, -delta);
                 } else {
-                    // Shrink width (-delta): Left divider moves right (+delta/2), Right divider moves left (-delta/2)
+                    // Shrink width from right (-delta): shift right divider left (-delta)
+                    // If right divider cannot shift, fallback to shifting left divider right (+delta)
                     const qreal maxShrink = cur.width() - minSize;
                     const qreal d = qMin(delta, maxShrink);
                     if (d < 1.0) return false;
-                    const qreal half = d / 2.0;
-                    bool rOk = shiftHorizontalDivider(rightDivL, rightDivR, -half);
-                    bool lOk = shiftHorizontalDivider(leftDivL, leftDivR, half);
-                    return rOk || lOk;
+                    if (shiftHorizontalDivider(rightDivL, rightDivR, -d)) {
+                        return true;
+                    }
+                    return shiftHorizontalDivider(leftDivL, leftDivR, d);
                 }
             } else if (hasRightDivider || hasLeftDivider) {
                 // Boundary slot with one divider:
@@ -713,22 +715,24 @@ inline bool resizeSlotGeometries(QList<QRectF> &geometries, int activeIdx, Resiz
         } else {
             // targetEdge == TileEdge::Auto (fallback for keyboard navigation)
             if (hasTopDivider && hasBottomDivider) {
-                // Vertical middle slot: symmetric expansion/contraction
+                // Vertical middle slot: shift one divider in the resize direction (asymmetric single-border movement)
                 if (dir == ResizeDirection::Down) {
-                    // Expand height (+delta): Top moves up (-delta/2), Bottom moves down (+delta/2)
-                    const qreal half = delta / 2.0;
-                    bool bOk = shiftVerticalDivider(bottomDivT, bottomDivB, half);
-                    bool tOk = shiftVerticalDivider(topDivT, topDivB, -half);
-                    return bOk || tOk;
+                    // Expand height down (+delta): shift bottom divider down (+delta)
+                    // If bottom divider cannot shift, fallback to shifting top divider up (-delta)
+                    if (shiftVerticalDivider(bottomDivT, bottomDivB, delta)) {
+                        return true;
+                    }
+                    return shiftVerticalDivider(topDivT, topDivB, -delta);
                 } else {
-                    // Shrink height (-delta): Top moves down (+delta/2), Bottom moves up (-delta/2)
+                    // Shrink height from bottom (-delta): shift bottom divider up (-delta)
+                    // If bottom divider cannot shift, fallback to shifting top divider down (+delta)
                     const qreal maxShrink = cur.height() - minSize;
                     const qreal d = qMin(delta, maxShrink);
                     if (d < 1.0) return false;
-                    const qreal half = d / 2.0;
-                    bool bOk = shiftVerticalDivider(bottomDivT, bottomDivB, -half);
-                    bool tOk = shiftVerticalDivider(topDivT, topDivB, half);
-                    return bOk || tOk;
+                    if (shiftVerticalDivider(bottomDivT, bottomDivB, -d)) {
+                        return true;
+                    }
+                    return shiftVerticalDivider(topDivT, topDivB, d);
                 }
             } else if (hasBottomDivider || hasTopDivider) {
                 // Boundary slot with one vertical divider:

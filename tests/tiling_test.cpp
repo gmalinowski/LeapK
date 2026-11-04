@@ -1202,16 +1202,16 @@ void testThreeColumnsMiddleSlotResize()
     const qreal delta = 60.0;
 
     // 1. Expand middle slot right ('l' / Right / '+')
-    // Auto mode: left divider shifts -delta/2 (-30), right divider shifts +delta/2 (+30)
-    // geos[1].left() becomes 610 - 30 = 580
-    // geos[1].right() becomes 1310 + 30 = 1340 -> width becomes 700 + 60 = 760
-    // geos[0].right() becomes 600 - 30 = 570 -> width becomes 600 - 30 = 570
-    // geos[2].left() becomes 1320 + 30 = 1350 -> width becomes 600 - 30 = 570
+    // Asymmetric single-divider mode: right divider shifts right (+delta = +60), slot 0 is untouched!
+    // geos[1].left() stays 610
+    // geos[1].right() becomes 1310 + 60 = 1370 -> width becomes 700 + 60 = 760
+    // geos[0] stays untouched: width = 600
+    // geos[2].left() becomes 1320 + 60 = 1380 -> width becomes 600 - 60 = 540
     bool ok = resizeSlotGeometries(geos, 1, ResizeDirection::Right, delta, 100.0);
     assert(ok);
     assert(qAbs(geos[1].width() - (initialW1 + delta)) < 0.001);
-    assert(qAbs(geos[0].width() - (initialW0 - delta / 2.0)) < 0.001);
-    assert(qAbs(geos[2].width() - (initialW2 - delta / 2.0)) < 0.001);
+    assert(qAbs(geos[0].width() - initialW0) < 0.001);
+    assert(qAbs(geos[2].width() - (initialW2 - delta)) < 0.001);
     assert(qAbs(geos[1].left() - geos[0].right() - 10.0) < 0.001);
     assert(qAbs(geos[2].left() - geos[1].right() - 10.0) < 0.001);
     assert(qAbs(geos[0].left() - 0.0) < 0.001);
@@ -1228,12 +1228,12 @@ void testThreeColumnsMiddleSlotResize()
     assert(qAbs(geos[2].left() - geos[1].right() - 10.0) < 0.001);
 
     // 3. Shrink middle slot further ('h' / Left / '-')
-    // Middle slot narrows symmetrically, left and right expand symmetrically
+    // Middle slot narrows from the right, slot 2 expands left, slot 0 remains untouched!
     ok = resizeSlotGeometries(geos, 1, ResizeDirection::Left, delta, 100.0);
     assert(ok);
     assert(qAbs(geos[1].width() - (initialW1 - delta)) < 0.001);
-    assert(qAbs(geos[0].width() - (initialW0 + delta / 2.0)) < 0.001);
-    assert(qAbs(geos[2].width() - (initialW2 + delta / 2.0)) < 0.001);
+    assert(qAbs(geos[0].width() - initialW0) < 0.001);
+    assert(qAbs(geos[2].width() - (initialW2 + delta)) < 0.001);
     assert(qAbs(geos[1].left() - geos[0].right() - 10.0) < 0.001);
     assert(qAbs(geos[2].left() - geos[1].right() - 10.0) < 0.001);
 
@@ -1267,6 +1267,60 @@ void testThreeColumnsMiddleSlotResize()
     std::cout << "testThreeColumnsMiddleSlotResize PASSED\n";
 }
 
+void testDynamicSplitMergeDelete()
+{
+    using namespace LeapKTiling;
+
+    // Start with 2 equal columns:
+    // Slot 0: [0.0, 0.0, 0.5, 1.0]
+    // Slot 1: [0.5, 0.0, 0.5, 1.0]
+    TilingPreset p;
+    p.id = QStringLiteral("custom-split");
+    p.tileSlots = {
+        TileSlot{QRectF(0.0, 0.0, 0.5, 1.0)},
+        TileSlot{QRectF(0.5, 0.0, 0.5, 1.0)}
+    };
+
+    // 1. Split slot 1 vertically (top / bottom halves)
+    QRectF rOrig = p.tileSlots[1].relativeRect;
+    QRectF rTop(rOrig.left(), rOrig.top(), rOrig.width(), rOrig.height() / 2.0);
+    QRectF rBot(rOrig.left(), rOrig.top() + rOrig.height() / 2.0, rOrig.width(), rOrig.height() / 2.0);
+
+    p.tileSlots[1].relativeRect = rTop;
+    p.tileSlots.insert(2, TileSlot{rBot});
+
+    assert(p.tileSlots.size() == 3);
+    assert(qAbs(p.tileSlots[0].relativeRect.width() - 0.5) < 0.001);
+    assert(qAbs(p.tileSlots[1].relativeRect.height() - 0.5) < 0.001);
+    assert(qAbs(p.tileSlots[2].relativeRect.height() - 0.5) < 0.001);
+
+    // Verify valid KDE tile tree generation
+    const QJsonObject kdeJson1 = p.toKdeJson();
+    assert(kdeJson1.value(QStringLiteral("layoutDirection")).toString() == QStringLiteral("horizontal"));
+
+    // 2. Merge slot 1 and slot 2 back together
+    QRectF rMerged = p.tileSlots[1].relativeRect.united(p.tileSlots[2].relativeRect);
+    p.tileSlots[1].relativeRect = rMerged;
+    p.tileSlots.removeAt(2);
+
+    assert(p.tileSlots.size() == 2);
+    assert(qAbs(p.tileSlots[1].relativeRect.height() - 1.0) < 0.001);
+    assert(qAbs(p.tileSlots[1].relativeRect.width() - 0.5) < 0.001);
+
+    // 3. Delete slot 0 (slot 1 expands to fill space)
+    QRectF delRel = p.tileSlots[0].relativeRect;
+    // Neighbor slot 1 shares vertical boundary (left touches delRel.right)
+    QRectF newRel = p.tileSlots[1].relativeRect.united(delRel);
+    p.tileSlots[1].relativeRect = newRel;
+    p.tileSlots.removeAt(0);
+
+    assert(p.tileSlots.size() == 1);
+    assert(qAbs(p.tileSlots[0].relativeRect.width() - 1.0) < 0.001);
+    assert(qAbs(p.tileSlots[0].relativeRect.height() - 1.0) < 0.001);
+
+    std::cout << "testDynamicSplitMergeDelete PASSED\n";
+}
+
 int main()
 {
     testDefaultPresets();
@@ -1285,6 +1339,7 @@ int main()
     testMasterStackRepeatedResize();
     testCustomLayoutUpsertAndDelete();
     testThreeColumnsMiddleSlotResize();
+    testDynamicSplitMergeDelete();
 
     std::cout << "All LeapKTiling tests passed successfully!\n";
     return 0;

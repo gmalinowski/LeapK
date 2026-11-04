@@ -861,11 +861,14 @@ bool ActiveWindowOutlineEffect::isBadgeOccluded(EffectWindow *target, const QRec
             return true;
         }
     }
-    if (m_hudHeaderScreenRect.isValid() && !m_hudHeaderScreenRect.isEmpty() && m_hudHeaderScreenRect.intersects(badgeRect)) {
-        return true;
-    }
-    if (m_hudHintBarScreenRect.isValid() && !m_hudHintBarScreenRect.isEmpty() && m_hudHintBarScreenRect.intersects(badgeRect)) {
-        return true;
+    const bool hudActive = m_jumpMode || (m_badgePreviewActive && m_previewShowHud);
+    if (hudActive) {
+        if (m_hudHeaderScreenRect.isValid() && !m_hudHeaderScreenRect.isEmpty() && m_hudHeaderScreenRect.intersects(badgeRect)) {
+            return true;
+        }
+        if (m_hudHintBarScreenRect.isValid() && !m_hudHintBarScreenRect.isEmpty() && m_hudHintBarScreenRect.intersects(badgeRect)) {
+            return true;
+        }
     }
     bool aboveTarget = false;
     const auto windows = effects->stackingOrder();
@@ -880,7 +883,10 @@ bool ActiveWindowOutlineEffect::isBadgeOccluded(EffectWindow *target, const QRec
         if (!candidate || candidate->isDeleted() || !candidate->isVisible()
             || candidate->isMinimized() || !candidate->isOnCurrentDesktop()
             || candidate->isHiddenByShowDesktop() || candidate->isOutline()
-            || candidate->isDesktop()
+            || candidate->isDesktop() || candidate->isDock()
+            || candidate->isNotification() || candidate->isPopupWindow()
+            || candidate->isTooltip() || candidate->isLockScreen()
+            || candidate->isInputMethod()
             || candidate->opacity() <= 0.05
             || candidate->frameGeometry().width() < 10
             || candidate->frameGeometry().height() < 10) {
@@ -923,8 +929,20 @@ QRectF ActiveWindowOutlineEffect::findBestBadgePositionForWindow(
         return badgeRect;
     }
 
-    const int altPositions[] = { 4 /* Center */, 1 /* Top */, 0 /* TopLeft */, 2 /* TopRight */, 7 /* Bottom */, 6 /* BottomLeft */, 8 /* BottomRight */, 3 /* Left */, 5 /* Right */ };
-    for (int altPos : altPositions) {
+    // Choose alternative search order based on the default position family
+    QList<int> altOrder;
+    if (defaultPosition == 7 || defaultPosition == 6 || defaultPosition == 8) {
+        // Bottom family: prefer other bottom positions, then sides, then center, then top
+        altOrder = { 7, 6, 8, 3, 5, 4, 1, 0, 2 };
+    } else if (defaultPosition == 1 || defaultPosition == 0 || defaultPosition == 2) {
+        // Top family: prefer other top positions, then sides, then center, then bottom
+        altOrder = { 1, 0, 2, 3, 5, 4, 7, 6, 8 };
+    } else {
+        // Middle / Center: prefer top, then bottom, then sides, then center
+        altOrder = { 4, 1, 7, 3, 5, 0, 2, 6, 8 };
+    }
+
+    for (int altPos : altOrder) {
         if (altPos == defaultPosition) continue;
         QRectF altRect = clampRect(OutlineBadge::computeBadgeRect(visibleWindowGeo, altPos, badgeW, badgeH, margin), screenRect);
 
