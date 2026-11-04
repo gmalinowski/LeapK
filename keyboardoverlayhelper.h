@@ -382,19 +382,24 @@ inline QMap<QChar, TargetBadgePlacement> computeTargetBadgePlacements(
     const QList<QChar> keys = assignedWindows.keys();
     const int n = keys.size();
 
-    auto windowsOverlap = [](const WindowTargetItem &a, const WindowTargetItem &b) -> bool {
+    auto windowsOverlap = [&](const WindowTargetItem &a, const WindowTargetItem &b) -> bool {
         if (!a.isVisibleOnScreen || !b.isVisibleOnScreen) {
             return false;
         }
-        if (a.geometry.intersects(b.geometry)) {
-            const QRectF inter = a.geometry.intersected(b.geometry);
-            if (inter.width() >= 35.0 && inter.height() >= 35.0) {
-                return true;
-            }
+        // Focused windows have no laser targets and must never drag other windows into clusters
+        if (a.isCurrentFocused || b.isCurrentFocused) {
+            return false;
         }
+        if (!a.geometry.intersects(b.geometry)) {
+            return false;
+        }
+        // Two windows are only considered stacked / occluded for side-by-side clustering
+        // if their badge locations would physically collide/overlap on screen.
+        // Partial tile/background overlaps with distinct center locations must NEVER be glued together.
+        const qreal collisionDist = qMax(65.0, 2.0 * cfg.badgeRadius + cfg.stackBadgeGap + 15.0);
         const qreal dist = std::hypot(a.geometry.center().x() - b.geometry.center().x(),
                                       a.geometry.center().y() - b.geometry.center().y());
-        return (dist < 75.0);
+        return (dist < collisionDist);
     };
 
     QVector<bool> visited(n, false);

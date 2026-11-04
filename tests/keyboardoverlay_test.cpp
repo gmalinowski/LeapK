@@ -483,6 +483,65 @@ void testSpatialKeyGroupBypass()
     std::cout << "testSpatialKeyGroupBypass PASSED\n";
 }
 
+void testTilingAndBackgroundBadgeSeparation()
+{
+    using namespace LeapKKeyboardOverlay;
+
+    const QRectF screenRect(0, 0, 1920, 1080);
+    const KeyboardOverlayLayout layout = computeOverlayGeometry(screenRect);
+
+    // Tiled terminal in left slot
+    WindowTargetItem wTile;
+    wTile.geometry = QRectF(0, 0, 960, 1080);
+    wTile.title = QStringLiteral("Terminal 2 (Tiled)");
+    wTile.appClass = QStringLiteral("konsole");
+    wTile.zOrder = 5;
+
+    // Background terminal floating / partially underneath
+    WindowTargetItem wBackground;
+    wBackground.geometry = QRectF(400, 200, 1000, 700);
+    wBackground.title = QStringLiteral("Terminal 1 (Background)");
+    wBackground.appClass = QStringLiteral("konsole");
+    wBackground.zOrder = 2;
+    wBackground.isOccluded = true;
+
+    // Another focused window in right slot
+    WindowTargetItem wFocused;
+    wFocused.geometry = QRectF(960, 0, 960, 1080);
+    wFocused.title = QStringLiteral("Editor");
+    wFocused.appClass = QStringLiteral("kate");
+    wFocused.zOrder = 10;
+    wFocused.isCurrentFocused = true;
+
+    QMap<QChar, WindowTargetItem> assigned;
+    assigned.insert(QChar('L'), wTile);
+    assigned.insert(QChar('S'), wBackground);
+    assigned.insert(QChar('E'), wFocused);
+
+    const auto placements = computeTargetBadgePlacements(assigned, screenRect, layout);
+
+    // Both non-focused windows must receive their own badges
+    assert(placements.contains(QChar('L')));
+    assert(placements.contains(QChar('S')));
+
+    const auto &pL = placements.value(QChar('L'));
+    const auto &pS = placements.value(QChar('S'));
+
+    // They must NOT be glued together into a multi-window stack cluster!
+    assert(pL.stackTotal == 1);
+    assert(pS.stackTotal == 1);
+
+    // Each badge must be placed on its own window!
+    assert(std::abs(pL.center.x() - wTile.geometry.center().x()) < 50.0);
+    assert(std::abs(pS.center.x() - wBackground.geometry.center().x()) < 50.0);
+
+    // Distance between them should reflect their distinct spatial window positions (> 300px)
+    const qreal dist = std::hypot(pL.center.x() - pS.center.x(), pL.center.y() - pS.center.y());
+    assert(dist > 300.0);
+
+    std::cout << "testTilingAndBackgroundBadgeSeparation PASSED\n";
+}
+
 int main(int argc, char **argv)
 {
     QGuiApplication app(argc, argv);
@@ -497,6 +556,7 @@ int main(int argc, char **argv)
     testUntanglingLaserLines();
     testLabelAndStackTheming();
     testSpatialKeyGroupBypass();
+    testTilingAndBackgroundBadgeSeparation();
 
     std::cout << "All LeapK Keyboard Overlay tests passed successfully!\n";
     return 0;
