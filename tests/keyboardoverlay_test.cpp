@@ -440,6 +440,49 @@ void testLabelAndStackTheming()
     std::cout << "testLabelAndStackTheming PASSED\n";
 }
 
+void testSpatialKeyGroupBypass()
+{
+    using namespace LeapKKeyboardOverlay;
+
+    const QRectF screenRect(0, 0, 1920, 1080);
+
+    // Two windows with the exact same preferredKey (e.g. from an app group rule for "Terminal" -> 'T')
+    WindowTargetItem wTerm1;
+    wTerm1.geometry = QRectF(100, 200, 600, 400);
+    wTerm1.preferredKey = QChar('T');
+    wTerm1.title = QStringLiteral("Terminal 1");
+    wTerm1.appClass = QStringLiteral("konsole");
+
+    WindowTargetItem wTerm2;
+    wTerm2.geometry = QRectF(900, 200, 600, 400);
+    wTerm2.preferredKey = QChar('T');
+    wTerm2.title = QStringLiteral("Terminal 2");
+    wTerm2.appClass = QStringLiteral("konsole");
+
+    const auto assigned = assignSpatialKeys({wTerm1, wTerm2}, screenRect);
+    assert(assigned.size() == 2);
+
+    // One window keeps 'T', the second gets a unique spatial key
+    assert(assigned.contains(QChar('T')));
+    QChar key1 = QChar('T');
+    QChar key2;
+    for (auto it = assigned.constBegin(); it != assigned.constEnd(); ++it) {
+        if (it.key() != key1) {
+            key2 = it.key();
+            break;
+        }
+    }
+    assert(!key2.isNull());
+    assert(key1 != key2);
+
+    // Ensure both windows are present and unique
+    const auto &item1 = assigned.value(key1);
+    const auto &item2 = assigned.value(key2);
+    assert(item1.title != item2.title);
+
+    std::cout << "testSpatialKeyGroupBypass PASSED\n";
+}
+
 int main(int argc, char **argv)
 {
     QGuiApplication app(argc, argv);
@@ -453,6 +496,7 @@ int main(int argc, char **argv)
     testSpatialKeyboardCustomDisplayAndExtensions();
     testUntanglingLaserLines();
     testLabelAndStackTheming();
+    testSpatialKeyGroupBypass();
 
     std::cout << "All LeapK Keyboard Overlay tests passed successfully!\n";
     return 0;

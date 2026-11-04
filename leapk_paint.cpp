@@ -968,7 +968,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 }
             }
         } else {
-            if (m_badgeConfig.hudGroupWindows) {
+            if (m_badgeConfig.hudGroupWindows && !m_keyboardOverlayEnabled) {
                 // Mode A: Group multi-instance windows into single card with counter
                 for (auto it = m_letterWindowGroups.constBegin(); it != m_letterWindowGroups.constEnd(); ++it) {
                     const QChar letter = it.key();

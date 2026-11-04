@@ -676,16 +676,27 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
     m_windowToGroupLetter.clear();
     m_windowToDirectLetter.clear();
 
-    for (EffectWindow *w : candidates) {
-        if (m_markedWindowLetters.contains(w)) {
-            const QChar ch = m_markedWindowLetters.value(w).toUpper();
-            m_letterWindowGroups[ch].append(w);
-            continue;
-        }
-        unassignedCandidates.append(w);
-    }
+    const auto activeLayout = LeapKKeyboard::detectActiveLayout();
+    const QString pool = LeapKKeyboard::preferredLetterPool(activeLayout);
+    int poolIdx = 0;
 
-    if (m_keyboardOverlayEnabled && !candidates.isEmpty()) {
+    auto nextFreeLetter = [&]() -> QChar {
+        while (poolIdx < pool.length() && assignedLetters.contains(pool.at(poolIdx))) {
+            poolIdx++;
+        }
+        if (poolIdx < pool.length()) {
+            const QChar ch = pool.at(poolIdx);
+            assignedLetters.insert(ch);
+            poolIdx++;
+            return ch;
+        }
+        return QChar();
+    };
+
+    if (m_keyboardOverlayEnabled) {
+        // Spatial Keyboard mode: Window groups are completely bypassed!
+        // Every window is an individual target and gets a unique 1-to-1 spatial key mapping
+        // based on its actual position on the screen. No duplicate shortcuts, no group shortcuts.
         QRectF screenGeo(0, 0, 1920, 1080);
         if (effects && effects->activeScreen()) {
             screenGeo = QRectF(QRect(effects->activeScreen()->geometry()));
@@ -708,6 +719,7 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
             item.isOccluded = isWindowObscured(w);
             items.append(item);
         }
+
         const auto spatialMap = LeapKKeyboardOverlay::assignSpatialKeys(items, screenGeo);
         for (auto sit = spatialMap.constBegin(); sit != spatialMap.constEnd(); ++sit) {
             const QChar key = sit.key();
@@ -717,27 +729,33 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
                 m_letterWindowGroups[key].append(targetWin);
                 map[key] = targetWin;
                 m_windowToDirectLetter[targetWin] = key;
-                unassignedCandidates.removeAll(targetWin);
             }
         }
+
+        // Assign any remaining candidates (e.g. if windows exceed 26) using layout pool
+        for (EffectWindow *w : candidates) {
+            if (!m_windowToDirectLetter.contains(w)) {
+                const QChar ch = nextFreeLetter();
+                if (!ch.isNull()) {
+                    m_letterWindowGroups[ch].append(w);
+                    map[ch] = w;
+                    m_windowToDirectLetter[w] = ch;
+                }
+            }
+        }
+
+        return map;
     }
 
-    const auto activeLayout = LeapKKeyboard::detectActiveLayout();
-    const QString pool = LeapKKeyboard::preferredLetterPool(activeLayout);
-    int poolIdx = 0;
-
-    auto nextFreeLetter = [&]() -> QChar {
-        while (poolIdx < pool.length() && assignedLetters.contains(pool.at(poolIdx))) {
-            poolIdx++;
+    // Traditional HUD Jump Mode: group windows according to hudGroupWindows (Mode A or Mode B)
+    for (EffectWindow *w : candidates) {
+        if (m_markedWindowLetters.contains(w)) {
+            const QChar ch = m_markedWindowLetters.value(w).toUpper();
+            m_letterWindowGroups[ch].append(w);
+            continue;
         }
-        if (poolIdx < pool.length()) {
-            const QChar ch = pool.at(poolIdx);
-            assignedLetters.insert(ch);
-            poolIdx++;
-            return ch;
-        }
-        return QChar();
-    };
+        unassignedCandidates.append(w);
+    }
 
     if (m_badgeConfig.hudGroupWindows) {
         // Mode A: Group multi-instance windows into single card with counter
@@ -2784,13 +2802,15 @@ void ActiveWindowOutlineEffect::renderKeyboardArrowsOverlay(const RenderTarget &
     const auto stacking = effects ? effects->stackingOrder() : QList<EffectWindow *>();
     EffectWindow *currActive = effects ? effects->activeWindow() : m_activeWindow;
     QMap<QChar, LeapKKeyboardOverlay::WindowTargetItem> assignedMap;
+    QSet<EffectWindow *> seenWindows;
 
     for (auto it = m_jumpLetterToWindow.constBegin(); it != m_jumpLetterToWindow.constEnd(); ++it) {
         const QChar key = it.key().toUpper();
         EffectWindow *w = it.value();
-        if (!w || w->isDeleted() || !isEligibleTargetWindow(w)) {
+        if (!w || w->isDeleted() || !isEligibleTargetWindow(w) || seenWindows.contains(w)) {
             continue;
         }
+        seenWindows.insert(w);
         m_keyboardOverlayWindowMap.insert(key, w);
 
         LeapKKeyboardOverlay::WindowTargetItem item;
