@@ -455,6 +455,7 @@ set_default BadgeHudGroupShaderEnabled true
 set_default BadgeLivePreviews false
 set_default BadgeTimeout 5
 set_default JumpRecentKey "Space"
+set_default KeyboardOverlayEnabled true
 set_default BadgeSize 28
 set_default BadgeMargin 0
 set_default BadgeShowIcon false

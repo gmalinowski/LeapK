@@ -253,6 +253,9 @@
         <entry name="JumpRecentKey" type="String">
             <default>Space</default>
         </entry>
+        <entry name="KeyboardOverlayEnabled" type="Bool">
+            <default>true</default>
+        </entry>
         <entry name="JumpTargets" type="Int">
             <default>0</default>
             <min>0</min>
