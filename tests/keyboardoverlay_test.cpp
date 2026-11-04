@@ -203,6 +203,67 @@ void testOverlayImageRendering()
     std::cout << "testOverlayImageRendering PASSED\n";
 }
 
+void testOccludedTargetBadgePlacements()
+{
+    using namespace LeapKKeyboardOverlay;
+
+    const QRectF screenRect(0, 0, 1920, 1080);
+    const KeyboardOverlayLayout layout = computeOverlayGeometry(screenRect);
+
+    // Three windows stacked on top of each other at roughly the same geometry
+    WindowTargetItem bottomWin;
+    bottomWin.geometry = QRectF(300, 200, 600, 400);
+    bottomWin.zOrder = 2; // lowest z-order (deepest underneath)
+    bottomWin.isOccluded = true;
+    bottomWin.appClass = QStringLiteral("bottom");
+
+    WindowTargetItem middleWin;
+    middleWin.geometry = QRectF(310, 205, 600, 400);
+    middleWin.zOrder = 7; // middle z-order
+    middleWin.isOccluded = true;
+    middleWin.appClass = QStringLiteral("middle");
+
+    WindowTargetItem topWin;
+    topWin.geometry = QRectF(320, 210, 600, 400);
+    topWin.zOrder = 18; // highest z-order (topmost on surface)
+    topWin.isOccluded = false;
+    topWin.appClass = QStringLiteral("top");
+
+    QMap<QChar, WindowTargetItem> assigned;
+    assigned.insert(QChar('A'), bottomWin);
+    assigned.insert(QChar('S'), middleWin);
+    assigned.insert(QChar('D'), topWin);
+
+    const auto placements = computeTargetBadgePlacements(assigned, screenRect, layout);
+    assert(placements.size() == 3);
+
+    const TargetBadgePlacement &pBottom = placements.value(QChar('A'));
+    const TargetBadgePlacement &pMiddle = placements.value(QChar('S'));
+    const TargetBadgePlacement &pTop = placements.value(QChar('D'));
+
+    // Requirement 3:
+    // 1. okno najbardziej pod spodem po lewej (bottommost on the far left)
+    // 2. okno na wierzchu po prawej (topmost on the far right)
+    assert(pBottom.center.x() < pMiddle.center.x());
+    assert(pMiddle.center.x() < pTop.center.x());
+
+    // 3. odpowiednio w zaleznosci od poziomu wiekszy/mniejszy badge (bottommost smallest, topmost largest)
+    assert(pBottom.radius < pMiddle.radius);
+    assert(pMiddle.radius < pTop.radius);
+    assert(pBottom.radius == 12.0);
+    assert(pTop.radius == 21.0);
+
+    // 4. byc rysowany obok a nie sie nakladac (non-overlapping with gap)
+    assert((pMiddle.center.x() - pBottom.center.x()) >= (pBottom.radius + pMiddle.radius + 7.5));
+    assert((pTop.center.x() - pMiddle.center.x()) >= (pMiddle.radius + pTop.radius + 7.5));
+
+    // Also verify rendering handles stacked badges cleanly
+    QImage img = renderOverlayImage(layout, assigned, screenRect, 1.0);
+    assert(!img.isNull());
+
+    std::cout << "testOccludedTargetBadgePlacements PASSED\n";
+}
+
 int main(int argc, char **argv)
 {
     QGuiApplication app(argc, argv);
@@ -211,6 +272,7 @@ int main(int argc, char **argv)
     testOverlayGeometryComputation();
     testSpatialKeyAssignment();
     testPreferredKeyPreservation();
+    testOccludedTargetBadgePlacements();
     testOverlayImageRendering();
 
     std::cout << "All LeapK Keyboard Overlay tests passed successfully!\n";

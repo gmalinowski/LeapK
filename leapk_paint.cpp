@@ -910,8 +910,6 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     } else if (m_jumpMode && !inhibited) {
         if (m_tilingPresetsModeActive) {
             renderTilingPresetPills(renderTarget, viewport, m_tilingPresets);
-        } else if (m_keyboardOverlayEnabled && !m_searchModeActive) {
-            renderKeyboardArrowsOverlay(renderTarget, viewport);
         } else {
             const int jumpH = m_badgeConfig.jumpBadgeSize;
         const QRectF screenRect = viewport.renderRect();
@@ -1262,6 +1260,10 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         if (m_hudMetaHeld && !m_metaSpaceTraverseActive) {
             renderHudMetaOverlay(renderTarget, viewport);
         }
+        }
+
+        if (m_keyboardOverlayEnabled && !m_searchModeActive && !m_tilingPresetsModeActive) {
+            renderKeyboardArrowsOverlay(renderTarget, viewport);
         }
     }
 

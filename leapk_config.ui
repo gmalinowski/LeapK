@@ -1778,6 +1778,26 @@
             </property>
            </widget>
           </item>
+          <item row="10" column="0">
+           <widget class="QLabel" name="label_keyboardOverlayEnabled">
+            <property name="text">
+             <string>Spatial keyboard overlay:</string>
+            </property>
+            <property name="toolTip">
+             <string>Show an interactive spatial QWERTY dock with directional arrows pointing directly to windows during Jump Mode.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="10" column="1">
+           <widget class="QCheckBox" name="kcfg_KeyboardOverlayEnabled">
+            <property name="text">
+             <string>Show spatial keyboard overlay with directional window arrows (Jump Mode)</string>
+            </property>
+            <property name="toolTip">
+             <string>Displays an interactive floating keyboard dock with distinct laser arrows pointing to window targets. Windows that are occluded or stacked have horizontally separated badges scaled according to their stacking depth.</string>
+            </property>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>

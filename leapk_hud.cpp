@@ -690,6 +690,7 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
         if (effects && effects->activeScreen()) {
             screenGeo = QRectF(QRect(effects->activeScreen()->geometry()));
         }
+        const auto stacking = effects ? effects->stackingOrder() : QList<EffectWindow *>();
         QList<LeapKKeyboardOverlay::WindowTargetItem> items;
         for (EffectWindow *w : unassignedCandidates) {
             LeapKKeyboardOverlay::WindowTargetItem item;
@@ -697,6 +698,8 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
             item.geometry = w->frameGeometry();
             item.title = w->caption();
             item.appClass = w->windowClass().split(QLatin1Char(' ')).first().toLower();
+            item.zOrder = stacking.indexOf(w);
+            item.isOccluded = isWindowObscured(w);
             items.append(item);
         }
         const auto spatialMap = LeapKKeyboardOverlay::assignSpatialKeys(items, screenGeo);
@@ -2731,12 +2734,20 @@ void ActiveWindowOutlineEffect::renderKeyboardArrowsOverlay(const RenderTarget &
     const qreal scale = viewport.scale();
     const QRectF screenRect = viewport.renderRect();
 
-    m_keyboardOverlayLayout = LeapKKeyboardOverlay::computeOverlayGeometry(screenRect);
+    QRectF hudBounds;
+    for (const auto &pair : m_hudTargetPillRects) {
+        if (pair.first.isValid()) {
+            hudBounds = hudBounds.isEmpty() ? pair.first : hudBounds.united(pair.first);
+        }
+    }
+
+    m_keyboardOverlayLayout = LeapKKeyboardOverlay::computeOverlayGeometry(screenRect, hudBounds);
     m_keyboardOverlayWindowMap.clear();
 
     const auto &palette = LeapKKeyboardOverlay::distinctArrowColors();
     int colorIdx = 0;
 
+    const auto stacking = effects ? effects->stackingOrder() : QList<EffectWindow *>();
     QMap<QChar, LeapKKeyboardOverlay::WindowTargetItem> assignedMap;
 
     for (auto it = m_jumpLetterToWindow.constBegin(); it != m_jumpLetterToWindow.constEnd(); ++it) {
@@ -2754,6 +2765,8 @@ void ActiveWindowOutlineEffect::renderKeyboardArrowsOverlay(const RenderTarget &
         item.title = w->caption();
         item.appClass = w->windowClass().split(QLatin1Char(' ')).first().toLower();
         item.isVisibleOnScreen = w->isOnCurrentDesktop() && !w->isMinimized() && item.geometry.intersects(screenRect);
+        item.zOrder = stacking.indexOf(w);
+        item.isOccluded = isWindowObscured(w);
 
         if (m_markedWindows.contains(w) && m_markedWindows.value(w).isValid()) {
             item.customColor = m_markedWindows.value(w);

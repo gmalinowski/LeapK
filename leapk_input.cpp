@@ -903,21 +903,24 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
 
         if (m_hudCloseButtonScreenRect.isValid() && m_hudCloseButtonScreenRect.contains(pos)) {
             isHoveringClickable = true;
-        } else if (m_keyboardOverlayEnabled) {
+        }
+        if (!isHoveringClickable && m_keyboardOverlayEnabled) {
             for (const auto &kg : m_keyboardOverlayLayout.keycaps) {
                 if (kg.rect.contains(pos) && m_keyboardOverlayWindowMap.contains(kg.key)) {
                     isHoveringClickable = true;
                     break;
                 }
             }
-        } else if (m_tilingPresetsModeActive) {
+        }
+        if (!isHoveringClickable && m_tilingPresetsModeActive) {
             for (const auto &pair : m_hudTilingPresetPillRects) {
                 if (pair.first.isValid() && pair.first.contains(pos)) {
                     isHoveringClickable = true;
                     break;
                 }
             }
-        } else {
+        }
+        if (!isHoveringClickable) {
             for (const auto &tr : m_hudTabScreenRects) {
                 if (tr.isValid() && tr.contains(pos)) {
                     isHoveringClickable = true;
