@@ -256,6 +256,34 @@
         <entry name="KeyboardOverlayEnabled" type="Bool">
             <default>true</default>
         </entry>
+        <entry name="KeyboardOverlayExtendToHud" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="KeyboardOverlayKeySize" type="Int">
+            <default>54</default>
+            <min>32</min>
+            <max>80</max>
+        </entry>
+        <entry name="KeyboardOverlayKeyFontSize" type="Int">
+            <default>14</default>
+            <min>8</min>
+            <max>28</max>
+        </entry>
+        <entry name="KeyboardOverlayLineWidth" type="Double">
+            <default>3.4</default>
+            <min>1.0</min>
+            <max>10.0</max>
+        </entry>
+        <entry name="KeyboardOverlayBadgeRadius" type="Int">
+            <default>18</default>
+            <min>10</min>
+            <max>40</max>
+        </entry>
+        <entry name="KeyboardOverlayBadgeFontSize" type="Int">
+            <default>13</default>
+            <min>8</min>
+            <max>24</max>
+        </entry>
         <entry name="JumpTargets" type="Int">
             <default>0</default>
             <min>0</min>

@@ -1275,6 +1275,16 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         renderTilingToast(renderTarget, viewport);
     }
 
+    if (m_jumpMode && m_invalidJumpKeyTimer.isValid() && m_invalidJumpKeyTimer.elapsed() < 1200 && !inhibited) {
+        const QRectF screenRect = viewport.renderRect();
+        const QPointF toastCenter(screenRect.center().x(), screenRect.top() + 70.0);
+        const QString msg = QStringLiteral("⚠ No window assigned to '%1' — Press a valid letter or Esc").arg(m_invalidJumpKey);
+        renderFloatingPill(renderTarget, viewport, msg, toastCenter, QColor(190, 30, 45, 235), QColor(255, 255, 255), 11, screenRect.width() - 60.0);
+        if (m_invalidJumpKeyTimer.elapsed() < 1200 && effects) {
+            effects->addRepaintFull();
+        }
+    }
+
     if (m_badgeLivePreviews && hasBadgesToDraw && wantThumbnail && !inhibited) {
         effects->addRepaintFull();
     }

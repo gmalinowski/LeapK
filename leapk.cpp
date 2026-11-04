@@ -767,6 +767,12 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_badgesAlwaysVisible = (m_badgeDisplayMode == 1);
     m_jumpTargets = qBound(0, config.readEntry("JumpTargets", 0), 3);
     m_keyboardOverlayEnabled = config.readEntry("KeyboardOverlayEnabled", true);
+    m_keyboardOverlayExtendToHud = config.readEntry("KeyboardOverlayExtendToHud", true);
+    m_keyboardOverlayKeySize = qBound(32, config.readEntry("KeyboardOverlayKeySize", 54), 80);
+    m_keyboardOverlayKeyFontSize = qBound(8, config.readEntry("KeyboardOverlayKeyFontSize", 14), 28);
+    m_keyboardOverlayLineWidth = qBound(1.0, config.readEntry("KeyboardOverlayLineWidth", 3.4), 10.0);
+    m_keyboardOverlayBadgeRadius = qBound(10, config.readEntry("KeyboardOverlayBadgeRadius", 18), 40);
+    m_keyboardOverlayBadgeFontSize = qBound(8, config.readEntry("KeyboardOverlayBadgeFontSize", 13), 24);
     m_cursorWarpMode = qBound(0, config.readEntry("CursorWarpMode", 0), 2);
     m_soundFeedbackEnabled = config.readEntry("SoundFeedbackEnabled", false);
     m_soundFeedbackVolume = qBound(0, config.readEntry("SoundFeedbackVolume", 30), 100);

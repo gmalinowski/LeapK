@@ -326,6 +326,13 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemString(QStringLiteral("BadgeLocationFont"), *new QString, QString());
     m_configSkeleton->addItemInt(QStringLiteral("JumpTargets"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("CursorWarpMode"), *new int, 0);
+    m_configSkeleton->addItemBool(QStringLiteral("KeyboardOverlayEnabled"), *new bool, true);
+    m_configSkeleton->addItemBool(QStringLiteral("KeyboardOverlayExtendToHud"), *new bool, true);
+    m_configSkeleton->addItemInt(QStringLiteral("KeyboardOverlayKeySize"), *new int, 54);
+    m_configSkeleton->addItemInt(QStringLiteral("KeyboardOverlayKeyFontSize"), *new int, 14);
+    m_configSkeleton->addItemDouble(QStringLiteral("KeyboardOverlayLineWidth"), *new double, 3.4);
+    m_configSkeleton->addItemInt(QStringLiteral("KeyboardOverlayBadgeRadius"), *new int, 18);
+    m_configSkeleton->addItemInt(QStringLiteral("KeyboardOverlayBadgeFontSize"), *new int, 13);
     m_configSkeleton->addItemBool(QStringLiteral("SoundFeedbackEnabled"), *new bool, false);
     m_configSkeleton->addItemInt(QStringLiteral("SoundFeedbackVolume"), *new int, 30);
 

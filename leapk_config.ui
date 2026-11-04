@@ -1778,26 +1778,6 @@
             </property>
            </widget>
           </item>
-          <item row="10" column="0">
-           <widget class="QLabel" name="label_keyboardOverlayEnabled">
-            <property name="text">
-             <string>Spatial keyboard overlay:</string>
-            </property>
-            <property name="toolTip">
-             <string>Show an interactive spatial QWERTY dock with directional arrows pointing directly to windows during Jump Mode.</string>
-            </property>
-           </widget>
-          </item>
-          <item row="10" column="1">
-           <widget class="QCheckBox" name="kcfg_KeyboardOverlayEnabled">
-            <property name="text">
-             <string>Show spatial keyboard overlay with directional window arrows (Jump Mode)</string>
-            </property>
-            <property name="toolTip">
-             <string>Displays an interactive floating keyboard dock with distinct laser arrows pointing to window targets. Windows that are occluded or stacked have horizontally separated badges scaled according to their stacking depth.</string>
-            </property>
-           </widget>
-          </item>
          </layout>
         </widget>
        </item>
@@ -3352,6 +3332,222 @@
           </layout>
          </widget>
         </widget>
+       </item>
+      </layout>
+     </widget>
+
+     <widget class="QWidget" name="tabSpatialKeyboard">
+      <attribute name="title">
+       <string>Spatial Keyboard</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayoutSpatialKeyboard">
+       <item>
+        <widget class="QGroupBox" name="groupSpatialKeyboardGeneral">
+         <property name="title">
+          <string>Spatial Keyboard &amp; Laser Arrows</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayoutSpatialGeneral">
+          <item>
+           <widget class="QCheckBox" name="kcfg_KeyboardOverlayEnabled">
+            <property name="text">
+             <string>Show spatial keyboard overlay during Jump Mode</string>
+            </property>
+            <property name="toolTip">
+             <string>Displays an interactive floating QWERTY keyboard dock with directional laser arrows pointing directly to window targets.</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="kcfg_KeyboardOverlayExtendToHud">
+            <property name="text">
+             <string>Extend laser arrows to window cards in HUD dock</string>
+            </property>
+            <property name="toolTip">
+             <string>When enabled, laser lines extend to the window's card in the HUD dock, or point directly to the card for offscreen windows.</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+
+       <item>
+        <widget class="QGroupBox" name="groupSpatialKeyboardKeycaps">
+         <property name="title">
+          <string>Keycap Dimensions &amp; Typography</string>
+         </property>
+         <layout class="QFormLayout" name="formLayoutSpatialKeycaps">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_keyboardKeySize">
+            <property name="text">
+             <string>Keycap width:</string>
+            </property>
+            <property name="toolTip">
+             <string>Width of individual keyboard keycaps in the spatial dock.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QSpinBox" name="kcfg_KeyboardOverlayKeySize">
+            <property name="minimum">
+             <number>32</number>
+            </property>
+            <property name="maximum">
+             <number>80</number>
+            </property>
+            <property name="singleStep">
+             <number>2</number>
+            </property>
+            <property name="value">
+             <number>54</number>
+            </property>
+            <property name="suffix">
+             <string> px</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_keyboardKeyFontSize">
+            <property name="text">
+             <string>Keycap font size:</string>
+            </property>
+            <property name="toolTip">
+             <string>Font size of letters displayed on keyboard keycaps.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QSpinBox" name="kcfg_KeyboardOverlayKeyFontSize">
+            <property name="minimum">
+             <number>8</number>
+            </property>
+            <property name="maximum">
+             <number>28</number>
+            </property>
+            <property name="singleStep">
+             <number>1</number>
+            </property>
+            <property name="value">
+             <number>14</number>
+            </property>
+            <property name="suffix">
+             <string> pt</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+
+       <item>
+        <widget class="QGroupBox" name="groupSpatialKeyboardLaserBadges">
+         <property name="title">
+          <string>Laser Lines &amp; Window Target Badges</string>
+         </property>
+         <layout class="QFormLayout" name="formLayoutSpatialLaserBadges">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_keyboardLineWidth">
+            <property name="text">
+             <string>Laser line width:</string>
+            </property>
+            <property name="toolTip">
+             <string>Thickness of directional laser lines pointing to windows.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QDoubleSpinBox" name="kcfg_KeyboardOverlayLineWidth">
+            <property name="minimum">
+             <double>1.0</double>
+            </property>
+            <property name="maximum">
+             <double>10.0</double>
+            </property>
+            <property name="singleStep">
+             <double>0.2</double>
+            </property>
+            <property name="value">
+             <double>3.4</double>
+            </property>
+            <property name="suffix">
+             <string> px</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_keyboardBadgeRadius">
+            <property name="text">
+             <string>Target badge radius:</string>
+            </property>
+            <property name="toolTip">
+             <string>Base radius of the circular letter badge placed at the window target.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QSpinBox" name="kcfg_KeyboardOverlayBadgeRadius">
+            <property name="minimum">
+             <number>10</number>
+            </property>
+            <property name="maximum">
+             <number>40</number>
+            </property>
+            <property name="singleStep">
+             <number>1</number>
+            </property>
+            <property name="value">
+             <number>18</number>
+            </property>
+            <property name="suffix">
+             <string> px</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_keyboardBadgeFontSize">
+            <property name="text">
+             <string>Target badge font size:</string>
+            </property>
+            <property name="toolTip">
+             <string>Font size of the letter displayed inside the window target badge.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QSpinBox" name="kcfg_KeyboardOverlayBadgeFontSize">
+            <property name="minimum">
+             <number>8</number>
+            </property>
+            <property name="maximum">
+             <number>24</number>
+            </property>
+            <property name="singleStep">
+             <number>1</number>
+            </property>
+            <property name="value">
+             <number>13</number>
+            </property>
+            <property name="suffix">
+             <string> pt</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+
+       <item>
+        <spacer name="verticalSpacerSpatialKeyboard">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
        </item>
       </layout>
      </widget>

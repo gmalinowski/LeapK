@@ -1618,6 +1618,12 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             }
         }
 
+        if (!text.isEmpty()) {
+            const QChar keyChar = text.at(0).toUpper();
+            triggerInvalidKeyFeedback(keyChar);
+            return;
+        }
+
         cancelJumpMode();
         return;
     }
@@ -2378,7 +2384,30 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         }
     }
 
+    if (!text.isEmpty()) {
+        const QChar keyChar = text.at(0).toUpper();
+        triggerInvalidKeyFeedback(keyChar);
+        return;
+    }
+
     cancelJumpMode(e->key());
+}
+
+void ActiveWindowOutlineEffect::triggerInvalidKeyFeedback(const QChar &key)
+{
+    m_invalidJumpKey = key.toUpper();
+    m_invalidJumpKeyTimer.start();
+    if (m_soundFeedbackEnabled) {
+        playThemedSound(OutlineSound::SoundEffect::InvalidKey);
+    } else {
+        OutlineSound::playSound(OutlineSound::SoundEffect::InvalidKey, 40, OutlineSound::SoundProfile::CrispClick);
+    }
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+    }
+    if (effects) {
+        effects->addRepaintFull();
+    }
 }
 
 void ActiveWindowOutlineEffect::playThemedSound(OutlineSound::SoundEffect effect)
@@ -2402,6 +2431,7 @@ void ActiveWindowOutlineEffect::playThemedSound(OutlineSound::SoundEffect effect
     case OutlineSound::SoundEffect::NavTab: customFile = theme.sound.navSound; break;
     case OutlineSound::SoundEffect::Dismiss: customFile = theme.sound.dismissSound; break;
     case OutlineSound::SoundEffect::Stash: customFile = theme.sound.stashSound; break;
+    case OutlineSound::SoundEffect::InvalidKey: customFile = theme.sound.dismissSound; break;
     }
 
     OutlineSound::playSound(effect, effectiveVol, profile, customFile);

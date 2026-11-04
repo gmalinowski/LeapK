@@ -26,7 +26,8 @@ enum class SoundEffect {
     SwitchWorkspace = 2,
     NavTab = 3,
     Dismiss = 4,
-    Stash = 5
+    Stash = 5,
+    InvalidKey = 6
 };
 
 enum class SoundProfile {
@@ -45,6 +46,7 @@ inline QString effectToString(SoundEffect effect)
     case SoundEffect::NavTab: return QStringLiteral("nav");
     case SoundEffect::Dismiss: return QStringLiteral("dismiss");
     case SoundEffect::Stash: return QStringLiteral("stash");
+    case SoundEffect::InvalidKey: return QStringLiteral("invalid_key");
     }
     return QStringLiteral("sound");
 }
@@ -77,6 +79,7 @@ inline QByteArray generatePcmData(SoundEffect effect, SoundProfile profile = Sou
     else if (effect == SoundEffect::EnterJump) duration = 0.014;
     else if (effect == SoundEffect::Dismiss) duration = 0.011;
     else if (effect == SoundEffect::Stash) duration = 0.016;
+    else if (effect == SoundEffect::InvalidKey) duration = 0.038;
 
     const int numSamples = static_cast<int>(sampleRate * duration);
     QByteArray pcmData;
@@ -98,6 +101,7 @@ inline QByteArray generatePcmData(SoundEffect effect, SoundProfile profile = Sou
             else if (effect == SoundEffect::NavTab) { baseF = 2100.0; transF = 4200.0; decay = 450.0; }
             else if (effect == SoundEffect::Dismiss) { baseF = 1100.0; transF = 1800.0; decay = 380.0; }
             else if (effect == SoundEffect::Stash) { baseF = 1600.0; transF = 3400.0; decay = 300.0; }
+            else if (effect == SoundEffect::InvalidKey) { baseF = 450.0; transF = 950.0; decay = 180.0; }
 
             const double env = std::exp(-t * decay);
             val = std::sin(2.0 * M_PI * baseF * t) * env;
@@ -114,6 +118,7 @@ inline QByteArray generatePcmData(SoundEffect effect, SoundProfile profile = Sou
             else if (effect == SoundEffect::NavTab) { freq = 980.0; decay = 360.0; }
             else if (effect == SoundEffect::Dismiss) { freq = 480.0; decay = 300.0; }
             else if (effect == SoundEffect::Stash) { freq = 720.0; decay = 250.0; }
+            else if (effect == SoundEffect::InvalidKey) { freq = 280.0; decay = 160.0; }
 
             const double fDrop = freq * (1.0 + 0.5 * std::exp(-t * 400.0));
             const double env = std::exp(-t * decay);
@@ -128,6 +133,7 @@ inline QByteArray generatePcmData(SoundEffect effect, SoundProfile profile = Sou
             else if (effect == SoundEffect::NavTab) { startF = 3400.0; endF = 2000.0; decay = 400.0; }
             else if (effect == SoundEffect::Dismiss) { startF = 2200.0; endF = 800.0; decay = 340.0; }
             else if (effect == SoundEffect::Stash) { startF = 1800.0; endF = 2800.0; decay = 250.0; }
+            else if (effect == SoundEffect::InvalidKey) { startF = 900.0; endF = 350.0; decay = 190.0; }
 
             const double curF = startF + (endF - startF) * (t / duration);
             const double env = std::exp(-t * decay);
@@ -143,6 +149,7 @@ inline QByteArray generatePcmData(SoundEffect effect, SoundProfile profile = Sou
             else if (effect == SoundEffect::NavTab) { thudF = 620.0; snapF = 3800.0; decay = 450.0; }
             else if (effect == SoundEffect::Dismiss) { thudF = 350.0; snapF = 2200.0; }
             else if (effect == SoundEffect::Stash) { thudF = 500.0; snapF = 3200.0; }
+            else if (effect == SoundEffect::InvalidKey) { thudF = 260.0; snapF = 1100.0; decay = 210.0; }
 
             const double env = std::exp(-t * decay);
             val = std::sin(2.0 * M_PI * thudF * t) * env * 0.7;
@@ -236,6 +243,7 @@ inline QString soundFilePath(SoundEffect effect, SoundProfile profile = SoundPro
         case SoundEffect::NavTab: return cacheDir + QStringLiteral("/click_nav.wav");
         case SoundEffect::Dismiss: return cacheDir + QStringLiteral("/click_dismiss.wav");
         case SoundEffect::Stash: return cacheDir + QStringLiteral("/click_stash.wav");
+        case SoundEffect::InvalidKey: return cacheDir + QStringLiteral("/click_invalid.wav");
         }
     }
     const QString profStr = profileToString(profile);
@@ -247,7 +255,7 @@ inline bool ensureSoundFilesExist()
 {
     const SoundEffect effects[] = {
         SoundEffect::EnterJump, SoundEffect::LandWindow, SoundEffect::SwitchWorkspace,
-        SoundEffect::NavTab, SoundEffect::Dismiss, SoundEffect::Stash
+        SoundEffect::NavTab, SoundEffect::Dismiss, SoundEffect::Stash, SoundEffect::InvalidKey
     };
     const SoundProfile profiles[] = {
         SoundProfile::CrispClick, SoundProfile::SoftPop, SoundProfile::SciFiBlip, SoundProfile::Mechanical

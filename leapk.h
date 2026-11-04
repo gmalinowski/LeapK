@@ -654,8 +654,17 @@ private:
     int m_searchSelectedIndex = 0;
     QList<OutlineFuzzy::SearchCandidate> m_searchMatches;
     bool m_keyboardOverlayEnabled = true;
+    bool m_keyboardOverlayExtendToHud = true;
+    int m_keyboardOverlayKeySize = 54;
+    int m_keyboardOverlayKeyFontSize = 14;
+    qreal m_keyboardOverlayLineWidth = 3.4;
+    int m_keyboardOverlayBadgeRadius = 18;
+    int m_keyboardOverlayBadgeFontSize = 13;
     LeapKKeyboardOverlay::KeyboardOverlayLayout m_keyboardOverlayLayout;
     QMap<QChar, EffectWindow *> m_keyboardOverlayWindowMap;
+    QChar m_invalidJumpKey;
+    QElapsedTimer m_invalidJumpKeyTimer;
+    void triggerInvalidKeyFeedback(const QChar &key);
     bool m_globalShortcutsBlocked = false;
     bool m_mouseIntercepting = false;
     bool m_keyboardGrabActive = false;

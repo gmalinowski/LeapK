@@ -264,6 +264,60 @@ void testOccludedTargetBadgePlacements()
     std::cout << "testOccludedTargetBadgePlacements PASSED\n";
 }
 
+void testSpatialKeyboardCustomDisplayAndExtensions()
+{
+    using namespace LeapKKeyboardOverlay;
+
+    const QRectF screenRect(0, 0, 1920, 1080);
+
+    OverlayDisplayConfig cfg;
+    cfg.keySize = 64.0;
+    cfg.keyFontSize = 16;
+    cfg.lineWidth = 4.0;
+    cfg.badgeRadius = 24.0;
+    cfg.badgeFontSize = 15;
+    cfg.extendToHud = true;
+
+    const KeyboardOverlayLayout layout = computeOverlayGeometry(screenRect, QRectF(), cfg);
+    // Keycaps width should match cfg.keySize
+    assert(qAbs(layout.keycaps.first().rect.width() - 64.0) < 0.1);
+
+    WindowTargetItem wFocused;
+    wFocused.geometry = QRectF(100, 100, 400, 300);
+    wFocused.title = QStringLiteral("Active Window");
+    wFocused.isCurrentFocused = true; // Currently focused window!
+
+    WindowTargetItem wOther;
+    wOther.geometry = QRectF(600, 100, 400, 300);
+    wOther.title = QStringLiteral("Other Window");
+    wOther.isCurrentFocused = false;
+    wOther.hudCardRect = QRectF(650, 950, 120, 80);
+
+    WindowTargetItem wOffscreen;
+    wOffscreen.geometry = QRectF(2500, 100, 400, 300); // Offscreen!
+    wOffscreen.title = QStringLiteral("Offscreen Window");
+    wOffscreen.isVisibleOnScreen = false;
+    wOffscreen.hudCardRect = QRectF(800, 950, 120, 80);
+
+    QMap<QChar, WindowTargetItem> assigned;
+    assigned.insert(QChar('A'), wFocused);
+    assigned.insert(QChar('S'), wOther);
+    assigned.insert(QChar('D'), wOffscreen);
+
+    // Compute placements
+    const auto placements = computeTargetBadgePlacements(assigned, screenRect, layout, cfg);
+    assert(placements.contains(QChar('S')));
+    assert(placements.value(QChar('S')).radius == 24.0); // matches cfg.badgeRadius
+
+    // Render with an invalid key trigger
+    const QImage img = renderOverlayImage(layout, assigned, screenRect, 1.0, cfg, QChar('Z'));
+    assert(!img.isNull());
+    assert(img.width() == 1920);
+    assert(img.height() == 1080);
+
+    std::cout << "testSpatialKeyboardCustomDisplayAndExtensions PASSED\n";
+}
+
 int main(int argc, char **argv)
 {
     QGuiApplication app(argc, argv);
@@ -274,6 +328,7 @@ int main(int argc, char **argv)
     testPreferredKeyPreservation();
     testOccludedTargetBadgePlacements();
     testOverlayImageRendering();
+    testSpatialKeyboardCustomDisplayAndExtensions();
 
     std::cout << "All LeapK Keyboard Overlay tests passed successfully!\n";
     return 0;

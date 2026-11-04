@@ -456,6 +456,12 @@ set_default BadgeLivePreviews false
 set_default BadgeTimeout 5
 set_default JumpRecentKey "Space"
 set_default KeyboardOverlayEnabled true
+set_default KeyboardOverlayExtendToHud true
+set_default KeyboardOverlayKeySize 54
+set_default KeyboardOverlayKeyFontSize 14
+set_default KeyboardOverlayLineWidth 3.4
+set_default KeyboardOverlayBadgeRadius 18
+set_default KeyboardOverlayBadgeFontSize 13
 set_default BadgeSize 28
 set_default BadgeMargin 0
 set_default BadgeShowIcon false

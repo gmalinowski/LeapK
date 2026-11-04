@@ -67,7 +67,8 @@ void testProfilesAndNewEffects()
         OutlineSound::SoundEffect::SwitchWorkspace,
         OutlineSound::SoundEffect::NavTab,
         OutlineSound::SoundEffect::Dismiss,
-        OutlineSound::SoundEffect::Stash
+        OutlineSound::SoundEffect::Stash,
+        OutlineSound::SoundEffect::InvalidKey
     };
 
     const OutlineSound::SoundProfile profiles[] = {

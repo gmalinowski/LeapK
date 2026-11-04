@@ -57,6 +57,16 @@ inline const QList<QColor> &distinctArrowColors()
     return palette;
 }
 
+struct OverlayDisplayConfig {
+    bool enabled = true;
+    bool extendToHud = true;
+    qreal keySize = 54.0;
+    int keyFontSize = 14;
+    qreal lineWidth = 3.4;
+    qreal badgeRadius = 18.0;
+    int badgeFontSize = 13;
+};
+
 struct WindowTargetItem {
     void *windowId = nullptr;
     QRectF geometry;
@@ -64,6 +74,8 @@ struct WindowTargetItem {
     QString title;
     QString appClass;
     bool isVisibleOnScreen = true;
+    bool isCurrentFocused = false;
+    QRectF hudCardRect;
     QColor customColor;
     int zOrder = 0;         // Stacking index in KWin (higher = frontmost/top, lower = underneath)
     bool isOccluded = false; // Whether it is occluded by another window
@@ -82,14 +94,16 @@ struct KeyboardOverlayLayout {
     QMap<QChar, KeycapGeometry> keyMap;
 };
 
-inline KeyboardOverlayLayout computeOverlayGeometry(const QRectF &screenRect, const QRectF &hudBounds = QRectF())
+inline KeyboardOverlayLayout computeOverlayGeometry(const QRectF &screenRect,
+                                                    const QRectF &hudBounds = QRectF(),
+                                                    const OverlayDisplayConfig &cfg = OverlayDisplayConfig())
 {
     KeyboardOverlayLayout geom;
-    const qreal keyW = 54.0;
-    const qreal keyH = 46.0;
-    const qreal gap = 6.0;
-    const qreal panelPaddingX = 26.0;
-    const qreal panelPaddingY = 14.0;
+    const qreal keyW = qBound(32.0, cfg.keySize, 80.0);
+    const qreal keyH = keyW * (46.0 / 54.0);
+    const qreal gap = qBound(4.0, keyW * 0.11, 8.0);
+    const qreal panelPaddingX = qBound(18.0, keyW * 0.48, 36.0);
+    const qreal panelPaddingY = qBound(10.0, keyH * 0.30, 20.0);
     const qreal headerHeight = 26.0;
 
     // Standard QWERTY 3-row layout:
@@ -102,9 +116,9 @@ inline KeyboardOverlayLayout computeOverlayGeometry(const QRectF &screenRect, co
         QStringLiteral("ZXCVBNM")
     };
 
-    const qreal maxRowWidth = 10 * keyW + 9 * gap; // 540 + 54 = 594 px
-    const qreal panelW = maxRowWidth + 2 * panelPaddingX; // 646 px
-    const qreal panelH = 3 * keyH + 2 * gap + 2 * panelPaddingY + headerHeight; // 138 + 12 + 28 + 26 = 204 px
+    const qreal maxRowWidth = 10 * keyW + 9 * gap;
+    const qreal panelW = maxRowWidth + 2 * panelPaddingX;
+    const qreal panelH = 3 * keyH + 2 * gap + 2 * panelPaddingY + headerHeight;
 
     // Position panel horizontally centered
     const qreal panelX = screenRect.left() + (screenRect.width() - panelW) / 2.0;
@@ -273,7 +287,8 @@ struct TargetBadgePlacement {
 inline QMap<QChar, TargetBadgePlacement> computeTargetBadgePlacements(
     const QMap<QChar, WindowTargetItem> &assignedWindows,
     const QRectF &screenRect,
-    const KeyboardOverlayLayout &layout)
+    const KeyboardOverlayLayout &layout,
+    const OverlayDisplayConfig &cfg = OverlayDisplayConfig())
 {
     QMap<QChar, TargetBadgePlacement> placements;
     if (assignedWindows.isEmpty()) {
@@ -328,7 +343,7 @@ inline QMap<QChar, TargetBadgePlacement> computeTargetBadgePlacements(
             bp.key = key;
             bp.item = item;
             bp.center = item.geometry.center();
-            bp.radius = 18.0;
+            bp.radius = cfg.badgeRadius;
             bp.stackLevel = 0;
             bp.stackTotal = 1;
             bp.center.setX(qBound(screenRect.left() + 25.0, bp.center.x(), screenRect.right() - 25.0));
@@ -352,8 +367,8 @@ inline QMap<QChar, TargetBadgePlacement> computeTargetBadgePlacements(
         });
 
         // Radius scales monotonically from bottommost (smallest) to topmost (largest)
-        const qreal minRadius = 12.0;
-        const qreal maxRadius = 21.0;
+        const qreal minRadius = (qAbs(cfg.badgeRadius - 18.0) < 0.001) ? 12.0 : qMax(8.0, cfg.badgeRadius * (12.0 / 18.0));
+        const qreal maxRadius = (qAbs(cfg.badgeRadius - 18.0) < 0.001) ? 21.0 : qMax(minRadius + 4.0, cfg.badgeRadius * (21.0 / 18.0));
         const qreal badgeGap = 8.0;
 
         QVector<qreal> radii(clusterSize);
@@ -413,7 +428,9 @@ inline QMap<QChar, TargetBadgePlacement> computeTargetBadgePlacements(
 inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
                                  const QMap<QChar, WindowTargetItem> &assignedWindows,
                                  const QRectF &screenRect,
-                                 qreal scale = 1.0)
+                                 qreal scale = 1.0,
+                                 const OverlayDisplayConfig &cfg = OverlayDisplayConfig(),
+                                 const QChar &invalidKey = QChar())
 {
     const int imgW = qMax(100, qRound(screenRect.width() * scale));
     const int imgH = qMax(100, qRound(screenRect.height() * scale));
@@ -459,22 +476,31 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
     // -------------------------------------------------------------
     // 2. Draw All 26 Keycaps (Unassigned = Translucent, Assigned = Glowing)
     // -------------------------------------------------------------
-    QFont keyFont(QStringLiteral("sans-serif"), 14, QFont::Bold);
+    const int effKeyFontSize = qBound(8, cfg.keyFontSize, 28);
+    QFont keyFont(QStringLiteral("sans-serif"), effKeyFontSize, QFont::Bold);
     keyFont.setStyleStrategy(QFont::PreferAntialias);
-    QFont subFont(QStringLiteral("sans-serif"), 7, QFont::Bold);
+    QFont subFont(QStringLiteral("sans-serif"), qMax(6, effKeyFontSize / 2), QFont::Bold);
     subFont.setStyleStrategy(QFont::PreferAntialias);
 
     for (const KeycapGeometry &kg : layout.keycaps) {
         const bool isAssigned = assignedWindows.contains(kg.key);
+        const bool isKeyInvalid = (!invalidKey.isNull() && kg.key == invalidKey);
+
+        if (isKeyInvalid) {
+            // Negative feedback aura on keycap when invalid key was pressed
+            p.setPen(QPen(QColor(235, 50, 60, 230), 3.0));
+            p.setBrush(QColor(235, 50, 60, 75));
+            p.drawRoundedRect(kg.rect.adjusted(-2.0, -2.0, 2.0, 2.0), 9.0, 9.0);
+        }
 
         if (!isAssigned) {
             // UNASSIGNED KEY: Semi-transparent ghosted keycap
             p.setPen(QPen(QColor(255, 255, 255, 16), 1.0));
-            p.setBrush(QColor(28, 32, 42, 55));
+            p.setBrush(isKeyInvalid ? QColor(80, 20, 28, 120) : QColor(28, 32, 42, 55));
             p.drawRoundedRect(kg.rect, 8.0, 8.0);
 
             p.setFont(keyFont);
-            p.setPen(QColor(255, 255, 255, 48));
+            p.setPen(isKeyInvalid ? QColor(255, 120, 130, 240) : QColor(255, 255, 255, 48));
             p.drawText(kg.rect, Qt::AlignCenter, QString(kg.key));
         } else {
             // ASSIGNED KEY: Highlighted, illuminated, with distinct vibrant color
@@ -523,7 +549,8 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
     // -------------------------------------------------------------
     // 3. Draw Directional Lines & Target Badges ON TOP of the Keyboard
     // -------------------------------------------------------------
-    const auto placements = computeTargetBadgePlacements(assignedWindows, screenRect, layout);
+    const auto placements = computeTargetBadgePlacements(assignedWindows, screenRect, layout, cfg);
+    const qreal effLineWidth = qBound(1.0, cfg.lineWidth, 10.0);
 
     for (auto it = placements.constBegin(); it != placements.constEnd(); ++it) {
         const QChar key = it.key();
@@ -532,20 +559,33 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
             continue;
         }
 
+        // Point 2: Do not draw line or arrow for the currently focused window
+        if (bp.item.isCurrentFocused) {
+            continue;
+        }
+
         const KeycapGeometry &kg = layout.keyMap.value(key);
-        // Start line directly at keycap center (overlays visibly on top of keycap and keyboard dock)
-        const QPointF pStart = kg.rect.center();
-        const QPointF pEnd = bp.center;
+        // Point 5: Emerge from the top edge of the keycap so the letter in the center is completely unobstructed
+        const QPointF pStart(kg.rect.center().x(), kg.rect.top() + 3.0);
         const QColor arrowCol = bp.item.customColor.isValid() ? bp.item.customColor : QColor(0, 229, 255);
 
-        // Draw glowing launch anchor node right on top of the keycap
+        // Draw glowing launch anchor node right on top accent bar
         p.setPen(Qt::NoPen);
-        p.setBrush(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), 150));
-        p.drawEllipse(pStart, 6.0, 6.0);
+        p.setBrush(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), 160));
+        p.drawEllipse(pStart, 5.0, 5.0);
         p.setBrush(arrowCol);
-        p.drawEllipse(pStart, 3.5, 3.5);
+        p.drawEllipse(pStart, 3.0, 3.0);
         p.setBrush(Qt::white);
-        p.drawEllipse(pStart, 1.8, 1.8);
+        p.drawEllipse(pStart, 1.5, 1.5);
+
+        QPointF pEnd = bp.center;
+        bool drawTargetBadgeAtWindow = true;
+
+        // If window is not visible on screen, but has a card in the HUD dock, redirect arrow directly to the HUD card
+        if (!bp.item.isVisibleOnScreen && cfg.extendToHud && bp.item.hudCardRect.isValid()) {
+            pEnd = bp.item.hudCardRect.center();
+            drawTargetBadgeAtWindow = false;
+        }
 
         const qreal dx = pEnd.x() - pStart.x();
         const qreal dy = pEnd.y() - pStart.y();
@@ -560,17 +600,17 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
             const QPointF pTargetPerimeter(pEnd.x() - ux * bp.radius, pEnd.y() - uy * bp.radius);
 
             // Pass A: Contrast drop-shadow for clear visibility across wallpaper and windows
-            QPen shadowPen(QColor(0, 0, 0, 200), 6.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+            QPen shadowPen(QColor(0, 0, 0, 200), effLineWidth + 3.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
             p.setPen(shadowPen);
             p.drawLine(pStart, pTargetPerimeter);
 
             // Pass B: Vibrant neon laser arrow line
-            QPen colorPen(arrowCol, 3.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+            QPen colorPen(arrowCol, effLineWidth, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
             p.setPen(colorPen);
             p.drawLine(pStart, pTargetPerimeter);
 
             // Arrowhead at pTargetPerimeter pointing directly at target badge center
-            const qreal arrowLen = qBound(12.0, bp.radius * 0.85, 17.0);
+            const qreal arrowLen = qBound(12.0, bp.radius * 0.85, 18.0);
             const qreal arrowSpread = 0.48;
             const QPointF tip = pTargetPerimeter;
             const QPointF leftBase(tip.x() - std::cos(theta - arrowSpread) * arrowLen,
@@ -588,7 +628,33 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
             p.drawPolygon(arrowHead);
         }
 
-        // Target badge at window target position (scaled dynamically for stacking depth)
+        // Point 3: Extend line from window target badge to its card in the HUD dock (if available and enabled)
+        if (bp.item.isVisibleOnScreen && cfg.extendToHud && bp.item.hudCardRect.isValid()) {
+            const QPointF pHud = bp.item.hudCardRect.center();
+            const qreal hdx = pHud.x() - bp.center.x();
+            const qreal hdy = pHud.y() - bp.center.y();
+            const qreal hdist = std::hypot(hdx, hdy);
+            if (hdist > 25.0) {
+                const qreal hux = hdx / hdist;
+                const qreal huy = hdy / hdist;
+                const QPointF pFrom(bp.center.x() + hux * bp.radius, bp.center.y() + huy * bp.radius);
+
+                QPen extShadow(QColor(0, 0, 0, 180), effLineWidth + 1.8, Qt::DashLine, Qt::RoundCap, Qt::RoundJoin);
+                p.setPen(extShadow);
+                p.drawLine(pFrom, pHud);
+
+                QPen extCol(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), 200), qMax(1.5, effLineWidth * 0.70), Qt::DashLine, Qt::RoundCap, Qt::RoundJoin);
+                p.setPen(extCol);
+                p.drawLine(pFrom, pHud);
+
+                // Small connector dot on HUD card
+                p.setPen(Qt::NoPen);
+                p.setBrush(arrowCol);
+                p.drawEllipse(pHud, 4.0, 4.0);
+            }
+        }
+
+        // Target badge at window target position (or HUD card position if offscreen)
         const qreal ringRadius = bp.radius;
 
         // Outer ambient glow
@@ -601,17 +667,17 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
         p.setBrush(QColor(14, 18, 26, 245));
         p.drawEllipse(pEnd, ringRadius, ringRadius);
 
-        // Key letter inside target badge (font scaled proportionally to badge radius)
+        // Key letter inside target badge (font scaled proportionally to badge radius or config)
         p.setPen(Qt::white);
-        const int fontSize = qBound(9, qRound(ringRadius * 0.72), 15);
-        QFont letterFont(QStringLiteral("sans-serif"), fontSize, QFont::Bold);
+        const int effBadgeFontSize = (cfg.badgeFontSize > 0) ? cfg.badgeFontSize : qBound(9, qRound(ringRadius * 0.72), 16);
+        QFont letterFont(QStringLiteral("sans-serif"), effBadgeFontSize, QFont::Bold);
         letterFont.setStyleStrategy(QFont::PreferAntialias);
         p.setFont(letterFont);
         const QRectF badgeTextRect(pEnd.x() - ringRadius, pEnd.y() - ringRadius, ringRadius * 2.0, ringRadius * 2.0);
         p.drawText(badgeTextRect, Qt::AlignCenter, QString(key));
 
         // App class caption pill below target badge
-        if (!bp.item.appClass.isEmpty()) {
+        if (!bp.item.appClass.isEmpty() && drawTargetBadgeAtWindow) {
             QString appTag = bp.item.appClass.toUpper();
             if (bp.stackTotal > 1 && appTag.length() > 4) {
                 appTag = appTag.left(4);

@@ -2741,13 +2741,23 @@ void ActiveWindowOutlineEffect::renderKeyboardArrowsOverlay(const RenderTarget &
         }
     }
 
-    m_keyboardOverlayLayout = LeapKKeyboardOverlay::computeOverlayGeometry(screenRect, hudBounds);
+    LeapKKeyboardOverlay::OverlayDisplayConfig cfg;
+    cfg.enabled = m_keyboardOverlayEnabled;
+    cfg.extendToHud = m_keyboardOverlayExtendToHud;
+    cfg.keySize = m_keyboardOverlayKeySize;
+    cfg.keyFontSize = m_keyboardOverlayKeyFontSize;
+    cfg.lineWidth = m_keyboardOverlayLineWidth;
+    cfg.badgeRadius = m_keyboardOverlayBadgeRadius;
+    cfg.badgeFontSize = m_keyboardOverlayBadgeFontSize;
+
+    m_keyboardOverlayLayout = LeapKKeyboardOverlay::computeOverlayGeometry(screenRect, hudBounds, cfg);
     m_keyboardOverlayWindowMap.clear();
 
     const auto &palette = LeapKKeyboardOverlay::distinctArrowColors();
     int colorIdx = 0;
 
     const auto stacking = effects ? effects->stackingOrder() : QList<EffectWindow *>();
+    EffectWindow *currActive = effects ? effects->activeWindow() : m_activeWindow;
     QMap<QChar, LeapKKeyboardOverlay::WindowTargetItem> assignedMap;
 
     for (auto it = m_jumpLetterToWindow.constBegin(); it != m_jumpLetterToWindow.constEnd(); ++it) {
@@ -2765,8 +2775,16 @@ void ActiveWindowOutlineEffect::renderKeyboardArrowsOverlay(const RenderTarget &
         item.title = w->caption();
         item.appClass = w->windowClass().split(QLatin1Char(' ')).first().toLower();
         item.isVisibleOnScreen = w->isOnCurrentDesktop() && !w->isMinimized() && item.geometry.intersects(screenRect);
+        item.isCurrentFocused = (w == currActive);
         item.zOrder = stacking.indexOf(w);
         item.isOccluded = isWindowObscured(w);
+
+        for (const auto &pair : m_hudTargetPillRects) {
+            if (pair.second == w && pair.first.isValid()) {
+                item.hudCardRect = pair.first;
+                break;
+            }
+        }
 
         if (m_markedWindows.contains(w) && m_markedWindows.value(w).isValid()) {
             item.customColor = m_markedWindows.value(w);
@@ -2777,7 +2795,10 @@ void ActiveWindowOutlineEffect::renderKeyboardArrowsOverlay(const RenderTarget &
         assignedMap.insert(key, item);
     }
 
-    const QImage img = LeapKKeyboardOverlay::renderOverlayImage(m_keyboardOverlayLayout, assignedMap, screenRect, scale);
+    const QChar invalidKey = (m_invalidJumpKeyTimer.isValid() && m_invalidJumpKeyTimer.elapsed() < 900)
+        ? m_invalidJumpKey
+        : QChar();
+    const QImage img = LeapKKeyboardOverlay::renderOverlayImage(m_keyboardOverlayLayout, assignedMap, screenRect, scale, cfg, invalidKey);
 
     auto uploaded = GLTexture::upload(img);
     if (!uploaded) {
