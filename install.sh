@@ -6,19 +6,50 @@ set -euo pipefail
 
 target_ref="${REF:-${BRANCH:-}}"
 use_prerelease=false
+is_branch=false
+is_tag=false
 forward_args=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --main|--dev|--beta)
       target_ref="main"
+      is_branch=true
       shift
       ;;
     --pre|--prerelease)
       use_prerelease=true
       shift
       ;;
-    --ref|--branch|--tag)
+    --branch)
+      if [[ $# -lt 2 ]]; then
+        echo "Option $1 requires an argument." >&2
+        exit 2
+      fi
+      target_ref="$2"
+      is_branch=true
+      shift 2
+      ;;
+    --branch=*)
+      target_ref="${1#*=}"
+      is_branch=true
+      shift
+      ;;
+    --tag)
+      if [[ $# -lt 2 ]]; then
+        echo "Option $1 requires an argument." >&2
+        exit 2
+      fi
+      target_ref="$2"
+      is_tag=true
+      shift 2
+      ;;
+    --tag=*)
+      target_ref="${1#*=}"
+      is_tag=true
+      shift
+      ;;
+    --ref)
       if [[ $# -lt 2 ]]; then
         echo "Option $1 requires an argument." >&2
         exit 2
@@ -26,7 +57,7 @@ while [[ $# -gt 0 ]]; do
       target_ref="$2"
       shift 2
       ;;
-    --ref=*|--branch=*|--tag=*)
+    --ref=*)
       target_ref="${1#*=}"
       shift
       ;;
@@ -105,8 +136,19 @@ elif [[ "$target_ref" == "main" || "$target_ref" == "master" ]]; then
   echo "Installing LeapK from branch '$target_ref' (latest development)…"
   archive_url="https://github.com/gmalinowski/leapk/archive/refs/heads/${target_ref}.tar.gz"
 elif [[ -n "$target_ref" ]]; then
-  echo "Installing LeapK from reference '$target_ref'…"
-  archive_url="https://github.com/gmalinowski/leapk/archive/refs/tags/${target_ref}.tar.gz"
+  if [[ "${is_branch:-false}" == "true" || "$target_ref" == experimental/* || "$target_ref" == feature/* || "$target_ref" == bugfix/* ]]; then
+    echo "Installing LeapK from branch '$target_ref'…"
+    archive_url="https://github.com/gmalinowski/leapk/archive/refs/heads/${target_ref}.tar.gz"
+    fallback_archive_url="https://github.com/gmalinowski/leapk/archive/refs/tags/${target_ref}.tar.gz"
+  elif [[ "${is_tag:-false}" == "true" || "$target_ref" == v* ]]; then
+    echo "Installing LeapK from tag '$target_ref'…"
+    archive_url="https://github.com/gmalinowski/leapk/archive/refs/tags/${target_ref}.tar.gz"
+    fallback_archive_url="https://github.com/gmalinowski/leapk/archive/refs/heads/${target_ref}.tar.gz"
+  else
+    echo "Installing LeapK from reference '$target_ref'…"
+    archive_url="https://github.com/gmalinowski/leapk/archive/refs/heads/${target_ref}.tar.gz"
+    fallback_archive_url="https://github.com/gmalinowski/leapk/archive/refs/tags/${target_ref}.tar.gz"
+  fi
 else
   echo "Resolving latest release of LeapK…"
   latest_tag="$(get_latest_release_tag || true)"
@@ -119,13 +161,25 @@ else
   fi
 fi
 
-if command -v curl >/dev/null 2>&1; then
-  curl -sSL "$archive_url" | tar -mxz -C "$tmp_dir" --strip-components=1
-elif command -v wget >/dev/null 2>&1; then
-  wget -qO- "$archive_url" | tar -mxz -C "$tmp_dir" --strip-components=1
-else
-  echo "Neither curl nor wget was found. Please install curl or wget." >&2
-  exit 1
+download_and_extract() {
+  local url="$1"
+  if command -v curl >/dev/null 2>&1; then
+    curl -sSfL "$url" 2>/dev/null | tar -mxz -C "$tmp_dir" --strip-components=1 2>/dev/null
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO- "$url" 2>/dev/null | tar -mxz -C "$tmp_dir" --strip-components=1 2>/dev/null
+  else
+    echo "Neither curl nor wget was found. Please install curl or wget." >&2
+    exit 1
+  fi
+}
+
+if ! download_and_extract "$archive_url"; then
+  if [[ -n "${fallback_archive_url:-}" ]] && download_and_extract "$fallback_archive_url"; then
+    :
+  else
+    echo "Failed to download LeapK archive for '$target_ref' from $archive_url" >&2
+    exit 1
+  fi
 fi
 
 cd "$tmp_dir"
