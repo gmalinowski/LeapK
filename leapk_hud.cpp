@@ -980,7 +980,8 @@ QRectF ActiveWindowOutlineEffect::findBestBadgePositionForWindow(
             || candidate->frameGeometry().height() < 10) {
             continue;
         }
-        unoccluded -= candidate->frameGeometry().toAlignedRect();
+        const auto cg = candidate->frameGeometry();
+        unoccluded -= QRect(qRound(cg.x()), qRound(cg.y()), qRound(cg.width()), qRound(cg.height()));
     }
 
     // Also subtract active HUD collision geometries
