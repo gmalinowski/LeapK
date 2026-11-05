@@ -542,6 +542,84 @@ void testTilingAndBackgroundBadgeSeparation()
     std::cout << "testTilingAndBackgroundBadgeSeparation PASSED\n";
 }
 
+void testLaserTargetsMatchingHudBadgeOrder()
+{
+    using namespace LeapKKeyboardOverlay;
+
+    const QRectF screenRect(0, 0, 1920, 1080);
+    const KeyboardOverlayLayout layout = computeOverlayGeometry(screenRect);
+
+    OverlayDisplayConfig cfg;
+    cfg.badgeRadius = 18.0;
+    cfg.stackScaleReduction = 0.35;
+    cfg.stackOpacityReduction = 0.40;
+    cfg.extendToHud = true;
+
+    // Two stacked terminals at identical coordinates
+    WindowTargetItem wTermUnder;
+    wTermUnder.geometry = QRectF(400, 200, 600, 450);
+    wTermUnder.title = QStringLiteral("Terminal 1 (Underneath)");
+    wTermUnder.appClass = QStringLiteral("konsole");
+    wTermUnder.zOrder = 2;
+    wTermUnder.isOccluded = true;
+    wTermUnder.isVisibleOnScreen = true;
+    // In HUD, TermUnder is on the RIGHT dock slot (e.g. x = 1200)
+    wTermUnder.hudCardRect = QRectF(1200, 950, 120, 60);
+
+    WindowTargetItem wTermTop;
+    wTermTop.geometry = QRectF(400, 200, 600, 450);
+    wTermTop.title = QStringLiteral("Terminal 2 (Topmost)");
+    wTermTop.appClass = QStringLiteral("konsole");
+    wTermTop.zOrder = 10;
+    wTermTop.isOccluded = false;
+    wTermTop.isVisibleOnScreen = true;
+    // In HUD, TermTop is on the LEFT dock slot (e.g. x = 400)
+    wTermTop.hudCardRect = QRectF(400, 950, 120, 60);
+
+    QMap<QChar, WindowTargetItem> assigned;
+    assigned.insert(QChar('A'), wTermUnder);
+    assigned.insert(QChar('S'), wTermTop);
+
+    const auto placements = computeTargetBadgePlacements(assigned, screenRect, layout, cfg);
+    assert(placements.size() == 2);
+
+    const auto &pUnder = placements.value(QChar('A'));
+    const auto &pTop = placements.value(QChar('S'));
+
+    // Requirement: targets must be sorted to match the layout of badges in HUD!
+    // Since TermTop has HUD card on the left (x=400) and TermUnder has HUD card on the right (x=1200),
+    // TermTop's target badge on screen MUST be positioned to the left of TermUnder's target badge!
+    assert(pTop.center.x() < pUnder.center.x());
+
+    // Laser extension lines between target badges and HUD cards MUST NOT CROSS!
+    const QPointF pHudTop = wTermTop.hudCardRect.center();
+    const QPointF pHudUnder = wTermUnder.hudCardRect.center();
+    assert(!segmentsIntersect(pTop.center, pHudTop, pUnder.center, pHudUnder));
+
+    // Depth status must be preserved: topmost has larger radius and opacity, underneath has smaller
+    assert(pTop.radius > pUnder.radius);
+    assert(pTop.opacity > pUnder.opacity);
+    assert(pTop.stackLevel == 1);
+    assert(pUnder.stackLevel == 0);
+
+    // Inverted case: TermUnder has HUD card on left (x=300), TermTop has HUD card on right (x=1100)
+    wTermUnder.hudCardRect = QRectF(300, 950, 120, 60);
+    wTermTop.hudCardRect = QRectF(1100, 950, 120, 60);
+    assigned[QChar('A')] = wTermUnder;
+    assigned[QChar('S')] = wTermTop;
+
+    const auto placementsInverted = computeTargetBadgePlacements(assigned, screenRect, layout, cfg);
+    const auto &pUnderInv = placementsInverted.value(QChar('A'));
+    const auto &pTopInv = placementsInverted.value(QChar('S'));
+
+    // TermUnder's badge is placed on the left, TermTop's badge on the right
+    assert(pUnderInv.center.x() < pTopInv.center.x());
+    assert(!segmentsIntersect(pUnderInv.center, wTermUnder.hudCardRect.center(),
+                              pTopInv.center, wTermTop.hudCardRect.center()));
+
+    std::cout << "testLaserTargetsMatchingHudBadgeOrder PASSED\n";
+}
+
 int main(int argc, char **argv)
 {
     QGuiApplication app(argc, argv);
@@ -557,6 +635,7 @@ int main(int argc, char **argv)
     testLabelAndStackTheming();
     testSpatialKeyGroupBypass();
     testTilingAndBackgroundBadgeSeparation();
+    testLaserTargetsMatchingHudBadgeOrder();
 
     std::cout << "All LeapK Keyboard Overlay tests passed successfully!\n";
     return 0;

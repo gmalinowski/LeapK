@@ -825,6 +825,13 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
             }
             item.zOrder = stacking.indexOf(w);
             item.isOccluded = isWindowObscured(w);
+            item.isVisibleOnScreen = w->isOnCurrentDesktop() && !w->isMinimized() && item.geometry.intersects(screenGeo);
+            for (const auto &pair : m_hudTargetPillRects) {
+                if (pair.second == w && pair.first.isValid()) {
+                    item.hudCardRect = pair.first;
+                    break;
+                }
+            }
             items.append(item);
         }
 

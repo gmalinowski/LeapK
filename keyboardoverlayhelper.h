@@ -258,8 +258,16 @@ inline QMap<QChar, WindowTargetItem> assignSpatialKeys(const QList<WindowTargetI
     const qreal sW = qMax<qreal>(100.0, screenRect.width());
     const qreal sH = qMax<qreal>(100.0, screenRect.height());
 
-    // Sort pending windows: top-to-bottom, left-to-right
+    // Sort pending windows: top-to-bottom, left-to-right (matching HUD badge order for overlapping windows)
     std::sort(pendingWindows.begin(), pendingWindows.end(), [](const WindowTargetItem &a, const WindowTargetItem &b) {
+        const bool hasHudA = a.hudCardRect.isValid();
+        const bool hasHudB = b.hudCardRect.isValid();
+        if (hasHudA && hasHudB && a.geometry.intersects(b.geometry)) {
+            const qreal hudDx = a.hudCardRect.center().x() - b.hudCardRect.center().x();
+            if (qAbs(hudDx) > 1.0) {
+                return hudDx < 0.0;
+            }
+        }
         if (qAbs(a.geometry.center().y() - b.geometry.center().y()) > 80.0) {
             return a.geometry.center().y() < b.geometry.center().y();
         }
@@ -327,7 +335,19 @@ inline QMap<QChar, WindowTargetItem> assignSpatialKeys(const QList<WindowTargetI
                 const QPointF pKb = keyStartPt(assignedList[j].key);
                 const QPointF pWb = assignedList[j].targetCenter;
 
-                const bool intersect = segmentsIntersect(pKa, pWa, pKb, pWb);
+                bool intersect = segmentsIntersect(pKa, pWa, pKb, pWb);
+
+                // Also check laser extension lines to HUD badges
+                const bool hasHudA = assignedList[i].item.hudCardRect.isValid();
+                const bool hasHudB = assignedList[j].item.hudCardRect.isValid();
+                if (!intersect && hasHudA && hasHudB) {
+                    const QPointF pHudA = assignedList[i].item.hudCardRect.center();
+                    const QPointF pHudB = assignedList[j].item.hudCardRect.center();
+                    if (segmentsIntersect(pWa, pHudA, pWb, pHudB)) {
+                        intersect = true;
+                    }
+                }
+
                 const qreal curDist = QLineF(pKa, pWa).length() + QLineF(pKb, pWb).length();
                 const qreal swapDist = QLineF(pKa, pWb).length() + QLineF(pKb, pWa).length();
 
@@ -443,18 +463,49 @@ inline QMap<QChar, TargetBadgePlacement> computeTargetBadgePlacements(
         }
 
         // Multiple occluded / stacked windows in this cluster!
-        // Sort cluster items by zOrder ascending:
-        // Index 0 = lowest z-order (deepest underneath) -> placed on the far LEFT
-        // Index clusterSize - 1 = highest z-order (topmost on surface) -> placed on the far RIGHT
+        // Sort cluster items so that their side-by-side target order matches the layout of their badges in HUD.
+        // If HUD badges are present, sort cluster items by their HUD badge positions (left-to-right along HUD),
+        // preventing laser extension lines between target badges and HUD badges from crossing / tangling!
         QList<int> sortedCluster = clusterIndices;
         std::sort(sortedCluster.begin(), sortedCluster.end(), [&](int a, int b) {
             const auto &itemA = assignedWindows.value(keys[a]);
             const auto &itemB = assignedWindows.value(keys[b]);
+            const bool hasHudA = itemA.hudCardRect.isValid();
+            const bool hasHudB = itemB.hudCardRect.isValid();
+            if (hasHudA && hasHudB) {
+                const qreal dx = itemA.hudCardRect.center().x() - itemB.hudCardRect.center().x();
+                if (qAbs(dx) > 1.0) {
+                    return dx < 0.0;
+                }
+                const qreal dy = itemA.hudCardRect.center().y() - itemB.hudCardRect.center().y();
+                if (qAbs(dy) > 1.0) {
+                    return dy < 0.0;
+                }
+            } else if (hasHudA != hasHudB) {
+                return hasHudA;
+            }
             if (itemA.zOrder != itemB.zOrder) {
                 return itemA.zOrder < itemB.zOrder;
             }
             return itemA.geometry.center().x() < itemB.geometry.center().x();
         });
+
+        // Compute each window's depth rank in cluster based on zOrder (0 = deepest underneath, clusterSize - 1 = topmost)
+        QVector<int> stackRanks(clusterSize, 0);
+        for (int i = 0; i < clusterSize; ++i) {
+            int rank = 0;
+            const auto &itemI = assignedWindows.value(keys[sortedCluster[i]]);
+            for (int j = 0; j < clusterSize; ++j) {
+                if (i == j) continue;
+                const auto &itemJ = assignedWindows.value(keys[sortedCluster[j]]);
+                if (itemJ.zOrder < itemI.zOrder) {
+                    rank++;
+                } else if (itemJ.zOrder == itemI.zOrder && j < i) {
+                    rank++;
+                }
+            }
+            stackRanks[i] = rank;
+        }
 
         // Radius & Opacity scale monotonically from bottommost (smallest, faded) to topmost (largest, opaque)
         const qreal maxRadius = (qAbs(cfg.badgeRadius - 18.0) < 0.001)
@@ -469,12 +520,18 @@ inline QMap<QChar, TargetBadgePlacement> computeTargetBadgePlacements(
         QVector<qreal> radii(clusterSize);
         QVector<qreal> opacities(clusterSize);
         const qreal opacityFactor = qBound(0.0, cfg.stackOpacityReduction, 0.70);
+        for (int r = 0; r < clusterSize; ++r) {
+            const qreal progress = (clusterSize > 1)
+                ? static_cast<qreal>(r) / static_cast<qreal>(clusterSize - 1)
+                : 1.0;
+            radii[r] = minRadius + progress * (maxRadius - minRadius);
+            opacities[r] = (1.0 - opacityFactor) + progress * opacityFactor;
+        }
+
         qreal totalWidth = 0.0;
         for (int i = 0; i < clusterSize; ++i) {
-            const qreal progress = static_cast<qreal>(i) / static_cast<qreal>(clusterSize - 1);
-            radii[i] = minRadius + progress * (maxRadius - minRadius);
-            opacities[i] = (1.0 - opacityFactor) + progress * opacityFactor;
-            totalWidth += 2.0 * radii[i];
+            const int rank = stackRanks[i];
+            totalWidth += 2.0 * radii[rank];
             if (i > 0) {
                 totalWidth += badgeGap;
             }
@@ -497,13 +554,13 @@ inline QMap<QChar, TargetBadgePlacement> computeTargetBadgePlacements(
                                             avgY,
                                             layout.panelRect.top() - maxRadius - 35.0);
 
-        // Position from left to right:
-        // Index 0 (bottommost) on the far left, Index clusterSize - 1 (topmost) on the far right
+        // Position from left to right matching the HUD badge layout order
         qreal currLeft = clampedCenterX - totalWidth / 2.0;
         for (int i = 0; i < clusterSize; ++i) {
             const QChar key = keys[sortedCluster[i]];
             const WindowTargetItem &item = assignedWindows.value(keys[sortedCluster[i]]);
-            const qreal r = radii[i];
+            const int rank = stackRanks[i];
+            const qreal r = radii[rank];
             const qreal cx = currLeft + r;
             const qreal cy = clampedCenterY;
 
@@ -512,8 +569,8 @@ inline QMap<QChar, TargetBadgePlacement> computeTargetBadgePlacements(
             bp.item = item;
             bp.center = QPointF(cx, cy);
             bp.radius = r;
-            bp.opacity = opacities[i];
-            bp.stackLevel = i;
+            bp.opacity = opacities[rank];
+            bp.stackLevel = rank;
             bp.stackTotal = clusterSize;
             placements.insert(key, bp);
 

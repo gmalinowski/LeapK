@@ -2130,8 +2130,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         const QString text = extractKeyChar();
         if (!text.isEmpty()) {
             const QChar keyChar = text.at(0);
-            if (m_jumpLetterToWindow.contains(keyChar)) {
-                EffectWindow *target = m_jumpLetterToWindow.value(keyChar);
+            const bool hasKey = (m_keyboardOverlayEnabled && m_keyboardOverlayWindowMap.contains(keyChar)) || m_jumpLetterToWindow.contains(keyChar);
+            if (hasKey) {
+                EffectWindow *target = (m_keyboardOverlayEnabled && m_keyboardOverlayWindowMap.contains(keyChar))
+                    ? m_keyboardOverlayWindowMap.value(keyChar)
+                    : m_jumpLetterToWindow.value(keyChar);
                 if (target && !target->isDeleted()) {
                     if (isCtrl) {
                         // Shortcut Ctrl + Key adds chosen window to stash
@@ -2261,8 +2264,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         const QString text = extractKeyChar();
         if (!text.isEmpty()) {
             const QChar keyChar = text.at(0);
-            if (m_jumpLetterToWindow.contains(keyChar)) {
-                EffectWindow *target = m_jumpLetterToWindow.value(keyChar);
+            const bool hasKey = (m_keyboardOverlayEnabled && m_keyboardOverlayWindowMap.contains(keyChar)) || m_jumpLetterToWindow.contains(keyChar);
+            if (hasKey) {
+                EffectWindow *target = (m_keyboardOverlayEnabled && m_keyboardOverlayWindowMap.contains(keyChar))
+                    ? m_keyboardOverlayWindowMap.value(keyChar)
+                    : m_jumpLetterToWindow.value(keyChar);
                 if (target && !target->isDeleted()) {
                     if (m_pinnedWindows.contains(target)) {
                         unpinWindow(target, m_activeHudView);
@@ -2351,8 +2357,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         const QString text = extractKeyChar();
         if (!text.isEmpty()) {
             const QChar keyChar = text.at(0);
-            if (m_jumpLetterToWindow.contains(keyChar)) {
-                EffectWindow *target = m_jumpLetterToWindow.value(keyChar);
+            const bool hasKey = (m_keyboardOverlayEnabled && m_keyboardOverlayWindowMap.contains(keyChar)) || m_jumpLetterToWindow.contains(keyChar);
+            if (hasKey) {
+                EffectWindow *target = (m_keyboardOverlayEnabled && m_keyboardOverlayWindowMap.contains(keyChar))
+                    ? m_keyboardOverlayWindowMap.value(keyChar)
+                    : m_jumpLetterToWindow.value(keyChar);
                 if (target && !target->isDeleted()) {
                     toggleWindowPin(target);
                     m_jumpLetterToWindow = assignJumpLetters();
@@ -2639,8 +2648,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         }
 
         // Check direct jump letter (either single marked window or unique direct letter)
-        if (m_jumpLetterToWindow.contains(keyChar)) {
-            EffectWindow *target = m_jumpLetterToWindow.value(keyChar);
+        const bool hasKey = (m_keyboardOverlayEnabled && m_keyboardOverlayWindowMap.contains(keyChar)) || m_jumpLetterToWindow.contains(keyChar);
+        if (hasKey) {
+            EffectWindow *target = (m_keyboardOverlayEnabled && m_keyboardOverlayWindowMap.contains(keyChar))
+                ? m_keyboardOverlayWindowMap.value(keyChar)
+                : m_jumpLetterToWindow.value(keyChar);
             if (target && !target->isDeleted()) {
                 if (isShift) {
                     // Quick close single window
