@@ -2886,7 +2886,7 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
     return img;
 }
 
-inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false, bool isSearchMode = false, qreal maxAllowedWidth = 0.0, int hintsFontSize = 0, const LeapKTheme::Theme &theme = LeapKTheme::Theme(), bool isTilingPresets = false, bool isCloseMode = false, bool isPinMode = false, int candidateCount = 0)
+inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false, bool isSearchMode = false, qreal maxAllowedWidth = 0.0, int hintsFontSize = 0, const LeapKTheme::Theme &theme = LeapKTheme::Theme(), bool isTilingPresets = false, bool isCloseMode = false, bool isPinMode = false, int candidateCount = 0, bool isCrossWsAction = false)
 {
     Q_UNUSED(customViewName);
     Q_UNUSED(customViewColor);
@@ -2899,7 +2899,14 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     };
 
     QList<Segment> segments;
-    if (isCloseMode) {
+    if (isCrossWsAction) {
+        segments = {
+            {QStringLiteral("Enter / J / 1"), QStringLiteral("Jump to Workspace"), QColor(46, 204, 113)},
+            {QStringLiteral("M / 2"), QStringLiteral("Move to Current"), QColor(52, 152, 219)},
+            {QStringLiteral("P / 3"), QStringLiteral("Pin / Both"), QColor(245, 166, 35)},
+            {QStringLiteral("Esc / ⌫"), QStringLiteral("Back to Super Jump"), QColor(149, 165, 166)}
+        };
+    } else if (isCloseMode) {
         segments = {
             {candidateCount == 1 ? QStringLiteral("Enter / Key") : QStringLiteral("Key"), QStringLiteral("Close window"), QColor(231, 76, 60)},
             {QStringLiteral("Meta+A"), QStringLiteral("All WS + Stash"), QColor(0, 195, 255)},
@@ -4495,6 +4502,224 @@ inline QImage renderHudMetaOverlayImage(qreal scale,
     p.setFont(descFont);
     p.setPen(QColor(140, 155, 175));
     p.drawText(QRectF(padX, curY, totalW - 2 * padX, footerH), Qt::AlignCenter, footerText);
+
+    p.end();
+    return img;
+}
+
+inline QImage renderHudCrossWorkspaceActionDialog(
+    qreal scale,
+    const LeapKTheme::Theme &theme,
+    const QString &windowTitle,
+    const QString &windowClass,
+    const QString &sourceWsName,
+    const QString &currentWsName,
+    QRectF &outJumpRect,
+    QRectF &outMoveRect,
+    QRectF &outPinRect,
+    QRectF &outCancelRect)
+{
+    QFont titleFont(QStringLiteral("sans-serif"));
+    titleFont.setPixelSize(qMax(11, qRound(13.5 * scale)));
+    titleFont.setBold(true);
+
+    QFont subFont(QStringLiteral("sans-serif"));
+    subFont.setPixelSize(qMax(10, qRound(11.0 * scale)));
+
+    QFont keyFont(QStringLiteral("monospace"));
+    keyFont.setPixelSize(qMax(10, qRound(11.5 * scale)));
+    keyFont.setBold(true);
+
+    QFont actionFont(QStringLiteral("sans-serif"));
+    actionFont.setPixelSize(qMax(11, qRound(12.0 * scale)));
+    actionFont.setBold(true);
+
+    QFont descFont(QStringLiteral("sans-serif"));
+    descFont.setPixelSize(qMax(9, qRound(10.0 * scale)));
+
+    QFont tagFont(QStringLiteral("sans-serif"));
+    tagFont.setPixelSize(qMax(8, qRound(9.0 * scale)));
+    tagFont.setBold(true);
+
+    const int padX = qRound(22 * scale);
+    const int padY = qRound(18 * scale);
+    const int headerH = qRound(56 * scale);
+    const int dividerH = qRound(12 * scale);
+    const int rowH = qRound(44 * scale);
+    const int rowGap = qRound(8 * scale);
+    const int footerH = qRound(32 * scale);
+
+    const int totalW = qRound(580 * scale);
+    const int contentH = headerH + dividerH + (3 * rowH) + (2 * rowGap) + dividerH + footerH;
+    const int totalH = contentH + 2 * padY;
+
+    QImage img(totalW, totalH, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+
+    QPainter p(&img);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+
+    const qreal bw = qMax(1.0, 1.6 * scale);
+    const qreal bm = bw / 2.0;
+    const QRectF cardRect(bm, bm, totalW - 2 * bm, totalH - 2 * bm);
+    const qreal radius = 14.0 * scale;
+
+    const QColor bgCol = theme.resolveColor(QStringLiteral("$bgSurface"), QColor(16, 20, 28, 248));
+    const QColor borderCol = theme.resolveColor(QStringLiteral("$borderColor"), QColor(90, 115, 150, 180));
+    p.setPen(QPen(borderCol, bw));
+    p.setBrush(bgCol);
+    p.drawRoundedRect(cardRect, radius, radius);
+
+    // 1. Header
+    qreal curY = padY;
+    const QString titleText = QStringLiteral("🔀  CROSS-WORKSPACE WINDOW ACTION");
+    p.setFont(titleFont);
+    p.setPen(QColor(255, 255, 255));
+    p.drawText(QRectF(padX, curY, totalW - 2 * padX, qRound(22 * scale)), Qt::AlignLeft | Qt::AlignVCenter, titleText);
+
+    // Window info line
+    QFontMetrics fmSub(subFont);
+    const QString rawWinDesc = windowTitle.isEmpty()
+        ? (!windowClass.isEmpty() ? windowClass : QStringLiteral("Selected Window"))
+        : (!windowClass.isEmpty() ? (windowTitle + QStringLiteral(" (") + windowClass + QStringLiteral(")")) : windowTitle);
+    const QString elidedWinDesc = fmSub.elidedText(rawWinDesc, Qt::ElideRight, totalW - 2 * padX);
+
+    p.setFont(subFont);
+    p.setPen(QColor(200, 215, 235));
+    p.drawText(QRectF(padX, curY + qRound(22 * scale), totalW - 2 * padX, qRound(18 * scale)),
+               Qt::AlignLeft | Qt::AlignVCenter, elidedWinDesc);
+
+    // Workspace transfer info line
+    const QString wsTransferText = QStringLiteral("Window workspace: %1   ➜   Current workspace: %2")
+        .arg(sourceWsName.isEmpty() ? QStringLiteral("Other") : sourceWsName)
+        .arg(currentWsName.isEmpty() ? QStringLiteral("Current") : currentWsName);
+    p.setPen(QColor(135, 160, 190));
+    p.drawText(QRectF(padX, curY + qRound(38 * scale), totalW - 2 * padX, qRound(18 * scale)),
+               Qt::AlignLeft | Qt::AlignVCenter, wsTransferText);
+
+    curY += headerH;
+
+    // Header divider line
+    p.setPen(QPen(QColor(255, 255, 255, 35), 1.0 * scale));
+    p.drawLine(QPointF(padX, curY + dividerH / 2.0), QPointF(totalW - padX, curY + dividerH / 2.0));
+    curY += dividerH;
+
+    struct ActionRowDef {
+        QString keyPill;
+        QString title;
+        QString desc;
+        QString tagText;
+        QColor accent;
+        bool isDefault;
+    };
+
+    const QList<ActionRowDef> rows = {
+        {
+            QStringLiteral("Enter / J / 1"),
+            QStringLiteral("Jump to Workspace"),
+            QStringLiteral("Switch to %1 and focus this window").arg(sourceWsName),
+            QStringLiteral("DEFAULT"),
+            QColor(46, 204, 113),
+            true
+        },
+        {
+            QStringLiteral("M / 2"),
+            QStringLiteral("Move to Current Workspace"),
+            QStringLiteral("Pull window into %1 on current desktop").arg(currentWsName),
+            QStringLiteral("MOVE"),
+            QColor(52, 152, 219),
+            false
+        },
+        {
+            QStringLiteral("P / 3"),
+            QStringLiteral("Pin / Both Workspaces"),
+            QStringLiteral("Make window visible across all workspaces and desktops"),
+            QStringLiteral("PIN"),
+            QColor(245, 166, 35),
+            false
+        }
+    };
+
+    const int keyPillW = qRound(115 * scale);
+    const int tagPillW = qRound(68 * scale);
+    const int gap = qRound(12 * scale);
+
+    for (int i = 0; i < rows.size(); ++i) {
+        const auto &r = rows.at(i);
+        const QRectF rowRect(padX, curY, totalW - 2 * padX, rowH);
+
+        const QRectF unscaledRow(rowRect.x() / scale, rowRect.y() / scale, rowRect.width() / scale, rowRect.height() / scale);
+        if (i == 0) outJumpRect = unscaledRow;
+        else if (i == 1) outMoveRect = unscaledRow;
+        else if (i == 2) outPinRect = unscaledRow;
+
+        if (r.isDefault) {
+            p.setPen(QPen(r.accent.lighter(130), 1.2 * scale));
+            p.setBrush(QColor(r.accent.red(), r.accent.green(), r.accent.blue(), 40));
+        } else {
+            p.setPen(QPen(QColor(85, 105, 130, 130), 1.0 * scale));
+            p.setBrush(QColor(25, 32, 45, 160));
+        }
+        p.drawRoundedRect(rowRect, 8.0 * scale, 8.0 * scale);
+
+        const qreal pillH = rowH - qRound(12 * scale);
+        const QRectF kRect(padX + qRound(6 * scale), curY + (rowH - pillH) / 2.0, keyPillW, pillH);
+        p.setPen(QPen(r.isDefault ? r.accent : QColor(100, 115, 135, 180), 1.0 * scale));
+        p.setBrush(r.isDefault ? QColor(r.accent.red(), r.accent.green(), r.accent.blue(), 70) : QColor(36, 44, 58, 220));
+        p.drawRoundedRect(kRect, 5.0 * scale, 5.0 * scale);
+
+        p.setFont(keyFont);
+        p.setPen(QColor(255, 255, 255));
+        p.drawText(kRect, Qt::AlignCenter, r.keyPill);
+
+        const qreal textX = kRect.right() + gap;
+        const qreal textW = rowRect.right() - tagPillW - gap - textX;
+
+        p.setFont(actionFont);
+        p.setPen(r.isDefault ? r.accent.lighter(120) : QColor(255, 255, 255));
+        p.drawText(QRectF(textX, curY + qRound(5 * scale), textW, qRound(18 * scale)),
+                   Qt::AlignLeft | Qt::AlignVCenter, r.title);
+
+        p.setFont(descFont);
+        p.setPen(QColor(165, 180, 200));
+        p.drawText(QRectF(textX, curY + qRound(23 * scale), textW, qRound(16 * scale)),
+                   Qt::AlignLeft | Qt::AlignVCenter, r.desc);
+
+        const QRectF tagRect(rowRect.right() - tagPillW - qRound(8 * scale), curY + (rowH - pillH) / 2.0, tagPillW, pillH);
+        p.setFont(tagFont);
+        p.setPen(QPen(r.accent, 1.0 * scale));
+        p.setBrush(QColor(r.accent.red(), r.accent.green(), r.accent.blue(), r.isDefault ? 55 : 30));
+        p.drawRoundedRect(tagRect, pillH / 2.0, pillH / 2.0);
+        p.setPen(r.isDefault ? QColor(255, 255, 255) : r.accent.lighter(110));
+        p.drawText(tagRect, Qt::AlignCenter, r.tagText);
+
+        curY += rowH + rowGap;
+    }
+
+    // Footer divider line
+    p.setPen(QPen(QColor(255, 255, 255, 35), 1.0 * scale));
+    p.drawLine(QPointF(padX, curY + dividerH / 2.0), QPointF(totalW - padX, curY + dividerH / 2.0));
+    curY += dividerH;
+
+    // Footer / Cancel row
+    const QRectF cancelRow(padX, curY, totalW - 2 * padX, footerH);
+    outCancelRect = QRectF(cancelRow.x() / scale, cancelRow.y() / scale, cancelRow.width() / scale, cancelRow.height() / scale);
+
+    const qreal cancelPillW = qRound(65 * scale);
+    const qreal cancelPillH = footerH - qRound(8 * scale);
+    const QRectF escPill(padX + qRound(6 * scale), curY + (footerH - cancelPillH) / 2.0, cancelPillW, cancelPillH);
+    p.setPen(QPen(QColor(110, 125, 145, 140), 1.0 * scale));
+    p.setBrush(QColor(36, 44, 58, 200));
+    p.drawRoundedRect(escPill, 4.0 * scale, 4.0 * scale);
+    p.setFont(keyFont);
+    p.setPen(QColor(200, 215, 230));
+    p.drawText(escPill, Qt::AlignCenter, QStringLiteral("Esc"));
+
+    p.setFont(descFont);
+    p.setPen(QColor(145, 160, 180));
+    const QRectF footerTextRect(escPill.right() + gap, curY, totalW - 2 * padX - escPill.width() - gap, footerH);
+    p.drawText(footerTextRect, Qt::AlignLeft | Qt::AlignVCenter, QStringLiteral("Return to Super Jump  •  Click any row or press key to select"));
 
     p.end();
     return img;

@@ -1260,6 +1260,10 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         if (m_hudMetaHeld && !m_metaSpaceTraverseActive) {
             renderHudMetaOverlay(renderTarget, viewport);
         }
+
+        if (m_crossWsActionActive) {
+            renderHudCrossWsActionOverlay(renderTarget, viewport);
+        }
         }
 
         if (m_keyboardOverlayEnabled && !m_searchModeActive && !m_tilingPresetsModeActive) {

@@ -17,6 +17,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Spatial key matching algorithm (`assignSpatialKeys`): automatically assigns windows to keys corresponding to their physical screen position (left windows -> left keys, right windows -> right keys, top windows -> top row) to prevent arrow lines from crossing.
   - Interactive mouse and keyboard support: pressing the key or clicking the key on the keyboard overlay immediately focuses, raises, and jumps to that window.
   - Added dedicated unit tests in `tests/keyboardoverlay_test.cpp` verifying color uniqueness, layout computation, spatial assignment, and image rendering. All 31/31 CTests pass (100%).
+- **Interactive Cross-Workspace Selection Action Menu (`SuperJumpCrossWsAction`)**:
+  - When in Super Jump mode (`Meta + Space` followed by `Meta + A`) or selecting a window across workspace boundaries, LeapK now displays a fast, interactive action dialog instead of abruptly jumping or moving without confirmation.
+  - Three single-key action choices with high-visibility styling, clear descriptions, and responsive keycaps:
+    - `[Enter]` or `[J]` or `[1]`: **Jump to Workspace** (Default, switches to target workspace/desktop and focuses the window).
+    - `[M]` or `[2]`: **Move to Current Workspace** (Pulls the target window directly into the current workspace and desktop).
+    - `[P]` or `[3]`: **Pin / Both Workspaces** (Pins the window across all workspaces and virtual desktops).
+    - `[Esc]`, `[Backspace]`, or `[Space]`: **Return back to Super Jump** (Dismisses the menu back to window selection without losing context).
+  - Unassigned keypresses trigger visual/auditory invalid-key feedback (`triggerInvalidKeyFeedback`).
+  - Full mouse support: interactive hover states (`PointingHandCursor`) and click execution on any action row, or click outside/right-click to cancel.
+  - New configurable setting under KCM / Settings / Presets (`SuperJumpCrossWsAction`):
+    - `0`: `Interactive Action Menu (Ask)` (Default / Recommended)
+    - `1`: `Direct Jump to Workspace (Classic)`
+    - `2`: `Direct Move to Current Workspace`
+  - Added unit test coverage `testHudCrossWorkspaceActionDialogRendering`, `testCrossWorkspaceActionModes`, and `testCrossWorkspaceActionDialogShortcuts` in `tests/superjump_test.cpp`. All 31 CTests pass (100%).
 
 ## [1.6.0-beta83] - 2026-11-04
 

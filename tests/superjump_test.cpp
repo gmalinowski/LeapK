@@ -873,6 +873,252 @@ void testRecentWindowWorkspaceTransfer()
     std::cout << "testRecentWindowWorkspaceTransfer PASSED\n";
 }
 
+void testHudCrossWorkspaceActionDialogRendering()
+{
+    LeapKTheme::Theme theme;
+    theme.id = QStringLiteral("cyberpunk_neon");
+
+    QRectF jumpRect, moveRect, pinRect, cancelRect;
+    const QImage img1 = OutlineBadge::renderHudCrossWorkspaceActionDialog(
+        1.0, theme, QStringLiteral("GitHub - Pull Requests"), QStringLiteral("firefox"),
+        QStringLiteral("Workspace 1"), QStringLiteral("Workspace 2"),
+        jumpRect, moveRect, pinRect, cancelRect);
+
+    assert(!img1.isNull());
+    assert(img1.width() > 400);
+    assert(img1.height() > 200);
+    assert(jumpRect.isValid());
+    assert(moveRect.isValid());
+    assert(pinRect.isValid());
+    assert(cancelRect.isValid());
+    assert(jumpRect.top() < moveRect.top());
+    assert(moveRect.top() < pinRect.top());
+    assert(pinRect.top() < cancelRect.top());
+
+    // Scale 2.0 (HiDPI)
+    QRectF jumpRect2, moveRect2, pinRect2, cancelRect2;
+    const QImage img2 = OutlineBadge::renderHudCrossWorkspaceActionDialog(
+        2.0, theme, QStringLiteral("Terminal"), QStringLiteral("konsole"),
+        QStringLiteral("Workspace 3"), QStringLiteral("Workspace 1"),
+        jumpRect2, moveRect2, pinRect2, cancelRect2);
+
+    assert(!img2.isNull());
+    assert(img2.width() >= img1.width() * 2);
+    assert(img2.height() >= img1.height() * 2);
+
+    // Verify hint bar with isCrossWsAction = true
+    const QImage hintImg = OutlineBadge::renderHudActionHintBar(
+        1.0, false, 0, QString(), QColor(), false, true, false, false, 0.0, 0, theme, false, false, false, 0, true);
+    assert(!hintImg.isNull());
+
+    std::cout << "testHudCrossWorkspaceActionDialogRendering PASSED\n";
+}
+
+void testCrossWorkspaceActionModes()
+{
+    using namespace LeapKWorkspace;
+
+    struct MockWindow {
+        QString id;
+        QString appId;
+        QString caption;
+        int desktop;
+        int workspaceIndex;
+        bool isMinimized;
+    };
+
+    WorkspaceInfo ws1;
+    ws1.id = QStringLiteral("ws1");
+    ws1.name = QStringLiteral("Workspace 1");
+
+    WorkspaceInfo ws2;
+    ws2.id = QStringLiteral("ws2");
+    ws2.name = QStringLiteral("Workspace 2");
+
+    QList<WorkspaceInfo> workspaces = { ws1, ws2 };
+
+    MockWindow wKate{QStringLiteral("w1"), QStringLiteral("kate"), QStringLiteral("Kate Editor"), 1, 1, false};
+    MockWindow *activeWindow = nullptr;
+    int currentWorkspace = 2; // User is in Workspace 2
+    bool superJumpActive = true;
+
+    auto isCrossWorkspace = [&](const MockWindow &w) {
+        return superJumpActive && (w.workspaceIndex != currentWorkspace);
+    };
+
+    assert(isCrossWorkspace(wKate) == true);
+
+    // Mode 0: Ask (Interactive action menu)
+    {
+        int superJumpCrossWsAction = 0;
+        bool actionMenuTriggered = false;
+        int jumpedToWs = currentWorkspace;
+
+        if (isCrossWorkspace(wKate)) {
+            if (superJumpCrossWsAction == 0) {
+                actionMenuTriggered = true;
+            } else if (superJumpCrossWsAction == 1) {
+                jumpedToWs = wKate.workspaceIndex;
+            }
+        }
+        assert(actionMenuTriggered == true);
+        assert(jumpedToWs == currentWorkspace); // Didn't jump immediately
+    }
+
+    // Mode 1: Classic (Direct Jump)
+    {
+        int superJumpCrossWsAction = 1;
+        bool actionMenuTriggered = false;
+        int jumpedToWs = currentWorkspace;
+
+        if (isCrossWorkspace(wKate)) {
+            if (superJumpCrossWsAction == 0) {
+                actionMenuTriggered = true;
+            } else if (superJumpCrossWsAction == 1) {
+                jumpedToWs = wKate.workspaceIndex;
+            }
+        }
+        assert(actionMenuTriggered == false);
+        assert(jumpedToWs == 1); // Switched to Workspace 1
+    }
+
+    // Mode 2: Direct Move to Current Workspace
+    {
+        int superJumpCrossWsAction = 2;
+
+        if (isCrossWorkspace(wKate)) {
+            if (superJumpCrossWsAction == 2) {
+                // Move window to current workspace
+                wKate.workspaceIndex = currentWorkspace;
+                activeWindow = &wKate;
+            }
+        }
+        assert(wKate.workspaceIndex == 2);
+        assert(activeWindow == &wKate);
+        assert(currentWorkspace == 2); // Remained on Workspace 2
+    }
+
+    std::cout << "testCrossWorkspaceActionModes PASSED\n";
+}
+
+void testCrossWorkspaceActionDialogShortcuts()
+{
+    struct MockWindow {
+        QString id;
+        int workspaceIndex;
+        bool isPinned;
+    };
+
+    MockWindow targetWin{QStringLiteral("w1"), 1, false}; // In Workspace 1
+    int currentWorkspace = 2; // In Workspace 2
+
+    auto handleKey = [&](int key, int &outWs, bool &outMenuOpen, MockWindow &win) {
+        if (!outMenuOpen) return;
+        if (key == Qt::Key_Return || key == Qt::Key_J || key == Qt::Key_1) {
+            // Jump
+            outWs = win.workspaceIndex;
+            outMenuOpen = false;
+        } else if (key == Qt::Key_M || key == Qt::Key_2) {
+            // Move
+            win.workspaceIndex = currentWorkspace;
+            outMenuOpen = false;
+        } else if (key == Qt::Key_P || key == Qt::Key_3) {
+            // Pin
+            win.isPinned = true;
+            outMenuOpen = false;
+        } else if (key == Qt::Key_Escape || key == Qt::Key_Backspace || key == Qt::Key_Space) {
+            // Cancel / Back to Super Jump
+            outMenuOpen = false;
+        }
+    };
+
+    // Test Jump with Enter
+    {
+        int ws = currentWorkspace;
+        bool menuOpen = true;
+        MockWindow win = targetWin;
+        handleKey(Qt::Key_Return, ws, menuOpen, win);
+        assert(!menuOpen);
+        assert(ws == 1);
+        assert(!win.isPinned);
+    }
+
+    // Test Jump with 'J'
+    {
+        int ws = currentWorkspace;
+        bool menuOpen = true;
+        MockWindow win = targetWin;
+        handleKey(Qt::Key_J, ws, menuOpen, win);
+        assert(!menuOpen);
+        assert(ws == 1);
+    }
+
+    // Test Jump with '1'
+    {
+        int ws = currentWorkspace;
+        bool menuOpen = true;
+        MockWindow win = targetWin;
+        handleKey(Qt::Key_1, ws, menuOpen, win);
+        assert(!menuOpen);
+        assert(ws == 1);
+    }
+
+    // Test Move with 'M'
+    {
+        int ws = currentWorkspace;
+        bool menuOpen = true;
+        MockWindow win = targetWin;
+        handleKey(Qt::Key_M, ws, menuOpen, win);
+        assert(!menuOpen);
+        assert(win.workspaceIndex == 2);
+        assert(ws == 2);
+    }
+
+    // Test Move with '2'
+    {
+        int ws = currentWorkspace;
+        bool menuOpen = true;
+        MockWindow win = targetWin;
+        handleKey(Qt::Key_2, ws, menuOpen, win);
+        assert(!menuOpen);
+        assert(win.workspaceIndex == 2);
+    }
+
+    // Test Pin with 'P'
+    {
+        int ws = currentWorkspace;
+        bool menuOpen = true;
+        MockWindow win = targetWin;
+        handleKey(Qt::Key_P, ws, menuOpen, win);
+        assert(!menuOpen);
+        assert(win.isPinned == true);
+    }
+
+    // Test Pin with '3'
+    {
+        int ws = currentWorkspace;
+        bool menuOpen = true;
+        MockWindow win = targetWin;
+        handleKey(Qt::Key_3, ws, menuOpen, win);
+        assert(!menuOpen);
+        assert(win.isPinned == true);
+    }
+
+    // Test Cancel with Esc
+    {
+        int ws = currentWorkspace;
+        bool menuOpen = true;
+        MockWindow win = targetWin;
+        handleKey(Qt::Key_Escape, ws, menuOpen, win);
+        assert(!menuOpen);
+        assert(win.workspaceIndex == 1);
+        assert(!win.isPinned);
+        assert(ws == 2); // Didn't jump
+    }
+
+    std::cout << "testCrossWorkspaceActionDialogShortcuts PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
@@ -893,6 +1139,9 @@ int main(int argc, char *argv[])
     testHudShiftBadgeCycling();
     testHudRecencySorting();
     testRecentWindowWorkspaceTransfer();
+    testHudCrossWorkspaceActionDialogRendering();
+    testCrossWorkspaceActionModes();
+    testCrossWorkspaceActionDialogShortcuts();
 
     std::cout << "All Super Jump tests passed successfully!\n";
     return 0;

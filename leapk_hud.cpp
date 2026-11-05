@@ -531,6 +531,114 @@ void ActiveWindowOutlineEffect::renderHudMetaOverlay(const RenderTarget &renderT
     }
 }
 
+void ActiveWindowOutlineEffect::renderHudCrossWsActionOverlay(const RenderTarget &renderTarget,
+                                                             const RenderViewport &viewport)
+{
+    if (!m_crossWsActionActive || !m_crossWsTargetWindow) {
+        return;
+    }
+    const qreal scale = viewport.scale();
+    const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
+
+    EffectWindow *target = m_crossWsTargetWindow.data();
+    if (!target || target->isDeleted()) {
+        return;
+    }
+
+    const QString winTitle = target->caption().trimmed();
+    const QString winClass = target->windowClass().trimmed();
+
+    const qint64 overlayKey = static_cast<qint64>(qHash(winTitle) % 100000)
+        | (static_cast<qint64>(qHash(m_crossWsTargetWsName) % 10000) << 17)
+        | (static_cast<qint64>(qHash(m_crossWsCurrentWsName) % 10000) << 31)
+        | (static_cast<qint64>(qRound(scale * 10)) << 45)
+        | (static_cast<qint64>(qHash(theme.id) % 1000) << 52);
+
+    if (!m_crossWsActionOverlayTexture || m_crossWsActionOverlayCacheKey != overlayKey) {
+        const QImage img = OutlineBadge::renderHudCrossWorkspaceActionDialog(
+            scale, theme, winTitle, winClass, m_crossWsTargetWsName, m_crossWsCurrentWsName,
+            m_crossWsRelJumpRect, m_crossWsRelMoveRect, m_crossWsRelPinRect, m_crossWsRelCancelRect);
+        if (!img.isNull()) {
+            auto uploaded = GLTexture::upload(img);
+            if (uploaded) {
+                uploaded->setFilter(GL_LINEAR);
+                uploaded->setWrapMode(GL_CLAMP_TO_EDGE);
+                m_crossWsActionOverlayTexture = std::shared_ptr<GLTexture>(uploaded.release());
+                m_crossWsActionOverlayCacheKey = overlayKey;
+            }
+        }
+    }
+
+    if (!m_crossWsActionOverlayTexture) {
+        return;
+    }
+
+    const QRectF screenRect = viewport.renderRect();
+    const qreal w = m_crossWsActionOverlayTexture->width() / scale;
+    const qreal h = m_crossWsActionOverlayTexture->height() / scale;
+    const QRectF overlayRect(screenRect.center().x() - w / 2.0,
+                             screenRect.center().y() - h / 2.0,
+                             w, h);
+
+    // Update screen rects for mouse hit detection
+    m_crossWsDialogScreenRect = overlayRect;
+    m_crossWsJumpScreenRect = QRectF(overlayRect.left() + m_crossWsRelJumpRect.x(), overlayRect.top() + m_crossWsRelJumpRect.y(), m_crossWsRelJumpRect.width(), m_crossWsRelJumpRect.height());
+    m_crossWsMoveScreenRect = QRectF(overlayRect.left() + m_crossWsRelMoveRect.x(), overlayRect.top() + m_crossWsRelMoveRect.y(), m_crossWsRelMoveRect.width(), m_crossWsRelMoveRect.height());
+    m_crossWsPinScreenRect = QRectF(overlayRect.left() + m_crossWsRelPinRect.x(), overlayRect.top() + m_crossWsRelPinRect.y(), m_crossWsRelPinRect.width(), m_crossWsRelPinRect.height());
+    m_crossWsCancelScreenRect = QRectF(overlayRect.left() + m_crossWsRelCancelRect.x(), overlayRect.top() + m_crossWsRelCancelRect.y(), m_crossWsRelCancelRect.width(), m_crossWsRelCancelRect.height());
+
+    GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
+    GLint previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha;
+    glGetIntegerv(GL_BLEND_SRC_RGB, &previousSrcRgb);
+    glGetIntegerv(GL_BLEND_DST_RGB, &previousDstRgb);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &previousSrcAlpha);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &previousDstAlpha);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+    GLboolean scissorWasEnabled = glIsEnabled(GL_SCISSOR_TEST);
+    glDisable(GL_SCISSOR_TEST);
+
+    ShaderBinder binder(ShaderTrait::MapTexture | ShaderTrait::Modulate | ShaderTrait::TransformColorspace);
+    GLShader *shader = binder.shader();
+    shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix, viewport.projectionMatrix());
+    shader->setColorspaceUniforms(ColorDescription::sRGB, renderTarget.colorDescription(), RenderingIntent::Perceptual);
+    shader->setUniform(GLShader::Vec4Uniform::ModulationConstant, QVector4D(1.0f, 1.0f, 1.0f, 1.0f));
+
+    const float x0 = overlayRect.left() * scale;
+    const float y0 = overlayRect.top() * scale;
+    const float x1 = overlayRect.right() * scale;
+    const float y1 = overlayRect.bottom() * scale;
+
+    const std::array<GLVertex2D, 6> verts = {{
+        {QVector2D(x0, y0), QVector2D(0.0f, 0.0f)},
+        {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+        {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+        {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+        {QVector2D(x1, y1), QVector2D(1.0f, 1.0f)},
+        {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+    }};
+
+    auto vbo = GLVertexBuffer::streamingBuffer();
+    vbo->setVertices(verts);
+
+    shader->setUniform(GLShader::Mat4Uniform::TextureMatrix, m_crossWsActionOverlayTexture->matrix(NormalizedCoordinates));
+    m_crossWsActionOverlayTexture->bind();
+    vbo->render(GL_TRIANGLES);
+    m_crossWsActionOverlayTexture->unbind();
+
+    if (scissorWasEnabled) {
+        glEnable(GL_SCISSOR_TEST);
+    }
+    glBlendFuncSeparate(previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha);
+    if (blendWasEnabled) {
+        glEnable(GL_BLEND);
+    } else {
+        glDisable(GL_BLEND);
+    }
+}
+
 bool ActiveWindowOutlineEffect::isEligibleTargetWindow(EffectWindow *w) const
 {
     if (effects && effects->isScreenLocked()) {
@@ -2286,6 +2394,7 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHintBarTexture(qreal scale, const QRe
         + (m_tilingPresetsModeActive ? 1300000 : 0)
         + (m_closeWindowModeActive ? 1500000 : 0)
         + (m_pinModeActive ? 1700000 : 0)
+        + (m_crossWsActionActive ? 3500000 : 0)
         + (candCount == 1 ? 2500000 : 0)
         + m_activeHudView * 1000 + nameHash + qRound(scale * 10) + (qRound(maxHintBarWidth) % 5000)
         + hintsFontSize * 19 + themeHash;
@@ -2294,7 +2403,7 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHintBarTexture(qreal scale, const QRe
             scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor,
             m_stashModeActive, m_superJumpActive, m_audioFilterModeActive, m_searchModeActive,
             maxHintBarWidth, hintsFontSize, theme, m_tilingPresetsModeActive,
-            m_closeWindowModeActive, m_pinModeActive, candCount);
+            m_closeWindowModeActive, m_pinModeActive, candCount, m_crossWsActionActive);
         auto uploaded = GLTexture::upload(hintImg);
         if (uploaded) {
             uploaded->setFilter(GL_LINEAR);

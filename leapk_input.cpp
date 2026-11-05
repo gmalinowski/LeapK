@@ -40,6 +40,9 @@ void ActiveWindowOutlineEffect::exitSuperJumpMode()
     if (!m_superJumpActive) {
         return;
     }
+    if (m_crossWsActionActive) {
+        exitCrossWsActionMode();
+    }
     m_superJumpActive = false;
     m_jumpLetterToWindow = assignJumpLetters();
     m_badgeTextureCache.clear();
@@ -51,6 +54,221 @@ void ActiveWindowOutlineEffect::exitSuperJumpMode()
         m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
     }
     effects->addRepaintFull();
+}
+
+void ActiveWindowOutlineEffect::enterCrossWsActionMode(EffectWindow *target)
+{
+    if (!target || target->isDeleted()) {
+        return;
+    }
+
+    m_crossWsActionActive = true;
+    m_crossWsTargetWindow = target;
+    m_crossWsTargetWorkspace = findWorkspaceForWindow(target);
+    m_crossWsCurrentWorkspace = (m_superJumpTargetWorkspace >= 1 && m_superJumpTargetWorkspace <= m_workspaces.size())
+                                ? m_superJumpTargetWorkspace
+                                : (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size() ? m_activeHudView : 0);
+
+    if (m_crossWsTargetWorkspace >= 1 && m_crossWsTargetWorkspace <= m_workspaces.size()) {
+        m_crossWsTargetWsName = m_workspaces.at(m_crossWsTargetWorkspace - 1).name;
+    } else if (isWindowInStash(target)) {
+        m_crossWsTargetWsName = QStringLiteral("Stash");
+    } else if (!target->isOnCurrentDesktop()) {
+        const auto desktops = target->desktops();
+        const int dNum = (!desktops.isEmpty() && !target->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+        m_crossWsTargetWsName = dNum > 0 ? QStringLiteral("Desktop %1").arg(dNum) : QStringLiteral("Other Desktop");
+    } else {
+        m_crossWsTargetWsName = QStringLiteral("Standard");
+    }
+
+    if (m_crossWsCurrentWorkspace >= 1 && m_crossWsCurrentWorkspace <= m_workspaces.size()) {
+        m_crossWsCurrentWsName = m_workspaces.at(m_crossWsCurrentWorkspace - 1).name;
+    } else {
+        const int currDNum = (effects && effects->currentDesktop()) ? effects->currentDesktop()->x11DesktopNumber() : 0;
+        m_crossWsCurrentWsName = currDNum > 0 ? QStringLiteral("Desktop %1").arg(currDNum) : QStringLiteral("Standard");
+    }
+
+    m_crossWsActionOverlayTexture.reset();
+    m_crossWsActionOverlayCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+
+    playThemedSound(OutlineSound::SoundEffect::NavTab);
+
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+    }
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::exitCrossWsActionMode()
+{
+    if (!m_crossWsActionActive) {
+        return;
+    }
+
+    m_crossWsActionActive = false;
+    m_crossWsTargetWindow = nullptr;
+    m_crossWsActionOverlayTexture.reset();
+    m_crossWsActionOverlayCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_crossWsDialogScreenRect = QRectF();
+    m_crossWsJumpScreenRect = QRectF();
+    m_crossWsMoveScreenRect = QRectF();
+    m_crossWsPinScreenRect = QRectF();
+    m_crossWsCancelScreenRect = QRectF();
+
+    playThemedSound(OutlineSound::SoundEffect::Dismiss);
+
+    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+    }
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::executeCrossWsAction(int actionType)
+{
+    EffectWindow *target = m_crossWsTargetWindow.data();
+    const int currentWs = m_crossWsCurrentWorkspace;
+    exitCrossWsActionMode();
+
+    if (!target || target->isDeleted()) {
+        cancelJumpMode();
+        return;
+    }
+
+    if (actionType == 1) {
+        // Jump to Workspace
+        activateJumpTargetWindow(target);
+        return;
+    }
+
+    if (actionType == 2) {
+        // Move to Current Workspace
+        if (m_pinnedWindows.contains(target)) {
+            unpinWindow(target, currentWs);
+        } else {
+            if (currentWs >= 1 && currentWs <= m_workspaces.size()) {
+                addWindowToWorkspace(target, currentWs);
+                applyWorkspaceViewIsolation(currentWs);
+            } else if (currentWs == 0) {
+                addWindowToWorkspace(target, 0);
+            }
+            if (effects && effects->currentDesktop()) {
+                effects->windowToDesktops(target, {effects->currentDesktop()});
+            }
+            m_workspaceMinimizedWindows.remove(target);
+            m_stashedWindows.remove(target);
+            if (target->isMinimized()) {
+                target->setMinimized(false);
+            }
+        }
+        cancelJumpMode();
+        if (m_tilingActive) {
+            performTilingSwap(target);
+        } else {
+            effects->activateWindow(target);
+        }
+        warpCursorToWindow(target);
+        return;
+    }
+
+    if (actionType == 3) {
+        // Pin / Both Workspaces
+        pinWindow(target);
+        m_workspaceMinimizedWindows.remove(target);
+        m_stashedWindows.remove(target);
+        if (target->isMinimized()) {
+            target->setMinimized(false);
+        }
+        cancelJumpMode();
+        if (m_tilingActive) {
+            performTilingSwap(target);
+        } else {
+            effects->activateWindow(target);
+        }
+        warpCursorToWindow(target);
+        return;
+    }
+}
+
+bool ActiveWindowOutlineEffect::isCrossWorkspaceTarget(EffectWindow *target) const
+{
+    if (!target || target->isDeleted()) {
+        return false;
+    }
+    const int targetWs = findWorkspaceForWindow(target);
+    const int currentWs = (m_superJumpTargetWorkspace >= 1 && m_superJumpTargetWorkspace <= m_workspaces.size())
+                          ? m_superJumpTargetWorkspace
+                          : (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size() ? m_activeHudView : 0);
+    if (targetWs != currentWs) {
+        return true;
+    }
+    if (effects && effects->currentDesktop() && !target->isOnCurrentDesktop() && !target->isOnAllDesktops()) {
+        return true;
+    }
+    if (isWindowInStash(target)) {
+        return true;
+    }
+    return false;
+}
+
+bool ActiveWindowOutlineEffect::handleSuperJumpCrossWorkspaceSelection(EffectWindow *target, int keyToPass)
+{
+    if (!m_superJumpActive || !isCrossWorkspaceTarget(target)) {
+        return false;
+    }
+
+    if (m_superJumpCrossWsAction == 1) {
+        // Classic: Direct Jump
+        return false;
+    }
+
+    if (m_superJumpCrossWsAction == 2) {
+        // Direct Move to Current Workspace
+        const int currentWs = (m_superJumpTargetWorkspace >= 1 && m_superJumpTargetWorkspace <= m_workspaces.size())
+                              ? m_superJumpTargetWorkspace
+                              : (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size() ? m_activeHudView : 0);
+        if (m_pinnedWindows.contains(target)) {
+            unpinWindow(target, currentWs);
+        } else {
+            if (currentWs >= 1 && currentWs <= m_workspaces.size()) {
+                addWindowToWorkspace(target, currentWs);
+                applyWorkspaceViewIsolation(currentWs);
+            } else if (currentWs == 0) {
+                addWindowToWorkspace(target, 0);
+            }
+            if (effects && effects->currentDesktop()) {
+                effects->windowToDesktops(target, {effects->currentDesktop()});
+            }
+            m_workspaceMinimizedWindows.remove(target);
+            m_stashedWindows.remove(target);
+            if (target->isMinimized()) {
+                target->setMinimized(false);
+            }
+        }
+        cancelJumpMode(keyToPass);
+        if (m_tilingActive) {
+            performTilingSwap(target);
+        } else {
+            effects->activateWindow(target);
+        }
+        warpCursorToWindow(target);
+        return true;
+    }
+
+    // Default: m_superJumpCrossWsAction == 0 (Ask / Interactive Action Menu)
+    enterCrossWsActionMode(target);
+    return true;
 }
 
 void ActiveWindowOutlineEffect::enterCloseWindowMode()
@@ -625,6 +843,10 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
             exitCloseWindowMode();
             return;
         }
+        if (m_crossWsActionActive) {
+            exitCrossWsActionMode();
+            return;
+        }
         if (m_pinModeActive) {
             exitPinMode();
             return;
@@ -646,6 +868,10 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_subLeapActive = false;
     m_stashModeActive = false;
     m_superJumpActive = false;
+    m_crossWsActionActive = false;
+    m_crossWsTargetWindow = nullptr;
+    m_crossWsActionOverlayTexture.reset();
+    m_crossWsActionOverlayCacheKey = -1;
     m_closeWindowModeActive = false;
     m_pinModeActive = false;
     m_metaSpaceTraverseActive = false;
@@ -775,6 +1001,10 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
     m_subLeapActive = false;
     m_stashModeActive = false;
     m_superJumpActive = false;
+    m_crossWsActionActive = false;
+    m_crossWsTargetWindow = nullptr;
+    m_crossWsActionOverlayTexture.reset();
+    m_crossWsActionOverlayCacheKey = -1;
     m_closeWindowModeActive = false;
     m_pinModeActive = false;
     m_metaSpaceTraverseActive = false;
@@ -898,6 +1128,49 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
         return;
     }
 
+    if (m_crossWsActionActive) {
+        if (e->type() == QEvent::MouseMove) {
+            auto *me = static_cast<QMouseEvent *>(e);
+            const QPointF pos = me->position();
+            if (m_crossWsJumpScreenRect.contains(pos) ||
+                m_crossWsMoveScreenRect.contains(pos) ||
+                m_crossWsPinScreenRect.contains(pos) ||
+                m_crossWsCancelScreenRect.contains(pos)) {
+                effects->defineCursor(Qt::PointingHandCursor);
+            } else {
+                effects->defineCursor(Qt::ArrowCursor);
+            }
+            return;
+        }
+        if (e->type() == QEvent::MouseButtonPress) {
+            auto *me = static_cast<QMouseEvent *>(e);
+            if (me->button() == Qt::LeftButton) {
+                const QPointF pos = me->position();
+                if (m_crossWsJumpScreenRect.contains(pos)) {
+                    executeCrossWsAction(1);
+                    return;
+                }
+                if (m_crossWsMoveScreenRect.contains(pos)) {
+                    executeCrossWsAction(2);
+                    return;
+                }
+                if (m_crossWsPinScreenRect.contains(pos)) {
+                    executeCrossWsAction(3);
+                    return;
+                }
+                if (m_crossWsCancelScreenRect.contains(pos) || !m_crossWsDialogScreenRect.contains(pos)) {
+                    exitCrossWsActionMode();
+                    return;
+                }
+                return;
+            } else if (me->button() == Qt::RightButton) {
+                exitCrossWsActionMode();
+                return;
+            }
+        }
+        return;
+    }
+
     if (e->type() == QEvent::MouseMove) {
         auto *me = static_cast<QMouseEvent *>(e);
         const QPointF pos = me->position();
@@ -965,6 +1238,9 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
                         if (m_keyboardOverlayWindowMap.contains(kg.key)) {
                             EffectWindow *target = m_keyboardOverlayWindowMap.value(kg.key);
                             if (target && !target->isDeleted()) {
+                                if (handleSuperJumpCrossWorkspaceSelection(target, Qt::Key_Space)) {
+                                    return;
+                                }
                                 activateJumpTargetWindow(target, Qt::Key_Space);
                                 return;
                             }
@@ -987,6 +1263,9 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
             for (const auto &pair : m_hudTargetPillRects) {
                 if (pair.first.isValid() && pair.first.contains(pos) && pair.second) {
                     EffectWindow *target = pair.second;
+                    if (handleSuperJumpCrossWorkspaceSelection(target)) {
+                        return;
+                    }
                     cancelJumpMode();
                     const int targetWs = findWorkspaceForWindow(target);
                     if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
@@ -1083,6 +1362,44 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     effects->addRepaintFull();
                 }
             }
+        }
+        return;
+    }
+
+    if (m_crossWsActionActive) {
+        if (e->type() != QEvent::KeyPress) {
+            return;
+        }
+
+        // Jump to Workspace (default)
+        if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter || e->key() == Qt::Key_J || e->key() == Qt::Key_1) {
+            executeCrossWsAction(1);
+            return;
+        }
+
+        // Move to Current Workspace
+        if (e->key() == Qt::Key_M || e->key() == Qt::Key_2) {
+            executeCrossWsAction(2);
+            return;
+        }
+
+        // Pin / Both Workspaces
+        if (e->key() == Qt::Key_P || e->key() == Qt::Key_3) {
+            executeCrossWsAction(3);
+            return;
+        }
+
+        // Return back to Super Jump
+        if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Space) {
+            exitCrossWsActionMode();
+            return;
+        }
+
+        // Any other printable key -> feedback
+        const QString text = e->text();
+        if (!text.isEmpty()) {
+            triggerInvalidKeyFeedback(text.at(0).toUpper());
+            return;
         }
         return;
     }
@@ -1487,6 +1804,9 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                 EffectWindow *target = m_subLeapLetterToWindow.first();
                 if (target && !target->isDeleted()) {
                     exitSubLeapMode();
+                    if (handleSuperJumpCrossWorkspaceSelection(target, e->key())) {
+                        return;
+                    }
                     activateJumpTargetWindow(target, e->key());
                     return;
                 }
@@ -1494,6 +1814,9 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                 EffectWindow *target = m_subLeapWindows.first();
                 if (target && !target->isDeleted()) {
                     exitSubLeapMode();
+                    if (handleSuperJumpCrossWorkspaceSelection(target, e->key())) {
+                        return;
+                    }
                     activateJumpTargetWindow(target, e->key());
                     return;
                 }
@@ -1619,6 +1942,9 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     }
 
                     // Plain letter: normal jump & activate (switches workspace if window is in another workspace)
+                    if (handleSuperJumpCrossWorkspaceSelection(target, e->key())) {
+                        return;
+                    }
                     activateJumpTargetWindow(target, e->key());
                     return;
                 }
@@ -2085,6 +2411,9 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             }
             EffectWindow *target = m_jumpLetterToWindow.first();
             if (target && !target->isDeleted()) {
+                if (handleSuperJumpCrossWorkspaceSelection(target, e->key())) {
+                    return;
+                }
                 activateJumpTargetWindow(target, e->key());
                 return;
             }
@@ -2385,6 +2714,9 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                 }
 
                 // Normal jump & activate: switch to the window's workspace and desktop!
+                if (handleSuperJumpCrossWorkspaceSelection(target, e->key())) {
+                    return;
+                }
                 activateJumpTargetWindow(target, e->key());
                 return;
             }

@@ -143,6 +143,7 @@ inline QJsonObject getDefaultSettings()
     s[QStringLiteral("JumpRecentKey")] = QStringLiteral("Space");
     s[QStringLiteral("BadgeLivePreviews")] = false;
     s[QStringLiteral("JumpTargets")] = 0;
+    s[QStringLiteral("SuperJumpCrossWsAction")] = 0;
     s[QStringLiteral("CursorWarpMode")] = 0;
     s[QStringLiteral("SoundFeedbackEnabled")] = false;
     s[QStringLiteral("SoundFeedbackVolume")] = 30;

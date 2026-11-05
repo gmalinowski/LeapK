@@ -125,6 +125,7 @@ public:
                 {
                     {QStringLiteral("BadgeDisplayMode"), QStringLiteral("Badge Display Mode")},
                     {QStringLiteral("JumpTargets"), QStringLiteral("Jump Targets Scope")},
+                    {QStringLiteral("SuperJumpCrossWsAction"), QStringLiteral("Cross-Workspace Selection Action")},
                     {QStringLiteral("CursorWarpMode"), QStringLiteral("Cursor Warp After Jump")},
                     {QStringLiteral("SoundFeedbackEnabled"), QStringLiteral("Audio Feedback on Jump")},
                     {QStringLiteral("SoundFeedbackVolume"), QStringLiteral("Audio Feedback Volume")},
@@ -271,6 +272,13 @@ public:
             if (t == 1) return QStringLiteral("Current desktop (visible & min) + marked");
             if (t == 2) return QStringLiteral("All desktops (visible & min)");
             return QStringLiteral("Marked windows only");
+        }
+        if (key == QStringLiteral("SuperJumpCrossWsAction")) {
+            const int a = val.toInt();
+            if (a == 0) return QStringLiteral("Interactive Action Menu (Ask)");
+            if (a == 1) return QStringLiteral("Direct Jump to Workspace (Classic)");
+            if (a == 2) return QStringLiteral("Direct Move to Current Workspace");
+            return QString::number(a);
         }
         if (key == QStringLiteral("CursorWarpMode")) {
             const int m = val.toInt();
