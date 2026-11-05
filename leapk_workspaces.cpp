@@ -1948,6 +1948,38 @@ void ActiveWindowOutlineEffect::pinWindowToWorkspace(EffectWindow *w, int wsInde
     }
 }
 
+void ActiveWindowOutlineEffect::pinWindowToWorkspaces(EffectWindow *w, const QSet<int> &wsIndices)
+{
+    if (!w || w->isDeleted()) {
+        return;
+    }
+    m_pinnedWindows.insert(w);
+    auto &set = m_windowPinnedWorkspaces[w];
+    set.clear();
+    for (int idx : wsIndices) {
+        if (idx > 0) {
+            set.insert(idx);
+        }
+    }
+    if (set.isEmpty()) {
+        set.insert(0); // 0 = all workspaces fallback
+    }
+    m_workspaceMinimizedWindows.remove(w);
+    m_stashedWindows.remove(w);
+    if (w->isMinimized()) {
+        w->setMinimized(false);
+    }
+    m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    repaintAllOutlines();
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
 void ActiveWindowOutlineEffect::toggleWindowPinWorkspace(EffectWindow *w, int wsIndex)
 {
     if (!w || w->isDeleted()) {

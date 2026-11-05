@@ -4644,7 +4644,9 @@ inline QImage renderHudCrossWorkspaceActionDialog(
         {
             QStringLiteral("P / 3"),
             QStringLiteral("Pin / Both Workspaces"),
-            QStringLiteral("Make window visible across all workspaces and desktops"),
+            sourceWsName.trimmed().isEmpty() || sourceWsName == currentWsName
+                ? QStringLiteral("Make window visible across workspaces")
+                : QStringLiteral("Pin window to both %1 and %2").arg(sourceWsName, currentWsName),
             QStringLiteral("PIN"),
             QColor(245, 166, 35),
             false

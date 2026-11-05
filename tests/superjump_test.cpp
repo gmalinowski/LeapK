@@ -1076,9 +1076,10 @@ void testCrossWorkspaceActionDialogShortcuts()
         QString id;
         int workspaceIndex;
         bool isPinned;
+        QSet<int> pinnedWorkspaces;
     };
 
-    MockWindow targetWin{QStringLiteral("w1"), 1, false}; // In Workspace 1
+    MockWindow targetWin{QStringLiteral("w1"), 1, false, {}}; // In Workspace 1
     int currentWorkspace = 2; // In Workspace 2
 
     auto handleKey = [&](int key, int &outWs, bool &outMenuOpen, MockWindow &win) {
@@ -1092,8 +1093,9 @@ void testCrossWorkspaceActionDialogShortcuts()
             win.workspaceIndex = currentWorkspace;
             outMenuOpen = false;
         } else if (key == Qt::Key_P || key == Qt::Key_3) {
-            // Pin
+            // Pin to Both Workspaces (target's workspace and current workspace)
             win.isPinned = true;
+            win.pinnedWorkspaces = { win.workspaceIndex, currentWorkspace };
             outMenuOpen = false;
         } else if (key == Qt::Key_Escape || key == Qt::Key_Backspace || key == Qt::Key_Space) {
             // Cancel / Back to Super Jump
@@ -1161,6 +1163,8 @@ void testCrossWorkspaceActionDialogShortcuts()
         handleKey(Qt::Key_P, ws, menuOpen, win);
         assert(!menuOpen);
         assert(win.isPinned == true);
+        assert(win.pinnedWorkspaces == QSet<int>({1, 2}));
+        assert(!win.pinnedWorkspaces.contains(0)); // NOT pinned to all!
     }
 
     // Test Pin with '3'
@@ -1171,6 +1175,8 @@ void testCrossWorkspaceActionDialogShortcuts()
         handleKey(Qt::Key_3, ws, menuOpen, win);
         assert(!menuOpen);
         assert(win.isPinned == true);
+        assert(win.pinnedWorkspaces == QSet<int>({1, 2}));
+        assert(!win.pinnedWorkspaces.contains(0)); // NOT pinned to all!
     }
 
     // Test Cancel with Esc

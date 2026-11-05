@@ -69,6 +69,49 @@ void ActiveWindowOutlineEffect::enterCrossWsActionMode(EffectWindow *target)
                                 ? m_superJumpTargetWorkspace
                                 : (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size() ? m_activeHudView : 0);
 
+    if (m_crossWsTargetWorkspace <= 0 && m_pinnedWindows.contains(target)) {
+        const auto pinned = m_windowPinnedWorkspaces.value(target);
+        for (int ws : pinned) {
+            if (ws >= 1 && ws <= m_workspaces.size()) {
+                m_crossWsTargetWorkspace = ws;
+                break;
+            }
+        }
+    }
+    if (m_crossWsTargetWorkspace <= 0 && effects && !target->desktops().isEmpty()) {
+        const QString deskId = target->desktops().first()->id();
+        for (int i = 0; i < m_workspaces.size(); ++i) {
+            if (m_workspaces.at(i).lastVirtualDesktopId == deskId ||
+                m_workspaceLastVirtualDesktopId.value(m_workspaces.at(i).id) == deskId) {
+                m_crossWsTargetWorkspace = i + 1;
+                break;
+            }
+        }
+        if (m_crossWsTargetWorkspace <= 0) {
+            const int dNum = target->desktops().first()->x11DesktopNumber();
+            if (dNum >= 1 && dNum <= m_workspaces.size()) {
+                m_crossWsTargetWorkspace = dNum;
+            }
+        }
+    }
+
+    if (m_crossWsCurrentWorkspace <= 0 && effects && effects->currentDesktop()) {
+        const QString currDeskId = effects->currentDesktop()->id();
+        for (int i = 0; i < m_workspaces.size(); ++i) {
+            if (m_workspaces.at(i).lastVirtualDesktopId == currDeskId ||
+                m_workspaceLastVirtualDesktopId.value(m_workspaces.at(i).id) == currDeskId) {
+                m_crossWsCurrentWorkspace = i + 1;
+                break;
+            }
+        }
+        if (m_crossWsCurrentWorkspace <= 0) {
+            const int currDNum = effects->currentDesktop()->x11DesktopNumber();
+            if (currDNum >= 1 && currDNum <= m_workspaces.size()) {
+                m_crossWsCurrentWorkspace = currDNum;
+            }
+        }
+    }
+
     if (m_crossWsTargetWorkspace >= 1 && m_crossWsTargetWorkspace <= m_workspaces.size()) {
         m_crossWsTargetWsName = m_workspaces.at(m_crossWsTargetWorkspace - 1).name;
     } else if (isWindowInStash(target)) {
@@ -149,6 +192,7 @@ void ActiveWindowOutlineEffect::executeCrossWsAction(int actionType)
 {
     EffectWindow *target = m_crossWsTargetWindow.data();
     const int currentWs = m_crossWsCurrentWorkspace;
+    const int targetWs = m_crossWsTargetWorkspace;
     exitCrossWsActionMode();
 
     if (!target || target->isDeleted()) {
@@ -193,12 +237,33 @@ void ActiveWindowOutlineEffect::executeCrossWsAction(int actionType)
     }
 
     if (actionType == 3) {
-        // Pin / Both Workspaces
-        pinWindow(target);
+        // Pin to Both Workspaces (target's workspace and current workspace)
+        QSet<int> targetWorkspaces;
+        if (targetWs >= 1 && targetWs <= m_workspaces.size()) {
+            targetWorkspaces.insert(targetWs);
+        }
+        if (currentWs >= 1 && currentWs <= m_workspaces.size()) {
+            targetWorkspaces.insert(currentWs);
+        }
+
+        // If target was already pinned to some specific workspaces, preserve them
+        if (m_pinnedWindows.contains(target)) {
+            const auto existing = m_windowPinnedWorkspaces.value(target);
+            for (int ws : existing) {
+                if (ws >= 1 && ws <= m_workspaces.size()) {
+                    targetWorkspaces.insert(ws);
+                }
+            }
+        }
+
+        pinWindowToWorkspaces(target, targetWorkspaces);
         m_workspaceMinimizedWindows.remove(target);
         m_stashedWindows.remove(target);
         if (target->isMinimized()) {
             target->setMinimized(false);
+        }
+        if (currentWs >= 1 && currentWs <= m_workspaces.size()) {
+            applyWorkspaceViewIsolation(currentWs);
         }
         cancelJumpMode();
         if (m_tilingActive) {

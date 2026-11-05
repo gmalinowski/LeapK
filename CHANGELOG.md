@@ -14,6 +14,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - When in standard floating window mode with `KeyboardOverlayTilingOnly` enabled, LeapK automatically falls back to standard HUD jump badges and group cards, avoiding any keyboard dock and laser arrow clutter.
   - Implemented unified state check `isKeyboardOverlayActive()` across jump key assignment, rendering, mouse hover/click hitboxes, and keyboard navigation.
   - Added unit test suite in `tests/keyboardoverlay_test.cpp` verifying overlay activation rules across floating and tiling modes, with 100% passing tests (all 31/31 CTests).
+
+### Fixed
+- **Cross-Workspace Selection: "Pin / Both Workspaces" Option Pinning to All Workspaces**:
+  - Fixed issue where selecting `[P]` / `[3]` (*Pin / Both Workspaces*) from the cross-workspace interactive modal dialog invoked `pinWindow(target)` which assigned `{0}` (all workspaces), causing the window to be pinned to every single workspace.
+  - Implemented `pinWindowToWorkspaces(EffectWindow *w, const QSet<int> &wsIndices)` to pin the window strictly to the target window's original workspace and the current active workspace (`{targetWs, currentWs}`).
+  - Added intelligent fallback resolution for `m_crossWsTargetWorkspace` and `m_crossWsCurrentWorkspace` when detecting cross-workspace windows.
+  - Updated dialog prompt text in `badgehelper.h` to explicitly display *"Pin window to both [Source] and [Current]"*.
+  - Added unit tests in `tests/superjump_test.cpp` and `tests/workspace_test.cpp` verifying dual-workspace pinning isolation without setting global pin (`0`).
 - **Workspace-Isolated Pinning Mechanism Rework**:
   - Pinned windows now belong purely to LeapK workspaces (all workspaces or user-chosen specific workspaces) without altering or integrating with KDE virtual desktops.
   - Completely eliminated `effects->windowToDesktops(w, {})` (empty list = all KDE virtual desktops) in `pinWindow` and desktop forcing in `unpinWindow`: windows stay on their original virtual desktop within the selected workspaces.

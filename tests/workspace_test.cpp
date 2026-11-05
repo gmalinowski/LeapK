@@ -417,6 +417,24 @@ void testWorkspacePinningManager()
     assert(!isPinned(win1.id, 3));
     assert(win1.virtualDesktop == 2);
 
+    // 7. Test "Pin / Both Workspaces" action logic
+    auto pinToWorkspaces = [&](const QString &id, const QSet<int> &wsIndices) {
+        pinnedWindows.insert(id);
+        auto &set = windowPinnedWorkspaces[id];
+        set.clear();
+        for (int idx : wsIndices) {
+            if (idx > 0) set.insert(idx);
+        }
+        if (set.isEmpty()) set.insert(0);
+    };
+
+    pinToWorkspaces(win1.id, {1, 2});
+    assert(isPinned(win1.id));
+    assert(isPinned(win1.id, 1));
+    assert(isPinned(win1.id, 2));
+    assert(!isPinned(win1.id, 3));
+    assert(!windowPinnedWorkspaces.value(win1.id).contains(0)); // Strictly not pinned to all workspaces!
+
     std::cout << "testWorkspacePinningManager PASSED\n";
 }
 

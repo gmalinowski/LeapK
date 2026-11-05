@@ -292,6 +292,7 @@ private:
     void playThemedSound(OutlineSound::SoundEffect effect);
     void pinWindow(EffectWindow *w);
     void pinWindowToWorkspace(EffectWindow *w, int wsIndex);
+    void pinWindowToWorkspaces(EffectWindow *w, const QSet<int> &wsIndices);
     void toggleWindowPinWorkspace(EffectWindow *w, int wsIndex);
     void unpinWindow(EffectWindow *w, int targetWorkspace = 0);
     void toggleWindowPin(EffectWindow *w);
