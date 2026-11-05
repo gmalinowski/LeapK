@@ -3390,6 +3390,16 @@
            </widget>
           </item>
           <item>
+           <widget class="QCheckBox" name="kcfg_KeyboardOverlayTilingOnly">
+            <property name="text">
+             <string>Show only when tiling mode is active</string>
+            </property>
+            <property name="toolTip">
+             <string>Restricts the spatial keyboard overlay and directional laser arrows to when tiling layout is active.</string>
+            </property>
+           </widget>
+          </item>
+          <item>
            <widget class="QCheckBox" name="kcfg_KeyboardOverlayExtendToHud">
             <property name="text">
              <string>Extend laser arrows to window cards in HUD dock</string>

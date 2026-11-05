@@ -919,7 +919,7 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
         return QChar();
     };
 
-    if (m_keyboardOverlayEnabled) {
+    if (isKeyboardOverlayActive()) {
         // Spatial Keyboard mode: Window groups are completely bypassed!
         // Every window is an individual target and gets a unique 1-to-1 spatial key mapping
         // based on its actual position on the screen. No duplicate shortcuts, no group shortcuts.
@@ -3021,7 +3021,8 @@ void ActiveWindowOutlineEffect::renderKeyboardArrowsOverlay(const RenderTarget &
     const auto &st = theme.spatialKeyboard;
 
     LeapKKeyboardOverlay::OverlayDisplayConfig cfg;
-    cfg.enabled = m_keyboardOverlayEnabled;
+    cfg.enabled = isKeyboardOverlayActive();
+    cfg.tilingOnly = m_keyboardOverlayTilingOnly;
     cfg.extendToHud = m_keyboardOverlayExtendToHud;
     cfg.keySize = m_keyboardOverlayKeySize;
     cfg.keyFontSize = m_keyboardOverlayKeyFontSize;

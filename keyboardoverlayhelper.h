@@ -57,8 +57,14 @@ inline const QList<QColor> &distinctArrowColors()
     return palette;
 }
 
+inline bool isKeyboardOverlayActive(bool enabled, bool tilingOnly, bool tilingActive)
+{
+    return enabled && (!tilingOnly || tilingActive);
+}
+
 struct OverlayDisplayConfig {
     bool enabled = true;
+    bool tilingOnly = false;
     bool extendToHud = true;
     qreal keySize = 54.0;
     int keyFontSize = 14;

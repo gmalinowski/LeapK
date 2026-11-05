@@ -697,6 +697,10 @@ private:
     int m_searchSelectedIndex = 0;
     QList<OutlineFuzzy::SearchCandidate> m_searchMatches;
     bool m_keyboardOverlayEnabled = true;
+    bool m_keyboardOverlayTilingOnly = false;
+    bool isKeyboardOverlayActive() const {
+        return LeapKKeyboardOverlay::isKeyboardOverlayActive(m_keyboardOverlayEnabled, m_keyboardOverlayTilingOnly, m_tilingActive);
+    }
     bool m_keyboardOverlayExtendToHud = true;
     int m_keyboardOverlayKeySize = 54;
     int m_keyboardOverlayKeyFontSize = 14;

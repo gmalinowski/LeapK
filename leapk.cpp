@@ -775,6 +775,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_jumpTargets = qBound(0, config.readEntry("JumpTargets", 0), 3);
     m_superJumpCrossWsAction = qBound(0, config.readEntry("SuperJumpCrossWsAction", 0), 2);
     m_keyboardOverlayEnabled = config.readEntry("KeyboardOverlayEnabled", true);
+    m_keyboardOverlayTilingOnly = config.readEntry("KeyboardOverlayTilingOnly", false);
     m_keyboardOverlayExtendToHud = config.readEntry("KeyboardOverlayExtendToHud", true);
     m_keyboardOverlayKeySize = qBound(32, config.readEntry("KeyboardOverlayKeySize", 54), 80);
     m_keyboardOverlayKeyFontSize = qBound(8, config.readEntry("KeyboardOverlayKeyFontSize", 14), 28);

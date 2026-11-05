@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.6.0-beta85-exp] - 2026-11-05
 
 ### Added
+- **Spatial Keyboard "Show only when tiling mode is active" Option (`KeyboardOverlayTilingOnly`)**:
+  - Added new configuration toggle `KeyboardOverlayTilingOnly` (boolean, default: `false`).
+  - Added dedicated checkbox in KCM settings GUI (`leapk_config.ui` under Spatial Keyboard & Laser Arrows group) and registered in KConfig skeleton (`leapk_config.cpp`), `leapkconfig.kcfg`, installer `install-leapk.sh`, and uninstaller `uninstall-leapk.sh`.
+  - When enabled, the spatial keyboard overlay and laser arrows are restricted exclusively to when tiling layout mode is active (`m_tilingActive == true`).
+  - When in standard floating window mode with `KeyboardOverlayTilingOnly` enabled, LeapK automatically falls back to standard HUD jump badges and group cards, avoiding any keyboard dock and laser arrow clutter.
+  - Implemented unified state check `isKeyboardOverlayActive()` across jump key assignment, rendering, mouse hover/click hitboxes, and keyboard navigation.
+  - Added unit test suite in `tests/keyboardoverlay_test.cpp` verifying overlay activation rules across floating and tiling modes, with 100% passing tests (all 31/31 CTests).
 - **Workspace-Isolated Pinning Mechanism Rework**:
   - Pinned windows now belong purely to LeapK workspaces (all workspaces or user-chosen specific workspaces) without altering or integrating with KDE virtual desktops.
   - Completely eliminated `effects->windowToDesktops(w, {})` (empty list = all KDE virtual desktops) in `pinWindow` and desktop forcing in `unpinWindow`: windows stay on their original virtual desktop within the selected workspaces.

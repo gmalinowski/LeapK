@@ -1001,6 +1001,7 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
 
     if (!effects->grabKeyboard(this)) {
         m_jumpLetterToWindow.clear();
+    m_keyboardOverlayWindowMap.clear();
         return;
     }
     m_keyboardGrabActive = true;
@@ -1140,6 +1141,7 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
         m_jumpTimeoutTimer->stop();
     }
     m_jumpLetterToWindow.clear();
+    m_keyboardOverlayWindowMap.clear();
     m_hudHintBarTexture.reset();
     m_hudHintBarCacheKey = -1;
     m_hudHeaderTexture.reset();
@@ -1347,7 +1349,7 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
         if (m_hudCloseButtonScreenRect.isValid() && m_hudCloseButtonScreenRect.contains(pos)) {
             isHoveringClickable = true;
         }
-        if (!isHoveringClickable && m_keyboardOverlayEnabled) {
+        if (!isHoveringClickable && isKeyboardOverlayActive()) {
             for (const auto &kg : m_keyboardOverlayLayout.keycaps) {
                 if (kg.rect.contains(pos) && m_keyboardOverlayWindowMap.contains(kg.key)) {
                     isHoveringClickable = true;
@@ -1400,7 +1402,7 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
             }
 
             // Keyboard overlay key click
-            if (m_keyboardOverlayEnabled) {
+            if (isKeyboardOverlayActive()) {
                 for (const auto &kg : m_keyboardOverlayLayout.keycaps) {
                     if (kg.rect.contains(pos)) {
                         if (m_keyboardOverlayWindowMap.contains(kg.key)) {
@@ -2361,9 +2363,9 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         const QString text = extractKeyChar();
         if (!text.isEmpty()) {
             const QChar keyChar = text.at(0);
-            const bool hasKey = (m_keyboardOverlayEnabled && m_keyboardOverlayWindowMap.contains(keyChar)) || m_jumpLetterToWindow.contains(keyChar);
+            const bool hasKey = (isKeyboardOverlayActive() && m_keyboardOverlayWindowMap.contains(keyChar)) || m_jumpLetterToWindow.contains(keyChar);
             if (hasKey) {
-                EffectWindow *target = (m_keyboardOverlayEnabled && m_keyboardOverlayWindowMap.contains(keyChar))
+                EffectWindow *target = (isKeyboardOverlayActive() && m_keyboardOverlayWindowMap.contains(keyChar))
                     ? m_keyboardOverlayWindowMap.value(keyChar)
                     : m_jumpLetterToWindow.value(keyChar);
                 if (target && !target->isDeleted()) {
@@ -2495,9 +2497,9 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         const QString text = extractKeyChar();
         if (!text.isEmpty()) {
             const QChar keyChar = text.at(0);
-            const bool hasKey = (m_keyboardOverlayEnabled && m_keyboardOverlayWindowMap.contains(keyChar)) || m_jumpLetterToWindow.contains(keyChar);
+            const bool hasKey = (isKeyboardOverlayActive() && m_keyboardOverlayWindowMap.contains(keyChar)) || m_jumpLetterToWindow.contains(keyChar);
             if (hasKey) {
-                EffectWindow *target = (m_keyboardOverlayEnabled && m_keyboardOverlayWindowMap.contains(keyChar))
+                EffectWindow *target = (isKeyboardOverlayActive() && m_keyboardOverlayWindowMap.contains(keyChar))
                     ? m_keyboardOverlayWindowMap.value(keyChar)
                     : m_jumpLetterToWindow.value(keyChar);
                 if (target && !target->isDeleted()) {
@@ -2596,9 +2598,9 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         const QString text = extractKeyChar();
         if (!text.isEmpty()) {
             const QChar keyChar = text.at(0);
-            const bool hasKey = (m_keyboardOverlayEnabled && m_keyboardOverlayWindowMap.contains(keyChar)) || m_jumpLetterToWindow.contains(keyChar);
+            const bool hasKey = (isKeyboardOverlayActive() && m_keyboardOverlayWindowMap.contains(keyChar)) || m_jumpLetterToWindow.contains(keyChar);
             if (hasKey) {
-                EffectWindow *target = (m_keyboardOverlayEnabled && m_keyboardOverlayWindowMap.contains(keyChar))
+                EffectWindow *target = (isKeyboardOverlayActive() && m_keyboardOverlayWindowMap.contains(keyChar))
                     ? m_keyboardOverlayWindowMap.value(keyChar)
                     : m_jumpLetterToWindow.value(keyChar);
                 if (target && !target->isDeleted()) {
@@ -2877,9 +2879,9 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         }
 
         // Check direct jump letter (either single marked window or unique direct letter)
-        const bool hasKey = (m_keyboardOverlayEnabled && m_keyboardOverlayWindowMap.contains(keyChar)) || m_jumpLetterToWindow.contains(keyChar);
+        const bool hasKey = (isKeyboardOverlayActive() && m_keyboardOverlayWindowMap.contains(keyChar)) || m_jumpLetterToWindow.contains(keyChar);
         if (hasKey) {
-            EffectWindow *target = (m_keyboardOverlayEnabled && m_keyboardOverlayWindowMap.contains(keyChar))
+            EffectWindow *target = (isKeyboardOverlayActive() && m_keyboardOverlayWindowMap.contains(keyChar))
                 ? m_keyboardOverlayWindowMap.value(keyChar)
                 : m_jumpLetterToWindow.value(keyChar);
             if (target && !target->isDeleted()) {

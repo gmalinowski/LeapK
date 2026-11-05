@@ -683,6 +683,34 @@ void testTargetLabelsCollisionAvoidanceAndOpacity()
     std::cout << "testTargetLabelsCollisionAvoidanceAndOpacity PASSED\n";
 }
 
+void testKeyboardOverlayTilingOnly()
+{
+    using namespace LeapKKeyboardOverlay;
+
+    // Test 1: When disabled completely, isKeyboardOverlayActive is false regardless of tiling
+    assert(!isKeyboardOverlayActive(/*enabled*/ false, /*tilingOnly*/ false, /*tilingActive*/ false));
+    assert(!isKeyboardOverlayActive(/*enabled*/ false, /*tilingOnly*/ false, /*tilingActive*/ true));
+    assert(!isKeyboardOverlayActive(/*enabled*/ false, /*tilingOnly*/ true,  /*tilingActive*/ false));
+    assert(!isKeyboardOverlayActive(/*enabled*/ false, /*tilingOnly*/ true,  /*tilingActive*/ true));
+
+    // Test 2: When enabled and tilingOnly is false, it is active in both floating and tiling modes
+    assert(isKeyboardOverlayActive(/*enabled*/ true, /*tilingOnly*/ false, /*tilingActive*/ false));
+    assert(isKeyboardOverlayActive(/*enabled*/ true, /*tilingOnly*/ false, /*tilingActive*/ true));
+
+    // Test 3: When enabled and tilingOnly is true:
+    // - inactive when tiling is false (floating mode)
+    // - active when tiling is true (tiling mode)
+    assert(!isKeyboardOverlayActive(/*enabled*/ true, /*tilingOnly*/ true, /*tilingActive*/ false));
+    assert(isKeyboardOverlayActive(/*enabled*/ true, /*tilingOnly*/ true, /*tilingActive*/ true));
+
+    // Test 4: OverlayDisplayConfig defaults
+    OverlayDisplayConfig cfg;
+    assert(cfg.enabled == true);
+    assert(cfg.tilingOnly == false);
+
+    std::cout << "testKeyboardOverlayTilingOnly PASSED\n";
+}
+
 int main(int argc, char **argv)
 {
     QGuiApplication app(argc, argv);
@@ -700,6 +728,7 @@ int main(int argc, char **argv)
     testTilingAndBackgroundBadgeSeparation();
     testLaserTargetsMatchingHudBadgeOrder();
     testTargetLabelsCollisionAvoidanceAndOpacity();
+    testKeyboardOverlayTilingOnly();
 
     std::cout << "All LeapK Keyboard Overlay tests passed successfully!\n";
     return 0;

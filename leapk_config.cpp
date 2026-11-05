@@ -328,6 +328,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("SuperJumpCrossWsAction"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("CursorWarpMode"), *new int, 0);
     m_configSkeleton->addItemBool(QStringLiteral("KeyboardOverlayEnabled"), *new bool, true);
+    m_configSkeleton->addItemBool(QStringLiteral("KeyboardOverlayTilingOnly"), *new bool, false);
     m_configSkeleton->addItemBool(QStringLiteral("KeyboardOverlayExtendToHud"), *new bool, true);
     m_configSkeleton->addItemInt(QStringLiteral("KeyboardOverlayKeySize"), *new int, 54);
     m_configSkeleton->addItemInt(QStringLiteral("KeyboardOverlayKeyFontSize"), *new int, 14);

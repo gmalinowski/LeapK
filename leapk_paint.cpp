@@ -974,7 +974,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 }
             }
         } else {
-            if (m_badgeConfig.hudGroupWindows && !m_keyboardOverlayEnabled) {
+            if (m_badgeConfig.hudGroupWindows && !isKeyboardOverlayActive()) {
                 // Mode A: Group multi-instance windows into single card with counter
                 for (auto it = m_letterWindowGroups.constBegin(); it != m_letterWindowGroups.constEnd(); ++it) {
                     const QChar letter = it.key();
@@ -1276,7 +1276,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         }
         }
 
-        if (m_keyboardOverlayEnabled && !m_searchModeActive && !m_tilingPresetsModeActive && !m_crossWsActionActive && !m_pinWsSelectionActive) {
+        if (isKeyboardOverlayActive() && !m_searchModeActive && !m_tilingPresetsModeActive && !m_crossWsActionActive && !m_pinWsSelectionActive) {
             renderKeyboardArrowsOverlay(renderTarget, viewport);
         }
     }
