@@ -115,6 +115,16 @@ void ActiveWindowOutlineEffect::exitCrossWsActionMode()
     m_crossWsTargetWindow = nullptr;
     m_crossWsActionOverlayTexture.reset();
     m_crossWsActionOverlayCacheKey = -1;
+    m_pinWsSelectionActive = false;
+    m_pinTargetWindow = nullptr;
+    m_pinWsOverlayTexture.reset();
+    m_pinWsOverlayCacheKey = -1;
+    m_pinWsDialogScreenRect = QRectF();
+    m_pinWsCancelScreenRect = QRectF();
+    m_pinWsRowScreenRects.clear();
+    m_pinWsRelRowRects.clear();
+    m_pinWsRelCancelRect = QRectF();
+    m_hudThumbnailZoomActive = false;
     m_hudHintBarTexture.reset();
     m_hudHintBarCacheKey = -1;
     m_hudHeaderTexture.reset();
@@ -378,6 +388,9 @@ void ActiveWindowOutlineEffect::exitPinMode()
     if (!m_pinModeActive) {
         return;
     }
+    if (m_pinWsSelectionActive) {
+        exitPinWsSelectionMode();
+    }
     m_pinModeActive = false;
     m_jumpLetterToWindow = assignJumpLetters();
     m_badgeTextureCache.clear();
@@ -404,6 +417,77 @@ void ActiveWindowOutlineEffect::slotTriggerPinMode()
         } else {
             enterPinMode();
         }
+    }
+}
+
+void ActiveWindowOutlineEffect::enterPinWsSelectionMode(EffectWindow *target)
+{
+    if (!target || target->isDeleted()) {
+        return;
+    }
+    m_pinWsSelectionActive = true;
+    m_pinTargetWindow = target;
+    m_pinWsOverlayTexture.reset();
+    m_pinWsOverlayCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    playThemedSound(OutlineSound::SoundEffect::NavTab);
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::exitPinWsSelectionMode()
+{
+    if (!m_pinWsSelectionActive) {
+        return;
+    }
+    m_pinWsSelectionActive = false;
+    m_pinTargetWindow = nullptr;
+    m_pinWsOverlayTexture.reset();
+    m_pinWsOverlayCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_pinWsDialogScreenRect = QRectF();
+    m_pinWsCancelScreenRect = QRectF();
+    m_pinWsRowScreenRects.clear();
+    m_pinWsRelRowRects.clear();
+    m_pinWsRelCancelRect = QRectF();
+    playThemedSound(OutlineSound::SoundEffect::Dismiss);
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::toggleHudThumbnailZoom()
+{
+    m_hudThumbnailZoomActive = !m_hudThumbnailZoomActive;
+    m_badgeTextureCache.clear();
+    m_thumbnailCache.clear();
+    m_lastCaptureTimestamp.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    m_hudMetaOverlayTexture.reset();
+    m_hudMetaOverlayCacheKey = -1;
+    playThemedSound(m_hudThumbnailZoomActive ? OutlineSound::SoundEffect::NavTab : OutlineSound::SoundEffect::Dismiss);
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::slotToggleThumbnailZoom()
+{
+    if (!m_jumpMode) {
+        m_hudThumbnailZoomActive = true;
+        slotTriggerJumpMode();
+    } else {
+        toggleHudThumbnailZoom();
     }
 }
 
@@ -843,6 +927,10 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
             exitCloseWindowMode();
             return;
         }
+        if (m_pinWsSelectionActive) {
+            exitPinWsSelectionMode();
+            return;
+        }
         if (m_crossWsActionActive) {
             exitCrossWsActionMode();
             return;
@@ -872,6 +960,16 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_crossWsTargetWindow = nullptr;
     m_crossWsActionOverlayTexture.reset();
     m_crossWsActionOverlayCacheKey = -1;
+    m_pinWsSelectionActive = false;
+    m_pinTargetWindow = nullptr;
+    m_pinWsOverlayTexture.reset();
+    m_pinWsOverlayCacheKey = -1;
+    m_pinWsDialogScreenRect = QRectF();
+    m_pinWsCancelScreenRect = QRectF();
+    m_pinWsRowScreenRects.clear();
+    m_pinWsRelRowRects.clear();
+    m_pinWsRelCancelRect = QRectF();
+    m_hudThumbnailZoomActive = false;
     m_closeWindowModeActive = false;
     m_pinModeActive = false;
     m_metaSpaceTraverseActive = false;
@@ -1005,6 +1103,16 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
     m_crossWsTargetWindow = nullptr;
     m_crossWsActionOverlayTexture.reset();
     m_crossWsActionOverlayCacheKey = -1;
+    m_pinWsSelectionActive = false;
+    m_pinTargetWindow = nullptr;
+    m_pinWsOverlayTexture.reset();
+    m_pinWsOverlayCacheKey = -1;
+    m_pinWsDialogScreenRect = QRectF();
+    m_pinWsCancelScreenRect = QRectF();
+    m_pinWsRowScreenRects.clear();
+    m_pinWsRelRowRects.clear();
+    m_pinWsRelCancelRect = QRectF();
+    m_hudThumbnailZoomActive = false;
     m_closeWindowModeActive = false;
     m_pinModeActive = false;
     m_metaSpaceTraverseActive = false;
@@ -1171,6 +1279,66 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
         return;
     }
 
+    if (m_pinWsSelectionActive) {
+        if (e->type() == QEvent::MouseMove) {
+            auto *me = static_cast<QMouseEvent *>(e);
+            const QPointF pos = me->position();
+            bool isHover = m_pinWsCancelScreenRect.contains(pos);
+            if (!isHover) {
+                for (const auto &r : m_pinWsRowScreenRects) {
+                    if (r.contains(pos)) {
+                        isHover = true;
+                        break;
+                    }
+                }
+            }
+            effects->defineCursor(isHover ? Qt::PointingHandCursor : Qt::ArrowCursor);
+            return;
+        }
+        if (e->type() == QEvent::MouseButtonPress) {
+            auto *me = static_cast<QMouseEvent *>(e);
+            if (me->button() == Qt::LeftButton) {
+                const QPointF pos = me->position();
+                if (m_pinWsCancelScreenRect.contains(pos) || !m_pinWsDialogScreenRect.contains(pos)) {
+                    exitPinWsSelectionMode();
+                    return;
+                }
+                if (!m_pinWsRowScreenRects.isEmpty() && m_pinWsRowScreenRects[0].contains(pos)) {
+                    // Row 0: All Workspaces
+                    if (m_pinTargetWindow && !m_pinTargetWindow->isDeleted()) {
+                        pinWindow(m_pinTargetWindow.data());
+                    }
+                    exitPinWsSelectionMode();
+                    return;
+                }
+                const int wsCount = m_workspaces.size();
+                for (int i = 0; i < wsCount; ++i) {
+                    const int rowIdx = i + 1;
+                    if (rowIdx < m_pinWsRowScreenRects.size() && m_pinWsRowScreenRects[rowIdx].contains(pos)) {
+                        if (m_pinTargetWindow && !m_pinTargetWindow->isDeleted()) {
+                            toggleWindowPinWorkspace(m_pinTargetWindow.data(), i + 1);
+                        }
+                        exitPinWsSelectionMode();
+                        return;
+                    }
+                }
+                const int unpinIdx = wsCount + 1;
+                if (unpinIdx < m_pinWsRowScreenRects.size() && m_pinWsRowScreenRects[unpinIdx].contains(pos)) {
+                    if (m_pinTargetWindow && !m_pinTargetWindow->isDeleted()) {
+                        unpinWindow(m_pinTargetWindow.data(), m_activeHudView);
+                    }
+                    exitPinWsSelectionMode();
+                    return;
+                }
+                return;
+            } else if (me->button() == Qt::RightButton) {
+                exitPinWsSelectionMode();
+                return;
+            }
+        }
+        return;
+    }
+
     if (e->type() == QEvent::MouseMove) {
         auto *me = static_cast<QMouseEvent *>(e);
         const QPointF pos = me->position();
@@ -1238,6 +1406,10 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
                         if (m_keyboardOverlayWindowMap.contains(kg.key)) {
                             EffectWindow *target = m_keyboardOverlayWindowMap.value(kg.key);
                             if (target && !target->isDeleted()) {
+                                if (m_pinModeActive) {
+                                    enterPinWsSelectionMode(target);
+                                    return;
+                                }
                                 if (handleSuperJumpCrossWorkspaceSelection(target, Qt::Key_Space)) {
                                     return;
                                 }
@@ -1263,6 +1435,10 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
             for (const auto &pair : m_hudTargetPillRects) {
                 if (pair.first.isValid() && pair.first.contains(pos) && pair.second) {
                     EffectWindow *target = pair.second;
+                    if (m_pinModeActive) {
+                        enterPinWsSelectionMode(target);
+                        return;
+                    }
                     if (handleSuperJumpCrossWorkspaceSelection(target)) {
                         return;
                     }
@@ -1392,6 +1568,56 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         // Return back to Super Jump
         if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Space) {
             exitCrossWsActionMode();
+            return;
+        }
+
+        // Any other printable key -> feedback
+        const QString text = e->text();
+        if (!text.isEmpty()) {
+            triggerInvalidKeyFeedback(text.at(0).toUpper());
+            return;
+        }
+        return;
+    }
+
+    if (m_pinWsSelectionActive) {
+        if (e->type() != QEvent::KeyPress) {
+            return;
+        }
+
+        // Pin to All Workspaces
+        if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter || e->key() == Qt::Key_A || e->key() == Qt::Key_0 || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('A') || e->text().at(0) == QLatin1Char('a') || e->text().at(0) == QLatin1Char('0')))) {
+            if (m_pinTargetWindow && !m_pinTargetWindow->isDeleted()) {
+                pinWindow(m_pinTargetWindow.data());
+            }
+            exitPinWsSelectionMode();
+            return;
+        }
+
+        // Unpin
+        if (e->key() == Qt::Key_U || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('U') || e->text().at(0) == QLatin1Char('u')))) {
+            if (m_pinTargetWindow && !m_pinTargetWindow->isDeleted()) {
+                unpinWindow(m_pinTargetWindow.data(), m_activeHudView);
+            }
+            exitPinWsSelectionMode();
+            return;
+        }
+
+        // Pin to Workspace by index 1..N
+        if (e->key() >= Qt::Key_1 && e->key() <= Qt::Key_9) {
+            const int wsNum = e->key() - Qt::Key_0;
+            if (wsNum >= 1 && wsNum <= m_workspaces.size()) {
+                if (m_pinTargetWindow && !m_pinTargetWindow->isDeleted()) {
+                    toggleWindowPinWorkspace(m_pinTargetWindow.data(), wsNum);
+                }
+                exitPinWsSelectionMode();
+                return;
+            }
+        }
+
+        // Cancel / Return back
+        if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace) {
+            exitPinWsSelectionMode();
             return;
         }
 
@@ -1692,6 +1918,11 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     }
     if (isBadgeNextKey) {
         slotCycleBadge(1);
+        return;
+    }
+
+    if (isMetaOnly && e->key() == Qt::Key_Z) {
+        toggleHudThumbnailZoom();
         return;
     }
 
@@ -2354,6 +2585,14 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
+        if ((e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) && m_jumpLetterToWindow.size() == 1) {
+            EffectWindow *target = m_jumpLetterToWindow.first();
+            if (target && !target->isDeleted()) {
+                enterPinWsSelectionMode(target);
+                return;
+            }
+        }
+
         const QString text = extractKeyChar();
         if (!text.isEmpty()) {
             const QChar keyChar = text.at(0);
@@ -2363,17 +2602,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     ? m_keyboardOverlayWindowMap.value(keyChar)
                     : m_jumpLetterToWindow.value(keyChar);
                 if (target && !target->isDeleted()) {
-                    toggleWindowPin(target);
-                    m_jumpLetterToWindow = assignJumpLetters();
-                    m_badgeTextureCache.clear();
-                    m_hudHeaderTexture.reset();
-                    m_hudHeaderCacheKey = -1;
-                    m_hudHintBarTexture.reset();
-                    m_hudHintBarCacheKey = -1;
-                    if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
-                        m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
-                    }
-                    effects->addRepaintFull();
+                    enterPinWsSelectionMode(target);
                     return;
                 }
             }

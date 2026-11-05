@@ -4,6 +4,28 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta85-exp] - 2026-11-05
+
+### Added
+- **Workspace-Isolated Pinning Mechanism Rework**:
+  - Pinned windows now belong purely to LeapK workspaces (all workspaces or user-chosen specific workspaces) without altering or integrating with KDE virtual desktops.
+  - Completely eliminated `effects->windowToDesktops(w, {})` (empty list = all KDE virtual desktops) in `pinWindow` and desktop forcing in `unpinWindow`: windows stay on their original virtual desktop within the selected workspaces.
+  - Introduced `m_windowPinnedWorkspaces: QMap<EffectWindow *, QSet<int>>` and `isWindowPinned(w, wsIndex)` supporting per-workspace pin assignments as well as global pinning (`wsIndex = 0` / all workspaces).
+  - Added interactive Pin Mode modal dialog (`renderHudPinWorkspaceDialog`):
+    - When selecting a window in Pin Mode (`Meta + P` followed by window jump key or clicking its HUD dock card / keycap), LeapK displays an interactive glassmorphic modal listing:
+      - `[A]` / `[0]`: **All Workspaces** (`✓ ALL`)
+      - `[1]` .. `[N]`: Specific workspaces (`✓ PINNED` indicator and individual toggle support)
+      - `[U]`: **Unpin Window** (if window is currently pinned)
+      - `[Esc]` / `[Backspace]`: **Cancel** & return to Pin Mode
+    - Full keyboard and mouse support with hover highlights and responsive hitboxes.
+    - Added comprehensive unit tests in `tests/workspace_test.cpp` and `tests/superjump_test.cpp` verifying modal dimensions, row counts, hit rects, desktop isolation, and pin toggle logic.
+- **HUD Thumbnails Quick Zoom Toggle (`Meta + Z` / `Meta + Space`, `Meta + Z`)**:
+  - Instant shortcut to enlarge window thumbnail previews in the HUD dock, regardless of whether thumbnails are small or disabled in settings (`BadgeHudShowThumbnail = false`).
+  - Shortcut: `Meta + Z` while in HUD (or outside HUD to trigger HUD with zoomed thumbnails).
+  - Enlarges thumbnail dimensions to `qMax(180, cfg.hudThumbnailWidth * 2)` x `qMax(110, cfg.hudThumbnailHeight * 2)` with proportional pill sizing.
+  - Added `Meta+Z: Zoom Thumbnails` with active indicator to the holding-Meta shortcuts cheatsheet overlay (`renderHudMetaOverlayImage`).
+  - Added unit test validation in `tests/superjump_test.cpp` and verified with 100% passing test suites (all 31/31 CTests).
+
 ## [1.6.0-beta84-exp] - 2026-11-04
 
 ### Added

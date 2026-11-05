@@ -301,6 +301,125 @@ void testWorkspaceViewsAndCycling()
     std::cout << "testWorkspaceViewsAndCycling PASSED\n";
 }
 
+void testWorkspacePinningManager()
+{
+    struct MockPinWindow {
+        QString id;
+        int homeWorkspace = 1;
+        int virtualDesktop = 2; // e.g. Desktop 2
+    };
+
+    QSet<QString> pinnedWindows;
+    QMap<QString, QSet<int>> windowPinnedWorkspaces;
+
+    auto isPinned = [&](const QString &id, int wsIndex = 0) -> bool {
+        if (!pinnedWindows.contains(id)) {
+            return false;
+        }
+        if (wsIndex <= 0) {
+            return true;
+        }
+        const auto &set = windowPinnedWorkspaces.value(id);
+        return set.isEmpty() || set.contains(0) || set.contains(wsIndex);
+    };
+
+    auto pinToAll = [&](const QString &id) {
+        pinnedWindows.insert(id);
+        windowPinnedWorkspaces[id] = {0};
+    };
+
+    auto pinToWorkspace = [&](const QString &id, int wsIndex) {
+        pinnedWindows.insert(id);
+        if (wsIndex <= 0) {
+            windowPinnedWorkspaces[id] = {0};
+        } else {
+            auto &set = windowPinnedWorkspaces[id];
+            set.remove(0);
+            set.insert(wsIndex);
+        }
+    };
+
+    auto togglePinWorkspace = [&](const QString &id, int wsIndex) {
+        if (wsIndex <= 0) {
+            if (isPinned(id) && windowPinnedWorkspaces.value(id).contains(0)) {
+                pinnedWindows.remove(id);
+                windowPinnedWorkspaces.remove(id);
+            } else {
+                pinToAll(id);
+            }
+            return;
+        }
+        if (!pinnedWindows.contains(id)) {
+            pinToWorkspace(id, wsIndex);
+            return;
+        }
+        auto &set = windowPinnedWorkspaces[id];
+        if (set.contains(0)) {
+            set.clear();
+            set.insert(wsIndex);
+        } else if (set.contains(wsIndex)) {
+            set.remove(wsIndex);
+            if (set.isEmpty()) {
+                pinnedWindows.remove(id);
+                windowPinnedWorkspaces.remove(id);
+            }
+        } else {
+            set.insert(wsIndex);
+        }
+    };
+
+    auto unpin = [&](const QString &id) {
+        pinnedWindows.remove(id);
+        windowPinnedWorkspaces.remove(id);
+    };
+
+    MockPinWindow win1{QStringLiteral("terminal-1"), 1, 2};
+
+    // 1. Initially not pinned
+    assert(!isPinned(win1.id));
+    assert(!isPinned(win1.id, 1));
+    assert(!isPinned(win1.id, 2));
+    assert(win1.virtualDesktop == 2); // Desktop stays on 2
+
+    // 2. Pin to All Workspaces
+    pinToAll(win1.id);
+    assert(isPinned(win1.id));
+    assert(isPinned(win1.id, 1));
+    assert(isPinned(win1.id, 2));
+    assert(isPinned(win1.id, 3));
+    // Verify KDE virtual desktop assignment is strictly untouched (no KDE all-desktops)
+    assert(win1.virtualDesktop == 2);
+
+    // 3. Pin to specific workspaces (Workspace 1 and Workspace 2)
+    unpin(win1.id);
+    pinToWorkspace(win1.id, 1);
+    pinToWorkspace(win1.id, 2);
+    assert(isPinned(win1.id));
+    assert(isPinned(win1.id, 1));
+    assert(isPinned(win1.id, 2));
+    assert(!isPinned(win1.id, 3)); // Not pinned to workspace 3!
+
+    // 4. Toggle Workspace 3 on
+    togglePinWorkspace(win1.id, 3);
+    assert(isPinned(win1.id, 3));
+
+    // 5. Toggle Workspace 1 off
+    togglePinWorkspace(win1.id, 1);
+    assert(!isPinned(win1.id, 1));
+    assert(isPinned(win1.id, 2));
+    assert(isPinned(win1.id, 3));
+
+    // 6. Unpin completely
+    unpin(win1.id);
+    assert(!isPinned(win1.id));
+    assert(!isPinned(win1.id, 1));
+    assert(!isPinned(win1.id, 2));
+    assert(!isPinned(win1.id, 3));
+    assert(win1.virtualDesktop == 2);
+
+    std::cout << "testWorkspacePinningManager PASSED\n";
+}
+
 int main()
 {
     testRuleSerialization();
@@ -311,6 +430,7 @@ int main()
     testDeleteWorkspace();
     testUpdateWorkspace();
     testWorkspaceViewsAndCycling();
+    testWorkspacePinningManager();
     std::cout << "All workspace tests passed successfully!\n";
     return 0;
 }

@@ -449,6 +449,7 @@ void ActiveWindowOutlineEffect::renderHudMetaOverlay(const RenderTarget &renderT
         | (m_audioFilterModeActive ? 16 : 0)
         | (m_tilingPresetsModeActive ? 32 : 0)
         | (m_metaSpaceTraverseActive ? 64 : 0)
+        | (m_hudThumbnailZoomActive ? 128 : 0)
         | (static_cast<qint64>(qRound(scale * 10)) << 8)
         | (static_cast<qint64>(qHash(theme.id) % 1000) << 16);
 
@@ -456,7 +457,7 @@ void ActiveWindowOutlineEffect::renderHudMetaOverlay(const RenderTarget &renderT
         const QImage img = OutlineBadge::renderHudMetaOverlayImage(
             scale, theme, m_superJumpActive, m_closeWindowModeActive,
             m_stashModeActive, m_pinModeActive, m_audioFilterModeActive,
-            m_tilingPresetsModeActive, m_metaSpaceTraverseActive);
+            m_tilingPresetsModeActive, m_metaSpaceTraverseActive, m_hudThumbnailZoomActive);
         if (!img.isNull()) {
             auto uploaded = GLTexture::upload(img);
             if (uploaded) {
@@ -639,6 +640,123 @@ void ActiveWindowOutlineEffect::renderHudCrossWsActionOverlay(const RenderTarget
     }
 }
 
+void ActiveWindowOutlineEffect::renderHudPinWsSelectionOverlay(const RenderTarget &renderTarget,
+                                                             const RenderViewport &viewport)
+{
+    if (!m_pinWsSelectionActive || !m_pinTargetWindow) {
+        return;
+    }
+    const qreal scale = viewport.scale();
+    const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
+
+    EffectWindow *target = m_pinTargetWindow.data();
+    if (!target || target->isDeleted()) {
+        return;
+    }
+
+    const QString winTitle = target->caption().trimmed();
+    const QString winClass = target->windowClass().trimmed();
+    const QSet<int> currentPinnedWs = getWindowPinnedWorkspaces(target);
+    const bool isCurrentlyPinned = isWindowPinned(target);
+
+    qint64 pinnedHash = 0;
+    for (int wsNum : currentPinnedWs) {
+        pinnedHash = (pinnedHash * 31) ^ wsNum;
+    }
+
+    const qint64 overlayKey = static_cast<qint64>(qHash(winTitle) % 100000)
+        | (static_cast<qint64>(qHash(winClass) % 10000) << 17)
+        | (static_cast<qint64>(m_workspaces.size() % 100) << 31)
+        | (static_cast<qint64>(pinnedHash % 10000) << 38)
+        | (static_cast<qint64>(isCurrentlyPinned ? 1 : 0) << 52)
+        | (static_cast<qint64>(qRound(scale * 10)) << 54);
+
+    if (!m_pinWsOverlayTexture || m_pinWsOverlayCacheKey != overlayKey) {
+        const QImage img = OutlineBadge::renderHudPinWorkspaceDialog(
+            scale, theme, winTitle, winClass, m_workspaces, currentPinnedWs,
+            isCurrentlyPinned, m_pinWsRelRowRects, m_pinWsRelCancelRect);
+        if (!img.isNull()) {
+            auto uploaded = GLTexture::upload(img);
+            if (uploaded) {
+                uploaded->setFilter(GL_LINEAR);
+                uploaded->setWrapMode(GL_CLAMP_TO_EDGE);
+                m_pinWsOverlayTexture = std::shared_ptr<GLTexture>(uploaded.release());
+                m_pinWsOverlayCacheKey = overlayKey;
+            }
+        }
+    }
+
+    if (!m_pinWsOverlayTexture) {
+        return;
+    }
+
+    const QRectF screenRect = viewport.renderRect();
+    const qreal w = m_pinWsOverlayTexture->width() / scale;
+    const qreal h = m_pinWsOverlayTexture->height() / scale;
+    const QRectF overlayRect(screenRect.center().x() - w / 2.0,
+                             screenRect.center().y() - h / 2.0,
+                             w, h);
+
+    // Update screen rects for mouse hit detection
+    m_pinWsDialogScreenRect = overlayRect;
+    m_pinWsRowScreenRects.clear();
+    for (const auto &rel : m_pinWsRelRowRects) {
+        m_pinWsRowScreenRects.append(QRectF(overlayRect.left() + rel.x(), overlayRect.top() + rel.y(), rel.width(), rel.height()));
+    }
+    m_pinWsCancelScreenRect = QRectF(overlayRect.left() + m_pinWsRelCancelRect.x(), overlayRect.top() + m_pinWsRelCancelRect.y(), m_pinWsRelCancelRect.width(), m_pinWsRelCancelRect.height());
+
+    GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
+    GLint previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha;
+    glGetIntegerv(GL_BLEND_SRC_RGB, &previousSrcRgb);
+    glGetIntegerv(GL_BLEND_DST_RGB, &previousDstRgb);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &previousSrcAlpha);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &previousDstAlpha);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+    GLboolean scissorWasEnabled = glIsEnabled(GL_SCISSOR_TEST);
+    glDisable(GL_SCISSOR_TEST);
+
+    ShaderBinder binder(ShaderTrait::MapTexture | ShaderTrait::Modulate | ShaderTrait::TransformColorspace);
+    GLShader *shader = binder.shader();
+    shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix, viewport.projectionMatrix());
+    shader->setColorspaceUniforms(ColorDescription::sRGB, renderTarget.colorDescription(), RenderingIntent::Perceptual);
+    shader->setUniform(GLShader::Vec4Uniform::ModulationConstant, QVector4D(1.0f, 1.0f, 1.0f, 1.0f));
+
+    const float x0 = overlayRect.left() * scale;
+    const float y0 = overlayRect.top() * scale;
+    const float x1 = overlayRect.right() * scale;
+    const float y1 = overlayRect.bottom() * scale;
+
+    const std::array<GLVertex2D, 6> verts = {{
+        {QVector2D(x0, y0), QVector2D(0.0f, 0.0f)},
+        {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+        {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+        {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+        {QVector2D(x1, y1), QVector2D(1.0f, 1.0f)},
+        {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+    }};
+
+    auto vbo = GLVertexBuffer::streamingBuffer();
+    vbo->setVertices(verts);
+
+    shader->setUniform(GLShader::Mat4Uniform::TextureMatrix, m_pinWsOverlayTexture->matrix(NormalizedCoordinates));
+    m_pinWsOverlayTexture->bind();
+    vbo->render(GL_TRIANGLES);
+    m_pinWsOverlayTexture->unbind();
+
+    if (scissorWasEnabled) {
+        glEnable(GL_SCISSOR_TEST);
+    }
+    glBlendFuncSeparate(previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha);
+    if (blendWasEnabled) {
+        glEnable(GL_BLEND);
+    } else {
+        glDisable(GL_BLEND);
+    }
+}
+
 bool ActiveWindowOutlineEffect::isEligibleTargetWindow(EffectWindow *w) const
 {
     if (effects && effects->isScreenLocked()) {
@@ -745,8 +863,8 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
                 continue;
             }
 
-            if (m_pinnedWindows.contains(w)) {
-                // Pinned window: always visible across all workspaces!
+            if (isWindowPinned(w, m_activeHudView)) {
+                // Pinned window: visible in this workspace view!
             } else if (m_tilingActive && isWindowInTileSlot(w)) {
                 // Tiled window currently occupying a slot: always visible and jumpable!
             } else if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) { // Workspace view: only windows matching this workspace
@@ -1583,6 +1701,14 @@ QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
     QList<QSizeF> pillSizes;
     pillSizes.reserve(targets.size());
 
+    OutlineBadge::BadgeConfig effCfg = cfg;
+    if (m_hudThumbnailZoomActive) {
+        effCfg.hudShowThumbnail = true;
+        effCfg.hudThumbnailWidth = qMax(180, cfg.hudThumbnailWidth * 2);
+        effCfg.hudThumbnailHeight = qMax(110, cfg.hudThumbnailHeight * 2);
+        effCfg.hudThumbnailSize = qMax(effCfg.hudThumbnailWidth, effCfg.hudThumbnailHeight);
+    }
+
     EffectWindow *recentWin = findRecentWindow();
 
     for (const auto &pair : targets) {
@@ -1594,7 +1720,7 @@ QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
         const bool isRecent = (target == recentWin) || m_recentWindows.contains(target);
         const bool isMostRecent = (target == recentWin);
         const QString recentKey = (isMostRecent && m_jumpRecentKey.compare(QLatin1String("Space"), Qt::CaseInsensitive) != 0)
-            ? (m_badgePreviewActive ? cfg.jumpRecentKey : m_jumpRecentKey)
+            ? (m_badgePreviewActive ? effCfg.jumpRecentKey : m_jumpRecentKey)
             : QString();
         const QString loc = getWindowLocationString(target);
         const QString caption = target->caption();
@@ -1602,14 +1728,14 @@ QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
         if (isWindowPinned(target) && !customLabel.isEmpty()) {
             customLabel = QStringLiteral("● %1").arg(customLabel);
         }
-        const bool hasIcon = cfg.hudShowIcon && !target->icon().isNull();
-        const bool hasThumb = cfg.hudShowThumbnail && m_thumbnailCache.contains(target);
+        const bool hasIcon = effCfg.hudShowIcon && !target->icon().isNull();
+        const bool hasThumb = effCfg.hudShowThumbnail && m_thumbnailCache.contains(target);
         const QSize thumbSize = hasThumb ? m_thumbnailCache.value(target).size() : QSize();
         const bool isStashed = isWindowInStash(target);
         const bool isPinned = isWindowPinned(target);
         const bool isPlayingAudio = m_audioTracker.isWindowPlaying(target->pid(), target->caption());
 
-        const QSizeF sz = OutlineBadge::computeHudPillSize(cfg, loc, caption, badgeSize, scale,
+        const QSizeF sz = OutlineBadge::computeHudPillSize(effCfg, loc, caption, badgeSize, scale,
                                                            customLabel, hasIcon, hasThumb, thumbSize,
                                                            recentKey, isRecent, 0, isStashed, isPinned, isPlayingAudio);
         pillSizes.append(sz);
@@ -1906,15 +2032,23 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             customLabel = QStringLiteral("📦 %1").arg(customLabel);
         }
 
-        const bool showIconOnHud = cfg.hudShowIcon;
-        const bool showThumbOnHud = cfg.hudShowThumbnail;
+        OutlineBadge::BadgeConfig effCfg = cfg;
+        if (m_hudThumbnailZoomActive) {
+            effCfg.hudShowThumbnail = true;
+            effCfg.hudThumbnailWidth = qMax(180, cfg.hudThumbnailWidth * 2);
+            effCfg.hudThumbnailHeight = qMax(110, cfg.hudThumbnailHeight * 2);
+            effCfg.hudThumbnailSize = qMax(effCfg.hudThumbnailWidth, effCfg.hudThumbnailHeight);
+        }
+
+        const bool showIconOnHud = effCfg.hudShowIcon;
+        const bool showThumbOnHud = effCfg.hudShowThumbnail;
         const QIcon icon = (showIconOnHud && target) ? target->icon() : QIcon();
         const QImage thumbnail = (showThumbOnHud && target)
-            ? captureWindowThumbnail(target, renderTarget, viewport, QSize(cfg.hudThumbnailWidth * 2, cfg.hudThumbnailHeight * 2))
+            ? captureWindowThumbnail(target, renderTarget, viewport, QSize(effCfg.hudThumbnailWidth * 2, effCfg.hudThumbnailHeight * 2))
             : QImage();
 
         const bool isSelected = m_searchModeActive ? (i == m_searchSelectedIndex) : (i == activeDockIndex);
-        const QImage img = OutlineBadge::renderOffscreenTargetPill(cfg, letter, bgCol, textCol, loc, caption, badgeSize, scale, customLabel,
+        const QImage img = OutlineBadge::renderOffscreenTargetPill(effCfg, letter, bgCol, textCol, loc, caption, badgeSize, scale, customLabel,
                                                                    icon, thumbnail, isMarked, recentKey, isRecent, groupCount, isStashed, isPinned, isPlayingAudio, isSelected);
         auto uploaded = GLTexture::upload(img);
         if (!uploaded) {
@@ -2402,6 +2536,7 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHintBarTexture(qreal scale, const QRe
         + (m_closeWindowModeActive ? 1500000 : 0)
         + (m_pinModeActive ? 1700000 : 0)
         + (m_crossWsActionActive ? 3500000 : 0)
+        + (m_pinWsSelectionActive ? 3700000 : 0)
         + (candCount == 1 ? 2500000 : 0)
         + m_activeHudView * 1000 + nameHash + qRound(scale * 10) + (qRound(maxHintBarWidth) % 5000)
         + hintsFontSize * 19 + themeHash;
@@ -2410,7 +2545,8 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHintBarTexture(qreal scale, const QRe
             scale, m_subLeapActive, m_activeHudView, customViewName, customViewColor,
             m_stashModeActive, m_superJumpActive, m_audioFilterModeActive, m_searchModeActive,
             maxHintBarWidth, hintsFontSize, theme, m_tilingPresetsModeActive,
-            m_closeWindowModeActive, m_pinModeActive, candCount, m_crossWsActionActive);
+            m_closeWindowModeActive, m_pinModeActive, candCount, m_crossWsActionActive,
+            m_pinWsSelectionActive);
         auto uploaded = GLTexture::upload(hintImg);
         if (uploaded) {
             uploaded->setFilter(GL_LINEAR);

@@ -1012,8 +1012,8 @@ void ActiveWindowOutlineEffect::applyWorkspaceViewIsolation(int hudViewIndex, Vi
                 continue;
             }
 
-            // Pinned windows must stay visible across all workspaces!
-            if (m_pinnedWindows.contains(w)) {
+            // Pinned windows must stay visible in their pinned workspaces (or all workspaces)!
+            if (isWindowPinned(w, hudViewIndex)) {
                 if (w->isMinimized()) {
                     m_workspaceMinimizedWindows.remove(w);
                     w->setMinimized(false);
@@ -1872,9 +1872,27 @@ bool ActiveWindowOutlineEffect::isWindowInStash(EffectWindow *w) const
     return m_stashedWindows.contains(w) || w->isMinimized();
 }
 
-bool ActiveWindowOutlineEffect::isWindowPinned(EffectWindow *w) const
+bool ActiveWindowOutlineEffect::isWindowPinned(EffectWindow *w, int wsIndex) const
 {
-    return w && !w->isDeleted() && m_pinnedWindows.contains(w);
+    if (!w || w->isDeleted() || !m_pinnedWindows.contains(w)) {
+        return false;
+    }
+    if (wsIndex <= 0) {
+        return true;
+    }
+    const auto &wsSet = m_windowPinnedWorkspaces.value(w);
+    if (wsSet.isEmpty() || wsSet.contains(0) || wsSet.contains(wsIndex)) {
+        return true;
+    }
+    return false;
+}
+
+QSet<int> ActiveWindowOutlineEffect::getWindowPinnedWorkspaces(EffectWindow *w) const
+{
+    if (!w || !m_pinnedWindows.contains(w)) {
+        return {};
+    }
+    return m_windowPinnedWorkspaces.value(w, {0});
 }
 
 void ActiveWindowOutlineEffect::pinWindow(EffectWindow *w)
@@ -1883,13 +1901,87 @@ void ActiveWindowOutlineEffect::pinWindow(EffectWindow *w)
         return;
     }
     m_pinnedWindows.insert(w);
+    m_windowPinnedWorkspaces[w] = {0}; // 0 = all workspaces
     m_workspaceMinimizedWindows.remove(w);
     m_stashedWindows.remove(w);
     if (w->isMinimized()) {
         w->setMinimized(false);
     }
+    // Strictly preserve KDE virtual desktop assignments - do NOT call effects->windowToDesktops(w, {})!
+    m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    repaintAllOutlines();
     if (effects) {
-        effects->windowToDesktops(w, {}); // empty list = all virtual desktops in KWin
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::pinWindowToWorkspace(EffectWindow *w, int wsIndex)
+{
+    if (!w || w->isDeleted()) {
+        return;
+    }
+    m_pinnedWindows.insert(w);
+    if (wsIndex <= 0) {
+        m_windowPinnedWorkspaces[w] = {0};
+    } else {
+        auto &set = m_windowPinnedWorkspaces[w];
+        set.remove(0);
+        set.insert(wsIndex);
+    }
+    m_workspaceMinimizedWindows.remove(w);
+    m_stashedWindows.remove(w);
+    if (w->isMinimized()) {
+        w->setMinimized(false);
+    }
+    m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    repaintAllOutlines();
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::toggleWindowPinWorkspace(EffectWindow *w, int wsIndex)
+{
+    if (!w || w->isDeleted()) {
+        return;
+    }
+    if (wsIndex <= 0) {
+        if (m_pinnedWindows.contains(w) && m_windowPinnedWorkspaces.value(w).contains(0)) {
+            unpinWindow(w, m_activeHudView);
+        } else {
+            pinWindow(w);
+        }
+        return;
+    }
+    if (!m_pinnedWindows.contains(w)) {
+        pinWindowToWorkspace(w, wsIndex);
+        return;
+    }
+    auto &set = m_windowPinnedWorkspaces[w];
+    if (set.contains(0)) {
+        set.clear();
+        set.insert(wsIndex);
+    } else if (set.contains(wsIndex)) {
+        set.remove(wsIndex);
+        if (set.isEmpty()) {
+            unpinWindow(w, m_activeHudView);
+            return;
+        }
+    } else {
+        set.insert(wsIndex);
+    }
+    m_workspaceMinimizedWindows.remove(w);
+    m_stashedWindows.remove(w);
+    if (w->isMinimized()) {
+        w->setMinimized(false);
     }
     m_badgeTextureCache.clear();
     m_hudHeaderTexture.reset();
@@ -1908,12 +2000,11 @@ void ActiveWindowOutlineEffect::unpinWindow(EffectWindow *w, int targetWorkspace
         return;
     }
     m_pinnedWindows.remove(w);
+    m_windowPinnedWorkspaces.remove(w);
     if (targetWorkspace >= 1 && targetWorkspace <= m_workspaces.size()) {
         addWindowToWorkspace(w, targetWorkspace);
     }
-    if (effects) {
-        effects->windowToDesktops(w, {effects->currentDesktop()});
-    }
+    // Strictly preserve KDE virtual desktop assignments - do NOT call effects->windowToDesktops
     m_workspaceMinimizedWindows.remove(w);
     m_stashedWindows.remove(w);
     if (w->isMinimized()) {

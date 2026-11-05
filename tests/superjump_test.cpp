@@ -495,7 +495,76 @@ void testHudMetaOverlayRendering()
     assert(!overlayTraverse.isNull());
     assert(overlayTraverse.size() == overlayDefault.size());
 
+    // 5. Overlay with Zoom Thumbnails active
+    QImage overlayZoom = OutlineBadge::renderHudMetaOverlayImage(
+        1.0, LeapKTheme::Theme(), false, false, false, false, false, false, false, true /* isZoomThumbnails */);
+    assert(!overlayZoom.isNull());
+    assert(overlayZoom.size() == overlayDefault.size());
+
     std::cout << "testHudMetaOverlayRendering PASSED\n";
+}
+
+void testPinWorkspaceModalDialogRendering()
+{
+    using namespace LeapKWorkspace;
+
+    WorkspaceInfo ws1;
+    ws1.id = QStringLiteral("ws-1");
+    ws1.name = QStringLiteral("Coding");
+    ws1.color = QColor(QStringLiteral("#3498db"));
+
+    WorkspaceInfo ws2;
+    ws2.id = QStringLiteral("ws-2");
+    ws2.name = QStringLiteral("Web & Docs");
+    ws2.color = QColor(QStringLiteral("#2ecc71"));
+
+    QList<WorkspaceInfo> workspaces = {ws1, ws2};
+
+    QList<QRectF> rowRects;
+    QRectF cancelRect;
+
+    // 1. Window not pinned
+    QImage imgNotPinned = OutlineBadge::renderHudPinWorkspaceDialog(
+        1.0, LeapKTheme::Theme(), QStringLiteral("Terminal"), QStringLiteral("org.kde.konsole"),
+        workspaces, {}, false, rowRects, cancelRect);
+    assert(!imgNotPinned.isNull());
+    assert(imgNotPinned.width() >= 500);
+    assert(imgNotPinned.height() >= 180);
+    // Not pinned: row 0 (All) + 2 workspaces = 3 rows
+    assert(rowRects.size() == 3);
+    assert(cancelRect.isValid() && !cancelRect.isEmpty());
+
+    // 2. Window pinned to All Workspaces
+    QList<QRectF> rowRectsPinnedAll;
+    QRectF cancelRectPinnedAll;
+    QImage imgPinnedAll = OutlineBadge::renderHudPinWorkspaceDialog(
+        1.0, LeapKTheme::Theme(), QStringLiteral("Browser"), QStringLiteral("firefox"),
+        workspaces, {0}, true, rowRectsPinnedAll, cancelRectPinnedAll);
+    assert(!imgPinnedAll.isNull());
+    // Pinned: row 0 (All) + 2 workspaces + 1 (Unpin) = 4 rows
+    assert(rowRectsPinnedAll.size() == 4);
+    assert(cancelRectPinnedAll.isValid());
+
+    // 3. Window pinned to specific workspace 1
+    QList<QRectF> rowRectsPinnedSpecific;
+    QRectF cancelRectPinnedSpecific;
+    QImage imgPinnedSpecific = OutlineBadge::renderHudPinWorkspaceDialog(
+        1.0, LeapKTheme::Theme(), QStringLiteral("Editor"), QStringLiteral("kate"),
+        workspaces, {1}, true, rowRectsPinnedSpecific, cancelRectPinnedSpecific);
+    assert(!imgPinnedSpecific.isNull());
+    assert(rowRectsPinnedSpecific.size() == 4);
+
+    // 4. HiDPI rendering (2.0 scale)
+    QList<QRectF> rowRectsHiDpi;
+    QRectF cancelRectHiDpi;
+    QImage imgHiDpi = OutlineBadge::renderHudPinWorkspaceDialog(
+        2.0, LeapKTheme::Theme(), QStringLiteral("Editor"), QStringLiteral("kate"),
+        workspaces, {1}, true, rowRectsHiDpi, cancelRectHiDpi);
+    assert(!imgHiDpi.isNull());
+    assert(imgHiDpi.width() >= imgNotPinned.width() * 1.8);
+    assert(rowRectsHiDpi.size() == 4);
+
+    std::cout << "testPinWorkspaceModalDialogRendering PASSED\n";
 }
 
 void testSuperJumpPullIntoEmptyWorkspace()
@@ -1140,6 +1209,7 @@ int main(int argc, char *argv[])
     testHudRecencySorting();
     testRecentWindowWorkspaceTransfer();
     testHudCrossWorkspaceActionDialogRendering();
+    testPinWorkspaceModalDialogRendering();
     testCrossWorkspaceActionModes();
     testCrossWorkspaceActionDialogShortcuts();
 

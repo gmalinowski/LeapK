@@ -436,6 +436,13 @@ void ActiveWindowOutlineEffect::initShortcuts()
     KGlobalAccel::self()->setGlobalShortcut(pinAction, QKeySequence(Qt::META | Qt::CTRL | Qt::Key_P));
     connect(pinAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotTogglePinActiveWindow);
 
+    QAction *zoomThumbAction = new QAction(this);
+    zoomThumbAction->setObjectName(QStringLiteral("ToggleHudThumbnailZoom"));
+    zoomThumbAction->setText(QStringLiteral("LeapK: Toggle HUD Thumbnail Zoom"));
+    KGlobalAccel::self()->setDefaultShortcut(zoomThumbAction, QList<QKeySequence>() << QKeySequence(Qt::META | Qt::Key_Z));
+    KGlobalAccel::self()->setGlobalShortcut(zoomThumbAction, QKeySequence(Qt::META | Qt::Key_Z));
+    connect(zoomThumbAction, &QAction::triggered, this, &ActiveWindowOutlineEffect::slotToggleThumbnailZoom);
+
     QAction *jumpAction = new QAction(this);
     jumpAction->setObjectName(QStringLiteral("JumpToWindow"));
     jumpAction->setText(QStringLiteral("LeapK: Jump to Window"));
@@ -1112,6 +1119,7 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
     m_workspaceMinimizedWindows.remove(w);
     m_stashedWindows.remove(w);
     m_pinnedWindows.remove(w);
+    m_windowPinnedWorkspaces.remove(w);
     for (auto it = m_jumpLetterToWindow.begin(); it != m_jumpLetterToWindow.end(); ) {
         if (it.value() == w) {
             it = m_jumpLetterToWindow.erase(it);

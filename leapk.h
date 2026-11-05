@@ -205,6 +205,7 @@ private Q_SLOTS:
     void slotTriggerJumpMode();
     void slotTriggerCloseWindowMode();
     void slotTriggerPinMode();
+    void slotToggleThumbnailZoom();
     void slotTriggerAudioFilterMode();
     void slotTriggerSearchMode();
     void slotTriggerTilingPresetsMode();
@@ -286,9 +287,12 @@ private:
                                           const QList<QRectF> &hudRects,
                                           bool *outFoundVisible = nullptr) const;
     bool isWindowInStash(EffectWindow *w) const;
-    bool isWindowPinned(EffectWindow *w) const;
+    bool isWindowPinned(EffectWindow *w, int wsIndex = 0) const;
+    QSet<int> getWindowPinnedWorkspaces(EffectWindow *w) const;
     void playThemedSound(OutlineSound::SoundEffect effect);
     void pinWindow(EffectWindow *w);
+    void pinWindowToWorkspace(EffectWindow *w, int wsIndex);
+    void toggleWindowPinWorkspace(EffectWindow *w, int wsIndex);
     void unpinWindow(EffectWindow *w, int targetWorkspace = 0);
     void toggleWindowPin(EffectWindow *w);
     int findWorkspaceForWindow(EffectWindow *target) const;
@@ -300,10 +304,14 @@ private:
     bool isCrossWorkspaceTarget(EffectWindow *target) const;
     bool handleSuperJumpCrossWorkspaceSelection(EffectWindow *target, int keyToPass = 0);
     void renderHudCrossWsActionOverlay(const RenderTarget &renderTarget, const RenderViewport &viewport);
+    void enterPinWsSelectionMode(EffectWindow *target);
+    void exitPinWsSelectionMode();
+    void renderHudPinWsSelectionOverlay(const RenderTarget &renderTarget, const RenderViewport &viewport);
     void enterCloseWindowMode();
     void exitCloseWindowMode();
     void enterPinMode();
     void exitPinMode();
+    void toggleHudThumbnailZoom();
     void renderHudMetaOverlay(const RenderTarget &renderTarget, const RenderViewport &viewport);
     void toggleAudioFilterMode();
     void exitAudioFilterMode();
@@ -649,6 +657,17 @@ private:
     mutable qint64 m_hudMetaOverlayCacheKey = -1;
     QSet<EffectWindow *> m_stashedWindows;
     QSet<EffectWindow *> m_pinnedWindows;
+    QMap<EffectWindow *, QSet<int>> m_windowPinnedWorkspaces;
+    bool m_pinWsSelectionActive = false;
+    QPointer<EffectWindow> m_pinTargetWindow;
+    QRectF m_pinWsDialogScreenRect;
+    QList<QRectF> m_pinWsRowScreenRects;
+    QList<QRectF> m_pinWsRelRowRects;
+    QRectF m_pinWsRelCancelRect;
+    QRectF m_pinWsCancelScreenRect;
+    mutable std::shared_ptr<GLTexture> m_pinWsOverlayTexture;
+    mutable qint64 m_pinWsOverlayCacheKey = -1;
+    bool m_hudThumbnailZoomActive = false;
     bool m_superJumpActive = false;
     int m_superJumpTargetWorkspace = 0;
     int m_superJumpCrossWsAction = 0;

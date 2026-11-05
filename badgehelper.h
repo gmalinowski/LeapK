@@ -26,6 +26,7 @@
 #include "ambilightalgorithm.h"
 #include "themehelper.h"
 #include "tilinghelper.h"
+#include "workspacehelper.h"
 
 namespace OutlineBadge
 {
@@ -2886,7 +2887,7 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
     return img;
 }
 
-inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false, bool isSearchMode = false, qreal maxAllowedWidth = 0.0, int hintsFontSize = 0, const LeapKTheme::Theme &theme = LeapKTheme::Theme(), bool isTilingPresets = false, bool isCloseMode = false, bool isPinMode = false, int candidateCount = 0, bool isCrossWsAction = false)
+inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false, bool isSearchMode = false, qreal maxAllowedWidth = 0.0, int hintsFontSize = 0, const LeapKTheme::Theme &theme = LeapKTheme::Theme(), bool isTilingPresets = false, bool isCloseMode = false, bool isPinMode = false, int candidateCount = 0, bool isCrossWsAction = false, bool isPinWsSelection = false)
 {
     Q_UNUSED(customViewName);
     Q_UNUSED(customViewColor);
@@ -2899,7 +2900,14 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     };
 
     QList<Segment> segments;
-    if (isCrossWsAction) {
+    if (isPinWsSelection) {
+        segments = {
+            {QStringLiteral("A / 0"), QStringLiteral("All Workspaces"), QColor(245, 166, 35)},
+            {QStringLiteral("1..N"), QStringLiteral("Select Workspace"), QColor(52, 152, 219)},
+            {QStringLiteral("U"), QStringLiteral("Unpin"), QColor(231, 76, 60)},
+            {QStringLiteral("Esc / ⌫"), QStringLiteral("Cancel"), QColor(149, 165, 166)}
+        };
+    } else if (isCrossWsAction) {
         segments = {
             {QStringLiteral("Enter / J / 1"), QStringLiteral("Jump to Workspace"), QColor(46, 204, 113)},
             {QStringLiteral("M / 2"), QStringLiteral("Move to Current"), QColor(52, 152, 219)},
@@ -4333,7 +4341,8 @@ inline QImage renderHudMetaOverlayImage(qreal scale,
                                         bool isPinMode,
                                         bool isAudioMode,
                                         bool isTilingPresets = false,
-                                        bool isTraverseRecent = false)
+                                        bool isTraverseRecent = false,
+                                        bool isZoomThumbnails = false)
 {
     struct CheatItem {
         QString key;
@@ -4350,6 +4359,7 @@ inline QImage renderHudMetaOverlayImage(qreal scale,
         {QStringLiteral("Meta+Q"), QStringLiteral("Close Mode"), QStringLiteral("Batch close windows with red badges"), isCloseMode, QColor(231, 76, 60)},
         {QStringLiteral("Meta+U"), QStringLiteral("Audio Mode"), QStringLiteral("Filter windows actively playing sound"), isAudioMode, QColor(241, 196, 15)},
         {QStringLiteral("Meta+P"), QStringLiteral("Pinning Mode"), QStringLiteral("Pin or unpin windows across workspaces"), isPinMode, QColor(245, 166, 35)},
+        {QStringLiteral("Meta+Z"), QStringLiteral("Zoom Thumbnails"), QStringLiteral("Enlarge HUD window thumbnail previews"), isZoomThumbnails, QColor(168, 85, 247)},
         {QStringLiteral("Meta+T"), QStringLiteral("Tiling Presets"), QStringLiteral("Choose tiling layout preset or slot edit"), isTilingPresets, QColor(52, 152, 219)},
         {QStringLiteral("Meta+W"), QStringLiteral("Workspace Manager"), QStringLiteral("Create, rename, reorder and delete workspaces"), false, QColor(41, 128, 185)},
         {QStringLiteral("Meta+M"), QStringLiteral("Markers Manager"), QStringLiteral("Assign custom colors and labels to windows"), false, QColor(155, 89, 182)}
@@ -4720,6 +4730,252 @@ inline QImage renderHudCrossWorkspaceActionDialog(
     p.setPen(QColor(145, 160, 180));
     const QRectF footerTextRect(escPill.right() + gap, curY, totalW - 2 * padX - escPill.width() - gap, footerH);
     p.drawText(footerTextRect, Qt::AlignLeft | Qt::AlignVCenter, QStringLiteral("Return to Super Jump  •  Click any row or press key to select"));
+
+    p.end();
+    return img;
+}
+
+inline QImage renderHudPinWorkspaceDialog(
+    qreal scale,
+    const LeapKTheme::Theme &theme,
+    const QString &windowTitle,
+    const QString &windowClass,
+    const QList<LeapKWorkspace::WorkspaceInfo> &workspaces,
+    const QSet<int> &currentPinnedWs,
+    bool isCurrentlyPinned,
+    QList<QRectF> &outRowRects,
+    QRectF &outCancelRect)
+{
+    outRowRects.clear();
+    outCancelRect = QRectF();
+
+    QFont titleFont(QStringLiteral("sans-serif"));
+    titleFont.setPixelSize(qMax(11, qRound(13.5 * scale)));
+    titleFont.setBold(true);
+
+    QFont subFont(QStringLiteral("sans-serif"));
+    subFont.setPixelSize(qMax(10, qRound(11.0 * scale)));
+
+    QFont keyFont(QStringLiteral("monospace"));
+    keyFont.setPixelSize(qMax(10, qRound(11.5 * scale)));
+    keyFont.setBold(true);
+
+    QFont actionFont(QStringLiteral("sans-serif"));
+    actionFont.setPixelSize(qMax(11, qRound(12.0 * scale)));
+    actionFont.setBold(true);
+
+    QFont descFont(QStringLiteral("sans-serif"));
+    descFont.setPixelSize(qMax(9, qRound(10.0 * scale)));
+
+    QFont tagFont(QStringLiteral("sans-serif"));
+    tagFont.setPixelSize(qMax(8, qRound(9.0 * scale)));
+    tagFont.setBold(true);
+
+    const int padX = qRound(22 * scale);
+    const int padY = qRound(18 * scale);
+    const int headerH = qRound(56 * scale);
+    const int dividerH = qRound(12 * scale);
+    const int rowH = qRound(42 * scale);
+    const int rowGap = qRound(6 * scale);
+    const int footerH = qRound(32 * scale);
+
+    struct PinRowDef {
+        QString keyPill;
+        QString title;
+        QString desc;
+        QString tagText;
+        QColor accent;
+        bool isSelected;
+    };
+
+    QList<PinRowDef> rows;
+    const bool isPinnedToAll = currentPinnedWs.contains(0) || (isCurrentlyPinned && currentPinnedWs.isEmpty());
+
+    // Row 0: All Workspaces
+    rows.append({
+        QStringLiteral("A / 0"),
+        QStringLiteral("All Workspaces"),
+        QStringLiteral("Make window visible across every LeapK workspace"),
+        isPinnedToAll ? QStringLiteral("✓ ALL") : QStringLiteral("ALL"),
+        QColor(245, 166, 35),
+        isPinnedToAll
+    });
+
+    // Rows 1..N: Individual Workspaces
+    for (int i = 0; i < workspaces.size(); ++i) {
+        const auto &ws = workspaces.at(i);
+        const int wsNum = i + 1;
+        const bool wsActive = currentPinnedWs.contains(wsNum);
+        const QString wsName = ws.name.trimmed().isEmpty() ? QStringLiteral("Workspace %1").arg(wsNum) : ws.name.trimmed();
+        const QColor wsCol = ws.color.isValid() ? ws.color : QColor(52, 152, 219);
+        rows.append({
+            QString::number(wsNum),
+            wsName,
+            QStringLiteral("Pin window to %1").arg(wsName),
+            wsActive ? QStringLiteral("✓ PINNED") : QStringLiteral("WS %1").arg(wsNum),
+            wsCol,
+            wsActive
+        });
+    }
+
+    // Row for Unpin (if currently pinned)
+    if (isCurrentlyPinned) {
+        rows.append({
+            QStringLiteral("U"),
+            QStringLiteral("Unpin Window"),
+            QStringLiteral("Remove window from pinned list; keep on current workspace only"),
+            QStringLiteral("UNPIN"),
+            QColor(231, 76, 60),
+            false
+        });
+    }
+
+    const int totalW = qRound(580 * scale);
+    const int contentH = headerH + dividerH + (rows.size() * rowH) + ((rows.size() - 1) * rowGap) + dividerH + footerH;
+    const int totalH = contentH + 2 * padY;
+
+    QImage img(totalW, totalH, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+
+    QPainter p(&img);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+
+    const qreal bw = qMax(1.0, 1.6 * scale);
+    const qreal bm = bw / 2.0;
+    const QRectF cardRect(bm, bm, totalW - 2 * bm, totalH - 2 * bm);
+    const qreal radius = 14.0 * scale;
+
+    const QColor bgCol = theme.resolveColor(QStringLiteral("$bgSurface"), QColor(16, 20, 28, 248));
+    const QColor borderCol = theme.resolveColor(QStringLiteral("$borderColor"), QColor(90, 115, 150, 180));
+    p.setPen(QPen(borderCol, bw));
+    p.setBrush(bgCol);
+    p.drawRoundedRect(cardRect, radius, radius);
+
+    // 1. Header
+    qreal curY = padY;
+    const QString titleText = QStringLiteral("📌  PIN WINDOW TO WORKSPACES");
+    p.setFont(titleFont);
+    p.setPen(QColor(255, 255, 255));
+    p.drawText(QRectF(padX, curY, totalW - 2 * padX, qRound(22 * scale)), Qt::AlignLeft | Qt::AlignVCenter, titleText);
+
+    // Window info line
+    QFontMetrics fmSub(subFont);
+    const QString rawWinDesc = windowTitle.isEmpty()
+        ? (!windowClass.isEmpty() ? windowClass : QStringLiteral("Selected Window"))
+        : (!windowClass.isEmpty() ? (windowTitle + QStringLiteral(" (") + windowClass + QStringLiteral(")")) : windowTitle);
+    const QString elidedWinDesc = fmSub.elidedText(rawWinDesc, Qt::ElideRight, totalW - 2 * padX);
+
+    p.setFont(subFont);
+    p.setPen(QColor(200, 215, 235));
+    p.drawText(QRectF(padX, curY + qRound(22 * scale), totalW - 2 * padX, qRound(18 * scale)),
+               Qt::AlignLeft | Qt::AlignVCenter, elidedWinDesc);
+
+    // Status description line
+    QString statusText;
+    if (!isCurrentlyPinned) {
+        statusText = QStringLiteral("Status: Not pinned  •  Window stays strictly in its assigned workspace");
+        p.setPen(QColor(135, 160, 190));
+    } else if (isPinnedToAll) {
+        statusText = QStringLiteral("Status: Pinned to ALL workspaces  •  Window stays visible across every workspace");
+        p.setPen(QColor(245, 166, 35));
+    } else {
+        QStringList pinnedNames;
+        for (int wsNum : currentPinnedWs) {
+            if (wsNum >= 1 && wsNum <= workspaces.size()) {
+                pinnedNames.append(workspaces.at(wsNum - 1).name);
+            }
+        }
+        statusText = QStringLiteral("Status: Pinned to [%1]").arg(pinnedNames.join(QStringLiteral(", ")));
+        p.setPen(QColor(52, 152, 219));
+    }
+    p.drawText(QRectF(padX, curY + qRound(38 * scale), totalW - 2 * padX, qRound(18 * scale)),
+               Qt::AlignLeft | Qt::AlignVCenter, statusText);
+
+    curY += headerH;
+
+    // Header divider line
+    p.setPen(QPen(QColor(255, 255, 255, 35), 1.0 * scale));
+    p.drawLine(QPointF(padX, curY + dividerH / 2.0), QPointF(totalW - padX, curY + dividerH / 2.0));
+    curY += dividerH;
+
+    const int keyPillW = qRound(95 * scale);
+    const int tagPillW = qRound(80 * scale);
+    const int gap = qRound(12 * scale);
+
+    for (int i = 0; i < rows.size(); ++i) {
+        const auto &r = rows.at(i);
+        const QRectF rowRect(padX, curY, totalW - 2 * padX, rowH);
+        outRowRects.append(QRectF(rowRect.x() / scale, rowRect.y() / scale, rowRect.width() / scale, rowRect.height() / scale));
+
+        if (r.isSelected) {
+            p.setPen(QPen(r.accent.lighter(130), 1.2 * scale));
+            p.setBrush(QColor(r.accent.red(), r.accent.green(), r.accent.blue(), 50));
+        } else {
+            p.setPen(QPen(QColor(85, 105, 130, 130), 1.0 * scale));
+            p.setBrush(QColor(25, 32, 45, 160));
+        }
+        p.drawRoundedRect(rowRect, 8.0 * scale, 8.0 * scale);
+
+        const qreal pillH = rowH - qRound(12 * scale);
+        const QRectF kRect(padX + qRound(6 * scale), curY + (rowH - pillH) / 2.0, keyPillW, pillH);
+        p.setPen(QPen(r.isSelected ? r.accent : QColor(100, 115, 135, 180), 1.0 * scale));
+        p.setBrush(r.isSelected ? QColor(r.accent.red(), r.accent.green(), r.accent.blue(), 80) : QColor(36, 44, 58, 220));
+        p.drawRoundedRect(kRect, 5.0 * scale, 5.0 * scale);
+
+        p.setFont(keyFont);
+        p.setPen(QColor(255, 255, 255));
+        p.drawText(kRect, Qt::AlignCenter, r.keyPill);
+
+        const qreal textX = kRect.right() + gap;
+        const qreal textW = rowRect.right() - tagPillW - gap - textX;
+
+        p.setFont(actionFont);
+        p.setPen(r.isSelected ? r.accent.lighter(120) : QColor(255, 255, 255));
+        p.drawText(QRectF(textX, curY + qRound(4 * scale), textW, qRound(18 * scale)),
+                   Qt::AlignLeft | Qt::AlignVCenter, r.title);
+
+        p.setFont(descFont);
+        p.setPen(QColor(165, 180, 200));
+        p.drawText(QRectF(textX, curY + qRound(20 * scale), textW, qRound(16 * scale)),
+                   Qt::AlignLeft | Qt::AlignVCenter, r.desc);
+
+        // Status / Tag pill on the right
+        const QRectF tRect(rowRect.right() - tagPillW - qRound(6 * scale), curY + (rowH - pillH) / 2.0, tagPillW, pillH);
+        p.setPen(QPen(r.isSelected ? r.accent : QColor(100, 115, 135, 160), 1.0 * scale));
+        p.setBrush(r.isSelected ? QColor(r.accent.red(), r.accent.green(), r.accent.blue(), 60) : QColor(30, 38, 50, 180));
+        p.drawRoundedRect(tRect, 4.0 * scale, 4.0 * scale);
+
+        p.setFont(tagFont);
+        p.setPen(r.isSelected ? r.accent.lighter(120) : QColor(200, 215, 230));
+        p.drawText(tRect, Qt::AlignCenter, r.tagText);
+
+        curY += rowH + rowGap;
+    }
+
+    // Footer divider line
+    p.setPen(QPen(QColor(255, 255, 255, 35), 1.0 * scale));
+    p.drawLine(QPointF(padX, curY + dividerH / 2.0), QPointF(totalW - padX, curY + dividerH / 2.0));
+    curY += dividerH;
+
+    // Footer / Cancel row
+    const QRectF cancelRow(padX, curY, totalW - 2 * padX, footerH);
+    outCancelRect = QRectF(cancelRow.x() / scale, cancelRow.y() / scale, cancelRow.width() / scale, cancelRow.height() / scale);
+
+    const qreal cancelPillW = qRound(80 * scale);
+    const qreal cancelPillH = footerH - qRound(8 * scale);
+    const QRectF escPill(padX + qRound(6 * scale), curY + (footerH - cancelPillH) / 2.0, cancelPillW, cancelPillH);
+    p.setPen(QPen(QColor(110, 125, 145, 140), 1.0 * scale));
+    p.setBrush(QColor(36, 44, 58, 200));
+    p.drawRoundedRect(escPill, 4.0 * scale, 4.0 * scale);
+    p.setFont(keyFont);
+    p.setPen(QColor(200, 215, 230));
+    p.drawText(escPill, Qt::AlignCenter, QStringLiteral("Esc / ⌫"));
+
+    p.setFont(descFont);
+    p.setPen(QColor(145, 160, 180));
+    const QRectF footerTextRect(escPill.right() + gap, curY, totalW - 2 * padX - escPill.width() - gap, footerH);
+    p.drawText(footerTextRect, Qt::AlignLeft | Qt::AlignVCenter, QStringLiteral("Return to Pin Mode  •  Click any row or press key to select"));
 
     p.end();
     return img;
