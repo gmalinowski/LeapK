@@ -711,6 +711,65 @@ void testKeyboardOverlayTilingOnly()
     std::cout << "testKeyboardOverlayTilingOnly PASSED\n";
 }
 
+void testLaserTargetsAvoidHudBadges()
+{
+    using namespace LeapKKeyboardOverlay;
+
+    const QRectF screenRect(0, 0, 1920, 1080);
+    const QRectF hudBounds(300, 960, 1320, 110);
+    const KeyboardOverlayLayout layout = computeOverlayGeometry(screenRect, hudBounds);
+    assert(layout.hudBounds == hudBounds);
+
+    OverlayDisplayConfig cfg;
+    cfg.targetLabelVisible = true;
+
+    // Case 1: An offscreen window whose HUD card is located in the HUD dock
+    WindowTargetItem wOffscreen;
+    wOffscreen.geometry = QRectF(2500, 100, 800, 600); // off-screen
+    wOffscreen.isVisibleOnScreen = false;
+    wOffscreen.hudCardRect = QRectF(900, 970, 120, 80);
+    wOffscreen.title = QStringLiteral("Offscreen Dolphin");
+    wOffscreen.appClass = QStringLiteral("dolphin");
+
+    // Case 2: An on-screen window near the bottom whose geometry or placement would overlap HUD
+    WindowTargetItem wOnScreen;
+    wOnScreen.geometry = QRectF(400, 800, 600, 250);
+    wOnScreen.isVisibleOnScreen = true;
+    wOnScreen.hudCardRect = QRectF(450, 970, 120, 80);
+    wOnScreen.title = QStringLiteral("Terminal at Bottom");
+    wOnScreen.appClass = QStringLiteral("konsole");
+
+    QMap<QChar, WindowTargetItem> assigned;
+    assigned.insert(QChar('D'), wOffscreen);
+    assigned.insert(QChar('K'), wOnScreen);
+
+    const auto placements = computeTargetBadgePlacements(assigned, screenRect, layout, cfg);
+    assert(placements.size() == 2);
+
+    // Verify on-screen target badge does not intersect HUD bounds or HUD card
+    const auto &pOn = placements.value(QChar('K'));
+    const QRectF badgeRectOn(pOn.center.x() - pOn.radius, pOn.center.y() - pOn.radius,
+                             pOn.radius * 2.0, pOn.radius * 2.0);
+    assert(!badgeRectOn.intersects(layout.hudBounds));
+    assert(!badgeRectOn.intersects(wOnScreen.hudCardRect));
+    assert(pOn.center.y() + pOn.radius <= layout.hudBounds.top() + 1.0);
+
+    // Verify computeTargetLabelPlacements keeps labels outside HUD bounds and HUD cards
+    const auto labels = computeTargetLabelPlacements(placements, screenRect, layout, cfg);
+    for (const auto &lbl : labels) {
+        assert(!lbl.rect.intersects(layout.hudBounds));
+        assert(!lbl.rect.intersects(wOffscreen.hudCardRect));
+        assert(!lbl.rect.intersects(wOnScreen.hudCardRect));
+    }
+
+    // Verify rendering produces valid overlay without crash
+    const QImage img = renderOverlayImage(layout, assigned, screenRect, 1.0, cfg);
+    assert(!img.isNull());
+    assert(img.size() == screenRect.size().toSize());
+
+    std::cout << "testLaserTargetsAvoidHudBadges PASSED\n";
+}
+
 int main(int argc, char **argv)
 {
     QGuiApplication app(argc, argv);
@@ -729,6 +788,7 @@ int main(int argc, char **argv)
     testLaserTargetsMatchingHudBadgeOrder();
     testTargetLabelsCollisionAvoidanceAndOpacity();
     testKeyboardOverlayTilingOnly();
+    testLaserTargetsAvoidHudBadges();
 
     std::cout << "All LeapK Keyboard Overlay tests passed successfully!\n";
     return 0;

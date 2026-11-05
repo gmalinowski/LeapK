@@ -7,6 +7,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.6.0-beta85-exp] - 2026-11-05
 
 ### Added
+- **Spatial Keyboard Toggle Shortcut (`Meta + L`) with Session Persistence**:
+  - Added shortcut `Meta + L` in LeapK mode to toggle the spatial keyboard dock and laser targets on/off on the fly.
+  - Setting is automatically persisted to user configuration (`primaryConfig.writeEntry("KeyboardOverlayEnabled", m_keyboardOverlayEnabled)` in group `Effect-leapk`) so user preferences are retained across KWin restarts and sessions.
+  - Added dedicated cheatsheet entry in HUD Meta Overlay (`Meta + L: Spatial Keyboard [ON / OFF]`) with cyan glow and audible sound feedback (`playSpatialSound(SoundEvent::Toggle)`).
+- **3-Mode Cycling for HUD Thumbnails (`Meta + Z`: Default -> Zoomed -> Off)**:
+  - Expanded `Meta + Z` from a binary zoom toggle to a multi-state 3-mode cycle:
+    - **Mode 0 (`DEFAULT`)**: Standard configured HUD thumbnail size (`cfg.hudShowThumbnail`).
+    - **Mode 1 (`ZOOMED`)**: Enlarged 2x thumbnail previews (`effHudW = qMax(180, cfg.hudThumbnailWidth * 2)`).
+    - **Mode 2 (`OFF`)**: Completely disables HUD thumbnails, providing a clean, compact HUD dock layout while eliminating thumbnail capture overhead (`m_hudThumbnailMode == 2`).
+  - Automatically bypasses window thumbnail render passes and blits in `leapk_paint.cpp` when Mode 2 (`OFF`) is active.
+  - Updated HUD Meta cheatsheet overlay pill for `Meta + Z` to dynamically reflect current mode (`DEFAULT`, `ZOOMED`, or `OFF`).
 - **Cross-Workspace Taskbar / Dock Window Activation Interception (`SuperJumpCrossWsAction`)**:
   - When working inside a LeapK workspace (e.g. Workspace 1) and clicking an application icon on the KDE Plasma panel task bar / dock for a window that resides in a different workspace (e.g. Workspace 2) or Stash, LeapK intercepts the cross-workspace activation and presents the unified interactive modal prompt:
     - 🚀 **`[J]` Jump to Workspace**: Seamlessly switches to the target workspace and activates the window.
@@ -40,6 +51,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Added unit test suite in `tests/keyboardoverlay_test.cpp` verifying overlay activation rules across floating and tiling modes, with 100% passing tests (all 31/31 CTests).
 
 ### Fixed
+- **HUD Badge Occlusion Protection from Laser Targets & Arrow Badges**:
+  - Prevented spatial keyboard laser target arrows, circular target badges, and window title labels from covering or obscuring HUD cards and window badges in the HUD dock.
+  - When targeting offscreen windows whose representations reside in the HUD dock (`isTargetInHud == true`), the laser arrow terminates neatly at the outer perimeter edge of the HUD card (`item.hudCardRect.top() - 3.0` or `bottom() + 3.0`) with a directional arrowhead pointing to the card, completely omitting circular target badges, borders, and letters over the HUD card to ensure the window's badge and preview remain 100% visible and unoccluded.
+  - For on-screen windows, connector lines terminate at the perimeter border rather than the card center, and `computeTargetBadgePlacements` and `computeTargetLabelPlacements` treat `layout.hudBounds` and all `hudCardRect`s as protected obstacles, clamping coordinates and shifting labels away from the HUD dock.
+  - Added unit test `testLaserTargetsAvoidHudBadges` in `tests/keyboardoverlay_test.cpp` verifying collision avoidance and clean HUD card isolation.
 - **Interactive Cross-Workspace Selection in Window Search Mode**:
   - Unified the window selection flow between Search Mode and Super Jump Mode (`Meta + A`): selecting a window that belongs to a different workspace (or Stash / other desktop) in Search Mode now invokes the same interactive cross-workspace modal prompt (`[J]` Jump to workspace, `[M]` Move to current workspace, `[P]` Pin to both workspaces, `[Esc]` Cancel / Back to Search).
   - Wired cross-workspace checking into Search Mode key handlers (pressing `Return`/`Enter` or `Alt + JumpKey`) and mouse click handlers on HUD dock pills.

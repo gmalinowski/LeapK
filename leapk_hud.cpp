@@ -449,17 +449,18 @@ void ActiveWindowOutlineEffect::renderHudMetaOverlay(const RenderTarget &renderT
         | (m_audioFilterModeActive ? 16 : 0)
         | (m_tilingPresetsModeActive ? 32 : 0)
         | (m_metaSpaceTraverseActive ? 64 : 0)
-        | (m_hudThumbnailZoomActive ? 128 : 0)
-        | (m_nerdStatsActive ? 256 : 0)
-        | (static_cast<qint64>(qRound(scale * 10)) << 9)
-        | (static_cast<qint64>(qHash(theme.id) % 1000) << 17);
+        | ((static_cast<qint64>(m_hudThumbnailMode & 3)) << 7)
+        | (m_nerdStatsActive ? 512 : 0)
+        | (isKeyboardOverlayActive() ? 1024 : 0)
+        | (static_cast<qint64>(qRound(scale * 10)) << 11)
+        | (static_cast<qint64>(qHash(theme.id) % 1000) << 19);
 
     if (!m_hudMetaOverlayTexture || m_hudMetaOverlayCacheKey != overlayKey) {
         const QImage img = OutlineBadge::renderHudMetaOverlayImage(
             scale, theme, m_superJumpActive, m_closeWindowModeActive,
             m_stashModeActive, m_pinModeActive, m_audioFilterModeActive,
-            m_tilingPresetsModeActive, m_metaSpaceTraverseActive, m_hudThumbnailZoomActive,
-            m_nerdStatsActive);
+            m_tilingPresetsModeActive, m_metaSpaceTraverseActive, m_hudThumbnailMode,
+            m_nerdStatsActive, isKeyboardOverlayActive());
         if (!img.isNull()) {
             auto uploaded = GLTexture::upload(img);
             if (uploaded) {
@@ -1853,11 +1854,13 @@ QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
     pillSizes.reserve(targets.size());
 
     OutlineBadge::BadgeConfig effCfg = cfg;
-    if (m_hudThumbnailZoomActive) {
+    if (m_hudThumbnailMode == 1) {
         effCfg.hudShowThumbnail = true;
         effCfg.hudThumbnailWidth = qMax(180, cfg.hudThumbnailWidth * 2);
         effCfg.hudThumbnailHeight = qMax(110, cfg.hudThumbnailHeight * 2);
         effCfg.hudThumbnailSize = qMax(effCfg.hudThumbnailWidth, effCfg.hudThumbnailHeight);
+    } else if (m_hudThumbnailMode == 2) {
+        effCfg.hudShowThumbnail = false;
     }
 
     EffectWindow *recentWin = findRecentWindow();
@@ -2184,11 +2187,13 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         }
 
         OutlineBadge::BadgeConfig effCfg = cfg;
-        if (m_hudThumbnailZoomActive) {
+        if (m_hudThumbnailMode == 1) {
             effCfg.hudShowThumbnail = true;
             effCfg.hudThumbnailWidth = qMax(180, cfg.hudThumbnailWidth * 2);
             effCfg.hudThumbnailHeight = qMax(110, cfg.hudThumbnailHeight * 2);
             effCfg.hudThumbnailSize = qMax(effCfg.hudThumbnailWidth, effCfg.hudThumbnailHeight);
+        } else if (m_hudThumbnailMode == 2) {
+            effCfg.hudShowThumbnail = false;
         }
 
         const bool showIconOnHud = effCfg.hudShowIcon;

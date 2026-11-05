@@ -495,11 +495,30 @@ void testHudMetaOverlayRendering()
     assert(!overlayTraverse.isNull());
     assert(overlayTraverse.size() == overlayDefault.size());
 
-    // 5. Overlay with Zoom Thumbnails active
-    QImage overlayZoom = OutlineBadge::renderHudMetaOverlayImage(
-        1.0, LeapKTheme::Theme(), false, false, false, false, false, false, false, true /* isZoomThumbnails */);
-    assert(!overlayZoom.isNull());
-    assert(overlayZoom.size() == overlayDefault.size());
+    // 5. Overlay with Thumbnails Mode: Default (0), Zoomed (1), Off (2)
+    QImage overlayThumbDefault = OutlineBadge::renderHudMetaOverlayImage(
+        1.0, LeapKTheme::Theme(), false, false, false, false, false, false, false, 0 /* default */);
+    assert(!overlayThumbDefault.isNull());
+
+    QImage overlayThumbZoomed = OutlineBadge::renderHudMetaOverlayImage(
+        1.0, LeapKTheme::Theme(), false, false, false, false, false, false, false, 1 /* zoomed */);
+    assert(!overlayThumbZoomed.isNull());
+    assert(overlayThumbZoomed.size() == overlayDefault.size());
+
+    QImage overlayThumbOff = OutlineBadge::renderHudMetaOverlayImage(
+        1.0, LeapKTheme::Theme(), false, false, false, false, false, false, false, 2 /* off */);
+    assert(!overlayThumbOff.isNull());
+    assert(overlayThumbOff.size() == overlayDefault.size());
+
+    // 6. Overlay with Spatial Keyboard toggle (Meta+L)
+    QImage overlayKbdOff = OutlineBadge::renderHudMetaOverlayImage(
+        1.0, LeapKTheme::Theme(), false, false, false, false, false, false, false, 0, false, false /* kbd off */);
+    assert(!overlayKbdOff.isNull());
+
+    QImage overlayKbdOn = OutlineBadge::renderHudMetaOverlayImage(
+        1.0, LeapKTheme::Theme(), false, false, false, false, false, false, false, 0, false, true /* kbd on */);
+    assert(!overlayKbdOn.isNull());
+    assert(overlayKbdOn.size() == overlayDefault.size());
 
     std::cout << "testHudMetaOverlayRendering PASSED\n";
 }

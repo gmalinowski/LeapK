@@ -316,6 +316,7 @@ private:
     void enterPinMode();
     void exitPinMode();
     void toggleHudThumbnailZoom();
+    void toggleSpatialKeyboard();
     void toggleNerdStats();
     void slotTriggerNerdStats();
     void updateNerdStatsMetrics(qint64 elapsedNs);
@@ -676,6 +677,7 @@ private:
     QRectF m_pinWsCancelScreenRect;
     mutable std::shared_ptr<GLTexture> m_pinWsOverlayTexture;
     mutable qint64 m_pinWsOverlayCacheKey = -1;
+    int m_hudThumbnailMode = 0; // 0 = Default, 1 = Zoomed, 2 = Off
     bool m_hudThumbnailZoomActive = false;
     bool m_nerdStatsEnabled = false;
     bool m_nerdStatsActive = false;

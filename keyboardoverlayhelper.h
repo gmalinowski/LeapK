@@ -109,6 +109,7 @@ struct KeycapGeometry {
 
 struct KeyboardOverlayLayout {
     QRectF panelRect;
+    QRectF hudBounds;
     QList<KeycapGeometry> keycaps;
     QMap<QChar, KeycapGeometry> keyMap;
 };
@@ -118,6 +119,7 @@ inline KeyboardOverlayLayout computeOverlayGeometry(const QRectF &screenRect,
                                                     const OverlayDisplayConfig &cfg = OverlayDisplayConfig())
 {
     KeyboardOverlayLayout geom;
+    geom.hudBounds = hudBounds;
     const qreal keyW = qBound(32.0, cfg.keySize, 80.0);
     const qreal keyH = keyW * (46.0 / 54.0);
     const qreal gap = qBound(4.0, keyW * 0.11, 8.0);
@@ -463,7 +465,23 @@ inline QMap<QChar, TargetBadgePlacement> computeTargetBadgePlacements(
             bp.stackLevel = 0;
             bp.stackTotal = 1;
             bp.center.setX(qBound(screenRect.left() + 25.0, bp.center.x(), screenRect.right() - 25.0));
-            bp.center.setY(qBound(screenRect.top() + 25.0, bp.center.y(), layout.panelRect.top() - 35.0));
+            qreal minY = screenRect.top() + 25.0;
+            qreal maxY = layout.panelRect.top() - 35.0;
+            if (layout.hudBounds.isValid()) {
+                if (layout.hudBounds.top() > screenRect.center().y()) {
+                    maxY = qMin(maxY, layout.hudBounds.top() - bp.radius - 12.0);
+                } else {
+                    minY = qMax(minY, layout.hudBounds.bottom() + bp.radius + 12.0);
+                }
+            }
+            if (item.hudCardRect.isValid()) {
+                if (item.hudCardRect.top() > screenRect.center().y()) {
+                    maxY = qMin(maxY, item.hudCardRect.top() - bp.radius - 12.0);
+                } else {
+                    minY = qMax(minY, item.hudCardRect.bottom() + bp.radius + 12.0);
+                }
+            }
+            bp.center.setY(qBound(minY, bp.center.y(), maxY));
             placements.insert(key, bp);
             continue;
         }
@@ -556,9 +574,16 @@ inline QMap<QChar, TargetBadgePlacement> computeTargetBadgePlacements(
         const qreal clampedCenterX = qBound(screenRect.left() + totalWidth / 2.0 + 20.0,
                                             avgX,
                                             screenRect.right() - totalWidth / 2.0 - 20.0);
-        const qreal clampedCenterY = qBound(screenRect.top() + maxRadius + 20.0,
-                                            avgY,
-                                            layout.panelRect.top() - maxRadius - 35.0);
+        qreal minY = screenRect.top() + maxRadius + 20.0;
+        qreal maxY = layout.panelRect.top() - maxRadius - 35.0;
+        if (layout.hudBounds.isValid()) {
+            if (layout.hudBounds.top() > screenRect.center().y()) {
+                maxY = qMin(maxY, layout.hudBounds.top() - maxRadius - 12.0);
+            } else {
+                minY = qMax(minY, layout.hudBounds.bottom() + maxRadius + 12.0);
+            }
+        }
+        const qreal clampedCenterY = qBound(minY, avgY, maxY);
 
         // Position from left to right matching the HUD badge layout order
         qreal currLeft = clampedCenterX - totalWidth / 2.0;
@@ -684,18 +709,31 @@ inline QList<TargetLabelPlacement> computeTargetLabelPlacements(
         return result;
     }
 
-    // Collect all badge bounding circles as protected obstacles so labels never cover key letters
+    // Collect all badge bounding circles and HUD cards as protected obstacles so labels never cover key letters or HUD cards/badges
     QList<QRectF> badgeObstacles;
     for (auto it = placements.constBegin(); it != placements.constEnd(); ++it) {
         if (!it.value().item.isCurrentFocused) {
             const QPointF &c = it.value().center;
             const qreal r = it.value().radius + 2.0;
             badgeObstacles.append(QRectF(c.x() - r, c.y() - r, r * 2.0, r * 2.0));
+            if (it.value().item.hudCardRect.isValid()) {
+                badgeObstacles.append(it.value().item.hudCardRect.adjusted(-2.0, -2.0, 2.0, 2.0));
+            }
         }
     }
+    if (layout.hudBounds.isValid()) {
+        badgeObstacles.append(layout.hudBounds.adjusted(-2.0, -2.0, 2.0, 2.0));
+    }
 
-    const qreal minScreenY = screenRect.top() + 6.0;
-    const qreal maxScreenY = layout.panelRect.isValid() ? (layout.panelRect.top() - 6.0) : (screenRect.bottom() - 6.0);
+    qreal minScreenY = screenRect.top() + 6.0;
+    qreal maxScreenY = layout.panelRect.isValid() ? (layout.panelRect.top() - 6.0) : (screenRect.bottom() - 6.0);
+    if (layout.hudBounds.isValid()) {
+        if (layout.hudBounds.top() > screenRect.center().y()) {
+            maxScreenY = qMin(maxScreenY, layout.hudBounds.top() - 6.0);
+        } else {
+            minScreenY = qMax(minScreenY, layout.hudBounds.bottom() + 6.0);
+        }
+    }
     const qreal minScreenX = screenRect.left() + 6.0;
     const qreal maxScreenX = screenRect.right() - 6.0;
 
@@ -1006,9 +1044,10 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
         p.drawEllipse(pStart, 1.5, 1.5);
 
         QPointF pEnd = bp.center;
+        const bool isTargetInHud = (!bp.item.isVisibleOnScreen && bp.item.hudCardRect.isValid());
 
         // If window is not visible on screen, but has a card in the HUD dock, redirect arrow directly to the HUD card
-        if (!bp.item.isVisibleOnScreen && cfg.extendToHud && bp.item.hudCardRect.isValid()) {
+        if (isTargetInHud && cfg.extendToHud) {
             pEnd = bp.item.hudCardRect.center();
         }
 
@@ -1021,8 +1060,21 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
             const qreal uy = dy / dist;
             const qreal theta = std::atan2(dy, dx);
 
-            // Arrow line stops at the perimeter of the target badge
-            const QPointF pTargetPerimeter(pEnd.x() - ux * bp.radius, pEnd.y() - uy * bp.radius);
+            // Arrow line stops at the perimeter of the target badge or HUD card boundary
+            QPointF pTargetPerimeter;
+            if (isTargetInHud) {
+                // Terminate arrow cleanly at outer perimeter border of HUD card so it never covers the HUD badge
+                if (pStart.y() < bp.item.hudCardRect.top()) {
+                    pTargetPerimeter = QPointF(bp.item.hudCardRect.center().x(), bp.item.hudCardRect.top() - 3.0);
+                } else if (pStart.y() > bp.item.hudCardRect.bottom()) {
+                    pTargetPerimeter = QPointF(bp.item.hudCardRect.center().x(), bp.item.hudCardRect.bottom() + 3.0);
+                } else {
+                    pTargetPerimeter = QPointF(pEnd.x() - ux * (bp.item.hudCardRect.width() / 2.0 + 3.0),
+                                               pEnd.y() - uy * (bp.item.hudCardRect.height() / 2.0 + 3.0));
+                }
+            } else {
+                pTargetPerimeter = QPointF(pEnd.x() - ux * bp.radius, pEnd.y() - uy * bp.radius);
+            }
 
             // Ambient Laser Glow (if enabled by theme)
             if (cfg.laserGlow) {
@@ -1063,7 +1115,14 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
 
         // Point 3: Extend line from window target badge to its card in the HUD dock (if available and enabled)
         if (bp.item.isVisibleOnScreen && cfg.extendToHud && bp.item.hudCardRect.isValid()) {
-            const QPointF pHud = bp.item.hudCardRect.center();
+            QPointF pHud;
+            if (bp.center.y() < bp.item.hudCardRect.top()) {
+                pHud = QPointF(bp.item.hudCardRect.center().x(), bp.item.hudCardRect.top() - 2.0);
+            } else if (bp.center.y() > bp.item.hudCardRect.bottom()) {
+                pHud = QPointF(bp.item.hudCardRect.center().x(), bp.item.hudCardRect.bottom() + 2.0);
+            } else {
+                pHud = QPointF(bp.item.hudCardRect.left() - 2.0, bp.item.hudCardRect.center().y());
+            }
             const qreal hdx = pHud.x() - bp.center.x();
             const qreal hdy = pHud.y() - bp.center.y();
             const qreal hdist = std::hypot(hdx, hdy);
@@ -1080,66 +1139,68 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
                 p.setPen(extCol);
                 p.drawLine(pFrom, pHud);
 
-                // Small connector dot on HUD card
+                // Small connector dot on HUD card outer perimeter (outside badge)
                 p.setPen(Qt::NoPen);
                 p.setBrush(arrowCol);
-                p.drawEllipse(pHud, 4.0, 4.0);
+                p.drawEllipse(pHud, 3.0, 3.0);
             }
         }
 
-        // Target badge at window target position (or HUD card position if offscreen)
-        const qreal ringRadius = bp.radius;
-        const QRectF badgeRect(pEnd.x() - ringRadius, pEnd.y() - ringRadius, ringRadius * 2.0, ringRadius * 2.0);
+        // Target badge at window target position (skipped if target is in HUD so it never covers the HUD badge)
+        if (!isTargetInHud) {
+            const qreal ringRadius = bp.radius;
+            const QRectF badgeRect(pEnd.x() - ringRadius, pEnd.y() - ringRadius, ringRadius * 2.0, ringRadius * 2.0);
 
-        // Outer ambient glow
-        if (cfg.laserGlow) {
-            p.setPen(Qt::NoPen);
-            p.setBrush(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), qRound(60 * effOpacity * cfg.laserGlowIntensity)));
-            p.drawEllipse(pEnd, ringRadius + 5.0, ringRadius + 5.0);
-        }
+            // Outer ambient glow
+            if (cfg.laserGlow) {
+                p.setPen(Qt::NoPen);
+                p.setBrush(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), qRound(60 * effOpacity * cfg.laserGlowIntensity)));
+                p.drawEllipse(pEnd, ringRadius + 5.0, ringRadius + 5.0);
+            }
 
-        // Target badge backing & border based on cfg.targetBadgeShape
-        QColor badgeBg(14, 18, 26, qRound(245 * effOpacity));
-        QPen badgeBorderPen(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), qRound(255 * effOpacity)), 2.6);
-        p.setPen(badgeBorderPen);
-        p.setBrush(badgeBg);
-
-        if (cfg.targetBadgeShape == QStringLiteral("ring")) {
-            p.setBrush(QColor(14, 18, 26, qRound(150 * effOpacity)));
-            badgeBorderPen.setWidthF(3.2);
+            // Target badge backing & border based on cfg.targetBadgeShape
+            QColor badgeBg(14, 18, 26, qRound(245 * effOpacity));
+            QPen badgeBorderPen(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), qRound(255 * effOpacity)), 2.6);
             p.setPen(badgeBorderPen);
-            p.drawEllipse(pEnd, ringRadius, ringRadius);
-        } else if (cfg.targetBadgeShape == QStringLiteral("rounded_rect")) {
-            p.drawRoundedRect(badgeRect, 6.0, 6.0);
-        } else if (cfg.targetBadgeShape == QStringLiteral("pill")) {
-            p.drawRoundedRect(badgeRect, ringRadius, ringRadius);
-        } else if (cfg.targetBadgeShape == QStringLiteral("sharp")) {
-            p.drawRect(badgeRect);
-        } else if (cfg.targetBadgeShape == QStringLiteral("chamfered")) {
-            const qreal ch = qBound(3.0, ringRadius * 0.35, 7.0);
-            QPolygonF poly;
-            poly << QPointF(badgeRect.left() + ch, badgeRect.top())
-                 << QPointF(badgeRect.right() - ch, badgeRect.top())
-                 << QPointF(badgeRect.right(), badgeRect.top() + ch)
-                 << QPointF(badgeRect.right(), badgeRect.bottom() - ch)
-                 << QPointF(badgeRect.right() - ch, badgeRect.bottom())
-                 << QPointF(badgeRect.left() + ch, badgeRect.bottom())
-                 << QPointF(badgeRect.left(), badgeRect.bottom() - ch)
-                 << QPointF(badgeRect.left(), badgeRect.top() + ch);
-            p.drawPolygon(poly);
-        } else {
-            // Default "circle"
-            p.drawEllipse(pEnd, ringRadius, ringRadius);
-        }
+            p.setBrush(badgeBg);
 
-        // Key letter inside target badge (font scaled proportionally to badge radius or config)
-        p.setPen(QColor(255, 255, 255, qRound(255 * effOpacity)));
-        const int effBadgeFontSize = (cfg.badgeFontSize > 0) ? cfg.badgeFontSize : qBound(9, qRound(ringRadius * 0.72), 16);
-        QFont letterFont(effFontFamily, effBadgeFontSize, QFont::Bold);
-        letterFont.setStyleStrategy(QFont::PreferAntialias);
-        p.setFont(letterFont);
-        const QRectF badgeTextRect(pEnd.x() - ringRadius, pEnd.y() - ringRadius, ringRadius * 2.0, ringRadius * 2.0);
-        p.drawText(badgeTextRect, Qt::AlignCenter, QString(key));
+            if (cfg.targetBadgeShape == QStringLiteral("ring")) {
+                p.setBrush(QColor(14, 18, 26, qRound(150 * effOpacity)));
+                badgeBorderPen.setWidthF(3.2);
+                p.setPen(badgeBorderPen);
+                p.drawEllipse(pEnd, ringRadius, ringRadius);
+            } else if (cfg.targetBadgeShape == QStringLiteral("rounded_rect")) {
+                p.drawRoundedRect(badgeRect, 6.0, 6.0);
+            } else if (cfg.targetBadgeShape == QStringLiteral("pill")) {
+                p.drawRoundedRect(badgeRect, ringRadius, ringRadius);
+            } else if (cfg.targetBadgeShape == QStringLiteral("sharp")) {
+                p.drawRect(badgeRect);
+            } else if (cfg.targetBadgeShape == QStringLiteral("chamfered")) {
+                const qreal ch = qBound(3.0, ringRadius * 0.35, 7.0);
+                QPolygonF poly;
+                poly << QPointF(badgeRect.left() + ch, badgeRect.top())
+                     << QPointF(badgeRect.right() - ch, badgeRect.top())
+                     << QPointF(badgeRect.right(), badgeRect.top() + ch)
+                     << QPointF(badgeRect.right(), badgeRect.bottom() - ch)
+                     << QPointF(badgeRect.right() - ch, badgeRect.bottom())
+                     << QPointF(badgeRect.left() + ch, badgeRect.bottom())
+                     << QPointF(badgeRect.left(), badgeRect.bottom() - ch)
+                     << QPointF(badgeRect.left(), badgeRect.top() + ch);
+                p.drawPolygon(poly);
+            } else {
+                // Default "circle"
+                p.drawEllipse(pEnd, ringRadius, ringRadius);
+            }
+
+            // Key letter inside target badge (font scaled proportionally to badge radius or config)
+            p.setPen(QColor(255, 255, 255, qRound(255 * effOpacity)));
+            const int effBadgeFontSize = (cfg.badgeFontSize > 0) ? cfg.badgeFontSize : qBound(9, qRound(ringRadius * 0.72), 16);
+            QFont letterFont(effFontFamily, effBadgeFontSize, QFont::Bold);
+            letterFont.setStyleStrategy(QFont::PreferAntialias);
+            p.setFont(letterFont);
+            const QRectF badgeTextRect(pEnd.x() - ringRadius, pEnd.y() - ringRadius, ringRadius * 2.0, ringRadius * 2.0);
+            p.drawText(badgeTextRect, Qt::AlignCenter, QString(key));
+        }
     }
 
     // -------------------------------------------------------------

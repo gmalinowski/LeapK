@@ -27,7 +27,8 @@ void ActiveWindowOutlineEffect::paintWindow(const RenderTarget &renderTarget,
 #endif
 
     const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
-    const bool wantThumbnail = (cfg.windowShowThumbnail || cfg.hudShowThumbnail || m_hudThumbnailZoomActive)
+    const bool wantHudThumb = (m_hudThumbnailMode == 2) ? false : (cfg.hudShowThumbnail || m_hudThumbnailMode == 1);
+    const bool wantThumbnail = (cfg.windowShowThumbnail || wantHudThumb)
         || (m_badgePreviewActive && (m_previewBadgeConfig.windowShowThumbnail || m_previewBadgeConfig.hudShowThumbnail));
     if (wantThumbnail && w && !w->isDeleted() && isEligibleOutlineWindow(w)
         && !w->isMinimized() && w->isVisible() && !isWindowObscured(w)
@@ -37,8 +38,8 @@ void ActiveWindowOutlineEffect::paintWindow(const RenderTarget &renderTarget,
         const qint64 lastCapture = m_lastCaptureTimestamp.value(w, 0);
         const qint64 throttleInterval = m_badgeLivePreviews ? 33 : 1000;
         if (!m_thumbnailCache.contains(w) || (now - lastCapture >= throttleInterval)) {
-            const int effHudW = m_hudThumbnailZoomActive ? qMax(180, cfg.hudThumbnailWidth * 2) : cfg.hudThumbnailWidth;
-            const int effHudH = m_hudThumbnailZoomActive ? qMax(110, cfg.hudThumbnailHeight * 2) : cfg.hudThumbnailHeight;
+            const int effHudW = (m_hudThumbnailMode == 1) ? qMax(180, cfg.hudThumbnailWidth * 2) : cfg.hudThumbnailWidth;
+            const int effHudH = (m_hudThumbnailMode == 1) ? qMax(110, cfg.hudThumbnailHeight * 2) : cfg.hudThumbnailHeight;
             const QSize targetSize(qMax(cfg.windowThumbnailWidth, effHudW) * 2,
                                    qMax(cfg.windowThumbnailHeight, effHudH) * 2);
             captureWindowThumbnail(w, renderTarget, viewport, targetSize, /*forceBlit=*/false);
@@ -69,7 +70,8 @@ void ActiveWindowOutlineEffect::drawWindow(const RenderTarget &renderTarget,
 #endif
 
     const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
-    const bool wantThumbnail = (cfg.windowShowThumbnail || cfg.hudShowThumbnail || m_hudThumbnailZoomActive)
+    const bool wantHudThumb = (m_hudThumbnailMode == 2) ? false : (cfg.hudShowThumbnail || m_hudThumbnailMode == 1);
+    const bool wantThumbnail = (cfg.windowShowThumbnail || wantHudThumb)
         || (m_badgePreviewActive && (m_previewBadgeConfig.windowShowThumbnail || m_previewBadgeConfig.hudShowThumbnail));
     if (wantThumbnail && w && !w->isDeleted() && isEligibleOutlineWindow(w)
         && !w->isMinimized() && w->isVisible() && !isWindowObscured(w)
@@ -79,8 +81,8 @@ void ActiveWindowOutlineEffect::drawWindow(const RenderTarget &renderTarget,
         const qint64 lastCapture = m_lastCaptureTimestamp.value(w, 0);
         const qint64 throttleInterval = m_badgeLivePreviews ? 33 : 1000;
         if (!m_thumbnailCache.contains(w) || (now - lastCapture >= throttleInterval)) {
-            const int effHudW = m_hudThumbnailZoomActive ? qMax(180, cfg.hudThumbnailWidth * 2) : cfg.hudThumbnailWidth;
-            const int effHudH = m_hudThumbnailZoomActive ? qMax(110, cfg.hudThumbnailHeight * 2) : cfg.hudThumbnailHeight;
+            const int effHudW = (m_hudThumbnailMode == 1) ? qMax(180, cfg.hudThumbnailWidth * 2) : cfg.hudThumbnailWidth;
+            const int effHudH = (m_hudThumbnailMode == 1) ? qMax(110, cfg.hudThumbnailHeight * 2) : cfg.hudThumbnailHeight;
             const QSize targetSize(qMax(cfg.windowThumbnailWidth, effHudW) * 2,
                                    qMax(cfg.windowThumbnailHeight, effHudH) * 2);
             captureWindowThumbnail(w, renderTarget, viewport, targetSize, /*forceBlit=*/false);
@@ -643,7 +645,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     }
 
     const OutlineBadge::BadgeConfig &activeBadgeCfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
-    const bool wantThumbnail = (activeBadgeCfg.windowShowThumbnail || activeBadgeCfg.hudShowThumbnail || m_badgeShowThumbnail || m_hudThumbnailZoomActive)
+    const bool wantHudThumb = (m_hudThumbnailMode == 2) ? false : (activeBadgeCfg.hudShowThumbnail || m_hudThumbnailMode == 1);
+    const bool wantThumbnail = (activeBadgeCfg.windowShowThumbnail || wantHudThumb || m_badgeShowThumbnail)
         || (m_badgePreviewActive && (m_previewBadgeConfig.windowShowThumbnail || m_previewBadgeConfig.hudShowThumbnail));
     if (wantThumbnail && !inhibited) {
         const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
@@ -652,8 +655,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         if (m_activeWindow && m_activeWindow->isOnCurrentDesktop()
             && !m_activeWindow->isMinimized() && m_activeWindow->isVisible() && !m_activeWindow->isDeleted()
             && (!m_thumbnailCache.contains(m_activeWindow) || (nowMs - lastCapture >= throttleInterval))) {
-            const int effHudW = m_hudThumbnailZoomActive ? qMax(180, activeBadgeCfg.hudThumbnailWidth * 2) : activeBadgeCfg.hudThumbnailWidth;
-            const int effHudH = m_hudThumbnailZoomActive ? qMax(110, activeBadgeCfg.hudThumbnailHeight * 2) : activeBadgeCfg.hudThumbnailHeight;
+            const int effHudW = (m_hudThumbnailMode == 1) ? qMax(180, activeBadgeCfg.hudThumbnailWidth * 2) : activeBadgeCfg.hudThumbnailWidth;
+            const int effHudH = (m_hudThumbnailMode == 1) ? qMax(110, activeBadgeCfg.hudThumbnailHeight * 2) : activeBadgeCfg.hudThumbnailHeight;
             captureWindowThumbnail(m_activeWindow, renderTarget, viewport,
                                    QSize(effHudW * 2, effHudH * 2));
         }

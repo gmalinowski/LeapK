@@ -167,6 +167,7 @@ void ActiveWindowOutlineEffect::exitCrossWsActionMode()
     m_pinWsRowScreenRects.clear();
     m_pinWsRelRowRects.clear();
     m_pinWsRelCancelRect = QRectF();
+    m_hudThumbnailMode = 0;
     m_hudThumbnailZoomActive = false;
     m_nerdStatsActive = m_nerdStatsEnabled;
     if (m_nerdStatsTimer) {
@@ -585,7 +586,8 @@ void ActiveWindowOutlineEffect::exitPinWsSelectionMode()
 
 void ActiveWindowOutlineEffect::toggleHudThumbnailZoom()
 {
-    m_hudThumbnailZoomActive = !m_hudThumbnailZoomActive;
+    m_hudThumbnailMode = (m_hudThumbnailMode + 1) % 3;
+    m_hudThumbnailZoomActive = (m_hudThumbnailMode == 1);
     m_badgeTextureCache.clear();
     m_thumbnailCache.clear();
     m_lastCaptureTimestamp.clear();
@@ -595,7 +597,7 @@ void ActiveWindowOutlineEffect::toggleHudThumbnailZoom()
     m_hudHintBarCacheKey = -1;
     m_hudMetaOverlayTexture.reset();
     m_hudMetaOverlayCacheKey = -1;
-    playThemedSound(m_hudThumbnailZoomActive ? OutlineSound::SoundEffect::NavTab : OutlineSound::SoundEffect::Dismiss);
+    playThemedSound(m_hudThumbnailMode == 2 ? OutlineSound::SoundEffect::Dismiss : OutlineSound::SoundEffect::NavTab);
     if (effects) {
         effects->addRepaintFull();
     }
@@ -604,10 +606,29 @@ void ActiveWindowOutlineEffect::toggleHudThumbnailZoom()
 void ActiveWindowOutlineEffect::slotToggleThumbnailZoom()
 {
     if (!m_jumpMode) {
+        m_hudThumbnailMode = 1;
         m_hudThumbnailZoomActive = true;
         slotTriggerJumpMode();
     } else {
         toggleHudThumbnailZoom();
+    }
+}
+
+void ActiveWindowOutlineEffect::toggleSpatialKeyboard()
+{
+    m_keyboardOverlayEnabled = !m_keyboardOverlayEnabled;
+    if (effects && effects->config()) {
+        KConfigGroup primaryConfig = effects->config()->group(QStringLiteral("Effect-leapk"));
+        primaryConfig.writeEntry("KeyboardOverlayEnabled", m_keyboardOverlayEnabled);
+        primaryConfig.sync();
+    }
+    m_hudMetaOverlayTexture.reset();
+    m_hudMetaOverlayCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    playThemedSound(m_keyboardOverlayEnabled ? OutlineSound::SoundEffect::NavTab : OutlineSound::SoundEffect::Dismiss);
+    if (effects) {
+        effects->addRepaintFull();
     }
 }
 
@@ -1133,6 +1154,7 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_pinWsRowScreenRects.clear();
     m_pinWsRelRowRects.clear();
     m_pinWsRelCancelRect = QRectF();
+    m_hudThumbnailMode = 0;
     m_hudThumbnailZoomActive = false;
     m_nerdStatsActive = false;
     if (m_nerdStatsTimer && m_nerdStatsTimer->isActive()) {
@@ -1295,6 +1317,7 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
     m_pinWsRowScreenRects.clear();
     m_pinWsRelRowRects.clear();
     m_pinWsRelCancelRect = QRectF();
+    m_hudThumbnailMode = 0;
     m_hudThumbnailZoomActive = false;
     m_nerdStatsActive = false;
     if (m_nerdStatsTimer && m_nerdStatsTimer->isActive()) {
@@ -2123,6 +2146,10 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     if (isMetaOnly && e->key() == Qt::Key_Z) {
         toggleHudThumbnailZoom();
+        return;
+    }
+    if (isMetaOnly && e->key() == Qt::Key_L) {
+        toggleSpatialKeyboard();
         return;
     }
     if (isMetaOnly && e->key() == Qt::Key_D) {

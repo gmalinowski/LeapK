@@ -4342,8 +4342,9 @@ inline QImage renderHudMetaOverlayImage(qreal scale,
                                         bool isAudioMode,
                                         bool isTilingPresets = false,
                                         bool isTraverseRecent = false,
-                                        bool isZoomThumbnails = false,
-                                        bool isNerdStats = false)
+                                        int thumbnailMode = 0,
+                                        bool isNerdStats = false,
+                                        bool isSpatialKeyboard = false)
 {
     struct CheatItem {
         QString key;
@@ -4351,20 +4352,30 @@ inline QImage renderHudMetaOverlayImage(qreal scale,
         QString desc;
         bool isActive;
         QColor activeColor;
+        QString customStatus;
     };
 
+    QString thumbStatus = QStringLiteral("DEFAULT");
+    if (thumbnailMode == 1) {
+        thumbStatus = QStringLiteral("ZOOMED");
+    } else if (thumbnailMode == 2) {
+        thumbStatus = QStringLiteral("OFF");
+    }
+    const bool isThumbActive = (thumbnailMode == 1);
+
     const QList<CheatItem> items = {
-        {QStringLiteral("Meta+Space"), QStringLiteral("Traverse Recent"), QStringLiteral("Hold Meta, tap Space / Shift+Space to cycle recent windows (Alt+Tab)"), isTraverseRecent, QColor(46, 204, 113)},
-        {QStringLiteral("Meta+A"), QStringLiteral("Global Scope"), QStringLiteral("Global Scope (All Workspaces + Stash)"), isSuperJump, QColor(0, 195, 255)},
-        {QStringLiteral("Meta+S"), QStringLiteral("Stash Mode"), QStringLiteral("Drawer for stashing / un-stashing windows"), isStashMode, QColor(46, 204, 113)},
-        {QStringLiteral("Meta+Q"), QStringLiteral("Close Mode"), QStringLiteral("Batch close windows with red badges"), isCloseMode, QColor(231, 76, 60)},
-        {QStringLiteral("Meta+U"), QStringLiteral("Audio Mode"), QStringLiteral("Filter windows actively playing sound"), isAudioMode, QColor(241, 196, 15)},
-        {QStringLiteral("Meta+P"), QStringLiteral("Pinning Mode"), QStringLiteral("Pin or unpin windows across workspaces"), isPinMode, QColor(245, 166, 35)},
-        {QStringLiteral("Meta+Z"), QStringLiteral("Zoom Thumbnails"), QStringLiteral("Enlarge HUD window thumbnail previews"), isZoomThumbnails, QColor(168, 85, 247)},
-        {QStringLiteral("Meta+D"), QStringLiteral("Nerd Stats"), QStringLiteral("Toggle HUD power, CPU, and latency diagnostics (average)"), isNerdStats, QColor(0, 235, 255)},
-        {QStringLiteral("Meta+T"), QStringLiteral("Tiling Presets"), QStringLiteral("Choose tiling layout preset or slot edit"), isTilingPresets, QColor(52, 152, 219)},
-        {QStringLiteral("Meta+W"), QStringLiteral("Workspace Manager"), QStringLiteral("Create, rename, reorder and delete workspaces"), false, QColor(41, 128, 185)},
-        {QStringLiteral("Meta+M"), QStringLiteral("Markers Manager"), QStringLiteral("Assign custom colors and labels to windows"), false, QColor(155, 89, 182)}
+        {QStringLiteral("Meta+Space"), QStringLiteral("Traverse Recent"), QStringLiteral("Hold Meta, tap Space / Shift+Space to cycle recent windows (Alt+Tab)"), isTraverseRecent, QColor(46, 204, 113), QString()},
+        {QStringLiteral("Meta+A"), QStringLiteral("Global Scope"), QStringLiteral("Global Scope (All Workspaces + Stash)"), isSuperJump, QColor(0, 195, 255), QString()},
+        {QStringLiteral("Meta+S"), QStringLiteral("Stash Mode"), QStringLiteral("Drawer for stashing / un-stashing windows"), isStashMode, QColor(46, 204, 113), QString()},
+        {QStringLiteral("Meta+Q"), QStringLiteral("Close Mode"), QStringLiteral("Batch close windows with red badges"), isCloseMode, QColor(231, 76, 60), QString()},
+        {QStringLiteral("Meta+U"), QStringLiteral("Audio Mode"), QStringLiteral("Filter windows actively playing sound"), isAudioMode, QColor(241, 196, 15), QString()},
+        {QStringLiteral("Meta+P"), QStringLiteral("Pinning Mode"), QStringLiteral("Pin or unpin windows across workspaces"), isPinMode, QColor(245, 166, 35), QString()},
+        {QStringLiteral("Meta+Z"), QStringLiteral("Thumbnails Mode"), QStringLiteral("Cycle HUD thumbnail size (Default -> Zoomed -> Off)"), isThumbActive, QColor(168, 85, 247), thumbStatus},
+        {QStringLiteral("Meta+L"), QStringLiteral("Spatial Keyboard"), QStringLiteral("Toggle spatial keyboard and laser targets on/off"), isSpatialKeyboard, QColor(0, 229, 255), isSpatialKeyboard ? QStringLiteral("ON") : QStringLiteral("OFF")},
+        {QStringLiteral("Meta+D"), QStringLiteral("Nerd Stats"), QStringLiteral("Toggle HUD power, CPU, and latency diagnostics (average)"), isNerdStats, QColor(0, 235, 255), QString()},
+        {QStringLiteral("Meta+T"), QStringLiteral("Tiling Presets"), QStringLiteral("Choose tiling layout preset or slot edit"), isTilingPresets, QColor(52, 152, 219), QString()},
+        {QStringLiteral("Meta+W"), QStringLiteral("Workspace Manager"), QStringLiteral("Create, rename, reorder and delete workspaces"), false, QColor(41, 128, 185), QString()},
+        {QStringLiteral("Meta+M"), QStringLiteral("Markers Manager"), QStringLiteral("Assign custom colors and labels to windows"), false, QColor(155, 89, 182), QString()}
     };
 
     QFont titleFont(QStringLiteral("sans-serif"));
@@ -4412,7 +4423,7 @@ inline QImage renderHudMetaOverlayImage(qreal scale,
         maxDescW = qMax(maxDescW, fmDesc.horizontalAdvance(it.desc));
     }
     const int keyPillW = maxKeyW + qRound(16 * scale);
-    const int statusPillW = qRound(56 * scale);
+    const int statusPillW = qRound(68 * scale);
     const int gap = qRound(12 * scale);
     const int minW = qRound(520 * scale);
     const int neededW = padX + keyPillW + gap + maxNameW + gap + maxDescW + gap + statusPillW + padX;
@@ -4487,7 +4498,14 @@ inline QImage renderHudMetaOverlayImage(qreal scale,
         // Status badge on the far right
         const QRectF sRect(totalW - padX - statusPillW, curY + (rowH - pillH) / 2.0, statusPillW, pillH);
         p.setFont(statusFont);
-        if (it.isActive) {
+        if (!it.customStatus.isEmpty()) {
+            const bool highlight = (it.customStatus == QStringLiteral("ZOOMED") || it.customStatus == QStringLiteral("ON"));
+            p.setPen(QPen(highlight ? it.activeColor : QColor(80, 95, 115, 100), 1.0 * scale));
+            p.setBrush(highlight ? QColor(it.activeColor.red(), it.activeColor.green(), it.activeColor.blue(), 50) : QColor(25, 30, 40, 120));
+            p.drawRoundedRect(sRect, pillH / 2.0, pillH / 2.0);
+            p.setPen(highlight ? QColor(255, 255, 255) : QColor(140, 155, 175));
+            p.drawText(sRect, Qt::AlignCenter, it.customStatus);
+        } else if (it.isActive) {
             p.setPen(QPen(it.activeColor, 1.0 * scale));
             p.setBrush(QColor(it.activeColor.red(), it.activeColor.green(), it.activeColor.blue(), 50));
             p.drawRoundedRect(sRect, pillH / 2.0, pillH / 2.0);
