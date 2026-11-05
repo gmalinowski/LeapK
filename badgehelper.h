@@ -2912,7 +2912,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
             {QStringLiteral("Enter / J / 1"), QStringLiteral("Jump to Workspace"), QColor(46, 204, 113)},
             {QStringLiteral("M / 2"), QStringLiteral("Move to Current"), QColor(52, 152, 219)},
             {QStringLiteral("P / 3"), QStringLiteral("Pin / Both"), QColor(245, 166, 35)},
-            {QStringLiteral("Esc / ⌫"), QStringLiteral("Back to Super Jump"), QColor(149, 165, 166)}
+            {QStringLiteral("Esc / ⌫"), QStringLiteral("Cancel / Back"), QColor(149, 165, 166)}
         };
     } else if (isCloseMode) {
         segments = {

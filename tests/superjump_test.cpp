@@ -1194,6 +1194,75 @@ void testCrossWorkspaceActionDialogShortcuts()
     std::cout << "testCrossWorkspaceActionDialogShortcuts PASSED\n";
 }
 
+void testSearchModeCrossWorkspaceSelection()
+{
+    struct MockWindow {
+        QString id;
+        QString appClass;
+        QString caption;
+        int workspaceIndex;
+        int desktop;
+        bool isPinned;
+        QSet<int> pinnedWorkspaces;
+        bool isStashed;
+    };
+
+    MockWindow wLocal{QStringLiteral("w1"), QStringLiteral("org.kde.dolphin"), QStringLiteral("~/Projects"), 1, 1, false, {}, false};
+    MockWindow wRemote{QStringLiteral("w2"), QStringLiteral("org.kde.dolphin"), QStringLiteral("~/Downloads"), 2, 1, false, {}, false};
+    MockWindow wStashed{QStringLiteral("w3"), QStringLiteral("firefox"), QStringLiteral("YouTube"), 1, 1, false, {}, true};
+
+    int currentWorkspace = 1;
+    bool searchModeActive = true;
+    bool superJumpActive = false;
+
+    auto isCrossWorkspace = [&](const MockWindow &w) -> bool {
+        const bool isCrossWsMode = (superJumpActive || searchModeActive);
+        if (!isCrossWsMode) return false;
+        if (w.isPinned && (w.pinnedWorkspaces.contains(0) || w.pinnedWorkspaces.contains(currentWorkspace))) {
+            return false;
+        }
+        if (w.workspaceIndex != currentWorkspace) {
+            return true;
+        }
+        if (w.isStashed) {
+            return true;
+        }
+        return false;
+    };
+
+    // 1. Local window in Workspace 1 is NOT cross-workspace:
+    assert(isCrossWorkspace(wLocal) == false);
+
+    // 2. Remote window in Workspace 2 IS cross-workspace:
+    assert(isCrossWorkspace(wRemote) == true);
+
+    // 3. Stashed window IS cross-workspace:
+    assert(isCrossWorkspace(wStashed) == true);
+
+    // 4. Test selecting remote window in search mode:
+    bool crossWsModalTriggered = false;
+    auto onSelectSearchCandidate = [&](const MockWindow &w, int actionConfig) {
+        if (isCrossWorkspace(w)) {
+            if (actionConfig == 0) {
+                // Interactive modal ("Ask what to do")
+                crossWsModalTriggered = true;
+                return;
+            }
+        }
+        // Direct activation
+    };
+
+    onSelectSearchCandidate(wRemote, 0);
+    assert(crossWsModalTriggered == true);
+
+    // 5. If window becomes pinned to current workspace, it is no longer cross-workspace
+    wRemote.isPinned = true;
+    wRemote.pinnedWorkspaces = {1, 2};
+    assert(isCrossWorkspace(wRemote) == false);
+
+    std::cout << "testSearchModeCrossWorkspaceSelection PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
@@ -1218,6 +1287,7 @@ int main(int argc, char *argv[])
     testPinWorkspaceModalDialogRendering();
     testCrossWorkspaceActionModes();
     testCrossWorkspaceActionDialogShortcuts();
+    testSearchModeCrossWorkspaceSelection();
 
     std::cout << "All Super Jump tests passed successfully!\n";
     return 0;

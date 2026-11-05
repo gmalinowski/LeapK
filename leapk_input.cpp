@@ -65,7 +65,7 @@ void ActiveWindowOutlineEffect::enterCrossWsActionMode(EffectWindow *target)
     m_crossWsActionActive = true;
     m_crossWsTargetWindow = target;
     m_crossWsTargetWorkspace = findWorkspaceForWindow(target);
-    m_crossWsCurrentWorkspace = (m_superJumpTargetWorkspace >= 1 && m_superJumpTargetWorkspace <= m_workspaces.size())
+    m_crossWsCurrentWorkspace = (m_superJumpActive && m_superJumpTargetWorkspace >= 1 && m_superJumpTargetWorkspace <= m_workspaces.size())
                                 ? m_superJumpTargetWorkspace
                                 : (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size() ? m_activeHudView : 0);
 
@@ -289,10 +289,15 @@ bool ActiveWindowOutlineEffect::isCrossWorkspaceTarget(EffectWindow *target) con
     if (!target || target->isDeleted()) {
         return false;
     }
-    const int targetWs = findWorkspaceForWindow(target);
-    const int currentWs = (m_superJumpTargetWorkspace >= 1 && m_superJumpTargetWorkspace <= m_workspaces.size())
+    const int currentWs = (m_superJumpActive && m_superJumpTargetWorkspace >= 1 && m_superJumpTargetWorkspace <= m_workspaces.size())
                           ? m_superJumpTargetWorkspace
                           : (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size() ? m_activeHudView : 0);
+
+    if (isWindowPinned(target, currentWs) && (target->isOnCurrentDesktop() || target->isOnAllDesktops())) {
+        return false;
+    }
+
+    const int targetWs = findWorkspaceForWindow(target);
     if (targetWs != currentWs) {
         return true;
     }
@@ -307,7 +312,8 @@ bool ActiveWindowOutlineEffect::isCrossWorkspaceTarget(EffectWindow *target) con
 
 bool ActiveWindowOutlineEffect::handleSuperJumpCrossWorkspaceSelection(EffectWindow *target, int keyToPass)
 {
-    if (!m_superJumpActive || !isCrossWorkspaceTarget(target)) {
+    const bool isCrossWsMode = (m_superJumpActive || m_searchModeActive);
+    if (!isCrossWsMode || !isCrossWorkspaceTarget(target)) {
         return false;
     }
 
@@ -318,7 +324,7 @@ bool ActiveWindowOutlineEffect::handleSuperJumpCrossWorkspaceSelection(EffectWin
 
     if (m_superJumpCrossWsAction == 2) {
         // Direct Move to Current Workspace
-        const int currentWs = (m_superJumpTargetWorkspace >= 1 && m_superJumpTargetWorkspace <= m_workspaces.size())
+        const int currentWs = (m_superJumpActive && m_superJumpTargetWorkspace >= 1 && m_superJumpTargetWorkspace <= m_workspaces.size())
                               ? m_superJumpTargetWorkspace
                               : (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size() ? m_activeHudView : 0);
         if (m_pinnedWindows.contains(target)) {
@@ -756,8 +762,17 @@ void ActiveWindowOutlineEffect::updateSearchMatches()
         const bool onCurrent = w->isOnCurrentDesktop();
 
         if (m_searchScope == 0) { // Current Workspace
-            if (isStashed || !onCurrent) {
+            if (isStashed) {
                 continue;
+            }
+            if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
+                if (wsIndex != m_activeHudView && !isWindowPinned(w, m_activeHudView)) {
+                    continue;
+                }
+            } else {
+                if (!onCurrent && wsIndex != 0) {
+                    continue;
+                }
             }
         } else if (m_searchScope == 1) { // All Workspaces
             if (isStashed) {
@@ -2382,6 +2397,9 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             if (!m_searchMatches.isEmpty() && m_searchSelectedIndex >= 0 && m_searchSelectedIndex < m_searchMatches.size()) {
                 EffectWindow *target = reinterpret_cast<EffectWindow *>(m_searchMatches.at(m_searchSelectedIndex).windowPtr);
                 if (target && !target->isDeleted()) {
+                    if (handleSuperJumpCrossWorkspaceSelection(target, e->key())) {
+                        return;
+                    }
                     activateJumpTargetWindow(target, e->key());
                     return;
                 }
@@ -2395,6 +2413,9 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             if (!altChar.isEmpty() && m_jumpLetterToWindow.contains(altChar.at(0))) {
                 EffectWindow *target = m_jumpLetterToWindow.value(altChar.at(0));
                 if (target && !target->isDeleted()) {
+                    if (handleSuperJumpCrossWorkspaceSelection(target, e->key())) {
+                        return;
+                    }
                     activateJumpTargetWindow(target, e->key());
                     return;
                 }

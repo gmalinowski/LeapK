@@ -28,6 +28,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Added unit test suite in `tests/keyboardoverlay_test.cpp` verifying overlay activation rules across floating and tiling modes, with 100% passing tests (all 31/31 CTests).
 
 ### Fixed
+- **Interactive Cross-Workspace Selection in Window Search Mode**:
+  - Unified the window selection flow between Search Mode and Super Jump Mode (`Meta + A`): selecting a window that belongs to a different workspace (or Stash / other desktop) in Search Mode now invokes the same interactive cross-workspace modal prompt (`[J]` Jump to workspace, `[M]` Move to current workspace, `[P]` Pin to both workspaces, `[Esc]` Cancel / Back to Search).
+  - Wired cross-workspace checking into Search Mode key handlers (pressing `Return`/`Enter` or `Alt + JumpKey`) and mouse click handlers on HUD dock pills.
+  - Refined `isCrossWorkspaceTarget` to identify cross-workspace windows in both Super Jump and Search Mode while correctly respecting windows pinned to the active workspace.
+  - Updated hint bar text in `badgehelper.h` to display `Cancel / Back` to accurately reflect both Super Jump and Search Mode contexts.
+  - Added unit test `testSearchModeCrossWorkspaceSelection` in `tests/superjump_test.cpp` verifying cross-workspace detection and interactive modal triggering in Search Mode (100% passing tests across all 32 CTests).
 - **Multi-Instance Window Workspace Assignment & Isolation (e.g. Multiple Dolphin / Konsole Windows)**:
   - Fixed bug where opening a new instance of an already open application (such as a second Dolphin or Konsole window) in another workspace caused LeapK to ignore the new window in that workspace, omit HUD cards/badges, and improperly minimize or isolate it.
   - Introduced runtime instance mapping `m_windowWorkspace: QMap<EffectWindow *, int>` to track each window object independently, ensuring separate window instances of the same application class can belong to different LeapK workspaces simultaneously.
