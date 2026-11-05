@@ -87,6 +87,9 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
     m_jumpTimeoutTimer = new QTimer(this);
     m_jumpTimeoutTimer->setSingleShot(true);
     connect(m_jumpTimeoutTimer, &QTimer::timeout, this, [this]() {
+        if (m_crossWsActionActive || m_pinWsSelectionActive) {
+            return;
+        }
         cancelJumpMode();
     });
 
@@ -1383,6 +1386,44 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
     EffectWindow *previous = m_activeWindow;
     if (previous == w) {
         return;
+    }
+
+    if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size() && w && isEligibleOutlineWindow(w) && !isBlockingPopup(w) && !isSystemOverlay(w)) {
+        if (!m_expectedJumpTarget && !m_isHistoryNavigating && !m_jumpMode && !m_crossWsActionActive) {
+            const int targetWs = findWorkspaceForWindow(w);
+            if ((targetWs != m_activeHudView || isWindowInStash(w)) && !isWindowPinned(w, m_activeHudView)) {
+                if (m_superJumpCrossWsAction == 1) {
+                    activateJumpTargetWindow(w);
+                    return;
+                } else if (m_superJumpCrossWsAction == 2) {
+                    if (m_pinnedWindows.contains(w)) {
+                        unpinWindow(w, m_activeHudView);
+                    } else {
+                        addWindowToWorkspace(w, m_activeHudView);
+                        if (effects && effects->currentDesktop()) {
+                            effects->windowToDesktops(w, {effects->currentDesktop()});
+                        }
+                        m_workspaceMinimizedWindows.remove(w);
+                        m_stashedWindows.remove(w);
+                        if (w->isMinimized()) {
+                            w->setMinimized(false);
+                        }
+                        applyWorkspaceViewIsolation(m_activeHudView);
+                    }
+                    return;
+                } else {
+                    EffectWindow *origin = previous ? previous : m_activeWindow;
+                    QPointer<EffectWindow> pw(w);
+                    QPointer<EffectWindow> porigin(origin);
+                    QTimer::singleShot(0, this, [this, pw, porigin]() {
+                        if (pw && !pw->isDeleted()) {
+                            triggerExternalCrossWorkspacePrompt(pw.data(), porigin.data());
+                        }
+                    });
+                    return;
+                }
+            }
+        }
     }
 
     if (m_ambilightEnabled || m_ensurePerimeterContrast) {

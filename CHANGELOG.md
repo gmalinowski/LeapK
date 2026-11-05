@@ -7,6 +7,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.6.0-beta85-exp] - 2026-11-05
 
 ### Added
+- **Cross-Workspace Taskbar / Dock Window Activation Interception (`SuperJumpCrossWsAction`)**:
+  - When working inside a LeapK workspace (e.g. Workspace 1) and clicking an application icon on the KDE Plasma panel task bar / dock for a window that resides in a different workspace (e.g. Workspace 2) or Stash, LeapK intercepts the cross-workspace activation and presents the unified interactive modal prompt:
+    - 🚀 **`[J]` Jump to Workspace**: Seamlessly switches to the target workspace and activates the window.
+    - 📥 **`[M]` Move to Current Workspace**: Transfers the window into the current workspace and unminimizes it.
+    - 📌 **`[P]` Pin to Both Workspaces**: Pins the window strictly to both the source and current workspace.
+    - ❌ **`[Esc]` Cancel**: Re-minimizes the foreign window back into its workspace via workspace isolation, restores keyboard focus to the previous active window in the current workspace, and cleanly dismisses the HUD.
+  - Fully honors `SuperJumpCrossWsAction` configuration:
+    - Mode 0 (*Ask*, default): Interactive glassmorphic modal prompt.
+    - Mode 1 (*Direct Jump*): Switches workspace view directly to the target window's workspace.
+    - Mode 2 (*Direct Move*): Pulls the target window into the active workspace view immediately.
+  - Windows already belonging to or pinned to the active workspace, as well as newly opened application windows, activate immediately without prompting.
+  - Added unit test suite `testTaskbarCrossWorkspaceActivation` in `tests/superjump_test.cpp` verifying activation interception, cancellation isolation, focus restoration, and action execution across all modes (100% passing tests, all 32/32 CTests).
 - **Stats for Nerds HUD Diagnostics Overlay (Moving Average Power & CPU)**:
   - Added dedicated glassmorphic "Stats for Nerds" real-time performance card in the HUD:
     - ⚡ **Leapk Power Draw**: Moving average power consumption in Watts computed from real-time GPU/CPU energy sensors (`/sys/class/hwmon/*/power1_average` or `power1_input`, or `/sys/class/power_supply/BAT*/power_now`) scaled by render latency vs frame budget, displaying both LeapK average wattage and total package power.

@@ -196,11 +196,52 @@ void ActiveWindowOutlineEffect::exitCrossWsActionMode()
     }
 }
 
+void ActiveWindowOutlineEffect::cancelCrossWsActionMode()
+{
+    const bool wasExternal = (!m_superJumpActive && !m_searchModeActive);
+    exitCrossWsActionMode();
+
+    if (wasExternal) {
+        if (m_crossWsOriginWindow) {
+            if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
+                applyWorkspaceViewIsolation(m_activeHudView);
+            }
+            if (!m_crossWsOriginWindow->isDeleted() && m_crossWsOriginWindow->isOnCurrentDesktop()) {
+                if (effects) {
+                    effects->activateWindow(m_crossWsOriginWindow.data());
+                }
+            }
+            m_crossWsOriginWindow = nullptr;
+        }
+        cancelJumpMode();
+    }
+}
+
+void ActiveWindowOutlineEffect::triggerExternalCrossWorkspacePrompt(EffectWindow *target, EffectWindow *previous)
+{
+    if (!target || target->isDeleted()) {
+        return;
+    }
+
+    m_crossWsOriginWindow = previous;
+
+    if (!m_jumpMode) {
+        slotTriggerJumpMode();
+    }
+
+    enterCrossWsActionMode(target);
+
+    if (m_jumpTimeoutTimer) {
+        m_jumpTimeoutTimer->stop();
+    }
+}
+
 void ActiveWindowOutlineEffect::executeCrossWsAction(int actionType)
 {
     EffectWindow *target = m_crossWsTargetWindow.data();
     const int currentWs = m_crossWsCurrentWorkspace;
     const int targetWs = m_crossWsTargetWorkspace;
+    m_crossWsOriginWindow = nullptr;
     exitCrossWsActionMode();
 
     if (!target || target->isDeleted()) {
@@ -1080,6 +1121,7 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_superJumpActive = false;
     m_crossWsActionActive = false;
     m_crossWsTargetWindow = nullptr;
+    m_crossWsOriginWindow = nullptr;
     m_crossWsActionOverlayTexture.reset();
     m_crossWsActionOverlayCacheKey = -1;
     m_pinWsSelectionActive = false;
@@ -1231,6 +1273,17 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
     m_superJumpActive = false;
     m_crossWsActionActive = false;
     m_crossWsTargetWindow = nullptr;
+    if (m_crossWsOriginWindow) {
+        if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
+            applyWorkspaceViewIsolation(m_activeHudView);
+        }
+        if (!m_crossWsOriginWindow->isDeleted() && m_crossWsOriginWindow->isOnCurrentDesktop()) {
+            if (effects) {
+                effects->activateWindow(m_crossWsOriginWindow.data());
+            }
+        }
+        m_crossWsOriginWindow = nullptr;
+    }
     m_crossWsActionOverlayTexture.reset();
     m_crossWsActionOverlayCacheKey = -1;
     m_pinWsSelectionActive = false;
@@ -1405,12 +1458,12 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
                     return;
                 }
                 if (m_crossWsCancelScreenRect.contains(pos) || !m_crossWsDialogScreenRect.contains(pos)) {
-                    exitCrossWsActionMode();
+                    cancelCrossWsActionMode();
                     return;
                 }
                 return;
             } else if (me->button() == Qt::RightButton) {
-                exitCrossWsActionMode();
+                cancelCrossWsActionMode();
                 return;
             }
         }
@@ -1712,9 +1765,9 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
-        // Return back to Super Jump
+        // Return back to Super Jump / Cancel
         if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Space) {
-            exitCrossWsActionMode();
+            cancelCrossWsActionMode();
             return;
         }
 

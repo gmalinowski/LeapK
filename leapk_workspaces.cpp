@@ -1013,6 +1013,9 @@ void ActiveWindowOutlineEffect::applyWorkspaceViewIsolation(int hudViewIndex, Vi
 
             // Stashed windows must always stay hidden in stash!
             if (m_stashedWindows.contains(w)) {
+                if (!w->isMinimized()) {
+                    w->setMinimized(true);
+                }
                 continue;
             }
 

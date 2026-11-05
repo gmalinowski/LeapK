@@ -303,6 +303,8 @@ private:
     void enterCrossWsActionMode(EffectWindow *target);
     void exitCrossWsActionMode();
     void executeCrossWsAction(int actionType);
+    void triggerExternalCrossWorkspacePrompt(EffectWindow *target, EffectWindow *previous);
+    void cancelCrossWsActionMode();
     bool isCrossWorkspaceTarget(EffectWindow *target) const;
     bool handleSuperJumpCrossWorkspaceSelection(EffectWindow *target, int keyToPass = 0);
     void renderHudCrossWsActionOverlay(const RenderTarget &renderTarget, const RenderViewport &viewport);
@@ -693,6 +695,7 @@ private:
     int m_superJumpCrossWsAction = 0;
     bool m_crossWsActionActive = false;
     QPointer<EffectWindow> m_crossWsTargetWindow;
+    QPointer<EffectWindow> m_crossWsOriginWindow;
     int m_crossWsTargetWorkspace = 0;
     int m_crossWsCurrentWorkspace = 0;
     QString m_crossWsTargetWsName;

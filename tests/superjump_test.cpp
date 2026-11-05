@@ -1263,6 +1263,235 @@ void testSearchModeCrossWorkspaceSelection()
     std::cout << "testSearchModeCrossWorkspaceSelection PASSED\n";
 }
 
+void testTaskbarCrossWorkspaceActivation()
+{
+    struct MockWindow {
+        QString id;
+        QString appClass;
+        QString caption;
+        int workspaceIndex;
+        bool isPinned;
+        QSet<int> pinnedWorkspaces;
+        bool isStashed;
+        bool isMinimized;
+    };
+
+    MockWindow wCurrent{QStringLiteral("w1"), QStringLiteral("org.kde.kate"), QStringLiteral("main.cpp"), 1, false, {}, false, false};
+    MockWindow wRemote{QStringLiteral("w2"), QStringLiteral("org.kde.dolphin"), QStringLiteral("~/Downloads"), 2, false, {}, false, true};
+    MockWindow wStashed{QStringLiteral("w3"), QStringLiteral("firefox"), QStringLiteral("YouTube"), 1, false, {}, true, true};
+    MockWindow wPinned{QStringLiteral("w4"), QStringLiteral("slack"), QStringLiteral("Chat"), 2, true, {1, 2}, false, false};
+
+    int currentWorkspace = 1;
+    MockWindow *activeWindow = &wCurrent;
+
+    // Helper simulating LeapK workspace isolation:
+    auto applyWorkspaceIsolation = [&](int activeWs, QList<MockWindow *> allWindows) {
+        for (auto *win : allWindows) {
+            if (win->isStashed) {
+                win->isMinimized = true;
+                continue;
+            }
+            if (win->isPinned && (win->pinnedWorkspaces.contains(0) || win->pinnedWorkspaces.contains(activeWs))) {
+                win->isMinimized = false;
+                continue;
+            }
+            if (win->workspaceIndex == activeWs) {
+                win->isMinimized = false;
+            } else {
+                win->isMinimized = true;
+            }
+        }
+    };
+
+    QList<MockWindow *> allWindows = {&wCurrent, &wRemote, &wStashed, &wPinned};
+    applyWorkspaceIsolation(currentWorkspace, allWindows);
+    assert(!wCurrent.isMinimized);
+    assert(wRemote.isMinimized);
+    assert(wStashed.isMinimized);
+    assert(!wPinned.isMinimized);
+
+    // 1. Taskbar click on remote window in Mode 0 (Ask)
+    {
+        int superJumpCrossWsAction = 0;
+        bool modalPromptActive = false;
+        MockWindow *promptTarget = nullptr;
+        MockWindow *promptOrigin = nullptr;
+
+        // Plasma unminimizes and activates wRemote:
+        wRemote.isMinimized = false;
+        MockWindow *newlyActivated = &wRemote;
+
+        // LeapK slotWindowActivated cross-workspace check:
+        const bool isCrossWs = (newlyActivated->workspaceIndex != currentWorkspace || newlyActivated->isStashed)
+                               && !(newlyActivated->isPinned && (newlyActivated->pinnedWorkspaces.contains(0) || newlyActivated->pinnedWorkspaces.contains(currentWorkspace)));
+        assert(isCrossWs == true);
+
+        if (superJumpCrossWsAction == 0) {
+            modalPromptActive = true;
+            promptTarget = newlyActivated;
+            promptOrigin = activeWindow;
+        }
+
+        assert(modalPromptActive == true);
+        assert(promptTarget == &wRemote);
+        assert(promptOrigin == &wCurrent);
+
+        // User hits Escape to Cancel:
+        // Cancel logic: re-apply workspace isolation, restore active window to origin, close prompt
+        applyWorkspaceIsolation(currentWorkspace, allWindows);
+        activeWindow = promptOrigin;
+        modalPromptActive = false;
+        promptOrigin = nullptr;
+        promptTarget = nullptr;
+
+        assert(wRemote.isMinimized == true); // Re-minimized!
+        assert(activeWindow == &wCurrent);   // Focus restored!
+    }
+
+    // 2. Taskbar click on remote window and selecting Jump (Action 1 / Key 'J')
+    {
+        wRemote.isMinimized = false;
+        MockWindow *newlyActivated = &wRemote;
+
+        // User selects Jump:
+        currentWorkspace = newlyActivated->workspaceIndex;
+        applyWorkspaceIsolation(currentWorkspace, allWindows);
+        activeWindow = newlyActivated;
+
+        assert(currentWorkspace == 2);
+        assert(!wRemote.isMinimized);
+        assert(activeWindow == &wRemote);
+        assert(wCurrent.isMinimized == true); // wCurrent now minimized in Ws 1!
+
+        // Restore back to Workspace 1 for further tests:
+        currentWorkspace = 1;
+        applyWorkspaceIsolation(currentWorkspace, allWindows);
+        activeWindow = &wCurrent;
+    }
+
+    // 3. Taskbar click on remote window and selecting Move (Action 2 / Key 'M')
+    {
+        wRemote.isMinimized = false;
+        MockWindow *newlyActivated = &wRemote;
+
+        // User selects Move to current workspace:
+        newlyActivated->workspaceIndex = currentWorkspace;
+        newlyActivated->isMinimized = false;
+        applyWorkspaceIsolation(currentWorkspace, allWindows);
+        activeWindow = newlyActivated;
+
+        assert(wRemote.workspaceIndex == 1);
+        assert(!wRemote.isMinimized);
+        assert(!wCurrent.isMinimized);
+        assert(activeWindow == &wRemote);
+
+        // Put wRemote back to Workspace 2 for next tests
+        wRemote.workspaceIndex = 2;
+        applyWorkspaceIsolation(currentWorkspace, allWindows);
+        activeWindow = &wCurrent;
+    }
+
+    // 4. Taskbar click on remote window and selecting Pin (Action 3 / Key 'P')
+    {
+        wRemote.isMinimized = false;
+        MockWindow *newlyActivated = &wRemote;
+
+        // User selects Pin to both workspaces:
+        newlyActivated->isPinned = true;
+        newlyActivated->pinnedWorkspaces = {1, 2};
+        newlyActivated->isMinimized = false;
+        applyWorkspaceIsolation(currentWorkspace, allWindows);
+        activeWindow = newlyActivated;
+
+        assert(wRemote.isPinned == true);
+        assert(wRemote.pinnedWorkspaces.contains(1));
+        assert(wRemote.pinnedWorkspaces.contains(2));
+        assert(!wRemote.isMinimized);
+        assert(!wCurrent.isMinimized);
+
+        // Reset wRemote pinning
+        wRemote.isPinned = false;
+        wRemote.pinnedWorkspaces.clear();
+        applyWorkspaceIsolation(currentWorkspace, allWindows);
+        activeWindow = &wCurrent;
+    }
+
+    // 5. Mode 1: Direct Jump on taskbar click
+    {
+        int superJumpCrossWsAction = 1;
+        wRemote.isMinimized = false;
+        MockWindow *newlyActivated = &wRemote;
+
+        const bool isCrossWs = (newlyActivated->workspaceIndex != currentWorkspace || newlyActivated->isStashed)
+                               && !(newlyActivated->isPinned && (newlyActivated->pinnedWorkspaces.contains(0) || newlyActivated->pinnedWorkspaces.contains(currentWorkspace)));
+        assert(isCrossWs == true);
+
+        if (superJumpCrossWsAction == 1) {
+            currentWorkspace = newlyActivated->workspaceIndex;
+            applyWorkspaceIsolation(currentWorkspace, allWindows);
+            activeWindow = newlyActivated;
+        }
+
+        assert(currentWorkspace == 2);
+        assert(activeWindow == &wRemote);
+
+        // Reset back to Ws 1
+        currentWorkspace = 1;
+        applyWorkspaceIsolation(currentWorkspace, allWindows);
+        activeWindow = &wCurrent;
+    }
+
+    // 6. Mode 2: Direct Move on taskbar click
+    {
+        int superJumpCrossWsAction = 2;
+        wRemote.isMinimized = false;
+        MockWindow *newlyActivated = &wRemote;
+
+        const bool isCrossWs = (newlyActivated->workspaceIndex != currentWorkspace || newlyActivated->isStashed)
+                               && !(newlyActivated->isPinned && (newlyActivated->pinnedWorkspaces.contains(0) || newlyActivated->pinnedWorkspaces.contains(currentWorkspace)));
+        assert(isCrossWs == true);
+
+        if (superJumpCrossWsAction == 2) {
+            newlyActivated->workspaceIndex = currentWorkspace;
+            newlyActivated->isMinimized = false;
+            applyWorkspaceIsolation(currentWorkspace, allWindows);
+            activeWindow = newlyActivated;
+        }
+
+        assert(wRemote.workspaceIndex == 1);
+        assert(!wRemote.isMinimized);
+        assert(activeWindow == &wRemote);
+
+        // Reset
+        wRemote.workspaceIndex = 2;
+        applyWorkspaceIsolation(currentWorkspace, allWindows);
+        activeWindow = &wCurrent;
+    }
+
+    // 7. Pinned window in Workspace 1 should NOT be cross-workspace:
+    {
+        const bool isCrossWs = (wPinned.workspaceIndex != currentWorkspace || wPinned.isStashed)
+                               && !(wPinned.isPinned && (wPinned.pinnedWorkspaces.contains(0) || wPinned.pinnedWorkspaces.contains(currentWorkspace)));
+        assert(isCrossWs == false);
+    }
+
+    // 8. Stashed window click from taskbar:
+    {
+        wStashed.isMinimized = false;
+        MockWindow *newlyActivated = &wStashed;
+
+        const bool isCrossWs = (newlyActivated->workspaceIndex != currentWorkspace || newlyActivated->isStashed)
+                               && !(newlyActivated->isPinned && (newlyActivated->pinnedWorkspaces.contains(0) || newlyActivated->pinnedWorkspaces.contains(currentWorkspace)));
+        assert(isCrossWs == true);
+
+        // On cancel:
+        applyWorkspaceIsolation(currentWorkspace, allWindows);
+        assert(wStashed.isMinimized == true); // Re-minimized in stash!
+    }
+
+    std::cout << "testTaskbarCrossWorkspaceActivation PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
@@ -1288,6 +1517,7 @@ int main(int argc, char *argv[])
     testCrossWorkspaceActionModes();
     testCrossWorkspaceActionDialogShortcuts();
     testSearchModeCrossWorkspaceSelection();
+    testTaskbarCrossWorkspaceActivation();
 
     std::cout << "All Super Jump tests passed successfully!\n";
     return 0;
