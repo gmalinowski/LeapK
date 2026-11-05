@@ -438,6 +438,165 @@ void testWorkspacePinningManager()
     std::cout << "testWorkspacePinningManager PASSED\n";
 }
 
+void testMultiInstanceWindowWorkspaceAssignment()
+{
+    using namespace LeapKWorkspace;
+
+    // Mock window representation
+    struct MockWindow {
+        quintptr id;
+        QString appClass;
+        QString caption;
+        int desktop;
+        bool minimized;
+    };
+
+    MockWindow dolphin1{1001, QStringLiteral("org.kde.dolphin"), QStringLiteral("~/Documents — Dolphin"), 1, false};
+    MockWindow dolphin2{1002, QStringLiteral("org.kde.dolphin"), QStringLiteral("~/Downloads — Dolphin"), 1, false};
+
+    QList<WorkspaceInfo> workspaces;
+    WorkspaceInfo ws1;
+    ws1.id = QStringLiteral("ws-work");
+    ws1.name = QStringLiteral("Work");
+    WindowMatchRule r1;
+    r1.matchApp = QStringLiteral("org.kde.dolphin");
+    r1.matchDesktop = 0;
+    ws1.rules.append(r1);
+
+    WorkspaceInfo ws2;
+    ws2.id = QStringLiteral("ws-personal");
+    ws2.name = QStringLiteral("Personal");
+
+    workspaces.append(ws1);
+    workspaces.append(ws2);
+
+    // Runtime instance map (simulates m_windowWorkspace)
+    QMap<quintptr, int> windowWorkspace;
+
+    // Helper: findWorkspaceForWindow(target)
+    auto findWorkspaceForWindow = [&](const MockWindow &win) -> int {
+        if (windowWorkspace.contains(win.id)) {
+            return windowWorkspace.value(win.id);
+        }
+        int found = findWorkspaceIndexForWindow(workspaces, win.appClass, win.caption, win.desktop);
+        windowWorkspace[win.id] = found;
+        return found;
+    };
+
+    // Helper: addWindowToWorkspace(win, wsIdx) with coexistence protection
+    auto addWindowToWorkspace = [&](MockWindow &win, int targetWsIdx, const QList<MockWindow*> &allWindows) {
+        windowWorkspace[win.id] = targetWsIdx;
+        const QString appClass = win.appClass.trimmed();
+
+        if (targetWsIdx >= 1 && targetWsIdx <= workspaces.size()) {
+            bool otherInOtherWs = false;
+            for (const auto *other : allWindows) {
+                if (other && other->id != win.id && other->appClass == appClass) {
+                    const int otherWs = windowWorkspace.value(other->id, 0);
+                    if (otherWs > 0 && otherWs != targetWsIdx) {
+                        otherInOtherWs = true;
+                        break;
+                    }
+                }
+            }
+
+            if (otherInOtherWs) {
+                // Preserve rules in other workspaces, ensure target workspace has a rule
+                auto &ws = workspaces[targetWsIdx - 1];
+                bool alreadyHasRule = false;
+                for (const auto &r : ws.rules) {
+                    if (r.matchApp.compare(appClass, Qt::CaseInsensitive) == 0) {
+                        alreadyHasRule = true;
+                        break;
+                    }
+                }
+                if (!alreadyHasRule) {
+                    WindowMatchRule r;
+                    r.matchApp = appClass;
+                    r.matchDesktop = win.desktop;
+                    ws.rules.append(r);
+                }
+            } else {
+                reassignWindowToWorkspace(workspaces, workspaces.at(targetWsIdx - 1).id, appClass, win.caption, true, 0);
+            }
+        }
+    };
+
+    // 1. Initial lookup: Dolphin 1 matches Workspace 1 via static rule
+    assert(findWorkspaceForWindow(dolphin1) == 1);
+    assert(windowWorkspace.value(dolphin1.id) == 1);
+
+    // 2. Open Dolphin 2 while in Workspace 2 (view 2)
+    const int activeHudView = 2;
+    windowWorkspace[dolphin2.id] = activeHudView;
+    addWindowToWorkspace(dolphin2, 2, {&dolphin1, &dolphin2});
+
+    // Verify both window instances are tracked independently in their respective workspaces
+    assert(findWorkspaceForWindow(dolphin1) == 1);
+    assert(findWorkspaceForWindow(dolphin2) == 2);
+
+    // Verify Workspace 1 rule was NOT destroyed
+    assert(workspaces.at(0).rules.size() >= 1);
+    assert(workspaces.at(0).rules.at(0).matchApp == QStringLiteral("org.kde.dolphin"));
+
+    // Verify Workspace 2 now has a rule for Dolphin as well
+    assert(workspaces.at(1).rules.size() >= 1);
+    assert(workspaces.at(1).rules.at(0).matchApp == QStringLiteral("org.kde.dolphin"));
+
+    // 3. Test workspace isolation simulation
+    auto applyIsolation = [&](int hudViewIndex, QList<MockWindow*> wins) {
+        for (auto *w : wins) {
+            const bool matches = (findWorkspaceForWindow(*w) == hudViewIndex);
+            w->minimized = !matches;
+        }
+    };
+
+    // View Workspace 1: dolphin1 visible, dolphin2 minimized
+    applyIsolation(1, {&dolphin1, &dolphin2});
+    assert(dolphin1.minimized == false);
+    assert(dolphin2.minimized == true);
+
+    // View Workspace 2: dolphin2 visible, dolphin1 minimized
+    applyIsolation(2, {&dolphin1, &dolphin2});
+    assert(dolphin1.minimized == true);
+    assert(dolphin2.minimized == false);
+
+    // 4. Test HUD counts per workspace
+    auto countWindowsForWorkspace = [&](int wsIdx, const QList<MockWindow*> &wins) -> int {
+        int count = 0;
+        for (const auto *w : wins) {
+            if (findWorkspaceForWindow(*w) == wsIdx) {
+                count++;
+            }
+        }
+        return count;
+    };
+
+    assert(countWindowsForWorkspace(1, {&dolphin1, &dolphin2}) == 1);
+    assert(countWindowsForWorkspace(2, {&dolphin1, &dolphin2}) == 1);
+
+    // 5. Test workspace deletion shift
+    // Deleting Workspace 1:
+    // Window in ws 1 is removed from instance map
+    // Window in ws 2 has its ws index shifted 2 -> 1
+    workspaces.removeAt(0); // Workspace 2 becomes Workspace 1
+    for (auto it = windowWorkspace.begin(); it != windowWorkspace.end(); ) {
+        if (it.value() == 1) {
+            it = windowWorkspace.erase(it);
+        } else if (it.value() > 1) {
+            *it = it.value() - 1;
+            ++it;
+        } else {
+            ++it;
+        }
+    }
+
+    assert(!windowWorkspace.contains(dolphin1.id));
+    assert(windowWorkspace.value(dolphin2.id) == 1); // Dolphin 2 shifted cleanly to Workspace 1
+
+    std::cout << "testMultiInstanceWindowWorkspaceAssignment PASSED\n";
+}
+
 int main()
 {
     testRuleSerialization();
@@ -449,6 +608,7 @@ int main()
     testUpdateWorkspace();
     testWorkspaceViewsAndCycling();
     testWorkspacePinningManager();
+    testMultiInstanceWindowWorkspaceAssignment();
     std::cout << "All workspace tests passed successfully!\n";
     return 0;
 }

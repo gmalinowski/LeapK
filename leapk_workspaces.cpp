@@ -597,6 +597,11 @@ void ActiveWindowOutlineEffect::refreshWorkspaces()
             }
         }
     }
+    for (auto it = m_windowWorkspace.begin(); it != m_windowWorkspace.end(); ++it) {
+        if (it.value() > m_workspaces.size()) {
+            *it = 0;
+        }
+    }
     const int totalViews = LeapKWorkspace::computeTotalWorkspaceViews(m_workspaces.size());
     if (m_activeHudView >= totalViews || m_activeHudView < 0) {
         m_activeHudView = 0;
@@ -692,12 +697,10 @@ void ActiveWindowOutlineEffect::switchToWorkspaceView(int newHudViewIndex)
     }
 
     if (!targetDesktop && newHudViewIndex >= 1 && newHudViewIndex <= m_workspaces.size()) {
-        const auto &ws = m_workspaces.at(newHudViewIndex - 1);
         for (EffectWindow *w : effects->stackingOrder()) {
             if (!w || w->isDeleted() || isBlockingPopup(w)) continue;
-            const auto desktops = w->desktops();
-            const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
-            if (LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum)) {
+            if (findWorkspaceForWindow(w) == newHudViewIndex) {
+                const auto desktops = w->desktops();
                 if (!desktops.isEmpty() && !w->isOnAllDesktops()) {
                     targetDesktop = desktops.first();
                     break;
@@ -719,14 +722,11 @@ void ActiveWindowOutlineEffect::switchToWorkspaceView(int newHudViewIndex)
 
     // 6. Ensure top matching window on current desktop is active
     if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
-        const auto &ws = m_workspaces.at(m_activeHudView - 1);
         EffectWindow *topWin = nullptr;
         for (EffectWindow *w : effects->stackingOrder()) {
             if (!w || w->isDeleted() || w->isMinimized() || !isEligibleOutlineWindow(w) || isBlockingPopup(w)) continue;
             if (w->isOnCurrentDesktop()) {
-                const auto desktops = w->desktops();
-                const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
-                if (LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum)) {
+                if (findWorkspaceForWindow(w) == m_activeHudView) {
                     topWin = w;
                 }
             }
@@ -813,10 +813,15 @@ void ActiveWindowOutlineEffect::slotOpenWorkspaceManager()
     const QString caption = target ? target->caption() : QString();
 
     QString assignedWsId;
-    for (const auto &ws : m_workspaces) {
-        if (LeapKWorkspace::matchesWorkspace(ws, appClass, caption, desktopNum)) {
-            assignedWsId = ws.id;
-            break;
+    const int targetWsIdx = target ? findWorkspaceForWindow(target) : 0;
+    if (targetWsIdx >= 1 && targetWsIdx <= m_workspaces.size()) {
+        assignedWsId = m_workspaces.at(targetWsIdx - 1).id;
+    } else {
+        for (const auto &ws : m_workspaces) {
+            if (LeapKWorkspace::matchesWorkspace(ws, appClass, caption, desktopNum)) {
+                assignedWsId = ws.id;
+                break;
+            }
         }
     }
 
@@ -998,7 +1003,6 @@ void ActiveWindowOutlineEffect::applyWorkspaceViewIsolation(int hudViewIndex, Vi
     const auto windows = effects->stackingOrder();
 
     if (hudViewIndex >= 1 && hudViewIndex <= m_workspaces.size()) {
-        const auto &ws = m_workspaces.at(hudViewIndex - 1);
         EffectWindow *topMatchingWindow = nullptr;
         VirtualDesktop *effectiveDesk = targetDesktop ? targetDesktop : (effects ? effects->currentDesktop() : nullptr);
 
@@ -1030,9 +1034,7 @@ void ActiveWindowOutlineEffect::applyWorkspaceViewIsolation(int hudViewIndex, Vi
                 continue;
             }
 
-            const auto desktops = w->desktops();
-            const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
-            const bool matches = LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum);
+            const bool matches = (findWorkspaceForWindow(w) == hudViewIndex);
 
             if (matches) {
                 // Should appear: unminimize if minimized
@@ -1040,6 +1042,7 @@ void ActiveWindowOutlineEffect::applyWorkspaceViewIsolation(int hudViewIndex, Vi
                     m_workspaceMinimizedWindows.remove(w);
                     w->setMinimized(false);
                 }
+                const auto desktops = w->desktops();
                 if (effectiveDesk && (desktops.contains(effectiveDesk) || w->isOnAllDesktops())) {
                     topMatchingWindow = w;
                 } else if (!topMatchingWindow) {
@@ -1126,12 +1129,18 @@ int ActiveWindowOutlineEffect::findWorkspaceForWindow(EffectWindow *target) cons
         return m_activeHudView;
     }
 
+    if (m_windowWorkspace.contains(target)) {
+        return m_windowWorkspace.value(target);
+    }
+
     const auto desktops = target->desktops();
     const int dNum = (!desktops.isEmpty() && !target->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
     const QString appClass = target->windowClass();
     const QString caption = target->caption();
 
-    return LeapKWorkspace::findWorkspaceIndexForWindow(m_workspaces, appClass, caption, dNum);
+    const int found = LeapKWorkspace::findWorkspaceIndexForWindow(m_workspaces, appClass, caption, dNum);
+    const_cast<ActiveWindowOutlineEffect *>(this)->m_windowWorkspace[target] = found;
+    return found;
 }
 
 bool ActiveWindowOutlineEffect::isWorkspacePlayingAudio(int wsIndex) const
@@ -1168,13 +1177,51 @@ void ActiveWindowOutlineEffect::addWindowToWorkspace(EffectWindow *w, int worksp
 
     m_stashedWindows.remove(w);
     m_workspaceMinimizedWindows.remove(w);
+    m_windowWorkspace[w] = workspaceIndex;
 
     const QString appClass = w->windowClass().trimmed();
     const QString caption = w->caption().trimmed();
 
     if (workspaceIndex >= 1 && workspaceIndex <= m_workspaces.size()) {
         const QString wsId = m_workspaces.at(workspaceIndex - 1).id;
-        LeapKWorkspace::reassignWindowToWorkspace(m_workspaces, wsId, appClass, caption, !appClass.isEmpty(), 0);
+
+        // Check if there are other windows of this same appClass active in DIFFERENT workspaces
+        bool otherWindowInOtherWs = false;
+        if (effects && !appClass.isEmpty()) {
+            for (EffectWindow *other : effects->stackingOrder()) {
+                if (other && other != w && !other->isDeleted() && other->windowClass() == appClass) {
+                    const int otherWs = m_windowWorkspace.value(other, 0);
+                    if (otherWs > 0 && otherWs != workspaceIndex) {
+                        otherWindowInOtherWs = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (otherWindowInOtherWs) {
+            // Do NOT remove app from all workspaces because another instance lives in another workspace!
+            // Instead, add/ensure a rule for this workspace with desktop match if available
+            const auto desktops = w->desktops();
+            const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+            auto &ws = m_workspaces[workspaceIndex - 1];
+            bool alreadyHasRule = false;
+            for (const auto &r : ws.rules) {
+                if (r.matchApp.compare(appClass, Qt::CaseInsensitive) == 0 && (r.matchDesktop == dNum || r.matchDesktop == 0)) {
+                    alreadyHasRule = true;
+                    break;
+                }
+            }
+            if (!alreadyHasRule) {
+                LeapKWorkspace::WindowMatchRule r;
+                r.matchApp = appClass;
+                r.matchDesktop = dNum;
+                ws.rules.append(r);
+            }
+        } else {
+            LeapKWorkspace::reassignWindowToWorkspace(m_workspaces, wsId, appClass, caption, !appClass.isEmpty(), 0);
+        }
+
         if (effects && effects->currentDesktop()) {
             if (workspaceIndex - 1 < m_workspaces.size()) {
                 m_workspaces[workspaceIndex - 1].lastVirtualDesktopId = effects->currentDesktop()->id();
@@ -1184,6 +1231,22 @@ void ActiveWindowOutlineEffect::addWindowToWorkspace(EffectWindow *w, int worksp
         }
         LeapKWorkspace::saveWorkspaces(m_workspaces);
     } else if (workspaceIndex == 0) {
+        bool otherWindowInOtherWs = false;
+        if (effects && !appClass.isEmpty()) {
+            for (EffectWindow *other : effects->stackingOrder()) {
+                if (other && other != w && !other->isDeleted() && other->windowClass() == appClass) {
+                    const int otherWs = m_windowWorkspace.value(other, 0);
+                    if (otherWs > 0) {
+                        otherWindowInOtherWs = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if (!otherWindowInOtherWs && !appClass.isEmpty()) {
+            LeapKWorkspace::removeWindowFromAllWorkspaces(m_workspaces, appClass);
+            LeapKWorkspace::saveWorkspaces(m_workspaces);
+        }
         if (effects && effects->currentDesktop()) {
             effects->windowToDesktops(w, {effects->currentDesktop()});
         }
@@ -1257,14 +1320,12 @@ void ActiveWindowOutlineEffect::applyWorkspaceDeletion(const QString &deletedWor
 
     const auto windows = effects ? effects->stackingOrder() : QList<EffectWindow *>();
     QList<EffectWindow *> matchingWindows;
-    if (!targetWs.id.isEmpty()) {
+    if (foundIdx >= 0) {
         for (EffectWindow *w : windows) {
             if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher() || !w->acceptsFocus() || isBlockingPopup(w)) {
                 continue;
             }
-            const auto desktops = w->desktops();
-            const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
-            if (LeapKWorkspace::matchesWorkspace(targetWs, w->windowClass(), w->caption(), dNum)) {
+            if (findWorkspaceForWindow(w) == (foundIdx + 1)) {
                 matchingWindows.append(w);
             }
         }
@@ -1303,6 +1364,18 @@ void ActiveWindowOutlineEffect::applyWorkspaceDeletion(const QString &deletedWor
     if (foundIdx >= 0 && foundIdx < m_workspaces.size()) {
         m_workspaces.removeAt(foundIdx);
         LeapKWorkspace::saveWorkspaces(m_workspaces);
+    }
+    if (foundIdx >= 0) {
+        for (auto it = m_windowWorkspace.begin(); it != m_windowWorkspace.end(); ) {
+            if (it.value() == (foundIdx + 1)) {
+                it = m_windowWorkspace.erase(it);
+            } else if (it.value() > (foundIdx + 1)) {
+                *it = it.value() - 1;
+                ++it;
+            } else {
+                ++it;
+            }
+        }
     }
     m_workspaceLastVirtualDesktopId.remove(deletedWorkspaceId);
     m_workspaceTilingActive.remove(deletedWorkspaceId);
@@ -1394,9 +1467,7 @@ void ActiveWindowOutlineEffect::slotCloseActiveWorkspace()
     if (effects) {
         for (EffectWindow *win : effects->stackingOrder()) {
             if (!win || win->isDeleted() || !isEligibleOutlineWindow(win)) continue;
-            const auto desktops = win->desktops();
-            const int dNum = (!desktops.isEmpty() && !win->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
-            if (LeapKWorkspace::matchesWorkspace(ws, win->windowClass(), win->caption(), dNum)) {
+            if (findWorkspaceForWindow(win) == m_activeHudView) {
                 matchingWindowsCount++;
             }
         }

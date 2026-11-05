@@ -969,9 +969,6 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
         const bool isMarked = m_markedWindows.contains(w);
         const bool onCurrent = w->isOnCurrentDesktop();
 
-        const auto desktops = w->desktops();
-        const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
-
         if (m_searchModeActive) {
             // Search Mode: only windows matched in m_searchMatches!
             bool foundInSearch = false;
@@ -997,8 +994,7 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
             bool isCurrentWorkspaceVisible = false;
             if (!isStashed) {
                 if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
-                    const auto &ws = m_workspaces.at(m_activeHudView - 1);
-                    if (LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum)) {
+                    if (findWorkspaceForWindow(w) == m_activeHudView) {
                         isCurrentWorkspaceVisible = true;
                     }
                 } else if (m_activeHudView == m_workspaces.size() + 1) {
@@ -1024,8 +1020,7 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
             } else if (m_tilingActive && isWindowInTileSlot(w)) {
                 // Tiled window currently occupying a slot: always visible and jumpable!
             } else if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) { // Workspace view: only windows matching this workspace
-                const auto &ws = m_workspaces.at(m_activeHudView - 1);
-                if (!LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum)) {
+                if (findWorkspaceForWindow(w) != m_activeHudView) {
                     continue;
                 }
             } else if (m_activeHudView == m_workspaces.size() + 1) { // All windows across all virtual desktops
@@ -2944,9 +2939,7 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
                 if (isWindowInStash(w)) {
                     continue;
                 }
-                const auto desktops = w->desktops();
-                const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
-                if (LeapKWorkspace::matchesWorkspace(ws, w->windowClass(), w->caption(), dNum)) {
+                if (findWorkspaceForWindow(w) == (i + 1) || isWindowPinned(w, i + 1)) {
                     wsCount++;
                 }
             }

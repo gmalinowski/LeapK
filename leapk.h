@@ -664,6 +664,7 @@ private:
     QSet<EffectWindow *> m_stashedWindows;
     QSet<EffectWindow *> m_pinnedWindows;
     QMap<EffectWindow *, QSet<int>> m_windowPinnedWorkspaces;
+    QMap<EffectWindow *, int> m_windowWorkspace;
     bool m_pinWsSelectionActive = false;
     QPointer<EffectWindow> m_pinTargetWindow;
     QRectF m_pinWsDialogScreenRect;

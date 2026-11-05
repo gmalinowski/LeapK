@@ -28,6 +28,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Added unit test suite in `tests/keyboardoverlay_test.cpp` verifying overlay activation rules across floating and tiling modes, with 100% passing tests (all 31/31 CTests).
 
 ### Fixed
+- **Multi-Instance Window Workspace Assignment & Isolation (e.g. Multiple Dolphin / Konsole Windows)**:
+  - Fixed bug where opening a new instance of an already open application (such as a second Dolphin or Konsole window) in another workspace caused LeapK to ignore the new window in that workspace, omit HUD cards/badges, and improperly minimize or isolate it.
+  - Introduced runtime instance mapping `m_windowWorkspace: QMap<EffectWindow *, int>` to track each window object independently, ensuring separate window instances of the same application class can belong to different LeapK workspaces simultaneously.
+  - Updated `slotWindowAdded` to immediately register new windows into the active workspace view (`m_windowWorkspace[w] = m_activeHudView`), ensuring subsequent queries and delayed window title/class events properly preserve workspace assignment.
+  - Enhanced `addWindowToWorkspace` to detect when other instances of the same application class exist in other workspaces (`otherWindowInOtherWs`), preserving existing workspace rules instead of wiping them across all workspaces, while ensuring the target workspace also has a valid rule.
+  - Updated `findWorkspaceForWindow` to check the runtime instance map first, falling back to static workspace rules and caching the result.
+  - Replaced static `matchesWorkspace` rule checks with `findWorkspaceForWindow(w)` in `applyWorkspaceViewIsolation`, `assignJumpLetters`, HUD header tabs count, tiling slot assignment, and workspace deletion logic.
+  - Added unit test suite `testMultiInstanceWindowWorkspaceAssignment` in `tests/workspace_test.cpp` verifying multi-instance window coexistence, dynamic workspace resolution, window isolation, HUD card counts, and workspace deletion index shifting (100% passing tests across all 32 CTests).
 - **Cross-Workspace Selection: "Pin / Both Workspaces" Option Pinning to All Workspaces**:
   - Fixed issue where selecting `[P]` / `[3]` (*Pin / Both Workspaces*) from the cross-workspace interactive modal dialog invoked `pinWindow(target)` which assigned `{0}` (all workspaces), causing the window to be pinned to every single workspace.
   - Implemented `pinWindowToWorkspaces(EffectWindow *w, const QSet<int> &wsIndices)` to pin the window strictly to the target window's original workspace and the current active workspace (`{targetWs, currentWs}`).

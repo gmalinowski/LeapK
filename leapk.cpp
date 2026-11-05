@@ -916,19 +916,41 @@ void ActiveWindowOutlineEffect::slotWindowAdded(EffectWindow *w)
     refreshWorkspaces();
     if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
         if (isEligibleOutlineWindow(w) && !w->isSkipSwitcher() && w->acceptsFocus()) {
-            if (findWorkspaceForWindow(w) == 0) {
+            if (!m_windowWorkspace.contains(w)) {
+                m_windowWorkspace[w] = m_activeHudView;
                 if (w->windowClass().isEmpty() && w->caption().isEmpty()) {
                     QPointer<EffectWindow> pw(w);
                     const int currentWsView = m_activeHudView;
                     QTimer::singleShot(60, this, [this, pw, currentWsView]() {
                         if (pw && !pw->isDeleted() && m_activeHudView == currentWsView && m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
-                            if (findWorkspaceForWindow(pw.data()) == 0) {
-                                addWindowToWorkspace(pw.data(), currentWsView);
-                            }
+                            m_windowWorkspace[pw.data()] = currentWsView;
+                            addWindowToWorkspace(pw.data(), currentWsView);
                         }
                     });
                 } else {
                     addWindowToWorkspace(w, m_activeHudView);
+                }
+            }
+        }
+    } else {
+        if (isEligibleOutlineWindow(w) && !w->isSkipSwitcher() && w->acceptsFocus()) {
+            if (!m_windowWorkspace.contains(w)) {
+                const auto desktops = w->desktops();
+                const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+                const int ruleWs = LeapKWorkspace::findWorkspaceIndexForWindow(m_workspaces, w->windowClass(), w->caption(), dNum);
+                m_windowWorkspace[w] = ruleWs;
+                if (ruleWs == 0 && w->windowClass().isEmpty() && w->caption().isEmpty()) {
+                    QPointer<EffectWindow> pw(w);
+                    QTimer::singleShot(60, this, [this, pw]() {
+                        if (pw && !pw->isDeleted() && m_windowWorkspace.value(pw.data(), 0) == 0) {
+                            const auto d = pw->desktops();
+                            const int dn = (!d.isEmpty() && !pw->isOnAllDesktops()) ? d.first()->x11DesktopNumber() : 0;
+                            const int rWs = LeapKWorkspace::findWorkspaceIndexForWindow(m_workspaces, pw->windowClass(), pw->caption(), dn);
+                            if (rWs > 0) {
+                                m_windowWorkspace[pw.data()] = rWs;
+                            }
+                        }
+                    });
                 }
             }
         }
@@ -1143,6 +1165,7 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
     m_stashedWindows.remove(w);
     m_pinnedWindows.remove(w);
     m_windowPinnedWorkspaces.remove(w);
+    m_windowWorkspace.remove(w);
     for (auto it = m_jumpLetterToWindow.begin(); it != m_jumpLetterToWindow.end(); ) {
         if (it.value() == w) {
             it = m_jumpLetterToWindow.erase(it);

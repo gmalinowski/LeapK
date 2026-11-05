@@ -557,17 +557,14 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
 
         // Workspace isolation: only windows belonging to the active workspace (or pinned across all workspaces)
         if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
-            if (!m_pinnedWindows.contains(win)) {
-                const auto &ws = m_workspaces.at(m_activeHudView - 1);
-                const auto desktops = win->desktops();
-                const int dNum = (!desktops.isEmpty() && !win->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
-                if (!LeapKWorkspace::matchesWorkspace(ws, win->windowClass(), win->caption(), dNum)) {
+            if (!isWindowPinned(win, m_activeHudView)) {
+                if (findWorkspaceForWindow(win) != m_activeHudView) {
                     return false;
                 }
             }
         } else if (m_activeHudView == 0) {
             // Standard view: exclude windows assigned to named workspaces
-            if (!m_pinnedWindows.contains(win) && findWorkspaceForWindow(win) != 0) {
+            if (!isWindowPinned(win, 0) && findWorkspaceForWindow(win) != 0) {
                 return false;
             }
         }
@@ -630,16 +627,13 @@ void ActiveWindowOutlineEffect::activateTilingPreset(const LeapKTiling::TilingPr
                 return false;
             }
             if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size()) {
-                if (!m_pinnedWindows.contains(win)) {
-                    const auto &ws = m_workspaces.at(m_activeHudView - 1);
-                    const auto desktops = win->desktops();
-                    const int dNum = (!desktops.isEmpty() && !win->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
-                    if (!LeapKWorkspace::matchesWorkspace(ws, win->windowClass(), win->caption(), dNum)) {
+                if (!isWindowPinned(win, m_activeHudView)) {
+                    if (findWorkspaceForWindow(win) != m_activeHudView) {
                         return false;
                     }
                 }
             } else if (m_activeHudView == 0) {
-                if (!m_pinnedWindows.contains(win) && findWorkspaceForWindow(win) != 0) {
+                if (!isWindowPinned(win, 0) && findWorkspaceForWindow(win) != 0) {
                     return false;
                 }
             }
