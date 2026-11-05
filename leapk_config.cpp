@@ -300,6 +300,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("BadgeHudNavFontSize"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeHudHintsFontSize"), *new int, 0);
     m_configSkeleton->addItemBool(QStringLiteral("BadgeHudShowHints"), *new bool, true);
+    m_configSkeleton->addItemBool(QStringLiteral("NerdStatsEnabled"), *new bool, false);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeJumpSize"), *new int, 34);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeIconSize"), *new int, 20);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeThumbnailWidth"), *new int, 56);
@@ -650,6 +651,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->kcfg_BadgeHudShowIcon, &QCheckBox::toggled, this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeHudShowThumbnail, &QCheckBox::toggled, this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeHudShowHints, &QCheckBox::toggled, this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_NerdStatsEnabled, &QCheckBox::toggled, this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeHudIconSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeHudThumbnailSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeHudLetterFontSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
@@ -1275,6 +1277,7 @@ void ActiveWindowOutlineConfig::defaults()
     m_ui->kcfg_BadgeHudShowIcon->setChecked(true);
     m_ui->kcfg_BadgeHudShowThumbnail->setChecked(true);
     m_ui->kcfg_BadgeHudShowHints->setChecked(true);
+    m_ui->kcfg_NerdStatsEnabled->setChecked(false);
     m_ui->kcfg_BadgeHudIconSize->setValue(24);
     m_ui->kcfg_BadgeHudThumbnailSize->setValue(80);
     m_ui->kcfg_BadgeHudLetterFontSize->setValue(0);
@@ -1617,6 +1620,7 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("BadgeHudNavFontSize")] = m_ui->kcfg_BadgeHudNavFontSize->value();
     s[QStringLiteral("BadgeHudHintsFontSize")] = m_ui->kcfg_BadgeHudHintsFontSize->value();
     s[QStringLiteral("BadgeHudShowHints")] = m_ui->kcfg_BadgeHudShowHints->isChecked();
+    s[QStringLiteral("NerdStatsEnabled")] = m_ui->kcfg_NerdStatsEnabled->isChecked();
     s[QStringLiteral("JumpTargets")] = m_ui->kcfg_JumpTargets->currentIndex();
     s[QStringLiteral("SuperJumpCrossWsAction")] = m_ui->kcfg_SuperJumpCrossWsAction->currentIndex();
     s[QStringLiteral("CursorWarpMode")] = m_ui->kcfg_CursorWarpMode->currentIndex();
@@ -1836,6 +1840,7 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
     if (s.contains(QStringLiteral("BadgeHudNavFontSize"))) m_ui->kcfg_BadgeHudNavFontSize->setValue(s[QStringLiteral("BadgeHudNavFontSize")].toInt());
     if (s.contains(QStringLiteral("BadgeHudHintsFontSize"))) m_ui->kcfg_BadgeHudHintsFontSize->setValue(s[QStringLiteral("BadgeHudHintsFontSize")].toInt());
     if (s.contains(QStringLiteral("BadgeHudShowHints"))) m_ui->kcfg_BadgeHudShowHints->setChecked(s[QStringLiteral("BadgeHudShowHints")].toBool());
+    if (s.contains(QStringLiteral("NerdStatsEnabled"))) m_ui->kcfg_NerdStatsEnabled->setChecked(s[QStringLiteral("NerdStatsEnabled")].toBool());
     if (s.contains(QStringLiteral("JumpTargets"))) m_ui->kcfg_JumpTargets->setCurrentIndex(s[QStringLiteral("JumpTargets")].toInt());
     if (s.contains(QStringLiteral("SuperJumpCrossWsAction"))) m_ui->kcfg_SuperJumpCrossWsAction->setCurrentIndex(s[QStringLiteral("SuperJumpCrossWsAction")].toInt());
     if (s.contains(QStringLiteral("CursorWarpMode"))) m_ui->kcfg_CursorWarpMode->setCurrentIndex(s[QStringLiteral("CursorWarpMode")].toInt());
@@ -2395,6 +2400,7 @@ void ActiveWindowOutlineConfig::save()
     group.writeEntry(QStringLiteral("BadgeHudShowIcon"), m_ui->kcfg_BadgeHudShowIcon->isChecked());
     group.writeEntry(QStringLiteral("BadgeHudShowThumbnail"), m_ui->kcfg_BadgeHudShowThumbnail->isChecked());
     group.writeEntry(QStringLiteral("BadgeHudShowHints"), m_ui->kcfg_BadgeHudShowHints->isChecked());
+    group.writeEntry(QStringLiteral("NerdStatsEnabled"), m_ui->kcfg_NerdStatsEnabled->isChecked());
     group.writeEntry(QStringLiteral("BadgeHudNavFontSize"), m_ui->kcfg_BadgeHudNavFontSize->value());
     group.writeEntry(QStringLiteral("BadgeHudHintsFontSize"), m_ui->kcfg_BadgeHudHintsFontSize->value());
     const int winThumbSize = m_ui->kcfg_BadgeWindowThumbnailSize->value();

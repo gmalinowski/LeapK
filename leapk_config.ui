@@ -3075,6 +3075,19 @@
                  </property>
                 </widget>
                </item>
+               <item row="23" column="0" colspan="2">
+                <widget class="QCheckBox" name="kcfg_NerdStatsEnabled">
+                 <property name="text">
+                  <string>Show Stats for Nerds overlay in HUD (Meta+D to toggle)</string>
+                 </property>
+                 <property name="checked">
+                  <bool>false</bool>
+                 </property>
+                 <property name="toolTip">
+                  <string>Displays real-time hardware diagnostics: moving average power draw (Watts), CPU utilization (%), frame latency, screen refresh rate, and VRAM cache.</string>
+                 </property>
+                </widget>
+               </item>
               </layout>
             </widget>
            </item>

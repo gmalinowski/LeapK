@@ -456,6 +456,9 @@
         <entry name="BadgeHudShowHints" type="Bool">
             <default>true</default>
         </entry>
+        <entry name="NerdStatsEnabled" type="Bool">
+            <default>false</default>
+        </entry>
         <entry name="BadgeJumpSize" type="Int">
             <default>34</default>
             <min>16</min>

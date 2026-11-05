@@ -466,6 +466,11 @@ if(OUTLINE_BUILD_TESTS)
     target_link_libraries(outline-pack-test PRIVATE Qt6::Core Qt6::Gui Qt6::Svg)
     add_test(NAME outline-pack COMMAND outline-pack-test)
 
+    add_executable(outline-nerdstats-test tests/nerdstats_test.cpp)
+    target_include_directories(outline-nerdstats-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(outline-nerdstats-test PRIVATE Qt6::Core Qt6::Gui Qt6::Svg)
+    add_test(NAME outline-nerdstats COMMAND outline-nerdstats-test)
+
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
         add_test(NAME outline-config-sync COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/configsync_test.py)

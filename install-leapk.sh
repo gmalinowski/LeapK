@@ -491,6 +491,7 @@ set_default BadgeHudLocationFontSize 0
 set_default BadgeHudNavFontSize 0
 set_default BadgeHudHintsFontSize 0
 set_default BadgeHudShowHints true
+set_default NerdStatsEnabled false
 set_default BadgeJumpSize 34
 set_default BadgeHudSize 44
 set_default BadgeIconSize 20

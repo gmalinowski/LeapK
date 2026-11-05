@@ -118,6 +118,13 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
         }
     });
 
+    m_nerdStatsTimer = new QTimer(this);
+    connect(m_nerdStatsTimer, &QTimer::timeout, this, [this]() {
+        if (m_jumpMode && m_nerdStatsActive && effects) {
+            effects->addRepaintFull();
+        }
+    });
+
     reconfigure(ReconfigureAll);
 
     // Some third-party effect KCMs are not reliably reconfigured by KWin's
@@ -679,6 +686,10 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_badgeConfig.hudHintsFontSize = m_badgeHudHintsFontSize;
     m_badgeHudShowHints = config.readEntry("BadgeHudShowHints", true);
     m_badgeConfig.hudShowHints = m_badgeHudShowHints;
+    m_nerdStatsEnabled = config.readEntry("NerdStatsEnabled", false);
+    if (m_nerdStatsEnabled && !m_nerdStatsActive) {
+        m_nerdStatsActive = true;
+    }
 
     m_badgeHudIncludeAll = config.readEntry("BadgeHudIncludeAll", false);
     m_badgeConfig.hudIncludeAll = m_badgeHudIncludeAll;
@@ -834,6 +845,17 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
         } else {
             if (m_audioRefreshTimer->isActive()) {
                 m_audioRefreshTimer->stop();
+            }
+        }
+    }
+    if (m_nerdStatsTimer) {
+        if (m_jumpMode && m_nerdStatsActive) {
+            if (!m_nerdStatsTimer->isActive()) {
+                m_nerdStatsTimer->start(500);
+            }
+        } else {
+            if (m_nerdStatsTimer->isActive()) {
+                m_nerdStatsTimer->stop();
             }
         }
     }

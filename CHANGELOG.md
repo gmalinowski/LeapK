@@ -7,6 +7,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.6.0-beta85-exp] - 2026-11-05
 
 ### Added
+- **Stats for Nerds HUD Diagnostics Overlay (Moving Average Power & CPU)**:
+  - Added dedicated glassmorphic "Stats for Nerds" real-time performance card in the HUD:
+    - ⚡ **Leapk Power Draw**: Moving average power consumption in Watts computed from real-time GPU/CPU energy sensors (`/sys/class/hwmon/*/power1_average` or `power1_input`, or `/sys/class/power_supply/BAT*/power_now`) scaled by render latency vs frame budget, displaying both LeapK average wattage and total package power.
+    - 🧠 **CPU Utilization**: Rolling exponential moving average (EMA with $\alpha = 0.08$) of KWin render thread utilization for LeapK paint passes, providing jitter-free, smoothed percentage metrics.
+    - ⏱️ **Render Latency**: Rolling average frame render duration (ms) alongside screen refresh rate (Hz).
+    - 💾 **Texture VRAM**: Live cached texture memory footprint (MB) across badges, icons, and window preview thumbnails.
+    - 🎨 **GLSL Pipeline**: Active shader passes counter (glow, breathe, neon flicker, audio wave, custom shaders) and real-time hardware temperature (°C).
+  - Added shortcut `Meta + D` in HUD to toggle the Stats for Nerds overlay on the fly with animated sound feedback.
+  - Clicking on the card toggles it off.
+  - Added config entry `NerdStatsEnabled` (boolean, default: `false`) in `leapkconfig.kcfg`, settings GUI `leapk_config.ui`, `leapk_config.cpp`, `install-leapk.sh`, and `uninstall-leapk.sh`.
+  - Added cheatsheet entry in HUD Meta Overlay (`Meta + D: Nerd Stats`).
+  - Added comprehensive unit test suite in `tests/nerdstats_test.cpp` verifying `RollingAverage` EMA mathematics, hardware sensor querying, and card rendering (100% passing tests, all 32/32 CTests).
 - **Spatial Keyboard "Show only when tiling mode is active" Option (`KeyboardOverlayTilingOnly`)**:
   - Added new configuration toggle `KeyboardOverlayTilingOnly` (boolean, default: `false`).
   - Added dedicated checkbox in KCM settings GUI (`leapk_config.ui` under Spatial Keyboard & Laser Arrows group) and registered in KConfig skeleton (`leapk_config.cpp`), `leapkconfig.kcfg`, installer `install-leapk.sh`, and uninstaller `uninstall-leapk.sh`.

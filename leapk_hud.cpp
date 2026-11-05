@@ -450,14 +450,16 @@ void ActiveWindowOutlineEffect::renderHudMetaOverlay(const RenderTarget &renderT
         | (m_tilingPresetsModeActive ? 32 : 0)
         | (m_metaSpaceTraverseActive ? 64 : 0)
         | (m_hudThumbnailZoomActive ? 128 : 0)
-        | (static_cast<qint64>(qRound(scale * 10)) << 8)
-        | (static_cast<qint64>(qHash(theme.id) % 1000) << 16);
+        | (m_nerdStatsActive ? 256 : 0)
+        | (static_cast<qint64>(qRound(scale * 10)) << 9)
+        | (static_cast<qint64>(qHash(theme.id) % 1000) << 17);
 
     if (!m_hudMetaOverlayTexture || m_hudMetaOverlayCacheKey != overlayKey) {
         const QImage img = OutlineBadge::renderHudMetaOverlayImage(
             scale, theme, m_superJumpActive, m_closeWindowModeActive,
             m_stashModeActive, m_pinModeActive, m_audioFilterModeActive,
-            m_tilingPresetsModeActive, m_metaSpaceTraverseActive, m_hudThumbnailZoomActive);
+            m_tilingPresetsModeActive, m_metaSpaceTraverseActive, m_hudThumbnailZoomActive,
+            m_nerdStatsActive);
         if (!img.isNull()) {
             auto uploaded = GLTexture::upload(img);
             if (uploaded) {
@@ -520,6 +522,160 @@ void ActiveWindowOutlineEffect::renderHudMetaOverlay(const RenderTarget &renderT
     m_hudMetaOverlayTexture->bind();
     vbo->render(GL_TRIANGLES);
     m_hudMetaOverlayTexture->unbind();
+
+    if (scissorWasEnabled) {
+        glEnable(GL_SCISSOR_TEST);
+    }
+    glBlendFuncSeparate(previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha);
+    if (blendWasEnabled) {
+        glEnable(GL_BLEND);
+    } else {
+        glDisable(GL_BLEND);
+    }
+}
+
+void ActiveWindowOutlineEffect::updateNerdStatsMetrics(qint64 elapsedNs)
+{
+    // 1. Frame latency (ms) rolling average
+    const double latencyMs = static_cast<double>(elapsedNs) / 1000000.0;
+    m_avgFrameLatencyMs.addSample(latencyMs);
+
+    // 2. CPU utilization (%) of LeapK render pass
+    m_cumulativePaintTimeNs += elapsedNs;
+    if (!m_cpuMeasurementTimer.isValid()) {
+        m_cpuMeasurementTimer.start();
+    } else if (m_cpuMeasurementTimer.elapsed() >= 500) {
+        const qint64 wallNs = m_cpuMeasurementTimer.nsecsElapsed();
+        const double cpuPct = (wallNs > 0) ? (static_cast<double>(m_cumulativePaintTimeNs) / static_cast<double>(wallNs) * 100.0) : 0.0;
+        m_avgCpuPercent.addSample(cpuPct);
+        m_cumulativePaintTimeNs = 0;
+        m_cpuMeasurementTimer.restart();
+    }
+
+    // 3. Hardware Package Power & LeapK Power
+    if (!m_powerQueryTimer.isValid() || m_powerQueryTimer.elapsed() >= 500) {
+        m_powerQueryTimer.restart();
+        bool hwOk = false;
+        const double pkgWatts = LeapKNerdStats::queryHardwarePowerWatts(&hwOk);
+        if (hwOk && pkgWatts > 0.0) {
+            m_avgPackagePowerWatts.addSample(pkgWatts);
+            // Dynamic fraction based on render latency vs 60Hz frame budget (16.67ms)
+            const double frameFraction = qBound(0.002, (m_avgFrameLatencyMs.average() / 16.67), 1.0);
+            const double leapkW = qMax(0.02, pkgWatts * frameFraction);
+            m_avgPowerWatts.addSample(leapkW);
+        } else {
+            // Fallback estimation based on CPU utilization if hwmon is inaccessible
+            const double estW = qMax(0.02, 0.05 + (m_avgCpuPercent.average() / 100.0) * 12.0);
+            m_avgPowerWatts.addSample(estW);
+        }
+    }
+}
+
+void ActiveWindowOutlineEffect::renderHudNerdStatsOverlay(const RenderTarget &renderTarget,
+                                                         const RenderViewport &viewport)
+{
+    const qreal scale = viewport.scale();
+
+    LeapKNerdStats::NerdStatsSnapshot stats;
+    stats.avgLeapkWatts = m_avgPowerWatts.average();
+    stats.avgPackagePowerWatts = m_avgPackagePowerWatts.average();
+    stats.avgCpuPercent = m_avgCpuPercent.average();
+    stats.avgFrameLatencyMs = m_avgFrameLatencyMs.average();
+    stats.refreshRateHz = 60;
+    stats.activeShaderPasses = 1;
+    if (m_breatheEnabled) stats.activeShaderPasses++;
+    if (m_neonFlickerEnabled) stats.activeShaderPasses++;
+    if (m_glitchEnabled) stats.activeShaderPasses++;
+    if (m_audioHudShaderEnabled) stats.activeShaderPasses++;
+    if (m_customShaderEnabled) stats.activeShaderPasses++;
+
+    double vramMb = 0.0;
+    for (auto it = m_badgeTextureCache.cbegin(); it != m_badgeTextureCache.cend(); ++it) {
+        if (it.value()) {
+            vramMb += (it.value()->width() * it.value()->height() * 4.0) / (1024.0 * 1024.0);
+        }
+    }
+    for (auto it = m_thumbnailCache.cbegin(); it != m_thumbnailCache.cend(); ++it) {
+        if (!it.value().isNull()) {
+            vramMb += it.value().sizeInBytes() / (1024.0 * 1024.0);
+        }
+    }
+    stats.textureMemoryMb = vramMb;
+    stats.hardwareTempC = LeapKNerdStats::queryHardwareTemperatureC();
+    stats.hasHardwarePower = (m_avgPackagePowerWatts.average() > 0.0);
+
+    // Quantize cache key to 1 decimal place to prevent generating new textures on negligible deltas
+    const qint64 cacheKey = static_cast<qint64>(qRound(stats.avgLeapkWatts * 20.0))
+        ^ (static_cast<qint64>(qRound(stats.avgCpuPercent * 10.0)) << 8)
+        ^ (static_cast<qint64>(qRound(stats.avgFrameLatencyMs * 10.0)) << 16)
+        ^ (static_cast<qint64>(qRound(scale * 10.0)) << 24);
+
+    if (!m_nerdStatsOverlayTexture || m_nerdStatsCacheKey != cacheKey) {
+        const QImage img = LeapKNerdStats::renderNerdStatsCard(scale, stats);
+        if (!img.isNull()) {
+            auto uploaded = GLTexture::upload(img);
+            if (uploaded) {
+                uploaded->setFilter(GL_LINEAR);
+                uploaded->setWrapMode(GL_CLAMP_TO_EDGE);
+                m_nerdStatsOverlayTexture = std::shared_ptr<GLTexture>(uploaded.release());
+                m_nerdStatsCacheKey = cacheKey;
+            }
+        }
+    }
+
+    if (!m_nerdStatsOverlayTexture) {
+        return;
+    }
+
+    const QRectF screenRect = viewport.renderRect();
+    const qreal w = m_nerdStatsOverlayTexture->width() / scale;
+    const qreal h = m_nerdStatsOverlayTexture->height() / scale;
+    const qreal margin = 20.0;
+    const QRectF overlayRect(screenRect.right() - w - margin,
+                             screenRect.top() + margin,
+                             w, h);
+    m_nerdStatsScreenRect = overlayRect;
+
+    GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
+    GLint previousSrcRgb, previousDstRgb, previousSrcAlpha, previousDstAlpha;
+    glGetIntegerv(GL_BLEND_SRC_RGB, &previousSrcRgb);
+    glGetIntegerv(GL_BLEND_DST_RGB, &previousDstRgb);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &previousSrcAlpha);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &previousDstAlpha);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+    GLboolean scissorWasEnabled = glIsEnabled(GL_SCISSOR_TEST);
+    glDisable(GL_SCISSOR_TEST);
+
+    ShaderBinder binder(ShaderTrait::MapTexture | ShaderTrait::Modulate | ShaderTrait::TransformColorspace);
+    GLShader *shader = binder.shader();
+    shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix, viewport.projectionMatrix());
+    shader->setColorspaceUniforms(ColorDescription::sRGB, renderTarget.colorDescription(), RenderingIntent::Perceptual);
+    shader->setUniform(GLShader::Vec4Uniform::ModulationConstant, QVector4D(1.0f, 1.0f, 1.0f, 1.0f));
+
+    const float x0 = overlayRect.left() * scale;
+    const float y0 = overlayRect.top() * scale;
+    const float x1 = overlayRect.right() * scale;
+    const float y1 = overlayRect.bottom() * scale;
+
+    const std::array<GLVertex2D, 6> verts = {{
+        {QVector2D(x0, y0), QVector2D(0.0f, 0.0f)},
+        {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+        {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+        {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+        {QVector2D(x1, y1), QVector2D(1.0f, 1.0f)},
+        {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+    }};
+
+    auto vbo = GLVertexBuffer::streamingBuffer();
+    vbo->setVertices(verts);
+
+    shader->setUniform(GLShader::Mat4Uniform::TextureMatrix, m_nerdStatsOverlayTexture->matrix(NormalizedCoordinates));
+    m_nerdStatsOverlayTexture->bind();
+    vbo->render(GL_TRIANGLES);
+    m_nerdStatsOverlayTexture->unbind();
 
     if (scissorWasEnabled) {
         glEnable(GL_SCISSOR_TEST);

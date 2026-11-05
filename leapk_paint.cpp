@@ -523,6 +523,9 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                                          const OutlineRegion &deviceRegion,
                                          OutlineOutput *screen)
 {
+    QElapsedTimer paintTimer;
+    paintTimer.start();
+
     EffectWindow *w = m_activeWindow;
     const bool isScreenLocked = (effects && effects->isScreenLocked()) || (w && w->isLockScreen());
     if (isScreenLocked) {
@@ -1274,6 +1277,10 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         if (m_pinWsSelectionActive) {
             renderHudPinWsSelectionOverlay(renderTarget, viewport);
         }
+
+        if (m_nerdStatsActive) {
+            renderHudNerdStatsOverlay(renderTarget, viewport);
+        }
         }
 
         if (isKeyboardOverlayActive() && !m_searchModeActive && !m_tilingPresetsModeActive && !m_crossWsActionActive && !m_pinWsSelectionActive) {
@@ -1302,6 +1309,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     if (m_badgeLivePreviews && hasBadgesToDraw && wantThumbnail && !inhibited) {
         effects->addRepaintFull();
     }
+
+    updateNerdStatsMetrics(paintTimer.nsecsElapsed());
 
 #ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
     if (cursorOverlay) {

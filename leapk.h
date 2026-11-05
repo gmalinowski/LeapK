@@ -18,6 +18,7 @@
 #include "audiotracker.h"
 #include "fuzzymatcher.h"
 #include "soundhelper.h"
+#include "nerdstatshelper.h"
 
 #include <QColor>
 #include <QElapsedTimer>
@@ -313,6 +314,10 @@ private:
     void enterPinMode();
     void exitPinMode();
     void toggleHudThumbnailZoom();
+    void toggleNerdStats();
+    void slotTriggerNerdStats();
+    void updateNerdStatsMetrics(qint64 elapsedNs);
+    void renderHudNerdStatsOverlay(const RenderTarget &renderTarget, const RenderViewport &viewport);
     void renderHudMetaOverlay(const RenderTarget &renderTarget, const RenderViewport &viewport);
     void toggleAudioFilterMode();
     void exitAudioFilterMode();
@@ -669,6 +674,19 @@ private:
     mutable std::shared_ptr<GLTexture> m_pinWsOverlayTexture;
     mutable qint64 m_pinWsOverlayCacheKey = -1;
     bool m_hudThumbnailZoomActive = false;
+    bool m_nerdStatsEnabled = false;
+    bool m_nerdStatsActive = false;
+    LeapKNerdStats::RollingAverage m_avgPowerWatts{0.08};
+    LeapKNerdStats::RollingAverage m_avgPackagePowerWatts{0.08};
+    LeapKNerdStats::RollingAverage m_avgCpuPercent{0.08};
+    LeapKNerdStats::RollingAverage m_avgFrameLatencyMs{0.08};
+    qint64 m_cumulativePaintTimeNs = 0;
+    QElapsedTimer m_cpuMeasurementTimer;
+    QElapsedTimer m_powerQueryTimer;
+    QTimer *m_nerdStatsTimer = nullptr;
+    mutable std::shared_ptr<GLTexture> m_nerdStatsOverlayTexture;
+    mutable qint64 m_nerdStatsCacheKey = -1;
+    QRectF m_nerdStatsScreenRect;
     bool m_superJumpActive = false;
     int m_superJumpTargetWorkspace = 0;
     int m_superJumpCrossWsAction = 0;

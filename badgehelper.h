@@ -4342,7 +4342,8 @@ inline QImage renderHudMetaOverlayImage(qreal scale,
                                         bool isAudioMode,
                                         bool isTilingPresets = false,
                                         bool isTraverseRecent = false,
-                                        bool isZoomThumbnails = false)
+                                        bool isZoomThumbnails = false,
+                                        bool isNerdStats = false)
 {
     struct CheatItem {
         QString key;
@@ -4360,6 +4361,7 @@ inline QImage renderHudMetaOverlayImage(qreal scale,
         {QStringLiteral("Meta+U"), QStringLiteral("Audio Mode"), QStringLiteral("Filter windows actively playing sound"), isAudioMode, QColor(241, 196, 15)},
         {QStringLiteral("Meta+P"), QStringLiteral("Pinning Mode"), QStringLiteral("Pin or unpin windows across workspaces"), isPinMode, QColor(245, 166, 35)},
         {QStringLiteral("Meta+Z"), QStringLiteral("Zoom Thumbnails"), QStringLiteral("Enlarge HUD window thumbnail previews"), isZoomThumbnails, QColor(168, 85, 247)},
+        {QStringLiteral("Meta+D"), QStringLiteral("Nerd Stats"), QStringLiteral("Toggle HUD power, CPU, and latency diagnostics (average)"), isNerdStats, QColor(0, 235, 255)},
         {QStringLiteral("Meta+T"), QStringLiteral("Tiling Presets"), QStringLiteral("Choose tiling layout preset or slot edit"), isTilingPresets, QColor(52, 152, 219)},
         {QStringLiteral("Meta+W"), QStringLiteral("Workspace Manager"), QStringLiteral("Create, rename, reorder and delete workspaces"), false, QColor(41, 128, 185)},
         {QStringLiteral("Meta+M"), QStringLiteral("Markers Manager"), QStringLiteral("Assign custom colors and labels to windows"), false, QColor(155, 89, 182)}

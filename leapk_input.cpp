@@ -168,6 +168,14 @@ void ActiveWindowOutlineEffect::exitCrossWsActionMode()
     m_pinWsRelRowRects.clear();
     m_pinWsRelCancelRect = QRectF();
     m_hudThumbnailZoomActive = false;
+    m_nerdStatsActive = m_nerdStatsEnabled;
+    if (m_nerdStatsTimer) {
+        if (m_nerdStatsActive) {
+            m_nerdStatsTimer->start(500);
+        } else {
+            m_nerdStatsTimer->stop();
+        }
+    }
     m_hudHintBarTexture.reset();
     m_hudHintBarCacheKey = -1;
     m_hudHeaderTexture.reset();
@@ -553,6 +561,40 @@ void ActiveWindowOutlineEffect::slotToggleThumbnailZoom()
         slotTriggerJumpMode();
     } else {
         toggleHudThumbnailZoom();
+    }
+}
+
+void ActiveWindowOutlineEffect::toggleNerdStats()
+{
+    m_nerdStatsActive = !m_nerdStatsActive;
+    if (m_nerdStatsTimer) {
+        if (m_jumpMode && m_nerdStatsActive) {
+            if (!m_nerdStatsTimer->isActive()) {
+                m_nerdStatsTimer->start(500);
+            }
+        } else {
+            if (m_nerdStatsTimer->isActive()) {
+                m_nerdStatsTimer->stop();
+            }
+        }
+    }
+    m_hudMetaOverlayTexture.reset();
+    m_hudMetaOverlayCacheKey = -1;
+    m_nerdStatsOverlayTexture.reset();
+    m_nerdStatsCacheKey = -1;
+    playThemedSound(m_nerdStatsActive ? OutlineSound::SoundEffect::NavTab : OutlineSound::SoundEffect::Dismiss);
+    if (effects) {
+        effects->addRepaintFull();
+    }
+}
+
+void ActiveWindowOutlineEffect::slotTriggerNerdStats()
+{
+    if (!m_jumpMode) {
+        m_nerdStatsActive = true;
+        slotTriggerJumpMode();
+    } else {
+        toggleNerdStats();
     }
 }
 
@@ -1035,6 +1077,13 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_pinWsRelRowRects.clear();
     m_pinWsRelCancelRect = QRectF();
     m_hudThumbnailZoomActive = false;
+    m_nerdStatsActive = false;
+    if (m_nerdStatsTimer && m_nerdStatsTimer->isActive()) {
+        m_nerdStatsTimer->stop();
+    }
+    m_nerdStatsOverlayTexture.reset();
+    m_nerdStatsCacheKey = -1;
+    m_nerdStatsScreenRect = QRectF();
     m_closeWindowModeActive = false;
     m_pinModeActive = false;
     m_metaSpaceTraverseActive = false;
@@ -1179,6 +1228,13 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
     m_pinWsRelRowRects.clear();
     m_pinWsRelCancelRect = QRectF();
     m_hudThumbnailZoomActive = false;
+    m_nerdStatsActive = false;
+    if (m_nerdStatsTimer && m_nerdStatsTimer->isActive()) {
+        m_nerdStatsTimer->stop();
+    }
+    m_nerdStatsOverlayTexture.reset();
+    m_nerdStatsCacheKey = -1;
+    m_nerdStatsScreenRect = QRectF();
     m_closeWindowModeActive = false;
     m_pinModeActive = false;
     m_metaSpaceTraverseActive = false;
@@ -1414,6 +1470,9 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
         if (m_hudCloseButtonScreenRect.isValid() && m_hudCloseButtonScreenRect.contains(pos)) {
             isHoveringClickable = true;
         }
+        if (!isHoveringClickable && m_nerdStatsActive && m_nerdStatsScreenRect.isValid() && m_nerdStatsScreenRect.contains(pos)) {
+            isHoveringClickable = true;
+        }
         if (!isHoveringClickable && isKeyboardOverlayActive()) {
             for (const auto &kg : m_keyboardOverlayLayout.keycaps) {
                 if (kg.rect.contains(pos) && m_keyboardOverlayWindowMap.contains(kg.key)) {
@@ -1463,6 +1522,12 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
             // 1. Click on Close button
             if (m_hudCloseButtonScreenRect.isValid() && m_hudCloseButtonScreenRect.contains(pos)) {
                 cancelJumpMode();
+                return;
+            }
+
+            // Click on Nerd Stats card to toggle off
+            if (m_nerdStatsActive && m_nerdStatsScreenRect.isValid() && m_nerdStatsScreenRect.contains(pos)) {
+                toggleNerdStats();
                 return;
             }
 
@@ -1990,6 +2055,10 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     if (isMetaOnly && e->key() == Qt::Key_Z) {
         toggleHudThumbnailZoom();
+        return;
+    }
+    if (isMetaOnly && e->key() == Qt::Key_D) {
+        toggleNerdStats();
         return;
     }
 
