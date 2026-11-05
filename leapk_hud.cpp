@@ -2906,8 +2906,10 @@ void ActiveWindowOutlineEffect::renderKeyboardArrowsOverlay(const RenderTarget &
     cfg.laserGlow = st.laserGlow;
     cfg.laserGlowIntensity = st.laserGlowIntensity;
     cfg.laserDashStyle = st.laserDashStyle;
-    cfg.targetLabelBg = theme.resolveColor(st.targetLabelBg, QColor(12, 15, 22, 235));
+    cfg.targetLabelBg = theme.resolveColor(st.targetLabelBg, QColor(12, 15, 22, 255));
+    cfg.targetLabelBg.setAlpha(255);
     cfg.targetLabelTextColor = theme.resolveColor(st.targetLabelTextColor, QColor(255, 255, 255));
+    cfg.targetLabelTextColor.setAlpha(255);
 
     m_keyboardOverlayLayout = LeapKKeyboardOverlay::computeOverlayGeometry(screenRect, hudBounds, cfg);
     m_keyboardOverlayWindowMap.clear();

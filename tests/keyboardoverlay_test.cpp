@@ -620,6 +620,69 @@ void testLaserTargetsMatchingHudBadgeOrder()
     std::cout << "testLaserTargetsMatchingHudBadgeOrder PASSED\n";
 }
 
+void testTargetLabelsCollisionAvoidanceAndOpacity()
+{
+    using namespace LeapKKeyboardOverlay;
+
+    const QRectF screenRect(0, 0, 1920, 1080);
+    const KeyboardOverlayLayout layout = computeOverlayGeometry(screenRect);
+
+    OverlayDisplayConfig cfg;
+    cfg.targetLabelVisible = true;
+    cfg.targetLabelFontSize = 10;
+    cfg.targetLabelBg = QColor(20, 24, 34);
+
+    // Two stacked terminals with long titles in a cluster
+    WindowTargetItem wTerm1;
+    wTerm1.geometry = QRectF(500, 300, 600, 450);
+    wTerm1.title = QStringLiteral("Terminal 1 — Active Working Directory Project Alpha");
+    wTerm1.appClass = QStringLiteral("konsole");
+    wTerm1.zOrder = 2;
+    wTerm1.isOccluded = true;
+    wTerm1.isVisibleOnScreen = true;
+
+    WindowTargetItem wTerm2;
+    wTerm2.geometry = QRectF(500, 300, 600, 450);
+    wTerm2.title = QStringLiteral("Terminal 2 — System Logs and Compiler Diagnostics");
+    wTerm2.appClass = QStringLiteral("konsole");
+    wTerm2.zOrder = 10;
+    wTerm2.isOccluded = false;
+    wTerm2.isVisibleOnScreen = true;
+
+    QMap<QChar, WindowTargetItem> assigned;
+    assigned.insert(QChar('A'), wTerm1);
+    assigned.insert(QChar('S'), wTerm2);
+
+    const auto placements = computeTargetBadgePlacements(assigned, screenRect, layout, cfg);
+    assert(placements.size() == 2);
+
+    const auto labels = computeTargetLabelPlacements(placements, screenRect, layout, cfg);
+    assert(labels.size() == 2);
+
+    const auto &lbl1 = labels[0];
+    const auto &lbl2 = labels[1];
+
+    // Requirement 1: labels must avoid overlapping each other
+    assert(!lbl1.rect.intersects(lbl2.rect));
+
+    // Requirement 2: labels must have NO transparency (alpha = 255) for crisp, clear readability
+    assert(lbl1.bgColor.alpha() == 255);
+    assert(lbl2.bgColor.alpha() == 255);
+    assert(lbl1.textColor.alpha() == 255);
+    assert(lbl2.textColor.alpha() == 255);
+    assert(lbl1.borderColor.alpha() == 255);
+    assert(lbl2.borderColor.alpha() == 255);
+
+    // Verify neither label obscures any target badge's key letter circle
+    for (const auto &bp : placements) {
+        const QRectF bCircle(bp.center.x() - bp.radius, bp.center.y() - bp.radius, bp.radius * 2.0, bp.radius * 2.0);
+        assert(!lbl1.rect.intersects(bCircle));
+        assert(!lbl2.rect.intersects(bCircle));
+    }
+
+    std::cout << "testTargetLabelsCollisionAvoidanceAndOpacity PASSED\n";
+}
+
 int main(int argc, char **argv)
 {
     QGuiApplication app(argc, argv);
@@ -636,6 +699,7 @@ int main(int argc, char **argv)
     testSpatialKeyGroupBypass();
     testTilingAndBackgroundBadgeSeparation();
     testLaserTargetsMatchingHudBadgeOrder();
+    testTargetLabelsCollisionAvoidanceAndOpacity();
 
     std::cout << "All LeapK Keyboard Overlay tests passed successfully!\n";
     return 0;

@@ -581,6 +581,264 @@ inline QMap<QChar, TargetBadgePlacement> computeTargetBadgePlacements(
     return placements;
 }
 
+struct TargetLabelPlacement {
+    QChar key;
+    QRectF rect;
+    QString text;
+    QPointF badgeCenter;
+    qreal badgeRadius = 18.0;
+    QColor borderColor;
+    QColor bgColor;
+    QColor textColor;
+    bool hasConnector = false;
+    QPointF connectorFrom;
+    QPointF connectorTo;
+};
+
+// Computes non-overlapping positions for target labels avoiding collision between labels,
+// avoiding collision with target badge circles, and avoiding offscreen/panel clipping.
+// Labels are guaranteed to be 100% opaque (no transparency) for maximum contrast and readability.
+inline QList<TargetLabelPlacement> computeTargetLabelPlacements(
+    const QMap<QChar, TargetBadgePlacement> &placements,
+    const QRectF &screenRect,
+    const KeyboardOverlayLayout &layout,
+    const OverlayDisplayConfig &cfg = OverlayDisplayConfig())
+{
+    QList<TargetLabelPlacement> result;
+    if (!cfg.targetLabelVisible || placements.isEmpty()) {
+        return result;
+    }
+
+    const QString effFontFamily = cfg.fontFamily.isEmpty() ? QStringLiteral("sans-serif") : cfg.fontFamily;
+    const int effLabelFontSize = qBound(6, cfg.targetLabelFontSize, 24);
+    QFont tagFont(effFontFamily, effLabelFontSize, QFont::Bold);
+    tagFont.setStyleStrategy(QFont::PreferAntialias);
+    QFontMetrics fm(tagFont);
+
+    // Requirement 2: Labels must have NO transparency (alpha = 255) for crisp, clear readability
+    QColor baseBg = cfg.targetLabelBg.isValid() ? cfg.targetLabelBg : QColor(14, 18, 26);
+    baseBg.setAlpha(255);
+
+    QColor baseTextCol = cfg.targetLabelTextColor.isValid() ? cfg.targetLabelTextColor : QColor(255, 255, 255);
+    baseTextCol.setAlpha(255);
+
+    struct CandidateItem {
+        QChar key;
+        TargetBadgePlacement bp;
+        QString displayLabel;
+        int tagW = 0;
+        int tagH = 0;
+        QColor borderCol;
+        QColor textCol;
+    };
+
+    QList<CandidateItem> itemsToPlace;
+
+    for (auto it = placements.constBegin(); it != placements.constEnd(); ++it) {
+        const TargetBadgePlacement &bp = it.value();
+        if (bp.item.isCurrentFocused) {
+            continue;
+        }
+
+        // Only place labels on windows physically visible on screen with on-screen target badges
+        if (!bp.item.isVisibleOnScreen && cfg.extendToHud && bp.item.hudCardRect.isValid()) {
+            continue;
+        }
+
+        const QString fullLabel = !bp.item.customLabel.isEmpty()
+            ? bp.item.customLabel
+            : (!bp.item.title.isEmpty() ? bp.item.title : bp.item.appClass);
+
+        if (fullLabel.isEmpty()) {
+            continue;
+        }
+
+        const qreal maxLabelW = qMax(180.0, bp.item.geometry.width() > 50.0 ? bp.item.geometry.width() * 0.85 : 220.0);
+        const QString displayLabel = fm.elidedText(fullLabel, Qt::ElideMiddle, maxLabelW);
+        const int tagW = fm.horizontalAdvance(displayLabel) + 14;
+        const int tagH = fm.height() + 6;
+
+        const QColor baseArrowCol = bp.item.customColor.isValid() ? bp.item.customColor : QColor(0, 229, 255);
+        QColor borderCol(baseArrowCol.red(), baseArrowCol.green(), baseArrowCol.blue(), 255);
+        QColor textColor = cfg.targetLabelTextColor.isValid() ? baseTextCol : borderCol;
+        textColor.setAlpha(255);
+
+        CandidateItem ci;
+        ci.key = it.key();
+        ci.bp = bp;
+        ci.displayLabel = displayLabel;
+        ci.tagW = tagW;
+        ci.tagH = tagH;
+        ci.borderCol = borderCol;
+        ci.textCol = textColor;
+        itemsToPlace.append(ci);
+    }
+
+    if (itemsToPlace.isEmpty()) {
+        return result;
+    }
+
+    // Collect all badge bounding circles as protected obstacles so labels never cover key letters
+    QList<QRectF> badgeObstacles;
+    for (auto it = placements.constBegin(); it != placements.constEnd(); ++it) {
+        if (!it.value().item.isCurrentFocused) {
+            const QPointF &c = it.value().center;
+            const qreal r = it.value().radius + 2.0;
+            badgeObstacles.append(QRectF(c.x() - r, c.y() - r, r * 2.0, r * 2.0));
+        }
+    }
+
+    const qreal minScreenY = screenRect.top() + 6.0;
+    const qreal maxScreenY = layout.panelRect.isValid() ? (layout.panelRect.top() - 6.0) : (screenRect.bottom() - 6.0);
+    const qreal minScreenX = screenRect.left() + 6.0;
+    const qreal maxScreenX = screenRect.right() - 6.0;
+
+    for (const auto &item : itemsToPlace) {
+        const QPointF &bc = item.bp.center;
+        const qreal r = item.bp.radius;
+        const qreal w = item.tagW;
+        const qreal h = item.tagH;
+
+        // Generate prioritized candidate positions
+        QList<QRectF> candidates;
+
+        // In clusters, alternate: even stackLevel prefers Above, odd prefers Below
+        bool preferAbove = (item.bp.stackTotal > 1) && (item.bp.stackLevel % 2 == 1);
+        if (bc.y() - r - h - 4.0 < minScreenY) {
+            preferAbove = false;
+        } else if (bc.y() + r + h + 4.0 > maxScreenY) {
+            preferAbove = true;
+        }
+
+        if (preferAbove) {
+            candidates.append(QRectF(bc.x() - w / 2.0, bc.y() - r - h - 4.0, w, h));
+            candidates.append(QRectF(bc.x() - w / 2.0, bc.y() + r + 4.0, w, h));
+            candidates.append(QRectF(bc.x() - w / 2.0, bc.y() - r - 2.0 * h - 8.0, w, h));
+            candidates.append(QRectF(bc.x() - w / 2.0, bc.y() + r + 4.0 + h + 4.0, w, h));
+        } else {
+            candidates.append(QRectF(bc.x() - w / 2.0, bc.y() + r + 4.0, w, h));
+            candidates.append(QRectF(bc.x() - w / 2.0, bc.y() - r - h - 4.0, w, h));
+            candidates.append(QRectF(bc.x() - w / 2.0, bc.y() + r + 4.0 + h + 4.0, w, h));
+            candidates.append(QRectF(bc.x() - w / 2.0, bc.y() - r - 2.0 * h - 8.0, w, h));
+        }
+
+        candidates.append(QRectF(bc.x() - w / 2.0, bc.y() + r + 4.0 + 2.0 * (h + 4.0), w, h));
+        candidates.append(QRectF(bc.x() - w / 2.0, bc.y() - r - 3.0 * h - 12.0, w, h));
+        candidates.append(QRectF(bc.x() - w - r - 6.0, bc.y() - h / 2.0, w, h));
+        candidates.append(QRectF(bc.x() + r + 6.0, bc.y() - h / 2.0, w, h));
+
+        QRectF bestRect;
+        qreal bestScore = 1e12;
+
+        for (int cIdx = 0; cIdx < candidates.size(); ++cIdx) {
+            QRectF cand = candidates[cIdx];
+
+            // Horizontal clamping inside screen
+            if (cand.left() < minScreenX) {
+                cand.moveLeft(minScreenX);
+            }
+            if (cand.right() > maxScreenX) {
+                cand.moveRight(maxScreenX);
+            }
+
+            qreal penalty = 0.0;
+
+            // Penalty for screen vertical boundaries
+            if (cand.top() < minScreenY) {
+                penalty += 10000000.0 * (minScreenY - cand.top());
+            }
+            if (cand.bottom() > maxScreenY) {
+                penalty += 10000000.0 * (cand.bottom() - maxScreenY);
+            }
+
+            // Penalty for covering any target badge (key letter)
+            for (const QRectF &bObs : badgeObstacles) {
+                if (cand.intersects(bObs)) {
+                    const QRectF overlap = cand.intersected(bObs);
+                    penalty += 5000000.0 + (overlap.width() * overlap.height() * 200.0);
+                }
+            }
+
+            // Penalty for overlapping already placed labels
+            for (const auto &placed : result) {
+                const QRectF paddedPlaced = placed.rect.adjusted(-2.0, -2.0, 2.0, 2.0);
+                if (cand.intersects(paddedPlaced)) {
+                    const QRectF overlap = cand.intersected(paddedPlaced);
+                    penalty += 2000000.0 + (overlap.width() * overlap.height() * 500.0);
+                }
+            }
+
+            // Preference penalty (earlier candidates preferred)
+            penalty += cIdx * 150.0;
+            penalty += std::hypot(cand.center().x() - bc.x(), cand.center().y() - bc.y()) * 0.5;
+
+            if (penalty < bestScore) {
+                bestScore = penalty;
+                bestRect = cand;
+            }
+        }
+
+        TargetLabelPlacement tlp;
+        tlp.key = item.key;
+        tlp.rect = bestRect;
+        tlp.text = item.displayLabel;
+        tlp.badgeCenter = bc;
+        tlp.badgeRadius = r;
+        tlp.borderColor = item.borderCol;
+        tlp.bgColor = baseBg;
+        tlp.textColor = item.textCol;
+
+        // If staggered away from badge, calculate connector line coordinates
+        if (bestRect.top() > bc.y() + r + 6.0) {
+            tlp.hasConnector = true;
+            tlp.connectorFrom = QPointF(bc.x(), bc.y() + r);
+            tlp.connectorTo = QPointF(bc.x(), bestRect.top());
+        } else if (bestRect.bottom() < bc.y() - r - 6.0) {
+            tlp.hasConnector = true;
+            tlp.connectorFrom = QPointF(bc.x(), bc.y() - r);
+            tlp.connectorTo = QPointF(bc.x(), bestRect.bottom());
+        }
+
+        result.append(tlp);
+    }
+
+    // Iterative relaxation pass: if any remaining collision exists, separate them along the Y axis
+    for (int pass = 0; pass < 20; ++pass) {
+        bool collisionFound = false;
+        for (int i = 0; i < result.size(); ++i) {
+            for (int j = i + 1; j < result.size(); ++j) {
+                if (result[i].rect.adjusted(-2.0, -2.0, 2.0, 2.0).intersects(result[j].rect)) {
+                    collisionFound = true;
+                    if (result[j].rect.top() >= result[i].rect.top()) {
+                        const qreal shift = (result[i].rect.bottom() + 4.0) - result[j].rect.top();
+                        if (result[j].rect.bottom() + shift <= maxScreenY) {
+                            result[j].rect.translate(0, shift);
+                            if (result[j].hasConnector) result[j].connectorTo.setY(result[j].rect.top());
+                        } else {
+                            result[i].rect.translate(0, -shift);
+                            if (result[i].hasConnector) result[i].connectorTo.setY(result[i].rect.bottom());
+                        }
+                    } else {
+                        const qreal shift = (result[j].rect.bottom() + 4.0) - result[i].rect.top();
+                        if (result[i].rect.bottom() + shift <= maxScreenY) {
+                            result[i].rect.translate(0, shift);
+                            if (result[i].hasConnector) result[i].connectorTo.setY(result[i].rect.top());
+                        } else {
+                            result[j].rect.translate(0, -shift);
+                            if (result[j].hasConnector) result[j].connectorTo.setY(result[j].rect.bottom());
+                        }
+                    }
+                }
+            }
+        }
+        if (!collisionFound) {
+            break;
+        }
+    }
+
+    return result;
+}
+
 inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
                                  const QMap<QChar, WindowTargetItem> &assignedWindows,
                                  const QRectF &screenRect,
@@ -742,12 +1000,10 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
         p.drawEllipse(pStart, 1.5, 1.5);
 
         QPointF pEnd = bp.center;
-        bool drawTargetBadgeAtWindow = true;
 
         // If window is not visible on screen, but has a card in the HUD dock, redirect arrow directly to the HUD card
         if (!bp.item.isVisibleOnScreen && cfg.extendToHud && bp.item.hudCardRect.isValid()) {
             pEnd = bp.item.hudCardRect.center();
-            drawTargetBadgeAtWindow = false;
         }
 
         const qreal dx = pEnd.x() - pStart.x();
@@ -878,36 +1134,39 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
         p.setFont(letterFont);
         const QRectF badgeTextRect(pEnd.x() - ringRadius, pEnd.y() - ringRadius, ringRadius * 2.0, ringRadius * 2.0);
         p.drawText(badgeTextRect, Qt::AlignCenter, QString(key));
+    }
 
-        // Window full label (Point 1: Full name, not truncated, configurable font size & font family)
-        const QString fullLabel = !bp.item.customLabel.isEmpty()
-            ? bp.item.customLabel
-            : (!bp.item.title.isEmpty() ? bp.item.title : bp.item.appClass);
+    // -------------------------------------------------------------
+    // 4. Draw Collision-Free Target Labels (100% Solid & Opaque)
+    // -------------------------------------------------------------
+    if (cfg.targetLabelVisible) {
+        const auto labelPlacements = computeTargetLabelPlacements(placements, screenRect, layout, cfg);
 
-        if (!fullLabel.isEmpty() && drawTargetBadgeAtWindow && cfg.targetLabelVisible) {
-            const int effLabelFontSize = qBound(6, cfg.targetLabelFontSize, 24);
-            QFont tagFont(effFontFamily, effLabelFontSize, QFont::Bold);
-            tagFont.setStyleStrategy(QFont::PreferAntialias);
-            p.setFont(tagFont);
-            QFontMetrics fm(tagFont);
+        const int effLabelFontSize = qBound(6, cfg.targetLabelFontSize, 24);
+        QFont tagFont(effFontFamily, effLabelFontSize, QFont::Bold);
+        tagFont.setStyleStrategy(QFont::PreferAntialias);
+        p.setFont(tagFont);
 
-            const qreal maxLabelW = qMax(180.0, bp.item.geometry.width() > 50.0 ? bp.item.geometry.width() * 0.85 : 220.0);
-            const QString displayLabel = fm.elidedText(fullLabel, Qt::ElideMiddle, maxLabelW);
-            const int tagW = fm.horizontalAdvance(displayLabel) + 14;
-            const int tagH = fm.height() + 6;
-            const QRectF tagRect(pEnd.x() - tagW / 2.0, pEnd.y() + ringRadius + 4.0, tagW, tagH);
+        for (const auto &lbl : labelPlacements) {
+            // Connector line if staggered away from badge
+            if (lbl.hasConnector) {
+                p.setPen(QPen(lbl.borderColor, 1.2, Qt::DotLine, Qt::RoundCap));
+                p.drawLine(lbl.connectorFrom, lbl.connectorTo);
+            }
 
-            QColor labelBg = cfg.targetLabelBg.isValid() ? cfg.targetLabelBg : QColor(12, 15, 22, 235);
-            labelBg.setAlphaF(qBound(0.2, labelBg.alphaF() * effOpacity, 1.0));
+            // Contrast drop shadow
+            p.setPen(Qt::NoPen);
+            p.setBrush(QColor(0, 0, 0, 180));
+            p.drawRoundedRect(lbl.rect.translated(0.0, 1.5), 4.0, 4.0);
 
-            p.setPen(QPen(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), qRound(220 * effOpacity)), 1.2));
-            p.setBrush(labelBg);
-            p.drawRoundedRect(tagRect, 4.0, 4.0);
+            // Requirement 2: Solid, 100% opaque background & solid border (no transparency for clear readability)
+            p.setPen(QPen(lbl.borderColor, 1.4));
+            p.setBrush(lbl.bgColor);
+            p.drawRoundedRect(lbl.rect, 4.0, 4.0);
 
-            QColor labelTextCol = cfg.targetLabelTextColor.isValid() ? cfg.targetLabelTextColor : arrowCol;
-            labelTextCol.setAlphaF(qBound(0.3, labelTextCol.alphaF() * effOpacity, 1.0));
-            p.setPen(labelTextCol);
-            p.drawText(tagRect, Qt::AlignCenter, displayLabel);
+            // Requirement 2: Solid, 100% opaque label text
+            p.setPen(lbl.textColor);
+            p.drawText(lbl.rect, Qt::AlignCenter, lbl.text);
         }
     }
 
