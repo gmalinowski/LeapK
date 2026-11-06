@@ -206,7 +206,22 @@ inline QImage renderNerdStatsCard(qreal scale, const NerdStatsSnapshot &stats)
             : QStringLiteral("%1 W avg").arg(QString::number(stats.avgLeapkWatts, 'f', 2)))
         : QStringLiteral("~0.05 W (idle)");
 
-    const QString cpuStr = QStringLiteral("%1% avg").arg(QString::number(stats.avgCpuPercent, 'f', 1));
+    QString cpuStr;
+    QColor cpuColor;
+    if (stats.avgCpuPercent <= 0.05) {
+        cpuStr = QStringLiteral("< 0.1% avg (idle)");
+        cpuColor = QColor(46, 204, 113);
+    } else if (stats.avgCpuPercent < 3.0) {
+        cpuStr = QStringLiteral("%1% avg (optimal)").arg(QString::number(stats.avgCpuPercent, 'f', 1));
+        cpuColor = QColor(46, 204, 113);
+    } else if (stats.avgCpuPercent < 8.0) {
+        cpuStr = QStringLiteral("%1% avg (low)").arg(QString::number(stats.avgCpuPercent, 'f', 1));
+        cpuColor = QColor(0, 195, 255);
+    } else {
+        cpuStr = QStringLiteral("%1% avg").arg(QString::number(stats.avgCpuPercent, 'f', 1));
+        cpuColor = QColor(241, 196, 15);
+    }
+
     const QString latencyStr = QStringLiteral("%1 ms avg (%2 Hz)").arg(QString::number(stats.avgFrameLatencyMs, 'f', 2)).arg(stats.refreshRateHz);
     const QString vramStr = QStringLiteral("%1 MB cached").arg(QString::number(stats.textureMemoryMb, 'f', 1));
     const QString pipelineStr = QStringLiteral("%1 passes%2")
@@ -215,7 +230,7 @@ inline QImage renderNerdStatsCard(qreal scale, const NerdStatsSnapshot &stats)
 
     const QList<StatRow> rows = {
         { QStringLiteral("⚡ LeapK Power:"), powerStr, QColor(46, 204, 113) },
-        { QStringLiteral("🧠 CPU Utilization:"), cpuStr, QColor(241, 196, 15) },
+        { QStringLiteral("🧠 LeapK CPU:"), cpuStr, cpuColor },
         { QStringLiteral("⏱️ Render Latency:"), latencyStr, QColor(0, 195, 255) },
         { QStringLiteral("💾 Texture VRAM:"), vramStr, QColor(168, 85, 247) },
         { QStringLiteral("🎨 GLSL Pipeline:"), pipelineStr, QColor(230, 240, 250) },

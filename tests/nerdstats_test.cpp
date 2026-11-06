@@ -88,6 +88,12 @@ void testRenderNerdStatsCard()
     const QImage cardIdle = LeapKNerdStats::renderNerdStatsCard(1.0, idleStats);
     assert(!cardIdle.isNull());
 
+    // 4. Render with moderate CPU load
+    LeapKNerdStats::NerdStatsSnapshot modStats = stats;
+    modStats.avgCpuPercent = 4.5;
+    const QImage cardMod = LeapKNerdStats::renderNerdStatsCard(1.0, modStats);
+    assert(!cardMod.isNull());
+
     std::cout << "testRenderNerdStatsCard PASSED\n";
 }
 

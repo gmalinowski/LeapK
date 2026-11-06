@@ -37,9 +37,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Added unit test suite `testTaskbarCrossWorkspaceActivation` in `tests/superjump_test.cpp` verifying activation interception, cancellation isolation, focus restoration, and action execution across all modes (100% passing tests, all 32/32 CTests).
 - **Stats for Nerds HUD Diagnostics Overlay (Moving Average Power & CPU)**:
   - Added dedicated glassmorphic "Stats for Nerds" real-time performance card in the HUD:
-    - ⚡ **Leapk Power Draw**: Moving average power consumption in Watts computed from real-time GPU/CPU energy sensors (`/sys/class/hwmon/*/power1_average` or `power1_input`, or `/sys/class/power_supply/BAT*/power_now`) scaled by render latency vs frame budget, displaying both LeapK average wattage and total package power.
-    - 🧠 **CPU Utilization**: Rolling exponential moving average (EMA with $\alpha = 0.08$) of KWin render thread utilization for LeapK paint passes, providing jitter-free, smoothed percentage metrics.
-    - ⏱️ **Render Latency**: Rolling average frame render duration (ms) alongside screen refresh rate (Hz).
+    - ⚡ **Leapk Power Draw**: Moving average power consumption in Watts computed from real-time GPU/CPU energy sensors (`/sys/class/hwmon/*/power1_average` or `power1_input`, or `/sys/class/power_supply/BAT*/power_now`) scaled by isolated LeapK render latency vs frame budget, displaying accurate LeapK average wattage (~0.05W–0.3W) and total package power.
+    - 🧠 **LeapK CPU Overhead**: Isolated measurement of LeapK's own rendering pass (starting strictly after `effects->paintScreen()`, excluding KWin scene compositing and VSync/fence waiting). Formatted reassuringly in soothing green/cyan with contextual badges: `< 0.1% avg (idle)`, `1.2% avg (optimal)`, and `4.5% avg (low)`.
+    - ⏱️ **Render Latency**: Rolling average LeapK render duration in ms (typically 0.2–0.5 ms) alongside screen refresh rate (Hz).
     - 💾 **Texture VRAM**: Live cached texture memory footprint (MB) across badges, icons, and window preview thumbnails.
     - 🎨 **GLSL Pipeline**: Active shader passes counter (glow, breathe, neon flicker, audio wave, custom shaders) and real-time hardware temperature (°C).
   - Added shortcut `Meta + D` in HUD to toggle the Stats for Nerds overlay on the fly with animated sound feedback.

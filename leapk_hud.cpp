@@ -560,7 +560,7 @@ void ActiveWindowOutlineEffect::updateNerdStatsMetrics(qint64 elapsedNs)
         const double pkgWatts = LeapKNerdStats::queryHardwarePowerWatts(&hwOk);
         if (hwOk && pkgWatts > 0.0) {
             m_avgPackagePowerWatts.addSample(pkgWatts);
-            // Dynamic fraction based on render latency vs 60Hz frame budget (16.67ms)
+            // Dynamic fraction based on isolated LeapK render latency vs frame budget (16.67ms for 60Hz)
             const double frameFraction = qBound(0.002, (m_avgFrameLatencyMs.average() / 16.67), 1.0);
             const double leapkW = qMax(0.02, pkgWatts * frameFraction);
             m_avgPowerWatts.addSample(leapkW);

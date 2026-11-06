@@ -525,9 +525,6 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                                          const OutlineRegion &deviceRegion,
                                          OutlineOutput *screen)
 {
-    QElapsedTimer paintTimer;
-    paintTimer.start();
-
     EffectWindow *w = m_activeWindow;
     const bool isScreenLocked = (effects && effects->isScreenLocked()) || (w && w->isLockScreen());
     if (isScreenLocked) {
@@ -628,6 +625,9 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         return;
 #endif
     }
+
+    QElapsedTimer leapkTimer;
+    leapkTimer.start();
 
     const qreal elapsedSec = m_animationClock.isValid() ? (m_animationClock.elapsed() / 1000.0) : 0.0;
     const qreal sampleInterval = 1.0 / qMax<qreal>(0.1, m_ambilightFrequency);
@@ -1313,7 +1313,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         effects->addRepaintFull();
     }
 
-    updateNerdStatsMetrics(paintTimer.nsecsElapsed());
+    updateNerdStatsMetrics(leapkTimer.nsecsElapsed());
 
 #ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES
     if (cursorOverlay) {
