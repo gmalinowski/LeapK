@@ -105,21 +105,56 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
 
     m_audioRefreshTimer = new QTimer(this);
     connect(m_audioRefreshTimer, &QTimer::timeout, this, [this]() {
-        const bool badgesAlwaysOn = (m_outlineEnabled && m_badgeConfig.windowBadgesEnabled && m_badgeDisplayMode == 1);
-        if (m_jumpMode || badgesAlwaysOn) {
-            m_audioTracker.refresh(getKnownWindowsInfo());
-            if (m_jumpMode && m_audioFilterModeActive) {
-                m_jumpLetterToWindow = assignJumpLetters();
-            }
+        const bool wasPlaying = m_audioTracker.hasPlayingAudio();
+        const QSet<pid_t> prevPids = m_audioTracker.playingPids();
+
+        m_audioTracker.refresh(getKnownWindowsInfo());
+
+        const bool nowPlaying = m_audioTracker.hasPlayingAudio();
+        const QSet<pid_t> nowPids = m_audioTracker.playingPids();
+
+        if (wasPlaying != nowPlaying || prevPids != nowPids) {
             m_badgeTextureCache.clear();
             m_hudHeaderTexture.reset();
             m_hudHeaderCacheKey = -1;
+            m_hudHintBarTexture.reset();
+            m_hudHintBarCacheKey = -1;
+            if (m_jumpMode && m_audioFilterModeActive) {
+                m_jumpLetterToWindow = assignJumpLetters();
+            }
             updateAnimationTimer();
             if (effects) {
                 effects->addRepaintFull();
             }
         }
+
+        const int desiredInterval = nowPlaying ? 150 : 800;
+        if (m_audioRefreshTimer->interval() != desiredInterval) {
+            m_audioRefreshTimer->setInterval(desiredInterval);
+        }
+
+        if (!nowPlaying) {
+            updateAudioTrackingState(false);
+        }
     });
+
+    QDBusConnection::sessionBus().connect(
+        QString(),
+        QStringLiteral("/org/mpris/MediaPlayer2"),
+        QStringLiteral("org.freedesktop.DBus.Properties"),
+        QStringLiteral("PropertiesChanged"),
+        this,
+        SLOT(slotMprisPropertiesChanged(QString,QVariantMap,QStringList))
+    );
+
+    QDBusConnection::sessionBus().connect(
+        QStringLiteral("org.freedesktop.DBus"),
+        QStringLiteral("/org/freedesktop/DBus"),
+        QStringLiteral("org.freedesktop.DBus"),
+        QStringLiteral("NameOwnerChanged"),
+        this,
+        SLOT(slotMprisNameOwnerChanged(QString,QString,QString))
+    );
 
     m_nerdStatsTimer = new QTimer(this);
     connect(m_nerdStatsTimer, &QTimer::timeout, this, [this]() {
@@ -617,6 +652,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     if (m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty()) {
         LeapKShader::loadShaderById(m_audioShaderId, m_audioShaderEffect);
     }
+    updateAudioTrackingState();
 
     m_fadeDuration = qBound(0, config.readEntry("FadeDuration", 200), 2000);
     m_menuHideDelay = qBound(0, config.readEntry("MenuHideDelay", 500), 2000);
@@ -839,18 +875,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     }
 
     m_outlineCache.clear();
-    const bool badgesAlwaysOn = (m_outlineEnabled && m_badgeConfig.windowBadgesEnabled && m_badgeDisplayMode == 1);
-    if (m_audioRefreshTimer) {
-        if (m_jumpMode || badgesAlwaysOn) {
-            if (!m_audioRefreshTimer->isActive()) {
-                m_audioRefreshTimer->start(1500);
-            }
-        } else {
-            if (m_audioRefreshTimer->isActive()) {
-                m_audioRefreshTimer->stop();
-            }
-        }
-    }
+    updateAudioTrackingState();
     if (m_nerdStatsTimer) {
         if (m_jumpMode && m_nerdStatsActive) {
             if (!m_nerdStatsTimer->isActive()) {
@@ -1029,6 +1054,87 @@ QList<QPair<pid_t, QString>> ActiveWindowOutlineEffect::getKnownWindowsInfo() co
         list.append({w->pid(), w->caption()});
     }
     return list;
+}
+
+void ActiveWindowOutlineEffect::updateAudioTrackingState(bool forceImmediateRefresh)
+{
+    const bool badgesAlwaysOn = (m_outlineEnabled && m_badgeConfig.windowBadgesEnabled && m_badgeDisplayMode == 1);
+    const bool audioShaderActive = (m_outlineEnabled && m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty());
+    const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
+    const bool badgePulse = theme.resolveBool(QStringLiteral("$audioPulseBadge"), theme.windowBadge.audioPulseBadge)
+        && theme.resolveDouble(QStringLiteral("$audioPulseIntensity"), theme.windowBadge.audioPulseIntensity) > 0.001;
+    const bool cardPulse = theme.resolveBool(QStringLiteral("$audioPulseBadge"), theme.hudCard.audioPulseBadge)
+        && theme.resolveDouble(QStringLiteral("$audioPulseIntensity"), theme.hudCard.audioPulseIntensity) > 0.001;
+    const bool audioPulsingEnabled = (badgePulse || cardPulse) && (m_jumpMode || badgesAlwaysOn);
+
+    const bool needsTracking = m_jumpMode || badgesAlwaysOn || audioShaderActive || audioPulsingEnabled || m_audioTracker.hasPlayingAudio();
+
+    if (!needsTracking) {
+        if (m_audioRefreshTimer && m_audioRefreshTimer->isActive()) {
+            m_audioRefreshTimer->stop();
+        }
+        return;
+    }
+
+    if (forceImmediateRefresh) {
+        const bool wasPlaying = m_audioTracker.hasPlayingAudio();
+        const QSet<pid_t> prevPids = m_audioTracker.playingPids();
+
+        m_audioTracker.refresh(getKnownWindowsInfo());
+
+        const bool nowPlaying = m_audioTracker.hasPlayingAudio();
+        const QSet<pid_t> nowPids = m_audioTracker.playingPids();
+
+        if (wasPlaying != nowPlaying || prevPids != nowPids) {
+            m_badgeTextureCache.clear();
+            m_hudHeaderTexture.reset();
+            m_hudHeaderCacheKey = -1;
+            m_hudHintBarTexture.reset();
+            m_hudHintBarCacheKey = -1;
+            if (m_jumpMode && m_audioFilterModeActive) {
+                m_jumpLetterToWindow = assignJumpLetters();
+            }
+            updateAnimationTimer();
+            if (effects) {
+                effects->addRepaintFull();
+            }
+        }
+    }
+
+    if (m_audioRefreshTimer) {
+        const int desiredInterval = m_audioTracker.hasPlayingAudio() ? 150 : 800;
+        if (!m_audioRefreshTimer->isActive()) {
+            m_audioRefreshTimer->start(desiredInterval);
+        } else if (m_audioRefreshTimer->interval() != desiredInterval) {
+            m_audioRefreshTimer->setInterval(desiredInterval);
+        }
+    }
+}
+
+void ActiveWindowOutlineEffect::slotMprisPropertiesChanged(const QString &interfaceName,
+                                                           const QVariantMap &changedProperties,
+                                                           const QStringList &invalidatedProperties)
+{
+    Q_UNUSED(invalidatedProperties);
+    if (interfaceName != QLatin1String("org.mpris.MediaPlayer2.Player")
+        && !interfaceName.isEmpty()) {
+        return;
+    }
+    if (changedProperties.contains(QStringLiteral("PlaybackStatus"))
+        || changedProperties.contains(QStringLiteral("Metadata"))) {
+        updateAudioTrackingState(/*forceImmediateRefresh=*/true);
+    }
+}
+
+void ActiveWindowOutlineEffect::slotMprisNameOwnerChanged(const QString &name,
+                                                          const QString &oldOwner,
+                                                          const QString &newOwner)
+{
+    Q_UNUSED(oldOwner);
+    Q_UNUSED(newOwner);
+    if (name.startsWith(QLatin1String("org.mpris.MediaPlayer2."))) {
+        updateAudioTrackingState(/*forceImmediateRefresh=*/true);
+    }
 }
 
 bool ActiveWindowOutlineEffect::shouldOutlineWindow(EffectWindow *w) const

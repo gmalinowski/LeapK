@@ -187,12 +187,111 @@ static void testAudioShaderTargetingRules()
     assert(shouldApplyFrameShader(QStringLiteral("always"), true, true, true, QString()) == false);
 }
 
+static void testPipeWireDumpParsing()
+{
+    const QByteArray sampleJson = R"([
+      {
+        "id": 85,
+        "type": "PipeWire:Interface:Node",
+        "info": {
+          "state": "idle",
+          "props": {
+            "media.class": "Stream/Output/Audio",
+            "application.process.id": 38327,
+            "application.name": "speech-dispatcher-generic",
+            "media.name": "playback"
+          }
+        }
+      },
+      {
+        "id": 100,
+        "type": "PipeWire:Interface:Node",
+        "info": {
+          "state": "running",
+          "props": {
+            "media.class": "Stream/Output/Audio",
+            "application.process.id": 4455,
+            "application.name": "Spotify",
+            "media.name": "Song Title"
+          }
+        }
+      },
+      {
+        "id": 105,
+        "type": "PipeWire:Interface:Node",
+        "info": {
+          "state": "suspended",
+          "props": {
+            "media.class": "Stream/Output/Audio",
+            "application.process.id": 12562,
+            "application.name": "Firefox",
+            "media.name": "Video"
+          }
+        }
+      },
+      {
+        "id": 110,
+        "type": "PipeWire:Interface:Node",
+        "info": {
+          "state": "running",
+          "props": {
+            "media.class": "Audio/Sink",
+            "application.process.id": 9999,
+            "application.name": "HardwareSink"
+          }
+        }
+      },
+      {
+        "id": 115,
+        "type": "PipeWire:Interface:Node",
+        "info": {
+          "state": "running",
+          "props": {
+            "media.class": "Stream/Output/Audio",
+            "application.process.id": 8888,
+            "application.name": "LeapK",
+            "media.name": "Feedback"
+          }
+        }
+      }
+    ])";
+
+    // When selfPid = 8888, only Spotify (4455) is running and not self
+    const auto streams = OutlineAudio::parsePipeWireDumpStreams(sampleJson, 8888);
+    assert(streams.size() == 1);
+    assert(streams[0].pid == 4455);
+    assert(streams[0].appName == QStringLiteral("Spotify"));
+    assert(streams[0].title == QStringLiteral("Song Title"));
+
+    // Verify selfPid filtering in pactl too
+    const QString samplePactl = QStringLiteral(
+        "Sink Input #1\n"
+        "\tCorked: no\n"
+        "\tMute: no\n"
+        "\tProperties:\n"
+        "\t\tapplication.process.id = \"8888\"\n"
+        "\t\tapplication.name = \"LeapK\"\n"
+        "\n"
+        "Sink Input #2\n"
+        "\tCorked: no\n"
+        "\tMute: no\n"
+        "\tProperties:\n"
+        "\t\tapplication.process.id = \"4455\"\n"
+        "\t\tapplication.name = \"Spotify\"\n"
+    );
+    const QSet<pid_t> pactlPids = OutlineAudio::parsePactlSinkInputs(samplePactl, 8888);
+    assert(pactlPids.size() == 1);
+    assert(pactlPids.contains(4455));
+    assert(!pactlPids.contains(8888));
+}
+
 int main(int argc, char *argv[])
 {
     Q_UNUSED(argc);
     Q_UNUSED(argv);
 
     testPactlParsing();
+    testPipeWireDumpParsing();
     testPidMatching();
     testAudioTrackerMock();
     testDetailedPactlParsing();

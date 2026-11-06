@@ -51,6 +51,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Added unit test suite in `tests/keyboardoverlay_test.cpp` verifying overlay activation rules across floating and tiling modes, with 100% passing tests (all 31/31 CTests).
 
 ### Fixed
+- **Dynamic Real-Time Audio Reactivity & Instant Frame Reset**:
+  - Fixed issue where window outlines and frames continued to signal audio playback long after audio was paused or stopped.
+  - Implemented real-time PipeWire node state inspection (`parsePipeWireDumpStreams` via `pw-dump Node`): streams are only marked as playing when `state == "running"`, immediately dropping idle/suspended streams without waiting for PipeWire's 5-second `pulse.idle.timeout`.
+  - Added authoritative MPRIS `PlaybackStatus` handling (`queryMprisPausedPids`): when a media player (Spotify, YouTube, VLC, browser) reports "Paused" or "Stopped", it is instantly excluded from active playback, ignoring stale uncorked sink inputs.
+  - Connected D-Bus signals (`PropertiesChanged` on `org.mpris.MediaPlayer2.Player` and `NameOwnerChanged`) for immediate zero-latency (< 1 ms) reaction on pause, play, or player exit.
+  - Replaced the sluggish, fixed 1500 ms polling timer with adaptive dynamic polling (`updateAudioTrackingState`):
+    - Fast **150 ms** dynamic refresh interval while audio is actively playing or audio frame effects are engaged to detect stops almost instantaneously.
+    - Relaxed **800 ms** interval during silent periods, keeping CPU usage near zero.
+    - Active outside LeapK Jump Mode whenever audio-reactive frame rules (`AudioShaderRuleEnabled`) or badges are active.
+  - Filters out LeapK's own process ID (`selfPid`) so LeapK feedback sound effects never trigger outline audio states on windows.
+  - Added unit test `testPipeWireDumpParsing` in `tests/audiotracker_test.cpp` verifying real-time running/idle node state filtering and PID isolation (100% passing tests, all 32/32 CTests).
 - **HUD Badge Occlusion Protection from Laser Targets & Arrow Badges**:
   - Prevented spatial keyboard laser target arrows, circular target badges, and window title labels from covering or obscuring HUD cards and window badges in the HUD dock.
   - When targeting offscreen windows whose representations reside in the HUD dock (`isTargetInHud == true`), the laser arrow terminates neatly at the outer perimeter edge of the HUD card (`item.hudCardRect.top() - 3.0` or `bottom() + 3.0`) with a directional arrowhead pointing to the card, completely omitting circular target badges, borders, and letters over the HUD card to ensure the window's badge and preview remain 100% visible and unoccluded.

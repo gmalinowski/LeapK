@@ -217,6 +217,12 @@ private Q_SLOTS:
     void slotCommitHistoryNavigation();
     void traverseRecentWindows(int direction);
     void slotAnimationTick();
+    void slotMprisPropertiesChanged(const QString &interfaceName,
+                                   const QVariantMap &changedProperties,
+                                   const QStringList &invalidatedProperties);
+    void slotMprisNameOwnerChanged(const QString &name,
+                                  const QString &oldOwner,
+                                  const QString &newOwner);
 
 private:
     // --- Subsystem: Paint & Screen Pipeline (leapk_paint.cpp) ---
@@ -325,6 +331,7 @@ private:
     void toggleAudioFilterMode();
     void exitAudioFilterMode();
     bool isWorkspacePlayingAudio(int wsIndex) const;
+    void updateAudioTrackingState(bool forceImmediateRefresh = false);
     void enterSearchMode();
     void exitSearchMode();
     void toggleSearchMode();

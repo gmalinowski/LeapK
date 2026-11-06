@@ -692,7 +692,7 @@ void ActiveWindowOutlineEffect::toggleAudioFilterMode()
     }
 
     m_audioFilterModeActive = !m_audioFilterModeActive;
-    m_audioTracker.refresh(getKnownWindowsInfo());
+    updateAudioTrackingState(/*forceImmediateRefresh=*/true);
     m_jumpLetterToWindow = assignJumpLetters();
     m_badgeTextureCache.clear();
     m_hudHeaderTexture.reset();
@@ -1180,7 +1180,7 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     if (effects) {
         m_activeWindow = effects->activeWindow();
     }
-    m_audioTracker.refresh(getKnownWindowsInfo());
+    updateAudioTrackingState(/*forceImmediateRefresh=*/true);
     refreshPersistentMarksForWindows();
     refreshWorkspaces();
 
@@ -1208,9 +1208,6 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
 #endif
     if (m_soundFeedbackEnabled) {
         playThemedSound(OutlineSound::SoundEffect::EnterJump);
-    }
-    if (m_audioRefreshTimer) {
-        m_audioRefreshTimer->start(1500);
     }
     setKdeGlobalShortcutsBlocked(true);
     updateAnimationTimer();
@@ -1339,10 +1336,7 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
     m_searchQuery.clear();
     m_searchMatches.clear();
     m_searchSelectedIndex = 0;
-    const bool badgesAlwaysOn = (m_outlineEnabled && m_badgeConfig.windowBadgesEnabled && m_badgeDisplayMode == 1);
-    if (m_audioRefreshTimer && !badgesAlwaysOn) {
-        m_audioRefreshTimer->stop();
-    }
+    updateAudioTrackingState();
     m_subLeapBaseKey = QChar();
     m_subLeapWindows.clear();
     m_subLeapLetterToWindow.clear();

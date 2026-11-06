@@ -22,6 +22,11 @@
 #include <QDBusInterface>
 #include <QDBusReply>
 #include <QDBusArgument>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonValue>
+#include <QJsonParseError>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -33,7 +38,7 @@ struct AudioStream {
     QString appName; // application.name
 };
 
-inline QList<AudioStream> parsePactlSinkInputsDetailed(const QString &pactlOutput)
+inline QList<AudioStream> parsePactlSinkInputsDetailed(const QString &pactlOutput, pid_t selfPid = 0)
 {
     QList<AudioStream> streams;
     if (pactlOutput.isEmpty()) {
@@ -49,7 +54,7 @@ inline QList<AudioStream> parsePactlSinkInputsDetailed(const QString &pactlOutpu
     QString blockAppName;
 
     auto finishBlock = [&]() {
-        if (inBlock && !isCorked && !isMuted && blockPid > 0) {
+        if (inBlock && !isCorked && !isMuted && blockPid > 0 && (selfPid <= 0 || blockPid != selfPid)) {
             streams.append({blockPid, blockMediaName.trimmed(), blockAppName.trimmed()});
         }
         inBlock = false;
@@ -118,14 +123,65 @@ inline QList<AudioStream> parsePactlSinkInputsDetailed(const QString &pactlOutpu
     return streams;
 }
 
-inline QSet<pid_t> parsePactlSinkInputs(const QString &pactlOutput)
+inline QSet<pid_t> parsePactlSinkInputs(const QString &pactlOutput, pid_t selfPid = 0)
 {
     QSet<pid_t> pids;
-    const auto streams = parsePactlSinkInputsDetailed(pactlOutput);
+    const auto streams = parsePactlSinkInputsDetailed(pactlOutput, selfPid);
     for (const auto &s : streams) {
         pids.insert(s.pid);
     }
     return pids;
+}
+
+inline QList<AudioStream> parsePipeWireDumpStreams(const QByteArray &jsonBytes, pid_t selfPid = 0)
+{
+    QList<AudioStream> streams;
+    if (jsonBytes.isEmpty()) {
+        return streams;
+    }
+
+    QJsonParseError parseErr;
+    const QJsonDocument doc = QJsonDocument::fromJson(jsonBytes, &parseErr);
+    if (parseErr.error != QJsonParseError::NoError || !doc.isArray()) {
+        return streams;
+    }
+
+    const QJsonArray arr = doc.array();
+    for (const QJsonValue &val : arr) {
+        if (!val.isObject()) continue;
+        const QJsonObject obj = val.toObject();
+        const QJsonObject info = obj.value(QStringLiteral("info")).toObject();
+        const QString state = info.value(QStringLiteral("state")).toString();
+        // PipeWire node states: "running", "idle", "suspended", "paused", "error"
+        // Only "running" indicates the node is actively producing/streaming audio right now
+        if (state != QStringLiteral("running")) {
+            continue;
+        }
+
+        const QJsonObject props = info.value(QStringLiteral("props")).toObject();
+        const QString mediaClass = props.value(QStringLiteral("media.class")).toString();
+        if (mediaClass != QStringLiteral("Stream/Output/Audio")) {
+            continue;
+        }
+
+        pid_t pid = 0;
+        const QJsonValue pidVal = props.value(QStringLiteral("application.process.id"));
+        if (pidVal.isDouble()) {
+            pid = static_cast<pid_t>(pidVal.toInteger());
+        } else if (pidVal.isString()) {
+            pid = static_cast<pid_t>(pidVal.toString().toLongLong());
+        }
+
+        if (pid <= 0 || (selfPid > 0 && pid == selfPid)) {
+            continue;
+        }
+
+        const QString mediaName = props.value(QStringLiteral("media.name")).toString();
+        const QString appName = props.value(QStringLiteral("application.name")).toString();
+        streams.append({pid, mediaName.trimmed(), appName.trimmed()});
+    }
+
+    return streams;
 }
 
 inline pid_t getParentPid(pid_t pid)
@@ -275,6 +331,60 @@ inline QSet<pid_t> queryMprisPlayingPids()
     return pids;
 }
 
+inline QSet<pid_t> queryMprisPausedPids()
+{
+    QSet<pid_t> pids;
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    if (!bus.isConnected()) {
+        return pids;
+    }
+
+    auto iface = bus.interface();
+    if (!iface) {
+        return pids;
+    }
+
+    const QStringList services = iface->registeredServiceNames();
+    for (const QString &svc : services) {
+        if (!svc.startsWith(QStringLiteral("org.mpris.MediaPlayer2."))) {
+            continue;
+        }
+
+        QDBusInterface player(svc, QStringLiteral("/org/mpris/MediaPlayer2"),
+                              QStringLiteral("org.mpris.MediaPlayer2.Player"), bus);
+        if (!player.isValid()) {
+            continue;
+        }
+
+        const QVariant statusVar = player.property("PlaybackStatus");
+        if (statusVar.isValid()) {
+            const QString status = statusVar.toString();
+            if (status == QStringLiteral("Paused") || status == QStringLiteral("Stopped")) {
+                pid_t pid = 0;
+                const QVariant metaVar = player.property("Metadata");
+                if (metaVar.isValid()) {
+                    const QVariantMap metaMap = qdbus_cast<QVariantMap>(metaVar.value<QDBusArgument>());
+                    if (metaMap.contains(QStringLiteral("kde:pid"))) {
+                        pid = static_cast<pid_t>(metaMap.value(QStringLiteral("kde:pid")).toInt());
+                    }
+                }
+
+                if (pid <= 0) {
+                    QDBusReply<uint> pidReply = iface->servicePid(svc);
+                    if (pidReply.isValid() && pidReply.value() > 0) {
+                        pid = static_cast<pid_t>(pidReply.value());
+                    }
+                }
+
+                if (pid > 0) {
+                    pids.insert(pid);
+                }
+            }
+        }
+    }
+    return pids;
+}
+
 inline bool isGenericMediaTitle(const QString &title)
 {
     const QString t = title.trimmed().toLower();
@@ -399,20 +509,63 @@ public:
 
     void refresh(const QList<QPair<pid_t, QString>> &knownWindows = {})
     {
+        const pid_t selfPid = getpid();
         QList<AudioStream> streams;
-        streams.append(queryMprisPlayingStreams());
 
+        // 1. Authoritative MPRIS state
+        const QList<AudioStream> mprisPlaying = queryMprisPlayingStreams();
+        const QSet<pid_t> mprisPaused = queryMprisPausedPids();
+        streams.append(mprisPlaying);
+
+        QSet<pid_t> mprisPlayingPids;
+        for (const auto &s : mprisPlaying) {
+            mprisPlayingPids.insert(s.pid);
+        }
+
+        auto isMprisExplicitlyPaused = [&](pid_t pid) -> bool {
+            if (mprisPaused.contains(pid)) return true;
+            for (pid_t p : mprisPaused) {
+                if (isPidRelated(pid, p)) return true;
+            }
+            return false;
+        };
+
+        // 2. Hardware / Audio Server streams (PipeWire pw-dump Node preferred for real-time node state)
+        bool pwSuccess = false;
         QProcess proc;
-        proc.start(QStringLiteral("pactl"), {QStringLiteral("list"), QStringLiteral("sink-inputs")});
-        if (proc.waitForFinished(100)) {
-            const QString pactlOut = QString::fromUtf8(proc.readAllStandardOutput());
-            streams.append(parsePactlSinkInputsDetailed(pactlOut));
+        proc.start(QStringLiteral("pw-dump"), {QStringLiteral("Node")});
+        if (proc.waitForFinished(60) && proc.exitStatus() == QProcess::NormalExit && proc.exitCode() == 0) {
+            const QByteArray out = proc.readAllStandardOutput();
+            const QList<AudioStream> pwStreams = parsePipeWireDumpStreams(out, selfPid);
+            for (const auto &s : pwStreams) {
+                if (isMprisExplicitlyPaused(s.pid) && !mprisPlayingPids.contains(s.pid)) {
+                    continue;
+                }
+                streams.append(s);
+            }
+            pwSuccess = true;
+        }
+
+        // 3. Fallback to pactl if PipeWire pw-dump was unavailable or failed
+        if (!pwSuccess) {
+            QProcess pactlProc;
+            pactlProc.start(QStringLiteral("pactl"), {QStringLiteral("list"), QStringLiteral("sink-inputs")});
+            if (pactlProc.waitForFinished(60)) {
+                const QString pactlOut = QString::fromUtf8(pactlProc.readAllStandardOutput());
+                const auto pactlStreams = parsePactlSinkInputsDetailed(pactlOut, selfPid);
+                for (const auto &s : pactlStreams) {
+                    if (isMprisExplicitlyPaused(s.pid) && !mprisPlayingPids.contains(s.pid)) {
+                        continue;
+                    }
+                    streams.append(s);
+                }
+            }
         }
 
         m_activeStreams = streams;
         m_playingPids.clear();
         for (const auto &s : streams) {
-            if (s.pid > 0) {
+            if (s.pid > 0 && s.pid != selfPid) {
                 m_playingPids.insert(s.pid);
             }
         }
