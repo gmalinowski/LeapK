@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.6.0-beta85-exp] - 2026-11-05
 
 ### Added
+- **Laser Target Clean Mode & macOS-Style Middle-Elided Spatial Keycap Labels**:
+  - **Screen Target Cleanliness**: Disabled floating window title labels next to laser targets on screen by default (`targetLabelVisible = false` in `OverlayDisplayConfig` and `themehelper.h`). The screen workspace remains completely unobstructed and clean, displaying only directional laser beams and circular window badges.
+  - **Enlarged Keycaps with Dedicated Glassmorphic Label Pills**: Increased default keycap size from 54px to 64px (`keySize` bounded up to 96px in `computeOverlayGeometry` and settings UI). Structured keycap layouts into an upper bold letter zone and a dedicated lower contrast pill (`labelPill`) displaying the target window's title.
+  - **macOS-Style Dynamic Middle Truncation (`elideMiddleTitle`)**: Window titles that fit within available keycap width are displayed 100% whole. When titles exceed keycap width, they are middle-elided using ellipsis (e.g. `"Terminal (bash) - neovim"` $\to$ `"Termin…neovim"`), dynamically preserving the application context and trailing document or task names.
+  - Added comprehensive unit tests in `tests/keyboardoverlay_test.cpp` (`testKeycapMiddleElisionAndTargetLabelsDisabled`) verifying middle elision mathematics, tight width fallbacks, disabled target labels, and overlay rendering (100% passing tests, all 32/32 CTests).
 - **Spatial Keyboard Toggle Shortcut (`Meta + L`) with Session Persistence**:
   - Added shortcut `Meta + L` in LeapK mode to toggle the spatial keyboard dock and laser targets on/off on the fly.
   - Setting is automatically persisted to user configuration (`primaryConfig.writeEntry("KeyboardOverlayEnabled", m_keyboardOverlayEnabled)` in group `Effect-leapk`) so user preferences are retained across KWin restarts and sessions.

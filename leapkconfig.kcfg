@@ -263,9 +263,9 @@
             <default>true</default>
         </entry>
         <entry name="KeyboardOverlayKeySize" type="Int">
-            <default>54</default>
+            <default>64</default>
             <min>32</min>
-            <max>80</max>
+            <max>96</max>
         </entry>
         <entry name="KeyboardOverlayKeyFontSize" type="Int">
             <default>14</default>

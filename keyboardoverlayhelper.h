@@ -66,7 +66,7 @@ struct OverlayDisplayConfig {
     bool enabled = true;
     bool tilingOnly = false;
     bool extendToHud = true;
-    qreal keySize = 54.0;
+    qreal keySize = 64.0;
     int keyFontSize = 14;
     qreal lineWidth = 3.4;
     qreal badgeRadius = 18.0;
@@ -77,7 +77,7 @@ struct OverlayDisplayConfig {
     double stackScaleReduction = 0.35;   // 0.0 to 0.70
     double stackOpacityReduction = 0.40; // 0.0 to 0.70
     double stackBadgeGap = 8.0;
-    bool targetLabelVisible = true;
+    bool targetLabelVisible = false;
     QColor targetLabelBg;
     QColor targetLabelTextColor;
     bool laserGlow = true;
@@ -120,11 +120,11 @@ inline KeyboardOverlayLayout computeOverlayGeometry(const QRectF &screenRect,
 {
     KeyboardOverlayLayout geom;
     geom.hudBounds = hudBounds;
-    const qreal keyW = qBound(32.0, cfg.keySize, 80.0);
-    const qreal keyH = keyW * (46.0 / 54.0);
-    const qreal gap = qBound(4.0, keyW * 0.11, 8.0);
-    const qreal panelPaddingX = qBound(18.0, keyW * 0.48, 36.0);
-    const qreal panelPaddingY = qBound(10.0, keyH * 0.30, 20.0);
+    const qreal keyW = qBound(32.0, cfg.keySize, 96.0);
+    const qreal keyH = qBound(46.0, keyW * (54.0 / 64.0), 84.0);
+    const qreal gap = qBound(4.0, keyW * 0.10, 8.0);
+    const qreal panelPaddingX = qBound(18.0, keyW * 0.38, 36.0);
+    const qreal panelPaddingY = qBound(10.0, keyH * 0.25, 20.0);
     const qreal headerHeight = 26.0;
 
     // Standard QWERTY 3-row layout:
@@ -883,6 +883,34 @@ inline QList<TargetLabelPlacement> computeTargetLabelPlacements(
     return result;
 }
 
+inline QString elideMiddleTitle(const QString &text, const QFontMetrics &fm, qreal availableWidth)
+{
+    const QString trimmed = text.trimmed();
+    if (trimmed.isEmpty() || availableWidth <= 8.0) {
+        return QString();
+    }
+
+    if (fm.horizontalAdvance(trimmed) <= availableWidth) {
+        return trimmed;
+    }
+
+    const QString elided = fm.elidedText(trimmed, Qt::ElideMiddle, qRound(availableWidth));
+    if (!elided.isEmpty() && fm.horizontalAdvance(elided) <= availableWidth) {
+        return elided;
+    }
+
+    // Dynamic prefix/suffix fallback
+    const int len = trimmed.length();
+    for (int k = qMin(6, len / 2); k >= 2; --k) {
+        const QString candidate = trimmed.left(k) + QStringLiteral("…") + trimmed.right(k);
+        if (fm.horizontalAdvance(candidate) <= availableWidth) {
+            return candidate;
+        }
+    }
+
+    return trimmed.left(qMax(2, qMin(4, len))) + QStringLiteral("…");
+}
+
 inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
                                  const QMap<QChar, WindowTargetItem> &assignedWindows,
                                  const QRectF &screenRect,
@@ -986,22 +1014,51 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
             const QRectF topAccent(kg.rect.left() + 4.0, kg.rect.top() + 2.0, kg.rect.width() - 8.0, 3.0);
             p.drawRoundedRect(topAccent, 1.5, 1.5);
 
-            // Key letter (crisp bold white with slight shadow)
+            // Resolve window display title (prefer custom label, then window title, then app class)
+            QString rawTitle;
+            if (!item.customLabel.trimmed().isEmpty()) {
+                rawTitle = item.customLabel.trimmed();
+            } else if (!item.title.trimmed().isEmpty()) {
+                rawTitle = item.title.trimmed();
+            } else if (!item.appClass.trimmed().isEmpty()) {
+                rawTitle = item.appClass.trimmed();
+            }
+
+            const bool hasTitle = !rawTitle.isEmpty();
+
+            // Key letter (crisp bold white with slight shadow in upper portion)
             p.setFont(keyFont);
             p.setPen(QColor(0, 0, 0, 180));
-            const QRectF textShadowRect = kg.rect.adjusted(0, 1.0, 0, 1.0);
-            p.drawText(textShadowRect, Qt::AlignHCenter | Qt::AlignVCenter, QString(kg.key));
+            const QRectF letterRect = hasTitle
+                ? QRectF(kg.rect.left(), kg.rect.top() + 4.0, kg.rect.width(), kg.rect.height() - 22.0)
+                : kg.rect;
+            const QRectF textShadowRect = letterRect.adjusted(0, 1.0, 0, 1.0);
+            p.drawText(textShadowRect, Qt::AlignCenter, QString(kg.key));
 
             p.setPen(Qt::white);
-            p.drawText(kg.rect, Qt::AlignHCenter | Qt::AlignVCenter, QString(kg.key));
+            p.drawText(letterRect, Qt::AlignCenter, QString(kg.key));
 
-            // Short app caption at bottom of keycap
-            if (!item.appClass.isEmpty()) {
-                p.setFont(subFont);
+            // Window title pill at bottom of keycap
+            if (hasTitle) {
+                const QRectF labelPill(kg.rect.left() + 3.0, kg.rect.bottom() - 17.5, kg.rect.width() - 6.0, 15.0);
+
+                // Contrast glassmorphic pill background
+                p.setPen(QPen(QColor(col.red(), col.green(), col.blue(), 130), 1.0));
+                p.setBrush(QColor(10, 14, 22, 235));
+                p.drawRoundedRect(labelPill, 3.5, 3.5);
+
+                // Dynamic font and middle-truncation (macOS-style: "Terminal (bash) - neovim" => "Termin...neovim")
+                const int labelFontSize = qBound(6, qRound(effKeyFontSize * 0.52), 10);
+                QFont labelFont(effFontFamily, labelFontSize, QFont::DemiBold);
+                labelFont.setStyleStrategy(QFont::PreferAntialias);
+                const QFontMetrics fm(labelFont);
+
+                const qreal availW = labelPill.width() - 4.0;
+                const QString displayTitle = elideMiddleTitle(rawTitle, fm, availW);
+
+                p.setFont(labelFont);
                 p.setPen(col);
-                const QRectF subRect(kg.rect.left(), kg.rect.bottom() - 11.0, kg.rect.width(), 10.0);
-                const QString truncated = item.appClass.left(5);
-                p.drawText(subRect, Qt::AlignCenter, truncated);
+                p.drawText(labelPill, Qt::AlignCenter, displayTitle);
             }
         }
     }

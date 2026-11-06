@@ -458,7 +458,7 @@ set_default JumpRecentKey "Space"
 set_default KeyboardOverlayEnabled true
 set_default KeyboardOverlayTilingOnly false
 set_default KeyboardOverlayExtendToHud true
-set_default KeyboardOverlayKeySize 54
+set_default KeyboardOverlayKeySize 64
 set_default KeyboardOverlayKeyFontSize 14
 set_default KeyboardOverlayLineWidth 3.4
 set_default KeyboardOverlayBadgeRadius 18

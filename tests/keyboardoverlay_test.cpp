@@ -707,6 +707,8 @@ void testKeyboardOverlayTilingOnly()
     OverlayDisplayConfig cfg;
     assert(cfg.enabled == true);
     assert(cfg.tilingOnly == false);
+    assert(cfg.targetLabelVisible == false);
+    assert(cfg.keySize == 64.0);
 
     std::cout << "testKeyboardOverlayTilingOnly PASSED\n";
 }
@@ -770,6 +772,74 @@ void testLaserTargetsAvoidHudBadges()
     std::cout << "testLaserTargetsAvoidHudBadges PASSED\n";
 }
 
+void testKeycapMiddleElisionAndTargetLabelsDisabled()
+{
+    using namespace LeapKKeyboardOverlay;
+
+    // 1. Verify default config has targetLabelVisible = false
+    OverlayDisplayConfig defaultCfg;
+    assert(!defaultCfg.targetLabelVisible);
+    assert(defaultCfg.keySize == 64.0);
+
+    // 2. Test elideMiddleTitle mathematics
+    QFont font(QStringLiteral("sans-serif"), 8);
+    QFontMetrics fm(font);
+
+    // Short titles that fit within available width must remain 100% whole
+    const QString short1 = QStringLiteral("Dolphin");
+    const QString short2 = QStringLiteral("Kate");
+    const qreal availW = 60.0;
+    if (fm.horizontalAdvance(short1) <= availW) {
+        assert(elideMiddleTitle(short1, fm, availW) == short1);
+    }
+    if (fm.horizontalAdvance(short2) <= availW) {
+        assert(elideMiddleTitle(short2, fm, availW) == short2);
+    }
+
+    // Long titles must be middle-elided with ellipsis (e.g. "Terminal (bash) - neovim" => "Termin...neovim")
+    const QString longTitle = QStringLiteral("Terminal (bash) - neovim");
+    const qreal wideAvailW = 100.0;
+    const QString elidedWide = elideMiddleTitle(longTitle, fm, wideAvailW);
+    assert(!elidedWide.isEmpty());
+    assert(elidedWide.length() < longTitle.length());
+    assert(fm.horizontalAdvance(elidedWide) <= wideAvailW + 1.0);
+    assert(elidedWide.startsWith(QStringLiteral("Term")));
+    assert(elidedWide.endsWith(QStringLiteral("vim")));
+    assert(elidedWide.contains(QStringLiteral("…")) || elidedWide.contains(QStringLiteral("...")));
+
+    const qreal tightAvailW = 50.0;
+    const QString elidedTight = elideMiddleTitle(longTitle, fm, tightAvailW);
+    assert(!elidedTight.isEmpty());
+    assert(elidedTight.length() < elidedWide.length());
+    assert(fm.horizontalAdvance(elidedTight) <= tightAvailW + 1.0);
+    assert(elidedTight.contains(QStringLiteral("…")) || elidedTight.contains(QStringLiteral("...")));
+
+    // 3. Verify target labels are omitted by default
+    const QRectF screenRect(0, 0, 1920, 1080);
+    const KeyboardOverlayLayout layout = computeOverlayGeometry(screenRect, QRectF(), defaultCfg);
+
+    WindowTargetItem w1;
+    w1.geometry = QRectF(100, 100, 600, 400);
+    w1.title = longTitle;
+    w1.appClass = QStringLiteral("konsole");
+
+    QMap<QChar, WindowTargetItem> assigned;
+    assigned.insert(QChar('T'), w1);
+
+    const auto placements = computeTargetBadgePlacements(assigned, screenRect, layout, defaultCfg);
+    assert(placements.size() == 1);
+
+    // When targetLabelVisible is false, computeTargetLabelPlacements returns empty list
+    const auto labels = computeTargetLabelPlacements(placements, screenRect, layout, defaultCfg);
+    assert(labels.isEmpty());
+
+    // 4. Render overlay with the middle-elided keycap label
+    const QImage img = renderOverlayImage(layout, assigned, screenRect, 1.0, defaultCfg);
+    assert(!img.isNull());
+
+    std::cout << "testKeycapMiddleElisionAndTargetLabelsDisabled PASSED\n";
+}
+
 int main(int argc, char **argv)
 {
     QGuiApplication app(argc, argv);
@@ -789,6 +859,7 @@ int main(int argc, char **argv)
     testTargetLabelsCollisionAvoidanceAndOpacity();
     testKeyboardOverlayTilingOnly();
     testLaserTargetsAvoidHudBadges();
+    testKeycapMiddleElisionAndTargetLabelsDisabled();
 
     std::cout << "All LeapK Keyboard Overlay tests passed successfully!\n";
     return 0;

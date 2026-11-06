@@ -488,7 +488,7 @@ struct SpatialKeyboardTheme {
     QString targetBadgeBg = QStringLiteral("$bgCard");
     QString targetBadgeBorder = QStringLiteral("$borderColor");
     double targetBadgeBorderWidth = 2.0;
-    bool targetLabelVisible = true;
+    bool targetLabelVisible = false;
     int targetLabelFontSize = 9;
     QString targetLabelBg = QStringLiteral("#0c0f16eb");
     QString targetLabelTextColor = QStringLiteral("$textPrimary");

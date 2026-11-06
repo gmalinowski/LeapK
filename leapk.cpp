@@ -827,7 +827,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_keyboardOverlayEnabled = config.readEntry("KeyboardOverlayEnabled", true);
     m_keyboardOverlayTilingOnly = config.readEntry("KeyboardOverlayTilingOnly", false);
     m_keyboardOverlayExtendToHud = config.readEntry("KeyboardOverlayExtendToHud", true);
-    m_keyboardOverlayKeySize = qBound(32, config.readEntry("KeyboardOverlayKeySize", 54), 80);
+    m_keyboardOverlayKeySize = qBound(32, config.readEntry("KeyboardOverlayKeySize", 64), 96);
     m_keyboardOverlayKeyFontSize = qBound(8, config.readEntry("KeyboardOverlayKeyFontSize", 14), 28);
     m_keyboardOverlayLineWidth = qBound(1.0, config.readEntry("KeyboardOverlayLineWidth", 3.4), 10.0);
     m_keyboardOverlayBadgeRadius = qBound(10, config.readEntry("KeyboardOverlayBadgeRadius", 18), 40);
