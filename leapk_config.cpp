@@ -332,6 +332,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemBool(QStringLiteral("KeyboardOverlayEnabled"), *new bool, true);
     m_configSkeleton->addItemBool(QStringLiteral("KeyboardOverlayTilingOnly"), *new bool, false);
     m_configSkeleton->addItemBool(QStringLiteral("KeyboardOverlayExtendToHud"), *new bool, true);
+    m_configSkeleton->addItemBool(QStringLiteral("KeyboardOverlayFixedLetterColors"), *new bool, true);
     m_configSkeleton->addItemInt(QStringLiteral("KeyboardOverlayKeySize"), *new int, 64);
     m_configSkeleton->addItemInt(QStringLiteral("KeyboardOverlayKeyFontSize"), *new int, 14);
     m_configSkeleton->addItemDouble(QStringLiteral("KeyboardOverlayLineWidth"), *new double, 3.4);

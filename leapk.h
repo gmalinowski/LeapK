@@ -748,6 +748,7 @@ private:
         return LeapKKeyboardOverlay::isKeyboardOverlayActive(m_keyboardOverlayEnabled, m_keyboardOverlayTilingOnly, m_tilingActive);
     }
     bool m_keyboardOverlayExtendToHud = true;
+    bool m_keyboardOverlayFixedLetterColors = true;
     int m_keyboardOverlayKeySize = 64;
     int m_keyboardOverlayKeyFontSize = 14;
     qreal m_keyboardOverlayLineWidth = 3.4;

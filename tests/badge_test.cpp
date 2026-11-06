@@ -1800,6 +1800,42 @@ void testBadgePreviewDismissHitTesting()
     assert(!isInside(true, true, true, {winBadge}, hudDock, closeBtn, header, hintBar, pills, QPointF(50, 50)));
 }
 
+void testFixedLetterColorsInBadges()
+{
+    using OutlineBadge::renderOffscreenTargetPill;
+    using OutlineBadge::renderBadgeImage;
+    using OutlineBadge::BadgeConfig;
+
+    BadgeConfig cfg;
+    cfg.fixedLetterColors = true;
+
+    // 1. Unmarked HUD pill renders cleanly with fixed letter colors
+    const QImage pillUnmarkedA = renderOffscreenTargetPill(cfg, QLatin1Char('A'), QColor(), QColor(),
+                                                          QStringLiteral("Desk 1"), QStringLiteral("Dolphin"), 44, 1.0);
+    assert(!pillUnmarkedA.isNull());
+
+    const QImage pillUnmarkedZ = renderOffscreenTargetPill(cfg, QLatin1Char('Z'), QColor(), QColor(),
+                                                          QStringLiteral("Desk 1"), QStringLiteral("Kate"), 44, 1.0);
+    assert(!pillUnmarkedZ.isNull());
+
+    // 2. Marked HUD pill preserves custom mark color
+    const QColor markPink(QStringLiteral("#FF007F"));
+    const QImage pillMarked = renderOffscreenTargetPill(cfg, QLatin1Char('A'), markPink, Qt::white,
+                                                        QStringLiteral("Desk 1"), QStringLiteral("Terminal"), 44, 1.0,
+                                                        QStringLiteral("Dev"), QIcon(), QImage(), /*isMarked*/ true);
+    assert(!pillMarked.isNull());
+
+    // 3. Window badges (renderBadgeImage) with fixedLetterColors
+    const QImage badgeUnmarked = renderBadgeImage(cfg, QLatin1Char('S'), QColor(35, 38, 41), QColor(), false, 28, 1.0);
+    assert(!badgeUnmarked.isNull());
+
+    const QImage badgeMarked = renderBadgeImage(cfg, QLatin1Char('S'), markPink, Qt::white, false, 28, 1.0,
+                                               QString(), QIcon(), QImage(), QString(), /*isCustomMarkColor*/ true);
+    assert(!badgeMarked.isNull());
+
+    std::cout << "testFixedLetterColorsInBadges PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -1835,6 +1871,7 @@ int main(int argc, char *argv[])
     testSubLeapTargetDistribution();
     testTilingHudComponents();
     testBadgePreviewDismissHitTesting();
+    testFixedLetterColorsInBadges();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

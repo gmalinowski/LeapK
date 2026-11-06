@@ -258,6 +258,26 @@ public:
                     {QStringLiteral("AudioWindowFrameTransitionDuration"), QStringLiteral("Audio Window Frame Transition Duration")},
                     {QStringLiteral("AudioHudShaderEnabled"), QStringLiteral("Audio HUD Shader Rule")}
                 }
+            },
+            // 9. Spatial Keyboard & Laser Targets
+            {
+                QStringLiteral("⌨️ Spatial Keyboard & Laser Targets"),
+                QStringLiteral("input-keyboard-virtual"),
+                {
+                    {QStringLiteral("KeyboardOverlayEnabled"), QStringLiteral("Spatial Keyboard Overlay")},
+                    {QStringLiteral("KeyboardOverlayTilingOnly"), QStringLiteral("Only in Tiling Mode")},
+                    {QStringLiteral("KeyboardOverlayExtendToHud"), QStringLiteral("Extend Laser Targets to HUD")},
+                    {QStringLiteral("KeyboardOverlayFixedLetterColors"), QStringLiteral("Fixed Unique Colors for Letters")},
+                    {QStringLiteral("KeyboardOverlayKeySize"), QStringLiteral("Keycap Size")},
+                    {QStringLiteral("KeyboardOverlayKeyFontSize"), QStringLiteral("Keycap Font Size")},
+                    {QStringLiteral("KeyboardOverlayLineWidth"), QStringLiteral("Laser Arrow Line Width")},
+                    {QStringLiteral("KeyboardOverlayBadgeRadius"), QStringLiteral("Target Badge Radius")},
+                    {QStringLiteral("KeyboardOverlayBadgeFontSize"), QStringLiteral("Target Badge Font Size")},
+                    {QStringLiteral("KeyboardOverlayFontFamily"), QStringLiteral("Overlay Font Family")},
+                    {QStringLiteral("KeyboardOverlayTargetLabelFontSize"), QStringLiteral("Target Label Font Size")},
+                    {QStringLiteral("KeyboardOverlayStackScaleReduction"), QStringLiteral("Stack Scale Reduction")},
+                    {QStringLiteral("KeyboardOverlayStackOpacityReduction"), QStringLiteral("Stack Opacity Reduction")}
+                }
             }
         };
     }

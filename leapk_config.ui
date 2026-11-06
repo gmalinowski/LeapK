@@ -3665,6 +3665,16 @@
             </property>
            </widget>
           </item>
+          <item>
+           <widget class="QCheckBox" name="kcfg_KeyboardOverlayFixedLetterColors">
+            <property name="text">
+             <string>Use fixed unique colors for letters and laser arrows</string>
+            </property>
+            <property name="toolTip">
+             <string>Each letter key receives a dedicated, fixed vibrant color across the spatial keycap, laser arrow, and HUD badge for rapid muscle memory and recognition (window mark colors take precedence).</string>
+            </property>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>

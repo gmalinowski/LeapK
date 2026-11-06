@@ -3197,6 +3197,7 @@ void ActiveWindowOutlineEffect::renderKeyboardArrowsOverlay(const RenderTarget &
     cfg.laserGlow = st.laserGlow;
     cfg.laserGlowIntensity = st.laserGlowIntensity;
     cfg.laserDashStyle = st.laserDashStyle;
+    cfg.fixedLetterColors = m_keyboardOverlayFixedLetterColors;
     cfg.targetLabelBg = theme.resolveColor(st.targetLabelBg, QColor(12, 15, 22, 255));
     cfg.targetLabelBg.setAlpha(255);
     cfg.targetLabelTextColor = theme.resolveColor(st.targetLabelTextColor, QColor(255, 255, 255));
@@ -3243,6 +3244,8 @@ void ActiveWindowOutlineEffect::renderKeyboardArrowsOverlay(const RenderTarget &
 
         if (m_markedWindows.contains(w) && m_markedWindows.value(w).isValid()) {
             item.customColor = m_markedWindows.value(w);
+        } else if (m_keyboardOverlayFixedLetterColors) {
+            item.customColor = LeapKKeyboardOverlay::colorForLetter(key);
         } else {
             item.customColor = palette[colorIdx % palette.size()];
             colorIdx++;

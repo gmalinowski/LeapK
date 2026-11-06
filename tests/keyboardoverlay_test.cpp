@@ -908,6 +908,78 @@ void testLaserTargetsShortestPathToHudBadges()
     std::cout << "testLaserTargetsShortestPathToHudBadges PASSED\n";
 }
 
+void testFixedLetterColorsFeature()
+{
+    using namespace LeapKKeyboardOverlay;
+
+    // 1. Verify deterministic 26-color mapping for letters A-Z
+    QSet<QRgb> seenRgbs;
+    for (char c = 'A'; c <= 'Z'; ++c) {
+        const QChar upperCh = QLatin1Char(c);
+        const QChar lowerCh = QLatin1Char(c + 32);
+
+        const QColor colUpper = colorForLetter(upperCh);
+        const QColor colLower = colorForLetter(lowerCh);
+
+        assert(colUpper.isValid());
+        assert(colUpper.alpha() == 255);
+        assert(colUpper == colLower); // Case-insensitive mapping
+        assert(!seenRgbs.contains(colUpper.rgb())); // Unique color per letter
+        seenRgbs.insert(colUpper.rgb());
+    }
+    assert(seenRgbs.size() == 26);
+
+    // Fallback for non-letter characters
+    assert(colorForLetter(QLatin1Char('1')) == QColor(0, 229, 255));
+    assert(colorForLetter(QLatin1Char('?')) == QColor(0, 229, 255));
+
+    // 2. Spatial assignment assigns fixed letter colors to unmarked windows
+    const QRectF screenRect(0, 0, 1920, 1080);
+    WindowTargetItem w1;
+    w1.geometry = QRectF(100, 100, 400, 300);
+    w1.title = QStringLiteral("Window 1");
+
+    WindowTargetItem w2;
+    w2.geometry = QRectF(1200, 100, 400, 300);
+    w2.title = QStringLiteral("Window 2");
+
+    // Marked window with an explicit custom color
+    WindowTargetItem wMarked;
+    wMarked.geometry = QRectF(600, 500, 400, 300);
+    wMarked.title = QStringLiteral("Marked Window");
+    const QColor markColor(QStringLiteral("#FF0055"));
+    wMarked.customColor = markColor;
+
+    const auto assigned = assignSpatialKeys({w1, w2, wMarked}, screenRect, /*fixedLetterColors*/ true);
+    assert(assigned.size() == 3);
+
+    for (auto it = assigned.constBegin(); it != assigned.constEnd(); ++it) {
+        const QChar key = it.key();
+        const WindowTargetItem &item = it.value();
+        if (item.title == QStringLiteral("Marked Window")) {
+            // Marked window color MUST take precedence over letter color
+            assert(item.customColor == markColor);
+        } else {
+            // Unmarked window MUST receive deterministic letter color
+            assert(item.customColor == colorForLetter(key));
+        }
+    }
+
+    // 3. Verify OverlayDisplayConfig fixedLetterColors toggle and rendering
+    const KeyboardOverlayLayout layout = computeOverlayGeometry(screenRect);
+    OverlayDisplayConfig cfgEnabled;
+    cfgEnabled.fixedLetterColors = true;
+    const QImage imgEnabled = renderOverlayImage(layout, assigned, screenRect, 1.0, cfgEnabled);
+    assert(!imgEnabled.isNull());
+
+    OverlayDisplayConfig cfgDisabled;
+    cfgDisabled.fixedLetterColors = false;
+    const QImage imgDisabled = renderOverlayImage(layout, assigned, screenRect, 1.0, cfgDisabled);
+    assert(!imgDisabled.isNull());
+
+    std::cout << "testFixedLetterColorsFeature PASSED\n";
+}
+
 int main(int argc, char **argv)
 {
     QGuiApplication app(argc, argv);
@@ -929,6 +1001,7 @@ int main(int argc, char **argv)
     testLaserTargetsAvoidHudBadges();
     testKeycapMiddleElisionAndTargetLabelsDisabled();
     testLaserTargetsShortestPathToHudBadges();
+    testFixedLetterColorsFeature();
 
     std::cout << "All LeapK Keyboard Overlay tests passed successfully!\n";
     return 0;

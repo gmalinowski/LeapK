@@ -262,6 +262,9 @@
         <entry name="KeyboardOverlayExtendToHud" type="Bool">
             <default>true</default>
         </entry>
+        <entry name="KeyboardOverlayFixedLetterColors" type="Bool">
+            <default>true</default>
+        </entry>
         <entry name="KeyboardOverlayKeySize" type="Int">
             <default>64</default>
             <min>32</min>

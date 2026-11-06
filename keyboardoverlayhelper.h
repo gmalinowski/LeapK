@@ -57,6 +57,18 @@ inline const QList<QColor> &distinctArrowColors()
     return palette;
 }
 
+// Deterministic unique color mapping for every letter key A-Z
+inline QColor colorForLetter(QChar key)
+{
+    const auto &palette = distinctArrowColors();
+    const QChar u = key.toUpper();
+    if (u >= QLatin1Char('A') && u <= QLatin1Char('Z')) {
+        const int idx = (u.unicode() - 'A') % palette.size();
+        return palette[idx];
+    }
+    return QColor(0, 229, 255);
+}
+
 inline bool isKeyboardOverlayActive(bool enabled, bool tilingOnly, bool tilingActive)
 {
     return enabled && (!tilingOnly || tilingActive);
@@ -83,6 +95,7 @@ struct OverlayDisplayConfig {
     bool laserGlow = true;
     double laserGlowIntensity = 1.0;
     QString laserDashStyle = QStringLiteral("solid");
+    bool fixedLetterColors = true;
 };
 
 struct WindowTargetItem {
@@ -268,7 +281,7 @@ inline QPointF closestPointOnRoundedRectPerimeter(const QPointF &from, const QRe
 }
 
 // Spatial key matching with Planar Untangling (eliminates crossing laser lines)
-inline QMap<QChar, WindowTargetItem> assignSpatialKeys(const QList<WindowTargetItem> &windows, const QRectF &screenRect)
+inline QMap<QChar, WindowTargetItem> assignSpatialKeys(const QList<WindowTargetItem> &windows, const QRectF &screenRect, bool fixedLetterColors = true)
 {
     QMap<QChar, WindowTargetItem> assigned;
     if (windows.isEmpty()) {
@@ -437,7 +450,11 @@ inline QMap<QChar, WindowTargetItem> assignSpatialKeys(const QList<WindowTargetI
     for (int i = 0; i < assignedList.size(); ++i) {
         assignedList[i].item.preferredKey = assignedList[i].key;
         if (!assignedList[i].item.customColor.isValid()) {
-            assignedList[i].item.customColor = palette[i % palette.size()];
+            if (fixedLetterColors) {
+                assignedList[i].item.customColor = colorForLetter(assignedList[i].key);
+            } else {
+                assignedList[i].item.customColor = palette[i % palette.size()];
+            }
         }
         assigned.insert(assignedList[i].key, assignedList[i].item);
     }
@@ -1052,7 +1069,15 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
             p.drawRoundedRect(kg.rect, 8.0, 8.0);
 
             p.setFont(keyFont);
-            p.setPen(isKeyInvalid ? QColor(255, 120, 130, 240) : QColor(255, 255, 255, 48));
+            if (isKeyInvalid) {
+                p.setPen(QColor(255, 120, 130, 240));
+            } else if (cfg.fixedLetterColors) {
+                QColor unassignedCol = colorForLetter(kg.key);
+                unassignedCol.setAlpha(70);
+                p.setPen(unassignedCol);
+            } else {
+                p.setPen(QColor(255, 255, 255, 48));
+            }
             p.drawText(kg.rect, Qt::AlignCenter, QString(kg.key));
         } else {
             // ASSIGNED KEY: Highlighted, illuminated, with distinct vibrant color
@@ -1099,7 +1124,7 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
             const QRectF textShadowRect = letterRect.adjusted(0, 1.0, 0, 1.0);
             p.drawText(textShadowRect, Qt::AlignCenter, QString(kg.key));
 
-            p.setPen(Qt::white);
+            p.setPen(cfg.fixedLetterColors ? col : Qt::white);
             p.drawText(letterRect, Qt::AlignCenter, QString(kg.key));
 
             // Window title pill at bottom of keycap
@@ -1306,7 +1331,10 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
             }
 
             // Key letter inside target badge (font scaled proportionally to badge radius or config)
-            p.setPen(QColor(255, 255, 255, qRound(255 * effOpacity)));
+            const QColor targetLetterCol = cfg.fixedLetterColors
+                ? QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), qRound(255 * effOpacity))
+                : QColor(255, 255, 255, qRound(255 * effOpacity));
+            p.setPen(targetLetterCol);
             const int effBadgeFontSize = (cfg.badgeFontSize > 0) ? cfg.badgeFontSize : qBound(9, qRound(ringRadius * 0.72), 16);
             QFont letterFont(effFontFamily, effBadgeFontSize, QFont::Bold);
             letterFont.setStyleStrategy(QFont::PreferAntialias);

@@ -27,6 +27,7 @@
 #include "themehelper.h"
 #include "tilinghelper.h"
 #include "workspacehelper.h"
+#include "keyboardoverlayhelper.h"
 
 namespace OutlineBadge
 {
@@ -88,6 +89,7 @@ struct BadgeConfig {
     int badgeTimeout = 5;
     QString jumpRecentKey = QStringLiteral("Space");
     bool livePreviews = false;
+    bool fixedLetterColors = true;
 
     // Theming Engine
     QString activeThemeId = QStringLiteral("default-breeze");
@@ -1156,7 +1158,14 @@ inline QImage renderBadgeImage(const BadgeConfig &cfg,
     p.setFont(font);
     QColor effLetterColor = autoTextColor;
     const QColor themeTextPrimary = cfg.activeTheme.resolveColor(QStringLiteral("$textPrimary"), autoTextColor);
-    if (!cfg.letterColorAuto && cfg.letterColor.isValid()) {
+    if (!isCustomMarkColor && cfg.fixedLetterColors && letter.isLetter()) {
+        const QColor fixedCol = LeapKKeyboardOverlay::colorForLetter(letter);
+        if (contrastRatio(effectiveBg, fixedCol) >= 2.5) {
+            effLetterColor = fixedCol;
+        } else {
+            effLetterColor = autoTextColor;
+        }
+    } else if (!cfg.letterColorAuto && cfg.letterColor.isValid()) {
         if (contrastRatio(effectiveBg, cfg.letterColor) >= 2.5) {
             effLetterColor = cfg.letterColor;
         } else {
@@ -1962,6 +1971,10 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         if (!innerBorder.isValid()) {
             innerBorder = isLightBadge ? QColor(0, 0, 0, 140) : (isPinned ? QColor(0, 0, 0, 75) : QColor(255, 255, 255, 45));
         }
+        if (cfg.fixedLetterColors && letter.isLetter()) {
+            innerBorder = LeapKKeyboardOverlay::colorForLetter(letter);
+            innerBorder.setAlpha(120);
+        }
         QPen bPen(innerBorder, 1.0 * scale);
         p.setPen(bPen);
         p.drawPath(bPath);
@@ -1970,6 +1983,8 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     QColor effLetterCol = badgeAutoText;
     if (isStashed && !effectivelyMarked) {
         effLetterCol = QColor(235, 255, 245);
+    } else if (!effectivelyMarked && cfg.fixedLetterColors && letter.isLetter()) {
+        effLetterCol = LeapKKeyboardOverlay::colorForLetter(letter);
     } else if (!cfg.letterColorAuto && cfg.letterColor.isValid()) {
         if (contrastRatio(badgeBg, cfg.letterColor) >= 2.5) {
             effLetterCol = cfg.letterColor;

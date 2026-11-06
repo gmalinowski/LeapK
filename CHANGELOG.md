@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta87-exp] - 2026-11-07
+
+### Added
+- **Deterministic Fixed Letter Colors for Spatial Keyboard, Lasers & HUD Badges**:
+  - Implemented `colorForLetter(QChar key)` in `keyboardoverlayhelper.h`, deterministically mapping each letter A-Z to a permanent, distinct, vibrant color from the 26-color palette.
+  - Added configurable setting `KeyboardOverlayFixedLetterColors` (default: `true`) in configuration skeleton, KCM settings UI (`kcfg_KeyboardOverlayFixedLetterColors` in General Spatial Keyboard group), presets (`presethelper.h` and `presetactivationdialog.h`), and installation scripts.
+  - When enabled, every letter key possesses a permanent distinct color:
+    - **Spatial Keycap**: Keycap accent, outer glow, border, and the letter itself use its assigned color, establishing strong visual association and muscle memory habit. Unassigned keys show a subtle ghosted tint of their permanent color.
+    - **Directional Laser & Targets**: Laser line, launch node, and window target letter badge adopt the letter's fixed color.
+    - **HUD Badges**: The letter inside the HUD badge card (`renderOffscreenTargetPill`) and its inner accent border use the letter's fixed color.
+    - **Window Marks Precedence**: Explicit user marks (`m_markedWindows`) take full precedence across all elements (spatial keycap, laser beam, target badge, and HUD card) over the fixed letter color.
+  - Added comprehensive unit tests in `tests/keyboardoverlay_test.cpp` (`testFixedLetterColorsFeature`) and `tests/badge_test.cpp` (`testFixedLetterColorsInBadges`), verifying case insensitivity, uniqueness across all 26 keys, fallback handling, mark precedence override, and overlay/HUD rendering (all 32/32 tests passing).
+
 ## [1.6.0-beta86-exp] - 2026-11-06
 
 ### Added

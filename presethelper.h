@@ -199,6 +199,21 @@ inline QJsonObject getDefaultSettings()
     s[QStringLiteral("AudioHudShaderEnabled")] = true;
     s[QStringLiteral("SoundFeedbackProfile")] = QStringLiteral("crisp_click");
 
+    // Spatial Keyboard & Laser Targets
+    s[QStringLiteral("KeyboardOverlayEnabled")] = true;
+    s[QStringLiteral("KeyboardOverlayTilingOnly")] = false;
+    s[QStringLiteral("KeyboardOverlayExtendToHud")] = true;
+    s[QStringLiteral("KeyboardOverlayFixedLetterColors")] = true;
+    s[QStringLiteral("KeyboardOverlayKeySize")] = 64;
+    s[QStringLiteral("KeyboardOverlayKeyFontSize")] = 14;
+    s[QStringLiteral("KeyboardOverlayLineWidth")] = 3.4;
+    s[QStringLiteral("KeyboardOverlayBadgeRadius")] = 18;
+    s[QStringLiteral("KeyboardOverlayBadgeFontSize")] = 13;
+    s[QStringLiteral("KeyboardOverlayFontFamily")] = QString();
+    s[QStringLiteral("KeyboardOverlayTargetLabelFontSize")] = 10;
+    s[QStringLiteral("KeyboardOverlayStackScaleReduction")] = 35;
+    s[QStringLiteral("KeyboardOverlayStackOpacityReduction")] = 40;
+
     return s;
 }
 
