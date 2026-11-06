@@ -840,6 +840,74 @@ void testKeycapMiddleElisionAndTargetLabelsDisabled()
     std::cout << "testKeycapMiddleElisionAndTargetLabelsDisabled PASSED\n";
 }
 
+void testLaserTargetsShortestPathToHudBadges()
+{
+    using namespace LeapKKeyboardOverlay;
+
+    // 1. Direct mathematical verification of closestPointOnRoundedRectPerimeter
+    const QRectF hudRect(500, 950, 200, 60);
+    const QPointF hudCenter = hudRect.center(); // (600, 980)
+
+    // Point A: Located directly above the HUD badge, offset from horizontal center
+    const QPointF ptAbove(540, 400);
+    const QPointF contactAbove = closestPointOnRoundedRectPerimeter(ptAbove, hudRect, 8.0, 2.0);
+    // Must connect to top edge at ptAbove.x(), NOT at center.x()!
+    assert(std::abs(contactAbove.x() - 540.0) < 0.01);
+    assert(std::abs(contactAbove.y() - (hudRect.top() - 2.0)) < 0.01);
+    assert(contactAbove.x() != hudCenter.x());
+    // Distance to contact point must be strictly shorter than distance to HUD center
+    const qreal distToContactA = QLineF(ptAbove, contactAbove).length();
+    const qreal distToCenterA = QLineF(ptAbove, hudCenter).length();
+    assert(distToContactA < distToCenterA - 20.0);
+
+    // Point B: Located directly to the left of the HUD badge
+    const QPointF ptLeft(200, 970);
+    const QPointF contactLeft = closestPointOnRoundedRectPerimeter(ptLeft, hudRect, 8.0, 2.0);
+    assert(std::abs(contactLeft.x() - (hudRect.left() - 2.0)) < 0.01);
+    assert(std::abs(contactLeft.y() - 970.0) < 0.01);
+    assert(contactLeft.y() != hudCenter.y());
+    const qreal distToContactB = QLineF(ptLeft, contactLeft).length();
+    const qreal distToCenterB = QLineF(ptLeft, hudCenter).length();
+    assert(distToContactB < distToCenterB - 90.0);
+
+    // Point C: Located diagonally off top-left corner
+    const QPointF ptDiag(400, 850);
+    const QPointF contactDiag = closestPointOnRoundedRectPerimeter(ptDiag, hudRect, 8.0, 2.0);
+    assert(contactDiag.x() <= hudRect.left() + 8.0);
+    assert(contactDiag.y() <= hudRect.top() + 8.0);
+    const qreal distToContactC = QLineF(ptDiag, contactDiag).length();
+    const qreal distToCenterC = QLineF(ptDiag, hudCenter).length();
+    assert(distToContactC < distToCenterC);
+
+    // 2. Integration with renderOverlayImage for both on-screen (extension) and offscreen (direct) targets
+    const QRectF screenRect(0, 0, 1920, 1080);
+    const KeyboardOverlayLayout layout = computeOverlayGeometry(screenRect);
+    OverlayDisplayConfig cfg;
+    cfg.extendToHud = true;
+
+    WindowTargetItem wOnscreen;
+    wOnscreen.geometry = QRectF(200, 200, 500, 400);
+    wOnscreen.title = QStringLiteral("Terminal (Onscreen)");
+    wOnscreen.isVisibleOnScreen = true;
+    wOnscreen.hudCardRect = QRectF(500, 980, 180, 50);
+
+    WindowTargetItem wOffscreen;
+    wOffscreen.geometry = QRectF(2500, 100, 500, 400); // Offscreen
+    wOffscreen.title = QStringLiteral("Dolphin (Offscreen)");
+    wOffscreen.isVisibleOnScreen = false;
+    wOffscreen.hudCardRect = QRectF(1100, 980, 180, 50);
+
+    QMap<QChar, WindowTargetItem> assigned;
+    assigned.insert(QChar('A'), wOnscreen);
+    assigned.insert(QChar('S'), wOffscreen);
+
+    const QImage img = renderOverlayImage(layout, assigned, screenRect, 1.0, cfg);
+    assert(!img.isNull());
+    assert(img.width() == 1920 && img.height() == 1080);
+
+    std::cout << "testLaserTargetsShortestPathToHudBadges PASSED\n";
+}
+
 int main(int argc, char **argv)
 {
     QGuiApplication app(argc, argv);
@@ -860,6 +928,7 @@ int main(int argc, char **argv)
     testKeyboardOverlayTilingOnly();
     testLaserTargetsAvoidHudBadges();
     testKeycapMiddleElisionAndTargetLabelsDisabled();
+    testLaserTargetsShortestPathToHudBadges();
 
     std::cout << "All LeapK Keyboard Overlay tests passed successfully!\n";
     return 0;

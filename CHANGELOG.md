@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.6.0-beta86-exp] - 2026-11-06
 
 ### Added
+- **Laser Targets Shortest Path Connection to HUD Badges**:
+  - Replaced center-snapping (`hudCardRect.center()`) with continuous Euclidean shortest path calculation (`closestPointOnRoundedRectPerimeter`) for laser target arrows and HUD extension lines.
+  - Directional laser arrows pointing to offscreen windows and dashed extension lines from on-screen window badges now connect directly to the nearest outer edge or rounded corner of the HUD badge pill rather than routing to the center, preserving badge visibility, shortening line length, and improving spatial clarity.
+  - Added unit test `testLaserTargetsShortestPathToHudBadges` verifying orthogonal edge clamping, rounded corner projection, distance minimization, and overlay rendering (all 32/32 tests passing).
 - **Window Frame Audio Effects (Pulse & Color Sequence Transitions)**:
   - Added native CPU-lightweight window outline effects when audio playback is detected (`hasPlayingAudio()`):
     - **Audio Frame Pulse (`AudioWindowFramePulseEnabled`)**: Smoothly modulates outline brightness and alpha with configurable breathing speed (`AudioWindowFramePulseSpeed`, 0.2x–3.0x) and intensity (`AudioWindowFramePulseIntensity`, 10%–100%).

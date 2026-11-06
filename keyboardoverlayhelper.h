@@ -203,6 +203,70 @@ inline bool segmentsIntersect(const QPointF &p1, const QPointF &p2, const QPoint
     return false;
 }
 
+// Computes the closest point on the boundary/perimeter of a (rounded) rectangle from an external point (shortest path)
+inline QPointF closestPointOnRoundedRectPerimeter(const QPointF &from, const QRectF &rect, qreal cornerRadius = 8.0, qreal padding = 0.0)
+{
+    if (!rect.isValid()) {
+        return from;
+    }
+    const qreal cr = qBound(0.0, cornerRadius, qMin(rect.width(), rect.height()) / 2.0);
+    const QRectF r = rect.adjusted(-padding, -padding, padding, padding);
+
+    // If 'from' is inside 'r' (fallback), push to nearest exterior edge
+    if (r.contains(from)) {
+        const qreal dLeft = from.x() - r.left();
+        const qreal dRight = r.right() - from.x();
+        const qreal dTop = from.y() - r.top();
+        const qreal dBottom = r.bottom() - from.y();
+        const qreal minD = qMin(qMin(dLeft, dRight), qMin(dTop, dBottom));
+        if (minD == dLeft) return QPointF(r.left(), from.y());
+        if (minD == dRight) return QPointF(r.right(), from.y());
+        if (minD == dTop) return QPointF(from.x(), r.top());
+        return QPointF(from.x(), r.bottom());
+    }
+
+    // Check corner zones if cornerRadius > 0
+    if (cr > 0.0) {
+        const qreal rEff = cr + padding;
+        const qreal leftArcX = rect.left() + cr;
+        const qreal rightArcX = rect.right() - cr;
+        const qreal topArcY = rect.top() + cr;
+        const qreal bottomArcY = rect.bottom() - cr;
+
+        QPointF center;
+        bool inCorner = false;
+        if (from.x() < leftArcX && from.y() < topArcY) {
+            center = QPointF(leftArcX, topArcY);
+            inCorner = true;
+        } else if (from.x() > rightArcX && from.y() < topArcY) {
+            center = QPointF(rightArcX, topArcY);
+            inCorner = true;
+        } else if (from.x() < leftArcX && from.y() > bottomArcY) {
+            center = QPointF(leftArcX, bottomArcY);
+            inCorner = true;
+        } else if (from.x() > rightArcX && from.y() > bottomArcY) {
+            center = QPointF(rightArcX, bottomArcY);
+            inCorner = true;
+        }
+
+        if (inCorner) {
+            const qreal cdx = from.x() - center.x();
+            const qreal cdy = from.y() - center.y();
+            const qreal cdist = std::hypot(cdx, cdy);
+            if (cdist > 0.001) {
+                return QPointF(center.x() + (cdx / cdist) * rEff,
+                               center.y() + (cdy / cdist) * rEff);
+            }
+            return center;
+        }
+    }
+
+    // Straight edge zones: orthogonal clamping strictly minimizes Euclidean distance (shortest path)
+    const qreal qx = qBound(r.left(), from.x(), r.right());
+    const qreal qy = qBound(r.top(), from.y(), r.bottom());
+    return QPointF(qx, qy);
+}
+
 // Spatial key matching with Planar Untangling (eliminates crossing laser lines)
 inline QMap<QChar, WindowTargetItem> assignSpatialKeys(const QList<WindowTargetItem> &windows, const QRectF &screenRect)
 {
@@ -349,8 +413,8 @@ inline QMap<QChar, WindowTargetItem> assignSpatialKeys(const QList<WindowTargetI
                 const bool hasHudA = assignedList[i].item.hudCardRect.isValid();
                 const bool hasHudB = assignedList[j].item.hudCardRect.isValid();
                 if (!intersect && hasHudA && hasHudB) {
-                    const QPointF pHudA = assignedList[i].item.hudCardRect.center();
-                    const QPointF pHudB = assignedList[j].item.hudCardRect.center();
+                    const QPointF pHudA = closestPointOnRoundedRectPerimeter(pWa, assignedList[i].item.hudCardRect, 8.0, 2.0);
+                    const QPointF pHudB = closestPointOnRoundedRectPerimeter(pWb, assignedList[j].item.hudCardRect, 8.0, 2.0);
                     if (segmentsIntersect(pWa, pHudA, pWb, pHudB)) {
                         intersect = true;
                     }
@@ -1103,36 +1167,34 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
         QPointF pEnd = bp.center;
         const bool isTargetInHud = (!bp.item.isVisibleOnScreen && bp.item.hudCardRect.isValid());
 
-        // If window is not visible on screen, but has a card in the HUD dock, redirect arrow directly to the HUD card
-        if (isTargetInHud && cfg.extendToHud) {
-            pEnd = bp.item.hudCardRect.center();
-        }
+        QPointF pTargetPerimeter;
+        qreal dx = 0.0;
+        qreal dy = 0.0;
+        qreal dist = 0.0;
+        qreal theta = 0.0;
 
-        const qreal dx = pEnd.x() - pStart.x();
-        const qreal dy = pEnd.y() - pStart.y();
-        const qreal dist = std::hypot(dx, dy);
-
-        if (dist > 20.0) {
-            const qreal ux = dx / dist;
-            const qreal uy = dy / dist;
-            const qreal theta = std::atan2(dy, dx);
-
-            // Arrow line stops at the perimeter of the target badge or HUD card boundary
-            QPointF pTargetPerimeter;
-            if (isTargetInHud) {
-                // Terminate arrow cleanly at outer perimeter border of HUD card so it never covers the HUD badge
-                if (pStart.y() < bp.item.hudCardRect.top()) {
-                    pTargetPerimeter = QPointF(bp.item.hudCardRect.center().x(), bp.item.hudCardRect.top() - 3.0);
-                } else if (pStart.y() > bp.item.hudCardRect.bottom()) {
-                    pTargetPerimeter = QPointF(bp.item.hudCardRect.center().x(), bp.item.hudCardRect.bottom() + 3.0);
-                } else {
-                    pTargetPerimeter = QPointF(pEnd.x() - ux * (bp.item.hudCardRect.width() / 2.0 + 3.0),
-                                               pEnd.y() - uy * (bp.item.hudCardRect.height() / 2.0 + 3.0));
-                }
-            } else {
+        if (isTargetInHud) {
+            if (cfg.extendToHud) {
+                // Shortest path directly to the HUD badge boundary (never connecting to the center)
+                pTargetPerimeter = closestPointOnRoundedRectPerimeter(pStart, bp.item.hudCardRect, 8.0, 3.0);
+                dx = pTargetPerimeter.x() - pStart.x();
+                dy = pTargetPerimeter.y() - pStart.y();
+                dist = std::hypot(dx, dy);
+                theta = std::atan2(dy, dx);
+            }
+        } else {
+            dx = pEnd.x() - pStart.x();
+            dy = pEnd.y() - pStart.y();
+            dist = std::hypot(dx, dy);
+            if (dist > 0.001) {
+                const qreal ux = dx / dist;
+                const qreal uy = dy / dist;
+                theta = std::atan2(dy, dx);
                 pTargetPerimeter = QPointF(pEnd.x() - ux * bp.radius, pEnd.y() - uy * bp.radius);
             }
+        }
 
+        if (dist > 20.0) {
             // Ambient Laser Glow (if enabled by theme)
             if (cfg.laserGlow) {
                 QPen glowPen(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), qRound(50 * effOpacity * cfg.laserGlowIntensity)),
@@ -1151,7 +1213,7 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
             p.setPen(colorPen);
             p.drawLine(pStart, pTargetPerimeter);
 
-            // Arrowhead at pTargetPerimeter pointing directly at target badge center
+            // Arrowhead at pTargetPerimeter pointing directly along line of shortest path
             const qreal arrowLen = qBound(12.0, bp.radius * 0.85, 18.0);
             const qreal arrowSpread = 0.48;
             const QPointF tip = pTargetPerimeter;
@@ -1172,14 +1234,8 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
 
         // Point 3: Extend line from window target badge to its card in the HUD dock (if available and enabled)
         if (bp.item.isVisibleOnScreen && cfg.extendToHud && bp.item.hudCardRect.isValid()) {
-            QPointF pHud;
-            if (bp.center.y() < bp.item.hudCardRect.top()) {
-                pHud = QPointF(bp.item.hudCardRect.center().x(), bp.item.hudCardRect.top() - 2.0);
-            } else if (bp.center.y() > bp.item.hudCardRect.bottom()) {
-                pHud = QPointF(bp.item.hudCardRect.center().x(), bp.item.hudCardRect.bottom() + 2.0);
-            } else {
-                pHud = QPointF(bp.item.hudCardRect.left() - 2.0, bp.item.hudCardRect.center().y());
-            }
+            // Shortest path from window target badge to the HUD badge perimeter (never connecting to the center)
+            const QPointF pHud = closestPointOnRoundedRectPerimeter(bp.center, bp.item.hudCardRect, 8.0, 2.0);
             const qreal hdx = pHud.x() - bp.center.x();
             const qreal hdy = pHud.y() - bp.center.y();
             const qreal hdist = std::hypot(hdx, hdy);
