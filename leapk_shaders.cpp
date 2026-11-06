@@ -487,7 +487,7 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
         }
     }
 
-    const bool isPlayingAudio = outlinedWindow ? m_audioTracker.isWindowPlaying(outlinedWindow->pid(), outlinedWindow->caption()) : false;
+    const bool isPlayingAudio = outlinedWindow ? m_audioTracker.isWindowPlaying(outlinedWindow->pid(), outlinedWindow->caption(), outlinedWindow->windowClass()) : false;
     bool matchFrameMode = true;
     if (m_audioWindowFrameShaderMode == QLatin1String("active")) {
         matchFrameMode = isFocus;

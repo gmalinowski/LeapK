@@ -984,7 +984,7 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
             }
         } else if (m_audioFilterModeActive) {
             // Audio Filter View: ONLY windows actively playing audio across all workspaces!
-            if (!m_audioTracker.isWindowPlaying(w->pid(), w->caption())) {
+            if (!m_audioTracker.isWindowPlaying(w->pid(), w->caption(), w->windowClass())) {
                 continue;
             }
         } else if (m_superJumpActive) {
@@ -1573,7 +1573,7 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
 {
     const qreal scale = viewport.scale();
     const bool isStashed = isWindowInStash(target);
-    const bool isPlayingAudio = target ? m_audioTracker.isWindowPlaying(target->pid(), target->caption()) : false;
+    const bool isPlayingAudio = target ? m_audioTracker.isWindowPlaying(target->pid(), target->caption(), target->windowClass()) : false;
     const quint64 scaleKey = static_cast<quint64>(qRound(scale * 100));
     const quint64 sizeKey = static_cast<quint64>(badgeSize);
     const quint64 labelKey = static_cast<quint64>(qHash(customLabel));
@@ -1887,7 +1887,7 @@ QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
         const QSize thumbSize = hasThumb ? m_thumbnailCache.value(target).size() : QSize();
         const bool isStashed = isWindowInStash(target);
         const bool isPinned = isWindowPinned(target);
-        const bool isPlayingAudio = m_audioTracker.isWindowPlaying(target->pid(), target->caption());
+        const bool isPlayingAudio = m_audioTracker.isWindowPlaying(target->pid(), target->caption(), target->windowClass());
 
         const QSizeF sz = OutlineBadge::computeHudPillSize(effCfg, loc, caption, badgeSize, scale,
                                                            customLabel, hasIcon, hasThumb, thumbSize,
@@ -2153,7 +2153,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
             : QString();
         const bool isStashed = isWindowInStash(target);
         const bool isPinned = isWindowPinned(target);
-        const bool isPlayingAudio = m_audioTracker.isWindowPlaying(target->pid(), target->caption());
+        const bool isPlayingAudio = m_audioTracker.isWindowPlaying(target->pid(), target->caption(), target->windowClass());
 
         QColor bgCol;
         if (m_closeWindowModeActive) {
@@ -2395,7 +2395,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     if (m_audioHudShaderEnabled && m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty() && m_audioTracker.hasPlayingAudio()) {
         for (int i = 0; i < pills.size(); ++i) {
             const bool pillAudio = (i < targets.size() && targets.at(i).second)
-                ? m_audioTracker.isWindowPlaying(targets.at(i).second->pid(), targets.at(i).second->caption())
+                ? m_audioTracker.isWindowPlaying(targets.at(i).second->pid(), targets.at(i).second->caption(), targets.at(i).second->windowClass())
                 : false;
             if (pillAudio) {
                 QRectF rect = rects.at(i);
@@ -2426,7 +2426,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         QRectF rect = rects.at(i);
 
         const bool pillAudio = (i < targets.size() && targets.at(i).second)
-            ? m_audioTracker.isWindowPlaying(targets.at(i).second->pid(), targets.at(i).second->caption())
+            ? m_audioTracker.isWindowPlaying(targets.at(i).second->pid(), targets.at(i).second->caption(), targets.at(i).second->windowClass())
             : false;
         const bool pulseCard = hudCfg.activeTheme.resolveBool(QStringLiteral("$audioPulseBadge"), hudCfg.activeTheme.hudCard.audioPulseBadge);
         const double pulseIntensity = hudCfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseIntensity"), hudCfg.activeTheme.hudCard.audioPulseIntensity);
@@ -2468,7 +2468,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     if (m_audioHudShaderEnabled && m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty() && m_audioTracker.hasPlayingAudio()) {
         for (int i = 0; i < pills.size(); ++i) {
             const bool pillAudio = (i < targets.size() && targets.at(i).second)
-                ? m_audioTracker.isWindowPlaying(targets.at(i).second->pid(), targets.at(i).second->caption())
+                ? m_audioTracker.isWindowPlaying(targets.at(i).second->pid(), targets.at(i).second->caption(), targets.at(i).second->windowClass())
                 : false;
             if (pillAudio) {
                 QRectF rect = rects.at(i);

@@ -64,6 +64,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Updated unit tests in `tests/tiling_test.cpp` (`testDefaultPresets` and `testToKdeJson`).
 
 ### Fixed
+- **Flatpak, Container & Multi-Namespace Audio Tracking (Deezer, Spotify, VLC, Browsers)**:
+  - Fixed issue where media players running inside Flatpak sandboxes (such as Deezer `dev.aunetx.deezer`) or containers were never detected as actively playing audio in the HUD, badges, or window frames.
+  - Resolved Flatpak PID namespace isolation: Flatpak processes run with container-internal PIDs (e.g. 227) in PipeWire/PulseAudio and register MPRIS services via `xdg-dbus-proxy` (e.g. 401550), neither of which directly matched the host window PID (401611) in `/proc/<pid>/stat`.
+  - Added multi-layered application and audio stream correlation in `audiotracker.h`:
+    - **CGroup Scope Matching (`getPidCgroupScope`)**: Inspects `/proc/<pid>/cgroup` to match the exact systemd/cgroup scope shared across the window, D-Bus proxy, and Flatpak worker processes (e.g. `app-flatpak-dev.aunetx.deezer-*.scope`).
+    - **Flatpak Portal & App Identity Tracking (`appNamesOrIdsMatch`)**: Parses `pipewire.access.portal.app_id` and `pipewire.access.portal.instance_id` in PipeWire dumps and pactl, mapping them to the window's `windowClass` (e.g. `dev.aunetx.deezer`).
+    - **Direct DBus Property Retrieval (`GetAll`)**: Replaced raw `player.property("Metadata")` with DBus `org.freedesktop.DBus.Properties.GetAll` calls, preventing Qt D-Bus deserialization failures and warnings in system journal, cleanly extracting `xesam:title`, `DesktopEntry`, and `Identity`.
+    - **Instant Activation Refresh**: Moved immediate audio refresh ahead of tracking checks in `updateAudioTrackingState` so external MPRIS playback events and Jump Mode entries trigger zero-latency audio detection.
+  - Added unit tests in `tests/audiotracker_test.cpp` (`testAppNamesOrIdsMatching` and `testFlatpakAndCgroupMatching`) verifying Flatpak/CGroup matching, proxy PID handling, and multi-window disambiguation (100% passing tests, all 32/32 CTests).
 - **Dynamic Real-Time Audio Reactivity & Instant Frame Reset**:
   - Fixed issue where window outlines and frames continued to signal audio playback long after audio was paused or stopped.
   - Implemented real-time PipeWire node state inspection (`parsePipeWireDumpStreams` via `pw-dump Node`): streams are only marked as playing when `state == "running"`, immediately dropping idle/suspended streams without waiting for PipeWire's 5-second `pulse.idle.timeout`.

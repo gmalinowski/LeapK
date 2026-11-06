@@ -768,7 +768,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             if (m_markedWindows.contains(aw) || m_pinnedWindows.contains(aw) || (m_highlightRecentWindow && m_recentWindows.contains(aw))) {
                 continue;
             }
-            if (!m_audioTracker.isWindowPlaying(aw->pid(), aw->caption())) {
+            if (!m_audioTracker.isWindowPlaying(aw->pid(), aw->caption(), aw->windowClass())) {
                 continue;
             }
 
@@ -832,7 +832,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             if (isWindowPinned(target)) {
                 customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
             }
-            const bool isPlayingAudio = target ? m_audioTracker.isWindowPlaying(target->pid(), target->caption()) : false;
+            const bool isPlayingAudio = target ? m_audioTracker.isWindowPlaying(target->pid(), target->caption(), target->windowClass()) : false;
             const qreal badgeW = OutlineBadge::computeBadgeWidth(m_badgeConfig, badgeH, customLabel, QString(), true, isPlayingAudio);
             QRectF badgeRect = OutlineBadge::computeBadgeRect(visibleWindowGeo, m_badgePosition, badgeW, badgeH, m_badgeMargin);
             if (badgeRect.left() < screenRect.left() + 4.0) badgeRect.moveLeft(screenRect.left() + 4.0);
@@ -1235,7 +1235,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             } else if (isWindowInStash(target)) {
                 customLabel = customLabel.isEmpty() ? QStringLiteral("📦") : QStringLiteral("📦 %1").arg(customLabel);
             }
-            const bool isPlayingAudio = target ? m_audioTracker.isWindowPlaying(target->pid(), target->caption()) : false;
+            const bool isPlayingAudio = target ? m_audioTracker.isWindowPlaying(target->pid(), target->caption(), target->windowClass()) : false;
             const qreal jumpW = OutlineBadge::computeBadgeWidth(m_badgeConfig, jumpH, customLabel, recentKey, true, isPlayingAudio);
 
             bool foundVisiblePosition = false;

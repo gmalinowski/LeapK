@@ -233,7 +233,7 @@ private:
     void initShortcuts();
     bool shouldOutlineWindow(EffectWindow *w) const;
     bool isEligibleOutlineWindow(EffectWindow *w) const;
-    QList<QPair<pid_t, QString>> getKnownWindowsInfo() const;
+    QList<OutlineAudio::WindowInfo> getKnownWindowsInfo() const;
     bool isBlockingPopup(EffectWindow *w) const;
     bool popupAcceptsInput(EffectWindow *w) const;
     bool hasVisibleBlockingPopup() const;

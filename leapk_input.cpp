@@ -851,7 +851,7 @@ void ActiveWindowOutlineEffect::updateSearchMatches()
         cand.customLabel = m_markedWindowLabels.value(w);
         cand.isRecent = (w == findRecentWindow()) || m_recentWindows.contains(w);
         cand.isPinned = isWindowPinned(w);
-        cand.isPlayingAudio = m_audioTracker.isWindowPlaying(w->pid(), w->caption());
+        cand.isPlayingAudio = m_audioTracker.isWindowPlaying(w->pid(), w->caption(), w->windowClass());
         cand.workspaceIndex = wsIndex;
         cand.isStashed = isStashed;
 

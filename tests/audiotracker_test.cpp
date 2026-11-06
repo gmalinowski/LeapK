@@ -128,7 +128,7 @@ static void testMultiWindowDisambiguation()
     };
 
     QList<OutlineAudio::AudioStream> streams = {
-        {firefoxPid, QStringLiteral("C Programming Full Course for free ⚙️ - YouTube"), QStringLiteral("Firefox")}
+        {firefoxPid, QStringLiteral("C Programming Full Course for free ⚙️ - YouTube"), QStringLiteral("Firefox"), QStringLiteral("firefox"), QString()}
     };
 
     tracker.setMockStreams(streams, knownWindows);
@@ -144,7 +144,7 @@ static void testMultiWindowDisambiguation()
 
     // Fallback: If audio stream title is generic ("playback"), both windows return true
     QList<OutlineAudio::AudioStream> genericStreams = {
-        {firefoxPid, QStringLiteral("playback"), QStringLiteral("Firefox")}
+        {firefoxPid, QStringLiteral("playback"), QStringLiteral("Firefox"), QStringLiteral("firefox"), QString()}
     };
     tracker.setMockStreams(genericStreams, knownWindows);
     assert(tracker.isWindowPlaying(firefoxPid, winPlaying));
@@ -285,6 +285,78 @@ static void testPipeWireDumpParsing()
     assert(!pactlPids.contains(8888));
 }
 
+static void testAppNamesOrIdsMatching()
+{
+    using namespace OutlineAudio;
+
+    // Deezer matching variations
+    assert(appNamesOrIdsMatch(QStringLiteral("deezer-desktop"), QStringLiteral("dev.aunetx.deezer")));
+    assert(appNamesOrIdsMatch(QStringLiteral("Deezer"), QStringLiteral("dev.aunetx.deezer")));
+    assert(appNamesOrIdsMatch(QStringLiteral("dev.aunetx.deezer"), QStringLiteral("dev.aunetx.deezer")));
+    assert(appNamesOrIdsMatch(QStringLiteral("deezer"), QStringLiteral("deezer")));
+
+    // Spotify matching variations
+    assert(appNamesOrIdsMatch(QStringLiteral("spotify-client"), QStringLiteral("com.spotify.Client")));
+    assert(appNamesOrIdsMatch(QStringLiteral("Spotify"), QStringLiteral("spotify")));
+
+    // VLC matching variations
+    assert(appNamesOrIdsMatch(QStringLiteral("vlc"), QStringLiteral("org.videolan.VLC")));
+
+    // Negative tests
+    assert(!appNamesOrIdsMatch(QStringLiteral("dolphin"), QStringLiteral("dev.aunetx.deezer")));
+    assert(!appNamesOrIdsMatch(QStringLiteral("konsole"), QStringLiteral("firefox")));
+}
+
+static void testFlatpakAndCgroupMatching()
+{
+    using namespace OutlineAudio;
+
+    AudioTracker tracker;
+
+    // Flatpak window: Host PID 401611, caption has Deezer & track title, windowClass is dev.aunetx.deezer
+    const pid_t deezerWinPid = 401611;
+    const QString deezerCaption = QStringLiteral("Till I Collapse - Eminem, Nate Dogg - Deezer");
+    const QString deezerClass = QStringLiteral("dev.aunetx.deezer");
+
+    const pid_t dolphinPid = 100200;
+    const QString dolphinCaption = QStringLiteral("Downloads - Dolphin");
+    const QString dolphinClass = QStringLiteral("org.kde.dolphin");
+
+    QList<WindowInfo> knownWindows = {
+        WindowInfo(deezerWinPid, deezerCaption, deezerClass),
+        WindowInfo(dolphinPid, dolphinCaption, dolphinClass)
+    };
+
+    // Case 1: MPRIS stream where servicePid is xdg-dbus-proxy (401550 != 401611)
+    // but appId is "deezer-desktop", appName is "Deezer", title is "Till I Collapse"
+    QList<AudioStream> mprisStreams = {
+        {401550, QStringLiteral("Till I Collapse"), QStringLiteral("Deezer"), QStringLiteral("deezer-desktop"), QStringLiteral("app-flatpak-dev.aunetx.deezer-1565785742.scope")}
+    };
+
+    tracker.setMockStreams(mprisStreams, knownWindows);
+
+    // Audio must be detected globally
+    assert(tracker.hasPlayingAudio());
+
+    // Host Deezer window must be detected as playing audio!
+    assert(tracker.isWindowPlaying(deezerWinPid, deezerCaption, deezerClass));
+    assert(tracker.isWindowPlaying(deezerWinPid, deezerCaption)); // fallback lookup in knownWindows
+
+    // Dolphin must NOT be detected as playing audio
+    assert(!tracker.isWindowPlaying(dolphinPid, dolphinCaption, dolphinClass));
+
+    // Case 2: PipeWire stream from Flatpak where sandboxed PID is 227 (host PID 401611)
+    // and portal appId is "dev.aunetx.deezer", media.name is "Playback"
+    QList<AudioStream> pwStreams = {
+        {227, QStringLiteral("Playback"), QStringLiteral("Deezer"), QStringLiteral("dev.aunetx.deezer"), QStringLiteral("app-flatpak-dev.aunetx.deezer-1565785742.scope")}
+    };
+
+    tracker.setMockStreams(pwStreams, knownWindows);
+    assert(tracker.hasPlayingAudio());
+    assert(tracker.isWindowPlaying(deezerWinPid, deezerCaption, deezerClass));
+    assert(!tracker.isWindowPlaying(dolphinPid, dolphinCaption, dolphinClass));
+}
+
 int main(int argc, char *argv[])
 {
     Q_UNUSED(argc);
@@ -298,6 +370,8 @@ int main(int argc, char *argv[])
     testMediaTitleMatching();
     testMultiWindowDisambiguation();
     testAudioShaderTargetingRules();
+    testAppNamesOrIdsMatching();
+    testFlatpakAndCgroupMatching();
 
     std::cout << "All audiotracker tests passed successfully." << std::endl;
     return 0;

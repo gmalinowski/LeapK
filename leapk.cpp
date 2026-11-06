@@ -875,7 +875,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     }
 
     m_outlineCache.clear();
-    updateAudioTrackingState();
+    updateAudioTrackingState(/*forceImmediateRefresh=*/true);
     if (m_nerdStatsTimer) {
         if (m_jumpMode && m_nerdStatsActive) {
             if (!m_nerdStatsTimer->isActive()) {
@@ -1040,9 +1040,9 @@ bool ActiveWindowOutlineEffect::isEligibleOutlineWindow(EffectWindow *w) const
     return true;
 }
 
-QList<QPair<pid_t, QString>> ActiveWindowOutlineEffect::getKnownWindowsInfo() const
+QList<OutlineAudio::WindowInfo> ActiveWindowOutlineEffect::getKnownWindowsInfo() const
 {
-    QList<QPair<pid_t, QString>> list;
+    QList<OutlineAudio::WindowInfo> list;
     if (!effects) {
         return list;
     }
@@ -1051,31 +1051,13 @@ QList<QPair<pid_t, QString>> ActiveWindowOutlineEffect::getKnownWindowsInfo() co
         if (!w || w->isDeleted() || !isEligibleOutlineWindow(w) || w->isSkipSwitcher()) {
             continue;
         }
-        list.append({w->pid(), w->caption()});
+        list.append(OutlineAudio::WindowInfo(w->pid(), w->caption(), w->windowClass()));
     }
     return list;
 }
 
 void ActiveWindowOutlineEffect::updateAudioTrackingState(bool forceImmediateRefresh)
 {
-    const bool badgesAlwaysOn = (m_outlineEnabled && m_badgeConfig.windowBadgesEnabled && m_badgeDisplayMode == 1);
-    const bool audioShaderActive = (m_outlineEnabled && m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty());
-    const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
-    const bool badgePulse = theme.resolveBool(QStringLiteral("$audioPulseBadge"), theme.windowBadge.audioPulseBadge)
-        && theme.resolveDouble(QStringLiteral("$audioPulseIntensity"), theme.windowBadge.audioPulseIntensity) > 0.001;
-    const bool cardPulse = theme.resolveBool(QStringLiteral("$audioPulseBadge"), theme.hudCard.audioPulseBadge)
-        && theme.resolveDouble(QStringLiteral("$audioPulseIntensity"), theme.hudCard.audioPulseIntensity) > 0.001;
-    const bool audioPulsingEnabled = (badgePulse || cardPulse) && (m_jumpMode || badgesAlwaysOn);
-
-    const bool needsTracking = m_jumpMode || badgesAlwaysOn || audioShaderActive || audioPulsingEnabled || m_audioTracker.hasPlayingAudio();
-
-    if (!needsTracking) {
-        if (m_audioRefreshTimer && m_audioRefreshTimer->isActive()) {
-            m_audioRefreshTimer->stop();
-        }
-        return;
-    }
-
     if (forceImmediateRefresh) {
         const bool wasPlaying = m_audioTracker.hasPlayingAudio();
         const QSet<pid_t> prevPids = m_audioTracker.playingPids();
@@ -1099,6 +1081,24 @@ void ActiveWindowOutlineEffect::updateAudioTrackingState(bool forceImmediateRefr
                 effects->addRepaintFull();
             }
         }
+    }
+
+    const bool badgesAlwaysOn = (m_outlineEnabled && m_badgeConfig.windowBadgesEnabled && m_badgeDisplayMode == 1);
+    const bool audioShaderActive = (m_outlineEnabled && m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty());
+    const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
+    const bool badgePulse = theme.resolveBool(QStringLiteral("$audioPulseBadge"), theme.windowBadge.audioPulseBadge)
+        && theme.resolveDouble(QStringLiteral("$audioPulseIntensity"), theme.windowBadge.audioPulseIntensity) > 0.001;
+    const bool cardPulse = theme.resolveBool(QStringLiteral("$audioPulseBadge"), theme.hudCard.audioPulseBadge)
+        && theme.resolveDouble(QStringLiteral("$audioPulseIntensity"), theme.hudCard.audioPulseIntensity) > 0.001;
+    const bool audioPulsingEnabled = (badgePulse || cardPulse) && (m_jumpMode || badgesAlwaysOn);
+
+    const bool needsTracking = m_jumpMode || badgesAlwaysOn || audioShaderActive || audioPulsingEnabled || m_audioTracker.hasPlayingAudio();
+
+    if (!needsTracking) {
+        if (m_audioRefreshTimer && m_audioRefreshTimer->isActive()) {
+            m_audioRefreshTimer->stop();
+        }
+        return;
     }
 
     if (m_audioRefreshTimer) {

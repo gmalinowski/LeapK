@@ -20,8 +20,11 @@
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusInterface>
+#include <QDBusMessage>
 #include <QDBusReply>
 #include <QDBusArgument>
+#include <QDBusVariant>
+#include <QVariantMap>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -32,11 +35,93 @@
 
 namespace OutlineAudio {
 
+struct WindowInfo {
+    pid_t pid = 0;
+    QString caption;
+    QString windowClass;
+
+    WindowInfo() = default;
+    WindowInfo(pid_t p, const QString &c, const QString &wc = QString())
+        : pid(p), caption(c), windowClass(wc) {}
+    WindowInfo(const QPair<pid_t, QString> &pair)
+        : pid(pair.first), caption(pair.second) {}
+};
+
 struct AudioStream {
     pid_t pid = 0;
-    QString title;   // media.name or xesam:title
-    QString appName; // application.name
+    QString title;       // media.name or xesam:title
+    QString appName;     // application.name or MPRIS Identity
+    QString appId;       // pipewire.access.portal.app_id, DesktopEntry, application.process.binary
+    QString cgroupScope; // cgroup scope name (e.g. app-flatpak-dev.aunetx.deezer-1565785742.scope)
 };
+
+inline QString getPidCgroupScope(pid_t pid)
+{
+    if (pid <= 1) {
+        return QString();
+    }
+    QFile f(QStringLiteral("/proc/%1/cgroup").arg(pid));
+    if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return QString();
+    }
+    const QByteArray content = f.readAll();
+    const QList<QByteArray> lines = content.split('\n');
+    for (const QByteArray &rawLine : lines) {
+        const QByteArray line = rawLine.trimmed();
+        const int slashIdx = line.lastIndexOf('/');
+        if (slashIdx >= 0) {
+            const QString slice = QString::fromUtf8(line.mid(slashIdx + 1));
+            if (slice.endsWith(QStringLiteral(".scope")) || slice.endsWith(QStringLiteral(".service"))) {
+                return slice;
+            }
+        }
+    }
+    return QString();
+}
+
+inline QString normalizeAppString(const QString &input)
+{
+    QString s = input.trimmed().toLower();
+    if (s.endsWith(QStringLiteral(".desktop"))) {
+        s.chop(8);
+    }
+    s.remove(QLatin1Char('-'));
+    s.remove(QLatin1Char('_'));
+    s.remove(QLatin1Char('.'));
+    return s.simplified();
+}
+
+inline bool appNamesOrIdsMatch(const QString &streamApp, const QString &winApp)
+{
+    if (streamApp.trimmed().isEmpty() || winApp.trimmed().isEmpty()) {
+        return false;
+    }
+    const QString s1 = normalizeAppString(streamApp);
+    const QString s2 = normalizeAppString(winApp);
+    if (s1.isEmpty() || s2.isEmpty()) {
+        return false;
+    }
+    if (s1 == s2 || s1.contains(s2) || s2.contains(s1)) {
+        return true;
+    }
+    // Token overlap: split by '.', '-', '_', ' '
+    static const QRegularExpression sep(QStringLiteral("[.\\-_ ]+"));
+    const QStringList tokens1 = streamApp.toLower().remove(QStringLiteral(".desktop")).split(sep, Qt::SkipEmptyParts);
+    const QStringList tokens2 = winApp.toLower().remove(QStringLiteral(".desktop")).split(sep, Qt::SkipEmptyParts);
+    for (const QString &t1 : tokens1) {
+        if (t1.size() < 4) continue;
+        if (t1 == QStringLiteral("stable") || t1 == QStringLiteral("desktop") ||
+            t1 == QStringLiteral("binary") || t1 == QStringLiteral("electron") ||
+            t1 == QStringLiteral("portal") || t1 == QStringLiteral("instance")) {
+            continue;
+        }
+        for (const QString &t2 : tokens2) {
+            if (t2.size() < 4) continue;
+            if (t1 == t2) return true;
+        }
+    }
+    return false;
+}
 
 inline QList<AudioStream> parsePactlSinkInputsDetailed(const QString &pactlOutput, pid_t selfPid = 0)
 {
@@ -52,10 +137,19 @@ inline QList<AudioStream> parsePactlSinkInputsDetailed(const QString &pactlOutpu
     pid_t blockPid = 0;
     QString blockMediaName;
     QString blockAppName;
+    QString blockPortalAppId;
+    QString blockPortalInstanceId;
+    QString blockBinary;
+    QString blockIconName;
 
     auto finishBlock = [&]() {
-        if (inBlock && !isCorked && !isMuted && blockPid > 0 && (selfPid <= 0 || blockPid != selfPid)) {
-            streams.append({blockPid, blockMediaName.trimmed(), blockAppName.trimmed()});
+        if (inBlock && !isCorked && !isMuted && (blockPid > 0 || !blockPortalAppId.isEmpty()) && (selfPid <= 0 || blockPid != selfPid)) {
+            QString appId = !blockPortalAppId.isEmpty() ? blockPortalAppId : (!blockBinary.isEmpty() ? blockBinary : blockIconName);
+            QString cgroupScope;
+            if (!blockPortalAppId.isEmpty() && !blockPortalInstanceId.isEmpty()) {
+                cgroupScope = QStringLiteral("app-flatpak-%1-%2.scope").arg(blockPortalAppId, blockPortalInstanceId);
+            }
+            streams.append({blockPid, blockMediaName.trimmed(), blockAppName.trimmed(), appId.trimmed(), cgroupScope.trimmed()});
         }
         inBlock = false;
         isCorked = false;
@@ -63,6 +157,10 @@ inline QList<AudioStream> parsePactlSinkInputsDetailed(const QString &pactlOutpu
         blockPid = 0;
         blockMediaName.clear();
         blockAppName.clear();
+        blockPortalAppId.clear();
+        blockPortalInstanceId.clear();
+        blockBinary.clear();
+        blockIconName.clear();
     };
 
     for (const QString &rawLine : lines) {
@@ -116,6 +214,42 @@ inline QList<AudioStream> parsePactlSinkInputsDetailed(const QString &pactlOutpu
                 }
                 blockAppName = val.trimmed();
             }
+        } else if (line.contains(QStringLiteral("pipewire.access.portal.app_id"))) {
+            const int eqIdx = line.indexOf(QLatin1Char('='));
+            if (eqIdx >= 0) {
+                QString val = line.mid(eqIdx + 1).trimmed();
+                if (val.startsWith(QLatin1Char('"')) && val.endsWith(QLatin1Char('"')) && val.size() >= 2) {
+                    val = val.mid(1, val.size() - 2);
+                }
+                blockPortalAppId = val.trimmed();
+            }
+        } else if (line.contains(QStringLiteral("pipewire.access.portal.instance_id"))) {
+            const int eqIdx = line.indexOf(QLatin1Char('='));
+            if (eqIdx >= 0) {
+                QString val = line.mid(eqIdx + 1).trimmed();
+                if (val.startsWith(QLatin1Char('"')) && val.endsWith(QLatin1Char('"')) && val.size() >= 2) {
+                    val = val.mid(1, val.size() - 2);
+                }
+                blockPortalInstanceId = val.trimmed();
+            }
+        } else if (line.contains(QStringLiteral("application.process.binary"))) {
+            const int eqIdx = line.indexOf(QLatin1Char('='));
+            if (eqIdx >= 0) {
+                QString val = line.mid(eqIdx + 1).trimmed();
+                if (val.startsWith(QLatin1Char('"')) && val.endsWith(QLatin1Char('"')) && val.size() >= 2) {
+                    val = val.mid(1, val.size() - 2);
+                }
+                blockBinary = val.trimmed();
+            }
+        } else if (line.contains(QStringLiteral("application.icon_name")) || line.contains(QStringLiteral("application.icon-name"))) {
+            const int eqIdx = line.indexOf(QLatin1Char('='));
+            if (eqIdx >= 0) {
+                QString val = line.mid(eqIdx + 1).trimmed();
+                if (val.startsWith(QLatin1Char('"')) && val.endsWith(QLatin1Char('"')) && val.size() >= 2) {
+                    val = val.mid(1, val.size() - 2);
+                }
+                blockIconName = val.trimmed();
+            }
         }
     }
     finishBlock();
@@ -128,7 +262,9 @@ inline QSet<pid_t> parsePactlSinkInputs(const QString &pactlOutput, pid_t selfPi
     QSet<pid_t> pids;
     const auto streams = parsePactlSinkInputsDetailed(pactlOutput, selfPid);
     for (const auto &s : streams) {
-        pids.insert(s.pid);
+        if (s.pid > 0) {
+            pids.insert(s.pid);
+        }
     }
     return pids;
 }
@@ -172,13 +308,30 @@ inline QList<AudioStream> parsePipeWireDumpStreams(const QByteArray &jsonBytes, 
             pid = static_cast<pid_t>(pidVal.toString().toLongLong());
         }
 
-        if (pid <= 0 || (selfPid > 0 && pid == selfPid)) {
+        if (selfPid > 0 && pid == selfPid) {
             continue;
         }
 
         const QString mediaName = props.value(QStringLiteral("media.name")).toString();
         const QString appName = props.value(QStringLiteral("application.name")).toString();
-        streams.append({pid, mediaName.trimmed(), appName.trimmed()});
+        const QString portalAppId = props.value(QStringLiteral("pipewire.access.portal.app_id")).toString();
+        const QJsonValue portalInstanceVal = props.value(QStringLiteral("pipewire.access.portal.instance_id"));
+        QString portalInstanceId;
+        if (portalInstanceVal.isDouble()) {
+            portalInstanceId = QString::number(static_cast<qint64>(portalInstanceVal.toDouble()));
+        } else if (portalInstanceVal.isString()) {
+            portalInstanceId = portalInstanceVal.toString();
+        }
+        const QString binary = props.value(QStringLiteral("application.process.binary")).toString();
+        const QString iconName = props.value(QStringLiteral("application.icon-name")).toString();
+
+        QString appId = !portalAppId.isEmpty() ? portalAppId : (!binary.isEmpty() ? binary : iconName);
+        QString cgroupScope;
+        if (!portalAppId.isEmpty() && !portalInstanceId.isEmpty()) {
+            cgroupScope = QStringLiteral("app-flatpak-%1-%2.scope").arg(portalAppId, portalInstanceId);
+        }
+
+        streams.append({pid, mediaName.trimmed(), appName.trimmed(), appId.trimmed(), cgroupScope.trimmed()});
     }
 
     return streams;
@@ -265,6 +418,12 @@ inline bool isPidRelated(pid_t a, pid_t b, int maxDepth = 4)
     return false;
 }
 
+struct MprisPausedInfo {
+    QSet<pid_t> pids;
+    QSet<QString> cgroupScopes;
+    QSet<QString> appIds;
+};
+
 inline QList<AudioStream> queryMprisPlayingStreams()
 {
     QList<AudioStream> streams;
@@ -284,25 +443,136 @@ inline QList<AudioStream> queryMprisPlayingStreams()
             continue;
         }
 
-        QDBusInterface player(svc, QStringLiteral("/org/mpris/MediaPlayer2"),
-                              QStringLiteral("org.mpris.MediaPlayer2.Player"), bus);
-        if (!player.isValid()) {
+        // Query Player properties via DBus GetAll to reliably read complex properties (e.g. Metadata dictionary)
+        QDBusMessage playerMsg = QDBusMessage::createMethodCall(
+            svc, QStringLiteral("/org/mpris/MediaPlayer2"),
+            QStringLiteral("org.freedesktop.DBus.Properties"), QStringLiteral("GetAll")
+        );
+        playerMsg << QStringLiteral("org.mpris.MediaPlayer2.Player");
+        QDBusMessage playerReply = bus.call(playerMsg);
+        if (playerReply.type() != QDBusMessage::ReplyMessage || playerReply.arguments().isEmpty()) {
             continue;
         }
 
-        const QVariant statusVar = player.property("PlaybackStatus");
-        if (statusVar.isValid() && statusVar.toString() == QStringLiteral("Playing")) {
-            pid_t pid = 0;
-            QString title;
+        QVariantMap playerProps;
+        const QVariant argVal = playerReply.arguments().at(0);
+        if (argVal.userType() == qMetaTypeId<QDBusArgument>()) {
+            playerProps = qdbus_cast<QVariantMap>(argVal.value<QDBusArgument>());
+        }
 
-            const QVariant metaVar = player.property("Metadata");
-            if (metaVar.isValid()) {
-                const QVariantMap metaMap = qdbus_cast<QVariantMap>(metaVar.value<QDBusArgument>());
+        const QString status = playerProps.value(QStringLiteral("PlaybackStatus")).toString();
+        if (status != QStringLiteral("Playing")) {
+            continue;
+        }
+
+        pid_t pid = 0;
+        QString title;
+
+        if (playerProps.contains(QStringLiteral("Metadata"))) {
+            const QVariant metaVal = playerProps.value(QStringLiteral("Metadata"));
+            if (metaVal.userType() == qMetaTypeId<QDBusArgument>()) {
+                const QVariantMap metaMap = qdbus_cast<QVariantMap>(metaVal.value<QDBusArgument>());
                 if (metaMap.contains(QStringLiteral("kde:pid"))) {
                     pid = static_cast<pid_t>(metaMap.value(QStringLiteral("kde:pid")).toInt());
                 }
                 if (metaMap.contains(QStringLiteral("xesam:title"))) {
                     title = metaMap.value(QStringLiteral("xesam:title")).toString();
+                }
+            }
+        }
+
+        if (pid <= 0) {
+            QDBusReply<uint> pidReply = iface->servicePid(svc);
+            if (pidReply.isValid() && pidReply.value() > 0) {
+                pid = static_cast<pid_t>(pidReply.value());
+            }
+        }
+
+        // Query root MediaPlayer2 properties for DesktopEntry and Identity
+        QString desktopEntry;
+        QString identity;
+        QDBusMessage rootMsg = QDBusMessage::createMethodCall(
+            svc, QStringLiteral("/org/mpris/MediaPlayer2"),
+            QStringLiteral("org.freedesktop.DBus.Properties"), QStringLiteral("GetAll")
+        );
+        rootMsg << QStringLiteral("org.mpris.MediaPlayer2");
+        QDBusMessage rootReply = bus.call(rootMsg);
+        if (rootReply.type() == QDBusMessage::ReplyMessage && !rootReply.arguments().isEmpty()) {
+            const QVariant rootVal = rootReply.arguments().at(0);
+            if (rootVal.userType() == qMetaTypeId<QDBusArgument>()) {
+                const QVariantMap rootProps = qdbus_cast<QVariantMap>(rootVal.value<QDBusArgument>());
+                desktopEntry = rootProps.value(QStringLiteral("DesktopEntry")).toString();
+                identity = rootProps.value(QStringLiteral("Identity")).toString();
+            }
+        }
+
+        const QString cgroupScope = getPidCgroupScope(pid);
+        QString appId = !desktopEntry.isEmpty() ? desktopEntry : svc.mid(23); // strip "org.mpris.MediaPlayer2."
+
+        if (pid > 0 || !cgroupScope.isEmpty() || !appId.isEmpty()) {
+            streams.append({pid, title.trimmed(), identity.trimmed(), appId.trimmed(), cgroupScope.trimmed()});
+        }
+    }
+    return streams;
+}
+
+inline QSet<pid_t> queryMprisPlayingPids()
+{
+    QSet<pid_t> pids;
+    const auto streams = queryMprisPlayingStreams();
+    for (const auto &s : streams) {
+        if (s.pid > 0) {
+            pids.insert(s.pid);
+        }
+    }
+    return pids;
+}
+
+inline MprisPausedInfo queryMprisPausedInfo()
+{
+    MprisPausedInfo info;
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    if (!bus.isConnected()) {
+        return info;
+    }
+
+    auto iface = bus.interface();
+    if (!iface) {
+        return info;
+    }
+
+    const QStringList services = iface->registeredServiceNames();
+    for (const QString &svc : services) {
+        if (!svc.startsWith(QStringLiteral("org.mpris.MediaPlayer2."))) {
+            continue;
+        }
+
+        QDBusMessage playerMsg = QDBusMessage::createMethodCall(
+            svc, QStringLiteral("/org/mpris/MediaPlayer2"),
+            QStringLiteral("org.freedesktop.DBus.Properties"), QStringLiteral("GetAll")
+        );
+        playerMsg << QStringLiteral("org.mpris.MediaPlayer2.Player");
+        QDBusMessage playerReply = bus.call(playerMsg);
+        if (playerReply.type() != QDBusMessage::ReplyMessage || playerReply.arguments().isEmpty()) {
+            continue;
+        }
+
+        QVariantMap playerProps;
+        const QVariant argVal = playerReply.arguments().at(0);
+        if (argVal.userType() == qMetaTypeId<QDBusArgument>()) {
+            playerProps = qdbus_cast<QVariantMap>(argVal.value<QDBusArgument>());
+        }
+
+        const QString status = playerProps.value(QStringLiteral("PlaybackStatus")).toString();
+        if (status == QStringLiteral("Paused") || status == QStringLiteral("Stopped")) {
+            pid_t pid = 0;
+            if (playerProps.contains(QStringLiteral("Metadata"))) {
+                const QVariant metaVal = playerProps.value(QStringLiteral("Metadata"));
+                if (metaVal.userType() == qMetaTypeId<QDBusArgument>()) {
+                    const QVariantMap metaMap = qdbus_cast<QVariantMap>(metaVal.value<QDBusArgument>());
+                    if (metaMap.contains(QStringLiteral("kde:pid"))) {
+                        pid = static_cast<pid_t>(metaMap.value(QStringLiteral("kde:pid")).toInt());
+                    }
                 }
             }
 
@@ -314,75 +584,25 @@ inline QList<AudioStream> queryMprisPlayingStreams()
             }
 
             if (pid > 0) {
-                streams.append({pid, title.trimmed(), svc});
+                info.pids.insert(pid);
+                const QString cgroup = getPidCgroupScope(pid);
+                if (!cgroup.isEmpty()) {
+                    info.cgroupScopes.insert(cgroup);
+                }
+            }
+
+            const QString svcSuffix = svc.mid(23);
+            if (!svcSuffix.isEmpty()) {
+                info.appIds.insert(svcSuffix.toLower());
             }
         }
     }
-    return streams;
-}
-
-inline QSet<pid_t> queryMprisPlayingPids()
-{
-    QSet<pid_t> pids;
-    const auto streams = queryMprisPlayingStreams();
-    for (const auto &s : streams) {
-        pids.insert(s.pid);
-    }
-    return pids;
+    return info;
 }
 
 inline QSet<pid_t> queryMprisPausedPids()
 {
-    QSet<pid_t> pids;
-    QDBusConnection bus = QDBusConnection::sessionBus();
-    if (!bus.isConnected()) {
-        return pids;
-    }
-
-    auto iface = bus.interface();
-    if (!iface) {
-        return pids;
-    }
-
-    const QStringList services = iface->registeredServiceNames();
-    for (const QString &svc : services) {
-        if (!svc.startsWith(QStringLiteral("org.mpris.MediaPlayer2."))) {
-            continue;
-        }
-
-        QDBusInterface player(svc, QStringLiteral("/org/mpris/MediaPlayer2"),
-                              QStringLiteral("org.mpris.MediaPlayer2.Player"), bus);
-        if (!player.isValid()) {
-            continue;
-        }
-
-        const QVariant statusVar = player.property("PlaybackStatus");
-        if (statusVar.isValid()) {
-            const QString status = statusVar.toString();
-            if (status == QStringLiteral("Paused") || status == QStringLiteral("Stopped")) {
-                pid_t pid = 0;
-                const QVariant metaVar = player.property("Metadata");
-                if (metaVar.isValid()) {
-                    const QVariantMap metaMap = qdbus_cast<QVariantMap>(metaVar.value<QDBusArgument>());
-                    if (metaMap.contains(QStringLiteral("kde:pid"))) {
-                        pid = static_cast<pid_t>(metaMap.value(QStringLiteral("kde:pid")).toInt());
-                    }
-                }
-
-                if (pid <= 0) {
-                    QDBusReply<uint> pidReply = iface->servicePid(svc);
-                    if (pidReply.isValid() && pidReply.value() > 0) {
-                        pid = static_cast<pid_t>(pidReply.value());
-                    }
-                }
-
-                if (pid > 0) {
-                    pids.insert(pid);
-                }
-            }
-        }
-    }
-    return pids;
+    return queryMprisPausedInfo().pids;
 }
 
 inline bool isGenericMediaTitle(const QString &title)
@@ -456,6 +676,7 @@ inline bool mediaTitleMatchesCaption(const QString &mediaTitle, const QString &c
             QStringLiteral("soundcloud"),
             QStringLiteral("bandcamp"),
             QStringLiteral("spotify"),
+            QStringLiteral("deezer"),
             QStringLiteral("twitch")
         };
         for (const auto &s : suffixes) {
@@ -503,29 +724,86 @@ inline bool mediaTitleMatchesCaption(const QString &mediaTitle, const QString &c
     return false;
 }
 
+inline bool isStreamMatchingWindow(const AudioStream &s, const WindowInfo &w)
+{
+    // 1. Direct PID match or process hierarchy relationship
+    if (w.pid > 0 && s.pid > 0 && isPidRelated(w.pid, s.pid)) {
+        return true;
+    }
+
+    // 2. Shared CGroup scope (Flatpaks, Systemd scopes/slices)
+    if (w.pid > 0 && !s.cgroupScope.isEmpty()) {
+        const QString winCgroup = getPidCgroupScope(w.pid);
+        if (!winCgroup.isEmpty() && winCgroup == s.cgroupScope) {
+            return true;
+        }
+    }
+
+    // 3. Application identifier / WMClass match
+    if (!s.appId.isEmpty()) {
+        if (appNamesOrIdsMatch(s.appId, w.windowClass)) {
+            return true;
+        }
+    }
+    if (!s.appName.isEmpty()) {
+        if (appNamesOrIdsMatch(s.appName, w.windowClass)) {
+            return true;
+        }
+    }
+
+    // 4. Window caption match with track title or application identity
+    if (!s.title.isEmpty() && !isGenericMediaTitle(s.title)) {
+        if (mediaTitleMatchesCaption(s.title, w.caption)) {
+            return true;
+        }
+    }
+    if (!s.appName.isEmpty() && !isGenericMediaTitle(s.appName) && s.appName.size() >= 4) {
+        if (w.caption.contains(s.appName, Qt::CaseInsensitive)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 class AudioTracker {
 public:
     AudioTracker() = default;
 
-    void refresh(const QList<QPair<pid_t, QString>> &knownWindows = {})
+    void refresh(const QList<WindowInfo> &knownWindows)
     {
         const pid_t selfPid = getpid();
         QList<AudioStream> streams;
 
         // 1. Authoritative MPRIS state
         const QList<AudioStream> mprisPlaying = queryMprisPlayingStreams();
-        const QSet<pid_t> mprisPaused = queryMprisPausedPids();
+        const MprisPausedInfo mprisPaused = queryMprisPausedInfo();
         streams.append(mprisPlaying);
 
         QSet<pid_t> mprisPlayingPids;
         for (const auto &s : mprisPlaying) {
-            mprisPlayingPids.insert(s.pid);
+            if (s.pid > 0) {
+                mprisPlayingPids.insert(s.pid);
+            }
         }
 
-        auto isMprisExplicitlyPaused = [&](pid_t pid) -> bool {
-            if (mprisPaused.contains(pid)) return true;
-            for (pid_t p : mprisPaused) {
-                if (isPidRelated(pid, p)) return true;
+        auto isMprisExplicitlyPaused = [&](const AudioStream &s) -> bool {
+            if (s.pid > 0) {
+                if (mprisPaused.pids.contains(s.pid)) return true;
+                for (pid_t p : mprisPaused.pids) {
+                    if (isPidRelated(s.pid, p)) return true;
+                }
+            }
+            if (!s.cgroupScope.isEmpty() && mprisPaused.cgroupScopes.contains(s.cgroupScope)) {
+                return true;
+            }
+            if (!s.appId.isEmpty()) {
+                const QString normAppId = s.appId.toLower();
+                for (const auto &pApp : mprisPaused.appIds) {
+                    if (normAppId.contains(pApp) || pApp.contains(normAppId)) {
+                        return true;
+                    }
+                }
             }
             return false;
         };
@@ -538,7 +816,7 @@ public:
             const QByteArray out = proc.readAllStandardOutput();
             const QList<AudioStream> pwStreams = parsePipeWireDumpStreams(out, selfPid);
             for (const auto &s : pwStreams) {
-                if (isMprisExplicitlyPaused(s.pid) && !mprisPlayingPids.contains(s.pid)) {
+                if (isMprisExplicitlyPaused(s) && !mprisPlayingPids.contains(s.pid)) {
                     continue;
                 }
                 streams.append(s);
@@ -554,7 +832,7 @@ public:
                 const QString pactlOut = QString::fromUtf8(pactlProc.readAllStandardOutput());
                 const auto pactlStreams = parsePactlSinkInputsDetailed(pactlOut, selfPid);
                 for (const auto &s : pactlStreams) {
-                    if (isMprisExplicitlyPaused(s.pid) && !mprisPlayingPids.contains(s.pid)) {
+                    if (isMprisExplicitlyPaused(s) && !mprisPlayingPids.contains(s.pid)) {
                         continue;
                     }
                     streams.append(s);
@@ -570,33 +848,62 @@ public:
             }
         }
 
+        // Associate active streams with known windows and record host window PIDs
+        for (const auto &w : knownWindows) {
+            if (w.pid <= 0) continue;
+            for (const auto &s : streams) {
+                if (isStreamMatchingWindow(s, w)) {
+                    m_playingPids.insert(w.pid);
+                    break;
+                }
+            }
+        }
+
         m_knownWindows = knownWindows;
         m_lastRefresh = QDateTime::currentDateTime();
     }
 
-    bool isWindowPlaying(pid_t winPid, const QString &winCaption = QString()) const
+    void refresh(const QList<QPair<pid_t, QString>> &knownWindows = {})
     {
-        if (winPid <= 0 || m_playingPids.isEmpty()) {
+        QList<WindowInfo> converted;
+        converted.reserve(knownWindows.size());
+        for (const auto &p : knownWindows) {
+            converted.append(WindowInfo(p));
+        }
+        refresh(converted);
+    }
+
+    bool isWindowPlaying(pid_t winPid,
+                         const QString &winCaption = QString(),
+                         const QString &windowClass = QString()) const
+    {
+        if (winPid <= 0 || m_activeStreams.isEmpty()) {
             return false;
         }
 
-        if (!isWindowPidPlaying(winPid, m_playingPids)) {
-            return false;
-        }
-
-        if (winCaption.trimmed().isEmpty()) {
-            return true;
+        WindowInfo thisWin(winPid, winCaption, windowClass);
+        if (thisWin.windowClass.isEmpty()) {
+            for (const auto &kw : m_knownWindows) {
+                if (kw.pid == winPid) {
+                    thisWin.windowClass = kw.windowClass;
+                    break;
+                }
+            }
         }
 
         QList<AudioStream> matchingStreams;
         for (const auto &s : m_activeStreams) {
-            if (s.pid == winPid || isPidRelated(s.pid, winPid)) {
+            if (isStreamMatchingWindow(s, thisWin)) {
                 matchingStreams.append(s);
             }
         }
 
         if (matchingStreams.isEmpty()) {
             return false;
+        }
+
+        if (winCaption.trimmed().isEmpty()) {
+            return true;
         }
 
         QStringList specificTitles;
@@ -610,21 +917,29 @@ public:
             return true;
         }
 
-        // Check if this window directly matches
+        // Check if this window directly matches the track/media title
         for (const auto &title : specificTitles) {
             if (mediaTitleMatchesCaption(title, winCaption)) {
                 return true;
             }
         }
 
-        // Check if another known window of the same PID matches
+        // Check if another known window of the same app/stream matches
         bool anyOtherWindowMatches = false;
-        for (const auto &pair : m_knownWindows) {
-            const pid_t otherPid = pair.first;
-            const QString &otherCaption = pair.second;
-            if (otherCaption != winCaption && (otherPid == winPid || isPidRelated(otherPid, winPid))) {
+        for (const auto &otherWin : m_knownWindows) {
+            if (otherWin.pid == winPid && otherWin.caption == winCaption) {
+                continue;
+            }
+            bool otherMatchesStream = false;
+            for (const auto &s : matchingStreams) {
+                if (isStreamMatchingWindow(s, otherWin)) {
+                    otherMatchesStream = true;
+                    break;
+                }
+            }
+            if (otherMatchesStream) {
                 for (const auto &title : specificTitles) {
-                    if (mediaTitleMatchesCaption(title, otherCaption)) {
+                    if (mediaTitleMatchesCaption(title, otherWin.caption)) {
                         anyOtherWindowMatches = true;
                         break;
                     }
@@ -662,24 +977,45 @@ public:
         m_playingPids = pids;
         m_activeStreams.clear();
         for (pid_t p : pids) {
-            m_activeStreams.append({p, QString(), QString()});
+            m_activeStreams.append({p, QString(), QString(), QString(), QString()});
         }
     }
 
-    void setMockStreams(const QList<AudioStream> &streams, const QList<QPair<pid_t, QString>> &knownWindows = {})
+    void setMockStreams(const QList<AudioStream> &streams, const QList<WindowInfo> &knownWindows = {})
     {
         m_activeStreams = streams;
         m_playingPids.clear();
         for (const auto &s : streams) {
-            m_playingPids.insert(s.pid);
+            if (s.pid > 0) {
+                m_playingPids.insert(s.pid);
+            }
+        }
+        for (const auto &w : knownWindows) {
+            if (w.pid <= 0) continue;
+            for (const auto &s : streams) {
+                if (isStreamMatchingWindow(s, w)) {
+                    m_playingPids.insert(w.pid);
+                    break;
+                }
+            }
         }
         m_knownWindows = knownWindows;
+    }
+
+    void setMockStreams(const QList<AudioStream> &streams, const QList<QPair<pid_t, QString>> &knownWindows)
+    {
+        QList<WindowInfo> converted;
+        converted.reserve(knownWindows.size());
+        for (const auto &p : knownWindows) {
+            converted.append(WindowInfo(p));
+        }
+        setMockStreams(streams, converted);
     }
 
 private:
     QSet<pid_t> m_playingPids;
     QList<AudioStream> m_activeStreams;
-    QList<QPair<pid_t, QString>> m_knownWindows;
+    QList<WindowInfo> m_knownWindows;
     QDateTime m_lastRefresh;
 };
 

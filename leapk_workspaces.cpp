@@ -1160,11 +1160,11 @@ bool ActiveWindowOutlineEffect::isWorkspacePlayingAudio(int wsIndex) const
             continue;
         }
         if (wsIndex >= 1 && wsIndex <= m_workspaces.size()) {
-            if (findWorkspaceForWindow(w) == wsIndex && m_audioTracker.isWindowPlaying(w->pid(), w->caption())) {
+            if (findWorkspaceForWindow(w) == wsIndex && m_audioTracker.isWindowPlaying(w->pid(), w->caption(), w->windowClass())) {
                 return true;
             }
         } else if (wsIndex == 0) {
-            if (w->isOnCurrentDesktop() && findWorkspaceForWindow(w) == 0 && m_audioTracker.isWindowPlaying(w->pid(), w->caption())) {
+            if (w->isOnCurrentDesktop() && findWorkspaceForWindow(w) == 0 && m_audioTracker.isWindowPlaying(w->pid(), w->caption(), w->windowClass())) {
                 return true;
             }
         }

@@ -271,7 +271,7 @@ QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity, EffectWindow
         color = m_customColor;
     }
 
-    const bool isPlayingAudio = w ? m_audioTracker.isWindowPlaying(w->pid(), w->caption()) : false;
+    const bool isPlayingAudio = w ? m_audioTracker.isWindowPlaying(w->pid(), w->caption(), w->windowClass()) : false;
     if (!treatAsMarked && !isPinned && !treatAsRecent && isPlayingAudio && m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty()) {
         color = m_badgeConfig.activeTheme.resolveColor(QStringLiteral("$audioColor"), QColor(241, 196, 15));
         color.setAlphaF(qBound(0.1, m_visibilityState.visibilityOpacity, 1.0));
