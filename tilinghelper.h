@@ -273,12 +273,26 @@ inline QList<TilingPreset> defaultPresets()
         presets.append(p);
     }
 
-    // 4. 2x2 Quad Grid
+    // 4. Full Focus / Monocle
+    {
+        TilingPreset p;
+        p.id = QStringLiteral("monocle");
+        p.name = QStringLiteral("Full Focus");
+        p.triggerKey = QLatin1Char('F');
+        p.iconDiagram = QStringLiteral("🗖");
+        p.description = QStringLiteral("1 slot • 100%");
+        p.tileSlots = {
+            TileSlot{QRectF(0.0, 0.0, 1.0, 1.0)}
+        };
+        presets.append(p);
+    }
+
+    // 5. 2x2 Quad Grid
     {
         TilingPreset p;
         p.id = QStringLiteral("grid-4");
         p.name = QStringLiteral("2x2 Quad Grid");
-        p.triggerKey = QLatin1Char('F');
+        p.triggerKey = QLatin1Char('G');
         p.iconDiagram = QStringLiteral("⊞");
         p.description = QStringLiteral("4 slots • 2x2 quarters");
         p.tileSlots = {
@@ -286,20 +300,6 @@ inline QList<TilingPreset> defaultPresets()
             TileSlot{QRectF(0.5, 0.0, 0.5, 0.5)},
             TileSlot{QRectF(0.0, 0.5, 0.5, 0.5)},
             TileSlot{QRectF(0.5, 0.5, 0.5, 0.5)}
-        };
-        presets.append(p);
-    }
-
-    // 5. Full Focus / Monocle
-    {
-        TilingPreset p;
-        p.id = QStringLiteral("monocle");
-        p.name = QStringLiteral("Full Focus");
-        p.triggerKey = QLatin1Char('G');
-        p.iconDiagram = QStringLiteral("🗖");
-        p.description = QStringLiteral("1 slot • 100%");
-        p.tileSlots = {
-            TileSlot{QRectF(0.0, 0.0, 1.0, 1.0)}
         };
         presets.append(p);
     }

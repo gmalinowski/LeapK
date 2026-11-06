@@ -50,6 +50,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Implemented unified state check `isKeyboardOverlayActive()` across jump key assignment, rendering, mouse hover/click hitboxes, and keyboard navigation.
   - Added unit test suite in `tests/keyboardoverlay_test.cpp` verifying overlay activation rules across floating and tiling modes, with 100% passing tests (all 31/31 CTests).
 
+### Changed
+- **Default Tiling Layout Shortcuts (`F` for Full Focus, `G` for 2x2 Quad Grid)**:
+  - Updated default shortcut triggers in `defaultPresets()` (`tilinghelper.h`):
+    - **`[F]` Full Focus**: Now mapped to `F` (mnemonic for *Focus* / *Full*).
+    - **`[G]` 2x2 Quad Grid**: Now mapped to `G` (mnemonic for *Grid*).
+  - Aligns the default tiling layout presets across the keyboard home row in natural order: `[A]` Two Columns, `[S]` Three Columns, `[D]` Master & Stack, `[F]` Full Focus, `[G]` 2x2 Quad Grid, and `[X]` Float.
+  - Updated unit tests in `tests/tiling_test.cpp` (`testDefaultPresets` and `testToKdeJson`).
+
 ### Fixed
 - **Dynamic Real-Time Audio Reactivity & Instant Frame Reset**:
   - Fixed issue where window outlines and frames continued to signal audio playback long after audio was paused or stopped.

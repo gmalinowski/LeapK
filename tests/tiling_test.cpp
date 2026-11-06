@@ -34,15 +34,15 @@ void testDefaultPresets()
     assert(presets[2].triggerKey == 'D');
     assert(presets[2].tileSlots.size() == 3);
 
-    // 4. Quad Grid
-    assert(presets[3].id == QStringLiteral("grid-4"));
+    // 4. Full Focus / Monocle
+    assert(presets[3].id == QStringLiteral("monocle"));
     assert(presets[3].triggerKey == 'F');
-    assert(presets[3].tileSlots.size() == 4);
+    assert(presets[3].tileSlots.size() == 1);
 
-    // 5. Monocle
-    assert(presets[4].id == QStringLiteral("monocle"));
+    // 5. Quad Grid
+    assert(presets[4].id == QStringLiteral("grid-4"));
     assert(presets[4].triggerKey == 'G');
-    assert(presets[4].tileSlots.size() == 1);
+    assert(presets[4].tileSlots.size() == 4);
 
     // 6. Float
     assert(presets[5].id == QStringLiteral("float"));
@@ -160,17 +160,17 @@ void testToKdeJson()
     assert(qAbs(stackTiles[0].toObject().value(QStringLiteral("height")).toDouble() - 0.50) < 0.001);
     assert(qAbs(stackTiles[1].toObject().value(QStringLiteral("height")).toDouble() - 0.50) < 0.001);
 
-    // 4. Grid-4
-    const auto kdeG4 = presets[3].toKdeJson();
+    // 4. Monocle / Full Focus
+    const auto kdeMono = presets[3].toKdeJson();
+    assert(kdeMono.value(QStringLiteral("tiles")).toArray().size() == 1);
+
+    // 5. Grid-4
+    const auto kdeG4 = presets[4].toKdeJson();
     assert(kdeG4.value(QStringLiteral("layoutDirection")).toString() == QStringLiteral("horizontal"));
     const auto colTiles = kdeG4.value(QStringLiteral("tiles")).toArray();
     assert(colTiles.size() == 2);
     assert(colTiles[0].toObject().value(QStringLiteral("layoutDirection")).toString() == QStringLiteral("vertical"));
     assert(colTiles[1].toObject().value(QStringLiteral("layoutDirection")).toString() == QStringLiteral("vertical"));
-
-    // 5. Monocle
-    const auto kdeMono = presets[4].toKdeJson();
-    assert(kdeMono.value(QStringLiteral("tiles")).toArray().size() == 1);
 
     // 6. Float
     const auto kdeFloat = presets[5].toKdeJson();
