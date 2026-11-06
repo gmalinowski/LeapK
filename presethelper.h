@@ -190,7 +190,14 @@ inline QJsonObject getDefaultSettings()
     s[QStringLiteral("AudioShaderRuleEnabled")] = false;
     s[QStringLiteral("AudioShaderId")] = QString();
     s[QStringLiteral("AudioWindowFrameShaderMode")] = QStringLiteral("always");
+    s[QStringLiteral("AudioWindowFramePulseEnabled")] = false;
+    s[QStringLiteral("AudioWindowFramePulseSpeed")] = 1.2;
+    s[QStringLiteral("AudioWindowFramePulseIntensity")] = 60;
+    s[QStringLiteral("AudioWindowFrameColorSequenceEnabled")] = false;
+    s[QStringLiteral("AudioWindowFrameColorList")] = QStringLiteral("#f1c40f:2.0;#e67e22:1.5;#e74c3c:2.0");
+    s[QStringLiteral("AudioWindowFrameTransitionDuration")] = 1.5;
     s[QStringLiteral("AudioHudShaderEnabled")] = true;
+    s[QStringLiteral("SoundFeedbackProfile")] = QStringLiteral("crisp_click");
 
     return s;
 }

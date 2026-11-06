@@ -3227,9 +3227,10 @@ void ActiveWindowOutlineEffect::playThemedSound(OutlineSound::SoundEffect effect
         return;
     }
     const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
-    const QString profStr = theme.resolveVar(QStringLiteral("$soundProfile")).isEmpty()
+    const QString themeProf = theme.resolveVar(QStringLiteral("$soundProfile")).isEmpty()
         ? theme.sound.profile
         : theme.resolveVar(QStringLiteral("$soundProfile"));
+    const QString profStr = !m_soundFeedbackProfile.isEmpty() ? m_soundFeedbackProfile : themeProf;
     const OutlineSound::SoundProfile profile = OutlineSound::profileFromString(profStr);
     const double volFactor = theme.resolveDouble(QStringLiteral("$soundVolume"), theme.sound.volume > 0.0 ? theme.sound.volume : 1.0);
     const int effectiveVol = qBound(0, qRound(m_soundFeedbackVolume * volFactor), 100);

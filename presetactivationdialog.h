@@ -129,6 +129,7 @@ public:
                     {QStringLiteral("CursorWarpMode"), QStringLiteral("Cursor Warp After Jump")},
                     {QStringLiteral("SoundFeedbackEnabled"), QStringLiteral("Audio Feedback on Jump")},
                     {QStringLiteral("SoundFeedbackVolume"), QStringLiteral("Audio Feedback Volume")},
+                    {QStringLiteral("SoundFeedbackProfile"), QStringLiteral("Tactile Sound Profile")},
                     {QStringLiteral("BadgePosition"), QStringLiteral("Window Badge Position")},
                     {QStringLiteral("BadgeHudPosition"), QStringLiteral("Screen HUD Position")},
                     {QStringLiteral("BadgeSize"), QStringLiteral("Badge Size")},
@@ -249,6 +250,12 @@ public:
                     {QStringLiteral("AudioShaderRuleEnabled"), QStringLiteral("Audio Reactive Frame Shader Rule")},
                     {QStringLiteral("AudioShaderId"), QStringLiteral("Audio Reactive Shader Effect")},
                     {QStringLiteral("AudioWindowFrameShaderMode"), QStringLiteral("Audio Window Frame Shader Mode")},
+                    {QStringLiteral("AudioWindowFramePulseEnabled"), QStringLiteral("Audio Window Frame Pulsing")},
+                    {QStringLiteral("AudioWindowFramePulseSpeed"), QStringLiteral("Audio Window Frame Pulse Speed")},
+                    {QStringLiteral("AudioWindowFramePulseIntensity"), QStringLiteral("Audio Window Frame Pulse Intensity")},
+                    {QStringLiteral("AudioWindowFrameColorSequenceEnabled"), QStringLiteral("Audio Window Frame Color Sequence")},
+                    {QStringLiteral("AudioWindowFrameColorList"), QStringLiteral("Audio Window Frame Color Stops")},
+                    {QStringLiteral("AudioWindowFrameTransitionDuration"), QStringLiteral("Audio Window Frame Transition Duration")},
                     {QStringLiteral("AudioHudShaderEnabled"), QStringLiteral("Audio HUD Shader Rule")}
                 }
             }

@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta86-exp] - 2026-11-06
+
+### Added
+- **Window Frame Audio Effects (Pulse & Color Sequence Transitions)**:
+  - Added native CPU-lightweight window outline effects when audio playback is detected (`hasPlayingAudio()`):
+    - **Audio Frame Pulse (`AudioWindowFramePulseEnabled`)**: Smoothly modulates outline brightness and alpha with configurable breathing speed (`AudioWindowFramePulseSpeed`, 0.2x–3.0x) and intensity (`AudioWindowFramePulseIntensity`, 10%–100%).
+    - **Audio Frame Color Sequence (`AudioWindowFrameColorSequenceEnabled`)**: Seamlessly cycles window outline color across customizable color stops (`AudioWindowFrameColorList`, e.g. `#f1c40f:2.0;#e67e22:1.5;#e74c3c:2.0`) with smooth interpolation duration (`AudioWindowFrameTransitionDuration`, 0.2s–5.0s).
+    - Can be combined with or used instead of reactive GLSL shaders, obeying `AudioWindowFrameShaderMode` (`always`, `active`, `inactive`).
+- **Dedicated Centralized "Audio & Sound" Settings Tab**:
+  - Consolidated scattered audio and tactile sound settings into a single, clean dedicated tab (`tabAudio`):
+    - **Group 1: Audio Window Frame Effects**: Mode (Always / Active / Inactive), GLSL shader toggle & selector, frame pulsing toggle & controls, and color sequence toggle & color stops.
+    - **Group 2: Window Badge Audio Indicators**: Visual indicator styles (Speaker / Soundwave Pulse / Minimal Dot), pulsing animation toggle & speed/intensity sliders, and indicator scale.
+    - **Group 3: HUD Audio Indicators**: Indicator style, HUD audio wave shader toggle, HUD card pulsing controls, and theme auto-color / custom color picker.
+    - **Group 4: LeapK Interface Sound Effects**: Tactile sound effects toggle, sound profile selector (Crisp Click, Soft Pop, Sci-Fi Blip, Mechanical), volume slider, and instant "Play Test Sound" audition button.
+- **Redesigned Nerd Stats CPU Overhead Presentation**:
+  - Replaced ambiguous total system core utilization with isolated LeapK paint overhead in soothing green/cyan (`🧠 LeapK CPU: < 0.1% avg (idle) / 1.2% (optimal)`).
+
 ## [1.6.0-beta85-exp] - 2026-11-05
 
 ### Added

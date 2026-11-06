@@ -644,8 +644,16 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_audioShaderRuleEnabled = config.readEntry("AudioShaderRuleEnabled", false);
     m_audioShaderId = config.readEntry("AudioShaderId", QString());
     m_audioWindowFrameShaderMode = config.readEntry("AudioWindowFrameShaderMode", QStringLiteral("always"));
+    m_audioWindowFramePulseEnabled = config.readEntry("AudioWindowFramePulseEnabled", false);
+    m_audioWindowFramePulseSpeed = qBound<qreal>(0.2, config.readEntry("AudioWindowFramePulseSpeed", 1.2), 3.0);
+    m_audioWindowFramePulseIntensity = qBound(10, config.readEntry("AudioWindowFramePulseIntensity", 60), 100);
+    m_audioWindowFrameColorSequenceEnabled = config.readEntry("AudioWindowFrameColorSequenceEnabled", false);
+    m_audioWindowFrameColorList = config.readEntry("AudioWindowFrameColorList", QStringLiteral("#f1c40f:2.0;#e67e22:1.5;#e74c3c:2.0"));
+    m_audioWindowFrameTransitionDuration = qBound<qreal>(0.2, config.readEntry("AudioWindowFrameTransitionDuration", 1.5), 5.0);
+    parseAudioColorList(m_audioWindowFrameColorList);
     m_audioHudShaderEnabled = config.readEntry("AudioHudShaderEnabled", true);
     m_badgeConfig.audioHudShaderEnabled = m_audioHudShaderEnabled;
+    m_soundFeedbackProfile = config.readEntry("SoundFeedbackProfile", QStringLiteral("crisp_click"));
     m_audioGlowShader.reset();
     m_audioOutlineShader.reset();
     m_audioShaderEffect = LeapKShader::CustomShaderEffect();
@@ -1084,7 +1092,7 @@ void ActiveWindowOutlineEffect::updateAudioTrackingState(bool forceImmediateRefr
     }
 
     const bool badgesAlwaysOn = (m_outlineEnabled && m_badgeConfig.windowBadgesEnabled && m_badgeDisplayMode == 1);
-    const bool audioShaderActive = (m_outlineEnabled && m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty());
+    const bool audioFrameActive = (m_outlineEnabled && (m_audioShaderRuleEnabled || m_audioWindowFramePulseEnabled || m_audioWindowFrameColorSequenceEnabled));
     const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
     const bool badgePulse = theme.resolveBool(QStringLiteral("$audioPulseBadge"), theme.windowBadge.audioPulseBadge)
         && theme.resolveDouble(QStringLiteral("$audioPulseIntensity"), theme.windowBadge.audioPulseIntensity) > 0.001;
@@ -1092,7 +1100,7 @@ void ActiveWindowOutlineEffect::updateAudioTrackingState(bool forceImmediateRefr
         && theme.resolveDouble(QStringLiteral("$audioPulseIntensity"), theme.hudCard.audioPulseIntensity) > 0.001;
     const bool audioPulsingEnabled = (badgePulse || cardPulse) && (m_jumpMode || badgesAlwaysOn);
 
-    const bool needsTracking = m_jumpMode || badgesAlwaysOn || audioShaderActive || audioPulsingEnabled || m_audioTracker.hasPlayingAudio();
+    const bool needsTracking = m_jumpMode || badgesAlwaysOn || audioFrameActive || audioPulsingEnabled || m_audioTracker.hasPlayingAudio();
 
     if (!needsTracking) {
         if (m_audioRefreshTimer && m_audioRefreshTimer->isActive()) {

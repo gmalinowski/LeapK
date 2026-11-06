@@ -473,6 +473,8 @@ private:
     bool isAnimationActive() const;
     void updateAnimationTimer();
     void parseColorList(const QString &str);
+    void parseAudioColorList(const QString &str);
+    QColor computeCurrentAudioColor(qreal elapsedSec) const;
     qreal computeBreatheFactor(qreal elapsedSec) const;
     qreal computeNeonFactor(qreal elapsedSec) const;
     qreal computeFlashFactor(qreal elapsedSec) const;
@@ -563,7 +565,19 @@ private:
     QString m_audioShaderId;
     LeapKShader::CustomShaderEffect m_audioShaderEffect;
     QString m_audioWindowFrameShaderMode = QStringLiteral("always");
+    bool m_audioWindowFramePulseEnabled = false;
+    qreal m_audioWindowFramePulseSpeed = 1.2;
+    int m_audioWindowFramePulseIntensity = 60;
+    bool m_audioWindowFrameColorSequenceEnabled = false;
+    QString m_audioWindowFrameColorList;
+    qreal m_audioWindowFrameTransitionDuration = 1.5;
+    QList<ColorStop> m_audioColorStops;
+    mutable int m_audioCurrentColorIndex = 0;
+    mutable int m_audioNextColorIndex = 1;
+    mutable bool m_audioIsHoldingColor = true;
+    mutable qreal m_audioStateStartTime = 0.0;
     bool m_audioHudShaderEnabled = true;
+    QString m_soundFeedbackProfile = QStringLiteral("crisp_click");
 
     // Config - Behavior & Delays
     int m_fadeDuration = 200;

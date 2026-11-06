@@ -540,7 +540,10 @@ void testPresetAudioSettings()
     assert(defaults[QStringLiteral("AudioWindowPulseEnabled")].toBool() == true);
     assert(defaults[QStringLiteral("AudioShaderRuleEnabled")].toBool() == false);
     assert(defaults[QStringLiteral("AudioWindowFrameShaderMode")].toString() == QStringLiteral("always"));
+    assert(defaults[QStringLiteral("AudioWindowFramePulseEnabled")].toBool() == false);
+    assert(defaults[QStringLiteral("AudioWindowFrameColorSequenceEnabled")].toBool() == false);
     assert(defaults[QStringLiteral("AudioHudShaderEnabled")].toBool() == true);
+    assert(defaults[QStringLiteral("SoundFeedbackProfile")].toString() == QStringLiteral("crisp_click"));
 
     OutlinePreset::PresetInfo p;
     p.name = QStringLiteral("Audio Master");
@@ -552,6 +555,8 @@ void testPresetAudioSettings()
     p.settings[QStringLiteral("AudioShaderRuleEnabled")] = true;
     p.settings[QStringLiteral("AudioShaderId")] = QStringLiteral("audio_spectrum");
     p.settings[QStringLiteral("AudioWindowFrameShaderMode")] = QStringLiteral("inactive");
+    p.settings[QStringLiteral("AudioWindowFramePulseEnabled")] = true;
+    p.settings[QStringLiteral("AudioWindowFrameColorSequenceEnabled")] = true;
     p.settings[QStringLiteral("AudioHudShaderEnabled")] = true;
 
     const QByteArray json = OutlinePreset::serializePreset(p);
@@ -563,6 +568,8 @@ void testPresetAudioSettings()
     assert(parsed.settings[QStringLiteral("AudioShaderRuleEnabled")].toBool() == true);
     assert(parsed.settings[QStringLiteral("AudioShaderId")].toString() == QStringLiteral("audio_spectrum"));
     assert(parsed.settings[QStringLiteral("AudioWindowFrameShaderMode")].toString() == QStringLiteral("inactive"));
+    assert(parsed.settings[QStringLiteral("AudioWindowFramePulseEnabled")].toBool() == true);
+    assert(parsed.settings[QStringLiteral("AudioWindowFrameColorSequenceEnabled")].toBool() == true);
     assert(parsed.settings[QStringLiteral("AudioHudShaderEnabled")].toBool() == true);
 }
 

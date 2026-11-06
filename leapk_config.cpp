@@ -11,6 +11,7 @@
 #include "presethelper.h"
 #include "packhelper.h"
 #include "shadereditordialog.h"
+#include "soundhelper.h"
 #include "updatehelper.h"
 
 #include <KColorScheme>
@@ -342,6 +343,13 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("KeyboardOverlayStackOpacityReduction"), *new int, 40);
     m_configSkeleton->addItemBool(QStringLiteral("SoundFeedbackEnabled"), *new bool, false);
     m_configSkeleton->addItemInt(QStringLiteral("SoundFeedbackVolume"), *new int, 30);
+    m_configSkeleton->addItemString(QStringLiteral("SoundFeedbackProfile"), *new QString, QStringLiteral("crisp_click"));
+    m_configSkeleton->addItemBool(QStringLiteral("AudioWindowFramePulseEnabled"), *new bool, false);
+    m_configSkeleton->addItemDouble(QStringLiteral("AudioWindowFramePulseSpeed"), *new double, 1.2);
+    m_configSkeleton->addItemInt(QStringLiteral("AudioWindowFramePulseIntensity"), *new int, 60);
+    m_configSkeleton->addItemBool(QStringLiteral("AudioWindowFrameColorSequenceEnabled"), *new bool, false);
+    m_configSkeleton->addItemString(QStringLiteral("AudioWindowFrameColorList"), *new QString, QStringLiteral("#f1c40f:2.0;#e67e22:1.5;#e74c3c:2.0"));
+    m_configSkeleton->addItemDouble(QStringLiteral("AudioWindowFrameTransitionDuration"), *new double, 1.5);
 
     // Tab 2: Color Cycling
     m_configSkeleton->addItemBool(QStringLiteral("ColorCycleEnabled"), *new bool, false);
@@ -842,10 +850,6 @@ void ActiveWindowOutlineConfig::updateMarkWindowUI()
     m_ui->kcfg_SuperJumpCrossWsAction->setEnabled(badgesEnabled);
     m_ui->label_cursorWarpMode->setEnabled(badgesEnabled);
     m_ui->kcfg_CursorWarpMode->setEnabled(badgesEnabled);
-    m_ui->label_soundFeedbackEnabled->setEnabled(badgesEnabled);
-    m_ui->kcfg_SoundFeedbackEnabled->setEnabled(badgesEnabled);
-    m_ui->label_soundFeedbackVolume->setEnabled(badgesEnabled && m_ui->kcfg_SoundFeedbackEnabled->isChecked());
-    m_ui->kcfg_SoundFeedbackVolume->setEnabled(badgesEnabled && m_ui->kcfg_SoundFeedbackEnabled->isChecked());
 
     m_ui->groupWindowBadges->setEnabled(badgesEnabled);
     m_ui->check_previewWindowBadges->setEnabled(windowBadgesEnabled);
@@ -1246,6 +1250,20 @@ void ActiveWindowOutlineConfig::load()
     if (frameModeIdx >= 0) {
         m_ui->comboAudioWindowFrameMode->setCurrentIndex(frameModeIdx);
     }
+    m_ui->kcfg_AudioWindowFramePulseEnabled->setChecked(group.readEntry("AudioWindowFramePulseEnabled", false));
+    m_ui->kcfg_AudioWindowFramePulseSpeed->setValue(group.readEntry("AudioWindowFramePulseSpeed", 1.2));
+    m_ui->kcfg_AudioWindowFramePulseIntensity->setValue(group.readEntry("AudioWindowFramePulseIntensity", 60));
+    m_ui->kcfg_AudioWindowFrameColorSequenceEnabled->setChecked(group.readEntry("AudioWindowFrameColorSequenceEnabled", false));
+    m_ui->kcfg_AudioWindowFrameColorList->setText(group.readEntry("AudioWindowFrameColorList", QStringLiteral("#f1c40f:2.0;#e67e22:1.5;#e74c3c:2.0")));
+    m_ui->kcfg_AudioWindowFrameTransitionDuration->setValue(group.readEntry("AudioWindowFrameTransitionDuration", 1.5));
+
+    const QString soundProfile = group.readEntry("SoundFeedbackProfile", QStringLiteral("crisp_click"));
+    m_ui->kcfg_SoundFeedbackProfile->setText(soundProfile);
+    const int soundProfIdx = m_ui->combo_SoundProfile->findData(soundProfile);
+    if (soundProfIdx >= 0) {
+        m_ui->combo_SoundProfile->setCurrentIndex(soundProfIdx);
+    }
+
     m_ui->kcfg_AudioHudShaderEnabled->setChecked(group.readEntry("AudioHudShaderEnabled", true));
     refreshAudioShaderCombo();
     updateAudioUI();
@@ -1345,6 +1363,14 @@ void ActiveWindowOutlineConfig::defaults()
     m_ui->kcfg_AudioShaderId->clear();
     m_ui->kcfg_AudioWindowFrameShaderMode->setText(QStringLiteral("always"));
     m_ui->comboAudioWindowFrameMode->setCurrentIndex(0);
+    m_ui->kcfg_AudioWindowFramePulseEnabled->setChecked(false);
+    m_ui->kcfg_AudioWindowFramePulseSpeed->setValue(1.2);
+    m_ui->kcfg_AudioWindowFramePulseIntensity->setValue(60);
+    m_ui->kcfg_AudioWindowFrameColorSequenceEnabled->setChecked(false);
+    m_ui->kcfg_AudioWindowFrameColorList->setText(QStringLiteral("#f1c40f:2.0;#e67e22:1.5;#e74c3c:2.0"));
+    m_ui->kcfg_AudioWindowFrameTransitionDuration->setValue(1.5);
+    m_ui->combo_SoundProfile->setCurrentIndex(0);
+    m_ui->kcfg_SoundFeedbackProfile->setText(QStringLiteral("crisp_click"));
     m_ui->kcfg_AudioHudShaderEnabled->setChecked(true);
     refreshAudioShaderCombo();
     updateAudioUI();
@@ -1734,6 +1760,13 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("AudioShaderRuleEnabled")] = m_ui->kcfg_AudioShaderRuleEnabled->isChecked();
     s[QStringLiteral("AudioShaderId")] = m_ui->kcfg_AudioShaderId->text();
     s[QStringLiteral("AudioWindowFrameShaderMode")] = m_ui->comboAudioWindowFrameMode->currentData().toString();
+    s[QStringLiteral("AudioWindowFramePulseEnabled")] = m_ui->kcfg_AudioWindowFramePulseEnabled->isChecked();
+    s[QStringLiteral("AudioWindowFramePulseSpeed")] = m_ui->kcfg_AudioWindowFramePulseSpeed->value();
+    s[QStringLiteral("AudioWindowFramePulseIntensity")] = m_ui->kcfg_AudioWindowFramePulseIntensity->value();
+    s[QStringLiteral("AudioWindowFrameColorSequenceEnabled")] = m_ui->kcfg_AudioWindowFrameColorSequenceEnabled->isChecked();
+    s[QStringLiteral("AudioWindowFrameColorList")] = m_ui->kcfg_AudioWindowFrameColorList->text();
+    s[QStringLiteral("AudioWindowFrameTransitionDuration")] = m_ui->kcfg_AudioWindowFrameTransitionDuration->value();
+    s[QStringLiteral("SoundFeedbackProfile")] = m_ui->combo_SoundProfile->currentData().toString();
     s[QStringLiteral("AudioHudShaderEnabled")] = m_ui->kcfg_AudioHudShaderEnabled->isChecked();
 
     return s;
@@ -2011,6 +2044,20 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
         const int idx = m_ui->comboAudioWindowFrameMode->findData(mode);
         if (idx >= 0) {
             m_ui->comboAudioWindowFrameMode->setCurrentIndex(idx);
+        }
+    }
+    if (s.contains(QStringLiteral("AudioWindowFramePulseEnabled"))) m_ui->kcfg_AudioWindowFramePulseEnabled->setChecked(s[QStringLiteral("AudioWindowFramePulseEnabled")].toBool());
+    if (s.contains(QStringLiteral("AudioWindowFramePulseSpeed"))) m_ui->kcfg_AudioWindowFramePulseSpeed->setValue(s[QStringLiteral("AudioWindowFramePulseSpeed")].toDouble(1.2));
+    if (s.contains(QStringLiteral("AudioWindowFramePulseIntensity"))) m_ui->kcfg_AudioWindowFramePulseIntensity->setValue(s[QStringLiteral("AudioWindowFramePulseIntensity")].toInt(60));
+    if (s.contains(QStringLiteral("AudioWindowFrameColorSequenceEnabled"))) m_ui->kcfg_AudioWindowFrameColorSequenceEnabled->setChecked(s[QStringLiteral("AudioWindowFrameColorSequenceEnabled")].toBool());
+    if (s.contains(QStringLiteral("AudioWindowFrameColorList"))) m_ui->kcfg_AudioWindowFrameColorList->setText(s[QStringLiteral("AudioWindowFrameColorList")].toString());
+    if (s.contains(QStringLiteral("AudioWindowFrameTransitionDuration"))) m_ui->kcfg_AudioWindowFrameTransitionDuration->setValue(s[QStringLiteral("AudioWindowFrameTransitionDuration")].toDouble(1.5));
+    if (s.contains(QStringLiteral("SoundFeedbackProfile"))) {
+        const QString prof = s[QStringLiteral("SoundFeedbackProfile")].toString();
+        m_ui->kcfg_SoundFeedbackProfile->setText(prof);
+        const int idx = m_ui->combo_SoundProfile->findData(prof);
+        if (idx >= 0) {
+            m_ui->combo_SoundProfile->setCurrentIndex(idx);
         }
     }
     if (s.contains(QStringLiteral("AudioHudShaderEnabled"))) {
@@ -2445,6 +2492,13 @@ void ActiveWindowOutlineConfig::save()
     group.writeEntry(QStringLiteral("AudioShaderRuleEnabled"), m_ui->kcfg_AudioShaderRuleEnabled->isChecked());
     group.writeEntry(QStringLiteral("AudioShaderId"), m_ui->kcfg_AudioShaderId->text());
     group.writeEntry(QStringLiteral("AudioWindowFrameShaderMode"), m_ui->comboAudioWindowFrameMode->currentData().toString());
+    group.writeEntry(QStringLiteral("AudioWindowFramePulseEnabled"), m_ui->kcfg_AudioWindowFramePulseEnabled->isChecked());
+    group.writeEntry(QStringLiteral("AudioWindowFramePulseSpeed"), m_ui->kcfg_AudioWindowFramePulseSpeed->value());
+    group.writeEntry(QStringLiteral("AudioWindowFramePulseIntensity"), m_ui->kcfg_AudioWindowFramePulseIntensity->value());
+    group.writeEntry(QStringLiteral("AudioWindowFrameColorSequenceEnabled"), m_ui->kcfg_AudioWindowFrameColorSequenceEnabled->isChecked());
+    group.writeEntry(QStringLiteral("AudioWindowFrameColorList"), m_ui->kcfg_AudioWindowFrameColorList->text());
+    group.writeEntry(QStringLiteral("AudioWindowFrameTransitionDuration"), m_ui->kcfg_AudioWindowFrameTransitionDuration->value());
+    group.writeEntry(QStringLiteral("SoundFeedbackProfile"), m_ui->combo_SoundProfile->currentData().toString());
     group.writeEntry(QStringLiteral("AudioHudShaderEnabled"), m_ui->kcfg_AudioHudShaderEnabled->isChecked());
     group.writeEntry(QStringLiteral("BreatheEnabled"), false);
     group.writeEntry(QStringLiteral("GlitchEnabled"), false);
@@ -2528,8 +2582,8 @@ void ActiveWindowOutlineConfig::initAudioSection()
         m_ui->kcfg_AudioWindowPulseIntensity->setEnabled(enabled);
         markAsChanged();
     });
-    connect(m_ui->kcfg_AudioShaderRuleEnabled, &QCheckBox::toggled, this, [this](bool enabled) {
-        m_ui->comboAudioShader->setEnabled(enabled);
+    connect(m_ui->kcfg_AudioShaderRuleEnabled, &QCheckBox::toggled, this, [this](bool) {
+        updateAudioUI();
         markAsChanged();
     });
     connect(m_ui->comboAudioShader, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
@@ -2537,21 +2591,99 @@ void ActiveWindowOutlineConfig::initAudioSection()
         m_ui->kcfg_AudioShaderId->setText(m_ui->comboAudioShader->currentData().toString());
         markAsChanged();
     });
+
+    // Frame Pulse & Color Sequence connections
+    connect(m_ui->kcfg_AudioWindowFramePulseEnabled, &QCheckBox::toggled, this, [this](bool) {
+        updateAudioUI();
+        markAsChanged();
+    });
+    connect(m_ui->kcfg_AudioWindowFramePulseSpeed, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this](double) {
+        markAsChanged();
+    });
+    connect(m_ui->kcfg_AudioWindowFramePulseIntensity, QOverload<int>::of(&QSpinBox::valueChanged), this, [this](int) {
+        markAsChanged();
+    });
+
+    connect(m_ui->kcfg_AudioWindowFrameColorSequenceEnabled, &QCheckBox::toggled, this, [this](bool) {
+        updateAudioUI();
+        markAsChanged();
+    });
+    connect(m_ui->kcfg_AudioWindowFrameColorList, &QLineEdit::textChanged, this, [this](const QString &) {
+        markAsChanged();
+    });
+    connect(m_ui->kcfg_AudioWindowFrameTransitionDuration, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this](double) {
+        markAsChanged();
+    });
+
+    // Sound profile & sound effects
+    m_ui->combo_SoundProfile->clear();
+    m_ui->combo_SoundProfile->addItem(QStringLiteral("Crisp Click"), QStringLiteral("crisp_click"));
+    m_ui->combo_SoundProfile->addItem(QStringLiteral("Soft Pop"), QStringLiteral("soft_pop"));
+    m_ui->combo_SoundProfile->addItem(QStringLiteral("Sci-Fi Blip"), QStringLiteral("scifi_blip"));
+    m_ui->combo_SoundProfile->addItem(QStringLiteral("Mechanical"), QStringLiteral("mechanical"));
+    connect(m_ui->combo_SoundProfile, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
+        if (!m_ui->combo_SoundProfile) return;
+        m_ui->kcfg_SoundFeedbackProfile->setText(m_ui->combo_SoundProfile->currentData().toString());
+        markAsChanged();
+    });
+
+    connect(m_ui->kcfg_SoundFeedbackEnabled, &QCheckBox::toggled, this, [this](bool) {
+        updateAudioUI();
+        markAsChanged();
+    });
+    connect(m_ui->kcfg_SoundFeedbackVolume, QOverload<int>::of(&QSpinBox::valueChanged), this, [this](int) {
+        markAsChanged();
+    });
+
+    connect(m_ui->btnTestSound, &QPushButton::clicked, this, [this]() {
+        const QString profStr = m_ui->combo_SoundProfile->currentData().toString();
+        const auto prof = OutlineSound::profileFromString(profStr);
+        const int vol = m_ui->kcfg_SoundFeedbackVolume->value();
+        OutlineSound::playSound(OutlineSound::SoundEffect::LandWindow, vol, prof);
+    });
 }
 
 void ActiveWindowOutlineConfig::updateAudioUI()
 {
     const bool shaderRule = m_ui->kcfg_AudioShaderRuleEnabled->isChecked();
     m_ui->comboAudioShader->setEnabled(shaderRule);
-    m_ui->comboAudioWindowFrameMode->setEnabled(shaderRule);
+
+    const bool framePulse = m_ui->kcfg_AudioWindowFramePulseEnabled->isChecked();
+    m_ui->label_audioWindowFramePulseSpeed->setEnabled(framePulse);
+    m_ui->kcfg_AudioWindowFramePulseSpeed->setEnabled(framePulse);
+    m_ui->label_audioWindowFramePulseIntensity->setEnabled(framePulse);
+    m_ui->kcfg_AudioWindowFramePulseIntensity->setEnabled(framePulse);
+
+    const bool frameColorSeq = m_ui->kcfg_AudioWindowFrameColorSequenceEnabled->isChecked();
+    m_ui->label_audioWindowFrameColorList->setEnabled(frameColorSeq);
+    m_ui->kcfg_AudioWindowFrameColorList->setEnabled(frameColorSeq);
+    m_ui->label_audioWindowFrameTransitionDuration->setEnabled(frameColorSeq);
+    m_ui->kcfg_AudioWindowFrameTransitionDuration->setEnabled(frameColorSeq);
+
+    const bool anyFrameEffect = shaderRule || framePulse || frameColorSeq;
+    m_ui->label_audioWindowFrameMode->setEnabled(anyFrameEffect);
+    m_ui->comboAudioWindowFrameMode->setEnabled(anyFrameEffect);
+
     m_ui->kcfg_AudioHudShaderEnabled->setEnabled(shaderRule);
     m_ui->kcfg_AudioHudIndicatorColor->setEnabled(!m_ui->kcfg_AudioHudIndicatorColorAuto->isChecked());
     const bool hudPulse = m_ui->kcfg_AudioHudPulseEnabled->isChecked();
+    m_ui->label_audioHudPulseSpeed->setEnabled(hudPulse);
     m_ui->kcfg_AudioHudPulseSpeed->setEnabled(hudPulse);
+    m_ui->label_audioHudPulseIntensity->setEnabled(hudPulse);
     m_ui->kcfg_AudioHudPulseIntensity->setEnabled(hudPulse);
+
     const bool winPulse = m_ui->kcfg_AudioWindowPulseEnabled->isChecked();
+    m_ui->label_audioWindowPulseSpeed->setEnabled(winPulse);
     m_ui->kcfg_AudioWindowPulseSpeed->setEnabled(winPulse);
+    m_ui->label_audioWindowPulseIntensity->setEnabled(winPulse);
     m_ui->kcfg_AudioWindowPulseIntensity->setEnabled(winPulse);
+
+    const bool soundOn = m_ui->kcfg_SoundFeedbackEnabled->isChecked();
+    m_ui->label_soundProfile->setEnabled(soundOn);
+    m_ui->combo_SoundProfile->setEnabled(soundOn);
+    m_ui->label_soundFeedbackVolume->setEnabled(soundOn);
+    m_ui->kcfg_SoundFeedbackVolume->setEnabled(soundOn);
+    m_ui->btnTestSound->setEnabled(soundOn);
 }
 
 void ActiveWindowOutlineConfig::refreshAudioShaderCombo()

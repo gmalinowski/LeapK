@@ -589,7 +589,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         }
     }
     const bool canDrawAudioInactive = m_outlineEnabled && !inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked
-        && m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty()
+        && (m_audioShaderRuleEnabled || m_audioWindowFramePulseEnabled || m_audioWindowFrameColorSequenceEnabled)
         && (m_audioWindowFrameShaderMode == QLatin1String("always") || m_audioWindowFrameShaderMode == QLatin1String("inactive"))
         && m_audioTracker.hasPlayingAudio();
 #ifndef ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES

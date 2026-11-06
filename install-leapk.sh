@@ -415,7 +415,14 @@ set_default AudioWindowIndicatorScale 1.0
 set_default AudioShaderRuleEnabled false
 set_default AudioShaderId ""
 set_default AudioWindowFrameShaderMode "always"
+set_default AudioWindowFramePulseEnabled false
+set_default AudioWindowFramePulseSpeed 1.2
+set_default AudioWindowFramePulseIntensity 60
+set_default AudioWindowFrameColorSequenceEnabled false
+set_default AudioWindowFrameColorList "#f1c40f:2.0;#e67e22:1.5;#e74c3c:2.0"
+set_default AudioWindowFrameTransitionDuration 1.5
 set_default AudioHudShaderEnabled true
+set_default SoundFeedbackProfile "crisp_click"
 set_default FadeDuration 200
 set_default MenuHideDelay 500
 set_default MenuShowDelay 500
