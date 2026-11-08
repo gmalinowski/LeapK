@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta88-exp] - 2026-11-08
+
+### Fixed
+- **Tiling Slot Position Swapping Bug Across Workspace & Virtual Desktop Transitions**:
+  - Fixed an issue where switching workspaces or virtual desktops inverted or swapped tiled window positions (e.g., column A and column B swapping to B and A) when returning:
+    - **Per-Workspace & Per-Desktop Tiling State Preservation**: Added `WorkspaceTilingState` structure and `m_workspaceTilingStates` keyed by `currentTilingKey()` (`<wsId>:<desktopId>`). When switching workspaces or KDE virtual desktops, the outgoing slot assignments, window pointers, and pre-tiling geometries are fully preserved without deactivating or resetting window geometries.
+    - **Deterministic 3-Pass Slot Continuity & Geometric Overlap Matching**:
+      - Replaced naive linear assignment of `targetWindows` (which placed the active window into slot 0 regardless of spatial position, causing swaps whenever window B was focused) with a 3-pass stable algorithm:
+        1. **Pass 1 (Slot Continuity)**: Windows already assigned to an existing slot retain their exact slot index.
+        2. **Pass 2 (Geometric Overlap Matching)**: Unassigned windows match against unassigned slots by maximizing geometric intersection area (left window stays in left slot, right window stays in right slot).
+        3. **Pass 3 (Spatial Fallback)**: Remaining unassigned windows are ordered top-to-bottom, left-to-right to match slots geometrically.
+    - **Restoration without Geometry Deactivation**: `deactivateTiling(nullptr, true)` no longer moves windows or clears pre-tiling geometries when `preserveWorkspaceState == true`. Incoming workspaces seamlessly restore previous slot mappings via `restoreWorkspaceTiling()`.
+    - **Virtual Desktop Switch Handling (`effects->desktopChanged`)**: Outgoing virtual desktop state is cached and incoming virtual desktop tiling state is cleanly restored without triggering layout swaps or resetting floating geometry.
+    - **Deleted Window Cleanup**: `slotWindowDeleted()` cleans up closed window pointers across all cached workspace states.
+  - Added unit test `testTilingSlotOrderPreservedAcrossWorkspaceSwitch` in `tests/tiling_test.cpp` verifying slot continuity across workspace switches and geometric overlap stability (all 32/32 tests passing).
+
 ## [1.6.0-beta87-exp] - 2026-11-07
 
 ### Added

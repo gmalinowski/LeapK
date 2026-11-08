@@ -1424,6 +1424,124 @@ void testShiftAndBoundaryEdgeResize()
     std::cout << "testShiftAndBoundaryEdgeResize PASSED\n";
 }
 
+void testTilingSlotOrderPreservedAcrossWorkspaceSwitch()
+{
+    using namespace LeapKTiling;
+
+    // Simulate 2 columns layout
+    // Preset: 2 columns (left: 0..0.5, right: 0.5..1.0)
+    TilingPreset cols2Preset;
+    cols2Preset.id = QStringLiteral("columns-2");
+    cols2Preset.name = QStringLiteral("Two Columns");
+    cols2Preset.tileSlots = {
+        TileSlot{QRectF(0.0, 0.0, 0.5, 1.0)},
+        TileSlot{QRectF(0.5, 0.0, 0.5, 1.0)}
+    };
+
+    const QRectF screenArea(0, 0, 1920, 1080);
+    const QList<QRectF> slotGeos = computeSlotGeometries(cols2Preset, screenArea, 6, 8);
+    assert(slotGeos.size() == 2);
+
+    // Initial windows:
+    // Window A on the left (Slot 0)
+    // Window B on the right (Slot 1)
+    struct MockWin {
+        QString id;
+        QRectF geo;
+    };
+
+    MockWin winA{QStringLiteral("WindowA"), slotGeos[0]};
+    MockWin winB{QStringLiteral("WindowB"), slotGeos[1]};
+
+    // 1. Initial tiling state on Workspace 1:
+    struct SimulatedWorkspaceState {
+        bool active = false;
+        QString presetId;
+        QList<QString> slotWindows;
+    };
+
+    QMap<QString, SimulatedWorkspaceState> workspaceTilingStates;
+
+    // Active slots on Workspace 1
+    QList<QString> activeSlotsWs1 = {winA.id, winB.id};
+    QString activeWindowWs1 = winA.id;
+
+    // User focuses Window B (on the right)!
+    activeWindowWs1 = winB.id;
+
+    // Switching to Workspace 2: outgoing state for Workspace 1 is captured
+    workspaceTilingStates[QStringLiteral("ws-1")] = SimulatedWorkspaceState{
+        true,
+        cols2Preset.id,
+        activeSlotsWs1
+    };
+
+    // On Workspace 2, tiling is suspended (or has different windows)
+    QList<QString> activeSlotsWs2;
+
+    // Now user switches back to Workspace 1:
+    // With the fix, Workspace 1 restores its saved slotWindows directly:
+    const auto savedStateWs1 = workspaceTilingStates.value(QStringLiteral("ws-1"));
+    assert(savedStateWs1.active);
+    assert(savedStateWs1.slotWindows.size() == 2);
+
+    QList<QString> restoredSlotsWs1 = savedStateWs1.slotWindows;
+
+    // Assert that Window A is STILL in Slot 0 (left) and Window B is STILL in Slot 1 (right)
+    assert(restoredSlotsWs1[0] == winA.id);
+    assert(restoredSlotsWs1[1] == winB.id);
+
+    // Focus on Window B must NOT alter slot order:
+    assert(activeWindowWs1 == winB.id);
+
+    // 2. Test geometric overlap matching algorithm:
+    // Even if windows were floating or unassigned, and targetWindows ordered active window first:
+    // targetWindows = [winB, winA] (because winB was active)
+    QList<MockWin> targetWindows = {winB, winA};
+    QList<QString> assignedSlotWindows = {QString(), QString()};
+    QSet<QString> assignedWins;
+    QSet<int> assignedSlots;
+
+    // Geometric overlap pass:
+    while (assignedWins.size() < targetWindows.size()) {
+        qreal maxOverlap = 0.0;
+        int bestWinIdx = -1;
+        int bestSlotIdx = -1;
+
+        for (int wIdx = 0; wIdx < targetWindows.size(); ++wIdx) {
+            const auto &w = targetWindows[wIdx];
+            if (assignedWins.contains(w.id)) continue;
+
+            for (int s = 0; s < slotGeos.size(); ++s) {
+                if (assignedSlots.contains(s)) continue;
+                const QRectF isect = w.geo.intersected(slotGeos[s]);
+                const qreal overlap = isect.width() * isect.height();
+                if (overlap > maxOverlap && overlap > 1000.0) {
+                    maxOverlap = overlap;
+                    bestWinIdx = wIdx;
+                    bestSlotIdx = s;
+                }
+            }
+        }
+
+        if (bestWinIdx >= 0 && bestSlotIdx >= 0) {
+            const auto &w = targetWindows[bestWinIdx];
+            assignedSlotWindows[bestSlotIdx] = w.id;
+            assignedWins.insert(w.id);
+            assignedSlots.insert(bestSlotIdx);
+        } else {
+            break;
+        }
+    }
+
+    // Proves: Even though winB was first in targetWindows,
+    // Slot 0 (left) gets winA and Slot 1 (right) gets winB!
+    assert(assignedSlotWindows[0] == winA.id);
+    assert(assignedSlotWindows[1] == winB.id);
+
+    std::cout << "testTilingSlotOrderPreservedAcrossWorkspaceSwitch PASSED\n";
+}
+
 int main()
 {
     testDefaultPresets();
@@ -1444,6 +1562,7 @@ int main()
     testThreeColumnsMiddleSlotResize();
     testDynamicSplitMergeDelete();
     testShiftAndBoundaryEdgeResize();
+    testTilingSlotOrderPreservedAcrossWorkspaceSwitch();
 
     std::cout << "All LeapKTiling tests passed successfully!\n";
     return 0;

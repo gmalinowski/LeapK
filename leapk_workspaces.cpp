@@ -618,8 +618,24 @@ QString ActiveWindowOutlineEffect::workspaceIdForView(int hudViewIndex) const
     return LeapKWorkspace::workspaceIdForHudView(hudViewIndex, m_workspaces);
 }
 
+QString ActiveWindowOutlineEffect::currentTilingKey() const
+{
+    const QString wsId = workspaceIdForView(m_activeHudView);
+    VirtualDesktop *d = effects ? effects->currentDesktop() : nullptr;
+    if (d) {
+        return QStringLiteral("%1:%2").arg(wsId, d->id());
+    }
+    return wsId;
+}
+
 void ActiveWindowOutlineEffect::switchToWorkspaceView(int newHudViewIndex)
 {
+    struct ViewSwitchGuard {
+        bool &flag;
+        explicit ViewSwitchGuard(bool &f) : flag(f) { flag = true; }
+        ~ViewSwitchGuard() { flag = false; }
+    } guard(m_switchingWorkspaceView);
+
     refreshWorkspaces();
     const int totalViews = LeapKWorkspace::computeTotalWorkspaceViews(m_workspaces.size());
     if (newHudViewIndex < 0 || newHudViewIndex >= totalViews) {
@@ -634,6 +650,7 @@ void ActiveWindowOutlineEffect::switchToWorkspaceView(int newHudViewIndex)
     const int oldHudView = m_activeHudView;
     const QString oldWsId = workspaceIdForView(oldHudView);
     const QString newWsId = workspaceIdForView(newHudViewIndex);
+    const QString oldTilingKey = currentTilingKey();
 
     // 1. Save outgoing workspace state
     if (effects && effects->currentDesktop()) {
@@ -659,7 +676,24 @@ void ActiveWindowOutlineEffect::switchToWorkspaceView(int newHudViewIndex)
             primaryConfig.writeEntry("StandardTilingPresetId", m_activeTilingPreset.id);
             primaryConfig.sync();
         }
-        deactivateTiling(nullptr, true);
+        // Preserve full slot assignments & pre-tiling geometries for the outgoing workspace
+        WorkspaceTilingState &oldState = m_workspaceTilingStates[oldTilingKey];
+        oldState.active = true;
+        oldState.preset = m_activeTilingPreset;
+        oldState.tileSlots = m_activeTilingSlots;
+        oldState.preTilingGeometries = m_preTilingGeometries;
+
+        // Suspend active tiling for the new workspace without reverting window geometries!
+        m_tilingActive = false;
+        m_activeTilingPreset = LeapKTiling::TilingPreset();
+        m_activeTilingSlots.clear();
+        m_preTilingGeometries.clear();
+        if (m_tilingEditModeActive) {
+            exitTilingEditMode();
+        }
+        if (m_tilingPresetsModeActive) {
+            exitTilingPresetsMode();
+        }
     } else {
         if (oldHudView >= 1 && oldHudView <= m_workspaces.size()) {
             m_workspaces[oldHudView - 1].tilingPresetId = QString();
@@ -764,10 +798,19 @@ void ActiveWindowOutlineEffect::switchToWorkspaceView(int newHudViewIndex)
         }
     }
 
+    const QString newTilingKey = currentTilingKey();
+    if (m_workspaceTilingStates.contains(newTilingKey)) {
+        const auto &st = m_workspaceTilingStates.value(newTilingKey);
+        shouldTile = st.active;
+        if (st.active && !st.preset.id.isEmpty()) {
+            incomingPreset = st.preset;
+        }
+    }
+
     if (shouldTile && !incomingPreset.id.isEmpty() && !incomingPreset.isFloatAction()) {
-        activateTilingPreset(incomingPreset, wasInJumpMode);
+        restoreWorkspaceTiling(newTilingKey, incomingPreset, wasInJumpMode);
     } else if (m_tilingActive) {
-        deactivateTiling(nullptr, true);
+        deactivateTiling(nullptr, false);
     }
 
     if (wasInJumpMode) {

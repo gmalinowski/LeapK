@@ -423,6 +423,10 @@ private:
     void slotOpenKdeTileEditor();
     void slotToggleActiveWindowFloating();
     void activateTilingPreset(const LeapKTiling::TilingPreset &preset, bool preserveJumpMode = false);
+    void restoreWorkspaceTiling(const QString &key, const LeapKTiling::TilingPreset &preset, bool preserveJumpMode = false);
+    void syncActiveTilingToWorkspaceState();
+    bool isEligibleForCurrentWorkspaceTiling(EffectWindow *win) const;
+    QString currentTilingKey() const;
     void deactivateTiling(EffectWindow *skipRestoreWindow = nullptr, bool preserveWorkspaceState = false);
     QList<Tile *> getLiveKdeLeafTiles() const;
     void applyWindowToTilingSlot(EffectWindow *ew, const QRectF &geo, Tile *targetTile = nullptr);
@@ -824,6 +828,14 @@ private:
     QMap<QString, QString> m_workspaceLastVirtualDesktopId;
     QMap<QString, bool> m_workspaceTilingActive;
     QMap<QString, LeapKTiling::TilingPreset> m_workspaceTilingPreset;
+    struct WorkspaceTilingState {
+        bool active = false;
+        LeapKTiling::TilingPreset preset;
+        QList<ActiveTilingSlot> tileSlots;
+        QMap<QPointer<EffectWindow>, QRectF> preTilingGeometries;
+    };
+    QMap<QString, WorkspaceTilingState> m_workspaceTilingStates;
+    bool m_switchingWorkspaceView = false;
     mutable QList<QRectF> m_hudTabLocalRects;
     QList<QRectF> m_hudTabScreenRects;
 

@@ -291,9 +291,42 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
             this, &ActiveWindowOutlineEffect::repaintAllOutlines);
     connect(effects, &EffectsHandler::desktopChanged,
             this, [this]() {
+                if (m_switchingWorkspaceView) {
+                    return;
+                }
                 VirtualDesktop *cur = effects ? effects->currentDesktop() : nullptr;
-                if (m_lastDesktop && cur && m_lastDesktop != cur) {
+                VirtualDesktop *prevDesk = m_lastDesktop;
+                if (prevDesk && cur && prevDesk != cur) {
                     playThemedSound(OutlineSound::SoundEffect::SwitchWorkspace);
+                    const QString wsId = workspaceIdForView(m_activeHudView);
+                    const QString oldKey = QStringLiteral("%1:%2").arg(wsId, prevDesk->id());
+                    const QString newKey = QStringLiteral("%1:%2").arg(wsId, cur->id());
+
+                    if (m_tilingActive) {
+                        WorkspaceTilingState &oldState = m_workspaceTilingStates[oldKey];
+                        oldState.active = true;
+                        oldState.preset = m_activeTilingPreset;
+                        oldState.tileSlots = m_activeTilingSlots;
+                        oldState.preTilingGeometries = m_preTilingGeometries;
+
+                        m_tilingActive = false;
+                        m_activeTilingPreset = LeapKTiling::TilingPreset();
+                        m_activeTilingSlots.clear();
+                        m_preTilingGeometries.clear();
+                        if (m_tilingEditModeActive) {
+                            exitTilingEditMode();
+                        }
+                        if (m_tilingPresetsModeActive) {
+                            exitTilingPresetsMode();
+                        }
+                    }
+
+                    if (m_workspaceTilingStates.contains(newKey)) {
+                        const auto &st = m_workspaceTilingStates.value(newKey);
+                        if (st.active && !st.preset.id.isEmpty()) {
+                            restoreWorkspaceTiling(newKey, st.preset, m_jumpMode);
+                        }
+                    }
                 }
                 m_lastDesktop = cur;
                 if (cur) {
@@ -1303,6 +1336,15 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
         }
     }
     m_preTilingGeometries.remove(w);
+
+    for (auto &st : m_workspaceTilingStates) {
+        for (auto &slot : st.tileSlots) {
+            if (slot.window == w) {
+                slot.window = nullptr;
+            }
+        }
+        st.preTilingGeometries.remove(w);
+    }
 
     updatePopupBlockingState();
     updateRecentWindowsFromHistory();
