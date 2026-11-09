@@ -1178,6 +1178,15 @@ void testHudModeHeader()
     assert(tabRects1[0].right() <= tabRects1[1].left());
     assert(tabRects1[1].right() <= tabRects1[2].left());
 
+    // Verify inactive workspace tabs are colored with their configured workspace color:
+    // Tab 1 is Backend (Blue QColor(52, 152, 219)): background tint should have strong blue channel
+    const QColor backendBg = header1.pixelColor(qRound(tabRects1[1].left() + 6), qRound(tabRects1[1].center().y()));
+    assert(backendBg.blue() > backendBg.red());
+
+    // Tab 2 is All (Purple QColor(155, 89, 182)): background tint should have strong red and blue channels
+    const QColor allBg = header1.pixelColor(qRound(tabRects1[2].left() + 6), qRound(tabRects1[2].center().y()));
+    assert(allBg.red() > allBg.green() && allBg.blue() > allBg.green());
+
     QImage header2 = OutlineBadge::renderHudModeHeader(1.5, false, QString(), QColor(), 0, views, 1, false);
     assert(!header2.isNull());
     assert(header2.width() > 300);

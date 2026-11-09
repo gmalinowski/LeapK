@@ -864,7 +864,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_markShowLetterBadges = (m_badgeDisplayMode != 2);
     m_badgesAlwaysVisible = (m_badgeDisplayMode == 1);
     m_jumpTargets = qBound(0, config.readEntry("JumpTargets", 0), 3);
-    m_superJumpCrossWsAction = qBound(0, config.readEntry("SuperJumpCrossWsAction", 0), 2);
+    m_superJumpCrossWsAction = qBound(0, config.readEntry("SuperJumpCrossWsAction", 0), 3);
     m_keyboardOverlayEnabled = config.readEntry("KeyboardOverlayEnabled", true);
     m_keyboardOverlayTilingOnly = config.readEntry("KeyboardOverlayTilingOnly", false);
     m_keyboardOverlayExtendToHud = config.readEntry("KeyboardOverlayExtendToHud", true);
@@ -1551,7 +1551,7 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
         if (!m_expectedJumpTarget && !m_isHistoryNavigating && !m_jumpMode && !m_crossWsActionActive) {
             const int targetWs = findWorkspaceForWindow(w);
             if ((targetWs != m_activeHudView || isWindowInStash(w)) && !isWindowPinned(w, m_activeHudView)) {
-                if (m_superJumpCrossWsAction == 1) {
+                if (m_superJumpCrossWsAction == 0 || m_superJumpCrossWsAction == 1) {
                     activateJumpTargetWindow(w);
                     return;
                 } else if (m_superJumpCrossWsAction == 2) {
@@ -1570,7 +1570,7 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
                         applyWorkspaceViewIsolation(m_activeHudView);
                     }
                     return;
-                } else {
+                } else if (m_superJumpCrossWsAction == 3) {
                     EffectWindow *origin = previous ? previous : m_activeWindow;
                     QPointer<EffectWindow> pw(w);
                     QPointer<EffectWindow> porigin(origin);

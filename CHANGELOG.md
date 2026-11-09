@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta91-exp] - 2026-11-09
+
+### Added
+- **Rhythm Navigation for Cross-Workspace Actions (Koncepcja B)**:
+  - Eliminated the disruptive, blocking cross-workspace popup modal by introducing a natural, zero-latency rhythm interaction model:
+    - **Single Tap (0 ms Instant Jump)**: Pressing `Enter`, typing a window leap letter, or left-clicking immediately performs a direct jump to the window on its workspace. No blocking modal overlay, zero latency.
+    - **Double Tap (Pull-Back)**: Tapping the same key a 2nd time within the 450 ms rhythm window pulls the window into the origin workspace and switches the view back immediately.
+    - **Triple Tap (Send to Workspace Dialog)**: Tapping the same key a 3rd time opens a dedicated workspace picker dialog (`renderHudPinWorkspaceDialog` with `isSendMode = true`), allowing users to send the window to any workspace by pressing `1..N` or `M` (Previous workspace).
+    - **Hold (> 250 ms)**: Holding the selection key pins the window across workspaces with themed audio feedback and visual confirmation.
+    - **Direct Modifiers Support**: Users can also press `Alt+Enter` to pull immediately or `Ctrl+Enter` to pin immediately without double-tapping.
+  - Seamless external taskbar activation: clicking an application in the KDE taskbar or switching via Alt-Tab smoothly switches the workspace view without triggering a modal prompt.
+
+### Changed
+- **HUD Inactive Workspace Tab Coloring**:
+  - Inactive workspaces in the HUD mode header now display their configured workspace color as a distinct, subtle background tint (`col` with semi-transparency) with crisp text, making all workspaces instantly recognizable at a glance while preserving the prominent, glowing border outline exclusively for the active workspace.
+  - Added unit test assertion in `tests/badge_test.cpp` verifying inactive workspace background color tinting.
+
 ## [1.6.0-beta90-exp] - 2026-11-09
 
 ### Fixed

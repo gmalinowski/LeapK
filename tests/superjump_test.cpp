@@ -583,6 +583,18 @@ void testPinWorkspaceModalDialogRendering()
     assert(imgHiDpi.width() >= imgNotPinned.width() * 1.8);
     assert(rowRectsHiDpi.size() == 4);
 
+    // 5. Triple Tap: Send to workspace dialog (isSendMode = true)
+    QList<QRectF> rowRectsSend;
+    QRectF cancelRectSend;
+    QImage imgSendWs = OutlineBadge::renderHudPinWorkspaceDialog(
+        1.0, LeapKTheme::Theme(), QStringLiteral("Vivaldi"), QStringLiteral("vivaldi-bin"),
+        workspaces, {}, false, rowRectsSend, cancelRectSend, true, 1);
+    assert(!imgSendWs.isNull());
+    assert(imgSendWs.width() >= 500);
+    // isSendMode with originWorkspace=1: previous workspace row (M) + 2 workspaces = 3 rows
+    assert(rowRectsSend.size() == 3);
+    assert(cancelRectSend.isValid() && !cancelRectSend.isEmpty());
+
     std::cout << "testPinWorkspaceModalDialogRendering PASSED\n";
 }
 
@@ -1036,31 +1048,45 @@ void testCrossWorkspaceActionModes()
 
     assert(isCrossWorkspace(wKate) == true);
 
-    // Mode 0: Ask (Interactive action menu)
+    // Mode 0: Rhythm Navigation (Koncepcja B: Tap 1 = Instant Jump, Tap 2 = Pull-back, Tap 3 = Send to WS, Hold = Pin)
     {
         int superJumpCrossWsAction = 0;
-        bool actionMenuTriggered = false;
+        bool rhythmWindowArmed = false;
         int jumpedToWs = currentWorkspace;
+        int tapCount = 0;
 
         if (isCrossWorkspace(wKate)) {
             if (superJumpCrossWsAction == 0) {
-                actionMenuTriggered = true;
-            } else if (superJumpCrossWsAction == 1) {
+                // Tap 1: Instant direct jump in 0 ms + arm rhythm window
+                tapCount = 1;
+                rhythmWindowArmed = true;
                 jumpedToWs = wKate.workspaceIndex;
             }
         }
-        assert(actionMenuTriggered == true);
-        assert(jumpedToWs == currentWorkspace); // Didn't jump immediately
+        assert(jumpedToWs == 1); // Jumped immediately to Workspace 1!
+        assert(rhythmWindowArmed == true);
+        assert(tapCount == 1);
+
+        // Tap 2 (within rhythm window): PULL-BACK to origin workspace
+        tapCount = 2;
+        wKate.workspaceIndex = currentWorkspace; // Pulled back to Workspace 2!
+        assert(wKate.workspaceIndex == 2);
+
+        // Tap 3 (within rhythm window): Open Send to Workspace dialog
+        tapCount = 3;
+        bool sendWsDialogOpened = (tapCount >= 3);
+        assert(sendWsDialogOpened == true);
     }
 
-    // Mode 1: Classic (Direct Jump)
+    // Mode 1: Classic (Direct Jump without rhythm interception)
     {
+        wKate.workspaceIndex = 1; // restore to 1
         int superJumpCrossWsAction = 1;
         bool actionMenuTriggered = false;
         int jumpedToWs = currentWorkspace;
 
         if (isCrossWorkspace(wKate)) {
-            if (superJumpCrossWsAction == 0) {
+            if (superJumpCrossWsAction == 3) {
                 actionMenuTriggered = true;
             } else if (superJumpCrossWsAction == 1) {
                 jumpedToWs = wKate.workspaceIndex;
@@ -1072,6 +1098,7 @@ void testCrossWorkspaceActionModes()
 
     // Mode 2: Direct Move to Current Workspace
     {
+        wKate.workspaceIndex = 1; // restore to 1
         int superJumpCrossWsAction = 2;
 
         if (isCrossWorkspace(wKate)) {
@@ -1084,6 +1111,24 @@ void testCrossWorkspaceActionModes()
         assert(wKate.workspaceIndex == 2);
         assert(activeWindow == &wKate);
         assert(currentWorkspace == 2); // Remained on Workspace 2
+    }
+
+    // Mode 3: Ask (Legacy Interactive action menu)
+    {
+        wKate.workspaceIndex = 1; // restore to 1
+        int superJumpCrossWsAction = 3;
+        bool actionMenuTriggered = false;
+        int jumpedToWs = currentWorkspace;
+
+        if (isCrossWorkspace(wKate)) {
+            if (superJumpCrossWsAction == 3) {
+                actionMenuTriggered = true;
+            } else if (superJumpCrossWsAction == 1) {
+                jumpedToWs = wKate.workspaceIndex;
+            }
+        }
+        assert(actionMenuTriggered == true);
+        assert(jumpedToWs == currentWorkspace); // Didn't jump immediately
     }
 
     std::cout << "testCrossWorkspaceActionModes PASSED\n";
@@ -1260,18 +1305,28 @@ void testSearchModeCrossWorkspaceSelection()
 
     // 4. Test selecting remote window in search mode:
     bool crossWsModalTriggered = false;
+    bool directJumpExecuted = false;
     auto onSelectSearchCandidate = [&](const MockWindow &w, int actionConfig) {
         if (isCrossWorkspace(w)) {
-            if (actionConfig == 0) {
+            if (actionConfig == 3) {
                 // Interactive modal ("Ask what to do")
                 crossWsModalTriggered = true;
                 return;
             }
+            if (actionConfig == 0 || actionConfig == 1) {
+                directJumpExecuted = true;
+                return;
+            }
         }
-        // Direct activation
     };
 
+    // Mode 0: Rhythm Navigation executes instant Direct Jump in 0 ms with NO modal popup!
     onSelectSearchCandidate(wRemote, 0);
+    assert(crossWsModalTriggered == false);
+    assert(directJumpExecuted == true);
+
+    // Mode 3: Legacy Ask triggers modal prompt
+    onSelectSearchCandidate(wRemote, 3);
     assert(crossWsModalTriggered == true);
 
     // 5. If window becomes pinned to current workspace, it is no longer cross-workspace
@@ -1329,12 +1384,10 @@ void testTaskbarCrossWorkspaceActivation()
     assert(wStashed.isMinimized);
     assert(!wPinned.isMinimized);
 
-    // 1. Taskbar click on remote window in Mode 0 (Ask)
+    // 1. Taskbar click on remote window in Mode 0 (Default: Smooth direct jump without annoying popup!)
     {
         int superJumpCrossWsAction = 0;
         bool modalPromptActive = false;
-        MockWindow *promptTarget = nullptr;
-        MockWindow *promptOrigin = nullptr;
 
         // Plasma unminimizes and activates wRemote:
         wRemote.isMinimized = false;
@@ -1345,7 +1398,36 @@ void testTaskbarCrossWorkspaceActivation()
                                && !(newlyActivated->isPinned && (newlyActivated->pinnedWorkspaces.contains(0) || newlyActivated->pinnedWorkspaces.contains(currentWorkspace)));
         assert(isCrossWs == true);
 
-        if (superJumpCrossWsAction == 0) {
+        if (superJumpCrossWsAction == 3) {
+            modalPromptActive = true;
+        } else if (superJumpCrossWsAction == 0 || superJumpCrossWsAction == 1) {
+            // Smoothly switches workspace with NO popup!
+            currentWorkspace = newlyActivated->workspaceIndex;
+            applyWorkspaceIsolation(currentWorkspace, allWindows);
+            activeWindow = newlyActivated;
+        }
+
+        assert(modalPromptActive == false);
+        assert(currentWorkspace == 2);
+        assert(activeWindow == &wRemote);
+
+        // Restore back to Workspace 1 for further tests:
+        currentWorkspace = 1;
+        applyWorkspaceIsolation(currentWorkspace, allWindows);
+        activeWindow = &wCurrent;
+    }
+
+    // 1b. Taskbar click on remote window in Mode 3 (Legacy Ask)
+    {
+        int superJumpCrossWsAction = 3;
+        bool modalPromptActive = false;
+        MockWindow *promptTarget = nullptr;
+        MockWindow *promptOrigin = nullptr;
+
+        wRemote.isMinimized = false;
+        MockWindow *newlyActivated = &wRemote;
+
+        if (superJumpCrossWsAction == 3) {
             modalPromptActive = true;
             promptTarget = newlyActivated;
             promptOrigin = activeWindow;
@@ -1356,7 +1438,6 @@ void testTaskbarCrossWorkspaceActivation()
         assert(promptOrigin == &wCurrent);
 
         // User hits Escape to Cancel:
-        // Cancel logic: re-apply workspace isolation, restore active window to origin, close prompt
         applyWorkspaceIsolation(currentWorkspace, allWindows);
         activeWindow = promptOrigin;
         modalPromptActive = false;

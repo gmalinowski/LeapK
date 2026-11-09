@@ -827,12 +827,14 @@ void ActiveWindowOutlineEffect::renderHudPinWsSelectionOverlay(const RenderTarge
         | (static_cast<qint64>(m_workspaces.size() % 100) << 31)
         | (static_cast<qint64>(pinnedHash % 10000) << 38)
         | (static_cast<qint64>(isCurrentlyPinned ? 1 : 0) << 52)
-        | (static_cast<qint64>(qRound(scale * 10)) << 54);
+        | (static_cast<qint64>(m_sendWsModeActive ? 1 : 0) << 53)
+        | (static_cast<qint64>(qRound(scale * 10)) << 55);
 
     if (!m_pinWsOverlayTexture || m_pinWsOverlayCacheKey != overlayKey) {
         const QImage img = OutlineBadge::renderHudPinWorkspaceDialog(
             scale, theme, winTitle, winClass, m_workspaces, currentPinnedWs,
-            isCurrentlyPinned, m_pinWsRelRowRects, m_pinWsRelCancelRect);
+            isCurrentlyPinned, m_pinWsRelRowRects, m_pinWsRelCancelRect,
+            m_sendWsModeActive, m_activeHudView);
         if (!img.isNull()) {
             auto uploaded = GLTexture::upload(img);
             if (uploaded) {
@@ -3116,7 +3118,7 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
 
     int countsHash = 0;
     for (const auto &vt : viewTabs) {
-        countsHash = (countsHash * 31 + vt.windowCount + (vt.isActive ? 1000 : 0) + (vt.isPlayingAudio ? 500 : 0)) % 100000;
+        countsHash = (countsHash * 31 + vt.windowCount + (vt.isActive ? 1000 : 0) + (vt.isPlayingAudio ? 500 : 0) + (vt.color.isValid() ? (static_cast<int>(vt.color.rgb() % 1000)) : 0)) % 100000;
     }
     const int hudSize = m_badgePreviewActive ? m_previewBadgeConfig.hudBadgeSize : m_badgeConfig.hudBadgeSize;
     const int navFontSize = m_badgePreviewActive ? m_previewBadgeConfig.hudNavFontSize : m_badgeConfig.hudNavFontSize;

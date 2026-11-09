@@ -1640,7 +1640,7 @@
              </property>
              <item>
               <property name="text">
-               <string>Interactive Action Menu (Ask)</string>
+               <string>Rhythm Navigation (Instant Jump, x2 Pull-back, x3 Send to WS) [Recommended]</string>
               </property>
              </item>
              <item>
@@ -1651,6 +1651,11 @@
              <item>
               <property name="text">
                <string>Direct Move to Current Workspace</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Interactive Action Menu (Ask)</string>
               </property>
              </item>
             </widget>

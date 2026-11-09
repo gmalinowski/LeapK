@@ -2955,11 +2955,11 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
         };
     } else if (isSearchMode) {
         segments = {
-            {QStringLiteral("Enter"), QStringLiteral("Jump to match"), QColor(0, 195, 255)},
+            {QStringLiteral("Enter"), QStringLiteral("Jump (x2 Pull, x3 Send)"), QColor(0, 195, 255)},
             {QStringLiteral("Tab / ↑↓←→"), QStringLiteral("Select window"), QColor(52, 152, 219)},
+            {QStringLiteral("Alt+Enter"), QStringLiteral("Pull here"), QColor(46, 204, 113)},
+            {QStringLiteral("Ctrl+Enter"), QStringLiteral("Pin"), QColor(245, 166, 35)},
             {QStringLiteral("Ctrl+Tab / Alt+S"), QStringLiteral("Scope"), QColor(241, 196, 15)},
-            {QStringLiteral("Alt+Key / Ctrl+1..9"), QStringLiteral("Direct jump"), QColor(155, 89, 182)},
-            {QStringLiteral("Backspace"), QStringLiteral("Delete / Exit"), QColor(149, 165, 166)},
             {QStringLiteral("Esc"), QStringLiteral("Close"), QColor(231, 76, 60)}
         };
     } else if (isAudioFilter) {
@@ -4239,14 +4239,21 @@ inline QImage renderHudModeHeader(qreal scale,
             outTabLocalRects->append(QRectF(tabRect.x() / scale, tabRect.y() / scale, tabRect.width() / scale, tabRect.height() / scale));
         }
 
+        const QColor col = tab.color.isValid() ? tab.color : (tab.isActive ? QColor(52, 152, 219) : QColor());
         if (tab.isActive) {
-            const QColor col = tab.color.isValid() ? tab.color : QColor(52, 152, 219);
-            p.setPen(QPen(col, 1.8 * scale));
-            p.setBrush(QColor(col.red(), col.green(), col.blue(), 55));
+            const QColor activeCol = col.isValid() ? col : QColor(52, 152, 219);
+            p.setPen(QPen(activeCol, 1.8 * scale));
+            p.setBrush(QColor(activeCol.red(), activeCol.green(), activeCol.blue(), isLightBg ? 55 : 65));
             drawThemedShape(p, tabRect, theme.hudNav.tabShape, tabRadius, tabChamferPx);
         } else {
-            p.setPen(QPen(isLightBg ? QColor(0, 0, 0, 35) : QColor(255, 255, 255, 24), 1.0 * scale));
-            p.setBrush(isLightBg ? QColor(0, 0, 0, 15) : QColor(255, 255, 255, 12));
+            if (col.isValid()) {
+                // Inactive workspace: colored background with chosen workspace color, no prominent border
+                p.setPen(QPen(QColor(col.red(), col.green(), col.blue(), isLightBg ? 25 : 35), 1.0 * scale));
+                p.setBrush(QColor(col.red(), col.green(), col.blue(), isLightBg ? 28 : 38));
+            } else {
+                p.setPen(QPen(isLightBg ? QColor(0, 0, 0, 35) : QColor(255, 255, 255, 24), 1.0 * scale));
+                p.setBrush(isLightBg ? QColor(0, 0, 0, 15) : QColor(255, 255, 255, 12));
+            }
             drawThemedShape(p, tabRect, theme.hudNav.tabShape, tabRadius, tabChamferPx);
         }
 
@@ -4268,7 +4275,15 @@ inline QImage renderHudModeHeader(qreal scale,
 
         const qreal baselineY = tabRect.top() + (tabRect.height() - fm.height()) / 2.0 + fm.ascent();
         p.setFont(font);
-        p.setPen(tab.isActive ? (isLightBg ? QColor(20, 25, 35) : QColor(255, 255, 255)) : (isLightBg ? QColor(76, 86, 106) : QColor(190, 195, 205, 175)));
+        QColor textPen;
+        if (tab.isActive) {
+            textPen = isLightBg ? QColor(20, 25, 35) : QColor(255, 255, 255);
+        } else if (col.isValid()) {
+            textPen = isLightBg ? QColor(35, 42, 54) : QColor(225, 230, 240);
+        } else {
+            textPen = isLightBg ? QColor(76, 86, 106) : QColor(190, 195, 205, 175);
+        }
+        p.setPen(textPen);
         p.drawText(QPointF(contentX, baselineY), tab.text);
         contentX += rawTextW;
 
@@ -4276,7 +4291,9 @@ inline QImage renderHudModeHeader(qreal scale,
             const QRectF speakerRect(contentX + speakerGap,
                                      tabRect.top() + (tabRect.height() - speakerIconDim) / 2.0,
                                      speakerIconDim, speakerIconDim);
-            const QColor tabBg = tab.isActive ? (tab.color.isValid() ? tab.color : QColor(52, 152, 219)) : (isLightBg ? QColor(230, 235, 242) : QColor(25, 30, 38));
+            const QColor tabBg = tab.isActive
+                ? (tab.color.isValid() ? tab.color : QColor(52, 152, 219))
+                : (tab.color.isValid() ? tab.color : (isLightBg ? QColor(230, 235, 242) : QColor(25, 30, 38)));
             const QColor themeAudio = theme.resolveColor(theme.hudCard.audioIndicatorColor, QColor(241, 196, 15));
             const QColor speakerDefault = tab.isActive ? (isLightBg ? QColor(20, 25, 35) : QColor(255, 255, 255)) : themeAudio;
             drawAudioIndicator(p, speakerRect, theme.hudCard.audioIndicatorStyle, speakerDefault, tabBg);
@@ -4781,7 +4798,9 @@ inline QImage renderHudPinWorkspaceDialog(
     const QSet<int> &currentPinnedWs,
     bool isCurrentlyPinned,
     QList<QRectF> &outRowRects,
-    QRectF &outCancelRect)
+    QRectF &outCancelRect,
+    bool isSendMode = false,
+    int originWorkspace = 0)
 {
     outRowRects.clear();
     outCancelRect = QRectF();
@@ -4828,43 +4847,71 @@ inline QImage renderHudPinWorkspaceDialog(
     QList<PinRowDef> rows;
     const bool isPinnedToAll = currentPinnedWs.contains(0) || (isCurrentlyPinned && currentPinnedWs.isEmpty());
 
-    // Row 0: All Workspaces
-    rows.append({
-        QStringLiteral("A / 0"),
-        QStringLiteral("All Workspaces"),
-        QStringLiteral("Make window visible across every LeapK workspace"),
-        isPinnedToAll ? QStringLiteral("✓ ALL") : QStringLiteral("ALL"),
-        QColor(245, 166, 35),
-        isPinnedToAll
-    });
-
-    // Rows 1..N: Individual Workspaces
-    for (int i = 0; i < workspaces.size(); ++i) {
-        const auto &ws = workspaces.at(i);
-        const int wsNum = i + 1;
-        const bool wsActive = currentPinnedWs.contains(wsNum);
-        const QString wsName = ws.name.trimmed().isEmpty() ? QStringLiteral("Workspace %1").arg(wsNum) : ws.name.trimmed();
-        const QColor wsCol = ws.color.isValid() ? ws.color : QColor(52, 152, 219);
+    if (isSendMode) {
+        if (originWorkspace >= 1 && originWorkspace <= workspaces.size()) {
+            const auto &originWs = workspaces.at(originWorkspace - 1);
+            rows.append({
+                QStringLiteral("M / 0"),
+                QStringLiteral("Previous: %1").arg(originWs.name),
+                QStringLiteral("Send window back to your previous workspace"),
+                QStringLiteral("PULL-BACK"),
+                QColor(46, 204, 113),
+                false
+            });
+        }
+        for (int i = 0; i < workspaces.size(); ++i) {
+            const auto &ws = workspaces.at(i);
+            const int wsNum = i + 1;
+            const QString wsName = ws.name.trimmed().isEmpty() ? QStringLiteral("Workspace %1").arg(wsNum) : ws.name.trimmed();
+            const QColor wsCol = ws.color.isValid() ? ws.color : QColor(52, 152, 219);
+            rows.append({
+                QString::number(wsNum),
+                wsName,
+                QStringLiteral("Send window to %1").arg(wsName),
+                QStringLiteral("WS %1").arg(wsNum),
+                wsCol,
+                false
+            });
+        }
+    } else {
+        // Row 0: All Workspaces
         rows.append({
-            QString::number(wsNum),
-            wsName,
-            QStringLiteral("Pin window to %1").arg(wsName),
-            wsActive ? QStringLiteral("✓ PINNED") : QStringLiteral("WS %1").arg(wsNum),
-            wsCol,
-            wsActive
+            QStringLiteral("A / 0"),
+            QStringLiteral("All Workspaces"),
+            QStringLiteral("Make window visible across every LeapK workspace"),
+            isPinnedToAll ? QStringLiteral("✓ ALL") : QStringLiteral("ALL"),
+            QColor(245, 166, 35),
+            isPinnedToAll
         });
-    }
 
-    // Row for Unpin (if currently pinned)
-    if (isCurrentlyPinned) {
-        rows.append({
-            QStringLiteral("U"),
-            QStringLiteral("Unpin Window"),
-            QStringLiteral("Remove window from pinned list; keep on current workspace only"),
-            QStringLiteral("UNPIN"),
-            QColor(231, 76, 60),
-            false
-        });
+        // Rows 1..N: Individual Workspaces
+        for (int i = 0; i < workspaces.size(); ++i) {
+            const auto &ws = workspaces.at(i);
+            const int wsNum = i + 1;
+            const bool wsActive = currentPinnedWs.contains(wsNum);
+            const QString wsName = ws.name.trimmed().isEmpty() ? QStringLiteral("Workspace %1").arg(wsNum) : ws.name.trimmed();
+            const QColor wsCol = ws.color.isValid() ? ws.color : QColor(52, 152, 219);
+            rows.append({
+                QString::number(wsNum),
+                wsName,
+                QStringLiteral("Pin window to %1").arg(wsName),
+                wsActive ? QStringLiteral("✓ PINNED") : QStringLiteral("WS %1").arg(wsNum),
+                wsCol,
+                wsActive
+            });
+        }
+
+        // Row for Unpin (if currently pinned)
+        if (isCurrentlyPinned) {
+            rows.append({
+                QStringLiteral("U"),
+                QStringLiteral("Unpin Window"),
+                QStringLiteral("Remove window from pinned list; keep on current workspace only"),
+                QStringLiteral("UNPIN"),
+                QColor(231, 76, 60),
+                false
+            });
+        }
     }
 
     const int totalW = qRound(580 * scale);
@@ -4891,7 +4938,9 @@ inline QImage renderHudPinWorkspaceDialog(
 
     // 1. Header
     qreal curY = padY;
-    const QString titleText = QStringLiteral("📌  PIN WINDOW TO WORKSPACES");
+    const QString titleText = isSendMode
+        ? QStringLiteral("🚀  SEND WINDOW TO WORKSPACE")
+        : QStringLiteral("📌  PIN WINDOW TO WORKSPACES");
     p.setFont(titleFont);
     p.setPen(QColor(255, 255, 255));
     p.drawText(QRectF(padX, curY, totalW - 2 * padX, qRound(22 * scale)), Qt::AlignLeft | Qt::AlignVCenter, titleText);
@@ -4910,7 +4959,10 @@ inline QImage renderHudPinWorkspaceDialog(
 
     // Status description line
     QString statusText;
-    if (!isCurrentlyPinned) {
+    if (isSendMode) {
+        statusText = QStringLiteral("Select destination workspace  •  Press 1..N or click a row to send window");
+        p.setPen(QColor(52, 152, 219));
+    } else if (!isCurrentlyPinned) {
         statusText = QStringLiteral("Status: Not pinned  •  Window stays strictly in its assigned workspace");
         p.setPen(QColor(135, 160, 190));
     } else if (isPinnedToAll) {
@@ -5012,7 +5064,10 @@ inline QImage renderHudPinWorkspaceDialog(
     p.setFont(descFont);
     p.setPen(QColor(145, 160, 180));
     const QRectF footerTextRect(escPill.right() + gap, curY, totalW - 2 * padX - escPill.width() - gap, footerH);
-    p.drawText(footerTextRect, Qt::AlignLeft | Qt::AlignVCenter, QStringLiteral("Return to Pin Mode  •  Click any row or press key to select"));
+    const QString footerText = isSendMode
+        ? QStringLiteral("Press 1..N / M to send window  •  Esc to cancel")
+        : QStringLiteral("Return to Pin Mode  •  Click any row or press key to select");
+    p.drawText(footerTextRect, Qt::AlignLeft | Qt::AlignVCenter, footerText);
 
     p.end();
     return img;
