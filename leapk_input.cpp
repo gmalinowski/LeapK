@@ -369,7 +369,7 @@ void ActiveWindowOutlineEffect::armRhythmState(EffectWindow *target, int originW
         m_rhythmWindowTimer->setSingleShot(true);
         connect(m_rhythmWindowTimer, &QTimer::timeout, this, &ActiveWindowOutlineEffect::disarmRhythmState);
     }
-    m_rhythmWindowTimer->start(450);
+    m_rhythmWindowTimer->start(m_rhythmWindowTimeout);
 
     if (!m_rhythmHoldTimer) {
         m_rhythmHoldTimer = new QTimer(this);
@@ -383,7 +383,7 @@ void ActiveWindowOutlineEffect::armRhythmState(EffectWindow *target, int originW
             }
         });
     }
-    m_rhythmHoldTimer->start(250);
+    m_rhythmHoldTimer->start(m_rhythmHoldTimeout);
 }
 
 void ActiveWindowOutlineEffect::disarmRhythmState()
@@ -478,9 +478,16 @@ void ActiveWindowOutlineEffect::moveWindowToWorkspace(EffectWindow *w, int wsInd
 
 bool ActiveWindowOutlineEffect::handleSuperJumpCrossWorkspaceSelection(EffectWindow *target, int keyToPass, QChar keyChar)
 {
-    const bool isCrossWsMode = (m_superJumpActive || m_searchModeActive);
-    if (!isCrossWsMode || !isCrossWorkspaceTarget(target)) {
+    if (!isCrossWorkspaceTarget(target)) {
         return false;
+    }
+
+    if (keyChar.isNull()) {
+        if (keyToPass >= Qt::Key_A && keyToPass <= Qt::Key_Z) {
+            keyChar = QChar('A' + (keyToPass - Qt::Key_A));
+        } else if (keyToPass >= Qt::Key_0 && keyToPass <= Qt::Key_9) {
+            keyChar = QChar('0' + (keyToPass - Qt::Key_0));
+        }
     }
 
     if (m_superJumpCrossWsAction == 3) {
@@ -1930,15 +1937,30 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     if (m_rhythmStateActive) {
         if (e->type() == QEvent::KeyRelease) {
+            if (e->isAutoRepeat()) {
+                return;
+            }
             if (m_rhythmHoldTimer && m_rhythmHoldTimer->isActive()) {
                 m_rhythmHoldTimer->stop();
             }
             return;
         }
         if (e->type() == QEvent::KeyPress) {
+            if (e->isAutoRepeat()) {
+                return;
+            }
+            // Ignore standalone modifiers so holding Shift/Ctrl doesn't disarm rhythm
+            if (e->key() == Qt::Key_Shift || e->key() == Qt::Key_Control ||
+                e->key() == Qt::Key_Alt || e->key() == Qt::Key_Meta || e->key() == Qt::Key_AltGr) {
+                return;
+            }
+
+            const QChar pressedChar = !e->text().isEmpty() ? e->text().at(0).toUpper() : QChar();
+            const bool matchesChar = (!m_rhythmChar.isNull() && !pressedChar.isNull() && pressedChar == m_rhythmChar.toUpper());
             const bool matchesKey = (m_rhythmKey != 0 && e->key() == m_rhythmKey)
-                || (!m_rhythmChar.isNull() && !e->text().isEmpty() && e->text().at(0).toUpper() == m_rhythmChar)
-                || (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter);
+                || matchesChar
+                || ((e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) && (m_rhythmKey == Qt::Key_Return || m_rhythmKey == Qt::Key_Enter || m_rhythmKey == 0))
+                || (e->key() == Qt::Key_Space && m_rhythmKey == Qt::Key_Space);
 
             if (matchesKey) {
                 m_rhythmTapCount++;
@@ -1950,7 +1972,10 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                         playThemedSound(OutlineSound::SoundEffect::Stash);
                     }
                     if (m_rhythmWindowTimer) {
-                        m_rhythmWindowTimer->start(450);
+                        m_rhythmWindowTimer->start(m_rhythmWindowTimeout);
+                    }
+                    if (effects) {
+                        effects->addRepaintFull();
                     }
                     return;
                 } else if (m_rhythmTapCount >= 3) {

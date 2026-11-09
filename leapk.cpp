@@ -865,6 +865,8 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_badgesAlwaysVisible = (m_badgeDisplayMode == 1);
     m_jumpTargets = qBound(0, config.readEntry("JumpTargets", 0), 3);
     m_superJumpCrossWsAction = qBound(0, config.readEntry("SuperJumpCrossWsAction", 0), 3);
+    m_rhythmWindowTimeout = qBound(300, config.readEntry("RhythmWindowTimeout", 800), 2000);
+    m_rhythmHoldTimeout = qBound(200, config.readEntry("RhythmHoldTimeout", 450), 1500);
     m_keyboardOverlayEnabled = config.readEntry("KeyboardOverlayEnabled", true);
     m_keyboardOverlayTilingOnly = config.readEntry("KeyboardOverlayTilingOnly", false);
     m_keyboardOverlayExtendToHud = config.readEntry("KeyboardOverlayExtendToHud", true);

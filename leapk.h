@@ -724,6 +724,8 @@ private:
     bool m_superJumpActive = false;
     int m_superJumpTargetWorkspace = 0;
     int m_superJumpCrossWsAction = 0;
+    int m_rhythmWindowTimeout = 800;
+    int m_rhythmHoldTimeout = 450;
     bool m_rhythmStateActive = false;
     int m_rhythmTapCount = 0;
     int m_rhythmKey = 0;

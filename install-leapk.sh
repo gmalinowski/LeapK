@@ -527,6 +527,8 @@ set_default BadgeCaptionFontSize 0
 set_default BadgeLocationFontSize 0
 set_default JumpTargets 0
 set_default SuperJumpCrossWsAction 0
+set_default RhythmWindowTimeout 800
+set_default RhythmHoldTimeout 450
 set_default CursorWarpMode 0
 set_default SoundFeedbackEnabled false
 set_default SoundFeedbackVolume 30

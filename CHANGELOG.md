@@ -4,6 +4,30 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta94-exp] - 2026-11-09
+
+### Fixed
+- **Focused Window Input Interception During Rhythm Navigation**:
+  - Resolved an issue where target windows with active text focus (e.g. text editors, browser address bars, terminals) intercepted subsequent rhythm key taps instead of LeapK performing pull-back or opening the workspace dialog.
+  - Root Cause:
+    - Standard Jump HUD (`Meta+Space`) was bypassing rhythm arming because `handleSuperJumpCrossWorkspaceSelection` checked `m_superJumpActive || m_searchModeActive`, which prematurely finished the keyboard grab on standard cross-workspace jumps.
+    - The hardcoded rhythm window timeout (450ms) was shorter than KWin's desktop slide/fade animation combined with user reaction time, causing `disarmRhythmState()` to expire and release the keyboard grab right as the user tapped the second key.
+    - Additionally, holding a key for 250ms fired `m_rhythmHoldTimer` immediately, pinning the window and ungrabbing the keyboard.
+  - Solution:
+    - Removed the restriction in `handleSuperJumpCrossWorkspaceSelection`: cross-workspace jumps from standard Jump HUD (`Meta+Space`), SuperJump (`Meta+A`), and Search (`/`) now consistently arm the rhythm navigation state and maintain keyboard grab.
+    - In `grabbedKeyboardEvent`, ignored keyboard auto-repeat events (`isAutoRepeat()`) and standalone modifier keys (`Shift`, `Ctrl`, `Alt`, `Meta`, `AltGr`) so holding or combining modifiers does not disarm rhythm mode prematurely.
+    - Re-armed the rhythm window timer upon Tap 2 so the user has the full configured timeout to perform Tap 3.
+
+### Added
+- **Configurable Rhythm Window & Hold Timeouts in Settings**:
+  - Added `RhythmWindowTimeout` (default 800 ms, range 300–2000 ms) and `RhythmHoldTimeout` (default 450 ms, range 200–1500 ms) to KConfig (`leapkconfig.kcfg`), KCM Settings UI (`leapk_config.ui`, `leapk_config.cpp`), and setup scripts (`install-leapk.sh`, `uninstall-leapk.sh`).
+  - Added live UI state updates in settings: the timeout spinboxes are enabled whenever cross-workspace action is set to Rhythm Navigation (`0`).
+- **Real-Time Visual Pill Feedback for Rhythm Navigation**:
+  - Implemented dynamic toast pill (`renderFloatingPill`) at the bottom of the screen while rhythm mode is active:
+    - Tap 1: `Tap again: [2x] Pull to <Workspace>  •  [3x] Send to WS...  •  [Hold] Pin`
+    - Tap 2: `Pulled to <Workspace>!  •  Tap again: [3x] Send to WS...`
+  - Disarms cleanly on outside keypress, escape, or timer expiration.
+
 ## [1.6.0-beta93-exp] - 2026-11-09
 
 ### Fixed

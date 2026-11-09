@@ -1661,6 +1661,70 @@
             </widget>
           </item>
           <item row="8" column="0">
+           <widget class="QLabel" name="label_rhythmWindowTimeout">
+            <property name="text">
+             <string>Rhythm navigation tap window:</string>
+            </property>
+            <property name="toolTip">
+             <string>Time window (in milliseconds) to detect repeated taps for pull-back (x2) and send-to-workspace (x3) actions.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="8" column="1">
+           <widget class="QSpinBox" name="kcfg_RhythmWindowTimeout">
+            <property name="toolTip">
+             <string>Time window (in milliseconds) to detect repeated taps for pull-back (x2) and send-to-workspace (x3) actions.</string>
+            </property>
+            <property name="minimum">
+             <number>300</number>
+            </property>
+            <property name="maximum">
+             <number>2000</number>
+            </property>
+            <property name="singleStep">
+             <number>50</number>
+            </property>
+            <property name="value">
+             <number>800</number>
+            </property>
+            <property name="suffix">
+             <string> ms</string>
+            </property>
+           </widget>
+          </item>
+          <item row="9" column="0">
+           <widget class="QLabel" name="label_rhythmHoldTimeout">
+            <property name="text">
+             <string>Rhythm hold duration (pin):</string>
+            </property>
+            <property name="toolTip">
+             <string>Duration (in milliseconds) of holding the jump key down to trigger pinning the window to both workspaces.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="9" column="1">
+           <widget class="QSpinBox" name="kcfg_RhythmHoldTimeout">
+            <property name="toolTip">
+             <string>Duration (in milliseconds) of holding the jump key down to trigger pinning the window to both workspaces.</string>
+            </property>
+            <property name="minimum">
+             <number>200</number>
+            </property>
+            <property name="maximum">
+             <number>1500</number>
+            </property>
+            <property name="singleStep">
+             <number>50</number>
+            </property>
+            <property name="value">
+             <number>450</number>
+            </property>
+            <property name="suffix">
+             <string> ms</string>
+            </property>
+           </widget>
+          </item>
+          <item row="10" column="0">
            <widget class="QLabel" name="label_cursorWarpMode">
             <property name="text">
              <string>Cursor warp after jump:</string>
@@ -1670,7 +1734,7 @@
             </property>
            </widget>
           </item>
-          <item row="8" column="1">
+          <item row="10" column="1">
            <widget class="QComboBox" name="kcfg_CursorWarpMode">
             <property name="toolTip">
              <string>Automatically move mouse pointer to the target window after jumping to it.</string>

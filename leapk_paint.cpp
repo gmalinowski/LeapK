@@ -1316,6 +1316,21 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         renderTilingToast(renderTarget, viewport);
     }
 
+    if (m_rhythmStateActive && !m_pinWsSelectionActive && !m_crossWsActionActive && !inhibited) {
+        const QRectF screenRect = viewport.renderRect();
+        const QPointF toastCenter(screenRect.center().x(), screenRect.bottom() - 65.0);
+        const QString originName = (m_rhythmOriginWorkspace >= 1 && m_rhythmOriginWorkspace <= m_workspaces.size())
+            ? m_workspaces.at(m_rhythmOriginWorkspace - 1).name
+            : QStringLiteral("Origin Workspace");
+        QString msg;
+        if (m_rhythmTapCount == 1) {
+            msg = QStringLiteral("Tap again: [2x] Pull to %1  •  [3x] Send to WS...  •  [Hold] Pin").arg(originName);
+        } else if (m_rhythmTapCount == 2) {
+            msg = QStringLiteral("Pulled to %1!  •  Tap again: [3x] Send to WS...").arg(originName);
+        }
+        renderFloatingPill(renderTarget, viewport, msg, toastCenter, QColor(20, 26, 36, 235), QColor(0, 195, 255), 11, screenRect.width() - 80.0);
+    }
+
     if (m_jumpMode && m_invalidJumpKeyTimer.isValid() && m_invalidJumpKeyTimer.elapsed() < 1200 && !inhibited) {
         const QRectF screenRect = viewport.renderRect();
         const QPointF toastCenter(screenRect.center().x(), screenRect.top() + 70.0);

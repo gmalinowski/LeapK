@@ -328,6 +328,8 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemString(QStringLiteral("BadgeLocationFont"), *new QString, QString());
     m_configSkeleton->addItemInt(QStringLiteral("JumpTargets"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("SuperJumpCrossWsAction"), *new int, 0);
+    m_configSkeleton->addItemInt(QStringLiteral("RhythmWindowTimeout"), *new int, 800);
+    m_configSkeleton->addItemInt(QStringLiteral("RhythmHoldTimeout"), *new int, 450);
     m_configSkeleton->addItemInt(QStringLiteral("CursorWarpMode"), *new int, 0);
     m_configSkeleton->addItemBool(QStringLiteral("KeyboardOverlayEnabled"), *new bool, true);
     m_configSkeleton->addItemBool(QStringLiteral("KeyboardOverlayTilingOnly"), *new bool, false);
@@ -633,6 +635,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
             updateBadgePreview();
         }
     };
+    connect(m_ui->kcfg_SuperJumpCrossWsAction, qOverload<int>(&QComboBox::currentIndexChanged), this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
     connect(m_ui->check_previewWindowBadges, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateBadgePreview);
     connect(m_ui->check_previewHudBadges, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateBadgePreview);
 
@@ -849,6 +852,11 @@ void ActiveWindowOutlineConfig::updateMarkWindowUI()
     m_ui->kcfg_JumpTargets->setEnabled(badgesEnabled);
     m_ui->label_superJumpCrossWsAction->setEnabled(badgesEnabled);
     m_ui->kcfg_SuperJumpCrossWsAction->setEnabled(badgesEnabled);
+    const bool isRhythm = badgesEnabled && (m_ui->kcfg_SuperJumpCrossWsAction->currentIndex() == 0);
+    m_ui->label_rhythmWindowTimeout->setEnabled(isRhythm);
+    m_ui->kcfg_RhythmWindowTimeout->setEnabled(isRhythm);
+    m_ui->label_rhythmHoldTimeout->setEnabled(isRhythm);
+    m_ui->kcfg_RhythmHoldTimeout->setEnabled(isRhythm);
     m_ui->label_cursorWarpMode->setEnabled(badgesEnabled);
     m_ui->kcfg_CursorWarpMode->setEnabled(badgesEnabled);
 
@@ -1650,6 +1658,8 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("NerdStatsEnabled")] = m_ui->kcfg_NerdStatsEnabled->isChecked();
     s[QStringLiteral("JumpTargets")] = m_ui->kcfg_JumpTargets->currentIndex();
     s[QStringLiteral("SuperJumpCrossWsAction")] = m_ui->kcfg_SuperJumpCrossWsAction->currentIndex();
+    s[QStringLiteral("RhythmWindowTimeout")] = m_ui->kcfg_RhythmWindowTimeout->value();
+    s[QStringLiteral("RhythmHoldTimeout")] = m_ui->kcfg_RhythmHoldTimeout->value();
     s[QStringLiteral("CursorWarpMode")] = m_ui->kcfg_CursorWarpMode->currentIndex();
     s[QStringLiteral("SoundFeedbackEnabled")] = m_ui->kcfg_SoundFeedbackEnabled->isChecked();
     s[QStringLiteral("SoundFeedbackVolume")] = m_ui->kcfg_SoundFeedbackVolume->value();
@@ -1877,6 +1887,8 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
     if (s.contains(QStringLiteral("NerdStatsEnabled"))) m_ui->kcfg_NerdStatsEnabled->setChecked(s[QStringLiteral("NerdStatsEnabled")].toBool());
     if (s.contains(QStringLiteral("JumpTargets"))) m_ui->kcfg_JumpTargets->setCurrentIndex(s[QStringLiteral("JumpTargets")].toInt());
     if (s.contains(QStringLiteral("SuperJumpCrossWsAction"))) m_ui->kcfg_SuperJumpCrossWsAction->setCurrentIndex(s[QStringLiteral("SuperJumpCrossWsAction")].toInt());
+    if (s.contains(QStringLiteral("RhythmWindowTimeout"))) m_ui->kcfg_RhythmWindowTimeout->setValue(s[QStringLiteral("RhythmWindowTimeout")].toInt());
+    if (s.contains(QStringLiteral("RhythmHoldTimeout"))) m_ui->kcfg_RhythmHoldTimeout->setValue(s[QStringLiteral("RhythmHoldTimeout")].toInt());
     if (s.contains(QStringLiteral("CursorWarpMode"))) m_ui->kcfg_CursorWarpMode->setCurrentIndex(s[QStringLiteral("CursorWarpMode")].toInt());
     if (s.contains(QStringLiteral("SoundFeedbackEnabled"))) m_ui->kcfg_SoundFeedbackEnabled->setChecked(s[QStringLiteral("SoundFeedbackEnabled")].toBool());
     if (s.contains(QStringLiteral("SoundFeedbackVolume"))) m_ui->kcfg_SoundFeedbackVolume->setValue(s[QStringLiteral("SoundFeedbackVolume")].toInt());
