@@ -294,7 +294,7 @@ private:
                                           const QList<QRectF> &hudRects,
                                           bool *outFoundVisible = nullptr) const;
     bool isWindowInStash(EffectWindow *w) const;
-    bool isWindowPinned(EffectWindow *w, int wsIndex = 0) const;
+    bool isWindowPinned(EffectWindow *w, int wsIndex = -1) const;
     QSet<int> getWindowPinnedWorkspaces(EffectWindow *w) const;
     void playThemedSound(OutlineSound::SoundEffect effect);
     void pinWindow(EffectWindow *w);

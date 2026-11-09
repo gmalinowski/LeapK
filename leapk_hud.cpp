@@ -1939,7 +1939,7 @@ QRectF ActiveWindowOutlineEffect::computeActiveMarkerRectForTargets(
         return idx >= 0 ? idx : 999999;
     };
 
-    const bool activeIsLeft = m_stashModeActive ? !isWindowInStash(currActive) : isWindowPinned(currActive);
+    const bool activeIsLeft = m_stashModeActive ? !isWindowInStash(currActive) : isWindowPinned(currActive, m_activeHudView);
     int startIdx = 0;
     int endIdx = targets.size() - 1;
 
@@ -3230,7 +3230,23 @@ void ActiveWindowOutlineEffect::renderKeyboardArrowsOverlay(const RenderTarget &
         item.title = w->caption();
         item.appClass = w->windowClass().split(QLatin1Char(' ')).first().toLower();
         item.customLabel = m_markedWindowLabels.value(w);
-        item.isVisibleOnScreen = w->isOnCurrentDesktop() && !w->isMinimized() && item.geometry.intersects(screenRect);
+
+        if (isWindowPinned(w, m_activeHudView)) {
+            if (w->isMinimized()) {
+                m_workspaceMinimizedWindows.remove(w);
+                w->setMinimized(false);
+            }
+            if (effects && effects->currentDesktop() && !w->isOnAllDesktops()) {
+                auto des = w->desktops();
+                if (!des.contains(effects->currentDesktop())) {
+                    des.append(effects->currentDesktop());
+                    effects->windowToDesktops(w, des);
+                }
+            }
+        }
+
+        item.isVisibleOnScreen = (w->isOnCurrentDesktop() || (isWindowPinned(w, m_activeHudView) && (effects && effects->currentDesktop() ? w->desktops().contains(effects->currentDesktop()) : true)))
+            && !w->isMinimized() && item.geometry.intersects(screenRect);
         item.isCurrentFocused = (w == currActive);
         item.zOrder = stacking.indexOf(w);
         item.isOccluded = isWindowObscured(w);

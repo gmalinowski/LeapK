@@ -997,7 +997,7 @@ void ActiveWindowOutlineEffect::slotCycleBadge(int delta)
         }
     } else {
         for (EffectWindow *w : orderedWindows) {
-            if (isWindowPinned(w)) {
+            if (isWindowPinned(w, m_activeHudView)) {
                 leftGroup.append(w);
             } else {
                 rightGroup.append(w);

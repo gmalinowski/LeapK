@@ -1068,6 +1068,14 @@ void ActiveWindowOutlineEffect::applyWorkspaceViewIsolation(int hudViewIndex, Vi
                     m_workspaceMinimizedWindows.remove(w);
                     w->setMinimized(false);
                 }
+                VirtualDesktop *effectiveDesk = targetDesktop ? targetDesktop : (effects ? effects->currentDesktop() : nullptr);
+                if (effectiveDesk && effects && !w->isOnAllDesktops()) {
+                    auto curDesks = w->desktops();
+                    if (!curDesks.contains(effectiveDesk)) {
+                        curDesks.append(effectiveDesk);
+                        effects->windowToDesktops(w, curDesks);
+                    }
+                }
                 continue;
             }
 
@@ -1994,11 +2002,14 @@ bool ActiveWindowOutlineEffect::isWindowPinned(EffectWindow *w, int wsIndex) con
     if (!w || w->isDeleted() || !m_pinnedWindows.contains(w)) {
         return false;
     }
-    if (wsIndex <= 0) {
+    if (wsIndex < 0) {
         return true;
     }
     const auto &wsSet = m_windowPinnedWorkspaces.value(w);
-    if (wsSet.isEmpty() || wsSet.contains(0) || wsSet.contains(wsIndex)) {
+    if (wsSet.isEmpty() || wsSet.contains(0)) {
+        return true;
+    }
+    if (wsIndex > 0 && wsSet.contains(wsIndex)) {
         return true;
     }
     return false;
@@ -2024,7 +2035,9 @@ void ActiveWindowOutlineEffect::pinWindow(EffectWindow *w)
     if (w->isMinimized()) {
         w->setMinimized(false);
     }
-    // Strictly preserve KDE virtual desktop assignments - do NOT call effects->windowToDesktops(w, {})!
+    if (effects) {
+        effects->windowToDesktops(w, {}); // empty list = all virtual desktops in KWin
+    }
     m_badgeTextureCache.clear();
     m_hudHeaderTexture.reset();
     m_hudHeaderCacheKey = -1;
@@ -2044,10 +2057,27 @@ void ActiveWindowOutlineEffect::pinWindowToWorkspace(EffectWindow *w, int wsInde
     m_pinnedWindows.insert(w);
     if (wsIndex <= 0) {
         m_windowPinnedWorkspaces[w] = {0};
+        if (effects) {
+            effects->windowToDesktops(w, {});
+        }
     } else {
         auto &set = m_windowPinnedWorkspaces[w];
+        if (set.isEmpty()) {
+            const int homeWs = findWorkspaceForWindow(w);
+            if (homeWs > 0 && homeWs != wsIndex) {
+                set.insert(homeWs);
+            }
+        }
         set.remove(0);
         set.insert(wsIndex);
+
+        if (effects && effects->currentDesktop() && !w->isOnAllDesktops()) {
+            auto curDesks = w->desktops();
+            if (!curDesks.contains(effects->currentDesktop())) {
+                curDesks.append(effects->currentDesktop());
+                effects->windowToDesktops(w, curDesks);
+            }
+        }
     }
     m_workspaceMinimizedWindows.remove(w);
     m_stashedWindows.remove(w);
@@ -2080,6 +2110,17 @@ void ActiveWindowOutlineEffect::pinWindowToWorkspaces(EffectWindow *w, const QSe
     }
     if (set.isEmpty()) {
         set.insert(0); // 0 = all workspaces fallback
+    }
+    if (effects) {
+        if (set.contains(0)) {
+            effects->windowToDesktops(w, {});
+        } else if (effects->currentDesktop() && !w->isOnAllDesktops()) {
+            auto curDesks = w->desktops();
+            if (!curDesks.contains(effects->currentDesktop())) {
+                curDesks.append(effects->currentDesktop());
+                effects->windowToDesktops(w, curDesks);
+            }
+        }
     }
     m_workspaceMinimizedWindows.remove(w);
     m_stashedWindows.remove(w);
@@ -2117,6 +2158,10 @@ void ActiveWindowOutlineEffect::toggleWindowPinWorkspace(EffectWindow *w, int ws
     auto &set = m_windowPinnedWorkspaces[w];
     if (set.contains(0)) {
         set.clear();
+        const int homeWs = findWorkspaceForWindow(w);
+        if (homeWs > 0 && homeWs != wsIndex) {
+            set.insert(homeWs);
+        }
         set.insert(wsIndex);
     } else if (set.contains(wsIndex)) {
         set.remove(wsIndex);
@@ -2126,6 +2171,13 @@ void ActiveWindowOutlineEffect::toggleWindowPinWorkspace(EffectWindow *w, int ws
         }
     } else {
         set.insert(wsIndex);
+    }
+    if (effects && effects->currentDesktop() && !w->isOnAllDesktops()) {
+        auto curDesks = w->desktops();
+        if (!curDesks.contains(effects->currentDesktop())) {
+            curDesks.append(effects->currentDesktop());
+            effects->windowToDesktops(w, curDesks);
+        }
     }
     m_workspaceMinimizedWindows.remove(w);
     m_stashedWindows.remove(w);
@@ -2153,7 +2205,9 @@ void ActiveWindowOutlineEffect::unpinWindow(EffectWindow *w, int targetWorkspace
     if (targetWorkspace >= 1 && targetWorkspace <= m_workspaces.size()) {
         addWindowToWorkspace(w, targetWorkspace);
     }
-    // Strictly preserve KDE virtual desktop assignments - do NOT call effects->windowToDesktops
+    if (effects && effects->currentDesktop()) {
+        effects->windowToDesktops(w, {effects->currentDesktop()});
+    }
     m_workspaceMinimizedWindows.remove(w);
     m_stashedWindows.remove(w);
     if (w->isMinimized()) {

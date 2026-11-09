@@ -312,15 +312,21 @@ void testWorkspacePinningManager()
     QSet<QString> pinnedWindows;
     QMap<QString, QSet<int>> windowPinnedWorkspaces;
 
-    auto isPinned = [&](const QString &id, int wsIndex = 0) -> bool {
+    auto isPinned = [&](const QString &id, int wsIndex = -1) -> bool {
         if (!pinnedWindows.contains(id)) {
             return false;
         }
-        if (wsIndex <= 0) {
+        if (wsIndex < 0) {
             return true;
         }
         const auto &set = windowPinnedWorkspaces.value(id);
-        return set.isEmpty() || set.contains(0) || set.contains(wsIndex);
+        if (set.isEmpty() || set.contains(0)) {
+            return true;
+        }
+        if (wsIndex > 0 && set.contains(wsIndex)) {
+            return true;
+        }
+        return false;
     };
 
     auto pinToAll = [&](const QString &id) {
@@ -328,18 +334,21 @@ void testWorkspacePinningManager()
         windowPinnedWorkspaces[id] = {0};
     };
 
-    auto pinToWorkspace = [&](const QString &id, int wsIndex) {
+    auto pinToWorkspace = [&](const QString &id, int wsIndex, int homeWs = 1) {
         pinnedWindows.insert(id);
         if (wsIndex <= 0) {
             windowPinnedWorkspaces[id] = {0};
         } else {
             auto &set = windowPinnedWorkspaces[id];
+            if (set.isEmpty() && homeWs > 0 && homeWs != wsIndex) {
+                set.insert(homeWs);
+            }
             set.remove(0);
             set.insert(wsIndex);
         }
     };
 
-    auto togglePinWorkspace = [&](const QString &id, int wsIndex) {
+    auto togglePinWorkspace = [&](const QString &id, int wsIndex, int homeWs = 1) {
         if (wsIndex <= 0) {
             if (isPinned(id) && windowPinnedWorkspaces.value(id).contains(0)) {
                 pinnedWindows.remove(id);
@@ -350,12 +359,15 @@ void testWorkspacePinningManager()
             return;
         }
         if (!pinnedWindows.contains(id)) {
-            pinToWorkspace(id, wsIndex);
+            pinToWorkspace(id, wsIndex, homeWs);
             return;
         }
         auto &set = windowPinnedWorkspaces[id];
         if (set.contains(0)) {
             set.clear();
+            if (homeWs > 0 && homeWs != wsIndex) {
+                set.insert(homeWs);
+            }
             set.insert(wsIndex);
         } else if (set.contains(wsIndex)) {
             set.remove(wsIndex);
@@ -377,6 +389,7 @@ void testWorkspacePinningManager()
 
     // 1. Initially not pinned
     assert(!isPinned(win1.id));
+    assert(!isPinned(win1.id, 0));
     assert(!isPinned(win1.id, 1));
     assert(!isPinned(win1.id, 2));
     assert(win1.virtualDesktop == 2); // Desktop stays on 2
@@ -384,6 +397,7 @@ void testWorkspacePinningManager()
     // 2. Pin to All Workspaces
     pinToAll(win1.id);
     assert(isPinned(win1.id));
+    assert(isPinned(win1.id, 0));
     assert(isPinned(win1.id, 1));
     assert(isPinned(win1.id, 2));
     assert(isPinned(win1.id, 3));
@@ -392,19 +406,19 @@ void testWorkspacePinningManager()
 
     // 3. Pin to specific workspaces (Workspace 1 and Workspace 2)
     unpin(win1.id);
-    pinToWorkspace(win1.id, 1);
-    pinToWorkspace(win1.id, 2);
+    pinToWorkspace(win1.id, 2, win1.homeWorkspace); // Home workspace 1 preserved!
     assert(isPinned(win1.id));
+    assert(!isPinned(win1.id, 0)); // Not globally pinned
     assert(isPinned(win1.id, 1));
     assert(isPinned(win1.id, 2));
     assert(!isPinned(win1.id, 3)); // Not pinned to workspace 3!
 
     // 4. Toggle Workspace 3 on
-    togglePinWorkspace(win1.id, 3);
+    togglePinWorkspace(win1.id, 3, win1.homeWorkspace);
     assert(isPinned(win1.id, 3));
 
     // 5. Toggle Workspace 1 off
-    togglePinWorkspace(win1.id, 1);
+    togglePinWorkspace(win1.id, 1, win1.homeWorkspace);
     assert(!isPinned(win1.id, 1));
     assert(isPinned(win1.id, 2));
     assert(isPinned(win1.id, 3));
@@ -430,12 +444,109 @@ void testWorkspacePinningManager()
 
     pinToWorkspaces(win1.id, {1, 2});
     assert(isPinned(win1.id));
+    assert(!isPinned(win1.id, 0)); // Strictly not pinned to all workspaces!
     assert(isPinned(win1.id, 1));
     assert(isPinned(win1.id, 2));
     assert(!isPinned(win1.id, 3));
     assert(!windowPinnedWorkspaces.value(win1.id).contains(0)); // Strictly not pinned to all workspaces!
 
     std::cout << "testWorkspacePinningManager PASSED\n";
+}
+
+void testMultiWorkspacePinningAndDesktopSync()
+{
+    struct MockWindow {
+        QString id;
+        int homeWorkspace = 1;
+        QSet<int> virtualDesktops; // Desktop IDs in KWin
+        bool isMinimized = false;
+        bool isOnAllDesktops = false;
+
+        bool isOnDesktop(int desktopId) const {
+            return isOnAllDesktops || virtualDesktops.contains(desktopId);
+        }
+    };
+
+    QSet<QString> pinnedWindows;
+    QMap<QString, QSet<int>> windowPinnedWorkspaces;
+
+    auto isPinned = [&](const QString &id, int wsIndex = -1) -> bool {
+        if (!pinnedWindows.contains(id)) return false;
+        if (wsIndex < 0) return true;
+        const auto &set = windowPinnedWorkspaces.value(id);
+        if (set.isEmpty() || set.contains(0)) return true;
+        if (wsIndex > 0 && set.contains(wsIndex)) return true;
+        return false;
+    };
+
+    // Simulate workspace view isolation and desktop switching
+    auto applyWorkspaceIsolationAndDesktopSync = [&](MockWindow &win, int activeHudView, int activeDesktop) {
+        if (isPinned(win.id, activeHudView)) {
+            // Pinned to this workspace: unminimize and sync virtual desktop
+            win.isMinimized = false;
+            if (!win.isOnAllDesktops) {
+                win.virtualDesktops.insert(activeDesktop);
+            }
+        } else if (win.homeWorkspace == activeHudView) {
+            // Home workspace: unminimize
+            win.isMinimized = false;
+        } else {
+            // Other workspace: isolate (minimize)
+            win.isMinimized = true;
+        }
+    };
+
+    auto canRenderOnScreenBadge = [&](const MockWindow &win, int activeDesktop) -> bool {
+        return !win.isMinimized && win.isOnDesktop(activeDesktop);
+    };
+
+    auto canConnectLaserTargetToWindow = [&](const MockWindow &win, int activeDesktop) -> bool {
+        // Spatial keyboard connects directly to window target badge when window is visible on screen
+        const bool isVisibleOnScreen = !win.isMinimized && win.isOnDesktop(activeDesktop);
+        return isVisibleOnScreen;
+    };
+
+    // Window initially created in Workspace 1 (on Desktop 1)
+    MockWindow win{QStringLiteral("deezer-music"), 1, {1}, false, false};
+
+    // Pin window to Workspace 1 and Workspace 2
+    pinnedWindows.insert(win.id);
+    windowPinnedWorkspaces[win.id] = {1, 2};
+
+    // 1. User is in Workspace 1 (Desktop 1)
+    applyWorkspaceIsolationAndDesktopSync(win, 1, 1);
+    assert(isPinned(win.id, 1) == true);
+    assert(!win.isMinimized);
+    assert(win.isOnDesktop(1) == true);
+    assert(canRenderOnScreenBadge(win, 1) == true);
+    assert(canConnectLaserTargetToWindow(win, 1) == true);
+
+    // 2. User switches to Workspace 2 (Desktop 2)
+    applyWorkspaceIsolationAndDesktopSync(win, 2, 2);
+    assert(isPinned(win.id, 2) == true);
+    assert(!win.isMinimized);
+    assert(win.isOnDesktop(2) == true);
+    // On-screen badge MUST be displayed on window pinned to Workspace 2!
+    assert(canRenderOnScreenBadge(win, 2) == true);
+    // Laser target MUST connect to window target badge on window pinned to Workspace 2!
+    assert(canConnectLaserTargetToWindow(win, 2) == true);
+
+    // 3. User switches to Workspace 3 (Desktop 3) - window is NOT pinned to Workspace 3
+    applyWorkspaceIsolationAndDesktopSync(win, 3, 3);
+    assert(isPinned(win.id, 3) == false);
+    assert(win.isMinimized == true); // Isolated / hidden!
+    assert(canRenderOnScreenBadge(win, 3) == false);
+    assert(canConnectLaserTargetToWindow(win, 3) == false);
+
+    // 4. User switches back to Workspace 1 (Desktop 1)
+    applyWorkspaceIsolationAndDesktopSync(win, 1, 1);
+    assert(isPinned(win.id, 1) == true);
+    assert(!win.isMinimized);
+    assert(win.isOnDesktop(1) == true);
+    assert(canRenderOnScreenBadge(win, 1) == true);
+    assert(canConnectLaserTargetToWindow(win, 1) == true);
+
+    std::cout << "testMultiWorkspacePinningAndDesktopSync PASSED\n";
 }
 
 void testMultiInstanceWindowWorkspaceAssignment()
@@ -608,6 +719,7 @@ int main()
     testUpdateWorkspace();
     testWorkspaceViewsAndCycling();
     testWorkspacePinningManager();
+    testMultiWorkspacePinningAndDesktopSync();
     testMultiInstanceWindowWorkspaceAssignment();
     std::cout << "All workspace tests passed successfully!\n";
     return 0;

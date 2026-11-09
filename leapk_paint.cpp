@@ -712,6 +712,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         for (EffectWindow *pinned : m_pinnedWindows) {
             if (!pinned || pinned == w || m_markedWindows.contains(pinned)
                 || !isEligibleOutlineWindow(pinned)
+                || !isWindowPinned(pinned, m_activeHudView)
                 || pinned->isDeleted() || pinned->isMinimized()
                 || pinned->isHiddenByShowDesktop() || !pinned->isOnCurrentDesktop()
                 || (m_hideOnFullScreen && pinned->isFullScreen())
@@ -870,6 +871,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         const QRectF screenRect = viewport.renderRect();
         for (EffectWindow *target : m_pinnedWindows) {
             if (!target || target->isDeleted() || !isEligibleTargetWindow(target)
+                || !isWindowPinned(target, m_activeHudView)
                 || target->isMinimized() || !target->isOnCurrentDesktop()
                 || !target->isVisible()
                 || (m_hideOnFullScreen && target->isFullScreen())) {
@@ -968,7 +970,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 const QRectF visibleWindowGeo = geo.intersected(screenRect);
                 cand.isTinyOrOffscreen = (visibleWindowGeo.width() < 50 || visibleWindowGeo.height() < 50);
                 cand.isObscured = isWindowObscured(target);
-                cand.isPinned = isWindowPinned(target);
+                cand.isPinned = isWindowPinned(target, m_activeHudView);
                 cand.isActiveWindow = (target == hudRefWindow || target == w || target == m_activeWindow);
 
                 const auto dist = OutlineBadge::classifySubLeapTarget(cand, m_badgeConfig, m_stashModeActive);
@@ -994,7 +996,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                     }
 
                     EffectWindow *repWin = firstWin;
-                    const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(repWin) || m_stashModeActive || m_closeWindowModeActive || m_pinModeActive;
+                    const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(repWin, m_activeHudView) || m_stashModeActive || m_closeWindowModeActive || m_pinModeActive;
                     if (forceHud) {
                         for (EffectWindow *target : winList) {
                             if (target && !target->isDeleted() && (target == w || target == m_activeWindow || target == hudRefWindow)) {
@@ -1065,13 +1067,13 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                             if (target->isOnCurrentDesktop() && !target->isMinimized()) {
                                 onscreenTargets.append(qMakePair(directKey, target));
                             }
-                            if (m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(target) || m_stashModeActive || m_closeWindowModeActive || m_pinModeActive) {
+                            if (m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(target, m_activeHudView) || m_stashModeActive || m_closeWindowModeActive || m_pinModeActive) {
                                 offscreenTargets.append(qMakePair(directKey, target));
                             }
                             continue;
                         }
 
-                        const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(target) || m_stashModeActive || m_closeWindowModeActive || m_pinModeActive;
+                        const bool forceHud = m_badgeConfig.hudIncludeAll || !m_badgeConfig.windowBadgesEnabled || isWindowPinned(target, m_activeHudView) || m_stashModeActive || m_closeWindowModeActive || m_pinModeActive;
                         if (forceHud) {
                             offscreenTargets.append(qMakePair(directKey, target));
                         }
@@ -1121,7 +1123,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             } else {
                 // In Normal and Super Jump mode: pinned windows on the left, regular windows on the right
                 for (const auto &pair : offscreenTargets) {
-                    if (isWindowPinned(pair.second)) {
+                    if (isWindowPinned(pair.second, m_activeHudView)) {
                         leftTargets.append(pair);
                     } else {
                         rightTargets.append(pair);
@@ -1230,7 +1232,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 customLabel = customLabel.isEmpty() ? QStringLiteral("✕") : QStringLiteral("✕ %1").arg(customLabel);
             } else if (m_pinModeActive) {
                 customLabel = isWindowPinned(target) ? QStringLiteral("📌") : QStringLiteral("+📌");
-            } else if (isWindowPinned(target)) {
+            } else if (isWindowPinned(target, m_activeHudView)) {
                 customLabel = customLabel.isEmpty() ? QStringLiteral("●") : QStringLiteral("● %1").arg(customLabel);
             } else if (isWindowInStash(target)) {
                 customLabel = customLabel.isEmpty() ? QStringLiteral("📦") : QStringLiteral("📦 %1").arg(customLabel);

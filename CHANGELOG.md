@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta89-exp] - 2026-11-09
+
+### Fixed
+- **Multi-Workspace Window Pinning Badges & Spatial Keyboard Laser Targets**:
+  - Fixed an issue where window badges and spatial keyboard laser targets failed to display on windows pinned across multiple workspaces:
+    - **Virtual Desktop Synchronization for Multi-Workspace Windows**: When windows are pinned to multiple LeapK workspaces mapping to different KDE virtual desktops, `applyWorkspaceViewIsolation()` and `switchToWorkspaceView()` now automatically synchronize window desktop assignments via `effects->windowToDesktops()`, adding the incoming active desktop to the window's desktop list. Pinned windows are now physically present, unminimized, and report `isOnCurrentDesktop() == true` on every workspace they are pinned to.
+    - **Spatial Keyboard Laser Overlay Screen Presence (`renderKeyboardArrowsOverlay`)**: Added desktop synchronization and unminimization in `renderKeyboardArrowsOverlay()` to guarantee `item.isVisibleOnScreen` evaluates to `true` on pinned workspaces. Laser arrows now connect directly to the on-screen window target badge with full circular target badges, rather than routing to the HUD dock card as an off-screen target.
+    - **Home Workspace Retention in Pin Mode**: Fixed `pinWindowToWorkspace()` and `toggleWindowPinWorkspace()` to retain the window's original home workspace (`findWorkspaceForWindow(w)`) when pinning to an additional workspace, ensuring multi-workspace pins retain association with both origin and target workspaces.
+    - **Workspace View Context in Pin Verification**: Updated `isWindowPinned(w, wsIndex = -1)` with proper sentinel handling (`wsIndex = -1` for general pin query, `0` for global pin query, and `> 0` for specific workspace checks). Updated `forceHud`, HUD partitioning, and badge rendering in `leapk_paint.cpp` and `leapk_input.cpp` to evaluate pinning in the active view context (`m_activeHudView`), ensuring pinned windows render on-screen badges correctly and non-pinned windows are not inappropriately forced into the HUD.
+  - Added unit test `testMultiWorkspacePinningAndDesktopSync()` in `tests/workspace_test.cpp` verifying multi-workspace window pinning, desktop synchronization across transitions, on-screen badge rendering, and laser target connectivity (100% passing across all 32 test suites).
+
 ## [1.6.0-beta88-exp] - 2026-11-08
 
 ### Fixed
