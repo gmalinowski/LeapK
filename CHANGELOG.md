@@ -21,6 +21,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     - Propagated jump character `keyChar` to Enter and Alt+Key jump handlers.
 
 ### Added
+- **Home Row Letters in Send to Workspace Dialog (ASDFGHJKL)**:
+  - Replaced number badges (`1`, `2`, `3`...) with ergonomic home row letters (`A`, `S`, `D`, `F`, `G`, `H`, `J`, `K`, `L`) in the Send Window to Workspace modal dialog (`renderHudPinWorkspaceDialog` with `isSendMode = true`).
+  - Allows instant, one-touch workspace dispatch directly from the home row without reaching for number keys.
+  - Full backward compatibility: numeric keys (`1..9`), previous workspace shortcuts (`M`, `0`, `P`), and mouse clicking continue to work simultaneously.
+  - Updated HUD hint bar and modal status/footer labels to reflect the new `A..L / 1..N` shortcuts.
 - **Configurable Rhythm Window & Hold Timeouts in Settings**:
   - Added `RhythmWindowTimeout` (default 800 ms, range 300–2000 ms) and `RhythmHoldTimeout` (default 450 ms, range 200–1500 ms) to KConfig (`leapkconfig.kcfg`), KCM Settings UI (`leapk_config.ui`, `leapk_config.cpp`), and setup scripts (`install-leapk.sh`, `uninstall-leapk.sh`).
   - Added live UI state updates in settings: the timeout spinboxes are enabled whenever cross-workspace action is set to Rhythm Navigation (`0`).

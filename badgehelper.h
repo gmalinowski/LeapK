@@ -2918,7 +2918,7 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     if (isPinWsSelection) {
         if (isSendMode) {
             segments = {
-                {QStringLiteral("1..N"), QStringLiteral("Send to Workspace"), QColor(52, 152, 219)},
+                {QStringLiteral("A..L / 1..N"), QStringLiteral("Send to Workspace"), QColor(52, 152, 219)},
                 {QStringLiteral("M / 0"), QStringLiteral("Previous Workspace"), QColor(46, 204, 113)},
                 {QStringLiteral("Esc / ⌫"), QStringLiteral("Cancel"), QColor(149, 165, 166)}
             };
@@ -4879,13 +4879,16 @@ inline QImage renderHudPinWorkspaceDialog(
                 false
             });
         }
+        const char homeRowKeys[] = "ASDFGHJKLQWERTYUIOPZXCVBNM";
+        const int homeRowLen = sizeof(homeRowKeys) - 1;
         for (int i = 0; i < workspaces.size(); ++i) {
             const auto &ws = workspaces.at(i);
             const int wsNum = i + 1;
             const QString wsName = ws.name.trimmed().isEmpty() ? QStringLiteral("Workspace %1").arg(wsNum) : ws.name.trimmed();
             const QColor wsCol = ws.color.isValid() ? ws.color : QColor(52, 152, 219);
+            const QString keyPill = (i < homeRowLen) ? QString(QLatin1Char(homeRowKeys[i])) : QString::number(wsNum);
             rows.append({
-                QString::number(wsNum),
+                keyPill,
                 wsName,
                 QStringLiteral("Send window to %1").arg(wsName),
                 QStringLiteral("WS %1").arg(wsNum),
@@ -4980,7 +4983,7 @@ inline QImage renderHudPinWorkspaceDialog(
     // Status description line
     QString statusText;
     if (isSendMode) {
-        statusText = QStringLiteral("Select destination workspace  •  Press 1..N or click a row to send window");
+        statusText = QStringLiteral("Select destination workspace  •  Press A..L or 1..N to send window");
         p.setPen(QColor(52, 152, 219));
     } else if (!isCurrentlyPinned) {
         statusText = QStringLiteral("Status: Not pinned  •  Window stays strictly in its assigned workspace");
@@ -5085,7 +5088,7 @@ inline QImage renderHudPinWorkspaceDialog(
     p.setPen(QColor(145, 160, 180));
     const QRectF footerTextRect(escPill.right() + gap, curY, totalW - 2 * padX - escPill.width() - gap, footerH);
     const QString footerText = isSendMode
-        ? QStringLiteral("Press 1..N / M to send window  •  Esc to cancel")
+        ? QStringLiteral("Press A..L or 1..N / M to send window  •  Esc to cancel")
         : QStringLiteral("Return to Pin Mode  •  Click any row or press key to select");
     p.drawText(footerTextRect, Qt::AlignLeft | Qt::AlignVCenter, footerText);
 

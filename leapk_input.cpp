@@ -2095,6 +2095,37 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
         if (m_sendWsModeActive) {
             // Send to Workspace mode (Triple-Tap action)
+            const QString text = e->text();
+
+            // 1. Home row letters (A, S, D, F, G, H, J, K, L...):
+            const char homeRowKeys[] = "ASDFGHJKLQWERTYUIOPZXCVBNM";
+            const int homeRowLen = sizeof(homeRowKeys) - 1;
+            if (!text.isEmpty()) {
+                const QChar ch = text.at(0).toUpper();
+                for (int i = 0; i < qMin(m_workspaces.size(), homeRowLen); ++i) {
+                    if (ch == QLatin1Char(homeRowKeys[i])) {
+                        if (m_pinTargetWindow && !m_pinTargetWindow->isDeleted()) {
+                            moveWindowToWorkspace(m_pinTargetWindow.data(), i + 1);
+                        }
+                        exitPinWsSelectionMode();
+                        return;
+                    }
+                }
+            }
+
+            // Also check direct Qt::Key codes for the letters:
+            for (int i = 0; i < qMin(m_workspaces.size(), homeRowLen); ++i) {
+                const int targetQtKey = Qt::Key_A + (homeRowKeys[i] - 'A');
+                if (e->key() == targetQtKey) {
+                    if (m_pinTargetWindow && !m_pinTargetWindow->isDeleted()) {
+                        moveWindowToWorkspace(m_pinTargetWindow.data(), i + 1);
+                    }
+                    exitPinWsSelectionMode();
+                    return;
+                }
+            }
+
+            // 2. Numbers 1..9 (backward compatibility):
             if (e->key() >= Qt::Key_1 && e->key() <= Qt::Key_9) {
                 const int wsNum = e->key() - Qt::Key_0;
                 if (wsNum >= 1 && wsNum <= m_workspaces.size()) {
@@ -2105,18 +2136,22 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     return;
                 }
             }
-            if (e->key() == Qt::Key_M || e->key() == Qt::Key_0 || (!e->text().isEmpty() && (e->text().at(0) == QLatin1Char('M') || e->text().at(0) == QLatin1Char('m') || e->text().at(0) == QLatin1Char('0')))) {
+
+            // 3. Previous Workspace (M / 0 / P):
+            if (e->key() == Qt::Key_M || e->key() == Qt::Key_0 || e->key() == Qt::Key_P
+                || (!text.isEmpty() && (text.at(0).toUpper() == QLatin1Char('M') || text.at(0) == QLatin1Char('0') || text.at(0).toUpper() == QLatin1Char('P')))) {
                 if (m_pinTargetWindow && !m_pinTargetWindow->isDeleted()) {
                     moveWindowToWorkspace(m_pinTargetWindow.data(), m_rhythmOriginWorkspace);
                 }
                 exitPinWsSelectionMode();
                 return;
             }
+
+            // 4. Cancel:
             if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace) {
                 exitPinWsSelectionMode();
                 return;
             }
-            const QString text = e->text();
             if (!text.isEmpty()) {
                 triggerInvalidKeyFeedback(text.at(0).toUpper());
             }
