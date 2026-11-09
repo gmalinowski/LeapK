@@ -831,10 +831,11 @@ void ActiveWindowOutlineEffect::renderHudPinWsSelectionOverlay(const RenderTarge
         | (static_cast<qint64>(qRound(scale * 10)) << 55);
 
     if (!m_pinWsOverlayTexture || m_pinWsOverlayCacheKey != overlayKey) {
+        const int originWs = m_sendWsModeActive ? m_rhythmOriginWorkspace : m_activeHudView;
         const QImage img = OutlineBadge::renderHudPinWorkspaceDialog(
             scale, theme, winTitle, winClass, m_workspaces, currentPinnedWs,
             isCurrentlyPinned, m_pinWsRelRowRects, m_pinWsRelCancelRect,
-            m_sendWsModeActive, m_activeHudView);
+            m_sendWsModeActive, originWs);
         if (!img.isNull()) {
             auto uploaded = GLTexture::upload(img);
             if (uploaded) {
@@ -2813,6 +2814,7 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHintBarTexture(qreal scale, const QRe
         + (m_pinModeActive ? 1700000 : 0)
         + (m_crossWsActionActive ? 3500000 : 0)
         + (m_pinWsSelectionActive ? 3700000 : 0)
+        + (m_sendWsModeActive ? 4100000 : 0)
         + (candCount == 1 ? 2500000 : 0)
         + m_activeHudView * 1000 + nameHash + qRound(scale * 10) + (qRound(maxHintBarWidth) % 5000)
         + hintsFontSize * 19 + themeHash;
@@ -2822,7 +2824,7 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHintBarTexture(qreal scale, const QRe
             m_stashModeActive, m_superJumpActive, m_audioFilterModeActive, m_searchModeActive,
             maxHintBarWidth, hintsFontSize, theme, m_tilingPresetsModeActive,
             m_closeWindowModeActive, m_pinModeActive, candCount, m_crossWsActionActive,
-            m_pinWsSelectionActive);
+            m_pinWsSelectionActive, m_sendWsModeActive);
         auto uploaded = GLTexture::upload(hintImg);
         if (uploaded) {
             uploaded->setFilter(GL_LINEAR);

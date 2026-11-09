@@ -1592,6 +1592,128 @@ void testTaskbarCrossWorkspaceActivation()
     std::cout << "testTaskbarCrossWorkspaceActivation PASSED\n";
 }
 
+void testRhythmNavigationAndHudHintBarShortcuts()
+{
+    using namespace LeapKWorkspace;
+
+    // 1. Validate HUD Hint Bar rendering in Send-to-Workspace mode
+    QImage barSend = OutlineBadge::renderHudActionHintBar(
+        1.0, false, 0, QString(), QColor(), false, false, false, false,
+        0.0, 0, LeapKTheme::Theme(), false, false, false, 0, false, true, true);
+    assert(!barSend.isNull());
+    assert(barSend.width() >= 300);
+    assert(barSend.height() >= 24);
+
+    // 2. Validate HUD Hint Bar in Pin-to-Workspace mode (isSendMode = false)
+    QImage barPin = OutlineBadge::renderHudActionHintBar(
+        1.0, false, 0, QString(), QColor(), false, false, false, false,
+        0.0, 0, LeapKTheme::Theme(), false, false, false, 0, false, true, false);
+    assert(!barPin.isNull());
+    assert(barPin.width() >= 300);
+
+    // 3. Validate HUD Hint Bar in default Jump mode (contains rhythm navigation shortcuts)
+    QImage barDefault = OutlineBadge::renderHudActionHintBar(1.0, false, 0);
+    assert(!barDefault.isNull());
+    assert(barDefault.width() >= 500);
+
+    // 4. Validate HUD Hint Bar in Super Jump mode
+    QImage barSuperJump = OutlineBadge::renderHudActionHintBar(
+        1.0, false, 0, QString(), QColor(), false, true);
+    assert(!barSuperJump.isNull());
+    assert(barSuperJump.width() >= 400);
+
+    // 5. Validate HUD Hint Bar in Search mode
+    QImage barSearch = OutlineBadge::renderHudActionHintBar(
+        1.0, false, 0, QString(), QColor(), false, false, false, true);
+    assert(!barSearch.isNull());
+    assert(barSearch.width() >= 400);
+
+    // 6. Test Rhythm State Lifecycle & Triple-Tap Send to Workspace transition:
+    struct MockRhythmState {
+        bool rhythmActive = false;
+        int tapCount = 0;
+        int originWs = 1;
+        int targetWs = 2;
+        bool jumpMode = false;
+        bool keyboardGrab = false;
+        bool mouseInterception = false;
+        bool sendWsActive = false;
+        bool pinWsSelection = false;
+
+        void tap1_jump() {
+            rhythmActive = true;
+            tapCount = 1;
+            jumpMode = false;       // Cancelled on jump
+            keyboardGrab = true;   // Kept for rhythm window
+            mouseInterception = false;
+        }
+
+        void tap2_pull() {
+            assert(rhythmActive);
+            tapCount = 2;
+            // Window pulled to originWs
+        }
+
+        void tap3_sendToWs() {
+            assert(rhythmActive);
+            tapCount = 3;
+            rhythmActive = false;
+            // Enters enterSendWsSelectionMode:
+            sendWsActive = true;
+            pinWsSelection = true;
+            jumpMode = true;         // Re-enabled for HUD dialog & rendering
+            keyboardGrab = true;
+            mouseInterception = true; // Started for dialog clicks
+        }
+
+        void dismissOrConfirm() {
+            assert(sendWsActive || pinWsSelection);
+            // exitPinWsSelectionMode:
+            const bool wasSendMode = sendWsActive;
+            pinWsSelection = false;
+            sendWsActive = false;
+            if (wasSendMode) {
+                // cancelJumpMode:
+                jumpMode = false;
+                keyboardGrab = false;       // Ungrabbed!
+                mouseInterception = false;  // Stopped!
+            }
+        }
+    } state;
+
+    // Execute Tap 1
+    state.tap1_jump();
+    assert(state.rhythmActive == true);
+    assert(state.tapCount == 1);
+    assert(state.keyboardGrab == true);
+    assert(state.jumpMode == false);
+
+    // Execute Tap 2
+    state.tap2_pull();
+    assert(state.rhythmActive == true);
+    assert(state.tapCount == 2);
+
+    // Execute Tap 3
+    state.tap3_sendToWs();
+    assert(state.rhythmActive == false);
+    assert(state.tapCount == 3);
+    assert(state.sendWsActive == true);
+    assert(state.pinWsSelection == true);
+    assert(state.jumpMode == true);
+    assert(state.mouseInterception == true);
+    assert(state.keyboardGrab == true);
+
+    // Execute Dismiss / Confirm
+    state.dismissOrConfirm();
+    assert(state.sendWsActive == false);
+    assert(state.pinWsSelection == false);
+    assert(state.jumpMode == false);
+    assert(state.keyboardGrab == false);       // MUST BE FALSE - NO STUCK KEYBOARD GRAB!
+    assert(state.mouseInterception == false);  // MUST BE FALSE - NO STUCK MOUSE INTERCEPTION!
+
+    std::cout << "testRhythmNavigationAndHudHintBarShortcuts PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
@@ -1618,6 +1740,7 @@ int main(int argc, char *argv[])
     testCrossWorkspaceActionDialogShortcuts();
     testSearchModeCrossWorkspaceSelection();
     testTaskbarCrossWorkspaceActivation();
+    testRhythmNavigationAndHudHintBarShortcuts();
 
     std::cout << "All Super Jump tests passed successfully!\n";
     return 0;

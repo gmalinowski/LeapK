@@ -411,9 +411,32 @@ void ActiveWindowOutlineEffect::disarmRhythmState()
 void ActiveWindowOutlineEffect::enterSendWsSelectionMode(EffectWindow *target)
 {
     if (!target || target->isDeleted()) {
+        disarmRhythmState();
         return;
     }
+    if (m_rhythmWindowTimer) {
+        m_rhythmWindowTimer->stop();
+    }
+    if (m_rhythmHoldTimer) {
+        m_rhythmHoldTimer->stop();
+    }
+    m_rhythmStateActive = false;
     m_sendWsModeActive = true;
+    m_jumpMode = true;
+#ifdef ACTIVE_WINDOW_OUTLINE_HAS_WINDOW_INPUT_MOUSE_EVENT
+    if (!m_mouseIntercepting && effects) {
+        effects->startMouseInterception(this, Qt::ArrowCursor);
+        m_mouseIntercepting = true;
+    }
+#endif
+    if (!m_keyboardGrabActive && effects) {
+        if (!effects->grabKeyboard(this)) {
+            m_sendWsModeActive = false;
+            m_jumpMode = false;
+            return;
+        }
+        m_keyboardGrabActive = true;
+    }
     enterPinWsSelectionMode(target);
 }
 
@@ -427,7 +450,11 @@ void ActiveWindowOutlineEffect::moveWindowToWorkspace(EffectWindow *w, int wsInd
     } else {
         if (wsIndex >= 1 && wsIndex <= m_workspaces.size()) {
             addWindowToWorkspace(w, wsIndex);
-            applyWorkspaceViewIsolation(wsIndex);
+            if (m_activeHudView != wsIndex) {
+                switchToWorkspaceView(wsIndex);
+            } else {
+                applyWorkspaceViewIsolation(wsIndex);
+            }
         } else if (wsIndex == 0) {
             addWindowToWorkspace(w, 0);
         }
@@ -651,6 +678,7 @@ void ActiveWindowOutlineEffect::exitPinWsSelectionMode()
     if (!m_pinWsSelectionActive) {
         return;
     }
+    const bool wasSendMode = m_sendWsModeActive;
     m_pinWsSelectionActive = false;
     m_sendWsModeActive = false;
     m_pinTargetWindow = nullptr;
@@ -666,6 +694,9 @@ void ActiveWindowOutlineEffect::exitPinWsSelectionMode()
     m_pinWsRelRowRects.clear();
     m_pinWsRelCancelRect = QRectF();
     playThemedSound(OutlineSound::SoundEffect::Dismiss);
+    if (wasSendMode || !m_pinModeActive) {
+        cancelJumpMode();
+    }
     if (effects) {
         effects->addRepaintFull();
     }
@@ -1338,7 +1369,7 @@ void ActiveWindowOutlineEffect::cancelJumpMode()
 
 void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
 {
-    if (!m_jumpMode) {
+    if (!m_jumpMode && !m_pinWsSelectionActive && !m_crossWsActionActive) {
         return;
     }
     m_jumpMode = false;
@@ -1537,7 +1568,7 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
         return;
     }
 
-    if (!m_jumpMode) {
+    if (!m_jumpMode && !m_pinWsSelectionActive && !m_crossWsActionActive) {
         return;
     }
 
@@ -1928,6 +1959,9 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                     if (m_rhythmWindowTimer) {
                         m_rhythmWindowTimer->stop();
                     }
+                    if (m_rhythmHoldTimer) {
+                        m_rhythmHoldTimer->stop();
+                    }
                     m_rhythmStateActive = false;
                     if (w && !w->isDeleted()) {
                         enterSendWsSelectionMode(w);
@@ -2035,6 +2069,10 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace) {
                 exitPinWsSelectionMode();
                 return;
+            }
+            const QString text = e->text();
+            if (!text.isEmpty()) {
+                triggerInvalidKeyFeedback(text.at(0).toUpper());
             }
             return;
         }
@@ -2268,7 +2306,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         return;
     }
 
-    if (!m_jumpMode) {
+    if (!m_jumpMode && !m_pinWsSelectionActive && !m_crossWsActionActive) {
         return;
     }
     if (e->type() != QEvent::KeyPress) {

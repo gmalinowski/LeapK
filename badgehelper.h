@@ -2902,7 +2902,7 @@ inline QImage renderGroupContainerFrame(const QSizeF &size,
     return img;
 }
 
-inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false, bool isSearchMode = false, qreal maxAllowedWidth = 0.0, int hintsFontSize = 0, const LeapKTheme::Theme &theme = LeapKTheme::Theme(), bool isTilingPresets = false, bool isCloseMode = false, bool isPinMode = false, int candidateCount = 0, bool isCrossWsAction = false, bool isPinWsSelection = false)
+inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int activeView = 0, const QString &customViewName = QString(), const QColor &customViewColor = QColor(), bool isStashMode = false, bool isSuperJump = false, bool isAudioFilter = false, bool isSearchMode = false, qreal maxAllowedWidth = 0.0, int hintsFontSize = 0, const LeapKTheme::Theme &theme = LeapKTheme::Theme(), bool isTilingPresets = false, bool isCloseMode = false, bool isPinMode = false, int candidateCount = 0, bool isCrossWsAction = false, bool isPinWsSelection = false, bool isSendMode = false)
 {
     Q_UNUSED(customViewName);
     Q_UNUSED(customViewColor);
@@ -2916,12 +2916,20 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
 
     QList<Segment> segments;
     if (isPinWsSelection) {
-        segments = {
-            {QStringLiteral("A / 0"), QStringLiteral("All Workspaces"), QColor(245, 166, 35)},
-            {QStringLiteral("1..N"), QStringLiteral("Select Workspace"), QColor(52, 152, 219)},
-            {QStringLiteral("U"), QStringLiteral("Unpin"), QColor(231, 76, 60)},
-            {QStringLiteral("Esc / ⌫"), QStringLiteral("Cancel"), QColor(149, 165, 166)}
-        };
+        if (isSendMode) {
+            segments = {
+                {QStringLiteral("1..N"), QStringLiteral("Send to Workspace"), QColor(52, 152, 219)},
+                {QStringLiteral("M / 0"), QStringLiteral("Previous Workspace"), QColor(46, 204, 113)},
+                {QStringLiteral("Esc / ⌫"), QStringLiteral("Cancel"), QColor(149, 165, 166)}
+            };
+        } else {
+            segments = {
+                {QStringLiteral("A / 0"), QStringLiteral("All Workspaces"), QColor(245, 166, 35)},
+                {QStringLiteral("1..N"), QStringLiteral("Select Workspace"), QColor(52, 152, 219)},
+                {QStringLiteral("U"), QStringLiteral("Unpin"), QColor(231, 76, 60)},
+                {QStringLiteral("Esc / ⌫"), QStringLiteral("Cancel"), QColor(149, 165, 166)}
+            };
+        }
     } else if (isCrossWsAction) {
         segments = {
             {QStringLiteral("Enter / J / 1"), QStringLiteral("Jump to Workspace"), QColor(46, 204, 113)},
@@ -2955,7 +2963,10 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
         };
     } else if (isSearchMode) {
         segments = {
-            {QStringLiteral("Enter"), QStringLiteral("Jump (x2 Pull, x3 Send)"), QColor(0, 195, 255)},
+            {QStringLiteral("Enter"), QStringLiteral("Jump"), QColor(0, 195, 255)},
+            {QStringLiteral("2x Enter"), QStringLiteral("Pull to Current"), QColor(46, 204, 113)},
+            {QStringLiteral("3x Enter"), QStringLiteral("Send to..."), QColor(0, 195, 255)},
+            {QStringLiteral("Hold Enter"), QStringLiteral("Pin to Both"), QColor(245, 166, 35)},
             {QStringLiteral("Tab / ↑↓←→"), QStringLiteral("Select window"), QColor(52, 152, 219)},
             {QStringLiteral("Alt+Enter"), QStringLiteral("Pull here"), QColor(46, 204, 113)},
             {QStringLiteral("Ctrl+Enter"), QStringLiteral("Pin"), QColor(245, 166, 35)},
@@ -2973,7 +2984,10 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
         };
     } else if (isSuperJump) {
         segments = {
-            {candidateCount == 1 ? QStringLiteral("Enter / Key") : QStringLiteral("Key"), QStringLiteral("Jump to workspace"), candidateCount == 1 ? QColor(46, 204, 113) : QColor(0, 195, 255)},
+            {candidateCount == 1 ? QStringLiteral("Enter / Key") : QStringLiteral("Key"), QStringLiteral("Jump"), candidateCount == 1 ? QColor(46, 204, 113) : QColor(0, 195, 255)},
+            {QStringLiteral("2x Key"), QStringLiteral("Pull to Current"), QColor(46, 204, 113)},
+            {QStringLiteral("3x Key"), QStringLiteral("Send to..."), QColor(0, 195, 255)},
+            {QStringLiteral("Hold Key"), QStringLiteral("Pin to Both"), QColor(245, 166, 35)},
             {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pull / Drop here"), QColor(241, 196, 15)},
             {QStringLiteral("Shift+Key"), QStringLiteral("Close"), QColor(231, 76, 60)},
@@ -2995,7 +3009,10 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
         };
     } else if (isSubLeap) {
         segments = {
-            {candidateCount == 1 ? QStringLiteral("Enter / Key") : QStringLiteral("Key"), QStringLiteral("Select"), candidateCount == 1 ? QColor(46, 204, 113) : QColor(52, 152, 219)},
+            {candidateCount == 1 ? QStringLiteral("Enter / Key") : QStringLiteral("Key"), QStringLiteral("Jump"), candidateCount == 1 ? QColor(46, 204, 113) : QColor(52, 152, 219)},
+            {QStringLiteral("2x Key"), QStringLiteral("Pull to Current"), QColor(46, 204, 113)},
+            {QStringLiteral("3x Key"), QStringLiteral("Send to..."), QColor(0, 195, 255)},
+            {QStringLiteral("Hold Key"), QStringLiteral("Pin to Both"), QColor(245, 166, 35)},
             {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
             {QStringLiteral("Alt+Key"), QStringLiteral("Pin / Pull / Drop"), QColor(241, 196, 15)},
             {QStringLiteral("< / >"), QStringLiteral("Badges"), QColor(52, 152, 219)},
@@ -3007,6 +3024,9 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     } else {
         segments = {
             {candidateCount == 1 ? QStringLiteral("Enter / Key") : QStringLiteral("Key"), QStringLiteral("Jump"), candidateCount == 1 ? QColor(46, 204, 113) : QColor(52, 152, 219)},
+            {QStringLiteral("2x Key"), QStringLiteral("Pull to Current"), QColor(46, 204, 113)},
+            {QStringLiteral("3x Key"), QStringLiteral("Send to..."), QColor(0, 195, 255)},
+            {QStringLiteral("Hold Key"), QStringLiteral("Pin to Both"), QColor(245, 166, 35)},
             {QStringLiteral("Hold Meta+␣"), QStringLiteral("Traverse recent"), QColor(46, 204, 113)},
             {QStringLiteral("/"), QStringLiteral("Search"), QColor(0, 195, 255)},
             {QStringLiteral("?"), QStringLiteral("Hints"), QColor(241, 196, 15)},
@@ -4939,8 +4959,8 @@ inline QImage renderHudPinWorkspaceDialog(
     // 1. Header
     qreal curY = padY;
     const QString titleText = isSendMode
-        ? QStringLiteral("🚀  SEND WINDOW TO WORKSPACE")
-        : QStringLiteral("📌  PIN WINDOW TO WORKSPACES");
+        ? QStringLiteral("SEND WINDOW TO WORKSPACE")
+        : QStringLiteral("PIN WINDOW TO WORKSPACES");
     p.setFont(titleFont);
     p.setPen(QColor(255, 255, 255));
     p.drawText(QRectF(padX, curY, totalW - 2 * padX, qRound(22 * scale)), Qt::AlignLeft | Qt::AlignVCenter, titleText);

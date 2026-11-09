@@ -4,6 +4,27 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta93-exp] - 2026-11-09
+
+### Fixed
+- **Triple-Tap Freeze & Stuck Keyboard Grab Resolution**:
+  - Fixed a critical soft-lock where executing a triple-tap (entering Send to Workspace mode) completely hung LeapK and froze keyboard input for the desktop.
+  - Root Cause: During Tap 1 (direct jump), `cancelJumpMode()` deactivated `m_jumpMode` while keeping the keyboard grab alive for the rhythm window. When Tap 3 fired, `enterSendWsSelectionMode()` activated `m_sendWsModeActive` and `m_pinWsSelectionActive`, but because `m_jumpMode` remained false, `leapk_paint.cpp` bypassed overlay rendering entirely, mouse interception remained disabled, and `exitPinWsSelectionMode()` never released the KWin keyboard grab via `finishKeyboardGrab()`.
+  - Solution:
+    - `enterSendWsSelectionMode()` now re-arms `m_jumpMode = true;`, activates mouse interception, and ensures keyboard focus.
+    - `exitPinWsSelectionMode()` calls `cancelJumpMode()` on confirmation or cancellation, cleanly executing `finishKeyboardGrab()` (`effects->ungrabKeyboard()`), stopping mouse interception, and restoring desktop window focus.
+    - Updated `leapk_paint.cpp` and `windowInputMouseEvent()` with defensive checks `(m_jumpMode || m_pinWsSelectionActive || m_crossWsActionActive)` so dialogs are guaranteed to render and receive input.
+    - `moveWindowToWorkspace()` now invokes `switchToWorkspaceView()` to switch active workspace and virtual desktop seamlessly when moving windows across workspaces.
+
+### Added
+- **HUD Information Bar Shortcut Descriptions (Rhythm Navigation)**:
+  - Documented cross-workspace rhythm shortcuts directly in the HUD action hint bar:
+    - Default Jump Mode, Super Jump Mode, and Sub-Leap: `[Key] Jump • [2x Key] Pull to Current • [3x Key] Send to... • [Hold Key] Pin to Both`.
+    - Search Mode: `[Enter] Jump • [2x Enter] Pull to Current • [3x Enter] Send to... • [Hold Enter] Pin to Both`.
+    - Send to Workspace Modal: dynamic action hint bar showing `[1..N] Send to Workspace • [M / 0] Previous Workspace • [Esc / ⌫] Cancel`.
+  - Removed decorative emoji clutter from the Send / Pin Workspace dialog header (`SEND WINDOW TO WORKSPACE` / `PIN WINDOW TO WORKSPACES`).
+  - Added unit test `testRhythmNavigationAndHudHintBarShortcuts()` in `tests/superjump_test.cpp` verifying hint bar rendering across modes and rhythm state machine transitions without stuck grabs.
+
 ## [1.6.0-beta92-exp] - 2026-11-09
 
 ### Changed

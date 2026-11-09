@@ -921,7 +921,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
 
     if (m_tilingEditModeActive && !inhibited) {
         renderTilingEditOverlay(renderTarget, viewport);
-    } else if (m_jumpMode && !inhibited) {
+    } else if ((m_jumpMode || m_pinWsSelectionActive || m_crossWsActionActive) && !inhibited) {
         if (m_tilingPresetsModeActive) {
             renderTilingPresetPills(renderTarget, viewport, m_tilingPresets);
         } else {
