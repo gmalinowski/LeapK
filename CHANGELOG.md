@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [1.6.0-beta94-exp] - 2026-11-09
 
+### Changed
+- **HUD Workspace Bar Selection on Triple-Tap Window Send**:
+  - Replaced the modal popup window (`renderHudPinWorkspaceDialog`) on Triple-Tap (`Tap 3`) with direct workspace selection in the standard LeapK HUD top workspace bar (`[◂ ,] [Standard] [Workspace 1] ... [. ▸]`).
+  - Destination workspace is selected using `,` (previous) and `.` (next) or Left / Right arrow keys, as well as direct key shortcuts (`1..9`, `A..L`, `M / 0` for previous workspace), or mouse clicks on workspace tabs.
+  - Pressing `Enter` (or `Space`) confirms sending the window to the highlighted workspace, switches to it, plays confirmation chime (`Stash`), and cleanly exits the HUD.
+  - Pressing `Esc` or `Backspace` cancels without moving the window.
+  - Added dedicated floating toast pill showing real-time feedback: `SEND: "<Window Title>" → [<Selected Workspace>] • [,] / [.] Select WS • [Enter] Confirm • [Esc] Cancel`.
+  - Updated HUD Action Hint Bar to display: `[,] / [.] Select Workspace • [Enter] Send Window • [M / 0] Previous WS • [Esc / ⌫] Cancel`.
+  - Window jump badges are automatically suppressed during send-workspace mode to keep the display clean.
+
 ### Fixed
 - **Focused Window Input Interception During Rhythm Navigation**:
   - Resolved an issue where target windows with active text focus (e.g. text editors, chat applications like Element, browser address bars, terminals) intercepted subsequent rhythm key taps (`EE`) instead of LeapK performing pull-back or opening the workspace dialog.

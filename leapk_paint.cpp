@@ -1340,6 +1340,31 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         renderFloatingPill(renderTarget, viewport, msg, toastCenter, QColor(20, 26, 36, 235), QColor(0, 195, 255), 11, screenRect.width() - 80.0);
     }
 
+    if (m_sendWsModeActive && !m_pinWsSelectionActive && m_pinTargetWindow && !m_pinTargetWindow->isDeleted() && !inhibited) {
+        const QRectF screenRect = viewport.renderRect();
+        const QPointF toastCenter(screenRect.center().x(), screenRect.bottom() - 65.0);
+
+        QString targetWsName;
+        if (m_sendWsTargetWorkspace >= 1 && m_sendWsTargetWorkspace <= m_workspaces.size()) {
+            targetWsName = m_workspaces.at(m_sendWsTargetWorkspace - 1).name;
+        } else if (m_sendWsTargetWorkspace == 0) {
+            targetWsName = QStringLiteral("Standard");
+        } else {
+            targetWsName = QStringLiteral("Workspace %1").arg(m_sendWsTargetWorkspace);
+        }
+
+        const QString winTitle = m_pinTargetWindow->caption().isEmpty()
+            ? QStringLiteral("Window")
+            : (m_pinTargetWindow->caption().length() > 30
+                ? m_pinTargetWindow->caption().left(27) + QStringLiteral("...")
+                : m_pinTargetWindow->caption());
+
+        const QString msg = QStringLiteral("SEND: \"%1\" → [%2]  •  [,] / [.] Select WS  •  [Enter] Confirm  •  [Esc] Cancel")
+            .arg(winTitle, targetWsName);
+
+        renderFloatingPill(renderTarget, viewport, msg, toastCenter, QColor(20, 26, 36, 235), QColor(0, 195, 255), 11, screenRect.width() - 80.0);
+    }
+
     if (m_jumpMode && m_invalidJumpKeyTimer.isValid() && m_invalidJumpKeyTimer.elapsed() < 1200 && !inhibited) {
         const QRectF screenRect = viewport.renderRect();
         const QPointF toastCenter(screenRect.center().x(), screenRect.top() + 70.0);

@@ -160,6 +160,7 @@ void ActiveWindowOutlineEffect::exitCrossWsActionMode()
     m_crossWsActionOverlayCacheKey = -1;
     m_pinWsSelectionActive = false;
     m_sendWsModeActive = false;
+    m_sendWsTargetWorkspace = 0;
     m_pinTargetWindow = nullptr;
     m_pinWsOverlayTexture.reset();
     m_pinWsOverlayCacheKey = -1;
@@ -426,6 +427,20 @@ void ActiveWindowOutlineEffect::enterSendWsSelectionMode(EffectWindow *target)
     }
     m_rhythmStateActive = false;
     m_sendWsModeActive = true;
+    m_pinWsSelectionActive = false;
+    m_pinTargetWindow = target;
+
+    // Pick a sensible initial destination workspace:
+    refreshWorkspaces();
+    const int totalWorkspaces = m_workspaces.size() + 1; // 0..m_workspaces.size()
+    if (m_rhythmOriginWorkspace != m_rhythmTargetWorkspace && m_rhythmOriginWorkspace >= 0 && m_rhythmOriginWorkspace <= m_workspaces.size()) {
+        m_sendWsTargetWorkspace = m_rhythmOriginWorkspace;
+    } else if (m_workspaces.size() >= 1) {
+        m_sendWsTargetWorkspace = (m_activeHudView + 1) % totalWorkspaces;
+    } else {
+        m_sendWsTargetWorkspace = (m_activeHudView >= 0 && m_activeHudView <= m_workspaces.size()) ? m_activeHudView : 0;
+    }
+
     m_jumpMode = true;
 #ifdef ACTIVE_WINDOW_OUTLINE_HAS_WINDOW_INPUT_MOUSE_EVENT
     if (!m_mouseIntercepting && effects) {
@@ -437,11 +452,22 @@ void ActiveWindowOutlineEffect::enterSendWsSelectionMode(EffectWindow *target)
         if (!effects->grabKeyboard(this)) {
             m_sendWsModeActive = false;
             m_jumpMode = false;
+            m_pinTargetWindow = nullptr;
             return;
         }
         m_keyboardGrabActive = true;
     }
-    enterPinWsSelectionMode(target);
+
+    m_jumpLetterToWindow.clear();
+    m_badgeTextureCache.clear();
+    m_hudHeaderTexture.reset();
+    m_hudHeaderCacheKey = -1;
+    m_hudHintBarTexture.reset();
+    m_hudHintBarCacheKey = -1;
+    playThemedSound(OutlineSound::SoundEffect::NavTab);
+    if (effects) {
+        effects->addRepaintFull();
+    }
 }
 
 void ActiveWindowOutlineEffect::moveWindowToWorkspace(EffectWindow *w, int wsIndex)
@@ -704,6 +730,7 @@ void ActiveWindowOutlineEffect::exitPinWsSelectionMode()
     const bool wasSendMode = m_sendWsModeActive;
     m_pinWsSelectionActive = false;
     m_sendWsModeActive = false;
+    m_sendWsTargetWorkspace = 0;
     m_pinTargetWindow = nullptr;
     m_pinWsOverlayTexture.reset();
     m_pinWsOverlayCacheKey = -1;
@@ -1288,6 +1315,7 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_crossWsActionOverlayCacheKey = -1;
     m_pinWsSelectionActive = false;
     m_sendWsModeActive = false;
+    m_sendWsTargetWorkspace = 0;
     m_pinTargetWindow = nullptr;
     m_pinWsOverlayTexture.reset();
     m_pinWsOverlayCacheKey = -1;
@@ -1450,6 +1478,7 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
     m_crossWsActionOverlayCacheKey = -1;
     m_pinWsSelectionActive = false;
     m_sendWsModeActive = false;
+    m_sendWsTargetWorkspace = 0;
     m_pinTargetWindow = nullptr;
     m_pinWsOverlayTexture.reset();
     m_pinWsOverlayCacheKey = -1;
@@ -1896,6 +1925,15 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
             if (m_hudHeaderScreenRect.isValid() && m_hudHeaderScreenRect.contains(pos)) {
                 for (int i = 0; i < m_hudTabScreenRects.size(); ++i) {
                     if (m_hudTabScreenRects[i].contains(pos)) {
+                        if (m_sendWsModeActive) {
+                            if (m_pinTargetWindow && !m_pinTargetWindow->isDeleted()) {
+                                const int targetWs = (i >= 0 && i <= m_workspaces.size()) ? i : 0;
+                                moveWindowToWorkspace(m_pinTargetWindow.data(), targetWs);
+                                playThemedSound(OutlineSound::SoundEffect::Stash);
+                            }
+                            cancelJumpMode();
+                            return;
+                        }
                         playThemedSound(OutlineSound::SoundEffect::NavTab);
                         switchToWorkspaceView(i);
                         m_jumpLetterToWindow = assignJumpLetters();
@@ -2084,6 +2122,127 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         if (!text.isEmpty()) {
             triggerInvalidKeyFeedback(text.at(0).toUpper());
             return;
+        }
+        return;
+    }
+
+    if (m_sendWsModeActive && !m_pinWsSelectionActive) {
+        if (e->type() != QEvent::KeyPress) {
+            return;
+        }
+
+        const int totalWorkspaces = m_workspaces.size() + 1; // 0..m_workspaces.size()
+
+        // 1. Cycle selection left / right with ',' and '.' or Left / Right arrow keys
+        if (e->key() == Qt::Key_Comma || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char(',')) || e->key() == Qt::Key_Left) {
+            playThemedSound(OutlineSound::SoundEffect::NavTab);
+            m_sendWsTargetWorkspace = (m_sendWsTargetWorkspace - 1 + totalWorkspaces) % totalWorkspaces;
+            m_hudHeaderTexture.reset();
+            m_hudHeaderCacheKey = -1;
+            m_hudHintBarTexture.reset();
+            m_hudHintBarCacheKey = -1;
+            if (effects) {
+                effects->addRepaintFull();
+            }
+            return;
+        }
+
+        if (e->key() == Qt::Key_Period || (!e->text().isEmpty() && e->text().at(0) == QLatin1Char('.')) || e->key() == Qt::Key_Right) {
+            playThemedSound(OutlineSound::SoundEffect::NavTab);
+            m_sendWsTargetWorkspace = (m_sendWsTargetWorkspace + 1) % totalWorkspaces;
+            m_hudHeaderTexture.reset();
+            m_hudHeaderCacheKey = -1;
+            m_hudHintBarTexture.reset();
+            m_hudHintBarCacheKey = -1;
+            if (effects) {
+                effects->addRepaintFull();
+            }
+            return;
+        }
+
+        // 2. Direct selection via Home row letters (A, S, D, F, G, H, J, K, L...) or numbers (1..9):
+        const QString text = e->text();
+        const char homeRowKeys[] = "ASDFGHJKLQWERTYUIOPZXCVBNM";
+        const int homeRowLen = sizeof(homeRowKeys) - 1;
+        bool matchedKey = false;
+        int directWs = -1;
+
+        if (!text.isEmpty()) {
+            const QChar ch = text.at(0).toUpper();
+            for (int i = 0; i < qMin(m_workspaces.size(), homeRowLen); ++i) {
+                if (ch == QLatin1Char(homeRowKeys[i])) {
+                    directWs = i + 1;
+                    matchedKey = true;
+                    break;
+                }
+            }
+        }
+        if (!matchedKey) {
+            for (int i = 0; i < qMin(m_workspaces.size(), homeRowLen); ++i) {
+                const int targetQtKey = Qt::Key_A + (homeRowKeys[i] - 'A');
+                if (e->key() == targetQtKey) {
+                    directWs = i + 1;
+                    matchedKey = true;
+                    break;
+                }
+            }
+        }
+        if (!matchedKey && e->key() >= Qt::Key_1 && e->key() <= Qt::Key_9) {
+            const int wsNum = e->key() - Qt::Key_0;
+            if (wsNum >= 1 && wsNum <= m_workspaces.size()) {
+                directWs = wsNum;
+                matchedKey = true;
+            }
+        }
+
+        if (matchedKey && directWs >= 0) {
+            playThemedSound(OutlineSound::SoundEffect::NavTab);
+            m_sendWsTargetWorkspace = directWs;
+            m_hudHeaderTexture.reset();
+            m_hudHeaderCacheKey = -1;
+            m_hudHintBarTexture.reset();
+            m_hudHintBarCacheKey = -1;
+            if (effects) {
+                effects->addRepaintFull();
+            }
+            return;
+        }
+
+        // 3. Previous Workspace (M / 0 / P):
+        if (e->key() == Qt::Key_M || e->key() == Qt::Key_0 || e->key() == Qt::Key_P
+            || (!text.isEmpty() && (text.at(0).toUpper() == QLatin1Char('M') || text.at(0) == QLatin1Char('0') || text.at(0).toUpper() == QLatin1Char('P')))) {
+            playThemedSound(OutlineSound::SoundEffect::NavTab);
+            if (m_rhythmOriginWorkspace >= 0 && m_rhythmOriginWorkspace <= m_workspaces.size()) {
+                m_sendWsTargetWorkspace = m_rhythmOriginWorkspace;
+            }
+            m_hudHeaderTexture.reset();
+            m_hudHeaderCacheKey = -1;
+            m_hudHintBarTexture.reset();
+            m_hudHintBarCacheKey = -1;
+            if (effects) {
+                effects->addRepaintFull();
+            }
+            return;
+        }
+
+        // 4. Confirm Send to Selected Workspace (Enter or Space):
+        if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter || e->key() == Qt::Key_Space) {
+            if (m_pinTargetWindow && !m_pinTargetWindow->isDeleted()) {
+                moveWindowToWorkspace(m_pinTargetWindow.data(), m_sendWsTargetWorkspace);
+                playThemedSound(OutlineSound::SoundEffect::Stash);
+            }
+            cancelJumpMode();
+            return;
+        }
+
+        // 5. Cancel (Esc or Backspace):
+        if (e->key() == Qt::Key_Escape || e->key() == Qt::Key_Backspace) {
+            cancelJumpMode();
+            return;
+        }
+
+        if (!text.isEmpty()) {
+            triggerInvalidKeyFeedback(text.at(0).toUpper());
         }
         return;
     }

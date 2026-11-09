@@ -959,6 +959,9 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
     if (isSessionLockOrLogoutActive()) {
         return {};
     }
+    if (m_sendWsModeActive) {
+        return {};
+    }
     QMap<QChar, EffectWindow *> map;
     m_letterWindowGroups.clear();
     const auto windows = effects->stackingOrder();
@@ -3046,11 +3049,12 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
             }
         }
         const bool standardAudio = isWorkspacePlayingAudio(0);
+        const int activeTabIdx = m_sendWsModeActive ? m_sendWsTargetWorkspace : m_activeHudView;
         viewTabs.append({
             theme.hudNav.standardText.isEmpty() ? QStringLiteral("Standard") : theme.hudNav.standardText,
             QColor(230, 126, 34),
             standardCount,
-            m_activeHudView == 0,
+            activeTabIdx == 0,
             standardAudio,
             theme.hudNav.standardIcon
         });
@@ -3075,7 +3079,7 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
                 ws.name,
                 ws.color.isValid() ? ws.color : QColor(52, 152, 219),
                 wsCount,
-                m_activeHudView == (i + 1),
+                activeTabIdx == (i + 1),
                 wsAudio,
                 theme.hudNav.workspaceIcon
             });
@@ -3096,7 +3100,7 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
             theme.hudNav.allText.isEmpty() ? QStringLiteral("All") : theme.hudNav.allText,
             QColor(155, 89, 182),
             allCount,
-            m_activeHudView == (m_workspaces.size() + 1),
+            activeTabIdx == (m_workspaces.size() + 1),
             allAudio,
             theme.hudNav.allIcon
         });
@@ -3130,6 +3134,7 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
         + (m_tilingPresetsModeActive ? 12000000 : 0)
         + (m_closeWindowModeActive ? 14000000 : 0)
         + (m_pinModeActive ? 16000000 : 0)
+        + (m_sendWsModeActive ? (18000000 + m_sendWsTargetWorkspace * 100000) : 0)
         + (m_searchModeActive ? (10000000 + m_searchScope * 100000 + (qHash(m_searchQuery) % 50000) + m_searchMatches.size() * 10) : 0)
         + m_activeHudView * 100000 + countsHash + stashCount * 13 + qRound(scale * 10) + hudSize * 7 + navFontSize * 17 + themeHash;
 

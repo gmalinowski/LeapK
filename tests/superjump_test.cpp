@@ -1658,26 +1658,21 @@ void testRhythmNavigationAndHudHintBarShortcuts()
             assert(rhythmActive);
             tapCount = 3;
             rhythmActive = false;
-            // Enters enterSendWsSelectionMode:
+            // Enters enterSendWsSelectionMode (standard HUD bar workspace selection):
             sendWsActive = true;
-            pinWsSelection = true;
-            jumpMode = true;         // Re-enabled for HUD dialog & rendering
+            pinWsSelection = false;
+            jumpMode = true;         // Active HUD
             keyboardGrab = true;
-            mouseInterception = true; // Started for dialog clicks
+            mouseInterception = true; // For clicking HUD workspace tabs
         }
 
         void dismissOrConfirm() {
             assert(sendWsActive || pinWsSelection);
-            // exitPinWsSelectionMode:
-            const bool wasSendMode = sendWsActive;
             pinWsSelection = false;
             sendWsActive = false;
-            if (wasSendMode) {
-                // cancelJumpMode:
-                jumpMode = false;
-                keyboardGrab = false;       // Ungrabbed!
-                mouseInterception = false;  // Stopped!
-            }
+            jumpMode = false;
+            keyboardGrab = false;       // Ungrabbed!
+            mouseInterception = false;  // Stopped!
         }
     } state;
 
@@ -1698,7 +1693,7 @@ void testRhythmNavigationAndHudHintBarShortcuts()
     assert(state.rhythmActive == false);
     assert(state.tapCount == 3);
     assert(state.sendWsActive == true);
-    assert(state.pinWsSelection == true);
+    assert(state.pinWsSelection == false);
     assert(state.jumpMode == true);
     assert(state.mouseInterception == true);
     assert(state.keyboardGrab == true);

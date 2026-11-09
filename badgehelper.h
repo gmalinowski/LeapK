@@ -2915,21 +2915,20 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     };
 
     QList<Segment> segments;
-    if (isPinWsSelection) {
-        if (isSendMode) {
-            segments = {
-                {QStringLiteral("A..L / 1..N"), QStringLiteral("Send to Workspace"), QColor(52, 152, 219)},
-                {QStringLiteral("M / 0"), QStringLiteral("Previous Workspace"), QColor(46, 204, 113)},
-                {QStringLiteral("Esc / ⌫"), QStringLiteral("Cancel"), QColor(149, 165, 166)}
-            };
-        } else {
-            segments = {
-                {QStringLiteral("A / 0"), QStringLiteral("All Workspaces"), QColor(245, 166, 35)},
-                {QStringLiteral("1..N"), QStringLiteral("Select Workspace"), QColor(52, 152, 219)},
-                {QStringLiteral("U"), QStringLiteral("Unpin"), QColor(231, 76, 60)},
-                {QStringLiteral("Esc / ⌫"), QStringLiteral("Cancel"), QColor(149, 165, 166)}
-            };
-        }
+    if (isSendMode) {
+        segments = {
+            {QStringLiteral(", / ."), QStringLiteral("Select Workspace"), QColor(52, 152, 219)},
+            {QStringLiteral("Enter"), QStringLiteral("Send Window"), QColor(46, 204, 113)},
+            {QStringLiteral("M / 0"), QStringLiteral("Previous WS"), QColor(241, 196, 15)},
+            {QStringLiteral("Esc / ⌫"), QStringLiteral("Cancel"), QColor(149, 165, 166)}
+        };
+    } else if (isPinWsSelection) {
+        segments = {
+            {QStringLiteral("A / 0"), QStringLiteral("All Workspaces"), QColor(245, 166, 35)},
+            {QStringLiteral("1..N"), QStringLiteral("Select Workspace"), QColor(52, 152, 219)},
+            {QStringLiteral("U"), QStringLiteral("Unpin"), QColor(231, 76, 60)},
+            {QStringLiteral("Esc / ⌫"), QStringLiteral("Cancel"), QColor(149, 165, 166)}
+        };
     } else if (isCrossWsAction) {
         segments = {
             {QStringLiteral("Enter / J / 1"), QStringLiteral("Jump to Workspace"), QColor(46, 204, 113)},

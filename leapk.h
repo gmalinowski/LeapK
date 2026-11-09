@@ -737,6 +737,7 @@ private:
     QTimer *m_rhythmHoldTimer = nullptr;
     bool m_rhythmHoldTriggered = false;
     bool m_sendWsModeActive = false;
+    int m_sendWsTargetWorkspace = 0;
     bool m_crossWsActionActive = false;
     QPointer<EffectWindow> m_crossWsTargetWindow;
     QPointer<EffectWindow> m_crossWsOriginWindow;
