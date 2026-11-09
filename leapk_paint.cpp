@@ -982,7 +982,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 }
             }
         } else {
-            if (m_badgeConfig.hudGroupWindows && !isKeyboardOverlayActive()) {
+            if (m_badgeConfig.hudGroupWindows) {
                 // Mode A: Group multi-instance windows into single card with counter
                 for (auto it = m_letterWindowGroups.constBegin(); it != m_letterWindowGroups.constEnd(); ++it) {
                     const QChar letter = it.key();
@@ -1111,7 +1111,10 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             QList<QPair<QChar, EffectWindow *>> leftTargets;
             QList<QPair<QChar, EffectWindow *>> rightTargets;
 
-            if (m_stashModeActive) {
+            if (m_searchModeActive) {
+                // In Search mode: strictly preserve m_searchMatches ranking order!
+                // Do not re-partition by pinned or sort by recency.
+            } else if (m_stashModeActive) {
                 // In Stash mode: workspace windows on the left, stashed windows on the right
                 for (const auto &pair : offscreenTargets) {
                     if (isWindowInStash(pair.second)) {
@@ -1152,13 +1155,20 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 sortByRecencyOldestToNewest(rightTargets);
             }
 
-            if (!leftTargets.isEmpty() && !rightTargets.isEmpty()) {
-                dividerAfterIndex = leftTargets.size() - 1;
+            if (!m_searchModeActive) {
+                if (!leftTargets.isEmpty() && !rightTargets.isEmpty()) {
+                    dividerAfterIndex = leftTargets.size() - 1;
+                }
+                offscreenTargets = leftTargets + rightTargets;
             }
-            offscreenTargets = leftTargets + rightTargets;
         }
 
         QList<QRectF> hudRects = computeAllHudCollisionRects(offscreenTargets, viewport, m_badgeConfig.hudBadgeSize, m_badgeConfig, dividerAfterIndex);
+
+        m_hudOnscreenBadgeRects.clear();
+        EffectWindow *selectedSearchTarget = (m_searchModeActive && !m_searchMatches.isEmpty() && m_searchSelectedIndex >= 0 && m_searchSelectedIndex < m_searchMatches.size())
+            ? reinterpret_cast<EffectWindow *>(m_searchMatches.at(m_searchSelectedIndex).windowPtr)
+            : nullptr;
 
         for (const auto &pair : onscreenTargets) {
             const QChar letter = pair.first;
@@ -1174,7 +1184,9 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 : QString();
 
             QColor bgCol;
-            if (m_closeWindowModeActive) {
+            if (m_searchModeActive && target == selectedSearchTarget) {
+                bgCol = QColor(0, 229, 255); // Highlight selected search result window badge
+            } else if (m_closeWindowModeActive) {
                 bgCol = QColor(230, 57, 70);
             } else if (m_pinModeActive) {
                 bgCol = QColor(245, 166, 35);
@@ -1228,7 +1240,9 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             }
             const QColor textCol = OutlineBadge::contrastingTextColor(bgCol);
             QString customLabel = m_markedWindowLabels.value(target);
-            if (m_closeWindowModeActive) {
+            if (m_searchModeActive && target == selectedSearchTarget) {
+                customLabel = customLabel.isEmpty() ? QStringLiteral("▶") : QStringLiteral("▶ %1").arg(customLabel);
+            } else if (m_closeWindowModeActive) {
                 customLabel = customLabel.isEmpty() ? QStringLiteral("✕") : QStringLiteral("✕ %1").arg(customLabel);
             } else if (m_pinModeActive) {
                 customLabel = isWindowPinned(target) ? QStringLiteral("📌") : QStringLiteral("+📌");
@@ -1262,6 +1276,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 }
             }
             renderBadge(renderTarget, viewport, badgeRect, letter, bgCol, textCol, true, m_badgeConfig.jumpBadgeSize, customLabel, target, recentKey, isRecent, badgeOpacity);
+            m_hudOnscreenBadgeRects.append(qMakePair(badgeRect, target));
         }
 
         if (!offscreenTargets.isEmpty()) {

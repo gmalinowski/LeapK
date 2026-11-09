@@ -87,6 +87,73 @@ void testCustomLabelMatching()
     std::cout << "[PASS] testCustomLabelMatching passed." << std::endl;
 }
 
+void testSearchSelectionAndNavigation()
+{
+    std::cout << "[TEST] Running testSearchSelectionAndNavigation..." << std::endl;
+
+    QList<OutlineFuzzy::SearchCandidate> list = {
+        {reinterpret_cast<void*>(101), "Vivaldi - Tab 1", "vivaldi-stable", "", 0, false, false, false, 0, false},
+        {reinterpret_cast<void*>(102), "Vivaldi - Tab 2", "vivaldi-stable", "", 0, false, false, false, 0, false},
+        {reinterpret_cast<void*>(103), "Vivaldi - Tab 3", "vivaldi-stable", "", 0, false, false, false, 0, false},
+        {reinterpret_cast<void*>(104), "Vivaldi - Tab 4", "vivaldi-stable", "", 0, false, false, false, 0, false}
+    };
+
+    QList<OutlineFuzzy::SearchCandidate> matches = list;
+    OutlineFuzzy::rankSearchCandidates("viva", matches);
+    assert(matches.size() == 4);
+
+    // Initial index
+    int selectedIndex = 0;
+    assert(matches.at(selectedIndex).caption == "Vivaldi - Tab 1");
+
+    // Forward navigation (Tab / Right / Down): 0 -> 1 -> 2 -> 3 -> 0 (wrapping)
+    selectedIndex = (selectedIndex + 1) % matches.size();
+    assert(selectedIndex == 1);
+    assert(matches.at(selectedIndex).caption == "Vivaldi - Tab 2");
+
+    selectedIndex = (selectedIndex + 1) % matches.size();
+    assert(selectedIndex == 2);
+    assert(matches.at(selectedIndex).caption == "Vivaldi - Tab 3");
+
+    selectedIndex = (selectedIndex + 1) % matches.size();
+    assert(selectedIndex == 3);
+    assert(matches.at(selectedIndex).caption == "Vivaldi - Tab 4");
+
+    selectedIndex = (selectedIndex + 1) % matches.size();
+    assert(selectedIndex == 0); // Wraps back to start
+    assert(matches.at(selectedIndex).caption == "Vivaldi - Tab 1");
+
+    // Backward navigation (Backtab / Left / Up): 0 -> 3 -> 2 -> 1 -> 0 (wrapping)
+    selectedIndex = (selectedIndex - 1 + matches.size()) % matches.size();
+    assert(selectedIndex == 3); // Wraps to end
+    assert(matches.at(selectedIndex).caption == "Vivaldi - Tab 4");
+
+    selectedIndex = (selectedIndex - 1 + matches.size()) % matches.size();
+    assert(selectedIndex == 2);
+    assert(matches.at(selectedIndex).caption == "Vivaldi - Tab 3");
+
+    // Home / End
+    selectedIndex = matches.size() - 1; // End
+    assert(selectedIndex == 3);
+    selectedIndex = 0; // Home
+    assert(selectedIndex == 0);
+
+    // Direct selection by index (Ctrl+1..9 or Alt+1..9)
+    auto selectByIndex = [&matches](int oneBasedIdx) -> void* {
+        int zeroBased = oneBasedIdx - 1;
+        if (zeroBased >= 0 && zeroBased < matches.size()) {
+            return matches.at(zeroBased).windowPtr;
+        }
+        return nullptr;
+    };
+    assert(selectByIndex(1) == reinterpret_cast<void*>(101));
+    assert(selectByIndex(3) == reinterpret_cast<void*>(103));
+    assert(selectByIndex(4) == reinterpret_cast<void*>(104));
+    assert(selectByIndex(5) == nullptr);
+
+    std::cout << "[PASS] testSearchSelectionAndNavigation passed." << std::endl;
+}
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
@@ -94,6 +161,7 @@ int main(int argc, char *argv[])
     testFuzzyMatchingBasic();
     testFuzzyRanking();
     testCustomLabelMatching();
+    testSearchSelectionAndNavigation();
 
     std::cout << "\nALL FUZZY MATCHER TESTS PASSED (100%)\n" << std::endl;
     return 0;

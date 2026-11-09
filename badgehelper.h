@@ -2956,11 +2956,11 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     } else if (isSearchMode) {
         segments = {
             {QStringLiteral("Enter"), QStringLiteral("Jump to match"), QColor(0, 195, 255)},
-            {QStringLiteral("↑ / ↓"), QStringLiteral("Select window"), QColor(52, 152, 219)},
-            {QStringLiteral("Tab"), QStringLiteral("Cycle scope"), QColor(241, 196, 15)},
-            {QStringLiteral("Alt+Key"), QStringLiteral("Direct jump"), QColor(155, 89, 182)},
+            {QStringLiteral("Tab / ↑↓←→"), QStringLiteral("Select window"), QColor(52, 152, 219)},
+            {QStringLiteral("Ctrl+Tab / Alt+S"), QStringLiteral("Scope"), QColor(241, 196, 15)},
+            {QStringLiteral("Alt+Key / Ctrl+1..9"), QStringLiteral("Direct jump"), QColor(155, 89, 182)},
             {QStringLiteral("Backspace"), QStringLiteral("Delete / Exit"), QColor(149, 165, 166)},
-            {QStringLiteral("Esc / Ctrl+C"), QStringLiteral("Close HUD"), QColor(231, 76, 60)}
+            {QStringLiteral("Esc"), QStringLiteral("Close"), QColor(231, 76, 60)}
         };
     } else if (isAudioFilter) {
         segments = {

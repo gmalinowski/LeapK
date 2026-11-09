@@ -777,6 +777,7 @@ private:
     mutable QRectF m_hudHeaderScreenRect;
     mutable QRectF m_hudHintBarScreenRect;
     QList<QPair<QRectF, EffectWindow *>> m_hudTargetPillRects;
+    QList<QPair<QRectF, EffectWindow *>> m_hudOnscreenBadgeRects;
     QElapsedTimer m_hudSelectAnimTimer;
     bool m_hudSelectAnimActive = false;
     QRectF m_hudCurrentMarkerRect;

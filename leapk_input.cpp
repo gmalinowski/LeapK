@@ -1278,6 +1278,7 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
     m_hudTabLocalRects.clear();
     m_hudTabScreenRects.clear();
     m_hudTargetPillRects.clear();
+    m_hudOnscreenBadgeRects.clear();
     m_hudOriginWindow.clear();
     m_hudSelectAnimActive = false;
     m_hudPrevActiveWindow.clear();
@@ -1589,6 +1590,14 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
                     }
                 }
             }
+            if (!isHoveringClickable) {
+                for (const auto &pair : m_hudOnscreenBadgeRects) {
+                    if (pair.first.isValid() && pair.first.contains(pos)) {
+                        isHoveringClickable = true;
+                        break;
+                    }
+                }
+            }
         }
 
         if (isHoveringClickable) {
@@ -1648,41 +1657,64 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
                 }
             }
 
-            // 2. Click on a window pill
+            // 2. Click on a window pill, onscreen badge, or matching window in search mode
+            EffectWindow *clickedTarget = nullptr;
             for (const auto &pair : m_hudTargetPillRects) {
                 if (pair.first.isValid() && pair.first.contains(pos) && pair.second) {
-                    EffectWindow *target = pair.second;
-                    if (m_pinModeActive) {
-                        enterPinWsSelectionMode(target);
-                        return;
+                    clickedTarget = pair.second;
+                    break;
+                }
+            }
+            if (!clickedTarget) {
+                for (const auto &pair : m_hudOnscreenBadgeRects) {
+                    if (pair.first.isValid() && pair.first.contains(pos) && pair.second) {
+                        clickedTarget = pair.second;
+                        break;
                     }
-                    if (handleSuperJumpCrossWorkspaceSelection(target)) {
-                        return;
-                    }
-                    cancelJumpMode();
-                    const int targetWs = findWorkspaceForWindow(target);
-                    if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
-                        switchToWorkspaceView(targetWs);
-                    }
-                    if (!target->isOnCurrentDesktop()) {
-                        const auto desktops = target->desktops();
-                        if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
-                            effects->setCurrentDesktop(desktops.first());
+                }
+            }
+            if (!clickedTarget && m_searchModeActive) {
+                for (const auto &cand : m_searchMatches) {
+                    EffectWindow *w = reinterpret_cast<EffectWindow *>(cand.windowPtr);
+                    if (w && !w->isDeleted() && w->isOnCurrentDesktop() && !w->isMinimized()) {
+                        if (w->frameGeometry().contains(pos)) {
+                            clickedTarget = w;
+                            break;
                         }
                     }
-                    m_workspaceMinimizedWindows.remove(target);
-                    m_stashedWindows.remove(target);
-                    if (target->isMinimized()) {
-                        target->setMinimized(false);
-                    }
-                    if (m_tilingActive) {
-                        performTilingSwap(target);
-                    } else {
-                        effects->activateWindow(target);
-                    }
-                    warpCursorToWindow(target);
+                }
+            }
+            if (clickedTarget) {
+                if (m_pinModeActive) {
+                    enterPinWsSelectionMode(clickedTarget);
                     return;
                 }
+                if (handleSuperJumpCrossWorkspaceSelection(clickedTarget)) {
+                    return;
+                }
+                cancelJumpMode();
+                const int targetWs = findWorkspaceForWindow(clickedTarget);
+                if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
+                    switchToWorkspaceView(targetWs);
+                }
+                if (!clickedTarget->isOnCurrentDesktop()) {
+                    const auto desktops = clickedTarget->desktops();
+                    if (!desktops.isEmpty() && !clickedTarget->isOnAllDesktops()) {
+                        effects->setCurrentDesktop(desktops.first());
+                    }
+                }
+                m_workspaceMinimizedWindows.remove(clickedTarget);
+                m_stashedWindows.remove(clickedTarget);
+                if (clickedTarget->isMinimized()) {
+                    clickedTarget->setMinimized(false);
+                }
+                if (m_tilingActive) {
+                    performTilingSwap(clickedTarget);
+                } else {
+                    effects->activateWindow(clickedTarget);
+                }
+                warpCursorToWindow(clickedTarget);
+                return;
             }
 
             // 3. Click inside header on a workspace tab
@@ -2419,50 +2451,84 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
     // 2. Main Jump Mode:
     if (m_searchModeActive) {
-        if (e->key() == Qt::Key_Tab) {
+        // Scope switching: Ctrl+Tab, or Alt+S / Ctrl+S
+        if ((isCtrl && e->key() == Qt::Key_Tab) || (isCtrl && e->key() == Qt::Key_S) || (isAlt && e->key() == Qt::Key_S)) {
             m_searchScope = (m_searchScope + 1) % 3;
             updateSearchMatches();
             return;
         }
 
-        if (e->key() == Qt::Key_Backtab) {
-            m_searchScope = (m_searchScope + 2) % 3;
-            updateSearchMatches();
-            return;
-        }
-
-        if (e->key() == Qt::Key_Up || (isCtrl && e->key() == Qt::Key_P)) {
-            m_searchSelectedIndex = qMax(0, m_searchSelectedIndex - 1);
-            m_badgeTextureCache.clear();
-            if (effects) {
-                effects->addRepaintFull();
+        // Navigate forward through matches: Right, Down, Tab, or Ctrl+N
+        if (e->key() == Qt::Key_Right || e->key() == Qt::Key_Down || e->key() == Qt::Key_Tab || (isCtrl && e->key() == Qt::Key_N)) {
+            if (!m_searchMatches.isEmpty()) {
+                m_searchSelectedIndex = (m_searchSelectedIndex + 1) % m_searchMatches.size();
+                m_badgeTextureCache.clear();
+                if (effects) {
+                    effects->addRepaintFull();
+                }
+            } else if (e->key() == Qt::Key_Tab) {
+                // If query has no matches, Tab cycles scope to find windows on other workspaces
+                m_searchScope = (m_searchScope + 1) % 3;
+                updateSearchMatches();
             }
             return;
         }
 
-        if (e->key() == Qt::Key_Down || (isCtrl && e->key() == Qt::Key_N)) {
-            m_searchSelectedIndex = qMin(m_searchMatches.size() - 1, m_searchSelectedIndex + 1);
-            m_badgeTextureCache.clear();
-            if (effects) {
-                effects->addRepaintFull();
+        // Navigate backward through matches: Left, Up, Backtab (Shift+Tab), or Ctrl+P
+        if (e->key() == Qt::Key_Left || e->key() == Qt::Key_Up || e->key() == Qt::Key_Backtab || (isCtrl && e->key() == Qt::Key_P)) {
+            if (!m_searchMatches.isEmpty()) {
+                m_searchSelectedIndex = (m_searchSelectedIndex - 1 + m_searchMatches.size()) % m_searchMatches.size();
+                m_badgeTextureCache.clear();
+                if (effects) {
+                    effects->addRepaintFull();
+                }
+            } else if (e->key() == Qt::Key_Backtab) {
+                m_searchScope = (m_searchScope + 2) % 3;
+                updateSearchMatches();
+            }
+            return;
+        }
+
+        if (e->key() == Qt::Key_Home) {
+            if (!m_searchMatches.isEmpty()) {
+                m_searchSelectedIndex = 0;
+                m_badgeTextureCache.clear();
+                if (effects) {
+                    effects->addRepaintFull();
+                }
+            }
+            return;
+        }
+
+        if (e->key() == Qt::Key_End) {
+            if (!m_searchMatches.isEmpty()) {
+                m_searchSelectedIndex = m_searchMatches.size() - 1;
+                m_badgeTextureCache.clear();
+                if (effects) {
+                    effects->addRepaintFull();
+                }
             }
             return;
         }
 
         if (e->key() == Qt::Key_PageUp) {
-            m_searchSelectedIndex = qMax(0, m_searchSelectedIndex - 5);
-            m_badgeTextureCache.clear();
-            if (effects) {
-                effects->addRepaintFull();
+            if (!m_searchMatches.isEmpty()) {
+                m_searchSelectedIndex = qMax(0, m_searchSelectedIndex - 5);
+                m_badgeTextureCache.clear();
+                if (effects) {
+                    effects->addRepaintFull();
+                }
             }
             return;
         }
 
         if (e->key() == Qt::Key_PageDown) {
-            m_searchSelectedIndex = qMin(m_searchMatches.size() - 1, m_searchSelectedIndex + 5);
-            m_badgeTextureCache.clear();
-            if (effects) {
-                effects->addRepaintFull();
+            if (!m_searchMatches.isEmpty()) {
+                m_searchSelectedIndex = qMin(m_searchMatches.size() - 1, m_searchSelectedIndex + 5);
+                m_badgeTextureCache.clear();
+                if (effects) {
+                    effects->addRepaintFull();
+                }
             }
             return;
         }
@@ -2482,16 +2548,48 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             return;
         }
 
-        if (isAlt) {
-            const QString altChar = extractKeyChar();
-            if (!altChar.isEmpty() && m_jumpLetterToWindow.contains(altChar.at(0))) {
-                EffectWindow *target = m_jumpLetterToWindow.value(altChar.at(0));
+        // Direct selection with Ctrl+1..9
+        if (isCtrl && e->key() >= Qt::Key_1 && e->key() <= Qt::Key_9) {
+            const int idx = e->key() - Qt::Key_1;
+            if (idx >= 0 && idx < m_searchMatches.size()) {
+                EffectWindow *target = reinterpret_cast<EffectWindow *>(m_searchMatches.at(idx).windowPtr);
                 if (target && !target->isDeleted()) {
                     if (handleSuperJumpCrossWorkspaceSelection(target, e->key())) {
                         return;
                     }
                     activateJumpTargetWindow(target, e->key());
                     return;
+                }
+            }
+        }
+
+        // Direct selection with Alt+Key or Alt+1..9
+        if (isAlt) {
+            const QString altChar = extractKeyChar();
+            if (!altChar.isEmpty()) {
+                const QChar ch = altChar.at(0).toUpper();
+                if (ch.isDigit() && ch != QLatin1Char('0')) {
+                    const int idx = ch.digitValue() - 1;
+                    if (idx >= 0 && idx < m_searchMatches.size()) {
+                        EffectWindow *target = reinterpret_cast<EffectWindow *>(m_searchMatches.at(idx).windowPtr);
+                        if (target && !target->isDeleted()) {
+                            if (handleSuperJumpCrossWorkspaceSelection(target, e->key())) {
+                                return;
+                            }
+                            activateJumpTargetWindow(target, e->key());
+                            return;
+                        }
+                    }
+                }
+                if (m_jumpLetterToWindow.contains(ch)) {
+                    EffectWindow *target = m_jumpLetterToWindow.value(ch);
+                    if (target && !target->isDeleted()) {
+                        if (handleSuperJumpCrossWorkspaceSelection(target, e->key())) {
+                            return;
+                        }
+                        activateJumpTargetWindow(target, e->key());
+                        return;
+                    }
                 }
             }
         }

@@ -4,6 +4,26 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta90-exp] - 2026-11-09
+
+### Fixed
+- **Multi-Instance Window Grouping (`Tab` / Mode A vs Mode B)**:
+  - Fixed an issue where unmarked multi-instance windows (e.g. 4 open Vivaldi windows) were never grouped when pressing `Tab` or toggling `hudGroupWindows`:
+    - **Automatic Application Grouping for Unmarked Windows**: In `assignJumpLetters()`, unmarked windows are now grouped by application class (`windowClass().split(' ').first().toLower()`). When grouping is active (`hudGroupWindows == true`, Mode A), multi-instance windows are collapsed into a single card with counter `(N)` under a shared group key (e.g. 'V' for Vivaldi) and Sub-Leap disambiguation support.
+    - **Mode B Direct Access with Visual Group Frames**: Pressing `Tab` cleanly toggles to Mode B (`hudGroupWindows == false`), where each window instance receives a unique direct jump letter while remaining linked to `m_windowToGroupLetter` and `m_groupJumpLetters`, rendering individual HUD dock pills surrounded by a visual group container frame.
+    - **Spatial Keyboard Integration with Window Grouping**: Removed unconditional overlay bypass and paint obstruction (`&& !isKeyboardOverlayActive()`) that previously suppressed Mode A whenever spatial keyboard was enabled. When Mode A is active, spatial keyboard maps the shared group key to trigger Sub-Leap disambiguation; when toggled to Mode B, it maps 1-to-1 spatial keys.
+  - Added unit test `testMultiInstanceWindowGrouping` in `tests/badge_test.cpp` verifying Mode A counter collapse, Mode B direct letter assignment, and group container frame rendering.
+
+- **Window Selection and Navigation in Search Mode**:
+  - Fixed an issue where users were unable to select target windows when multiple search results were returned:
+    - **Arrow & Tab Navigation with Wrap-Around**: Enabled `Left` / `Right` / `Tab` / `Ctrl+N` to navigate forward through search results and `Up` / `Down` / `Backtab` (Shift+Tab) / `Ctrl+P` to navigate backward with smooth wrap-around. Added `Home` (first result), `End` (last result), and `PageUp`/`PageDown` (jump 5 items).
+    - **Strict Ranking Order Preservation**: Prevented `offscreenTargets` in `paintScreen()` from being re-partitioned or re-ordered by pinned status or recency in search mode, eliminating index misalignment between HUD cards and `m_searchMatches`.
+    - **On-Screen Badge & Window Visual Highlight**: When selecting candidates via arrows or Tab, the corresponding on-screen window badge receives a vibrant cyan highlight with `▶` prefix so users can immediately distinguish which on-screen window is selected.
+    - **Direct Selection Shortcuts**: Added `Ctrl+1..9` and `Alt+1..9` / `Alt+Key` direct jump support to activate matches immediately.
+    - **Full Mouse Selection**: Mouse clicks on HUD dock pills, on-screen window badges (`m_hudOnscreenBadgeRects`), and matching on-screen window frames now immediately activate the selected window and handle cross-workspace transitions.
+    - **Dedicated Scope Shortcut**: Moved workspace scope cycling from `Tab` to `Ctrl+Tab` / `Alt+S` / `Ctrl+S` (with fallback on `Tab` when no matches are found), matching standard search input conventions. Updated action hint bar segments accordingly.
+  - Added unit test `testSearchSelectionAndNavigation` in `tests/fuzzymatcher_test.cpp` verifying wrapping navigation, direct index lookup, and selection stability.
+
 ## [1.6.0-beta89-exp] - 2026-11-09
 
 ### Fixed

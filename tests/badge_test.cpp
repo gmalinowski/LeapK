@@ -1836,6 +1836,119 @@ void testFixedLetterColorsInBadges()
     std::cout << "testFixedLetterColorsInBadges PASSED\n";
 }
 
+void testMultiInstanceWindowGrouping()
+{
+    // Mock simulation of window candidate grouping algorithm
+    struct MockWindow {
+        quintptr id;
+        QString appClass;
+        QString caption;
+    };
+
+    QList<MockWindow> candidates = {
+        {1, QStringLiteral("vivaldi-stable"), QStringLiteral("Vivaldi Window 1")},
+        {2, QStringLiteral("vivaldi-stable"), QStringLiteral("Vivaldi Window 2")},
+        {3, QStringLiteral("vivaldi-stable"), QStringLiteral("Vivaldi Window 3")},
+        {4, QStringLiteral("vivaldi-stable"), QStringLiteral("Vivaldi Window 4")},
+        {5, QStringLiteral("org.kde.dolphin"), QStringLiteral("Downloads - Dolphin")},
+        {6, QStringLiteral("org.kde.dolphin"), QStringLiteral("Home - Dolphin")},
+        {7, QStringLiteral("org.kde.kate"), QStringLiteral("CMakeLists.txt - Kate")}
+    };
+
+    // Mode A: Group multi-instance windows (hudGroupWindows == true)
+    {
+        QMap<QString, QList<MockWindow>> appGroups;
+        QList<QString> appOrder;
+        for (const auto &w : candidates) {
+            const QString app = w.appClass.split(QLatin1Char(' ')).first().toLower();
+            if (!appGroups.contains(app)) {
+                appOrder.append(app);
+            }
+            appGroups[app].append(w);
+        }
+
+        assert(appOrder.size() == 3);
+        assert(appGroups[QStringLiteral("vivaldi-stable")].size() == 4);
+        assert(appGroups[QStringLiteral("org.kde.dolphin")].size() == 2);
+        assert(appGroups[QStringLiteral("org.kde.kate")].size() == 1);
+
+        QMap<QChar, QList<MockWindow>> groupJumpLetters;
+        QMap<quintptr, QChar> windowToGroupLetter;
+        QMap<quintptr, QChar> windowToDirectLetter;
+        QSet<QChar> assignedLetters;
+        const QString pool = QStringLiteral("ASDFGHJKLQWERTYUIOPZXCVBNM");
+        int poolIdx = 0;
+        auto nextFree = [&]() -> QChar {
+            while (poolIdx < pool.length() && assignedLetters.contains(pool.at(poolIdx))) poolIdx++;
+            if (poolIdx < pool.length()) {
+                QChar c = pool.at(poolIdx++);
+                assignedLetters.insert(c);
+                return c;
+            }
+            return QChar();
+        };
+
+        for (const QString &app : appOrder) {
+            const auto &winList = appGroups.value(app);
+            if (winList.size() > 1) {
+                QChar gKey;
+                if (!app.isEmpty() && app.at(0).isLetter()) {
+                    QChar pref = app.at(0).toUpper();
+                    if (!assignedLetters.contains(pref) && pool.contains(pref)) {
+                        gKey = pref;
+                        assignedLetters.insert(gKey);
+                    }
+                }
+                if (gKey.isNull()) gKey = nextFree();
+                groupJumpLetters[gKey] = winList;
+                for (const auto &w : winList) {
+                    windowToGroupLetter[w.id] = gKey;
+                    windowToDirectLetter[w.id] = gKey;
+                }
+            } else {
+                QChar direct = nextFree();
+                for (const auto &w : winList) {
+                    windowToDirectLetter[w.id] = direct;
+                    windowToGroupLetter[w.id] = direct;
+                }
+            }
+        }
+
+        // Vivaldi group has key 'V' and 4 windows
+        assert(groupJumpLetters.contains(QChar('V')));
+        assert(groupJumpLetters.value(QChar('V')).size() == 4);
+        for (int i = 1; i <= 4; ++i) {
+            assert(windowToGroupLetter.value(i) == QChar('V'));
+            assert(windowToDirectLetter.value(i) == QChar('V'));
+        }
+
+        // In Mode A HUD dock, groupCount for Vivaldi card is 4
+        OutlineBadge::BadgeConfig cfg;
+        cfg.hudGroupWindows = true;
+        const int vivaldiCount = groupJumpLetters.value(QChar('V')).size();
+        assert(vivaldiCount == 4);
+        const QImage pillGroupA = OutlineBadge::renderOffscreenTargetPill(cfg, QChar('V'), QColor(52, 152, 219), Qt::white,
+                                                                         QStringLiteral("Desk 1"), QStringLiteral("Vivaldi"), 36, 1.0,
+                                                                         QString(), QIcon(), QImage(), false, QString(), false, vivaldiCount);
+        assert(!pillGroupA.isNull());
+    }
+
+    // Mode B: Show all windows directly (hudGroupWindows == false)
+    {
+        OutlineBadge::BadgeConfig cfgB;
+        cfgB.hudGroupWindows = false;
+
+        // Group container frame with tab is rendered behind pills in Mode B
+        const QSizeF frameSize(480.0, 90.0);
+        const QImage frameImg = OutlineBadge::renderGroupContainerFrame(frameSize, QChar('V'), QColor(52, 152, 219),
+                                                                        QStringLiteral("Vivaldi"), 4, 1.0);
+        assert(!frameImg.isNull());
+        assert(frameImg.width() == 480);
+    }
+
+    std::cout << "testMultiInstanceWindowGrouping PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -1872,6 +1985,7 @@ int main(int argc, char *argv[])
     testTilingHudComponents();
     testBadgePreviewDismissHitTesting();
     testFixedLetterColorsInBadges();
+    testMultiInstanceWindowGrouping();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

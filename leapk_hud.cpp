@@ -232,6 +232,7 @@ void ActiveWindowOutlineEffect::clearBadgePreview()
     m_previewHudBounds = QRectF();
     if (!m_jumpMode) {
         m_hudTargetPillRects.clear();
+        m_hudOnscreenBadgeRects.clear();
         m_hudCloseButtonScreenRect = QRectF();
         m_hudHeaderScreenRect = QRectF();
         m_hudHintBarScreenRect = QRectF();
@@ -1071,10 +1072,8 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
         return QChar();
     };
 
-    if (isKeyboardOverlayActive()) {
-        // Spatial Keyboard mode: Window groups are completely bypassed!
-        // Every window is an individual target and gets a unique 1-to-1 spatial key mapping
-        // based on its actual position on the screen. No duplicate shortcuts, no group shortcuts.
+    if (isKeyboardOverlayActive() && !m_badgeConfig.hudGroupWindows) {
+        // Spatial Keyboard Mode B (Direct 1-to-1 keys without group collapsing):
         QRectF screenGeo(0, 0, 1920, 1080);
         if (effects && effects->activeScreen()) {
             screenGeo = QRectF(QRect(effects->activeScreen()->geometry()));
@@ -1129,25 +1128,70 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
             }
         }
 
+        // Also track groups so HUD container frames work for multi-instance windows in Mode B:
+        QMap<QString, QList<EffectWindow *>> appGroups;
+        for (EffectWindow *w : candidates) {
+            if (m_markedWindowLetters.contains(w)) {
+                const QChar markKey = m_markedWindowLetters.value(w).toUpper();
+                m_groupJumpLetters[markKey].append(w);
+                m_windowToGroupLetter[w] = markKey;
+            } else {
+                QString app = w->windowClass().split(QLatin1Char(' ')).first().toLower();
+                if (app.isEmpty()) {
+                    app = w->caption();
+                }
+                appGroups[app].append(w);
+            }
+        }
+        for (auto it = appGroups.constBegin(); it != appGroups.constEnd(); ++it) {
+            const auto &winList = it.value();
+            if (winList.size() > 1) {
+                const QChar groupKey = m_windowToDirectLetter.value(winList.first());
+                if (!groupKey.isNull()) {
+                    m_groupJumpLetters[groupKey] = winList;
+                    for (EffectWindow *w : winList) {
+                        m_windowToGroupLetter[w] = groupKey;
+                    }
+                }
+            }
+        }
+
         return map;
     }
 
-    // Traditional HUD Jump Mode: group windows according to hudGroupWindows (Mode A or Mode B)
+    // HUD Jump Mode: group windows according to hudGroupWindows (Mode A or Mode B)
+    QMap<QChar, QList<EffectWindow *>> markedGroups;
     for (EffectWindow *w : candidates) {
         if (m_markedWindowLetters.contains(w)) {
             const QChar ch = m_markedWindowLetters.value(w).toUpper();
-            m_letterWindowGroups[ch].append(w);
+            markedGroups[ch].append(w);
+            assignedLetters.insert(ch);
             continue;
         }
         unassignedCandidates.append(w);
     }
 
+    // Group unmarked candidates by application class
+    QMap<QString, QList<EffectWindow *>> appGroups;
+    QList<QString> appOrder;
+    for (EffectWindow *w : unassignedCandidates) {
+        QString app = w->windowClass().split(QLatin1Char(' ')).first().toLower();
+        if (app.isEmpty()) {
+            app = w->caption();
+        }
+        if (!appGroups.contains(app)) {
+            appOrder.append(app);
+        }
+        appGroups[app].append(w);
+    }
+
     if (m_badgeConfig.hudGroupWindows) {
-        // Mode A: Group multi-instance windows into single card with counter
-        for (auto it = m_letterWindowGroups.constBegin(); it != m_letterWindowGroups.constEnd(); ++it) {
+        // Mode A: Group multi-instance windows into single card with counter (N)
+        // 1. Marked window groups
+        for (auto it = markedGroups.constBegin(); it != markedGroups.constEnd(); ++it) {
             const QChar groupKey = it.key();
             const auto &winList = it.value();
-            assignedLetters.insert(groupKey);
+            m_letterWindowGroups[groupKey] = winList;
             m_groupJumpLetters[groupKey] = winList;
             if (!winList.isEmpty()) {
                 map[groupKey] = winList.first();
@@ -1158,32 +1202,83 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
             }
         }
 
-        for (EffectWindow *w : unassignedCandidates) {
-            const QChar ch = nextFreeLetter();
-            if (!ch.isNull()) {
-                m_letterWindowGroups[ch].append(w);
-                map[ch] = w;
-                m_windowToDirectLetter[w] = ch;
+        // 2. Unmarked application groups
+        for (const QString &app : appOrder) {
+            const auto &winList = appGroups.value(app);
+            if (winList.size() > 1) {
+                // Multi-instance app: group under a single key!
+                QChar groupKey;
+                if (!app.isEmpty() && app.at(0).isLetter()) {
+                    const QChar preferred = app.at(0).toUpper();
+                    if (!assignedLetters.contains(preferred) && pool.contains(preferred)) {
+                        groupKey = preferred;
+                        assignedLetters.insert(groupKey);
+                    }
+                }
+                if (groupKey.isNull()) {
+                    groupKey = nextFreeLetter();
+                }
+                if (!groupKey.isNull()) {
+                    m_letterWindowGroups[groupKey] = winList;
+                    m_groupJumpLetters[groupKey] = winList;
+                    map[groupKey] = winList.first();
+                    for (EffectWindow *w : winList) {
+                        m_windowToGroupLetter[w] = groupKey;
+                        m_windowToDirectLetter[w] = groupKey;
+                    }
+                }
+            } else if (winList.size() == 1) {
+                EffectWindow *w = winList.first();
+                const QChar ch = nextFreeLetter();
+                if (!ch.isNull()) {
+                    m_letterWindowGroups[ch].append(w);
+                    map[ch] = w;
+                    m_windowToDirectLetter[w] = ch;
+                    m_windowToGroupLetter[w] = ch;
+                }
             }
         }
     } else {
         // Mode B: Show all windows directly with unique jump letters and group container frame
-        for (auto it = m_letterWindowGroups.constBegin(); it != m_letterWindowGroups.constEnd(); ++it) {
+        // 1. Marked multi-window groups
+        for (auto it = markedGroups.constBegin(); it != markedGroups.constEnd(); ++it) {
             const QChar groupKey = it.key();
             const auto &winList = it.value();
             if (winList.size() > 1) {
-                assignedLetters.insert(groupKey);
                 m_groupJumpLetters[groupKey] = winList;
             }
         }
 
-        for (auto it = m_letterWindowGroups.constBegin(); it != m_letterWindowGroups.constEnd(); ++it) {
+        // 2. Unmarked multi-window groups: record group keys
+        for (const QString &app : appOrder) {
+            const auto &winList = appGroups.value(app);
+            if (winList.size() > 1) {
+                QChar groupKey;
+                if (!app.isEmpty() && app.at(0).isLetter()) {
+                    const QChar preferred = app.at(0).toUpper();
+                    if (!assignedLetters.contains(preferred) && pool.contains(preferred)) {
+                        groupKey = preferred;
+                        assignedLetters.insert(groupKey);
+                    }
+                }
+                if (groupKey.isNull()) {
+                    groupKey = nextFreeLetter();
+                }
+                if (!groupKey.isNull()) {
+                    m_groupJumpLetters[groupKey] = winList;
+                }
+            }
+        }
+
+        // 3. Assign direct letters to all marked windows
+        for (auto it = markedGroups.constBegin(); it != markedGroups.constEnd(); ++it) {
             const QChar groupKey = it.key();
             const auto &winList = it.value();
             if (winList.size() > 1) {
                 for (EffectWindow *w : winList) {
                     const QChar directKey = nextFreeLetter();
                     if (!directKey.isNull()) {
+                        m_letterWindowGroups[directKey].append(w);
                         map[directKey] = w;
                         m_windowToGroupLetter[w] = groupKey;
                         m_windowToDirectLetter[w] = directKey;
@@ -1191,19 +1286,42 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
                 }
             } else if (winList.size() == 1) {
                 EffectWindow *w = winList.first();
-                assignedLetters.insert(groupKey);
                 map[groupKey] = w;
+                m_letterWindowGroups[groupKey].append(w);
                 m_windowToGroupLetter[w] = groupKey;
                 m_windowToDirectLetter[w] = groupKey;
             }
         }
 
-        for (EffectWindow *w : unassignedCandidates) {
-            const QChar directKey = nextFreeLetter();
-            if (!directKey.isNull()) {
-                m_letterWindowGroups[directKey].append(w);
-                map[directKey] = w;
-                m_windowToDirectLetter[w] = directKey;
+        // 4. Assign direct letters to all unmarked windows
+        for (const QString &app : appOrder) {
+            const auto &winList = appGroups.value(app);
+            if (winList.size() > 1) {
+                QChar gKey;
+                for (auto git = m_groupJumpLetters.constBegin(); git != m_groupJumpLetters.constEnd(); ++git) {
+                    if (git.value() == winList) {
+                        gKey = git.key();
+                        break;
+                    }
+                }
+                for (EffectWindow *w : winList) {
+                    const QChar directKey = nextFreeLetter();
+                    if (!directKey.isNull()) {
+                        m_letterWindowGroups[directKey].append(w);
+                        map[directKey] = w;
+                        m_windowToGroupLetter[w] = gKey;
+                        m_windowToDirectLetter[w] = directKey;
+                    }
+                }
+            } else if (winList.size() == 1) {
+                EffectWindow *w = winList.first();
+                const QChar directKey = nextFreeLetter();
+                if (!directKey.isNull()) {
+                    m_letterWindowGroups[directKey].append(w);
+                    map[directKey] = w;
+                    m_windowToGroupLetter[w] = directKey;
+                    m_windowToDirectLetter[w] = directKey;
+                }
             }
         }
     }
