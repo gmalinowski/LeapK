@@ -9,6 +9,8 @@
 #include <QGuiApplication>
 #include <QCursor>
 #include <QRegularExpression>
+#include <QRandomGenerator>
+#include <QHelpEvent>
 #include <iostream>
 
 static const char *s_presetColors[] = {
@@ -41,6 +43,62 @@ void MainUnifiedFrame::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
     LeapKTheme::paintThemedWindowFrame(&p, rect(), m_theme);
+}
+
+// =============================================================================
+// InWindowToolTip
+// =============================================================================
+InWindowToolTip::InWindowToolTip(QWidget *parent)
+    : QFrame(parent)
+{
+    setAttribute(Qt::WA_TransparentForMouseEvents);
+    setAttribute(Qt::WA_ShowWithoutActivating);
+    setStyleSheet(QStringLiteral(
+        "InWindowToolTip {"
+        "  background-color: rgba(18, 22, 30, 0.96);"
+        "  border: 1.5px solid rgba(82, 169, 255, 0.55);"
+        "  border-radius: 6px;"
+        "}"
+    ));
+    auto *layout = new QHBoxLayout(this);
+    layout->setContentsMargins(8, 5, 8, 5);
+    m_label = new QLabel(this);
+    m_label->setStyleSheet(QStringLiteral("color: #ffffff; font-size: 11px; font-weight: normal; background: transparent; border: none;"));
+    m_label->setTextFormat(Qt::RichText);
+    layout->addWidget(m_label);
+    hide();
+}
+
+void InWindowToolTip::showTip(const QString &text, const QPoint &globalPos, QWidget *container)
+{
+    if (text.trimmed().isEmpty() || !container) {
+        hide();
+        return;
+    }
+    m_lastGlobalPos = globalPos;
+    m_label->setText(text);
+    adjustSize();
+
+    const QPoint localPos = container->mapFromGlobal(globalPos);
+    const int tipW = width();
+    const int tipH = height();
+
+    int x = localPos.x() + 12;
+    int y = localPos.y() + 18;
+
+    if (x + tipW > container->width() - 10) {
+        x = localPos.x() - tipW - 8;
+    }
+    if (x < 10) x = 10;
+
+    if (y + tipH > container->height() - 10) {
+        y = localPos.y() - tipH - 8;
+    }
+    if (y < 10) y = 10;
+
+    move(x, y);
+    raise();
+    show();
 }
 
 // =============================================================================
@@ -90,7 +148,7 @@ CloseWorkspaceDialog::CloseWorkspaceDialog(const QString &wsName, const LeapKThe
     });
     layout->addWidget(btnKeep);
 
-    auto *btnStash = new QPushButton(QStringLiteral("📦 Move windows to Stash"), frame);
+    auto *btnStash = new QPushButton(QStringLiteral("Move windows to Stash"), frame);
     btnStash->setFocusPolicy(Qt::StrongFocus);
     btnStash->setStyleSheet(QStringLiteral(
         "QPushButton { background: rgba(%1,%2,%3,0.15); color: %4; border-radius: %5px; padding: 10px; font-weight: bold; border: 2px dashed %4; }"
@@ -103,7 +161,7 @@ CloseWorkspaceDialog::CloseWorkspaceDialog(const QString &wsName, const LeapKThe
     });
     layout->addWidget(btnStash);
 
-    auto *btnCloseWins = new QPushButton(QStringLiteral("❌ Close all windows"), frame);
+    auto *btnCloseWins = new QPushButton(QStringLiteral("Close all windows"), frame);
     btnCloseWins->setFocusPolicy(Qt::StrongFocus);
     btnCloseWins->setStyleSheet(QStringLiteral(
         "QPushButton { background: rgba(231,76,60,0.15); color: #e74c3c; border-radius: %1px; padding: 10px; font-weight: bold; border: 2px solid rgba(231,76,60,0.4); }"
@@ -150,16 +208,37 @@ void CloseWorkspaceDialog::keyPressEvent(QKeyEvent *e)
 // EditWorkspaceDialog
 // =============================================================================
 EditWorkspaceDialog::EditWorkspaceDialog(const LeapKWorkspace::WorkspaceInfo &info, const LeapKTheme::Theme &theme, QWidget *parent)
-    : QDialog(parent), m_color(info.color.isValid() ? info.color : theme.primaryAccentColor())
+    : QDialog(parent), m_color(info.color.isValid() ? info.color : theme.primaryAccentColor()), m_selectedSwatchIndex(0)
 {
     setWindowTitle(QStringLiteral("Edit Workspace"));
     setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
     setAttribute(Qt::WA_TranslucentBackground);
-    resize(460, 320);
+    resize(520, 360);
 
     const QColor accent = theme.primaryAccentColor();
     const QColor textPrim = theme.textPrimaryColor();
     const int btnRadius = qBound(4, theme.cardCornerRadius(), 8);
+
+    // Initial palette of 8 distinct harmonic colors
+    for (int i = 0; i < 8; ++i) {
+        m_currentPalette.append(QColor(s_presetColors[i]));
+    }
+    if (info.color.isValid()) {
+        int foundIdx = -1;
+        for (int i = 0; i < m_currentPalette.size(); ++i) {
+            if (m_currentPalette[i] == info.color) {
+                foundIdx = i;
+                break;
+            }
+        }
+        if (foundIdx >= 0) {
+            m_selectedSwatchIndex = foundIdx;
+        } else {
+            m_currentPalette[0] = info.color;
+            m_selectedSwatchIndex = 0;
+        }
+    }
+    m_color = m_currentPalette[m_selectedSwatchIndex];
 
     auto *rootLayout = new QVBoxLayout(this);
     rootLayout->setContentsMargins(0, 0, 0, 0);
@@ -167,9 +246,9 @@ EditWorkspaceDialog::EditWorkspaceDialog(const LeapKWorkspace::WorkspaceInfo &in
     auto *frame = new MainUnifiedFrame(theme, this);
     auto *layout = new QVBoxLayout(frame);
     layout->setContentsMargins(24, 20, 24, 20);
-    layout->setSpacing(14);
+    layout->setSpacing(12);
 
-    auto *lblTitle = new QLabel(QStringLiteral("<b>Edit Workspace</b>"), frame);
+    auto *lblTitle = new QLabel(QStringLiteral("<b>Workspace Configuration</b>"), frame);
     lblTitle->setStyleSheet(QStringLiteral("font-size: 16px; color: %1; border: none; background: transparent;").arg(textPrim.name()));
     layout->addWidget(lblTitle);
 
@@ -186,56 +265,82 @@ EditWorkspaceDialog::EditWorkspaceDialog(const LeapKWorkspace::WorkspaceInfo &in
     m_editName->selectAll();
     layout->addWidget(m_editName);
 
-    auto *lblCol = new QLabel(QStringLiteral("Color Accent:"), frame);
+    auto *lblColRow = new QHBoxLayout();
+    lblColRow->setSpacing(8);
+    auto *lblCol = new QLabel(QStringLiteral("Accent Color:"), frame);
     lblCol->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.8); font-size: 12px; border: none; background: transparent;"));
-    layout->addWidget(lblCol);
-
-    auto *colorRow = new QHBoxLayout();
-    colorRow->setSpacing(8);
+    lblColRow->addWidget(lblCol);
 
     m_colorPreview = new QWidget(frame);
-    m_colorPreview->setFixedSize(32, 32);
+    m_colorPreview->setFixedSize(22, 22);
     updateColorPreview();
-    colorRow->addWidget(m_colorPreview);
+    lblColRow->addWidget(m_colorPreview);
+    lblColRow->addStretch(1);
+    layout->addLayout(lblColRow);
 
+    // Swatches container
+    m_paletteContainer = new QWidget(frame);
+    m_paletteContainer->setFocusPolicy(Qt::StrongFocus);
+    m_paletteContainer->setStyleSheet(QStringLiteral("background: transparent;"));
+    auto *paletteLayout = new QHBoxLayout(m_paletteContainer);
+    paletteLayout->setContentsMargins(0, 0, 0, 0);
+    paletteLayout->setSpacing(8);
+
+    static const char letters[] = "ABCDEFGH";
     for (int i = 0; i < 8; ++i) {
-        const QColor c(s_presetColors[i]);
-        auto *btn = new QPushButton(frame);
-        btn->setFixedSize(26, 26);
+        auto *btn = new QPushButton(QString(QLatin1Char(letters[i])), m_paletteContainer);
+        btn->setFixedSize(36, 36);
+        btn->setFocusPolicy(Qt::NoFocus);
         btn->setCursor(Qt::PointingHandCursor);
-        btn->setFocusPolicy(Qt::StrongFocus);
-        btn->setStyleSheet(QStringLiteral(
-            "QPushButton { background-color: %1; border-radius: 13px; border: 2px solid rgba(255,255,255,0.4); }"
-            "QPushButton:hover { border: 2px solid #ffffff; }"
-            "QPushButton:focus { border: 2.5px solid #ffffff; outline: none; }"
-        ).arg(c.name()));
-        connect(btn, &QPushButton::clicked, this, [this, c]() {
-            m_color = c;
-            updateColorPreview();
+        btn->setToolTip(QStringLiteral("Select color [%1]").arg(QLatin1Char(letters[i])));
+        connect(btn, &QPushButton::clicked, this, [this, i]() {
+            selectColorIndex(i);
         });
-        colorRow->addWidget(btn);
+        paletteLayout->addWidget(btn);
+        m_swatchButtons.append(btn);
     }
+    updateSwatchStyles();
 
-    auto *btnCustom = new QPushButton(QStringLiteral("🎨"), frame);
-    btnCustom->setFixedSize(30, 26);
-    btnCustom->setCursor(Qt::PointingHandCursor);
-    btnCustom->setFocusPolicy(Qt::StrongFocus);
-    btnCustom->setToolTip(QStringLiteral("Custom color picker"));
-    btnCustom->setStyleSheet(QStringLiteral(
-        "QPushButton { background: rgba(255,255,255,0.15); border-radius: %1px; border: 1.5px solid rgba(255,255,255,0.3); font-size: 12px; }"
-        "QPushButton:hover { background: rgba(255,255,255,0.3); }"
-        "QPushButton:focus { border: 2px solid #52a9ff; background: rgba(82,169,255,0.3); outline: none; }"
+    m_btnRandom = new QPushButton(QStringLiteral("[R] Randomize"), frame);
+    m_btnRandom->setFixedHeight(36);
+    m_btnRandom->setCursor(Qt::PointingHandCursor);
+    m_btnRandom->setFocusPolicy(Qt::StrongFocus);
+    m_btnRandom->setStyleSheet(QStringLiteral(
+        "QPushButton { background: rgba(255,255,255,0.12); color: #ffffff; border-radius: %1px; border: 1.5px solid rgba(255,255,255,0.25); font-size: 11px; font-weight: bold; padding: 0 10px; }"
+        "QPushButton:hover { background: rgba(255,255,255,0.22); border-color: #ffffff; }"
+        "QPushButton:focus { border: 2px solid #52a9ff; outline: none; background: rgba(82,169,255,0.25); }"
     ).arg(QString::number(btnRadius)));
-    connect(btnCustom, &QPushButton::clicked, this, [this]() {
+    m_btnRandom->setToolTip(QStringLiteral("Generate fresh harmonious colors [R]"));
+    connect(m_btnRandom, &QPushButton::clicked, this, &EditWorkspaceDialog::randomizeColors);
+    paletteLayout->addWidget(m_btnRandom);
+
+    m_btnCustom = new QPushButton(QStringLiteral("Custom..."), frame);
+    m_btnCustom->setFixedHeight(36);
+    m_btnCustom->setCursor(Qt::PointingHandCursor);
+    m_btnCustom->setFocusPolicy(Qt::StrongFocus);
+    m_btnCustom->setToolTip(QStringLiteral("Open full RGB color picker"));
+    m_btnCustom->setStyleSheet(QStringLiteral(
+        "QPushButton { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.9); border-radius: %1px; border: 1.5px solid rgba(255,255,255,0.2); font-size: 11px; padding: 0 10px; }"
+        "QPushButton:hover { background: rgba(255,255,255,0.2); color: #ffffff; }"
+        "QPushButton:focus { border: 2px solid #52a9ff; outline: none; background: rgba(82,169,255,0.25); }"
+    ).arg(QString::number(btnRadius)));
+    connect(m_btnCustom, &QPushButton::clicked, this, [this]() {
         const QColor c = QColorDialog::getColor(m_color, this, QStringLiteral("Select Workspace Color"));
         if (c.isValid()) {
             m_color = c;
+            m_currentPalette[m_selectedSwatchIndex] = c;
+            updateSwatchStyles();
             updateColorPreview();
         }
     });
-    colorRow->addWidget(btnCustom);
-    colorRow->addStretch(1);
-    layout->addLayout(colorRow);
+    paletteLayout->addWidget(m_btnCustom);
+    paletteLayout->addStretch(1);
+    layout->addWidget(m_paletteContainer);
+
+    m_lblHint = new QLabel(QStringLiteral("Shortcuts: <b>[A]..[H]</b> select color &bull; <b>[R]</b> randomize &bull; <b>[Enter]</b> confirm"), frame);
+    m_lblHint->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.55); font-size: 11px; border: none; background: transparent;"));
+    m_lblHint->setTextFormat(Qt::RichText);
+    layout->addWidget(m_lblHint);
 
     layout->addStretch(1);
 
@@ -265,6 +370,112 @@ EditWorkspaceDialog::EditWorkspaceDialog(const LeapKWorkspace::WorkspaceInfo &in
 
     layout->addLayout(btnRow);
     rootLayout->addWidget(frame);
+
+    m_tooltipOverlay = new InWindowToolTip(this);
+    qApp->installEventFilter(this);
+
+    QWidget::setTabOrder(m_editName, m_paletteContainer);
+    QWidget::setTabOrder(m_paletteContainer, m_btnRandom);
+    QWidget::setTabOrder(m_btnRandom, m_btnCustom);
+    QWidget::setTabOrder(m_btnCustom, btnCancel);
+    QWidget::setTabOrder(btnCancel, btnSave);
+}
+
+EditWorkspaceDialog::~EditWorkspaceDialog()
+{
+    qApp->removeEventFilter(this);
+}
+
+bool EditWorkspaceDialog::eventFilter(QObject *w, QEvent *e)
+{
+    if (e->type() == QEvent::ToolTip) {
+        auto *he = static_cast<QHelpEvent *>(e);
+        if (auto *widget = qobject_cast<QWidget *>(w)) {
+            if (widget->window() == this) {
+                QString tip;
+                QWidget *cur = widget;
+                while (cur && cur != this && tip.isEmpty()) {
+                    tip = cur->toolTip();
+                    cur = cur->parentWidget();
+                }
+                if (!tip.isEmpty() && m_tooltipOverlay) {
+                    m_tooltipOverlay->showTip(tip, he->globalPos(), this);
+                    return true;
+                }
+            }
+        }
+    } else if (e->type() == QEvent::Leave || e->type() == QEvent::MouseButtonPress) {
+        if (m_tooltipOverlay && m_tooltipOverlay->isVisible()) {
+            m_tooltipOverlay->hide();
+        }
+    }
+    return QDialog::eventFilter(w, e);
+}
+
+void EditWorkspaceDialog::updateSwatchStyles()
+{
+    for (int i = 0; i < m_swatchButtons.size() && i < m_currentPalette.size(); ++i) {
+        auto *btn = m_swatchButtons.at(i);
+        const QColor c = m_currentPalette.at(i);
+        const bool isSelected = (i == m_selectedSwatchIndex);
+
+        const double lum = 0.299 * c.red() + 0.587 * c.green() + 0.114 * c.blue();
+        const QString textCol = lum > 145 ? QStringLiteral("#111111") : QStringLiteral("#ffffff");
+
+        if (isSelected) {
+            btn->setStyleSheet(QStringLiteral(
+                "QPushButton {"
+                "  background-color: %1;"
+                "  color: %2;"
+                "  font-weight: bold;"
+                "  font-size: 14px;"
+                "  border-radius: 6px;"
+                "  border: 3px solid #ffffff;"
+                "}"
+            ).arg(c.name(), textCol));
+        } else {
+            btn->setStyleSheet(QStringLiteral(
+                "QPushButton {"
+                "  background-color: %1;"
+                "  color: %2;"
+                "  font-weight: bold;"
+                "  font-size: 13px;"
+                "  border-radius: 6px;"
+                "  border: 1.5px solid rgba(255,255,255,0.3);"
+                "}"
+                "QPushButton:hover {"
+                "  border: 2px solid #ffffff;"
+                "}"
+            ).arg(c.name(), textCol));
+        }
+    }
+}
+
+void EditWorkspaceDialog::selectColorIndex(int index)
+{
+    if (index < 0 || index >= m_currentPalette.size()) return;
+    m_selectedSwatchIndex = index;
+    m_color = m_currentPalette.at(index);
+    updateSwatchStyles();
+    updateColorPreview();
+}
+
+void EditWorkspaceDialog::randomizeColors()
+{
+    m_currentPalette.clear();
+    const int baseHue = QRandomGenerator::global()->bounded(360);
+    for (int i = 0; i < 8; ++i) {
+        const int hue = (baseHue + i * 45 + QRandomGenerator::global()->bounded(-10, 11) + 360) % 360;
+        const int sat = QRandomGenerator::global()->bounded(190, 245);
+        const int val = QRandomGenerator::global()->bounded(205, 255);
+        m_currentPalette.append(QColor::fromHsv(hue, sat, val));
+    }
+    if (m_selectedSwatchIndex < 0 || m_selectedSwatchIndex >= 8) {
+        m_selectedSwatchIndex = 0;
+    }
+    m_color = m_currentPalette.at(m_selectedSwatchIndex);
+    updateSwatchStyles();
+    updateColorPreview();
 }
 
 void EditWorkspaceDialog::keyPressEvent(QKeyEvent *e)
@@ -273,16 +484,73 @@ void EditWorkspaceDialog::keyPressEvent(QKeyEvent *e)
         reject();
         return;
     }
+
     if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
-        if (auto *btn = qobject_cast<QAbstractButton *>(focusWidget())) {
-            if (btn->isEnabled()) {
-                btn->animateClick();
-                return;
-            }
-        }
         accept();
         return;
     }
+
+    if (m_editName && m_editName->hasFocus()) {
+        if (e->key() == Qt::Key_Down) {
+            if (m_paletteContainer) m_paletteContainer->setFocus();
+            return;
+        }
+        if (e->modifiers() & Qt::AltModifier) {
+            if (e->key() == Qt::Key_R) {
+                randomizeColors();
+                return;
+            }
+            int idx = -1;
+            if (e->key() >= Qt::Key_A && e->key() <= Qt::Key_H) {
+                idx = e->key() - Qt::Key_A;
+            } else if (e->key() >= Qt::Key_1 && e->key() <= Qt::Key_8) {
+                idx = e->key() - Qt::Key_1;
+            }
+            if (idx >= 0 && idx < m_currentPalette.size()) {
+                selectColorIndex(idx);
+                return;
+            }
+        }
+        QDialog::keyPressEvent(e);
+        return;
+    }
+
+    // Focus outside line edit
+    if (e->key() == Qt::Key_R) {
+        randomizeColors();
+        return;
+    }
+
+    int idx = -1;
+    if (e->key() >= Qt::Key_A && e->key() <= Qt::Key_H) {
+        idx = e->key() - Qt::Key_A;
+    } else if (e->key() >= Qt::Key_1 && e->key() <= Qt::Key_8) {
+        idx = e->key() - Qt::Key_1;
+    }
+    if (idx >= 0 && idx < m_currentPalette.size()) {
+        selectColorIndex(idx);
+        return;
+    }
+
+    if (e->key() == Qt::Key_Left) {
+        if (m_selectedSwatchIndex > 0) {
+            selectColorIndex(m_selectedSwatchIndex - 1);
+            return;
+        }
+    } else if (e->key() == Qt::Key_Right) {
+        if (m_selectedSwatchIndex < m_currentPalette.size() - 1) {
+            selectColorIndex(m_selectedSwatchIndex + 1);
+            return;
+        }
+    }
+
+    if (e->key() == Qt::Key_Up) {
+        if (m_editName) {
+            m_editName->setFocus();
+            return;
+        }
+    }
+
     QDialog::keyPressEvent(e);
 }
 
@@ -300,7 +568,7 @@ void EditWorkspaceDialog::updateColorPreview()
 {
     if (m_colorPreview) {
         m_colorPreview->setStyleSheet(QStringLiteral(
-            "background-color: %1; border-radius: 16px; border: 2px solid #ffffff;"
+            "background-color: %1; border-radius: 11px; border: 2px solid #ffffff;"
         ).arg(m_color.name()));
     }
 }
@@ -333,7 +601,7 @@ EditMarkerRuleDialog::EditMarkerRuleDialog(const LeapKMarks::PersistentMarkRule 
     layout->setSpacing(10);
 
     // Title
-    auto *lblTitle = new QLabel(isNew ? QStringLiteral("<b>➕ Add New Marker Rule</b>") : QStringLiteral("<b>✏️ Edit Marker Rule</b>"), frame);
+    auto *lblTitle = new QLabel(isNew ? QStringLiteral("<b>Add New Marker Rule</b>") : QStringLiteral("<b>Edit Marker Rule</b>"), frame);
     lblTitle->setStyleSheet(QStringLiteral("font-size: 16px; color: %1; border: none; background: transparent;").arg(textPrim.name()));
     layout->addWidget(lblTitle);
 
@@ -384,10 +652,11 @@ EditMarkerRuleDialog::EditMarkerRuleDialog(const LeapKMarks::PersistentMarkRule 
         });
         colorRow->addWidget(btn);
     }
-    auto *btnCustomCol = new QPushButton(QStringLiteral("🎨"), frame);
-    btnCustomCol->setFixedSize(28, 24);
+    auto *btnCustomCol = new QPushButton(QStringLiteral("Custom..."), frame);
+    btnCustomCol->setFixedSize(65, 24);
     btnCustomCol->setCursor(Qt::PointingHandCursor);
     btnCustomCol->setFocusPolicy(Qt::StrongFocus);
+    btnCustomCol->setToolTip(QStringLiteral("Open full RGB color picker"));
     btnCustomCol->setStyleSheet(QStringLiteral(
         "QPushButton { background: rgba(255,255,255,0.15); border-radius: %1px; border: 1.5px solid rgba(255,255,255,0.3); font-size: 11px; }"
         "QPushButton:hover { background: rgba(255,255,255,0.3); }"
@@ -499,6 +768,40 @@ EditMarkerRuleDialog::EditMarkerRuleDialog(const LeapKMarks::PersistentMarkRule 
 
     layout->addLayout(btnRow);
     rootLayout->addWidget(frame);
+
+    m_tooltipOverlay = new InWindowToolTip(this);
+    qApp->installEventFilter(this);
+}
+
+EditMarkerRuleDialog::~EditMarkerRuleDialog()
+{
+    qApp->removeEventFilter(this);
+}
+
+bool EditMarkerRuleDialog::eventFilter(QObject *w, QEvent *e)
+{
+    if (e->type() == QEvent::ToolTip) {
+        auto *he = static_cast<QHelpEvent *>(e);
+        if (auto *widget = qobject_cast<QWidget *>(w)) {
+            if (widget->window() == this) {
+                QString tip;
+                QWidget *cur = widget;
+                while (cur && cur != this && tip.isEmpty()) {
+                    tip = cur->toolTip();
+                    cur = cur->parentWidget();
+                }
+                if (!tip.isEmpty() && m_tooltipOverlay) {
+                    m_tooltipOverlay->showTip(tip, he->globalPos(), this);
+                    return true;
+                }
+            }
+        }
+    } else if (e->type() == QEvent::Leave || e->type() == QEvent::MouseButtonPress) {
+        if (m_tooltipOverlay && m_tooltipOverlay->isVisible()) {
+            m_tooltipOverlay->hide();
+        }
+    }
+    return QDialog::eventFilter(w, e);
 }
 
 void EditMarkerRuleDialog::keyPressEvent(QKeyEvent *e)
@@ -658,17 +961,19 @@ WorkspaceCard::WorkspaceCard(int index,
 
     // Status badge
     m_lblStatus = new QLabel(this);
+    m_lblStatus->setMinimumWidth(100);
     updateStatusBadge();
     layout->addWidget(m_lblStatus);
 
     // Edit button [E]
-    m_btnEdit = new QPushButton(QStringLiteral("✏️"), this);
-    m_btnEdit->setFixedSize(32, 28);
+    m_btnEdit = new QPushButton(QStringLiteral("[E] Edit"), this);
+    m_btnEdit->setMinimumWidth(64);
+    m_btnEdit->setFixedHeight(28);
     m_btnEdit->setCursor(Qt::PointingHandCursor);
     m_btnEdit->setFocusPolicy(Qt::StrongFocus);
     m_btnEdit->setToolTip(QStringLiteral("Edit workspace name and color [E]"));
     m_btnEdit->setStyleSheet(QStringLiteral(
-        "QPushButton { background-color: rgba(%1,%2,%3,0.15); color: %4; font-size: 13px; font-weight: bold; border: 1.5px solid rgba(%1,%2,%3,0.35); border-radius: %5px; }"
+        "QPushButton { background-color: rgba(%1,%2,%3,0.15); color: %4; font-size: 12px; font-weight: bold; border: 1.5px solid rgba(%1,%2,%3,0.35); border-radius: %5px; padding: 4px 8px; }"
         "QPushButton:hover { background-color: rgba(%1,%2,%3,0.4); color: #ffffff; }"
         "QPushButton:focus { border: 2px solid #ffffff; background-color: rgba(%1,%2,%3,0.55); color: #ffffff; outline: none; }"
     ).arg(QString::number(accent.red()), QString::number(accent.green()), QString::number(accent.blue()), accent.name(), QString::number(radius)));
@@ -678,13 +983,14 @@ WorkspaceCard::WorkspaceCard(int index,
     layout->addWidget(m_btnEdit);
 
     // Delete button [Shift+Del]
-    m_btnDelete = new QPushButton(QStringLiteral("❌"), this);
-    m_btnDelete->setFixedSize(32, 28);
+    m_btnDelete = new QPushButton(QStringLiteral("[Del]"), this);
+    m_btnDelete->setMinimumWidth(50);
+    m_btnDelete->setFixedHeight(28);
     m_btnDelete->setCursor(Qt::PointingHandCursor);
     m_btnDelete->setFocusPolicy(Qt::StrongFocus);
     m_btnDelete->setToolTip(QStringLiteral("Delete workspace [Shift+Del]"));
     m_btnDelete->setStyleSheet(QStringLiteral(
-        "QPushButton { background-color: rgba(231,76,60,0.15); color: #e74c3c; font-size: 13px; font-weight: bold; border: 1.5px solid rgba(231,76,60,0.35); border-radius: %1px; }"
+        "QPushButton { background-color: rgba(231,76,60,0.15); color: #e74c3c; font-size: 12px; font-weight: bold; border: 1.5px solid rgba(231,76,60,0.35); border-radius: %1px; padding: 4px 6px; }"
         "QPushButton:hover { background-color: rgba(231,76,60,0.4); color: #ffffff; }"
         "QPushButton:focus { border: 2px solid #ffffff; background-color: rgba(231,76,60,0.55); color: #ffffff; outline: none; }"
     ).arg(QString::number(radius)));
@@ -872,11 +1178,13 @@ MarkerRuleCard::MarkerRuleCard(const LeapKMarks::PersistentMarkRule &rule,
 
     auto *lblCriteria = new QLabel(criteria.join(QStringLiteral(" &bull; ")), this);
     lblCriteria->setTextFormat(Qt::RichText);
+    lblCriteria->setWordWrap(true);
     lblCriteria->setStyleSheet(QStringLiteral("font-size: 12px; color: rgba(255,255,255,0.7);"));
     vbox->addWidget(lblCriteria);
 
     // Live open matching windows
     auto *lblLive = new QLabel(this);
+    lblLive->setWordWrap(true);
     if (m_matchingCount > 0) {
         const QString winCountStr = (m_matchingCount == 1 ? QStringLiteral("1 open window") : QStringLiteral("%1 open windows").arg(m_matchingCount));
         lblLive->setText(QStringLiteral("<span style='color:#2ecc71; font-weight:bold;'>● %1</span>: <span style='color:rgba(255,255,255,0.65);'>%2</span>")
@@ -898,6 +1206,8 @@ MarkerRuleCard::MarkerRuleCard(const LeapKMarks::PersistentMarkRule &rule,
     btnLayout->setSpacing(6);
 
     m_btnToggle = new QPushButton(this);
+    m_btnToggle->setMinimumWidth(72);
+    m_btnToggle->setFixedHeight(28);
     m_btnToggle->setCursor(Qt::PointingHandCursor);
     m_btnToggle->setFocusPolicy(Qt::StrongFocus);
     m_btnToggle->setToolTip(QStringLiteral("Toggle active / disabled state [Space / T]"));
@@ -907,13 +1217,14 @@ MarkerRuleCard::MarkerRuleCard(const LeapKMarks::PersistentMarkRule &rule,
     });
     btnLayout->addWidget(m_btnToggle);
 
-    auto *btnEdit = new QPushButton(QStringLiteral("[E] ✏️"), this);
-    btnEdit->setFixedSize(58, 28);
+    auto *btnEdit = new QPushButton(QStringLiteral("[E] Edit"), this);
+    btnEdit->setMinimumWidth(68);
+    btnEdit->setFixedHeight(28);
     btnEdit->setCursor(Qt::PointingHandCursor);
     btnEdit->setFocusPolicy(Qt::StrongFocus);
     btnEdit->setToolTip(QStringLiteral("Edit this rule [E]"));
     btnEdit->setStyleSheet(QStringLiteral(
-        "QPushButton { background: rgba(255,255,255,0.1); color: #ffffff; border-radius: %1px; border: 1.5px solid rgba(255,255,255,0.2); font-size: 11px; font-weight: bold; }"
+        "QPushButton { background: rgba(255,255,255,0.1); color: #ffffff; border-radius: %1px; border: 1.5px solid rgba(255,255,255,0.2); font-size: 11px; font-weight: bold; padding: 4px 8px; }"
         "QPushButton:hover { background: rgba(%2,%3,%4,0.35); border-color: %5; }"
         "QPushButton:focus { border: 2px solid #ffffff; background: rgba(%2,%3,%4,0.55); outline: none; }"
     ).arg(QString::number(btnRadius), QString::number(accent.red()), QString::number(accent.green()), QString::number(accent.blue()), accent.name()));
@@ -922,13 +1233,14 @@ MarkerRuleCard::MarkerRuleCard(const LeapKMarks::PersistentMarkRule &rule,
     });
     btnLayout->addWidget(btnEdit);
 
-    auto *btnDelete = new QPushButton(QStringLiteral("[D] 🗑"), this);
-    btnDelete->setFixedSize(58, 28);
+    auto *btnDelete = new QPushButton(QStringLiteral("[Del] Delete"), this);
+    btnDelete->setMinimumWidth(80);
+    btnDelete->setFixedHeight(28);
     btnDelete->setCursor(Qt::PointingHandCursor);
     btnDelete->setFocusPolicy(Qt::StrongFocus);
     btnDelete->setToolTip(QStringLiteral("Delete this rule [D / Del]"));
     btnDelete->setStyleSheet(QStringLiteral(
-        "QPushButton { background: rgba(231,76,60,0.15); color: #e74c3c; border-radius: %1px; border: 1.5px solid rgba(231,76,60,0.35); font-size: 11px; font-weight: bold; }"
+        "QPushButton { background: rgba(231,76,60,0.15); color: #e74c3c; border-radius: %1px; border: 1.5px solid rgba(231,76,60,0.35); font-size: 11px; font-weight: bold; padding: 4px 8px; }"
         "QPushButton:hover { background: rgba(231,76,60,0.4); color: #ffffff; }"
         "QPushButton:focus { border: 2px solid #ffffff; background: rgba(231,76,60,0.55); color: #ffffff; outline: none; }"
     ).arg(QString::number(btnRadius)));
@@ -1072,9 +1384,9 @@ WorkspaceManagerView::WorkspaceManagerView(const ManagerContext &ctx, QWidget *p
     auto *scopeLayout = new QHBoxLayout();
     scopeLayout->setSpacing(8);
 
-    m_btnScopeApp = new QPushButton(QStringLiteral("📦 [A] Application Scope"), this);
+    m_btnScopeApp = new QPushButton(QStringLiteral("[A] App Scope (all windows)"), this);
     m_btnScopeApp->setFocusPolicy(Qt::StrongFocus);
-    m_btnScopeDirect = new QPushButton(QStringLiteral("🪟 [S] Single Window Scope"), this);
+    m_btnScopeDirect = new QPushButton(QStringLiteral("[S] Single Window Scope"), this);
     m_btnScopeDirect->setFocusPolicy(Qt::StrongFocus);
 
     connect(m_btnScopeApp, &QPushButton::clicked, this, [this]() { setScope(true); });
@@ -1110,7 +1422,7 @@ WorkspaceManagerView::WorkspaceManagerView(const ManagerContext &ctx, QWidget *p
     auto *newWsLayout = new QHBoxLayout();
     newWsLayout->setSpacing(10);
 
-    m_btnNewWs = new QPushButton(QStringLiteral("➕ [N] Create with window"), this);
+    m_btnNewWs = new QPushButton(QStringLiteral("[N] Create with Window"), this);
     m_btnNewWs->setFocusPolicy(Qt::StrongFocus);
     m_btnNewWs->setStyleSheet(QStringLiteral(
         "QPushButton {"
@@ -1128,7 +1440,7 @@ WorkspaceManagerView::WorkspaceManagerView(const ManagerContext &ctx, QWidget *p
     connect(m_btnNewWs, &QPushButton::clicked, this, &WorkspaceManagerView::onNewWorkspace);
     newWsLayout->addWidget(m_btnNewWs);
 
-    m_btnNewEmptyWs = new QPushButton(QStringLiteral("✨ [C] Create Empty Workspace"), this);
+    m_btnNewEmptyWs = new QPushButton(QStringLiteral("[C] Create Empty Workspace"), this);
     m_btnNewEmptyWs->setFocusPolicy(Qt::StrongFocus);
     m_btnNewEmptyWs->setStyleSheet(QStringLiteral(
         "QPushButton {"
@@ -1152,7 +1464,7 @@ WorkspaceManagerView::WorkspaceManagerView(const ManagerContext &ctx, QWidget *p
     auto *bottomLayout = new QHBoxLayout();
     bottomLayout->setSpacing(10);
 
-    m_btnUnassign = new QPushButton(QStringLiteral("🗑 Unassign [Del]"), this);
+    m_btnUnassign = new QPushButton(QStringLiteral("[Del] Unassign"), this);
     m_btnUnassign->setFocusPolicy(Qt::StrongFocus);
     m_btnUnassign->setStyleSheet(QStringLiteral(
         "QPushButton { background: rgba(231,76,60,0.12); border: 1.5px solid rgba(231,76,60,0.35); border-radius: %1px; color: #e74c3c; font-weight: bold; padding: 7px 14px; }"
@@ -1162,7 +1474,7 @@ WorkspaceManagerView::WorkspaceManagerView(const ManagerContext &ctx, QWidget *p
     connect(m_btnUnassign, &QPushButton::clicked, this, &WorkspaceManagerView::onUnassign);
     bottomLayout->addWidget(m_btnUnassign);
 
-    m_btnEditWs = new QPushButton(QStringLiteral("✏️ Edit [E]"), this);
+    m_btnEditWs = new QPushButton(QStringLiteral("[E] Edit"), this);
     m_btnEditWs->setFocusPolicy(Qt::StrongFocus);
     m_btnEditWs->setStyleSheet(QStringLiteral(
         "QPushButton { background: rgba(%1,%2,%3,0.15); border: 1.5px solid rgba(%1,%2,%3,0.4); border-radius: %4px; color: %5; font-weight: bold; padding: 7px 14px; }"
@@ -1172,7 +1484,7 @@ WorkspaceManagerView::WorkspaceManagerView(const ManagerContext &ctx, QWidget *p
     connect(m_btnEditWs, &QPushButton::clicked, this, &WorkspaceManagerView::editSelectedWorkspace);
     bottomLayout->addWidget(m_btnEditWs);
 
-    m_btnDeleteWs = new QPushButton(QStringLiteral("❌ Delete workspace [Shift+Del]"), this);
+    m_btnDeleteWs = new QPushButton(QStringLiteral("[Shift+Del] Delete Workspace"), this);
     m_btnDeleteWs->setFocusPolicy(Qt::StrongFocus);
     m_btnDeleteWs->setStyleSheet(QStringLiteral(
         "QPushButton { background: rgba(231,76,60,0.15); border: 1.5px solid rgba(231,76,60,0.4); border-radius: %1px; color: #e74c3c; font-weight: bold; padding: 7px 14px; }"
@@ -1555,7 +1867,7 @@ MarkerManagerView::MarkerManagerView(const ManagerContext &ctx, QWidget *parent)
 
     m_searchEdit = new QLineEdit(this);
     m_searchEdit->setFocusPolicy(Qt::StrongFocus);
-    m_searchEdit->setPlaceholderText(QStringLiteral("🔍 [/] Filter rules..."));
+    m_searchEdit->setPlaceholderText(QStringLiteral("Filter rules... [/]"));
     m_searchEdit->setStyleSheet(QStringLiteral(
         "QLineEdit { background: rgba(0,0,0,0.3); color: #ffffff; border: 1.5px solid rgba(255,255,255,0.25); border-radius: %1px; padding: 7px 12px; font-size: 13px; }"
         "QLineEdit:focus { border: 2px solid #52a9ff; background: rgba(0,0,0,0.65); outline: none; }"
@@ -1563,7 +1875,7 @@ MarkerManagerView::MarkerManagerView(const ManagerContext &ctx, QWidget *parent)
     connect(m_searchEdit, &QLineEdit::textChanged, this, &MarkerManagerView::rebuildCards);
     topBar->addWidget(m_searchEdit, 1);
 
-    m_btnNewRule = new QPushButton(QStringLiteral("➕ [N] New Rule"), this);
+    m_btnNewRule = new QPushButton(QStringLiteral("[N] New Rule"), this);
     m_btnNewRule->setFocusPolicy(Qt::StrongFocus);
     m_btnNewRule->setStyleSheet(QStringLiteral(
         "QPushButton { background: %1; color: #ffffff; font-weight: bold; border-radius: %2px; padding: 7px 14px; border: 2px solid %1; font-size: 12px; }"
@@ -1574,7 +1886,7 @@ MarkerManagerView::MarkerManagerView(const ManagerContext &ctx, QWidget *parent)
     topBar->addWidget(m_btnNewRule);
 
     if (!m_appClass.isEmpty()) {
-        m_btnAssignCurrent = new QPushButton(QStringLiteral("🪟 [W] Current Window"), this);
+        m_btnAssignCurrent = new QPushButton(QStringLiteral("[W] Current Window"), this);
         m_btnAssignCurrent->setFocusPolicy(Qt::StrongFocus);
         m_btnAssignCurrent->setToolTip(QStringLiteral("Create a persistent rule for currently focused window: %1").arg(m_appClass));
         m_btnAssignCurrent->setStyleSheet(QStringLiteral(
@@ -1586,7 +1898,7 @@ MarkerManagerView::MarkerManagerView(const ManagerContext &ctx, QWidget *parent)
         topBar->addWidget(m_btnAssignCurrent);
     }
 
-    m_btnClearAll = new QPushButton(QStringLiteral("🗑 [X] Clear All"), this);
+    m_btnClearAll = new QPushButton(QStringLiteral("[X] Clear All"), this);
     m_btnClearAll->setFocusPolicy(Qt::StrongFocus);
     m_btnClearAll->setStyleSheet(QStringLiteral(
         "QPushButton { background: rgba(231,76,60,0.12); color: #e74c3c; border: 1.5px solid rgba(231,76,60,0.3); border-radius: %1px; padding: 7px 12px; font-weight: bold; font-size: 12px; }"
@@ -1945,9 +2257,9 @@ UnifiedManagerDialog::UnifiedManagerDialog(const ManagerContext &ctx, QWidget *p
     setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
     setAttribute(Qt::WA_TranslucentBackground);
 
-    // Spacious dimensions (850x650) to give criteria and cards ample horizontal breathing room
-    resize(850, 650);
-    setMinimumSize(800, 560);
+    // Spacious dimensions (920x680) to give criteria and cards ample horizontal breathing room
+    resize(920, 680);
+    setMinimumSize(880, 580);
 
     const QColor accent = m_theme.primaryAccentColor();
     const QColor textPrim = m_theme.textPrimaryColor();
@@ -1966,30 +2278,34 @@ UnifiedManagerDialog::UnifiedManagerDialog(const ManagerContext &ctx, QWidget *p
     headerLayout->setSpacing(14);
 
     // Title / Brand
-    auto *lblBrand = new QLabel(QStringLiteral("<b><span style='color:%1; font-size:16px;'>🚀 LeapK</span> <span style='color:%2; font-size:16px;'>Manager</span></b>")
+    auto *lblBrand = new QLabel(QStringLiteral("<b><span style='color:%1; font-size:16px;'>LeapK</span> <span style='color:%2; font-size:16px;'>Manager</span></b>")
         .arg(accent.name(), textPrim.name()), m_frame);
     lblBrand->setTextFormat(Qt::RichText);
     headerLayout->addWidget(lblBrand);
 
-    // Center Tabs
-    headerLayout->addStretch(1);
+    headerLayout->addSpacing(10);
 
+    // Center Tabs
     auto *tabContainer = new QWidget(m_frame);
     tabContainer->setStyleSheet(QStringLiteral("background: rgba(0,0,0,0.3); border-radius: %1px;").arg(QString::number(btnRadius + 2)));
     auto *tabLayout = new QHBoxLayout(tabContainer);
     tabLayout->setContentsMargins(4, 4, 4, 4);
-    tabLayout->setSpacing(4);
+    tabLayout->setSpacing(6);
 
-    m_tabBtnWorkspaces = new QPushButton(QStringLiteral("🗂 Workspaces [Ctrl+1]"), tabContainer);
+    m_tabBtnWorkspaces = new QPushButton(QStringLiteral("Workspaces  [Ctrl+1]"), tabContainer);
     m_tabBtnWorkspaces->setCursor(Qt::PointingHandCursor);
     m_tabBtnWorkspaces->setFocusPolicy(Qt::StrongFocus);
+    m_tabBtnWorkspaces->setMinimumWidth(175);
+    m_tabBtnWorkspaces->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     m_tabBtnWorkspaces->setToolTip(QStringLiteral("Switch to Workspaces [Ctrl+Tab / Ctrl+1 / Alt+1 / []"));
     connect(m_tabBtnWorkspaces, &QPushButton::clicked, this, [this]() { switchTab(TabWorkspaces); });
     tabLayout->addWidget(m_tabBtnWorkspaces);
 
-    m_tabBtnMarkers = new QPushButton(QStringLiteral("🏷 Markers & Groups [Ctrl+2]"), tabContainer);
+    m_tabBtnMarkers = new QPushButton(QStringLiteral("Markers & Groups  [Ctrl+2]"), tabContainer);
     m_tabBtnMarkers->setCursor(Qt::PointingHandCursor);
     m_tabBtnMarkers->setFocusPolicy(Qt::StrongFocus);
+    m_tabBtnMarkers->setMinimumWidth(215);
+    m_tabBtnMarkers->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     m_tabBtnMarkers->setToolTip(QStringLiteral("Switch to Markers & Groups [Ctrl+Tab / Ctrl+2 / Alt+2 / ]]"));
     connect(m_tabBtnMarkers, &QPushButton::clicked, this, [this]() { switchTab(TabMarkers); });
     tabLayout->addWidget(m_tabBtnMarkers);
@@ -1999,16 +2315,22 @@ UnifiedManagerDialog::UnifiedManagerDialog(const ManagerContext &ctx, QWidget *p
 
     // Right side: Target window badge (if present) + Close button
     if (!m_ctx.appClass.isEmpty()) {
-        auto *lblTarget = new QLabel(QStringLiteral("<span style='color:rgba(255,255,255,0.65); font-size:11px;'>Window:</span> <b style='color:%1; font-size:12px;'>%2</b>")
-            .arg(accent.name(), m_ctx.appClass.toHtmlEscaped()), m_frame);
+        auto *lblTarget = new QLabel(m_frame);
+        QFontMetrics fm(lblTarget->font());
+        const QString elidedApp = fm.elidedText(m_ctx.appClass, Qt::ElideMiddle, 160);
+        lblTarget->setText(QStringLiteral("<span style='color:rgba(255,255,255,0.65); font-size:11px;'>Window:</span> <b style='color:%1; font-size:12px;'>%2</b>")
+            .arg(accent.name(), elidedApp.toHtmlEscaped()));
         lblTarget->setTextFormat(Qt::RichText);
         lblTarget->setStyleSheet(QStringLiteral("background: rgba(255,255,255,0.06); padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.12);"));
+        lblTarget->setToolTip(QStringLiteral("Focused Window: %1").arg(m_ctx.appClass));
+        lblTarget->setMaximumWidth(220);
         headerLayout->addWidget(lblTarget);
     }
 
     m_btnClose = new QPushButton(QStringLiteral("[Esc] Close"), m_frame);
     m_btnClose->setCursor(Qt::PointingHandCursor);
     m_btnClose->setFocusPolicy(Qt::StrongFocus);
+    m_btnClose->setMinimumWidth(85);
     m_btnClose->setStyleSheet(QStringLiteral(
         "QPushButton { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8); border: 2px solid rgba(255,255,255,0.18); border-radius: %1px; font-size: 11px; font-weight: bold; padding: 5px 12px; }"
         "QPushButton:hover { background: rgba(231,76,60,0.3); color: #ffffff; border-color: #e74c3c; }"
@@ -2049,7 +2371,49 @@ UnifiedManagerDialog::UnifiedManagerDialog(const ManagerContext &ctx, QWidget *p
     QWidget::setTabOrder(m_tabBtnMarkers, m_btnClose);
     QWidget::setTabOrder(m_btnClose, m_stack);
 
+    m_tooltipOverlay = new InWindowToolTip(this);
+    qApp->installEventFilter(this);
+
     switchTab(m_currentTab);
+}
+
+UnifiedManagerDialog::~UnifiedManagerDialog()
+{
+    qApp->removeEventFilter(this);
+}
+
+bool UnifiedManagerDialog::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() == QEvent::ToolTip) {
+        auto *he = static_cast<QHelpEvent *>(event);
+        if (auto *w = qobject_cast<QWidget *>(watched)) {
+            if (w->window() == this) {
+                QString tip;
+                QWidget *cur = w;
+                while (cur && cur != this && tip.isEmpty()) {
+                    tip = cur->toolTip();
+                    cur = cur->parentWidget();
+                }
+                if (!tip.isEmpty() && m_tooltipOverlay) {
+                    m_tooltipOverlay->showTip(tip, he->globalPos(), this);
+                    return true;
+                }
+            }
+        }
+    } else if (event->type() == QEvent::Leave || event->type() == QEvent::MouseButtonPress ||
+               event->type() == QEvent::MouseButtonRelease || event->type() == QEvent::Wheel) {
+        if (m_tooltipOverlay && m_tooltipOverlay->isVisible()) {
+            m_tooltipOverlay->hide();
+        }
+    } else if (event->type() == QEvent::MouseMove) {
+        if (m_tooltipOverlay && m_tooltipOverlay->isVisible()) {
+            auto *me = static_cast<QMouseEvent *>(event);
+            if ((me->globalPosition().toPoint() - m_tooltipOverlay->lastGlobalPos()).manhattanLength() > 28) {
+                m_tooltipOverlay->hide();
+            }
+        }
+    }
+    return QDialog::eventFilter(watched, event);
 }
 
 void UnifiedManagerDialog::switchTab(ManagerTab tab)
@@ -2070,12 +2434,12 @@ void UnifiedManagerDialog::updateTabButtonStyles()
     const int btnRadius = qBound(4, m_theme.cardCornerRadius(), 8);
 
     const QString activeStyle = QStringLiteral(
-        "QPushButton { background: %1; color: #ffffff; font-weight: bold; border-radius: %2px; padding: 6px 16px; border: 2px solid %1; font-size: 12px; }"
+        "QPushButton { background: %1; color: #ffffff; font-weight: bold; border-radius: %2px; padding: 7px 18px; border: 2px solid %1; font-size: 13px; }"
         "QPushButton:focus { border: 2px solid #ffffff; outline: none; }"
     ).arg(accent.name(), QString::number(btnRadius));
 
     const QString inactiveStyle = QStringLiteral(
-        "QPushButton { background: transparent; color: rgba(255,255,255,0.65); font-weight: normal; border-radius: %1px; padding: 6px 16px; border: 2px solid transparent; font-size: 12px; }"
+        "QPushButton { background: transparent; color: rgba(255,255,255,0.65); font-weight: normal; border-radius: %1px; padding: 7px 18px; border: 2px solid transparent; font-size: 13px; }"
         "QPushButton:hover { background: rgba(255,255,255,0.1); color: #ffffff; }"
         "QPushButton:focus { border: 2px solid #52a9ff; color: #ffffff; background: rgba(82,169,255,0.22); outline: none; }"
     ).arg(QString::number(btnRadius));

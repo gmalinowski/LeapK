@@ -4,6 +4,30 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta92-exp] - 2026-11-09
+
+### Changed
+- **Unified Manager Overhaul & Professional UI Polish**:
+  - Eliminated decorative emoji clutter across the manager dialog, buttons, toolbars, headers, and subdialogs (replaced emojis on `[N] Create with Window`, `[C] Create Empty Workspace`, `[Del] Unassign`, `[E] Edit`, `[Shift+Del] Delete Workspace`, `[W] Current Window`, `[X] Clear All`, `Custom...`, and brand labels).
+  - Adopted a clean, high-end KDE / Qt aesthetic with crisp typography, bracketed keyboard shortcut badges (`[N]`, `[C]`, `[E]`, `[Del]`), and refined hover and focus outlines.
+- **Label Clipping & Readability Fixes in Workspaces & Markers**:
+  - Fixed label truncation when choosing between Workspaces and Markers & Groups: tab buttons now have dedicated minimum widths (`175px` and `215px`) and `QSizePolicy::Preferred, QSizePolicy::Fixed` to guarantee labels never clip under custom font sizes or fractional DPI scaling.
+  - Added middle text eliding (`QFontMetrics::elidedText`) and max-width (`220px`) on the target window header badge to prevent long application classes or window titles from squashing the tab buttons.
+  - Expanded dialog dimensions to `920 x 680` (minimum `880 x 580`) giving ample horizontal breathing room.
+  - Added `setWordWrap(true)` to rule criteria and matching window labels in `MarkerRuleCard`, and expanded action buttons (`[E] Edit`, `[Del] Delete`) to eliminate horizontal text clipping.
+- **Fast Letter-Based Workspace Color Picker & Randomizer**:
+  - In `EditWorkspaceDialog` (used for workspace creation and editing), eliminated the need to press Tab 8 times across individual color buttons:
+    - Each color swatch is labeled with a distinct letter (`A`, `B`, `C`, `D`, `E`, `F`, `G`, `H`) using luminance-adaptive contrasting text (`#ffffff` / `#111111`) and a thick active selection ring (`3px solid #ffffff`).
+    - The swatches container acts as a single cohesive focus group; pressing `A`..`H` immediately selects the corresponding color.
+    - Pressing `'r'` or `'R'` (or clicking `[R] Randomize`) regenerates a fresh, harmonious palette of 8 vibrant colors distributed across the color wheel.
+    - Pressing `Enter` at any time immediately confirms and saves the workspace.
+    - Direct `Alt+A`..`Alt+H` and `Alt+R` shortcuts allow instant color selection and randomization even while typing in the name field.
+
+### Fixed
+- **In-Window Floating Tooltip Overlay (Tooltip Under Window Bug)**:
+  - Resolved an issue where hover tooltips and popups rendered underneath the frameless manager window on KWin (X11 / Wayland).
+  - Introduced `InWindowToolTip` overlay widget rendered directly inside the dialog's window canvas. Intercepts `QEvent::ToolTip` via an application event filter to completely suppress native OS-level tooltip windows that stack behind frameless translucent windows, guaranteeing tooltips are always rendered on top, properly clamped within dialog boundaries, and styled with LeapK's acrylic theme.
+
 ## [1.6.0-beta91-exp] - 2026-11-09
 
 ### Added

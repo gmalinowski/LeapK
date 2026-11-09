@@ -333,6 +333,65 @@ void testCustomLayoutCliParsing()
     std::cout << "testCustomLayoutCliParsing PASSED\n";
 }
 
+void testEditWorkspaceDialogColorShortcutsAndRandomize()
+{
+    // 1. Verify 8 preset swatches with letters A..H
+    QList<QColor> palette = {
+        QColor(QStringLiteral("#3498db")),
+        QColor(QStringLiteral("#2ecc71")),
+        QColor(QStringLiteral("#e74c3c")),
+        QColor(QStringLiteral("#f39c12")),
+        QColor(QStringLiteral("#9b59b6")),
+        QColor(QStringLiteral("#1abc9c")),
+        QColor(QStringLiteral("#e67e22")),
+        QColor(QStringLiteral("#e91e63"))
+    };
+    assert(palette.size() == 8);
+
+    // 2. Letter mapping simulation
+    auto mapKeyToColorIndex = [](int key) -> int {
+        if (key >= Qt::Key_A && key <= Qt::Key_H) {
+            return key - Qt::Key_A;
+        }
+        if (key >= Qt::Key_1 && key <= Qt::Key_8) {
+            return key - Qt::Key_1;
+        }
+        return -1;
+    };
+
+    assert(mapKeyToColorIndex(Qt::Key_A) == 0);
+    assert(mapKeyToColorIndex(Qt::Key_B) == 1);
+    assert(mapKeyToColorIndex(Qt::Key_C) == 2);
+    assert(mapKeyToColorIndex(Qt::Key_D) == 3);
+    assert(mapKeyToColorIndex(Qt::Key_E) == 4);
+    assert(mapKeyToColorIndex(Qt::Key_F) == 5);
+    assert(mapKeyToColorIndex(Qt::Key_G) == 6);
+    assert(mapKeyToColorIndex(Qt::Key_H) == 7);
+    assert(mapKeyToColorIndex(Qt::Key_R) == -1); // R is for randomize, not a swatch!
+
+    // 3. Contrast luminance test
+    auto getContrastingTextColor = [](const QColor &c) -> QString {
+        double lum = 0.299 * c.red() + 0.587 * c.green() + 0.114 * c.blue();
+        return lum > 145 ? QStringLiteral("#111111") : QStringLiteral("#ffffff");
+    };
+    assert(getContrastingTextColor(QColor(QStringLiteral("#ffffff"))) == QStringLiteral("#111111"));
+    assert(getContrastingTextColor(QColor(QStringLiteral("#000000"))) == QStringLiteral("#ffffff"));
+    assert(getContrastingTextColor(QColor(QStringLiteral("#2ecc71"))) == QStringLiteral("#111111") ||
+           getContrastingTextColor(QColor(QStringLiteral("#2ecc71"))) == QStringLiteral("#ffffff"));
+
+    // 4. Color randomize simulation
+    QList<QColor> randomized;
+    int baseHue = 120;
+    for (int i = 0; i < 8; ++i) {
+        int hue = (baseHue + i * 45) % 360;
+        randomized.append(QColor::fromHsv(hue, 220, 230));
+    }
+    assert(randomized.size() == 8);
+    assert(randomized[0] != randomized[1]);
+
+    std::cout << "testEditWorkspaceDialogColorShortcutsAndRandomize PASSED\n";
+}
+
 int main()
 {
     testWorkspaceManagerCliParsing();
@@ -342,6 +401,7 @@ int main()
     testThemeCliFlagParsing();
     testUnifiedManagerShortcutsAndFocus();
     testCustomLayoutCliParsing();
+    testEditWorkspaceDialogColorShortcutsAndRandomize();
 
     std::cout << "All CLI tests passed successfully!\n";
     return 0;

@@ -79,6 +79,22 @@ private:
 };
 
 // -----------------------------------------------------------------------------
+// In-Window Custom Tooltip Overlay (drawn inside the window canvas, never under)
+// -----------------------------------------------------------------------------
+class InWindowToolTip : public QFrame
+{
+    Q_OBJECT
+public:
+    explicit InWindowToolTip(QWidget *parent = nullptr);
+    void showTip(const QString &text, const QPoint &globalPos, QWidget *container);
+    QPoint lastGlobalPos() const { return m_lastGlobalPos; }
+
+private:
+    QLabel *m_label = nullptr;
+    QPoint m_lastGlobalPos;
+};
+
+// -----------------------------------------------------------------------------
 // Workspace Helper Dialogs: CloseWorkspaceDialog & EditWorkspaceDialog
 // -----------------------------------------------------------------------------
 class CloseWorkspaceDialog : public QDialog
@@ -106,19 +122,32 @@ class EditWorkspaceDialog : public QDialog
     Q_OBJECT
 public:
     explicit EditWorkspaceDialog(const LeapKWorkspace::WorkspaceInfo &info, const LeapKTheme::Theme &theme, QWidget *parent = nullptr);
+    ~EditWorkspaceDialog() override;
 
     QString name() const;
     QColor color() const;
 
 protected:
+    bool eventFilter(QObject *w, QEvent *e) override;
     void keyPressEvent(QKeyEvent *e) override;
 
 private:
     void updateColorPreview();
+    void selectColorIndex(int index);
+    void randomizeColors();
+    void updateSwatchStyles();
 
     QLineEdit *m_editName = nullptr;
     QColor m_color;
     QWidget *m_colorPreview = nullptr;
+    QWidget *m_paletteContainer = nullptr;
+    QList<QPushButton *> m_swatchButtons;
+    QList<QColor> m_currentPalette;
+    int m_selectedSwatchIndex = -1;
+    QPushButton *m_btnRandom = nullptr;
+    QPushButton *m_btnCustom = nullptr;
+    QLabel *m_lblHint = nullptr;
+    InWindowToolTip *m_tooltipOverlay = nullptr;
 };
 
 // -----------------------------------------------------------------------------
@@ -132,10 +161,12 @@ public:
                                  const LeapKTheme::Theme &theme,
                                  bool isNew = false,
                                  QWidget *parent = nullptr);
+    ~EditMarkerRuleDialog() override;
 
     LeapKMarks::PersistentMarkRule rule() const { return m_rule; }
 
 protected:
+    bool eventFilter(QObject *w, QEvent *e) override;
     void keyPressEvent(QKeyEvent *e) override;
     void mousePressEvent(QMouseEvent *e) override;
     void mouseMoveEvent(QMouseEvent *e) override;
@@ -158,6 +189,7 @@ private:
     QComboBox *m_desktopCombo = nullptr;
     QCheckBox *m_enabledCb = nullptr;
     QWidget *m_colorPreview = nullptr;
+    InWindowToolTip *m_tooltipOverlay = nullptr;
 
     QPoint m_dragPos;
     bool m_isDragging = false;
@@ -376,6 +408,7 @@ class UnifiedManagerDialog : public QDialog
     Q_OBJECT
 public:
     explicit UnifiedManagerDialog(const ManagerContext &ctx, QWidget *parent = nullptr);
+    ~UnifiedManagerDialog() override;
 
     void switchTab(ManagerTab tab);
     ManagerTab currentTab() const { return m_currentTab; }
@@ -387,6 +420,7 @@ public:
     QJsonArray deletedWorkspaces() const;
 
 protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
     void showEvent(QShowEvent *e) override;
     void keyPressEvent(QKeyEvent *e) override;
     void mousePressEvent(QMouseEvent *e) override;
@@ -409,6 +443,7 @@ private:
     WorkspaceManagerView *m_workspaceView = nullptr;
     MarkerManagerView *m_markerView = nullptr;
     QLabel *m_lblShortcutHints = nullptr;
+    InWindowToolTip *m_tooltipOverlay = nullptr;
 
     QPoint m_dragPos;
     bool m_isDragging = false;
