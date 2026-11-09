@@ -377,7 +377,11 @@ void ActiveWindowOutlineEffect::armRhythmState(EffectWindow *target, int originW
         connect(m_rhythmHoldTimer, &QTimer::timeout, this, [this]() {
             if (m_rhythmStateActive && m_rhythmTargetWindow && !m_rhythmTargetWindow->isDeleted()) {
                 m_rhythmHoldTriggered = true;
-                pinWindowToWorkspaces(m_rhythmTargetWindow.data(), {m_rhythmOriginWorkspace, m_rhythmTargetWorkspace});
+                if (m_rhythmOriginWorkspace != m_rhythmTargetWorkspace && m_rhythmOriginWorkspace > 0) {
+                    pinWindowToWorkspaces(m_rhythmTargetWindow.data(), {m_rhythmOriginWorkspace, m_rhythmTargetWorkspace});
+                } else {
+                    pinWindow(m_rhythmTargetWindow.data());
+                }
                 playThemedSound(OutlineSound::SoundEffect::NavTab);
                 disarmRhythmState();
             }
@@ -478,7 +482,17 @@ void ActiveWindowOutlineEffect::moveWindowToWorkspace(EffectWindow *w, int wsInd
 
 bool ActiveWindowOutlineEffect::handleSuperJumpCrossWorkspaceSelection(EffectWindow *target, int keyToPass, QChar keyChar)
 {
-    if (!isCrossWorkspaceTarget(target)) {
+    if (!target || target->isDeleted()) {
+        return false;
+    }
+
+    const bool isCrossWs = isCrossWorkspaceTarget(target);
+    if (!isCrossWs && m_superJumpCrossWsAction != 0) {
+        return false;
+    }
+
+    // Do not arm rhythm for mouse click if key is not specified and not cross-workspace
+    if (keyToPass == 0 && keyChar.isNull() && !isCrossWs) {
         return false;
     }
 
@@ -490,24 +504,26 @@ bool ActiveWindowOutlineEffect::handleSuperJumpCrossWorkspaceSelection(EffectWin
         }
     }
 
-    if (m_superJumpCrossWsAction == 3) {
-        // Mode 3: Interactive Action Menu (Ask)
-        enterCrossWsActionMode(target);
-        return true;
-    }
+    if (isCrossWs) {
+        if (m_superJumpCrossWsAction == 3) {
+            // Mode 3: Interactive Action Menu (Ask)
+            enterCrossWsActionMode(target);
+            return true;
+        }
 
-    if (m_superJumpCrossWsAction == 2) {
-        // Direct Move to Current Workspace
-        const int currentWs = (m_superJumpActive && m_superJumpTargetWorkspace >= 1 && m_superJumpTargetWorkspace <= m_workspaces.size())
-                              ? m_superJumpTargetWorkspace
-                              : (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size() ? m_activeHudView : 0);
-        moveWindowToWorkspace(target, currentWs);
-        return true;
-    }
+        if (m_superJumpCrossWsAction == 2) {
+            // Direct Move to Current Workspace
+            const int currentWs = (m_superJumpActive && m_superJumpTargetWorkspace >= 1 && m_superJumpTargetWorkspace <= m_workspaces.size())
+                                  ? m_superJumpTargetWorkspace
+                                  : (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size() ? m_activeHudView : 0);
+            moveWindowToWorkspace(target, currentWs);
+            return true;
+        }
 
-    if (m_superJumpCrossWsAction == 1) {
-        // Classic: Direct Jump without rhythm interception
-        return false;
+        if (m_superJumpCrossWsAction == 1) {
+            // Classic: Direct Jump without rhythm interception
+            return false;
+        }
     }
 
     // Default: Mode 0 (Smart Rhythm Navigation - Koncepcja B)
@@ -1965,11 +1981,16 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             if (matchesKey) {
                 m_rhythmTapCount++;
                 if (m_rhythmTapCount == 2) {
-                    // Tap 2: PULL-BACK!
+                    // Tap 2: PULL-BACK / BRING TO CURRENT!
                     EffectWindow *w = m_rhythmTargetWindow.data();
                     if (w && !w->isDeleted()) {
-                        moveWindowToWorkspace(w, m_rhythmOriginWorkspace);
-                        playThemedSound(OutlineSound::SoundEffect::Stash);
+                        if (m_rhythmOriginWorkspace != m_rhythmTargetWorkspace && m_rhythmOriginWorkspace > 0) {
+                            moveWindowToWorkspace(w, m_rhythmOriginWorkspace);
+                            playThemedSound(OutlineSound::SoundEffect::Stash);
+                        } else if (effects && effects->currentDesktop() && !w->isOnCurrentDesktop()) {
+                            effects->windowToDesktops(w, {effects->currentDesktop()});
+                            playThemedSound(OutlineSound::SoundEffect::Stash);
+                        }
                     }
                     if (m_rhythmWindowTimer) {
                         m_rhythmWindowTimer->start(m_rhythmWindowTimeout);
@@ -2862,7 +2883,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
                 if (m_jumpLetterToWindow.contains(ch)) {
                     EffectWindow *target = m_jumpLetterToWindow.value(ch);
                     if (target && !target->isDeleted()) {
-                        if (handleSuperJumpCrossWorkspaceSelection(target, e->key())) {
+                        if (handleSuperJumpCrossWorkspaceSelection(target, e->key(), ch)) {
                             return;
                         }
                         activateJumpTargetWindow(target, e->key());
@@ -3256,7 +3277,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             }
             EffectWindow *target = m_jumpLetterToWindow.first();
             if (target && !target->isDeleted()) {
-                if (handleSuperJumpCrossWorkspaceSelection(target, e->key())) {
+                if (handleSuperJumpCrossWorkspaceSelection(target, e->key(), keyChar)) {
                     return;
                 }
                 activateJumpTargetWindow(target, e->key());

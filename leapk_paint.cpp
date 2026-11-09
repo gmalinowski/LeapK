@@ -1322,11 +1322,20 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         const QString originName = (m_rhythmOriginWorkspace >= 1 && m_rhythmOriginWorkspace <= m_workspaces.size())
             ? m_workspaces.at(m_rhythmOriginWorkspace - 1).name
             : QStringLiteral("Origin Workspace");
+        const bool isCrossWs = (m_rhythmOriginWorkspace != m_rhythmTargetWorkspace && m_rhythmOriginWorkspace > 0);
         QString msg;
         if (m_rhythmTapCount == 1) {
-            msg = QStringLiteral("Tap again: [2x] Pull to %1  •  [3x] Send to WS...  •  [Hold] Pin").arg(originName);
+            if (isCrossWs) {
+                msg = QStringLiteral("Tap again: [2x] Pull to %1  •  [3x] Send to WS...  •  [Hold] Pin").arg(originName);
+            } else {
+                msg = QStringLiteral("Tap again: [3x] Send to WS...  •  [Hold] Pin to All");
+            }
         } else if (m_rhythmTapCount == 2) {
-            msg = QStringLiteral("Pulled to %1!  •  Tap again: [3x] Send to WS...").arg(originName);
+            if (isCrossWs) {
+                msg = QStringLiteral("Pulled to %1!  •  Tap again: [3x] Send to WS...").arg(originName);
+            } else {
+                msg = QStringLiteral("Tap again: [3x] Send to WS...  •  [Hold] Pin to All");
+            }
         }
         renderFloatingPill(renderTarget, viewport, msg, toastCenter, QColor(20, 26, 36, 235), QColor(0, 195, 255), 11, screenRect.width() - 80.0);
     }

@@ -8,15 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - **Focused Window Input Interception During Rhythm Navigation**:
-  - Resolved an issue where target windows with active text focus (e.g. text editors, browser address bars, terminals) intercepted subsequent rhythm key taps instead of LeapK performing pull-back or opening the workspace dialog.
+  - Resolved an issue where target windows with active text focus (e.g. text editors, chat applications like Element, browser address bars, terminals) intercepted subsequent rhythm key taps (`EE`) instead of LeapK performing pull-back or opening the workspace dialog.
   - Root Cause:
-    - Standard Jump HUD (`Meta+Space`) was bypassing rhythm arming because `handleSuperJumpCrossWorkspaceSelection` checked `m_superJumpActive || m_searchModeActive`, which prematurely finished the keyboard grab on standard cross-workspace jumps.
-    - The hardcoded rhythm window timeout (450ms) was shorter than KWin's desktop slide/fade animation combined with user reaction time, causing `disarmRhythmState()` to expire and release the keyboard grab right as the user tapped the second key.
-    - Additionally, holding a key for 250ms fired `m_rhythmHoldTimer` immediately, pinning the window and ungrabbing the keyboard.
+    - Standard Jump HUD (`Meta+Space`) displays windows belonging to the current workspace view (`m_activeHudView`). Because `handleSuperJumpCrossWorkspaceSelection` checked `if (!isCrossWorkspaceTarget(target)) return false;`, any jump to a window in the current workspace immediately returned `false`, bypassing `armRhythmState()` entirely and releasing the keyboard grab via `finishKeyboardGrab()`.
+    - As a result, subsequent taps (`2x`, `3x`) were delivered directly into the newly activated window's text input instead of being intercepted by LeapK.
   - Solution:
-    - Removed the restriction in `handleSuperJumpCrossWorkspaceSelection`: cross-workspace jumps from standard Jump HUD (`Meta+Space`), SuperJump (`Meta+A`), and Search (`/`) now consistently arm the rhythm navigation state and maintain keyboard grab.
-    - In `grabbedKeyboardEvent`, ignored keyboard auto-repeat events (`isAutoRepeat()`) and standalone modifier keys (`Shift`, `Ctrl`, `Alt`, `Meta`, `AltGr`) so holding or combining modifiers does not disarm rhythm mode prematurely.
-    - Re-armed the rhythm window timer upon Tap 2 so the user has the full configured timeout to perform Tap 3.
+    - In `handleSuperJumpCrossWorkspaceSelection`, ensured that when Rhythm Navigation mode is active (`m_superJumpCrossWsAction == 0`), rhythm state is armed for both cross-workspace and same-workspace jumps.
+    - Double-tap (`Tap 2`) pulls cross-workspace windows back to the origin workspace, or brings same-workspace windows to the active virtual desktop if needed.
+    - Triple-tap (`Tap 3`) opens the Send Window to Workspace modal dialog (`enterSendWsSelectionMode`), allowing instant workspace relocation for any window.
+    - Hold pins the window to both workspaces (if cross-workspace) or across all workspaces (`pinWindow`, if same-workspace).
+    - Bottom toast pill (`renderFloatingPill`) dynamically adapts text for cross-workspace vs same-workspace navigation (`[2x] Pull to <Workspace>` vs `[3x] Send to WS... • [Hold] Pin to All`).
+    - Propagated jump character `keyChar` to Enter and Alt+Key jump handlers.
 
 ### Added
 - **Configurable Rhythm Window & Hold Timeouts in Settings**:
