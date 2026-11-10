@@ -3725,6 +3725,52 @@
            </widget>
           </item>
           <item>
+           <layout class="QHBoxLayout" name="horizontalLayoutKeyboardOverlayMaxWindows">
+            <item>
+             <widget class="QCheckBox" name="kcfg_KeyboardOverlayLimitByWindowCount">
+              <property name="text">
+               <string>Enable laser only when window count in HUD is at most:</string>
+              </property>
+              <property name="toolTip">
+               <string>Automatically enables spatial laser arrows when the number of windows in HUD is less than or equal to this threshold, and disables them when there are more windows to avoid visual clutter.</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QSpinBox" name="kcfg_KeyboardOverlayMaxWindows">
+              <property name="minimum">
+               <number>1</number>
+              </property>
+              <property name="maximum">
+               <number>50</number>
+              </property>
+              <property name="value">
+               <number>5</number>
+              </property>
+              <property name="suffix">
+               <string> windows</string>
+              </property>
+              <property name="toolTip">
+               <string>Maximum window count in HUD for laser arrows to be shown (default: 5).</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="spacerKeyboardOverlayMaxWindows">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+          <item>
            <widget class="QCheckBox" name="kcfg_KeyboardOverlayExtendToHud">
             <property name="text">
              <string>Extend laser arrows to window cards in HUD dock</string>

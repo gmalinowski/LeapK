@@ -707,10 +707,44 @@ void testKeyboardOverlayTilingOnly()
     OverlayDisplayConfig cfg;
     assert(cfg.enabled == true);
     assert(cfg.tilingOnly == false);
+    assert(cfg.limitByWindowCount == true);
+    assert(cfg.maxWindows == 5);
     assert(cfg.targetLabelVisible == false);
     assert(cfg.keySize == 64.0);
 
     std::cout << "testKeyboardOverlayTilingOnly PASSED\n";
+}
+
+void testKeyboardOverlayWindowCountLimit()
+{
+    using namespace LeapKKeyboardOverlay;
+
+    // Test 1: Defaults
+    OverlayDisplayConfig cfg;
+    assert(cfg.limitByWindowCount == true);
+    assert(cfg.maxWindows == 5);
+
+    // Test 2: Active when windowCount <= maxWindows
+    assert(isKeyboardOverlayActive(true, false, false, /*limitByWindowCount*/ true, /*maxWindows*/ 5, /*currentWindowCount*/ 1));
+    assert(isKeyboardOverlayActive(true, false, false, /*limitByWindowCount*/ true, /*maxWindows*/ 5, /*currentWindowCount*/ 3));
+    assert(isKeyboardOverlayActive(true, false, false, /*limitByWindowCount*/ true, /*maxWindows*/ 5, /*currentWindowCount*/ 5));
+
+    // Test 3: Inactive when windowCount > maxWindows
+    assert(!isKeyboardOverlayActive(true, false, false, /*limitByWindowCount*/ true, /*maxWindows*/ 5, /*currentWindowCount*/ 6));
+    assert(!isKeyboardOverlayActive(true, false, false, /*limitByWindowCount*/ true, /*maxWindows*/ 5, /*currentWindowCount*/ 10));
+
+    // Test 4: When limitByWindowCount is false, count is ignored
+    assert(isKeyboardOverlayActive(true, false, false, /*limitByWindowCount*/ false, /*maxWindows*/ 5, /*currentWindowCount*/ 10));
+    assert(isKeyboardOverlayActive(true, false, false, /*limitByWindowCount*/ false, /*maxWindows*/ 5, /*currentWindowCount*/ 20));
+
+    // Test 5: When maxWindows is 0 (unlimited), count is ignored
+    assert(isKeyboardOverlayActive(true, false, false, /*limitByWindowCount*/ true, /*maxWindows*/ 0, /*currentWindowCount*/ 15));
+
+    // Test 6: Custom threshold X = 3
+    assert(isKeyboardOverlayActive(true, false, false, /*limitByWindowCount*/ true, /*maxWindows*/ 3, /*currentWindowCount*/ 3));
+    assert(!isKeyboardOverlayActive(true, false, false, /*limitByWindowCount*/ true, /*maxWindows*/ 3, /*currentWindowCount*/ 4));
+
+    std::cout << "testKeyboardOverlayWindowCountLimit PASSED\n";
 }
 
 void testLaserTargetsAvoidHudBadges()
@@ -998,6 +1032,7 @@ int main(int argc, char **argv)
     testLaserTargetsMatchingHudBadgeOrder();
     testTargetLabelsCollisionAvoidanceAndOpacity();
     testKeyboardOverlayTilingOnly();
+    testKeyboardOverlayWindowCountLimit();
     testLaserTargetsAvoidHudBadges();
     testKeycapMiddleElisionAndTargetLabelsDisabled();
     testLaserTargetsShortestPathToHudBadges();

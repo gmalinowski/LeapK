@@ -766,8 +766,17 @@ private:
     QList<OutlineFuzzy::SearchCandidate> m_searchMatches;
     bool m_keyboardOverlayEnabled = true;
     bool m_keyboardOverlayTilingOnly = false;
-    bool isKeyboardOverlayActive() const {
-        return LeapKKeyboardOverlay::isKeyboardOverlayActive(m_keyboardOverlayEnabled, m_keyboardOverlayTilingOnly, m_tilingActive);
+    bool m_keyboardOverlayLimitByWindowCount = true;
+    int m_keyboardOverlayMaxWindows = 5;
+    int currentHudWindowCount() const;
+    bool isKeyboardOverlayActive(int windowCount = -1) const {
+        const int count = (windowCount >= 0) ? windowCount : currentHudWindowCount();
+        return LeapKKeyboardOverlay::isKeyboardOverlayActive(m_keyboardOverlayEnabled,
+                                                            m_keyboardOverlayTilingOnly,
+                                                            m_tilingActive,
+                                                            m_keyboardOverlayLimitByWindowCount,
+                                                            m_keyboardOverlayMaxWindows,
+                                                            count);
     }
     bool m_keyboardOverlayExtendToHud = true;
     bool m_keyboardOverlayFixedLetterColors = true;

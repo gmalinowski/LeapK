@@ -202,6 +202,8 @@ inline QJsonObject getDefaultSettings()
     // Spatial Keyboard & Laser Targets
     s[QStringLiteral("KeyboardOverlayEnabled")] = true;
     s[QStringLiteral("KeyboardOverlayTilingOnly")] = false;
+    s[QStringLiteral("KeyboardOverlayLimitByWindowCount")] = true;
+    s[QStringLiteral("KeyboardOverlayMaxWindows")] = 5;
     s[QStringLiteral("KeyboardOverlayExtendToHud")] = true;
     s[QStringLiteral("KeyboardOverlayFixedLetterColors")] = true;
     s[QStringLiteral("KeyboardOverlayKeySize")] = 64;

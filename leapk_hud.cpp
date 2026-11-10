@@ -1078,7 +1078,7 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
         return QChar();
     };
 
-    if (isKeyboardOverlayActive() && !m_badgeConfig.hudGroupWindows) {
+    if (isKeyboardOverlayActive(candidates.size()) && !m_badgeConfig.hudGroupWindows) {
         // Spatial Keyboard Mode B (Direct 1-to-1 keys without group collapsing):
         QRectF screenGeo(0, 0, 1920, 1080);
         if (effects && effects->activeScreen()) {
@@ -3285,6 +3285,20 @@ QRectF ActiveWindowOutlineEffect::renderHudModeHeader(const RenderTarget &render
     return headerRect;
 }
 
+int ActiveWindowOutlineEffect::currentHudWindowCount() const
+{
+    if (m_searchModeActive) {
+        return m_searchMatches.size();
+    }
+    if (!m_hudTargetPillRects.isEmpty()) {
+        return m_hudTargetPillRects.size();
+    }
+    if (!m_jumpLetterToWindow.isEmpty()) {
+        return m_jumpLetterToWindow.size();
+    }
+    return 0;
+}
+
 void ActiveWindowOutlineEffect::renderKeyboardArrowsOverlay(const RenderTarget &renderTarget,
                                                             const RenderViewport &viewport)
 {
@@ -3304,6 +3318,8 @@ void ActiveWindowOutlineEffect::renderKeyboardArrowsOverlay(const RenderTarget &
     LeapKKeyboardOverlay::OverlayDisplayConfig cfg;
     cfg.enabled = isKeyboardOverlayActive();
     cfg.tilingOnly = m_keyboardOverlayTilingOnly;
+    cfg.limitByWindowCount = m_keyboardOverlayLimitByWindowCount;
+    cfg.maxWindows = m_keyboardOverlayMaxWindows;
     cfg.extendToHud = m_keyboardOverlayExtendToHud;
     cfg.keySize = m_keyboardOverlayKeySize;
     cfg.keyFontSize = m_keyboardOverlayKeyFontSize;

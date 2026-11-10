@@ -869,6 +869,8 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_rhythmHoldTimeout = qBound(200, config.readEntry("RhythmHoldTimeout", 450), 1500);
     m_keyboardOverlayEnabled = config.readEntry("KeyboardOverlayEnabled", true);
     m_keyboardOverlayTilingOnly = config.readEntry("KeyboardOverlayTilingOnly", false);
+    m_keyboardOverlayLimitByWindowCount = config.readEntry("KeyboardOverlayLimitByWindowCount", true);
+    m_keyboardOverlayMaxWindows = qBound(1, config.readEntry("KeyboardOverlayMaxWindows", 5), 50);
     m_keyboardOverlayExtendToHud = config.readEntry("KeyboardOverlayExtendToHud", true);
     m_keyboardOverlayFixedLetterColors = config.readEntry("KeyboardOverlayFixedLetterColors", true);
     m_badgeConfig.fixedLetterColors = m_keyboardOverlayFixedLetterColors;

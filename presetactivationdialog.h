@@ -266,6 +266,8 @@ public:
                 {
                     {QStringLiteral("KeyboardOverlayEnabled"), QStringLiteral("Spatial Keyboard Overlay")},
                     {QStringLiteral("KeyboardOverlayTilingOnly"), QStringLiteral("Only in Tiling Mode")},
+                    {QStringLiteral("KeyboardOverlayLimitByWindowCount"), QStringLiteral("Limit Laser by Window Count")},
+                    {QStringLiteral("KeyboardOverlayMaxWindows"), QStringLiteral("Max Windows for Laser")},
                     {QStringLiteral("KeyboardOverlayExtendToHud"), QStringLiteral("Extend Laser Targets to HUD")},
                     {QStringLiteral("KeyboardOverlayFixedLetterColors"), QStringLiteral("Fixed Unique Colors for Letters")},
                     {QStringLiteral("KeyboardOverlayKeySize"), QStringLiteral("Keycap Size")},

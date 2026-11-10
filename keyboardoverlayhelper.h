@@ -69,14 +69,26 @@ inline QColor colorForLetter(QChar key)
     return QColor(0, 229, 255);
 }
 
-inline bool isKeyboardOverlayActive(bool enabled, bool tilingOnly, bool tilingActive)
+inline bool isKeyboardOverlayActive(bool enabled, bool tilingOnly, bool tilingActive,
+                                    bool limitByWindowCount = false, int maxWindows = 5, int currentWindowCount = -1)
 {
-    return enabled && (!tilingOnly || tilingActive);
+    if (!enabled) {
+        return false;
+    }
+    if (tilingOnly && !tilingActive) {
+        return false;
+    }
+    if (limitByWindowCount && maxWindows > 0 && currentWindowCount > maxWindows) {
+        return false;
+    }
+    return true;
 }
 
 struct OverlayDisplayConfig {
     bool enabled = true;
     bool tilingOnly = false;
+    bool limitByWindowCount = true;
+    int maxWindows = 5;
     bool extendToHud = true;
     qreal keySize = 64.0;
     int keyFontSize = 14;
@@ -1155,6 +1167,7 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
     // -------------------------------------------------------------
     // 3. Draw Directional Lines & Target Badges ON TOP of the Keyboard
     // -------------------------------------------------------------
+    const bool drawLaserLines = !(cfg.limitByWindowCount && cfg.maxWindows > 0 && assignedWindows.size() > cfg.maxWindows);
     const auto placements = computeTargetBadgePlacements(assignedWindows, screenRect, layout, cfg);
     const qreal effLineWidth = qBound(1.0, cfg.lineWidth, 10.0);
     const Qt::PenStyle lineStyle = (cfg.laserDashStyle == QStringLiteral("dashed"))
@@ -1180,14 +1193,16 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
         const qreal effOpacity = qBound(0.2, bp.opacity, 1.0);
         const QColor arrowCol(baseArrowCol.red(), baseArrowCol.green(), baseArrowCol.blue(), qRound(baseArrowCol.alpha() * effOpacity));
 
-        // Draw glowing launch anchor node right on top accent bar
-        p.setPen(Qt::NoPen);
-        p.setBrush(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), qRound(160 * effOpacity)));
-        p.drawEllipse(pStart, 5.0, 5.0);
-        p.setBrush(arrowCol);
-        p.drawEllipse(pStart, 3.0, 3.0);
-        p.setBrush(QColor(255, 255, 255, qRound(255 * effOpacity)));
-        p.drawEllipse(pStart, 1.5, 1.5);
+        if (drawLaserLines) {
+            // Draw glowing launch anchor node right on top accent bar
+            p.setPen(Qt::NoPen);
+            p.setBrush(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), qRound(160 * effOpacity)));
+            p.drawEllipse(pStart, 5.0, 5.0);
+            p.setBrush(arrowCol);
+            p.drawEllipse(pStart, 3.0, 3.0);
+            p.setBrush(QColor(255, 255, 255, qRound(255 * effOpacity)));
+            p.drawEllipse(pStart, 1.5, 1.5);
+        }
 
         QPointF pEnd = bp.center;
         const bool isTargetInHud = (!bp.item.isVisibleOnScreen && bp.item.hudCardRect.isValid());
@@ -1219,7 +1234,7 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
             }
         }
 
-        if (dist > 20.0) {
+        if (drawLaserLines && dist > 20.0) {
             // Ambient Laser Glow (if enabled by theme)
             if (cfg.laserGlow) {
                 QPen glowPen(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), qRound(50 * effOpacity * cfg.laserGlowIntensity)),
@@ -1258,7 +1273,7 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
         }
 
         // Point 3: Extend line from window target badge to its card in the HUD dock (if available and enabled)
-        if (bp.item.isVisibleOnScreen && cfg.extendToHud && bp.item.hudCardRect.isValid()) {
+        if (drawLaserLines && bp.item.isVisibleOnScreen && cfg.extendToHud && bp.item.hudCardRect.isValid()) {
             // Shortest path from window target badge to the HUD badge perimeter (never connecting to the center)
             const QPointF pHud = closestPointOnRoundedRectPerimeter(bp.center, bp.item.hudCardRect, 8.0, 2.0);
             const qreal hdx = pHud.x() - bp.center.x();

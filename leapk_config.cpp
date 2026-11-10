@@ -333,6 +333,8 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemInt(QStringLiteral("CursorWarpMode"), *new int, 0);
     m_configSkeleton->addItemBool(QStringLiteral("KeyboardOverlayEnabled"), *new bool, true);
     m_configSkeleton->addItemBool(QStringLiteral("KeyboardOverlayTilingOnly"), *new bool, false);
+    m_configSkeleton->addItemBool(QStringLiteral("KeyboardOverlayLimitByWindowCount"), *new bool, true);
+    m_configSkeleton->addItemInt(QStringLiteral("KeyboardOverlayMaxWindows"), *new int, 5);
     m_configSkeleton->addItemBool(QStringLiteral("KeyboardOverlayExtendToHud"), *new bool, true);
     m_configSkeleton->addItemBool(QStringLiteral("KeyboardOverlayFixedLetterColors"), *new bool, true);
     m_configSkeleton->addItemInt(QStringLiteral("KeyboardOverlayKeySize"), *new int, 64);
@@ -638,6 +640,8 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->kcfg_SuperJumpCrossWsAction, qOverload<int>(&QComboBox::currentIndexChanged), this, &ActiveWindowOutlineConfig::updateMarkWindowUI);
     connect(m_ui->check_previewWindowBadges, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateBadgePreview);
     connect(m_ui->check_previewHudBadges, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateBadgePreview);
+    connect(m_ui->kcfg_KeyboardOverlayLimitByWindowCount, &QCheckBox::toggled, m_ui->kcfg_KeyboardOverlayMaxWindows, &QWidget::setEnabled);
+    m_ui->kcfg_KeyboardOverlayMaxWindows->setEnabled(m_ui->kcfg_KeyboardOverlayLimitByWindowCount->isChecked());
 
     QDBusConnection::sessionBus().connect(
         QString(),

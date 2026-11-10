@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta95-exp] - 2026-11-10
+
+### Added
+- **Configurable Window Count Threshold for Spatial Keyboard Laser Arrows**:
+  - Added setting `KeyboardOverlayLimitByWindowCount` (boolean, default: `true`) and `KeyboardOverlayMaxWindows` (integer, default: `5`, range: 1–50) in KConfig (`leapkconfig.kcfg`) and Settings UI (`leapk_config.ui`, `leapk_config.cpp`).
+  - When enabled, directional laser arrows and spatial keyboard overlay are automatically active when the number of windows in the HUD is less than or equal to the threshold (default: <= 5 windows).
+  - When the window count exceeds the threshold (e.g. > 5 windows), laser arrows and overlay are automatically suppressed to avoid visual clutter and tangled lines, cleanly falling back to standard HUD card and badge navigation.
+  - Dynamically recalculates across workspaces during HUD cycling so that workspaces with fewer windows maintain laser navigation while busy workspaces stay clean.
+  - Connected `kcfg_KeyboardOverlayLimitByWindowCount` to dynamically toggle the spinbox availability in the KCM configuration GUI.
+  - Synchronized installer (`install-leapk.sh`), uninstaller (`uninstall-leapk.sh`), preset helper, and added unit tests in `tests/keyboardoverlay_test.cpp`.
+
 ## [1.6.0-beta94-exp] - 2026-11-09
 
 ### Changed
