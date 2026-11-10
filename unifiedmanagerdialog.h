@@ -126,6 +126,7 @@ public:
 
     QString name() const;
     QColor color() const;
+    QChar shortcutKey() const;
 
 protected:
     bool eventFilter(QObject *w, QEvent *e) override;
@@ -138,6 +139,7 @@ private:
     void updateSwatchStyles();
 
     QLineEdit *m_editName = nullptr;
+    QLineEdit *m_editShortcutKey = nullptr;
     QColor m_color;
     QWidget *m_colorPreview = nullptr;
     QWidget *m_paletteContainer = nullptr;

@@ -4885,7 +4885,9 @@ inline QImage renderHudPinWorkspaceDialog(
             const int wsNum = i + 1;
             const QString wsName = ws.name.trimmed().isEmpty() ? QStringLiteral("Workspace %1").arg(wsNum) : ws.name.trimmed();
             const QColor wsCol = ws.color.isValid() ? ws.color : QColor(52, 152, 219);
-            const QString keyPill = (i < homeRowLen) ? QString(QLatin1Char(homeRowKeys[i])) : QString::number(wsNum);
+            const QString keyPill = !ws.shortcutKey.isNull()
+                ? QString(ws.shortcutKey.toUpper())
+                : ((i < homeRowLen) ? QString(QLatin1Char(homeRowKeys[i])) : QString::number(wsNum));
             rows.append({
                 keyPill,
                 wsName,
@@ -4913,8 +4915,11 @@ inline QImage renderHudPinWorkspaceDialog(
             const bool wsActive = currentPinnedWs.contains(wsNum);
             const QString wsName = ws.name.trimmed().isEmpty() ? QStringLiteral("Workspace %1").arg(wsNum) : ws.name.trimmed();
             const QColor wsCol = ws.color.isValid() ? ws.color : QColor(52, 152, 219);
+            const QString keyPill = !ws.shortcutKey.isNull()
+                ? QString(ws.shortcutKey.toUpper())
+                : QString::number(wsNum);
             rows.append({
-                QString::number(wsNum),
+                keyPill,
                 wsName,
                 QStringLiteral("Pin window to %1").arg(wsName),
                 wsActive ? QStringLiteral("✓ PINNED") : QStringLiteral("WS %1").arg(wsNum),

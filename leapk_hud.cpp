@@ -1056,6 +1056,11 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
     }
 
     QSet<QChar> assignedLetters;
+    for (const auto &ws : m_workspaces) {
+        if (!ws.shortcutKey.isNull()) {
+            assignedLetters.insert(ws.shortcutKey.toUpper());
+        }
+    }
     QList<EffectWindow *> unassignedCandidates;
     m_groupJumpLetters.clear();
     m_windowToGroupLetter.clear();
@@ -1110,7 +1115,7 @@ QMap<QChar, EffectWindow *> ActiveWindowOutlineEffect::assignJumpLetters() const
             items.append(item);
         }
 
-        const auto spatialMap = LeapKKeyboardOverlay::assignSpatialKeys(items, screenGeo);
+        const auto spatialMap = LeapKKeyboardOverlay::assignSpatialKeys(items, screenGeo, true, assignedLetters);
         for (auto sit = spatialMap.constBegin(); sit != spatialMap.constEnd(); ++sit) {
             const QChar key = sit.key();
             EffectWindow *targetWin = reinterpret_cast<EffectWindow *>(sit.value().windowId);
@@ -3025,7 +3030,10 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
             } else if (wsIdx >= 1 && wsIdx <= m_workspaces.size()) {
                 const auto &ws = m_workspaces.at(wsIdx - 1);
                 const QString icon = theme.hudNav.workspaceIcon;
-                return icon.isEmpty() ? ws.name : (icon + QLatin1Char(' ') + ws.name);
+                const QString nameWithKey = !ws.shortcutKey.isNull()
+                    ? QStringLiteral("[%1] %2").arg(ws.shortcutKey.toUpper(), ws.name)
+                    : ws.name;
+                return icon.isEmpty() ? nameWithKey : (icon + QLatin1Char(' ') + nameWithKey);
             } else {
                 const QString icon = theme.hudNav.allIcon;
                 const QString txt = theme.hudNav.allText.isEmpty() ? QStringLiteral("All") : theme.hudNav.allText;
@@ -3075,8 +3083,11 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
                 }
             }
             const bool wsAudio = isWorkspacePlayingAudio(i + 1);
+            const QString tabName = !ws.shortcutKey.isNull()
+                ? QStringLiteral("[%1] %2").arg(ws.shortcutKey.toUpper(), ws.name)
+                : ws.name;
             viewTabs.append({
-                ws.name,
+                tabName,
                 ws.color.isValid() ? ws.color : QColor(52, 152, 219),
                 wsCount,
                 activeTabIdx == (i + 1),
@@ -3114,7 +3125,10 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
         } else if (m_superJumpTargetWorkspace >= 1 && m_superJumpTargetWorkspace <= m_workspaces.size()) {
             const auto &ws = m_workspaces.at(m_superJumpTargetWorkspace - 1);
             const QString icon = theme.hudNav.workspaceIcon;
-            targetWorkspaceName = icon.isEmpty() ? ws.name : (icon + QLatin1Char(' ') + ws.name);
+            const QString nameWithKey = !ws.shortcutKey.isNull()
+                ? QStringLiteral("[%1] %2").arg(ws.shortcutKey.toUpper(), ws.name)
+                : ws.name;
+            targetWorkspaceName = icon.isEmpty() ? nameWithKey : (icon + QLatin1Char(' ') + nameWithKey);
         } else {
             const QString icon = theme.hudNav.allIcon;
             const QString txt = theme.hudNav.allText.isEmpty() ? QStringLiteral("All") : theme.hudNav.allText;
@@ -3124,7 +3138,7 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
 
     int countsHash = 0;
     for (const auto &vt : viewTabs) {
-        countsHash = (countsHash * 31 + vt.windowCount + (vt.isActive ? 1000 : 0) + (vt.isPlayingAudio ? 500 : 0) + (vt.color.isValid() ? (static_cast<int>(vt.color.rgb() % 1000)) : 0)) % 100000;
+        countsHash = (countsHash * 31 + vt.windowCount + (vt.isActive ? 1000 : 0) + (vt.isPlayingAudio ? 500 : 0) + (vt.color.isValid() ? (static_cast<int>(vt.color.rgb() % 1000)) : 0) + (qHash(vt.name) % 10000)) % 100000;
     }
     const int hudSize = m_badgePreviewActive ? m_previewBadgeConfig.hudBadgeSize : m_badgeConfig.hudBadgeSize;
     const int navFontSize = m_badgePreviewActive ? m_previewBadgeConfig.hudNavFontSize : m_badgeConfig.hudNavFontSize;

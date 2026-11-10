@@ -2175,11 +2175,21 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
         if (!text.isEmpty()) {
             const QChar ch = text.at(0).toUpper();
-            for (int i = 0; i < qMin(m_workspaces.size(), homeRowLen); ++i) {
-                if (ch == QLatin1Char(homeRowKeys[i])) {
+            for (int i = 0; i < m_workspaces.size(); ++i) {
+                if (!m_workspaces.at(i).shortcutKey.isNull() &&
+                    m_workspaces.at(i).shortcutKey.toUpper() == ch) {
                     directWs = i + 1;
                     matchedKey = true;
                     break;
+                }
+            }
+            if (!matchedKey) {
+                for (int i = 0; i < qMin(m_workspaces.size(), homeRowLen); ++i) {
+                    if (ch == QLatin1Char(homeRowKeys[i])) {
+                        directWs = i + 1;
+                        matchedKey = true;
+                        break;
+                    }
                 }
             }
         }
@@ -2267,6 +2277,16 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             const int homeRowLen = sizeof(homeRowKeys) - 1;
             if (!text.isEmpty()) {
                 const QChar ch = text.at(0).toUpper();
+                for (int i = 0; i < m_workspaces.size(); ++i) {
+                    if (!m_workspaces.at(i).shortcutKey.isNull() &&
+                        m_workspaces.at(i).shortcutKey.toUpper() == ch) {
+                        if (m_pinTargetWindow && !m_pinTargetWindow->isDeleted()) {
+                            moveWindowToWorkspace(m_pinTargetWindow.data(), i + 1);
+                        }
+                        exitPinWsSelectionMode();
+                        return;
+                    }
+                }
                 for (int i = 0; i < qMin(m_workspaces.size(), homeRowLen); ++i) {
                     if (ch == QLatin1Char(homeRowKeys[i])) {
                         if (m_pinTargetWindow && !m_pinTargetWindow->isDeleted()) {
@@ -2339,6 +2359,21 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
             }
             exitPinWsSelectionMode();
             return;
+        }
+
+        // Pin to Workspace by direct shortcut key
+        if (!e->text().isEmpty()) {
+            const QChar ch = e->text().at(0).toUpper();
+            for (int i = 0; i < m_workspaces.size(); ++i) {
+                if (!m_workspaces.at(i).shortcutKey.isNull() &&
+                    m_workspaces.at(i).shortcutKey.toUpper() == ch) {
+                    if (m_pinTargetWindow && !m_pinTargetWindow->isDeleted()) {
+                        toggleWindowPinWorkspace(m_pinTargetWindow.data(), i + 1);
+                    }
+                    exitPinWsSelectionMode();
+                    return;
+                }
+            }
         }
 
         // Pin to Workspace by index 1..N
@@ -2930,6 +2965,35 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
         if (!text.isEmpty()) {
             const QChar keyChar = text.at(0).toUpper();
+            int directWsIdx = -1;
+            for (int i = 0; i < m_workspaces.size(); ++i) {
+                if (!m_workspaces.at(i).shortcutKey.isNull() &&
+                    m_workspaces.at(i).shortcutKey.toUpper() == keyChar) {
+                    directWsIdx = i + 1;
+                    break;
+                }
+            }
+            if (directWsIdx >= 1) {
+                exitSubLeapMode();
+                if (m_superJumpActive) {
+                    m_superJumpActive = false;
+                }
+                playThemedSound(OutlineSound::SoundEffect::NavTab);
+                switchToWorkspaceView(directWsIdx);
+                m_jumpLetterToWindow = assignJumpLetters();
+                m_badgeTextureCache.clear();
+                m_hudHeaderTexture.reset();
+                m_hudHeaderCacheKey = -1;
+                m_hudHintBarTexture.reset();
+                m_hudHintBarCacheKey = -1;
+                if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+                    m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+                }
+                if (effects) {
+                    effects->addRepaintFull();
+                }
+                return;
+            }
             triggerInvalidKeyFeedback(keyChar);
             return;
         }
@@ -3188,7 +3252,33 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
         const QString text = extractKeyChar();
         if (!text.isEmpty()) {
-            const QChar keyChar = text.at(0);
+            const QChar keyChar = text.at(0).toUpper();
+            int directWsIdx = -1;
+            for (int i = 0; i < m_workspaces.size(); ++i) {
+                if (!m_workspaces.at(i).shortcutKey.isNull() &&
+                    m_workspaces.at(i).shortcutKey.toUpper() == keyChar) {
+                    directWsIdx = i + 1;
+                    break;
+                }
+            }
+            if (directWsIdx >= 1 && !isCtrl) {
+                playThemedSound(OutlineSound::SoundEffect::NavTab);
+                switchToWorkspaceView(directWsIdx);
+                m_jumpLetterToWindow = assignJumpLetters();
+                m_badgeTextureCache.clear();
+                m_hudHeaderTexture.reset();
+                m_hudHeaderCacheKey = -1;
+                m_hudHintBarTexture.reset();
+                m_hudHintBarCacheKey = -1;
+                if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+                    m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+                }
+                if (effects) {
+                    effects->addRepaintFull();
+                }
+                return;
+            }
+
             const bool hasKey = (isKeyboardOverlayActive() && m_keyboardOverlayWindowMap.contains(keyChar)) || m_jumpLetterToWindow.contains(keyChar);
             if (hasKey) {
                 EffectWindow *target = (isKeyboardOverlayActive() && m_keyboardOverlayWindowMap.contains(keyChar))
@@ -3322,7 +3412,33 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
         const QString text = extractKeyChar();
         if (!text.isEmpty()) {
-            const QChar keyChar = text.at(0);
+            const QChar keyChar = text.at(0).toUpper();
+            int directWsIdx = -1;
+            for (int i = 0; i < m_workspaces.size(); ++i) {
+                if (!m_workspaces.at(i).shortcutKey.isNull() &&
+                    m_workspaces.at(i).shortcutKey.toUpper() == keyChar) {
+                    directWsIdx = i + 1;
+                    break;
+                }
+            }
+            if (directWsIdx >= 1 && !isCtrl) {
+                playThemedSound(OutlineSound::SoundEffect::NavTab);
+                switchToWorkspaceView(directWsIdx);
+                m_jumpLetterToWindow = assignJumpLetters();
+                m_badgeTextureCache.clear();
+                m_hudHeaderTexture.reset();
+                m_hudHeaderCacheKey = -1;
+                m_hudHintBarTexture.reset();
+                m_hudHintBarCacheKey = -1;
+                if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+                    m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+                }
+                if (effects) {
+                    effects->addRepaintFull();
+                }
+                return;
+            }
+
             const bool hasKey = (isKeyboardOverlayActive() && m_keyboardOverlayWindowMap.contains(keyChar)) || m_jumpLetterToWindow.contains(keyChar);
             if (hasKey) {
                 EffectWindow *target = (isKeyboardOverlayActive() && m_keyboardOverlayWindowMap.contains(keyChar))
@@ -3423,7 +3539,33 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
 
         const QString text = extractKeyChar();
         if (!text.isEmpty()) {
-            const QChar keyChar = text.at(0);
+            const QChar keyChar = text.at(0).toUpper();
+            int directWsIdx = -1;
+            for (int i = 0; i < m_workspaces.size(); ++i) {
+                if (!m_workspaces.at(i).shortcutKey.isNull() &&
+                    m_workspaces.at(i).shortcutKey.toUpper() == keyChar) {
+                    directWsIdx = i + 1;
+                    break;
+                }
+            }
+            if (directWsIdx >= 1 && !isCtrl) {
+                playThemedSound(OutlineSound::SoundEffect::NavTab);
+                switchToWorkspaceView(directWsIdx);
+                m_jumpLetterToWindow = assignJumpLetters();
+                m_badgeTextureCache.clear();
+                m_hudHeaderTexture.reset();
+                m_hudHeaderCacheKey = -1;
+                m_hudHintBarTexture.reset();
+                m_hudHintBarCacheKey = -1;
+                if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+                    m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+                }
+                if (effects) {
+                    effects->addRepaintFull();
+                }
+                return;
+            }
+
             const bool hasKey = (isKeyboardOverlayActive() && m_keyboardOverlayWindowMap.contains(keyChar)) || m_jumpLetterToWindow.contains(keyChar);
             if (hasKey) {
                 EffectWindow *target = (isKeyboardOverlayActive() && m_keyboardOverlayWindowMap.contains(keyChar))
@@ -3623,7 +3765,41 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     const QString text = extractKeyChar();
 
     if (!text.isEmpty()) {
-        const QChar keyChar = text.at(0);
+        const QChar keyChar = text.at(0).toUpper();
+
+        // 0. Direct jump to Workspace if keyChar matches a workspace's shortcutKey
+        int directWorkspaceIdx = -1;
+        for (int i = 0; i < m_workspaces.size(); ++i) {
+            if (!m_workspaces.at(i).shortcutKey.isNull() &&
+                m_workspaces.at(i).shortcutKey.toUpper() == keyChar) {
+                directWorkspaceIdx = i + 1; // 1-based index (0 is Standard)
+                break;
+            }
+        }
+
+        if (directWorkspaceIdx >= 1 && !isCtrl) {
+            if (m_subLeapActive) {
+                exitSubLeapMode();
+            }
+            if (m_superJumpActive) {
+                m_superJumpActive = false;
+            }
+            playThemedSound(OutlineSound::SoundEffect::NavTab);
+            switchToWorkspaceView(directWorkspaceIdx);
+            m_jumpLetterToWindow = assignJumpLetters();
+            m_badgeTextureCache.clear();
+            m_hudHeaderTexture.reset();
+            m_hudHeaderCacheKey = -1;
+            m_hudHintBarTexture.reset();
+            m_hudHintBarCacheKey = -1;
+            if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
+                m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
+            }
+            if (effects) {
+                effects->addRepaintFull();
+            }
+            return;
+        }
 
         // Check if keyChar is a group trigger key with multiple windows
         if (m_groupJumpLetters.contains(keyChar) && m_groupJumpLetters.value(keyChar).size() > 1) {

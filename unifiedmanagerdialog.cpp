@@ -213,7 +213,7 @@ EditWorkspaceDialog::EditWorkspaceDialog(const LeapKWorkspace::WorkspaceInfo &in
     setWindowTitle(QStringLiteral("Edit Workspace"));
     setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
     setAttribute(Qt::WA_TranslucentBackground);
-    resize(520, 360);
+    resize(520, 380);
 
     const QColor accent = theme.primaryAccentColor();
     const QColor textPrim = theme.textPrimaryColor();
@@ -252,9 +252,14 @@ EditWorkspaceDialog::EditWorkspaceDialog(const LeapKWorkspace::WorkspaceInfo &in
     lblTitle->setStyleSheet(QStringLiteral("font-size: 16px; color: %1; border: none; background: transparent;").arg(textPrim.name()));
     layout->addWidget(lblTitle);
 
+    auto *nameShortcutRow = new QHBoxLayout();
+    nameShortcutRow->setSpacing(12);
+
+    auto *nameCol = new QVBoxLayout();
+    nameCol->setSpacing(4);
     auto *lblName = new QLabel(QStringLiteral("Workspace Name:"), frame);
     lblName->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.8); font-size: 12px; border: none; background: transparent;"));
-    layout->addWidget(lblName);
+    nameCol->addWidget(lblName);
 
     m_editName = new QLineEdit(info.name, frame);
     m_editName->setFocusPolicy(Qt::StrongFocus);
@@ -263,7 +268,41 @@ EditWorkspaceDialog::EditWorkspaceDialog(const LeapKWorkspace::WorkspaceInfo &in
         "QLineEdit:focus { border: 2px solid %2; background: rgba(0,0,0,0.55); outline: none; }"
     ).arg(QString::number(btnRadius), accent.name()));
     m_editName->selectAll();
-    layout->addWidget(m_editName);
+    nameCol->addWidget(m_editName);
+    nameShortcutRow->addLayout(nameCol, 4);
+
+    auto *shortcutCol = new QVBoxLayout();
+    shortcutCol->setSpacing(4);
+    auto *lblShortcut = new QLabel(QStringLiteral("Jump Key (HUD):"), frame);
+    lblShortcut->setStyleSheet(QStringLiteral("color: rgba(255,255,255,0.8); font-size: 12px; border: none; background: transparent;"));
+    shortcutCol->addWidget(lblShortcut);
+
+    m_editShortcutKey = new QLineEdit(!info.shortcutKey.isNull() ? QString(info.shortcutKey.toUpper()) : QString(), frame);
+    m_editShortcutKey->setMaxLength(1);
+    m_editShortcutKey->setAlignment(Qt::AlignCenter);
+    m_editShortcutKey->setPlaceholderText(QStringLiteral("–"));
+    m_editShortcutKey->setFocusPolicy(Qt::StrongFocus);
+    m_editShortcutKey->setToolTip(QStringLiteral("Optional single letter or digit (e.g. 'B', '1') to jump directly to this workspace in HUD"));
+    m_editShortcutKey->setStyleSheet(QStringLiteral(
+        "QLineEdit { background: rgba(0,0,0,0.35); color: #52a9ff; font-weight: bold; border: 2px solid rgba(255,255,255,0.25); border-radius: %1px; padding: 8px 12px; font-size: 14px; }"
+        "QLineEdit:focus { border: 2px solid #52a9ff; background: rgba(0,0,0,0.55); outline: none; }"
+    ).arg(QString::number(btnRadius)));
+    connect(m_editShortcutKey, &QLineEdit::textChanged, this, [this](const QString &text) {
+        if (!text.isEmpty()) {
+            const QChar ch = text.at(0).toUpper();
+            if (ch.isLetterOrNumber()) {
+                if (text != QString(ch)) {
+                    m_editShortcutKey->setText(QString(ch));
+                }
+            } else {
+                m_editShortcutKey->clear();
+            }
+        }
+    });
+    shortcutCol->addWidget(m_editShortcutKey);
+    nameShortcutRow->addLayout(shortcutCol, 1);
+
+    layout->addLayout(nameShortcutRow);
 
     auto *lblColRow = new QHBoxLayout();
     lblColRow->setSpacing(8);
@@ -374,7 +413,8 @@ EditWorkspaceDialog::EditWorkspaceDialog(const LeapKWorkspace::WorkspaceInfo &in
     m_tooltipOverlay = new InWindowToolTip(this);
     qApp->installEventFilter(this);
 
-    QWidget::setTabOrder(m_editName, m_paletteContainer);
+    QWidget::setTabOrder(m_editName, m_editShortcutKey);
+    QWidget::setTabOrder(m_editShortcutKey, m_paletteContainer);
     QWidget::setTabOrder(m_paletteContainer, m_btnRandom);
     QWidget::setTabOrder(m_btnRandom, m_btnCustom);
     QWidget::setTabOrder(m_btnCustom, btnCancel);
@@ -492,8 +532,16 @@ void EditWorkspaceDialog::keyPressEvent(QKeyEvent *e)
 
     if (m_editName && m_editName->hasFocus()) {
         if (e->key() == Qt::Key_Down) {
-            if (m_paletteContainer) m_paletteContainer->setFocus();
+            if (m_editShortcutKey) m_editShortcutKey->setFocus();
+            else if (m_paletteContainer) m_paletteContainer->setFocus();
             return;
+        }
+        if (e->key() == Qt::Key_Right && m_editName->cursorPosition() == m_editName->text().length()) {
+            if (m_editShortcutKey) {
+                m_editShortcutKey->setFocus();
+                m_editShortcutKey->selectAll();
+                return;
+            }
         }
         if (e->modifiers() & Qt::AltModifier) {
             if (e->key() == Qt::Key_R) {
@@ -510,6 +558,21 @@ void EditWorkspaceDialog::keyPressEvent(QKeyEvent *e)
                 selectColorIndex(idx);
                 return;
             }
+        }
+        QDialog::keyPressEvent(e);
+        return;
+    }
+
+    if (m_editShortcutKey && m_editShortcutKey->hasFocus()) {
+        if (e->key() == Qt::Key_Up || (e->key() == Qt::Key_Left && m_editShortcutKey->cursorPosition() == 0)) {
+            if (m_editName) {
+                m_editName->setFocus();
+                return;
+            }
+        }
+        if (e->key() == Qt::Key_Down) {
+            if (m_paletteContainer) m_paletteContainer->setFocus();
+            return;
         }
         QDialog::keyPressEvent(e);
         return;
@@ -562,6 +625,15 @@ QString EditWorkspaceDialog::name() const
 QColor EditWorkspaceDialog::color() const
 {
     return m_color;
+}
+
+QChar EditWorkspaceDialog::shortcutKey() const
+{
+    if (!m_editShortcutKey) {
+        return QChar();
+    }
+    const QString txt = m_editShortcutKey->text().trimmed();
+    return txt.isEmpty() ? QChar() : txt.at(0).toUpper();
 }
 
 void EditWorkspaceDialog::updateColorPreview()
@@ -931,6 +1003,13 @@ WorkspaceCard::WorkspaceCard(int index,
     lblName->setTextFormat(Qt::RichText);
     lblName->setStyleSheet(QStringLiteral("font-size: 15px; color: %1;").arg(textPrim.name()));
     nameRow->addWidget(lblName);
+
+    if (!ws.shortcutKey.isNull()) {
+        auto *lblShortcut = new QLabel(QStringLiteral("<span style='background:rgba(82,169,255,0.22); border:1px solid rgba(82,169,255,0.5); border-radius:3px; padding:1px 5px; font-weight:bold; font-size:11px; color:#52a9ff;'>[%1]</span>").arg(ws.shortcutKey.toUpper()), this);
+        lblShortcut->setTextFormat(Qt::RichText);
+        lblShortcut->setToolTip(QStringLiteral("HUD Jump Shortcut: [%1]").arg(ws.shortcutKey.toUpper()));
+        nameRow->addWidget(lblShortcut);
+    }
 
     int wsDesktop = 0;
     for (const auto &r : ws.rules) {
@@ -1661,6 +1740,7 @@ void WorkspaceManagerView::onNewWorkspace()
     if (dlg.exec() == QDialog::Accepted) {
         info.name = dlg.name().isEmpty() ? defaultName : dlg.name();
         info.color = dlg.color();
+        info.shortcutKey = dlg.shortcutKey();
         LeapKWorkspace::WindowMatchRule r;
         if (m_groupByApp) {
             r.matchApp = m_appClass;
@@ -1689,6 +1769,7 @@ void WorkspaceManagerView::onNewEmptyWorkspace()
     if (dlg.exec() == QDialog::Accepted) {
         info.name = dlg.name().isEmpty() ? defaultName : dlg.name();
         info.color = dlg.color();
+        info.shortcutKey = dlg.shortcutKey();
         m_workspaces.append(info);
         rebuildCards();
         selectCard(m_workspaces.size() - 1);
@@ -1713,6 +1794,7 @@ void WorkspaceManagerView::editSelectedWorkspace()
     if (dlg.exec() == QDialog::Accepted) {
         if (!dlg.name().isEmpty()) ws.name = dlg.name();
         ws.color = dlg.color();
+        ws.shortcutKey = dlg.shortcutKey();
         m_workspaces[targetIdx] = ws;
         rebuildCards();
         selectCard(targetIdx);

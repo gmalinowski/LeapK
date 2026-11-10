@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta97-exp] - 2026-11-11
+
+### Added
+- **Custom Workspace Jump Shortcuts (Letters & Numbers) for Direct HUD Switching**:
+  - Added optional `shortcutKey` input (`Jump Key (HUD)`) in `EditWorkspaceDialog` within the Workspace Manager (`unifiedmanagerdialog.cpp`, `unifiedmanagerdialog.h`), allowing users to bind any custom letter or number (e.g. `'B'`, `'1'`, `'D'`) to a workspace.
+  - Workspace cards in the manager now visually display the assigned shortcut badge `[Key]` with tooltip feedback.
+  - When in the LeapK HUD, pressing the assigned key directly switches to that workspace (`switchToWorkspaceView`), updates window jump badges, plays the navigation chime (`NavTab`), and immediately repaints.
+  - Workspace shortcut keys are automatically reserved in `assignJumpLetters()` and spatial laser overlay (`assignSpatialKeys` in `keyboardoverlayhelper.h`), ensuring no window badge or spatial arrow collides with a workspace jump key.
+  - Direct workspace jumping is also supported from Stash mode, Close Window mode, Pin mode, and Sub-Leap mode.
+  - In Triple-Tap Send-to-Workspace mode and Pin-to-Workspace mode, pressing the workspace's custom shortcut key immediately selects/sends or toggles pin for that workspace.
+  - Workspace tabs in the HUD top header now display the custom shortcut badge (e.g. `[B] Backend` or `[1] Frontend`), and texture caching dynamically invalidates when shortcut keys are modified.
+  - Added unit test `testWorkspaceShortcutKeyMapping` in `tests/workspace_test.cpp`.
+
 ## [1.6.0-beta96-exp] - 2026-11-10
 
 ### Added

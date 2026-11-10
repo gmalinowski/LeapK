@@ -708,6 +708,73 @@ void testMultiInstanceWindowWorkspaceAssignment()
     std::cout << "testMultiInstanceWindowWorkspaceAssignment PASSED\n";
 }
 
+void testWorkspaceShortcutKeyMapping()
+{
+    using namespace LeapKWorkspace;
+
+    WorkspaceInfo ws1;
+    ws1.id = QStringLiteral("ws-1");
+    ws1.name = QStringLiteral("Backend");
+    ws1.shortcutKey = QChar('B');
+
+    WorkspaceInfo ws2;
+    ws2.id = QStringLiteral("ws-2");
+    ws2.name = QStringLiteral("Frontend");
+    ws2.shortcutKey = QChar('1');
+
+    WorkspaceInfo ws3;
+    ws3.id = QStringLiteral("ws-3");
+    ws3.name = QStringLiteral("Research");
+    // No shortcutKey (isNull)
+
+    QList<WorkspaceInfo> workspaces = { ws1, ws2, ws3 };
+
+    // Function matching HUD direct jump logic
+    auto findWorkspaceByShortcut = [&](QChar key) -> int {
+        if (key.isNull()) return -1;
+        const QChar upperKey = key.toUpper();
+        for (int i = 0; i < workspaces.size(); ++i) {
+            if (!workspaces.at(i).shortcutKey.isNull() &&
+                workspaces.at(i).shortcutKey.toUpper() == upperKey) {
+                return i + 1; // 1-based index
+            }
+        }
+        return -1;
+    };
+
+    assert(findWorkspaceByShortcut(QChar('B')) == 1);
+    assert(findWorkspaceByShortcut(QChar('b')) == 1); // Case-insensitive
+    assert(findWorkspaceByShortcut(QChar('1')) == 2); // Digit shortcut
+    assert(findWorkspaceByShortcut(QChar('R')) == -1); // ws3 has no shortcut
+    assert(findWorkspaceByShortcut(QChar('X')) == -1); // Unbound key
+
+    // Tab formatting check
+    auto formatTabName = [](const WorkspaceInfo &ws) -> QString {
+        return !ws.shortcutKey.isNull()
+            ? QStringLiteral("[%1] %2").arg(ws.shortcutKey.toUpper(), ws.name)
+            : ws.name;
+    };
+
+    assert(formatTabName(ws1) == QStringLiteral("[B] Backend"));
+    assert(formatTabName(ws2) == QStringLiteral("[1] Frontend"));
+    assert(formatTabName(ws3) == QStringLiteral("Research"));
+
+    // Serialization round-trip with digits and letters
+    QJsonObject json1 = workspaceToJson(ws1);
+    WorkspaceInfo restored1 = workspaceFromJson(json1);
+    assert(restored1.shortcutKey == QChar('B'));
+
+    QJsonObject json2 = workspaceToJson(ws2);
+    WorkspaceInfo restored2 = workspaceFromJson(json2);
+    assert(restored2.shortcutKey == QChar('1'));
+
+    QJsonObject json3 = workspaceToJson(ws3);
+    WorkspaceInfo restored3 = workspaceFromJson(json3);
+    assert(restored3.shortcutKey.isNull());
+
+    std::cout << "testWorkspaceShortcutKeyMapping PASSED\n";
+}
+
 int main()
 {
     testRuleSerialization();
@@ -721,6 +788,7 @@ int main()
     testWorkspacePinningManager();
     testMultiWorkspacePinningAndDesktopSync();
     testMultiInstanceWindowWorkspaceAssignment();
+    testWorkspaceShortcutKeyMapping();
     std::cout << "All workspace tests passed successfully!\n";
     return 0;
 }

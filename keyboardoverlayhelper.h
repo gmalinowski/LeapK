@@ -293,7 +293,7 @@ inline QPointF closestPointOnRoundedRectPerimeter(const QPointF &from, const QRe
 }
 
 // Spatial key matching with Planar Untangling (eliminates crossing laser lines)
-inline QMap<QChar, WindowTargetItem> assignSpatialKeys(const QList<WindowTargetItem> &windows, const QRectF &screenRect, bool fixedLetterColors = true)
+inline QMap<QChar, WindowTargetItem> assignSpatialKeys(const QList<WindowTargetItem> &windows, const QRectF &screenRect, bool fixedLetterColors = true, const QSet<QChar> &reservedKeys = {})
 {
     QMap<QChar, WindowTargetItem> assigned;
     if (windows.isEmpty()) {
@@ -301,7 +301,7 @@ inline QMap<QChar, WindowTargetItem> assignSpatialKeys(const QList<WindowTargetI
     }
 
     const auto &palette = distinctArrowColors();
-    QSet<QChar> usedKeys;
+    QSet<QChar> usedKeys = reservedKeys;
     QList<WindowTargetItem> pendingWindows;
 
     struct AssignmentEntry {
