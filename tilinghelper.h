@@ -1336,6 +1336,40 @@ inline QList<TilingPreset> loadPresets(const QString &filePath = QString())
         return defs;
     }
 
+    bool needsResave = false;
+
+    // Ensure default presets have canonical trigger keys:
+    // Full Focus ('monocle') -> 'F'
+    // 2x2 Quad Grid ('grid-4') -> 'G'
+    for (auto &p : presets) {
+        if (!p.isCustom) {
+            if (p.id == QStringLiteral("monocle") && p.triggerKey.toUpper() != QLatin1Char('F')) {
+                p.triggerKey = QLatin1Char('F');
+                needsResave = true;
+            } else if (p.id == QStringLiteral("grid-4") && p.triggerKey.toUpper() != QLatin1Char('G')) {
+                p.triggerKey = QLatin1Char('G');
+                needsResave = true;
+            }
+        }
+    }
+
+    // Ensure canonical ordering: Monocle ('F') before Quad Grid ('G')
+    int monocleIdx = -1;
+    int grid4Idx = -1;
+    for (int i = 0; i < presets.size(); ++i) {
+        if (!presets[i].isCustom) {
+            if (presets[i].id == QStringLiteral("monocle")) {
+                monocleIdx = i;
+            } else if (presets[i].id == QStringLiteral("grid-4")) {
+                grid4Idx = i;
+            }
+        }
+    }
+    if (monocleIdx != -1 && grid4Idx != -1 && grid4Idx < monocleIdx) {
+        presets.swapItemsAt(grid4Idx, monocleIdx);
+        needsResave = true;
+    }
+
     // Ensure Float action is always present at the end
     bool hasFloat = false;
     for (const auto &p : presets) {
@@ -1352,6 +1386,11 @@ inline QList<TilingPreset> loadPresets(const QString &filePath = QString())
         fl.iconDiagram = QStringLiteral("✕");
         fl.description = QStringLiteral("Return windows to floating");
         presets.append(fl);
+        needsResave = true;
+    }
+
+    if (needsResave) {
+        savePresets(presets, path);
     }
 
     return presets;

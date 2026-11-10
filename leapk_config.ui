@@ -1663,17 +1663,17 @@
           <item row="8" column="0">
            <widget class="QLabel" name="label_rhythmWindowTimeout">
             <property name="text">
-             <string>Rhythm navigation tap window:</string>
+             <string>Rhythm tap window (2x / 3x tap):</string>
             </property>
             <property name="toolTip">
-             <string>Time window (in milliseconds) to detect repeated taps for pull-back (x2) and send-to-workspace (x3) actions.</string>
+             <string>Time window (in milliseconds) to detect repeated taps for double-tap pull-back (2x) and triple-tap send-to-workspace (3x) actions (default: 800 ms).</string>
             </property>
            </widget>
           </item>
           <item row="8" column="1">
            <widget class="QSpinBox" name="kcfg_RhythmWindowTimeout">
             <property name="toolTip">
-             <string>Time window (in milliseconds) to detect repeated taps for pull-back (x2) and send-to-workspace (x3) actions.</string>
+             <string>Time window (in milliseconds) to detect repeated taps for double-tap pull-back (2x) and triple-tap send-to-workspace (3x) actions (default: 800 ms).</string>
             </property>
             <property name="minimum">
              <number>300</number>
@@ -1695,17 +1695,17 @@
           <item row="9" column="0">
            <widget class="QLabel" name="label_rhythmHoldTimeout">
             <property name="text">
-             <string>Rhythm hold duration (pin):</string>
+             <string>Rhythm hold duration (pin / unpin):</string>
             </property>
             <property name="toolTip">
-             <string>Duration (in milliseconds) of holding the jump key down to trigger pinning the window to both workspaces.</string>
+             <string>Duration (in milliseconds) of holding the jump key down to pin or unpin the window (default: 450 ms).</string>
             </property>
            </widget>
           </item>
           <item row="9" column="1">
            <widget class="QSpinBox" name="kcfg_RhythmHoldTimeout">
             <property name="toolTip">
-             <string>Duration (in milliseconds) of holding the jump key down to trigger pinning the window to both workspaces.</string>
+             <string>Duration (in milliseconds) of holding the jump key down to pin or unpin the window (default: 450 ms).</string>
             </property>
             <property name="minimum">
              <number>200</number>

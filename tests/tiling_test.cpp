@@ -123,6 +123,75 @@ void testJsonPersistence()
     std::cout << "testJsonPersistence PASSED\n";
 }
 
+void testLegacyPresetMigration()
+{
+    using namespace LeapKTiling;
+
+    QTemporaryFile tempFile;
+    assert(tempFile.open());
+    const QString tempPath = tempFile.fileName();
+    tempFile.close();
+
+    // Create a legacy JSON array where grid-4 was mapped to 'F' and monocle to 'G'
+    QJsonArray arr;
+
+    QJsonObject pGrid;
+    pGrid[QStringLiteral("id")] = QStringLiteral("grid-4");
+    pGrid[QStringLiteral("name")] = QStringLiteral("2x2 Quad Grid");
+    pGrid[QStringLiteral("triggerKey")] = QStringLiteral("F");
+    pGrid[QStringLiteral("isCustom")] = false;
+    arr.append(pGrid);
+
+    QJsonObject pMono;
+    pMono[QStringLiteral("id")] = QStringLiteral("monocle");
+    pMono[QStringLiteral("name")] = QStringLiteral("Full Focus");
+    pMono[QStringLiteral("triggerKey")] = QStringLiteral("G");
+    pMono[QStringLiteral("isCustom")] = false;
+    arr.append(pMono);
+
+    QJsonObject pCustom;
+    pCustom[QStringLiteral("id")] = QStringLiteral("custom-I");
+    pCustom[QStringLiteral("name")] = QStringLiteral("Custom Layout");
+    pCustom[QStringLiteral("triggerKey")] = QStringLiteral("I");
+    pCustom[QStringLiteral("isCustom")] = true;
+    arr.append(pCustom);
+
+    QFile file(tempPath);
+    assert(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    file.write(QJsonDocument(arr).toJson());
+    file.close();
+
+    // Loading must automatically migrate monocle to 'F' and grid-4 to 'G',
+    // placing monocle ('F') before grid-4 ('G'), and preserving custom-I and float!
+    const auto loaded = loadPresets(tempPath);
+    assert(loaded.size() >= 3);
+
+    // Find indices
+    int monoIdx = -1;
+    int gridIdx = -1;
+    int customIdx = -1;
+    for (int i = 0; i < loaded.size(); ++i) {
+        if (loaded[i].id == QStringLiteral("monocle")) monoIdx = i;
+        else if (loaded[i].id == QStringLiteral("grid-4")) gridIdx = i;
+        else if (loaded[i].id == QStringLiteral("custom-I")) customIdx = i;
+    }
+
+    assert(monoIdx != -1);
+    assert(gridIdx != -1);
+    assert(customIdx != -1);
+
+    // Monocle (Full Focus) MUST have 'F'
+    assert(loaded[monoIdx].triggerKey == QLatin1Char('F'));
+    // Grid-4 (2x2 Quad Grid) MUST have 'G'
+    assert(loaded[gridIdx].triggerKey == QLatin1Char('G'));
+    // Monocle MUST come before Grid-4 in the list
+    assert(monoIdx < gridIdx);
+    // Custom layout preserved
+    assert(loaded[customIdx].triggerKey == QLatin1Char('I'));
+
+    std::cout << "testLegacyPresetMigration PASSED\n";
+}
+
 void testToKdeJson()
 {
     using namespace LeapKTiling;
@@ -1547,6 +1616,7 @@ int main()
     testDefaultPresets();
     testComputeSlotGeometries();
     testJsonPersistence();
+    testLegacyPresetMigration();
     testToKdeJson();
     testKdeCustomPreset();
     testParseKdeTileJson();

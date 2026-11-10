@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - The floating toast pill dynamically updates to display `[Hold] Unpin` instead of `[Hold] Pin` / `[Hold] Pin to All` whenever the target window is already pinned.
   - Updated HUD Action Hint Bar shortcuts across Search, Super Jump, Sub Leap, and Default HUD from `Hold Key: Pin to Both` to `Hold Key: Pin / Unpin`.
   - Added unit test `testRhythmHoldToPinAndUnpin` in `tests/superjump_test.cpp`.
+- **Automatic Migration & Canonical Mapping for Tiling Presets (Full Focus on 'F', 2x2 Quad Grid on 'G')**:
+  - Implemented automatic migration in `loadPresets()` (`tilinghelper.h`) so that existing `~/.config/leapk/tiling_presets.json` files automatically migrate Full Focus (`monocle`) to trigger key `'F'` and 2x2 Quad Grid (`grid-4`) to trigger key `'G'`, in natural home-row order: `[A]` Two Columns, `[S]` Three Columns, `[D]` Master & Stack, `[F]` Full Focus, `[G]` 2x2 Quad Grid, followed by custom layouts and `[X]` Float.
+  - Added unit test `testLegacyPresetMigration` in `tests/tiling_test.cpp`.
+- **Clarified Rhythm Navigation Timeouts in Settings UI**:
+  - Updated labels and tooltips in KCM Settings UI (`leapk_config.ui`) for `RhythmWindowTimeout` ("Rhythm tap window (2x / 3x tap)") and `RhythmHoldTimeout` ("Rhythm hold duration (pin / unpin)") with explicit millisecond defaults and descriptions.
 
 ## [1.6.0-beta95-exp] - 2026-11-10
 
