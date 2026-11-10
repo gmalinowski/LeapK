@@ -378,12 +378,18 @@ void ActiveWindowOutlineEffect::armRhythmState(EffectWindow *target, int originW
         connect(m_rhythmHoldTimer, &QTimer::timeout, this, [this]() {
             if (m_rhythmStateActive && m_rhythmTargetWindow && !m_rhythmTargetWindow->isDeleted()) {
                 m_rhythmHoldTriggered = true;
-                if (m_rhythmOriginWorkspace != m_rhythmTargetWorkspace && m_rhythmOriginWorkspace > 0) {
-                    pinWindowToWorkspaces(m_rhythmTargetWindow.data(), {m_rhythmOriginWorkspace, m_rhythmTargetWorkspace});
+                if (isWindowPinned(m_rhythmTargetWindow.data())) {
+                    const int targetWs = (m_rhythmTargetWorkspace > 0) ? m_rhythmTargetWorkspace : m_activeHudView;
+                    unpinWindow(m_rhythmTargetWindow.data(), targetWs);
+                    playThemedSound(OutlineSound::SoundEffect::Dismiss);
                 } else {
-                    pinWindow(m_rhythmTargetWindow.data());
+                    if (m_rhythmOriginWorkspace != m_rhythmTargetWorkspace && m_rhythmOriginWorkspace > 0) {
+                        pinWindowToWorkspaces(m_rhythmTargetWindow.data(), {m_rhythmOriginWorkspace, m_rhythmTargetWorkspace});
+                    } else {
+                        pinWindow(m_rhythmTargetWindow.data());
+                    }
+                    playThemedSound(OutlineSound::SoundEffect::NavTab);
                 }
-                playThemedSound(OutlineSound::SoundEffect::NavTab);
                 disarmRhythmState();
             }
         });

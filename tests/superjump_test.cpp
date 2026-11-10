@@ -1709,6 +1709,83 @@ void testRhythmNavigationAndHudHintBarShortcuts()
     std::cout << "testRhythmNavigationAndHudHintBarShortcuts PASSED\n";
 }
 
+void testRhythmHoldToPinAndUnpin()
+{
+    // Test that holding a key on an unpinned window pins it,
+    // and holding a key on an already pinned window unpins it.
+    struct MockWindow {
+        QString title;
+        int workspaceIndex;
+    };
+    MockWindow win{"Kate", 1};
+    QSet<const MockWindow*> pinnedWindows;
+    QMap<const MockWindow*, QSet<int>> pinnedWorkspaces;
+
+    auto isPinned = [&](const MockWindow* w) {
+        return pinnedWindows.contains(w);
+    };
+
+    auto pinWindow = [&](const MockWindow* w) {
+        pinnedWindows.insert(w);
+        pinnedWorkspaces[w] = {0};
+    };
+
+    auto pinWindowToWorkspaces = [&](const MockWindow* w, const QSet<int>& ws) {
+        pinnedWindows.insert(w);
+        pinnedWorkspaces[w] = ws;
+    };
+
+    auto unpinWindow = [&](const MockWindow* w, int targetWs) {
+        pinnedWindows.remove(w);
+        pinnedWorkspaces.remove(w);
+        if (targetWs > 0) {
+            const_cast<MockWindow*>(w)->workspaceIndex = targetWs;
+        }
+    };
+
+    auto onRhythmHoldTimeout = [&](const MockWindow* target, int originWs, int targetWs) {
+        if (isPinned(target)) {
+            const int ws = (targetWs > 0) ? targetWs : originWs;
+            unpinWindow(target, ws);
+            return QStringLiteral("unpinned");
+        } else {
+            if (originWs != targetWs && originWs > 0) {
+                pinWindowToWorkspaces(target, {originWs, targetWs});
+            } else {
+                pinWindow(target);
+            }
+            return QStringLiteral("pinned");
+        }
+    };
+
+    // Case 1: Unpinned window -> hold pins it
+    assert(!isPinned(&win));
+    QString action1 = onRhythmHoldTimeout(&win, 1, 1);
+    assert(action1 == "pinned");
+    assert(isPinned(&win));
+
+    // Case 2: Pinned window -> hold unpins it
+    QString action2 = onRhythmHoldTimeout(&win, 1, 1);
+    assert(action2 == "unpinned");
+    assert(!isPinned(&win));
+
+    // Case 3: Cross-workspace hold pins to both, then subsequent hold unpins it
+    MockWindow win2{"Terminal", 2};
+    assert(!isPinned(&win2));
+    QString action3 = onRhythmHoldTimeout(&win2, 1, 2);
+    assert(action3 == "pinned");
+    assert(isPinned(&win2));
+    assert(pinnedWorkspaces[&win2].contains(1));
+    assert(pinnedWorkspaces[&win2].contains(2));
+
+    QString action4 = onRhythmHoldTimeout(&win2, 1, 2);
+    assert(action4 == "unpinned");
+    assert(!isPinned(&win2));
+    assert(win2.workspaceIndex == 2);
+
+    std::cout << "testRhythmHoldToPinAndUnpin PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
@@ -1736,6 +1813,7 @@ int main(int argc, char *argv[])
     testSearchModeCrossWorkspaceSelection();
     testTaskbarCrossWorkspaceActivation();
     testRhythmNavigationAndHudHintBarShortcuts();
+    testRhythmHoldToPinAndUnpin();
 
     std::cout << "All Super Jump tests passed successfully!\n";
     return 0;

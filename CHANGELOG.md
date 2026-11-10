@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta96-exp] - 2026-11-10
+
+### Added
+- **Hold-to-Unpin in Rhythm Navigation**:
+  - Holding down a window's jump key on an already pinned window now cleanly unpins it (`unpinWindow`), isolating it to its workspace and playing a dismiss sound chime.
+  - Holding down a jump key on an unpinned window continues to pin it (`pinWindow` / `pinWindowToWorkspaces`).
+  - The floating toast pill dynamically updates to display `[Hold] Unpin` instead of `[Hold] Pin` / `[Hold] Pin to All` whenever the target window is already pinned.
+  - Updated HUD Action Hint Bar shortcuts across Search, Super Jump, Sub Leap, and Default HUD from `Hold Key: Pin to Both` to `Hold Key: Pin / Unpin`.
+  - Added unit test `testRhythmHoldToPinAndUnpin` in `tests/superjump_test.cpp`.
+
 ## [1.6.0-beta95-exp] - 2026-11-10
 
 ### Added

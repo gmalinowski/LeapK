@@ -1323,18 +1323,22 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             ? m_workspaces.at(m_rhythmOriginWorkspace - 1).name
             : QStringLiteral("Origin Workspace");
         const bool isCrossWs = (m_rhythmOriginWorkspace != m_rhythmTargetWorkspace && m_rhythmOriginWorkspace > 0);
+        const bool isPinned = m_rhythmTargetWindow && isWindowPinned(m_rhythmTargetWindow.data());
         QString msg;
         if (m_rhythmTapCount == 1) {
             if (isCrossWs) {
-                msg = QStringLiteral("Tap again: [2x] Pull to %1  •  [3x] Send to WS...  •  [Hold] Pin").arg(originName);
+                const QString holdLabel = isPinned ? QStringLiteral("[Hold] Unpin") : QStringLiteral("[Hold] Pin");
+                msg = QStringLiteral("Tap again: [2x] Pull to %1  •  [3x] Send to WS...  •  %2").arg(originName, holdLabel);
             } else {
-                msg = QStringLiteral("Tap again: [3x] Send to WS...  •  [Hold] Pin to All");
+                const QString holdLabel = isPinned ? QStringLiteral("[Hold] Unpin") : QStringLiteral("[Hold] Pin to All");
+                msg = QStringLiteral("Tap again: [3x] Send to WS...  •  %1").arg(holdLabel);
             }
         } else if (m_rhythmTapCount == 2) {
             if (isCrossWs) {
                 msg = QStringLiteral("Pulled to %1!  •  Tap again: [3x] Send to WS...").arg(originName);
             } else {
-                msg = QStringLiteral("Tap again: [3x] Send to WS...  •  [Hold] Pin to All");
+                const QString holdLabel = isPinned ? QStringLiteral("[Hold] Unpin") : QStringLiteral("[Hold] Pin to All");
+                msg = QStringLiteral("Tap again: [3x] Send to WS...  •  %1").arg(holdLabel);
             }
         }
         renderFloatingPill(renderTarget, viewport, msg, toastCenter, QColor(20, 26, 36, 235), QColor(0, 195, 255), 11, screenRect.width() - 80.0);
