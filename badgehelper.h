@@ -68,9 +68,11 @@ struct BadgeConfig {
     // HUD Badges Sizing & Features
     int hudBadgeSize = 44;
     int hudIconSize = 26;
-    int hudThumbnailSize = 90;
-    int hudThumbnailWidth = 90;
-    int hudThumbnailHeight = 52;
+    int hudThumbnailSize = 140;
+    int hudThumbnailWidth = 140;
+    int hudThumbnailHeight = 80;
+    bool hudCardUniformWidth = true;
+    double hudActiveScale = 1.25;
     bool hudShowIcon = true;
     bool hudShowThumbnail = true;
     int hudLetterFontSize = 0; // 0 = auto
@@ -1376,9 +1378,9 @@ inline QSizeF computeHudPillSize(const BadgeConfig &cfg,
     const int effectivePillBaseH = (badgeSize > 0) ? badgeSize : cfg.hudBadgeSize;
 
     const int effectiveIconSize = (cfg.hudIconSize > 0) ? cfg.hudIconSize : 24;
-    const int effectiveThumbSize = (cfg.hudThumbnailSize > 0) ? cfg.hudThumbnailSize : 80;
+    const int effectiveThumbSize = (cfg.hudThumbnailSize > 0) ? cfg.hudThumbnailSize : 140;
     const int effectiveThumbW = (cfg.hudThumbnailWidth > 0) ? cfg.hudThumbnailWidth : effectiveThumbSize;
-    const int effectiveThumbH = (cfg.hudThumbnailHeight > 0) ? cfg.hudThumbnailHeight : effectiveThumbSize;
+    const int effectiveThumbH = (cfg.hudThumbnailHeight > 0) ? cfg.hudThumbnailHeight : 80;
     const bool isTopOrBottom = (cfg.hudPosition == 0 || cfg.hudPosition == 1);
 
     const int padX = hasThumb ? qRound(12 * scale) : qRound(8 * scale);
@@ -1394,6 +1396,9 @@ inline QSizeF computeHudPillSize(const BadgeConfig &cfg,
     int thumbW = 0;
     int thumbH = 0;
     int headerH = 0;
+    int containerW = 0;
+    int containerH = 0;
+    int contentW = 0;
 
     const QString cleanRecentKey = recentKey.trimmed();
     const bool hasRecentKey = !cleanRecentKey.isEmpty();
@@ -1516,23 +1521,24 @@ inline QSizeF computeHudPillSize(const BadgeConfig &cfg,
             ? ((effectiveIconSize > 0) ? qMin(qRound(effectiveIconSize * scale), badgeDim) : qRound(badgeDim * 0.85))
             : 0;
 
+        containerW = (effectiveThumbW > 0) ? qRound(effectiveThumbW * scale) : qRound(140 * scale);
+        containerH = (effectiveThumbH > 0) ? qRound(effectiveThumbH * scale) : qMax(32, qRound(80 * scale));
+
         if (thumbSize.width() > 0 && thumbSize.height() > 0) {
-            const int targetMaxW = (effectiveThumbW > 0) ? qRound(effectiveThumbW * scale) : qRound(80 * scale);
-            const int targetMaxH = (effectiveThumbH > 0) ? qRound(effectiveThumbH * scale) : qMax(32, qRound(48 * scale));
-            const QSize maxBox(targetMaxW, targetMaxH);
-            const QSize fitSize = thumbSize.scaled(maxBox, Qt::KeepAspectRatio);
+            const QSize fitSize = thumbSize.scaled(QSize(containerW, containerH), Qt::KeepAspectRatio);
             thumbW = qMax(qRound(16 * scale), fitSize.width());
             thumbH = qMax(qRound(12 * scale), fitSize.height());
         } else {
-            thumbH = (effectiveThumbH > 0) ? qRound(effectiveThumbH * scale) : qMax(32, qRound(48 * scale));
-            thumbW = (effectiveThumbW > 0) ? qRound(effectiveThumbW * scale) : qRound(thumbH * 1.6);
+            thumbH = containerH;
+            thumbW = containerW;
         }
 
+        const int minHeaderW = badgeW + (hasIcon ? (gapX + iconDim) : 0) + gapX + qRound(60 * scale);
         const int headerContentW = badgeW + (hasIcon ? (gapX + iconDim) : 0) + gapX + textWidth;
-        const int contentW = qMax(headerContentW, thumbW + qRound(8 * scale));
+        contentW = cfg.hudCardUniformWidth ? qMax(containerW, minHeaderW) : qMax(headerContentW, containerW);
 
         pillW = padX + contentW + padX;
-        pillH = padY + headerH + gapY + thumbH + padY;
+        pillH = padY + headerH + gapY + containerH + padY;
     } else {
         pillH = qMax(24, qRound(effectivePillBaseH * 1.35 * scale));
         badgeDim = qMax(16, pillH - qRound(8 * scale));
@@ -1622,9 +1628,9 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     const bool hasIcon = cfg.hudShowIcon && !icon.isNull();
     const bool hasThumb = cfg.hudShowThumbnail && !thumbnail.isNull();
     const int effectiveIconSize = (cfg.hudIconSize > 0) ? cfg.hudIconSize : 24;
-    const int effectiveThumbSize = (cfg.hudThumbnailSize > 0) ? cfg.hudThumbnailSize : 80;
+    const int effectiveThumbSize = (cfg.hudThumbnailSize > 0) ? cfg.hudThumbnailSize : 140;
     const int effectiveThumbW = (cfg.hudThumbnailWidth > 0) ? cfg.hudThumbnailWidth : effectiveThumbSize;
-    const int effectiveThumbH = (cfg.hudThumbnailHeight > 0) ? cfg.hudThumbnailHeight : effectiveThumbSize;
+    const int effectiveThumbH = (cfg.hudThumbnailHeight > 0) ? cfg.hudThumbnailHeight : 80;
     const bool isTopOrBottom = (cfg.hudPosition == 0 || cfg.hudPosition == 1);
 
     const int padX = hasThumb ? qRound(12 * scale) : qRound(8 * scale);
@@ -1640,6 +1646,9 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     int thumbW = 0;
     int thumbH = 0;
     int headerH = 0;
+    int containerW = 0;
+    int containerH = 0;
+    int contentW = 0;
 
     const QString cleanRecentKey = recentKey.trimmed();
     const bool hasRecentKey = !cleanRecentKey.isEmpty();
@@ -1763,23 +1772,24 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
             ? ((effectiveIconSize > 0) ? qMin(qRound(effectiveIconSize * scale), badgeDim) : qRound(badgeDim * 0.85))
             : 0;
 
+        containerW = (effectiveThumbW > 0) ? qRound(effectiveThumbW * scale) : qRound(140 * scale);
+        containerH = (effectiveThumbH > 0) ? qRound(effectiveThumbH * scale) : qMax(32, qRound(80 * scale));
+
         if (thumbnail.width() > 0 && thumbnail.height() > 0) {
-            const int targetMaxW = (effectiveThumbW > 0) ? qRound(effectiveThumbW * scale) : qRound(80 * scale);
-            const int targetMaxH = (effectiveThumbH > 0) ? qRound(effectiveThumbH * scale) : qMax(32, qRound(48 * scale));
-            const QSize maxBox(targetMaxW, targetMaxH);
-            const QSize fitSize = thumbnail.size().scaled(maxBox, Qt::KeepAspectRatio);
+            const QSize fitSize = thumbnail.size().scaled(QSize(containerW, containerH), Qt::KeepAspectRatio);
             thumbW = qMax(qRound(16 * scale), fitSize.width());
             thumbH = qMax(qRound(12 * scale), fitSize.height());
         } else {
-            thumbH = (effectiveThumbH > 0) ? qRound(effectiveThumbH * scale) : qMax(32, qRound(48 * scale));
-            thumbW = (effectiveThumbW > 0) ? qRound(effectiveThumbW * scale) : qRound(thumbH * 1.6);
+            thumbH = containerH;
+            thumbW = containerW;
         }
 
+        const int minHeaderW = badgeW + (hasIcon ? (gapX + iconDim) : 0) + gapX + qRound(60 * scale);
         const int headerContentW = badgeW + (hasIcon ? (gapX + iconDim) : 0) + gapX + textWidth;
-        const int contentW = qMax(headerContentW, thumbW + qRound(8 * scale));
+        contentW = cfg.hudCardUniformWidth ? qMax(containerW, minHeaderW) : qMax(headerContentW, containerW);
 
         pillW = padX + contentW + padX;
-        pillH = padY + headerH + gapY + thumbH + padY;
+        pillH = padY + headerH + gapY + containerH + padY;
     } else {
         // Horizontal single-row pill (Left/Right, or Top/Bottom without thumbnail)
         pillH = qMax(24, qRound(effectivePillBaseH * 1.35 * scale));
@@ -1917,20 +1927,32 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
     if (isSelected) {
         pillBg = themeBgActive;
         pillBg.setAlphaF(qBound(0.1, themeBgActive.alphaF() * themeOpacity, 1.0));
-        borderColor = themeBorderActive;
+        borderColor = themeBorderActive.isValid() ? themeBorderActive : QColor(0, 210, 255);
+        borderColor.setAlpha(255);
         if (!isMarked && !isPinned) {
-            badgeBg = themeBorderActive;
+            badgeBg = borderColor;
         }
     }
 
     p.fillPath(bgPath, pillBg);
-    QPen borderPen(borderColor, (isSelected ? 3.0 : ((isPinned || isStashed) ? 2.0 : 1.5)) * scale);
+    QPen borderPen(borderColor, (isSelected ? 3.5 : ((isPinned || isStashed) ? 2.0 : 1.5)) * scale);
     if (isStashed && !isSelected) {
         borderPen.setStyle(Qt::CustomDashLine);
         borderPen.setDashPattern({5, 3});
     }
     p.setPen(borderPen);
     p.drawPath(bgPath);
+
+    if (isSelected) {
+        // Inner highlight ring for 3D bevel / relief effect
+        QPainterPath innerBevel;
+        const qreal bInset = 2.0 * scale;
+        const QRectF innerRect = pillRect.adjusted(bInset, bInset, -bInset, -bInset);
+        addThemedShapePath(innerBevel, innerRect, cardShape, qMax(0.0, cornerRadius - bInset), qMax(0.0, (cardChamfer - 2) * scale));
+        p.setPen(QPen(QColor(255, 255, 255, 110), 1.2 * scale));
+        p.setBrush(Qt::NoBrush);
+        p.drawPath(innerBevel);
+    }
 
     const QColor pillAutoText = contrastingTextColor(pillBg);
     const bool isLightPill = (pillAutoText == Qt::black) || (perceivedLuminance(pillBg) > 0.53);
@@ -2030,15 +2052,29 @@ inline QImage renderOffscreenTargetPill(const BadgeConfig &cfg,
         textLineHeight = headerH;
 
         // Row 2: Window preview underneath header ("pod badges")
-        const int headerContentW = badgeW + (hasIcon ? (gapX + iconDim) : 0) + gapX + textWidth;
-        const int contentW = qMax(headerContentW, thumbW + qRound(8 * scale));
-        const qreal thumbX = padX + (contentW - thumbW) / 2.0;
-        const qreal thumbY = padY + headerH + gapY;
-        const QRectF thumbRect(thumbX, thumbY, thumbW, thumbH);
+        const int availTextW = qMax(20, (padX + contentW) - textLeft);
+        if (availTextW < textWidth) {
+            textWidth = availTextW;
+        }
+
+        const qreal containerX = padX + (contentW - containerW) / 2.0;
+        const qreal containerY = padY + headerH + gapY;
+        const QRectF containerRect(containerX, containerY, containerW, containerH);
         const qreal thumbRadius = (cfg.cornerRadius == 0) ? 0.0 : qMax(2.0, 6.0 * scale);
+
+        // Container well / background for the thumbnail
+        QPainterPath cPath;
+        cPath.addRoundedRect(containerRect, thumbRadius, thumbRadius);
+        p.save();
+        p.setClipPath(cPath.intersected(bgPath));
+        p.fillPath(cPath, QColor(0, 0, 0, 70));
+
+        // Center thumbnail within container preserving aspect ratio
+        const qreal thumbX = containerRect.left() + (containerW - thumbW) / 2.0;
+        const qreal thumbY = containerRect.top() + (containerH - thumbH) / 2.0;
+        const QRectF thumbRect(thumbX, thumbY, thumbW, thumbH);
         QPainterPath tPath;
         tPath.addRoundedRect(thumbRect, thumbRadius, thumbRadius);
-        p.save();
         p.setClipPath(tPath.intersected(bgPath));
         if (isStashed) {
             p.setOpacity(0.65);
@@ -2511,6 +2547,45 @@ inline QImage renderHudActiveMarkerLine(const QSizeF &size, qreal scale, const Q
 
         p.setPen(QPen(coreColor, qMax(1.5, 2.5 * scale), Qt::SolidLine, Qt::RoundCap));
         p.drawLine(QPointF(2.0 * scale, midY), QPointF(w - 2.0 * scale, midY));
+    }
+
+    p.end();
+    return img;
+}
+
+inline QImage renderHudElevationShadow(const QSizeF &cardSize, qreal scale, qreal cornerRadius, qreal shadowPad = 24.0)
+{
+    const int pad = qMax(1, qRound(shadowPad * scale));
+    const int w = qMax(1, qRound(cardSize.width() * scale) + 2 * pad);
+    const int h = qMax(1, qRound(cardSize.height() * scale) + 2 * pad);
+    QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+
+    QPainter p(&img);
+    p.setRenderHint(QPainter::Antialiasing, true);
+
+    const qreal r = (cornerRadius > 0.0) ? cornerRadius * scale : 6.0 * scale;
+    const qreal cw = cardSize.width() * scale;
+    const qreal ch = cardSize.height() * scale;
+    const qreal baseY = 6.0 * scale;
+
+    const struct Pass {
+        qreal expand;
+        qreal offsetY;
+        int alpha;
+    } passes[] = {
+        {18.0 * scale, 12.0 * scale, 28},
+        {12.0 * scale, 9.0 * scale, 50},
+        {6.0 * scale, 6.0 * scale, 75},
+        {2.0 * scale, 3.0 * scale, 110}
+    };
+
+    for (const auto &pass : passes) {
+        const QRectF sRect(pad - pass.expand, pad + baseY + pass.offsetY - pass.expand,
+                           cw + 2.0 * pass.expand, ch + 2.0 * pass.expand);
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(0, 0, 0, pass.alpha));
+        p.drawRoundedRect(sRect, r + pass.expand, r + pass.expand);
     }
 
     p.end();

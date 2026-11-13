@@ -292,9 +292,11 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemBool(QStringLiteral("BadgeHudShowIcon"), *new bool, true);
     m_configSkeleton->addItemBool(QStringLiteral("BadgeHudShowThumbnail"), *new bool, true);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeHudIconSize"), *new int, 24);
-    m_configSkeleton->addItemInt(QStringLiteral("BadgeHudThumbnailSize"), *new int, 80);
-    m_configSkeleton->addItemInt(QStringLiteral("BadgeHudThumbnailWidth"), *new int, 80);
-    m_configSkeleton->addItemInt(QStringLiteral("BadgeHudThumbnailHeight"), *new int, 48);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeHudThumbnailSize"), *new int, 140);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeHudThumbnailWidth"), *new int, 140);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeHudThumbnailHeight"), *new int, 80);
+    m_configSkeleton->addItemBool(QStringLiteral("BadgeHudCardUniformWidth"), *new bool, true);
+    m_configSkeleton->addItemInt(QStringLiteral("BadgeHudActiveScale"), *new int, 125);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeHudLetterFontSize"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeHudCaptionFontSize"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("BadgeHudLocationFontSize"), *new int, 0);
@@ -669,7 +671,10 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->kcfg_BadgeHudShowHints, &QCheckBox::toggled, this, onBadgeSettingChanged);
     connect(m_ui->kcfg_NerdStatsEnabled, &QCheckBox::toggled, this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeHudIconSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
-    connect(m_ui->kcfg_BadgeHudThumbnailSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeHudThumbnailWidth, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeHudThumbnailHeight, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeHudCardUniformWidth, &QCheckBox::toggled, this, onBadgeSettingChanged);
+    connect(m_ui->kcfg_BadgeHudActiveScale, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeHudLetterFontSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeHudCaptionFontSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
     connect(m_ui->kcfg_BadgeHudLocationFontSize, qOverload<int>(&QSpinBox::valueChanged), this, onBadgeSettingChanged);
@@ -885,8 +890,13 @@ void ActiveWindowOutlineConfig::updateMarkWindowUI()
     m_ui->kcfg_BadgeHudIconSize->setEnabled(showHudIcon);
 
     const bool showHudThumb = badgesEnabled && m_ui->kcfg_BadgeHudShowThumbnail->isChecked();
-    m_ui->label_badgeHudThumbnailSize->setEnabled(showHudThumb);
-    m_ui->kcfg_BadgeHudThumbnailSize->setEnabled(showHudThumb);
+    m_ui->label_badgeHudThumbnailWidth->setEnabled(showHudThumb);
+    m_ui->kcfg_BadgeHudThumbnailWidth->setEnabled(showHudThumb);
+    m_ui->label_badgeHudThumbnailHeight->setEnabled(showHudThumb);
+    m_ui->kcfg_BadgeHudThumbnailHeight->setEnabled(showHudThumb);
+    m_ui->kcfg_BadgeHudCardUniformWidth->setEnabled(showHudThumb);
+    m_ui->label_badgeHudActiveScale->setEnabled(badgesEnabled);
+    m_ui->kcfg_BadgeHudActiveScale->setEnabled(badgesEnabled);
 
     m_ui->kcfg_BadgeLetterColor->setEnabled(badgesEnabled && !m_ui->kcfg_BadgeLetterColorAuto->isChecked());
     m_ui->kcfg_BadgeLabelUnmarkedColor->setEnabled(badgesEnabled && !m_ui->kcfg_BadgeLabelColorAuto->isChecked());
@@ -1310,7 +1320,10 @@ void ActiveWindowOutlineConfig::defaults()
     m_ui->kcfg_BadgeHudShowHints->setChecked(true);
     m_ui->kcfg_NerdStatsEnabled->setChecked(false);
     m_ui->kcfg_BadgeHudIconSize->setValue(24);
-    m_ui->kcfg_BadgeHudThumbnailSize->setValue(80);
+    m_ui->kcfg_BadgeHudThumbnailWidth->setValue(140);
+    m_ui->kcfg_BadgeHudThumbnailHeight->setValue(80);
+    m_ui->kcfg_BadgeHudCardUniformWidth->setChecked(true);
+    m_ui->kcfg_BadgeHudActiveScale->setValue(125);
     m_ui->kcfg_BadgeHudLetterFontSize->setValue(0);
     m_ui->kcfg_BadgeHudCaptionFontSize->setValue(0);
     m_ui->kcfg_BadgeHudLocationFontSize->setValue(0);
@@ -1649,10 +1662,13 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("BadgeHudShowIcon")] = m_ui->kcfg_BadgeHudShowIcon->isChecked();
     s[QStringLiteral("BadgeHudShowThumbnail")] = m_ui->kcfg_BadgeHudShowThumbnail->isChecked();
     s[QStringLiteral("BadgeHudIconSize")] = m_ui->kcfg_BadgeHudIconSize->value();
-    const int hudThumbSize = m_ui->kcfg_BadgeHudThumbnailSize->value();
-    s[QStringLiteral("BadgeHudThumbnailSize")] = hudThumbSize;
-    s[QStringLiteral("BadgeHudThumbnailWidth")] = hudThumbSize;
-    s[QStringLiteral("BadgeHudThumbnailHeight")] = hudThumbSize;
+    const int hudThumbW = m_ui->kcfg_BadgeHudThumbnailWidth->value();
+    const int hudThumbH = m_ui->kcfg_BadgeHudThumbnailHeight->value();
+    s[QStringLiteral("BadgeHudThumbnailSize")] = qMax(hudThumbW, hudThumbH);
+    s[QStringLiteral("BadgeHudThumbnailWidth")] = hudThumbW;
+    s[QStringLiteral("BadgeHudThumbnailHeight")] = hudThumbH;
+    s[QStringLiteral("BadgeHudCardUniformWidth")] = m_ui->kcfg_BadgeHudCardUniformWidth->isChecked();
+    s[QStringLiteral("BadgeHudActiveScale")] = m_ui->kcfg_BadgeHudActiveScale->value();
     s[QStringLiteral("BadgeHudLetterFontSize")] = m_ui->kcfg_BadgeHudLetterFontSize->value();
     s[QStringLiteral("BadgeHudCaptionFontSize")] = m_ui->kcfg_BadgeHudCaptionFontSize->value();
     s[QStringLiteral("BadgeHudLocationFontSize")] = m_ui->kcfg_BadgeHudLocationFontSize->value();
@@ -1877,10 +1893,21 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
     if (s.contains(QStringLiteral("BadgeHudShowIcon"))) m_ui->kcfg_BadgeHudShowIcon->setChecked(s[QStringLiteral("BadgeHudShowIcon")].toBool());
     if (s.contains(QStringLiteral("BadgeHudShowThumbnail"))) m_ui->kcfg_BadgeHudShowThumbnail->setChecked(s[QStringLiteral("BadgeHudShowThumbnail")].toBool());
     if (s.contains(QStringLiteral("BadgeHudIconSize"))) m_ui->kcfg_BadgeHudIconSize->setValue(s[QStringLiteral("BadgeHudIconSize")].toInt());
-    if (s.contains(QStringLiteral("BadgeHudThumbnailSize"))) {
-        m_ui->kcfg_BadgeHudThumbnailSize->setValue(s[QStringLiteral("BadgeHudThumbnailSize")].toInt());
-    } else if (s.contains(QStringLiteral("BadgeHudThumbnailWidth"))) {
-        m_ui->kcfg_BadgeHudThumbnailSize->setValue(s[QStringLiteral("BadgeHudThumbnailWidth")].toInt());
+    if (s.contains(QStringLiteral("BadgeHudThumbnailWidth"))) {
+        m_ui->kcfg_BadgeHudThumbnailWidth->setValue(s[QStringLiteral("BadgeHudThumbnailWidth")].toInt());
+    } else if (s.contains(QStringLiteral("BadgeHudThumbnailSize"))) {
+        m_ui->kcfg_BadgeHudThumbnailWidth->setValue(s[QStringLiteral("BadgeHudThumbnailSize")].toInt());
+    }
+    if (s.contains(QStringLiteral("BadgeHudThumbnailHeight"))) {
+        m_ui->kcfg_BadgeHudThumbnailHeight->setValue(s[QStringLiteral("BadgeHudThumbnailHeight")].toInt());
+    } else if (s.contains(QStringLiteral("BadgeHudThumbnailSize"))) {
+        m_ui->kcfg_BadgeHudThumbnailHeight->setValue(s[QStringLiteral("BadgeHudThumbnailSize")].toInt());
+    }
+    if (s.contains(QStringLiteral("BadgeHudCardUniformWidth"))) {
+        m_ui->kcfg_BadgeHudCardUniformWidth->setChecked(s[QStringLiteral("BadgeHudCardUniformWidth")].toBool());
+    }
+    if (s.contains(QStringLiteral("BadgeHudActiveScale"))) {
+        m_ui->kcfg_BadgeHudActiveScale->setValue(s[QStringLiteral("BadgeHudActiveScale")].toInt());
     }
     if (s.contains(QStringLiteral("BadgeHudLetterFontSize"))) m_ui->kcfg_BadgeHudLetterFontSize->setValue(s[QStringLiteral("BadgeHudLetterFontSize")].toInt());
     if (s.contains(QStringLiteral("BadgeHudCaptionFontSize"))) m_ui->kcfg_BadgeHudCaptionFontSize->setValue(s[QStringLiteral("BadgeHudCaptionFontSize")].toInt());
@@ -1905,7 +1932,7 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
     if (s.contains(QStringLiteral("BadgeThumbnailWidth"))) {
         const int tw = s[QStringLiteral("BadgeThumbnailWidth")].toInt();
         m_ui->kcfg_BadgeWindowThumbnailSize->setValue(tw);
-        m_ui->kcfg_BadgeHudThumbnailSize->setValue(tw);
+        m_ui->kcfg_BadgeHudThumbnailWidth->setValue(tw);
     }
 
     if (s.contains(QStringLiteral("BadgeLetterColorAuto"))) m_ui->kcfg_BadgeLetterColorAuto->setChecked(s[QStringLiteral("BadgeLetterColorAuto")].toBool());
@@ -2473,10 +2500,13 @@ void ActiveWindowOutlineConfig::save()
     group.writeEntry(QStringLiteral("BadgeWindowThumbnailHeight"), winThumbSize);
     group.writeEntry(QStringLiteral("BadgeThumbnailWidth"), winThumbSize);
     group.writeEntry(QStringLiteral("BadgeThumbnailHeight"), winThumbSize);
-    const int hudThumbSize = m_ui->kcfg_BadgeHudThumbnailSize->value();
-    group.writeEntry(QStringLiteral("BadgeHudThumbnailSize"), hudThumbSize);
-    group.writeEntry(QStringLiteral("BadgeHudThumbnailWidth"), hudThumbSize);
-    group.writeEntry(QStringLiteral("BadgeHudThumbnailHeight"), hudThumbSize);
+    const int hudThumbW = m_ui->kcfg_BadgeHudThumbnailWidth->value();
+    const int hudThumbH = m_ui->kcfg_BadgeHudThumbnailHeight->value();
+    group.writeEntry(QStringLiteral("BadgeHudThumbnailSize"), qMax(hudThumbW, hudThumbH));
+    group.writeEntry(QStringLiteral("BadgeHudThumbnailWidth"), hudThumbW);
+    group.writeEntry(QStringLiteral("BadgeHudThumbnailHeight"), hudThumbH);
+    group.writeEntry(QStringLiteral("BadgeHudCardUniformWidth"), m_ui->kcfg_BadgeHudCardUniformWidth->isChecked());
+    group.writeEntry(QStringLiteral("BadgeHudActiveScale"), m_ui->kcfg_BadgeHudActiveScale->value());
     group.writeEntry(QStringLiteral("BadgeHudIncludeAll"), m_ui->kcfg_BadgeHudIncludeAll->isChecked());
     group.writeEntry(QStringLiteral("BadgeHudGroupWindows"), m_ui->kcfg_BadgeHudGroupWindows->isChecked());
     group.writeEntry(QStringLiteral("BadgeHudGroupBorderWidth"), m_ui->kcfg_BadgeHudGroupBorderWidth->value());

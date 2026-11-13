@@ -783,11 +783,11 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     m_badgeConfig.hudShowThumbnail = config.readEntry("BadgeHudShowThumbnail", true);
     m_badgeConfig.hudBadgeSize = qBound(24, config.readEntry("BadgeHudSize", 44), 500);
     m_badgeConfig.hudIconSize = qBound(12, config.readEntry("BadgeHudIconSize", 24), 500);
-    const int defHudThumb = qMax(config.readEntry("BadgeHudThumbnailWidth", 80), config.readEntry("BadgeHudThumbnailHeight", 48));
-    const int hudThumbSize = qBound(24, config.readEntry("BadgeHudThumbnailSize", defHudThumb), 3500);
-    m_badgeConfig.hudThumbnailSize = hudThumbSize;
-    m_badgeConfig.hudThumbnailWidth = hudThumbSize;
-    m_badgeConfig.hudThumbnailHeight = hudThumbSize;
+    m_badgeConfig.hudThumbnailWidth = qBound(24, config.readEntry("BadgeHudThumbnailWidth", 140), 3500);
+    m_badgeConfig.hudThumbnailHeight = qBound(16, config.readEntry("BadgeHudThumbnailHeight", 80), 3500);
+    m_badgeConfig.hudThumbnailSize = qMax(m_badgeConfig.hudThumbnailWidth, m_badgeConfig.hudThumbnailHeight);
+    m_badgeConfig.hudCardUniformWidth = config.readEntry("BadgeHudCardUniformWidth", true);
+    m_badgeConfig.hudActiveScale = qBound(100, config.readEntry("BadgeHudActiveScale", 125), 200) / 100.0;
     m_badgeConfig.hudLetterFontSize = qBound(0, config.readEntry("BadgeHudLetterFontSize", 0), 200);
     m_badgeConfig.hudCaptionFontSize = qBound(0, config.readEntry("BadgeHudCaptionFontSize", 0), 200);
     m_badgeConfig.hudLocationFontSize = qBound(0, config.readEntry("BadgeHudLocationFontSize", 0), 200);

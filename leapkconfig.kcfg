@@ -435,19 +435,27 @@
             <max>500</max>
         </entry>
         <entry name="BadgeHudThumbnailSize" type="Int">
-            <default>80</default>
+            <default>140</default>
             <min>24</min>
             <max>3500</max>
         </entry>
         <entry name="BadgeHudThumbnailWidth" type="Int">
-            <default>80</default>
+            <default>140</default>
             <min>24</min>
             <max>3500</max>
         </entry>
         <entry name="BadgeHudThumbnailHeight" type="Int">
-            <default>48</default>
+            <default>80</default>
             <min>16</min>
             <max>3500</max>
+        </entry>
+        <entry name="BadgeHudCardUniformWidth" type="Bool">
+            <default>true</default>
+        </entry>
+        <entry name="BadgeHudActiveScale" type="Int">
+            <default>125</default>
+            <min>100</min>
+            <max>200</max>
         </entry>
         <entry name="BadgeHudLetterFontSize" type="Int">
             <default>0</default>

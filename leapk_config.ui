@@ -2487,19 +2487,48 @@
                </widget>
               </item>
               <item row="7" column="0">
-               <widget class="QLabel" name="label_badgeHudThumbnailSize">
+               <widget class="QLabel" name="label_badgeHudThumbnailWidth">
                 <property name="text">
-                 <string>Window preview size:</string>
+                 <string>Thumbnail container width:</string>
                 </property>
                 <property name="toolTip">
-                 <string>Maximum size of the window preview thumbnail in HUD cards in pixels (default: 80 px).</string>
+                 <string>Width of the window preview container box in HUD cards in pixels (default: 140 px).</string>
                 </property>
                </widget>
               </item>
               <item row="7" column="1">
-               <widget class="QSpinBox" name="kcfg_BadgeHudThumbnailSize">
+               <widget class="QSpinBox" name="kcfg_BadgeHudThumbnailWidth">
                 <property name="minimum">
                  <number>24</number>
+                </property>
+                <property name="maximum">
+                 <number>3500</number>
+                </property>
+                <property name="singleStep">
+                 <number>4</number>
+                </property>
+                <property name="value">
+                 <number>140</number>
+                </property>
+                <property name="suffix">
+                 <string> px</string>
+                </property>
+               </widget>
+              </item>
+              <item row="8" column="0">
+               <widget class="QLabel" name="label_badgeHudThumbnailHeight">
+                <property name="text">
+                 <string>Thumbnail container height:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Height of the window preview container box in HUD cards in pixels (default: 80 px).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="8" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeHudThumbnailHeight">
+                <property name="minimum">
+                 <number>16</number>
                 </property>
                 <property name="maximum">
                  <number>3500</number>
@@ -2512,6 +2541,48 @@
                 </property>
                 <property name="suffix">
                  <string> px</string>
+                </property>
+               </widget>
+              </item>
+              <item row="9" column="0" colspan="2">
+               <widget class="QCheckBox" name="kcfg_BadgeHudCardUniformWidth">
+                <property name="text">
+                 <string>Uniform card width in grid (align rows and columns)</string>
+                </property>
+                <property name="checked">
+                 <bool>true</bool>
+                </property>
+                <property name="toolTip">
+                 <string>When checked, all HUD cards have the exact same container width, forming a neat and symmetrical grid arrangement.</string>
+                </property>
+               </widget>
+              </item>
+              <item row="10" column="0">
+               <widget class="QLabel" name="label_badgeHudActiveScale">
+                <property name="text">
+                 <string>Active window zoom scale:</string>
+                </property>
+                <property name="toolTip">
+                 <string>Magnification scale for the selected active window card in HUD (100% = normal, 125% = elevated +25%, up to 200%).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="10" column="1">
+               <widget class="QSpinBox" name="kcfg_BadgeHudActiveScale">
+                <property name="minimum">
+                 <number>100</number>
+                </property>
+                <property name="maximum">
+                 <number>200</number>
+                </property>
+                <property name="singleStep">
+                 <number>5</number>
+                </property>
+                <property name="value">
+                 <number>125</number>
+                </property>
+                <property name="suffix">
+                 <string> %</string>
                 </property>
                </widget>
               </item>

@@ -492,9 +492,11 @@ set_default BadgeWindowLabelFontSize 0
 set_default BadgeHudShowIcon true
 set_default BadgeHudShowThumbnail true
 set_default BadgeHudIconSize 24
-set_default BadgeHudThumbnailSize 80
-set_default BadgeHudThumbnailWidth 80
-set_default BadgeHudThumbnailHeight 48
+set_default BadgeHudThumbnailSize 140
+set_default BadgeHudThumbnailWidth 140
+set_default BadgeHudThumbnailHeight 80
+set_default BadgeHudCardUniformWidth true
+set_default BadgeHudActiveScale 125
 set_default BadgeHudLetterFontSize 0
 set_default BadgeHudCaptionFontSize 0
 set_default BadgeHudLocationFontSize 0

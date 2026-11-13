@@ -1958,6 +1958,66 @@ void testMultiInstanceWindowGrouping()
     std::cout << "testMultiInstanceWindowGrouping PASSED\n";
 }
 
+void testHudUniformGridAndActiveElevation()
+{
+    OutlineBadge::BadgeConfig cfg;
+    cfg.hudShowThumbnail = true;
+    cfg.hudThumbnailWidth = 140;
+    cfg.hudThumbnailHeight = 80;
+    cfg.hudCardUniformWidth = true;
+    cfg.hudActiveScale = 1.25;
+
+    // Window 1: 16:9 thumbnail
+    const QSize thumb16_9(1920, 1080);
+    const QSizeF sz1 = OutlineBadge::computeHudPillSize(cfg, QString(), QStringLiteral("Test Window"), 44, 1.0, QString(), false, true, thumb16_9);
+
+    // Window 2: 4:3 thumbnail
+    const QSize thumb4_3(1024, 768);
+    const QSizeF sz2 = OutlineBadge::computeHudPillSize(cfg, QString(), QStringLiteral("Short"), 44, 1.0, QString(), false, true, thumb4_3);
+
+    // Window 3: Tall vertical window (e.g. 9:16 terminal or chat)
+    const QSize thumbVertical(600, 1200);
+    const QSizeF sz3 = OutlineBadge::computeHudPillSize(cfg, QString(), QStringLiteral("Telegram"), 44, 1.0, QString(), false, true, thumbVertical);
+
+    // Uniform container height and width: all cards in uniform grid mode MUST have exact same dimensions
+    assert(sz1.height() == sz2.height());
+    assert(sz1.height() == sz3.height());
+    assert(sz1.width() == sz2.width());
+    assert(sz1.width() == sz3.width());
+
+    // Render cards with selected highlight and verify dimensions
+    QImage mockThumb(1920, 1080, QImage::Format_ARGB32_Premultiplied);
+    mockThumb.fill(QColor(40, 60, 90));
+    const QImage cardNormal = OutlineBadge::renderOffscreenTargetPill(cfg, QChar('A'), QColor(35, 38, 41), QColor(255, 255, 255),
+                                                                    QString(), QStringLiteral("Test Window"), 44, 1.0, QString(),
+                                                                    QIcon(), mockThumb, false, QString(), false, 0, false, false, false, false);
+    assert(!cardNormal.isNull());
+    assert(cardNormal.width() == qRound(sz1.width()));
+    assert(cardNormal.height() == qRound(sz1.height()));
+
+    const QImage cardSelected = OutlineBadge::renderOffscreenTargetPill(cfg, QChar('A'), QColor(35, 38, 41), QColor(255, 255, 255),
+                                                                      QString(), QStringLiteral("Test Window"), 44, 1.0, QString(),
+                                                                      QIcon(), mockThumb, false, QString(), false, 0, false, false, false, true);
+    assert(!cardSelected.isNull());
+    assert(cardSelected.width() == cardNormal.width());
+    assert(cardSelected.height() == cardNormal.height());
+
+    // Elevation drop shadow rendering
+    const QImage shadowImg = OutlineBadge::renderHudElevationShadow(sz1, 1.0, cfg.cornerRadius, 24.0);
+    assert(!shadowImg.isNull());
+    assert(shadowImg.width() == qRound(sz1.width() + 48.0));
+    assert(shadowImg.height() == qRound(sz1.height() + 48.0));
+
+    // Active scale magnification
+    const qreal activeW = sz1.width() * cfg.hudActiveScale;
+    const qreal activeH = sz1.height() * cfg.hudActiveScale;
+    assert(activeW > sz1.width());
+    assert(activeH > sz1.height());
+    assert(qAbs(activeW - sz1.width() * 1.25) < 0.001);
+
+    std::cout << "testHudUniformGridAndActiveElevation PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
@@ -1995,6 +2055,7 @@ int main(int argc, char *argv[])
     testBadgePreviewDismissHitTesting();
     testFixedLetterColorsInBadges();
     testMultiInstanceWindowGrouping();
+    testHudUniformGridAndActiveElevation();
 
     std::cout << "All badge tests passed successfully." << std::endl;
     return 0;

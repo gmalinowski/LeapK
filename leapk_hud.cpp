@@ -71,11 +71,23 @@ static void parseBadgeConfigFromJson(OutlineBadge::BadgeConfig &cfg, int &badgeP
     if (obj.contains(QStringLiteral("BadgeHudIconSize"))) {
         cfg.hudIconSize = qBound(12, obj.value(QStringLiteral("BadgeHudIconSize")).toInt(24), 500);
     }
+    if (obj.contains(QStringLiteral("BadgeHudThumbnailWidth"))) {
+        cfg.hudThumbnailWidth = qBound(24, obj.value(QStringLiteral("BadgeHudThumbnailWidth")).toInt(140), 3500);
+    }
+    if (obj.contains(QStringLiteral("BadgeHudThumbnailHeight"))) {
+        cfg.hudThumbnailHeight = qBound(16, obj.value(QStringLiteral("BadgeHudThumbnailHeight")).toInt(80), 3500);
+    }
     if (obj.contains(QStringLiteral("BadgeHudThumbnailSize"))) {
-        const int s = qBound(24, obj.value(QStringLiteral("BadgeHudThumbnailSize")).toInt(80), 3500);
+        const int s = qBound(24, obj.value(QStringLiteral("BadgeHudThumbnailSize")).toInt(140), 3500);
         cfg.hudThumbnailSize = s;
-        cfg.hudThumbnailWidth = s;
-        cfg.hudThumbnailHeight = s;
+        if (!obj.contains(QStringLiteral("BadgeHudThumbnailWidth"))) cfg.hudThumbnailWidth = s;
+        if (!obj.contains(QStringLiteral("BadgeHudThumbnailHeight"))) cfg.hudThumbnailHeight = s;
+    }
+    if (obj.contains(QStringLiteral("BadgeHudCardUniformWidth"))) {
+        cfg.hudCardUniformWidth = obj.value(QStringLiteral("BadgeHudCardUniformWidth")).toBool(true);
+    }
+    if (obj.contains(QStringLiteral("BadgeHudActiveScale"))) {
+        cfg.hudActiveScale = qBound(100, obj.value(QStringLiteral("BadgeHudActiveScale")).toInt(125), 200) / 100.0;
     }
     if (obj.contains(QStringLiteral("BadgeHudLetterFontSize"))) {
         cfg.hudLetterFontSize = qBound(0, obj.value(QStringLiteral("BadgeHudLetterFontSize")).toInt(0), 200);
@@ -2051,14 +2063,28 @@ QRectF ActiveWindowOutlineEffect::computeActiveMarkerRectForTargets(
 
     const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
 
-    for (int i = 0; i < targets.size(); ++i) {
-        if (targets.at(i).second == currActive) {
-            return QRectF();
-        }
-        if (!m_subLeapActive && cfg.hudGroupWindows && m_groupJumpLetters.contains(targets.at(i).first)) {
+    for (int i = 0; i < targets.size() && i < pillRects.size(); ++i) {
+        bool match = (targets.at(i).second == currActive);
+        if (!match && !m_subLeapActive && cfg.hudGroupWindows && m_groupJumpLetters.contains(targets.at(i).first)) {
             const auto &winList = m_groupJumpLetters.value(targets.at(i).first);
             if (winList.contains(currActive)) {
-                return QRectF();
+                match = true;
+            }
+        }
+        if (match) {
+            const QRectF baseRect = pillRects.at(i);
+            const qreal activeScale = qBound(1.0, cfg.hudActiveScale, 2.0);
+            const QPointF c = baseRect.center();
+            const qreal nw = baseRect.width() * activeScale;
+            const qreal nh = baseRect.height() * activeScale;
+            const QRectF cardRect(c.x() - nw / 2.0, c.y() - nh / 2.0, nw, nh);
+            const int clampedPos = qBound(0, hudPos, 3);
+            if (clampedPos == 0 || clampedPos == 1) { // Bottom or Top
+                return QRectF(cardRect.left() + 6.0, cardRect.bottom() + 4.0, qMax(16.0, cardRect.width() - 12.0), 6.0);
+            } else if (clampedPos == 2) { // Left
+                return QRectF(cardRect.right() + 4.0, cardRect.top() + 6.0, 6.0, qMax(16.0, cardRect.height() - 12.0));
+            } else { // Right
+                return QRectF(cardRect.left() - 10.0, cardRect.top() + 6.0, 6.0, qMax(16.0, cardRect.height() - 12.0));
             }
         }
     }
@@ -2139,6 +2165,10 @@ QList<QRectF> ActiveWindowOutlineEffect::computeAllHudCollisionRects(
     }
     if (activeMarkerRect.isValid() && !activeMarkerRect.isEmpty()) {
         allPillsBounds = allPillsBounds.isEmpty() ? activeMarkerRect : allPillsBounds.united(activeMarkerRect);
+    }
+    const qreal activePad = (cfg.hudActiveScale > 1.0) ? (28.0 * cfg.hudActiveScale) : 24.0;
+    if (!allPillsBounds.isEmpty()) {
+        allPillsBounds = allPillsBounds.adjusted(-activePad, -activePad, activePad, activePad);
     }
 
     if (!cfg.hudGroupWindows && !m_subLeapActive) {
@@ -2370,10 +2400,64 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, effMargin, 12.0, hudRowGap, dividerAfterIndex, 28.0, &dividerRects);
     const QRectF activeMarkerRect = computeActiveMarkerRectForTargets(rects, targets, dividerAfterIndex, hudPos);
 
+    const qint64 animElapsed = (m_hudSelectAnimActive && m_hudSelectAnimTimer.isValid())
+        ? m_hudSelectAnimTimer.elapsed()
+        : 999;
+    const bool isAnimActive = m_jumpMode && m_hudSelectAnimActive && (animElapsed < 250);
+    const qreal progress = isAnimActive ? qBound(0.0, animElapsed / 250.0, 1.0) : 1.0;
+    const qreal easeOut = 1.0 - std::pow(1.0 - progress, 3.0);
+
+    const int activePillIdx = m_searchModeActive ? m_searchSelectedIndex : activeDockIndex;
+    const int prevPillIdx = m_hudPrevActiveDockIndex;
+    const qreal maxActiveScale = qBound(1.0, hudCfg.hudActiveScale, 2.0);
+
+    auto computeCardScale = [&](int idx) -> qreal {
+        if (maxActiveScale <= 1.001) {
+            return 1.0;
+        }
+        if (idx == activePillIdx) {
+            return isAnimActive ? (1.0 + (maxActiveScale - 1.0) * easeOut) : maxActiveScale;
+        }
+        if (isAnimActive && idx == prevPillIdx && prevPillIdx >= 0 && prevPillIdx != activePillIdx) {
+            return 1.0 + (maxActiveScale - 1.0) * (1.0 - easeOut);
+        }
+        return 1.0;
+    };
+
+    auto computeCardRect = [&](int idx) -> QRectF {
+        if (idx < 0 || idx >= rects.size()) {
+            return QRectF();
+        }
+        QRectF r = rects.at(idx);
+        const bool pillAudio = (idx < targets.size() && targets.at(idx).second)
+            ? m_audioTracker.isWindowPlaying(targets.at(idx).second->pid(), targets.at(idx).second->caption(), targets.at(idx).second->windowClass())
+            : false;
+        const bool pulseCard = hudCfg.activeTheme.resolveBool(QStringLiteral("$audioPulseBadge"), hudCfg.activeTheme.hudCard.audioPulseBadge);
+        const double pulseIntensity = hudCfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseIntensity"), hudCfg.activeTheme.hudCard.audioPulseIntensity);
+        const double pulseSpeed = hudCfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseSpeed"), hudCfg.activeTheme.hudCard.audioPulseSpeed);
+        if (pillAudio && pulseCard && pulseIntensity > 0.001) {
+            const qint64 elapsedMs = m_animationClock.isValid() ? m_animationClock.elapsed() : 0;
+            const qreal elapsedSec = elapsedMs / 1000.0;
+            const qreal pulse = 1.0 + (0.05 * pulseIntensity) * std::sin(elapsedSec * 8.0 * pulseSpeed);
+            const QPointF center = r.center();
+            const qreal pw = r.width() * pulse;
+            const qreal ph = r.height() * pulse;
+            r = QRectF(center.x() - pw / 2.0, center.y() - ph / 2.0, pw, ph);
+        }
+        const qreal s = computeCardScale(idx);
+        if (qAbs(s - 1.0) > 0.001) {
+            const QPointF center = r.center();
+            const qreal sw = r.width() * s;
+            const qreal sh = r.height() * s;
+            r = QRectF(center.x() - sw / 2.0, center.y() - sh / 2.0, sw, sh);
+        }
+        return r;
+    };
+
     m_hudTargetPillRects.clear();
     for (int i = 0; i < targets.size() && i < rects.size(); ++i) {
         if (targets.at(i).second) {
-            m_hudTargetPillRects.append({rects.at(i), targets.at(i).second});
+            m_hudTargetPillRects.append({computeCardRect(i), targets.at(i).second});
         }
     }
     m_hudCurrentActiveDockIndex = activeDockIndex;
@@ -2531,20 +2615,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
                 ? m_audioTracker.isWindowPlaying(targets.at(i).second->pid(), targets.at(i).second->caption(), targets.at(i).second->windowClass())
                 : false;
             if (pillAudio) {
-                QRectF rect = rects.at(i);
-                const bool pulseCard = hudCfg.activeTheme.resolveBool(QStringLiteral("$audioPulseBadge"), hudCfg.activeTheme.hudCard.audioPulseBadge);
-                const double pulseIntensity = hudCfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseIntensity"), hudCfg.activeTheme.hudCard.audioPulseIntensity);
-                const double pulseSpeed = hudCfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseSpeed"), hudCfg.activeTheme.hudCard.audioPulseSpeed);
-                if (pulseCard && pulseIntensity > 0.001) {
-                    const qint64 elapsedMs = m_animationClock.isValid() ? m_animationClock.elapsed() : 0;
-                    const qreal elapsedSec = elapsedMs / 1000.0;
-                    const qreal pulse = 1.0 + (0.05 * pulseIntensity) * std::sin(elapsedSec * 8.0 * pulseSpeed);
-                    const QPointF center = rect.center();
-                    const qreal pw = rect.width() * pulse;
-                    const qreal ph = rect.height() * pulse;
-                    rect = QRectF(center.x() - pw / 2.0, center.y() - ph / 2.0, pw, ph);
-                }
-                renderHudPillAudioShader(renderTarget, viewport, rect, scale, hudCfg, false /* isOutlinePass = glow */);
+                renderHudPillAudioShader(renderTarget, viewport, computeCardRect(i), scale, hudCfg, false /* isOutlinePass = glow */);
             }
         }
     }
@@ -2554,25 +2625,51 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     shader->setUniform(GLShader::Mat4Uniform::ModelViewProjectionMatrix, viewport.projectionMatrix());
     shader->setColorspaceUniforms(ColorDescription::sRGB, renderTarget.colorDescription(), RenderingIntent::Perceptual);
     shader->setUniform(GLShader::Vec4Uniform::ModulationConstant, QVector4D(1.0f, 1.0f, 1.0f, 1.0f));
-    for (int i = 0; i < pills.size(); ++i) {
-        const PillItem &item = pills.at(i);
-        QRectF rect = rects.at(i);
 
-        const bool pillAudio = (i < targets.size() && targets.at(i).second)
-            ? m_audioTracker.isWindowPlaying(targets.at(i).second->pid(), targets.at(i).second->caption(), targets.at(i).second->windowClass())
-            : false;
-        const bool pulseCard = hudCfg.activeTheme.resolveBool(QStringLiteral("$audioPulseBadge"), hudCfg.activeTheme.hudCard.audioPulseBadge);
-        const double pulseIntensity = hudCfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseIntensity"), hudCfg.activeTheme.hudCard.audioPulseIntensity);
-        const double pulseSpeed = hudCfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseSpeed"), hudCfg.activeTheme.hudCard.audioPulseSpeed);
-        if (pillAudio && pulseCard && pulseIntensity > 0.001) {
-            const qint64 elapsedMs = m_animationClock.isValid() ? m_animationClock.elapsed() : 0;
-            const qreal elapsedSec = elapsedMs / 1000.0;
-            const qreal pulse = 1.0 + (0.05 * pulseIntensity) * std::sin(elapsedSec * 8.0 * pulseSpeed);
-            const QPointF center = rect.center();
-            const qreal pw = rect.width() * pulse;
-            const qreal ph = rect.height() * pulse;
-            rect = QRectF(center.x() - pw / 2.0, center.y() - ph / 2.0, pw, ph);
+    auto drawElevationShadow = [&](int idx, float alpha) {
+        if (alpha <= 0.005f || idx < 0 || idx >= pills.size()) {
+            return;
         }
+        const QRectF cardRect = computeCardRect(idx);
+        const qreal shadowPad = 24.0;
+        const QImage shadowImg = OutlineBadge::renderHudElevationShadow(cardRect.size(), scale, hudCfg.cornerRadius, shadowPad);
+        auto shadowTex = GLTexture::upload(shadowImg);
+        if (!shadowTex) {
+            return;
+        }
+        shadowTex->setFilter(GL_LINEAR);
+        shadowTex->setWrapMode(GL_CLAMP_TO_EDGE);
+
+        const float x0 = (cardRect.left() - shadowPad) * scale;
+        const float y0 = (cardRect.top() - shadowPad) * scale;
+        const float x1 = (cardRect.right() + shadowPad) * scale;
+        const float y1 = (cardRect.bottom() + shadowPad) * scale;
+
+        const std::array<GLVertex2D, 6> verts = {{
+            {QVector2D(x0, y0), QVector2D(0.0f, 0.0f)},
+            {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+            {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+            {QVector2D(x1, y0), QVector2D(1.0f, 0.0f)},
+            {QVector2D(x1, y1), QVector2D(1.0f, 1.0f)},
+            {QVector2D(x0, y1), QVector2D(0.0f, 1.0f)},
+        }};
+
+        auto vbo = GLVertexBuffer::streamingBuffer();
+        vbo->setVertices(verts);
+
+        shader->setUniform(GLShader::Vec4Uniform::ModulationConstant, QVector4D(alpha, alpha, alpha, alpha));
+        shader->setUniform(GLShader::Mat4Uniform::TextureMatrix, shadowTex->matrix(NormalizedCoordinates));
+        shadowTex->bind();
+        vbo->render(GL_TRIANGLES);
+        shadowTex->unbind();
+    };
+
+    auto drawCardQuad = [&](int idx) {
+        if (idx < 0 || idx >= pills.size()) {
+            return;
+        }
+        const PillItem &item = pills.at(idx);
+        const QRectF rect = computeCardRect(idx);
 
         const float x0 = rect.left() * scale;
         const float y0 = rect.top() * scale;
@@ -2591,10 +2688,30 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         auto vbo = GLVertexBuffer::streamingBuffer();
         vbo->setVertices(verts);
 
+        shader->setUniform(GLShader::Vec4Uniform::ModulationConstant, QVector4D(1.0f, 1.0f, 1.0f, 1.0f));
         shader->setUniform(GLShader::Mat4Uniform::TextureMatrix, item.texture->matrix(NormalizedCoordinates));
         item.texture->bind();
         vbo->render(GL_TRIANGLES);
         item.texture->unbind();
+    };
+
+    // Pass 1: Draw non-active, non-animating cards
+    for (int i = 0; i < pills.size(); ++i) {
+        if (i == activePillIdx) continue;
+        if (isAnimActive && i == prevPillIdx) continue;
+        drawCardQuad(i);
+    }
+
+    // Pass 2: Draw previous animated card (shrinking)
+    if (isAnimActive && prevPillIdx >= 0 && prevPillIdx < pills.size() && prevPillIdx != activePillIdx) {
+        drawElevationShadow(prevPillIdx, float(1.0 - easeOut));
+        drawCardQuad(prevPillIdx);
+    }
+
+    // Pass 3: Draw active card (elevated with 3D drop shadow)
+    if (activePillIdx >= 0 && activePillIdx < pills.size()) {
+        drawElevationShadow(activePillIdx, isAnimActive ? float(easeOut) : 1.0f);
+        drawCardQuad(activePillIdx);
     }
 
     // 2c. Render Audio Shader Outline on top of audio HUD cards (if outline target)
@@ -2604,20 +2721,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
                 ? m_audioTracker.isWindowPlaying(targets.at(i).second->pid(), targets.at(i).second->caption(), targets.at(i).second->windowClass())
                 : false;
             if (pillAudio) {
-                QRectF rect = rects.at(i);
-                const bool pulseCard = hudCfg.activeTheme.resolveBool(QStringLiteral("$audioPulseBadge"), hudCfg.activeTheme.hudCard.audioPulseBadge);
-                const double pulseIntensity = hudCfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseIntensity"), hudCfg.activeTheme.hudCard.audioPulseIntensity);
-                const double pulseSpeed = hudCfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseSpeed"), hudCfg.activeTheme.hudCard.audioPulseSpeed);
-                if (pulseCard && pulseIntensity > 0.001) {
-                    const qint64 elapsedMs = m_animationClock.isValid() ? m_animationClock.elapsed() : 0;
-                    const qreal elapsedSec = elapsedMs / 1000.0;
-                    const qreal pulse = 1.0 + (0.05 * pulseIntensity) * std::sin(elapsedSec * 8.0 * pulseSpeed);
-                    const QPointF center = rect.center();
-                    const qreal pw = rect.width() * pulse;
-                    const qreal ph = rect.height() * pulse;
-                    rect = QRectF(center.x() - pw / 2.0, center.y() - ph / 2.0, pw, ph);
-                }
-                renderHudPillAudioShader(renderTarget, viewport, rect, scale, hudCfg, true /* isOutlinePass = outline */);
+                renderHudPillAudioShader(renderTarget, viewport, computeCardRect(i), scale, hudCfg, true /* isOutlinePass = outline */);
             }
         }
     }
@@ -2657,12 +2761,6 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     }
 
     // 4. Render active HUD marker line with smooth transition animation
-    const qint64 animElapsed = (m_hudSelectAnimActive && m_hudSelectAnimTimer.isValid())
-        ? m_hudSelectAnimTimer.elapsed()
-        : 999;
-    const bool isAnimActive = m_jumpMode && m_hudSelectAnimActive && (animElapsed < 250);
-    const qreal progress = isAnimActive ? qBound(0.0, animElapsed / 250.0, 1.0) : 1.0;
-    const qreal easeOut = 1.0 - std::pow(1.0 - progress, 3.0);
 
     auto drawMarker = [&](const QRectF &mRect, float alpha) {
         if (!mRect.isValid() || mRect.isEmpty() || alpha <= 0.005f) {
@@ -2745,11 +2843,11 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     }
 
     QRectF allPillsBounds;
-    for (const QRectF &r : rects) {
-        if (allPillsBounds.isEmpty()) {
-            allPillsBounds = r;
-        } else {
-            allPillsBounds = allPillsBounds.united(r);
+    for (int i = 0; i < rects.size(); ++i) {
+        const QRectF cRect = computeCardRect(i);
+        allPillsBounds = allPillsBounds.isEmpty() ? cRect : allPillsBounds.united(cRect);
+        if (i == activePillIdx) {
+            allPillsBounds = allPillsBounds.united(cRect.adjusted(-24.0, -24.0, 24.0, 24.0));
         }
     }
     if (activeMarkerRect.isValid() && !activeMarkerRect.isEmpty()) {

@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta99-exp] - 2026-11-13
+
+### Added
+- **Uniform Card & Thumbnail Container Dimensions in HUD Grid ("Kratka")**:
+  - Implemented configurable fixed container dimensions for HUD thumbnails (`BadgeHudThumbnailWidth` default 140 px, `BadgeHudThumbnailHeight` default 80 px) and uniform card width (`BadgeHudCardUniformWidth` default true).
+  - Miniatures and badges in HUD now align symmetrically into an organized grid where all cards have identical container heights and uniform widths regardless of window aspect ratios (16:9, 4:3, or tall vertical windows).
+  - Miniature windows preserve aspect ratio (`Qt::KeepAspectRatio`) centered inside a dark container well (`QPainterPath` with subtle background and rounded corners).
+  - Long window titles are cleanly elided with `Qt::ElideRight` to fit the uniform container width.
+- **Active Window Zoom & 3D Elevation Drop Shadow in HUD Dock**:
+  - Configurable magnification scale for active HUD cards (`BadgeHudActiveScale`, 100% to 200%, default 125% / 1.25x).
+  - Added elevated 3D drop shadow (`renderHudElevationShadow`) drawn beneath the active card for realistic depth and "wypukłość" effect.
+  - Multi-pass rendering ensures the active zoomed card and its shadow render cleanly above neighboring cards without clipping.
+  - Smooth animation (`easeOut` over 250ms) between old and new cards when cycling (`Shift + .`, `Meta + Space`).
+  - High-contrast active card border with 3.5px width, 255 alpha, and an inner bevel relief highlight ring.
+  - Fixed active neon indicator bar (`computeActiveMarkerRectForTargets`) so it tracks and underlines the active dock card dynamically.
+  - Added unit test `testHudUniformGridAndActiveElevation` in `tests/badge_test.cpp`.
+
 ## [1.6.0-beta98-exp] - 2026-11-13
 
 ### Added
