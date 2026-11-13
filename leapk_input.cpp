@@ -1197,8 +1197,13 @@ void ActiveWindowOutlineEffect::slotCycleBadge(int delta)
         return;
     }
 
-    EffectWindow *curr = effects ? effects->activeWindow() : m_activeWindow;
-    int currIdx = orderedWindows.indexOf(curr);
+    EffectWindow *curr = (m_hudCandidateWindow && !m_hudCandidateWindow->isDeleted())
+        ? m_hudCandidateWindow.data()
+        : (effects ? effects->activeWindow() : m_activeWindow);
+    int currIdx = -1;
+    if (curr) {
+        currIdx = orderedWindows.indexOf(curr);
+    }
     if (currIdx < 0 && m_hudOriginWindow) {
         currIdx = orderedWindows.indexOf(m_hudOriginWindow.data());
     }
@@ -1220,18 +1225,12 @@ void ActiveWindowOutlineEffect::slotCycleBadge(int delta)
 
     playThemedSound(OutlineSound::SoundEffect::NavTab);
 
-    if (!target->isOnCurrentDesktop()) {
-        const auto desktops = target->desktops();
-        if (!desktops.isEmpty() && !target->isOnAllDesktops()) {
-            effects->setCurrentDesktop(desktops.first());
-        }
-    }
-    if (target->isMinimized()) {
-        target->setMinimized(false);
-    }
-
-    if (target != m_activeWindow) {
-        m_hudPrevActiveWindow = m_activeWindow;
+    m_shiftCycleActive = true;
+    EffectWindow *prevWindow = (m_hudCandidateWindow && !m_hudCandidateWindow->isDeleted())
+        ? m_hudCandidateWindow.data()
+        : m_activeWindow;
+    if (target != prevWindow) {
+        m_hudPrevActiveWindow = prevWindow;
         m_hudPrevMarkerRect = m_hudLastDrawnMarkerRect.isValid() ? m_hudLastDrawnMarkerRect : m_hudCurrentMarkerRect;
         m_hudPrevActiveDockIndex = m_hudCurrentActiveDockIndex;
         m_hudSelectAnimTimer.restart();
@@ -1239,12 +1238,10 @@ void ActiveWindowOutlineEffect::slotCycleBadge(int delta)
         updateAnimationTimer();
     }
 
-    m_activeWindow = target;
+    m_hudCandidateWindow = target;
     if (effects) {
-        effects->activateWindow(target);
         effects->addRepaintFull();
     }
-    warpCursorToWindow(target);
 
     if (m_jumpTimeoutTimer && m_badgeTimeout > 0) {
         m_jumpTimeoutTimer->start(m_badgeTimeout * 1000);
@@ -1342,6 +1339,8 @@ void ActiveWindowOutlineEffect::slotTriggerJumpMode()
     m_closeWindowModeActive = false;
     m_pinModeActive = false;
     m_metaSpaceTraverseActive = false;
+    m_shiftCycleActive = false;
+    m_hudCandidateWindow = nullptr;
     m_hudMetaHeld = (QGuiApplication::queryKeyboardModifiers() & Qt::MetaModifier) != 0;
     m_hudMetaOverlayTexture.reset();
     m_hudMetaOverlayCacheKey = -1;
@@ -1505,6 +1504,8 @@ void ActiveWindowOutlineEffect::cancelJumpMode(int keyToRelease)
     m_closeWindowModeActive = false;
     m_pinModeActive = false;
     m_metaSpaceTraverseActive = false;
+    m_shiftCycleActive = false;
+    m_hudCandidateWindow = nullptr;
     m_hudMetaHeld = false;
     m_hudMetaOverlayTexture.reset();
     m_hudMetaOverlayCacheKey = -1;
@@ -2071,8 +2072,25 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     auto isMetaKey = [](int key) {
         return key == Qt::Key_Meta || key == Qt::Key_Super_L || key == Qt::Key_Super_R;
     };
+    auto isShiftKey = [](int key) {
+        return key == Qt::Key_Shift;
+    };
 
     if (e->type() == QEvent::KeyRelease) {
+        if (isShiftKey(e->key()) || !(e->modifiers() & Qt::ShiftModifier)) {
+            if (m_shiftCycleActive) {
+                m_shiftCycleActive = false;
+                EffectWindow *target = (m_hudCandidateWindow && !m_hudCandidateWindow->isDeleted())
+                    ? m_hudCandidateWindow.data() : nullptr;
+                m_hudCandidateWindow = nullptr;
+                if (target) {
+                    activateJumpTargetWindow(target);
+                } else {
+                    cancelJumpMode();
+                }
+                return;
+            }
+        }
         if (isMetaKey(e->key()) || !(e->modifiers() & Qt::MetaModifier)) {
             if (m_metaSpaceTraverseActive) {
                 m_metaSpaceTraverseActive = false;
@@ -2655,10 +2673,15 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     const bool isCloseHudKey = (e->key() == Qt::Key_Escape)
         || (isCtrl && (e->key() == Qt::Key_C || e->key() == Qt::Key_BracketRight));
     if (isCloseHudKey) {
+        if (m_shiftCycleActive) {
+            m_shiftCycleActive = false;
+            m_hudCandidateWindow = nullptr;
+        }
         if (m_metaSpaceTraverseActive) {
             m_metaSpaceTraverseActive = false;
             m_isHistoryNavigating = false;
             m_historyNavIndex = 0;
+            m_hudCandidateWindow = nullptr;
             if (m_hudOriginWindow && !m_hudOriginWindow->isDeleted()) {
                 const int originWs = findWorkspaceForWindow(m_hudOriginWindow.data());
                 if (m_activeHudView != originWs && m_activeHudView <= m_workspaces.size()) {
@@ -3602,6 +3625,19 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     }
 
     if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
+        if (m_shiftCycleActive) {
+            m_shiftCycleActive = false;
+            EffectWindow *target = (m_hudCandidateWindow && !m_hudCandidateWindow->isDeleted())
+                ? m_hudCandidateWindow.data() : nullptr;
+            m_hudCandidateWindow = nullptr;
+            if (target) {
+                activateJumpTargetWindow(target, e->key());
+            } else {
+                cancelJumpMode(e->key());
+            }
+            return;
+        }
+
         if (m_metaSpaceTraverseActive) {
             m_metaSpaceTraverseActive = false;
             slotCommitHistoryNavigation();

@@ -391,7 +391,9 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
         updatePopupBlockingState();
     }
 
-    EffectWindow *w = m_activeWindow;
+    EffectWindow *w = (m_jumpMode && m_hudCandidateWindow && !m_hudCandidateWindow->isDeleted())
+        ? m_hudCandidateWindow.data()
+        : m_activeWindow;
     if (effects->hasActiveFullScreenEffect()) {
         if (w && !m_suppressedWindows.contains(w)) {
             m_suppressedWindows.insert(w);
@@ -534,7 +536,9 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                                          const OutlineRegion &deviceRegion,
                                          OutlineOutput *screen)
 {
-    EffectWindow *w = m_activeWindow;
+    EffectWindow *w = (m_jumpMode && m_hudCandidateWindow && !m_hudCandidateWindow->isDeleted())
+        ? m_hudCandidateWindow.data()
+        : m_activeWindow;
     const bool isScreenLocked = (effects && effects->isScreenLocked()) || (w && w->isLockScreen());
     if (isScreenLocked) {
         if (m_jumpMode) {
@@ -936,7 +940,9 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         } else {
             const int jumpH = m_badgeConfig.jumpBadgeSize;
         const QRectF screenRect = viewport.renderRect();
-        EffectWindow *hudRefWindow = (m_jumpMode && m_hudOriginWindow) ? m_hudOriginWindow.data() : w;
+        EffectWindow *hudRefWindow = (m_hudCandidateWindow && !m_hudCandidateWindow->isDeleted())
+            ? m_hudCandidateWindow.data()
+            : ((m_jumpMode && m_hudOriginWindow) ? m_hudOriginWindow.data() : w);
         const qint64 hudAnimElapsed = (m_hudSelectAnimActive && m_hudSelectAnimTimer.isValid())
             ? m_hudSelectAnimTimer.elapsed()
             : 999;

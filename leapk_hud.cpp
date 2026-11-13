@@ -2042,7 +2042,9 @@ QRectF ActiveWindowOutlineEffect::computeActiveMarkerRectForTargets(
         return QRectF();
     }
 
-    EffectWindow *currActive = effects ? effects->activeWindow() : m_activeWindow;
+    EffectWindow *currActive = (m_hudCandidateWindow && !m_hudCandidateWindow->isDeleted())
+        ? m_hudCandidateWindow.data()
+        : (effects ? effects->activeWindow() : m_activeWindow);
     if (!currActive || currActive->isDeleted()) {
         return QRectF();
     }
@@ -2234,7 +2236,9 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     QList<PillItem> pills;
 
     const OutlineBadge::BadgeConfig &cfg = m_badgePreviewActive ? m_previewBadgeConfig : m_badgeConfig;
-    EffectWindow *currActive = effects ? effects->activeWindow() : m_activeWindow;
+    EffectWindow *currActive = (m_hudCandidateWindow && !m_hudCandidateWindow->isDeleted())
+        ? m_hudCandidateWindow.data()
+        : (effects ? effects->activeWindow() : m_activeWindow);
     int activeDockIndex = -1;
     if (currActive) {
         for (int k = 0; k < targets.size(); ++k) {
@@ -3383,7 +3387,9 @@ void ActiveWindowOutlineEffect::renderKeyboardArrowsOverlay(const RenderTarget &
     int colorIdx = 0;
 
     const auto stacking = effects ? effects->stackingOrder() : QList<EffectWindow *>();
-    EffectWindow *currActive = effects ? effects->activeWindow() : m_activeWindow;
+    EffectWindow *currActive = (m_hudCandidateWindow && !m_hudCandidateWindow->isDeleted())
+        ? m_hudCandidateWindow.data()
+        : (effects ? effects->activeWindow() : m_activeWindow);
     QMap<QChar, LeapKKeyboardOverlay::WindowTargetItem> assignedMap;
     QSet<EffectWindow *> seenWindows;
 

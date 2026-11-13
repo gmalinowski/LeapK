@@ -1869,6 +1869,7 @@ void ActiveWindowOutlineEffect::slotCommitHistoryNavigation()
         m_historyCommitTimer->stop();
     }
     m_isHistoryNavigating = false;
+    m_hudCandidateWindow = nullptr;
     if (m_historyNavIndex >= 0 && m_historyNavIndex < m_windowHistory.size()) {
         EffectWindow *committedWindow = m_windowHistory.at(m_historyNavIndex);
         if (committedWindow && !committedWindow->isDeleted()) {
@@ -1975,34 +1976,22 @@ void ActiveWindowOutlineEffect::traverseRecentWindows(int direction)
         m_expectedJumpTargetTimer->start(1000);
     }
 
-    const int targetWs = findWorkspaceForWindow(candidate);
-    if (m_activeHudView != targetWs && m_activeHudView <= m_workspaces.size()) {
-        switchToWorkspaceView(targetWs);
-    }
-
-    if (!candidate->isOnCurrentDesktop()) {
-        const auto desktops = candidate->desktops();
-        if (!desktops.isEmpty() && !candidate->isOnAllDesktops()) {
-            effects->setCurrentDesktop(desktops.first());
-        }
-    }
-    m_workspaceMinimizedWindows.remove(candidate);
-    m_stashedWindows.remove(candidate);
-    if (candidate->isMinimized()) {
-        candidate->setMinimized(false);
-    }
-    if (candidate != m_activeWindow) {
-        m_hudPrevActiveWindow = m_activeWindow;
+    EffectWindow *prevWindow = (m_hudCandidateWindow && !m_hudCandidateWindow->isDeleted())
+        ? m_hudCandidateWindow.data()
+        : m_activeWindow;
+    if (candidate != prevWindow) {
+        m_hudPrevActiveWindow = prevWindow;
         m_hudPrevMarkerRect = m_hudLastDrawnMarkerRect.isValid() ? m_hudLastDrawnMarkerRect : m_hudCurrentMarkerRect;
         m_hudPrevActiveDockIndex = m_hudCurrentActiveDockIndex;
         m_hudSelectAnimTimer.restart();
         m_hudSelectAnimActive = true;
         updateAnimationTimer();
     }
-    effects->activateWindow(candidate);
-    m_activeWindow = candidate;
+    m_hudCandidateWindow = candidate;
     playThemedSound(OutlineSound::SoundEffect::NavTab);
-    effects->addRepaintFull();
+    if (effects) {
+        effects->addRepaintFull();
+    }
 }
 
 bool ActiveWindowOutlineEffect::isWindowInStash(EffectWindow *w) const

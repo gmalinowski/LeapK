@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [1.6.0-beta98-exp] - 2026-11-13
 
+### Added
+- **Alt+Tab Style Non-Disruptive Cycling for `Shift + ,` / `Shift + .` and `Meta + Space Space`**:
+  - Implemented candidate-selection model during cycling navigation:
+    - Intermediate cycling steps (`Shift + ,`, `Shift + .`, and `Meta + Space Space`) no longer raise intermediate windows to foreground, do not unminimize windows, do not switch virtual desktops, and do not disrupt window z-order.
+    - The HUD candidate highlight marker (`m_hudCandidateWindow`) smoothly slides to the highlighted badge/pill in the HUD dock, and the active outline tracks the candidate window without altering focus.
+    - **Commit on Release**: Releasing the modifier (`Shift` or `Meta`) or pressing `Enter`/`Return` cleanly commits the jump to the candidate window (`activateJumpTargetWindow`), switching desktops, unminimizing if needed, raising to foreground, and warping the cursor.
+    - **Cancel on Escape**: Pressing `Escape` (or `Ctrl+C` / `Ctrl+]`) cancels candidate selection and restores the original active window without changing window positions.
+  - Added unit test `testAltTabCandidateCycling` in `tests/history_test.cpp`.
+
 ### Fixed
 - **Correct Video & Subsurface Orientation in Window Thumbnails (Vivaldi/Chromium/Firefox)**:
   - Fixed an issue where hardware-accelerated video playback (e.g. YouTube in Vivaldi, Chromium, Firefox, media players) was rendered flipped / upside down inside HUD badge thumbnails while the surrounding browser UI was right-side up.

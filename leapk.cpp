@@ -1336,6 +1336,9 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
     if (m_hudOriginWindow == w) {
         m_hudOriginWindow.clear();
     }
+    if (m_hudCandidateWindow == w) {
+        m_hudCandidateWindow.clear();
+    }
     if (m_hudPrevActiveWindow == w) {
         m_hudPrevActiveWindow.clear();
     }

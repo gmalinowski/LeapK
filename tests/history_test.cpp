@@ -405,6 +405,140 @@ void testStepHistoryIndexAndTraverse()
     std::cout << "testStepHistoryIndexAndTraverse PASSED\n";
 }
 
+void testAltTabCandidateCycling()
+{
+    // Simulation of Alt+Tab style non-disruptive cycling for Shift+, / Shift+. and Meta+Space
+    MockWindow w1{1}, w2{2}, w3{3}, w4{4};
+    QList<MockWindow *> orderedWindows = {&w1, &w2, &w3, &w4};
+    MockWindow *activeWindow = &w1;
+    MockWindow *originWindow = &w1;
+    MockWindow *candidateWindow = nullptr;
+    bool shiftCycleActive = false;
+
+    auto cycleBadge = [&](int delta) {
+        MockWindow *curr = candidateWindow ? candidateWindow : activeWindow;
+        int currIdx = orderedWindows.indexOf(curr);
+        int nextIdx = (currIdx + delta + orderedWindows.size()) % orderedWindows.size();
+        MockWindow *target = orderedWindows.at(nextIdx);
+
+        shiftCycleActive = true;
+        candidateWindow = target;
+        // Notice: activeWindow is NOT changed here! No window is raised or popped to foreground.
+    };
+
+    auto onShiftRelease = [&]() {
+        if (shiftCycleActive) {
+            shiftCycleActive = false;
+            MockWindow *chosen = candidateWindow;
+            candidateWindow = nullptr;
+            if (chosen) {
+                activeWindow = chosen; // Commit jump on release!
+            }
+        }
+    };
+
+    auto onEscapeCancel = [&]() {
+        shiftCycleActive = false;
+        candidateWindow = nullptr;
+        activeWindow = originWindow; // Restore origin window
+    };
+
+    // 1. Shift+.: candidate moves w1 -> w2, but activeWindow remains w1
+    cycleBadge(1);
+    assert(shiftCycleActive == true);
+    assert(candidateWindow == &w2);
+    assert(activeWindow == &w1); // Unchanged!
+
+    // 2. Shift+. again: candidate moves w2 -> w3, activeWindow still w1
+    cycleBadge(1);
+    assert(candidateWindow == &w3);
+    assert(activeWindow == &w1); // Still unchanged!
+
+    // 3. Shift release: commits jump to w3
+    onShiftRelease();
+    assert(shiftCycleActive == false);
+    assert(candidateWindow == nullptr);
+    assert(activeWindow == &w3); // Now activated!
+
+    // 4. Test cancel on Escape
+    originWindow = activeWindow; // w3
+    cycleBadge(1); // candidate -> w4
+    assert(candidateWindow == &w4);
+    assert(activeWindow == &w3);
+    onEscapeCancel();
+    assert(shiftCycleActive == false);
+    assert(candidateWindow == nullptr);
+    assert(activeWindow == &w3); // Unchanged, restored origin!
+
+    // 5. Test Meta+Space non-disruptive traversal
+    QList<MockWindow *> history = {&w1, &w2, &w3, &w4};
+    activeWindow = &w1;
+    originWindow = &w1;
+    candidateWindow = nullptr;
+    bool metaTraverseActive = false;
+    int navIndex = 0;
+
+    auto traverseRecent = [&](int direction) {
+        if (!metaTraverseActive) {
+            metaTraverseActive = true;
+            navIndex = 0;
+        }
+        navIndex = OutlineHistory::stepHistoryIndex(navIndex, direction, history.size());
+        candidateWindow = history.at(navIndex);
+        // Notice: activeWindow is NOT activated during traversal
+    };
+
+    auto onMetaRelease = [&]() {
+        if (metaTraverseActive) {
+            metaTraverseActive = false;
+            MockWindow *committed = candidateWindow ? candidateWindow : history.at(navIndex);
+            candidateWindow = nullptr;
+            if (committed) {
+                history.removeAll(committed);
+                history.prepend(committed);
+                activeWindow = committed;
+            }
+            navIndex = 0;
+        }
+    };
+
+    auto onMetaTraverseCancel = [&]() {
+        metaTraverseActive = false;
+        candidateWindow = nullptr;
+        navIndex = 0;
+        activeWindow = originWindow;
+    };
+
+    // First Space in traverse: candidate -> w2, activeWindow remains w1
+    traverseRecent(1);
+    assert(metaTraverseActive == true);
+    assert(candidateWindow == &w2);
+    assert(activeWindow == &w1);
+
+    // Second Space: candidate -> w3, activeWindow still w1
+    traverseRecent(1);
+    assert(candidateWindow == &w3);
+    assert(activeWindow == &w1);
+
+    // Release Meta: commits w3
+    onMetaRelease();
+    assert(metaTraverseActive == false);
+    assert(candidateWindow == nullptr);
+    assert(activeWindow == &w3);
+    assert(history.first() == &w3);
+
+    // Test cancel
+    originWindow = activeWindow; // w3
+    traverseRecent(1); // candidate -> w1
+    assert(candidateWindow == &w1);
+    assert(activeWindow == &w3);
+    onMetaTraverseCancel();
+    assert(candidateWindow == nullptr);
+    assert(activeWindow == &w3);
+
+    std::cout << "testAltTabCandidateCycling PASSED\n";
+}
+
 int main()
 {
     testRecentWindowsOrderAndLimit();
@@ -412,6 +546,7 @@ int main()
     testFindRecentWindowAndToggle();
     testHistoryNavigationCommitOnRelease();
     testStepHistoryIndexAndTraverse();
+    testAltTabCandidateCycling();
     std::cout << "All history tests passed successfully." << std::endl;
     return 0;
 }
