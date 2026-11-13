@@ -1242,12 +1242,27 @@ void ActiveWindowOutlineEffect::addWindowToWorkspace(EffectWindow *w, int worksp
         // Check if there are other windows of this same appClass active in DIFFERENT workspaces
         bool otherWindowInOtherWs = false;
         if (effects && !appClass.isEmpty()) {
+            const QString baseAppClass = appClass.split(QLatin1Char(' ')).first().toLower();
             for (EffectWindow *other : effects->stackingOrder()) {
-                if (other && other != w && !other->isDeleted() && other->windowClass() == appClass) {
-                    const int otherWs = m_windowWorkspace.value(other, 0);
-                    if (otherWs > 0 && otherWs != workspaceIndex) {
-                        otherWindowInOtherWs = true;
-                        break;
+                if (other && other != w && !other->isDeleted()) {
+                    const QString otherBase = other->windowClass().split(QLatin1Char(' ')).first().toLower();
+                    if (!otherBase.isEmpty() && otherBase == baseAppClass) {
+                        const int otherWs = findWorkspaceForWindow(other);
+                        if (otherWs > 0 && otherWs != workspaceIndex) {
+                            otherWindowInOtherWs = true;
+                            // Constrain other workspace's rule to its virtual desktop if it was unconstrained (0)
+                            const auto otherDesks = other->desktops();
+                            const int otherDNum = (!otherDesks.isEmpty() && !other->isOnAllDesktops()) ? otherDesks.first()->x11DesktopNumber() : 0;
+                            if (otherDNum > 0 && otherWs - 1 < m_workspaces.size()) {
+                                auto &otherWorkspace = m_workspaces[otherWs - 1];
+                                for (auto &r : otherWorkspace.rules) {
+                                    if (r.matchApp.split(QLatin1Char(' ')).first().toLower() == baseAppClass && r.matchDesktop == 0) {
+                                        r.matchDesktop = otherDNum;
+                                    }
+                                }
+                            }
+                            break;
+                        }
                     }
                 }
             }
@@ -1257,18 +1272,22 @@ void ActiveWindowOutlineEffect::addWindowToWorkspace(EffectWindow *w, int worksp
             // Do NOT remove app from all workspaces because another instance lives in another workspace!
             // Instead, add/ensure a rule for this workspace with desktop match if available
             const auto desktops = w->desktops();
-            const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops()) ? desktops.first()->x11DesktopNumber() : 0;
+            const int dNum = (!desktops.isEmpty() && !w->isOnAllDesktops())
+                ? desktops.first()->x11DesktopNumber()
+                : (effects && effects->currentDesktop() ? effects->currentDesktop()->x11DesktopNumber() : 0);
             auto &ws = m_workspaces[workspaceIndex - 1];
             bool alreadyHasRule = false;
+            const QString baseAppClass = appClass.split(QLatin1Char(' ')).first().toLower();
             for (const auto &r : ws.rules) {
-                if (r.matchApp.compare(appClass, Qt::CaseInsensitive) == 0 && (r.matchDesktop == dNum || r.matchDesktop == 0)) {
+                if (r.matchApp.split(QLatin1Char(' ')).first().toLower() == baseAppClass
+                    && (r.matchDesktop == dNum || (dNum > 0 && r.matchDesktop == dNum))) {
                     alreadyHasRule = true;
                     break;
                 }
             }
             if (!alreadyHasRule) {
                 LeapKWorkspace::WindowMatchRule r;
-                r.matchApp = appClass;
+                r.matchApp = baseAppClass;
                 r.matchDesktop = dNum;
                 ws.rules.append(r);
             }

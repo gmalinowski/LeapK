@@ -1346,7 +1346,17 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
 
     if (m_sendWsModeActive && !m_pinWsSelectionActive && m_pinTargetWindow && !m_pinTargetWindow->isDeleted() && !inhibited) {
         const QRectF screenRect = viewport.renderRect();
-        const QPointF toastCenter(screenRect.center().x(), screenRect.bottom() - 65.0);
+        const QPointF toastCenter(screenRect.center().x(), screenRect.top() + 82.0);
+
+        const int originWs = findWorkspaceForWindow(m_pinTargetWindow.data());
+        QString originWsName;
+        if (originWs >= 1 && originWs <= m_workspaces.size()) {
+            originWsName = m_workspaces.at(originWs - 1).name;
+        } else if (originWs == 0) {
+            originWsName = QStringLiteral("Standard");
+        } else {
+            originWsName = QStringLiteral("Workspace %1").arg(originWs);
+        }
 
         QString targetWsName;
         if (m_sendWsTargetWorkspace >= 1 && m_sendWsTargetWorkspace <= m_workspaces.size()) {
@@ -1363,10 +1373,16 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
                 ? m_pinTargetWindow->caption().left(27) + QStringLiteral("...")
                 : m_pinTargetWindow->caption());
 
-        const QString msg = QStringLiteral("SEND: \"%1\" → [%2]  •  [,] / [.] Select WS  •  [Enter] Confirm  •  [Esc] Cancel")
-            .arg(winTitle, targetWsName);
+        const bool isSameWs = (originWs == m_sendWsTargetWorkspace);
+        const QString targetPart = isSameWs
+            ? QStringLiteral("[%1] (Keep Here)").arg(targetWsName)
+            : QStringLiteral("[%1]").arg(targetWsName);
 
-        renderFloatingPill(renderTarget, viewport, msg, toastCenter, QColor(20, 26, 36, 235), QColor(0, 195, 255), 11, screenRect.width() - 80.0);
+        const QString msg = QStringLiteral("📦 MOVE: \"%1\" • FROM: [%2] (Current) ➔ TO: %3 • [,] / [.] Select WS • [Enter] Confirm • [Esc] Cancel")
+            .arg(winTitle, originWsName, targetPart);
+
+        const QColor pillBorder = isSameWs ? QColor(245, 166, 35) : QColor(46, 204, 113);
+        renderFloatingPill(renderTarget, viewport, msg, toastCenter, QColor(20, 26, 36, 245), pillBorder, 11, screenRect.width() - 80.0);
     }
 
     if (m_jumpMode && m_invalidJumpKeyTimer.isValid() && m_invalidJumpKeyTimer.elapsed() < 1200 && !inhibited) {

@@ -300,7 +300,6 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
                     playThemedSound(OutlineSound::SoundEffect::SwitchWorkspace);
                     const QString wsId = workspaceIdForView(m_activeHudView);
                     const QString oldKey = QStringLiteral("%1:%2").arg(wsId, prevDesk->id());
-                    const QString newKey = QStringLiteral("%1:%2").arg(wsId, cur->id());
 
                     if (m_tilingActive) {
                         WorkspaceTilingState &oldState = m_workspaceTilingStates[oldKey];
@@ -320,6 +319,38 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
                             exitTilingPresetsMode();
                         }
                     }
+
+                    // If desktop changed outside of LeapK workspace view switch, synchronize m_activeHudView
+                    int matchedWs = -1;
+                    const QString deskId = cur->id();
+                    const int dNum = cur->x11DesktopNumber();
+                    for (int i = 0; i < m_workspaces.size(); ++i) {
+                        if (m_workspaces.at(i).lastVirtualDesktopId == deskId ||
+                            m_workspaceLastVirtualDesktopId.value(m_workspaces.at(i).id) == deskId) {
+                            matchedWs = i + 1;
+                            break;
+                        }
+                    }
+                    if (matchedWs < 0) {
+                        for (int i = 0; i < m_workspaces.size(); ++i) {
+                            for (const auto &r : m_workspaces.at(i).rules) {
+                                if (r.matchDesktop > 0 && r.matchDesktop == dNum) {
+                                    matchedWs = i + 1;
+                                    break;
+                                }
+                            }
+                            if (matchedWs >= 0) break;
+                        }
+                    }
+                    if (matchedWs < 0 && dNum >= 1 && dNum <= m_workspaces.size()) {
+                        matchedWs = dNum;
+                    }
+                    if (matchedWs >= 0 && matchedWs != m_activeHudView && !m_jumpMode) {
+                        m_activeHudView = matchedWs;
+                    }
+
+                    const QString newWsId = workspaceIdForView(m_activeHudView);
+                    const QString newKey = QStringLiteral("%1:%2").arg(newWsId, cur->id());
 
                     if (m_workspaceTilingStates.contains(newKey)) {
                         const auto &st = m_workspaceTilingStates.value(newKey);
@@ -994,6 +1025,9 @@ void ActiveWindowOutlineEffect::slotWindowAdded(EffectWindow *w)
         if (isEligibleOutlineWindow(w) && !w->isSkipSwitcher() && w->acceptsFocus()) {
             if (!m_windowWorkspace.contains(w)) {
                 m_windowWorkspace[w] = m_activeHudView;
+                if (effects && effects->currentDesktop()) {
+                    effects->windowToDesktops(w, {effects->currentDesktop()});
+                }
                 if (w->windowClass().isEmpty() && w->caption().isEmpty()) {
                     QPointer<EffectWindow> pw(w);
                     const int currentWsView = m_activeHudView;
@@ -1553,37 +1587,43 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
 
     if (m_activeHudView >= 1 && m_activeHudView <= m_workspaces.size() && w && isEligibleOutlineWindow(w) && !isBlockingPopup(w) && !isSystemOverlay(w)) {
         if (!m_expectedJumpTarget && !m_isHistoryNavigating && !m_jumpMode && !m_crossWsActionActive) {
-            const int targetWs = findWorkspaceForWindow(w);
-            if ((targetWs != m_activeHudView || isWindowInStash(w)) && !isWindowPinned(w, m_activeHudView)) {
-                if (m_superJumpCrossWsAction == 0 || m_superJumpCrossWsAction == 1) {
-                    activateJumpTargetWindow(w);
-                    return;
-                } else if (m_superJumpCrossWsAction == 2) {
-                    if (m_pinnedWindows.contains(w)) {
-                        unpinWindow(w, m_activeHudView);
-                    } else {
-                        addWindowToWorkspace(w, m_activeHudView);
-                        if (effects && effects->currentDesktop()) {
-                            effects->windowToDesktops(w, {effects->currentDesktop()});
+            if (w->isOnCurrentDesktop()) {
+                if (!m_windowWorkspace.contains(w) || m_windowWorkspace.value(w, 0) == 0) {
+                    m_windowWorkspace[w] = m_activeHudView;
+                }
+            } else {
+                const int targetWs = findWorkspaceForWindow(w);
+                if ((targetWs != m_activeHudView || isWindowInStash(w)) && !isWindowPinned(w, m_activeHudView)) {
+                    if (m_superJumpCrossWsAction == 0 || m_superJumpCrossWsAction == 1) {
+                        activateJumpTargetWindow(w);
+                        return;
+                    } else if (m_superJumpCrossWsAction == 2) {
+                        if (m_pinnedWindows.contains(w)) {
+                            unpinWindow(w, m_activeHudView);
+                        } else {
+                            addWindowToWorkspace(w, m_activeHudView);
+                            if (effects && effects->currentDesktop()) {
+                                effects->windowToDesktops(w, {effects->currentDesktop()});
+                            }
+                            m_workspaceMinimizedWindows.remove(w);
+                            m_stashedWindows.remove(w);
+                            if (w->isMinimized()) {
+                                w->setMinimized(false);
+                            }
+                            applyWorkspaceViewIsolation(m_activeHudView);
                         }
-                        m_workspaceMinimizedWindows.remove(w);
-                        m_stashedWindows.remove(w);
-                        if (w->isMinimized()) {
-                            w->setMinimized(false);
-                        }
-                        applyWorkspaceViewIsolation(m_activeHudView);
+                        return;
+                    } else if (m_superJumpCrossWsAction == 3) {
+                        EffectWindow *origin = previous ? previous : m_activeWindow;
+                        QPointer<EffectWindow> pw(w);
+                        QPointer<EffectWindow> porigin(origin);
+                        QTimer::singleShot(0, this, [this, pw, porigin]() {
+                            if (pw && !pw->isDeleted()) {
+                                triggerExternalCrossWorkspacePrompt(pw.data(), porigin.data());
+                            }
+                        });
+                        return;
                     }
-                    return;
-                } else if (m_superJumpCrossWsAction == 3) {
-                    EffectWindow *origin = previous ? previous : m_activeWindow;
-                    QPointer<EffectWindow> pw(w);
-                    QPointer<EffectWindow> porigin(origin);
-                    QTimer::singleShot(0, this, [this, pw, porigin]() {
-                        if (pw && !pw->isDeleted()) {
-                            triggerExternalCrossWorkspacePrompt(pw.data(), porigin.data());
-                        }
-                    });
-                    return;
                 }
             }
         }

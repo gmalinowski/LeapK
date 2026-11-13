@@ -4,6 +4,25 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta98-exp] - 2026-11-13
+
+### Fixed
+- **Multi-Instance App Workspace Isolation (Opening New Window on Another Workspace)**:
+  - Fixed an issue where opening a new instance/window of an application (e.g. Vivaldi, browser, terminal) on Workspace 2 while an existing instance was already on Workspace 1 caused LeapK to yank the user back to Workspace 1.
+  - Implemented two-pass matching in `findWorkspaceIndexForWindow()` (`workspacehelper.h`), prioritizing exact virtual desktop matches (`r.matchDesktop > 0 && r.matchDesktop == desktop`) before falling back to unconstrained (`matchDesktop == 0`) rules.
+  - Enhanced `addWindowToWorkspace()` (`leapk_workspaces.cpp`) to detect coexisting instances of the same application in different workspaces via `findWorkspaceForWindow(other)` and constrain rules to virtual desktops rather than deleting/reassigning existing workspace rules.
+  - In `slotWindowAdded()` (`leapk.cpp`), newly spawned windows are immediately assigned to `m_activeHudView` and anchored to `effects->currentDesktop()`.
+  - In `slotWindowActivated()` (`leapk.cpp`), activation of a window located on the current virtual desktop (`w->isOnCurrentDesktop()`) never triggers cross-workspace jumping (`activateJumpTargetWindow()`).
+  - In `desktopChanged` (`leapk.cpp`), synchronized `m_activeHudView` when switching virtual desktops outside the HUD (e.g. via KDE pager or desktop shortcuts) to ensure newly opened windows are anchored to the correct active workspace.
+  - Added unit test `testExactDesktopMatchPriority` in `tests/workspace_test.cpp`.
+
+### Added
+- **Visual Origin & Destination Workspace Marking in Triple-Tap Send Mode**:
+  - In Triple-Tap Send Mode, the Origin (current) workspace tab is clearly marked in the HUD header with a warm amber dashed border (`Qt::DashLine`) and a `• CURRENT` badge label (`badgehelper.h`, `leapk_hud.cpp`).
+  - Added a prominent floating banner positioned directly below the top HUD header (`leapk_paint.cpp`):
+    `📦 MOVE: "<Window Title>" • FROM: [<Origin WS>] (Current) ➔ TO: [<Target WS>] • [,] / [.] Select WS • [Enter] Confirm • [Esc] Cancel` (displaying `(Keep Here)` if the target workspace is the current workspace, with adaptive amber/green borders).
+  - Clarified segments in the bottom HUD Action Hint Bar to `Select Target WS • Confirm Move • Cancel`.
+
 ## [1.6.0-beta97-exp] - 2026-11-11
 
 ### Added

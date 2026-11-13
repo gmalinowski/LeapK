@@ -775,6 +775,50 @@ void testWorkspaceShortcutKeyMapping()
     std::cout << "testWorkspaceShortcutKeyMapping PASSED\n";
 }
 
+void testExactDesktopMatchPriority()
+{
+    using namespace LeapKWorkspace;
+
+    // Simulate Workspace 1 having an unconstrained or desktop 1 rule for "vivaldi"
+    WorkspaceInfo ws1;
+    ws1.id = QStringLiteral("ws-1");
+    ws1.name = QStringLiteral("Browser Main");
+    WindowMatchRule r1;
+    r1.matchApp = QStringLiteral("vivaldi-stable");
+    r1.matchDesktop = 0; // unconstrained initially
+    ws1.rules.append(r1);
+
+    // Simulate Workspace 2 having an exact desktop rule for "vivaldi" on desktop 2
+    WorkspaceInfo ws2;
+    ws2.id = QStringLiteral("ws-2");
+    ws2.name = QStringLiteral("Research Dev");
+    WindowMatchRule r2;
+    r2.matchApp = QStringLiteral("vivaldi-stable");
+    r2.matchDesktop = 2; // explicitly desktop 2
+    ws2.rules.append(r2);
+
+    QList<WorkspaceInfo> workspaces = { ws1, ws2 };
+
+    // When checking a window on desktop 2:
+    // Pass 1 exact desktop match must prioritize ws2 over ws1's unconstrained rule!
+    int matchedWsDesktop2 = findWorkspaceIndexForWindow(workspaces, QStringLiteral("vivaldi-stable"), QStringLiteral("Dev Docs"), 2);
+    assert(matchedWsDesktop2 == 2);
+
+    // When checking a window on desktop 1:
+    // Pass 1 finds no exact desktop match for desktop 1, Pass 2 matches ws1's general rule
+    int matchedWsDesktop1 = findWorkspaceIndexForWindow(workspaces, QStringLiteral("vivaldi-stable"), QStringLiteral("Start Page"), 1);
+    assert(matchedWsDesktop1 == 1);
+
+    // When checking with explicit desktop rules on both workspaces
+    ws1.rules[0].matchDesktop = 1;
+    int matchedWsDesk1Explicit = findWorkspaceIndexForWindow(workspaces, QStringLiteral("vivaldi-stable"), QStringLiteral("Start Page"), 1);
+    assert(matchedWsDesk1Explicit == 1);
+    int matchedWsDesk2Explicit = findWorkspaceIndexForWindow(workspaces, QStringLiteral("vivaldi-stable"), QStringLiteral("Dev Docs"), 2);
+    assert(matchedWsDesk2Explicit == 2);
+
+    std::cout << "testExactDesktopMatchPriority PASSED\n";
+}
+
 int main()
 {
     testRuleSerialization();
@@ -789,6 +833,7 @@ int main()
     testMultiWorkspacePinningAndDesktopSync();
     testMultiInstanceWindowWorkspaceAssignment();
     testWorkspaceShortcutKeyMapping();
+    testExactDesktopMatchPriority();
     std::cout << "All workspace tests passed successfully!\n";
     return 0;
 }

@@ -2995,6 +2995,11 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
 
     int stashCount = 0;
     QString targetWorkspaceName;
+    const int originWs = m_sendWsModeActive
+        ? (m_pinTargetWindow && !m_pinTargetWindow->isDeleted()
+            ? findWorkspaceForWindow(m_pinTargetWindow.data())
+            : (m_rhythmOriginWorkspace >= 0 ? m_rhythmOriginWorkspace : m_activeHudView))
+        : m_activeHudView;
 
     if (m_subLeapActive) {
         subLeapCount = m_subLeapWindows.size();
@@ -3058,13 +3063,19 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
         }
         const bool standardAudio = isWorkspacePlayingAudio(0);
         const int activeTabIdx = m_sendWsModeActive ? m_sendWsTargetWorkspace : m_activeHudView;
+
+        const bool standardIsOrigin = m_sendWsModeActive && (originWs == 0);
+        const QString standardBase = theme.hudNav.standardText.isEmpty() ? QStringLiteral("Standard") : theme.hudNav.standardText;
+        const QString standardTitle = standardIsOrigin ? (standardBase + QStringLiteral(" • CURRENT")) : standardBase;
+
         viewTabs.append({
-            theme.hudNav.standardText.isEmpty() ? QStringLiteral("Standard") : theme.hudNav.standardText,
+            standardTitle,
             QColor(230, 126, 34),
             standardCount,
             activeTabIdx == 0,
             standardAudio,
-            theme.hudNav.standardIcon
+            theme.hudNav.standardIcon,
+            standardIsOrigin
         });
 
         // 2. Custom Workspaces (not in stash)
@@ -3083,16 +3094,21 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
                 }
             }
             const bool wsAudio = isWorkspacePlayingAudio(i + 1);
-            const QString tabName = !ws.shortcutKey.isNull()
+            const bool wsIsOrigin = m_sendWsModeActive && (originWs == (i + 1));
+            QString tabName = !ws.shortcutKey.isNull()
                 ? QStringLiteral("[%1] %2").arg(ws.shortcutKey.toUpper(), ws.name)
                 : ws.name;
+            if (wsIsOrigin) {
+                tabName += QStringLiteral(" • CURRENT");
+            }
             viewTabs.append({
                 tabName,
                 ws.color.isValid() ? ws.color : QColor(52, 152, 219),
                 wsCount,
                 activeTabIdx == (i + 1),
                 wsAudio,
-                theme.hudNav.workspaceIcon
+                theme.hudNav.workspaceIcon,
+                wsIsOrigin
             });
         }
 
@@ -3148,7 +3164,7 @@ QSizeF ActiveWindowOutlineEffect::ensureHudHeaderTexture(qreal scale) const
         + (m_tilingPresetsModeActive ? 12000000 : 0)
         + (m_closeWindowModeActive ? 14000000 : 0)
         + (m_pinModeActive ? 16000000 : 0)
-        + (m_sendWsModeActive ? (18000000 + m_sendWsTargetWorkspace * 100000) : 0)
+        + (m_sendWsModeActive ? (18000000 + m_sendWsTargetWorkspace * 100000 + originWs * 5000) : 0)
         + (m_searchModeActive ? (10000000 + m_searchScope * 100000 + (qHash(m_searchQuery) % 50000) + m_searchMatches.size() * 10) : 0)
         + m_activeHudView * 100000 + countsHash + stashCount * 13 + qRound(scale * 10) + hudSize * 7 + navFontSize * 17 + themeHash;
 

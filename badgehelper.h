@@ -2917,9 +2917,8 @@ inline QImage renderHudActionHintBar(qreal scale, bool isSubLeap = false, int ac
     QList<Segment> segments;
     if (isSendMode) {
         segments = {
-            {QStringLiteral(", / ."), QStringLiteral("Select Workspace"), QColor(52, 152, 219)},
-            {QStringLiteral("Enter"), QStringLiteral("Send Window"), QColor(46, 204, 113)},
-            {QStringLiteral("M / 0"), QStringLiteral("Previous WS"), QColor(241, 196, 15)},
+            {QStringLiteral(", / ."), QStringLiteral("Select Target WS"), QColor(52, 152, 219)},
+            {QStringLiteral("Enter"), QStringLiteral("Confirm Move"), QColor(46, 204, 113)},
             {QStringLiteral("Esc / ⌫"), QStringLiteral("Cancel"), QColor(149, 165, 166)}
         };
     } else if (isPinWsSelection) {
@@ -3265,10 +3264,11 @@ struct HudModeHeaderView {
     bool isActive = false;
     bool isPlayingAudio = false;
     QString icon;
+    bool isOrigin = false;
 
     HudModeHeaderView() = default;
-    HudModeHeaderView(const QString &n, const QColor &c, int wc = 0, bool active = false, bool audio = false, const QString &ic = QString())
-        : name(n), color(c), windowCount(wc), isActive(active), isPlayingAudio(audio), icon(ic) {}
+    HudModeHeaderView(const QString &n, const QColor &c, int wc = 0, bool active = false, bool audio = false, const QString &ic = QString(), bool origin = false)
+        : name(n), color(c), windowCount(wc), isActive(active), isPlayingAudio(audio), icon(ic), isOrigin(origin) {}
 };
 
 inline QImage renderHudModeHeader(qreal scale,
@@ -4125,6 +4125,7 @@ inline QImage renderHudModeHeader(qreal scale,
         bool isActive;
         QColor color;
         bool isPlayingAudio;
+        bool isOrigin;
     };
 
     QList<TabRenderInfo> tabInfos;
@@ -4159,7 +4160,7 @@ inline QImage renderHudModeHeader(qreal scale,
         const int rawTextW = v.isActive ? fmActive.horizontalAdvance(displayText) : fmInactive.horizontalAdvance(displayText);
         const int tabW = graphicExtra + rawTextW + speakerExtra + 2 * tabPadX;
 
-        tabInfos.append({displayText, tabIcon, isGraphic, graphicDim, graphicGap, tabW, v.isActive, v.color, v.isPlayingAudio});
+        tabInfos.append({displayText, tabIcon, isGraphic, graphicDim, graphicGap, tabW, v.isActive, v.color, v.isPlayingAudio, v.isOrigin});
         allTabsW += tabW;
     }
     allTabsW += (views.size() - 1) * tabGap;
@@ -4264,6 +4265,13 @@ inline QImage renderHudModeHeader(qreal scale,
             p.setPen(QPen(activeCol, 1.8 * scale));
             p.setBrush(QColor(activeCol.red(), activeCol.green(), activeCol.blue(), isLightBg ? 55 : 65));
             drawThemedShape(p, tabRect, theme.hudNav.tabShape, tabRadius, tabChamferPx);
+        } else if (tab.isOrigin) {
+            // Origin workspace tab during Move / Send Mode: prominent amber dashed outline
+            const QColor originBorder(245, 166, 35);
+            QPen originPen(originBorder, 1.8 * scale, Qt::DashLine);
+            p.setPen(originPen);
+            p.setBrush(QColor(originBorder.red(), originBorder.green(), originBorder.blue(), isLightBg ? 40 : 50));
+            drawThemedShape(p, tabRect, theme.hudNav.tabShape, tabRadius, tabChamferPx);
         } else {
             if (col.isValid()) {
                 // Inactive workspace: colored background with chosen workspace color, no prominent border
@@ -4297,6 +4305,8 @@ inline QImage renderHudModeHeader(qreal scale,
         QColor textPen;
         if (tab.isActive) {
             textPen = isLightBg ? QColor(20, 25, 35) : QColor(255, 255, 255);
+        } else if (tab.isOrigin) {
+            textPen = isLightBg ? QColor(190, 110, 10) : QColor(255, 205, 110);
         } else if (col.isValid()) {
             textPen = isLightBg ? QColor(35, 42, 54) : QColor(225, 230, 240);
         } else {

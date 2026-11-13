@@ -243,6 +243,21 @@ inline bool updateWorkspace(QList<WorkspaceInfo> &workspaces, const QString &wsI
 
 inline int findWorkspaceIndexForWindow(const QList<WorkspaceInfo> &workspaces, const QString &appId, const QString &caption, int desktop = 0)
 {
+    // Pass 1: exact desktop matches (prioritize rules explicitly pinned to this virtual desktop)
+    if (desktop > 0) {
+        for (int i = 0; i < workspaces.size(); ++i) {
+            const auto &ws = workspaces.at(i);
+            for (const auto &r : ws.rules) {
+                if (r.matchDesktop > 0 && r.matchDesktop == desktop) {
+                    if (matchesWorkspace(ws, appId, caption, desktop)) {
+                        return i + 1;
+                    }
+                }
+            }
+        }
+    }
+
+    // Pass 2: general matches (including matchDesktop == 0)
     for (int i = 0; i < workspaces.size(); ++i) {
         if (matchesWorkspace(workspaces.at(i), appId, caption, desktop)) {
             return i + 1; // 1-based index (0 = standard / none)
