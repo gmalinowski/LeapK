@@ -120,55 +120,6 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
         return it.value();
     }
 
-#if !defined(ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES) && defined(ACTIVE_WINDOW_OUTLINE_HAS_OPENGL_SURFACE_TEXTURE)
-    // Priority 1: Window's direct surface texture from KWin's scene graph.
-    // This is the window's actual GPU surface buffer. It completely ignores Z-order
-    // (windows on top do NOT obscure it), and works even when the window is covered
-    // or located on another virtual desktop!
-    if (auto wi = target->windowItem()) {
-        if (auto si = wi->surfaceItem()) {
-            if (auto st = dynamic_cast<OpenGLSurfaceTexture*>(si->texture())) {
-                if (st->isValid()) {
-                    auto contents = st->texture();
-                    if (contents.isValid() && !contents.planes.isEmpty() && contents.planes.first()) {
-                        QImage rawImg = contents.planes.first()->toImage();
-                        if (!rawImg.isNull() && rawImg.width() >= 8 && rawImg.height() >= 8) {
-                            QImage thumb = rawImg.scaled(targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-                            if (thumb.format() != QImage::Format_RGBA8888 && thumb.format() != QImage::Format_ARGB32_Premultiplied) {
-                                thumb = thumb.convertToFormat(QImage::Format_RGBA8888);
-                            }
-                            // Wayland clients rendering via DMABUF / EGL (e.g. Firefox) store textures
-                            // with coordinate (0,0) at bottom-left in GL, making direct toImage() inverted.
-                            // SHM raster surfaces (Kate, Dolphin) upload top-to-bottom so they are not inverted.
-                            bool needsFlip = false;
-                            if (auto buf = si->buffer()) {
-                                if (buf->dmabufAttributes()) {
-                                    needsFlip = true;
-                                }
-                            } else if (target->isWaylandClient()) {
-                                needsFlip = true;
-                            }
-                            if (needsFlip) {
-#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
-                                thumb = thumb.flipped(Qt::Vertical);
-#else
-                                thumb = thumb.mirrored(false, true);
-#endif
-                            }
-                            for (qsizetype i = 3; i < thumb.sizeInBytes(); i += 4) {
-                                thumb.bits()[i] = 255;
-                            }
-                            m_thumbnailCache[target] = thumb;
-                            m_lastCaptureTimestamp[target] = now;
-                            return thumb;
-                        }
-                    }
-                }
-            }
-        }
-    }
-#endif
-
     const QRectF frameGeo = target->frameGeometry();
     const QSize winSize = frameGeo.size().toSize();
     QSize actualThumbSize = targetSize;
@@ -178,7 +129,9 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
         actualThumbSize.setHeight(qMax(8, actualThumbSize.height()));
     }
 
-    // Priority 2: Blit directly from renderTarget if the window is currently visible and unobscured on this desktop
+    // Priority 1: Blit directly from renderTarget if the window is currently visible and unobscured on this desktop.
+    // This captures the fully composited window framebuffer directly from KWin's scene (including all subsurfaces,
+    // hardware-accelerated video surfaces, DMABUFs, and client decorations) with 100% fidelity and correct orientation.
     if (forceBlit || (!isWindowObscured(target) && target->isOnCurrentDesktop() && !target->isMinimized() && target->isVisible())) {
         const QRect viewRect = QRectF(viewport.renderRect()).toRect();
         const QRect windowRect = frameGeo.toRect().intersected(viewRect);
@@ -247,7 +200,63 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
         }
     }
 
-    // 2. Offscreen rendering for covered/obscured windows, or windows on other desktops/minimized
+    // Check whether the window uses subsurfaces (e.g. video playback in Vivaldi/Chromium/Firefox/MPV).
+    // If child subsurfaces exist, we cannot read si->texture() directly because the root surface
+    // does not contain child subsurfaces. We must use offscreen drawWindow to composite them.
+    bool hasSubsurfaces = false;
+    if (auto wi = target->windowItem()) {
+        if (auto si = wi->surfaceItem()) {
+            hasSubsurfaces = !si->childItems().isEmpty();
+        }
+    }
+
+#if !defined(ACTIVE_WINDOW_OUTLINE_LEGACY_PAINT_TYPES) && defined(ACTIVE_WINDOW_OUTLINE_HAS_OPENGL_SURFACE_TEXTURE)
+    // Priority 2: Direct surface texture from KWin's scene graph.
+    // Only used for single-surface windows (no subsurfaces) when covered or on another desktop.
+    if (!hasSubsurfaces) {
+        if (auto wi = target->windowItem()) {
+            if (auto si = wi->surfaceItem()) {
+                if (auto st = dynamic_cast<OpenGLSurfaceTexture*>(si->texture())) {
+                    if (st->isValid()) {
+                        auto contents = st->texture();
+                        if (contents.isValid() && !contents.planes.isEmpty() && contents.planes.first()) {
+                            QImage rawImg = contents.planes.first()->toImage();
+                            if (!rawImg.isNull() && rawImg.width() >= 8 && rawImg.height() >= 8) {
+                                QImage thumb = rawImg.scaled(actualThumbSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                                if (thumb.format() != QImage::Format_RGBA8888 && thumb.format() != QImage::Format_ARGB32_Premultiplied) {
+                                    thumb = thumb.convertToFormat(QImage::Format_RGBA8888);
+                                }
+                                bool needsFlip = false;
+                                if (auto buf = si->buffer()) {
+                                    if (buf->dmabufAttributes()) {
+                                        needsFlip = true;
+                                    }
+                                } else if (target->isWaylandClient()) {
+                                    needsFlip = true;
+                                }
+                                if (needsFlip) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+                                    thumb = thumb.flipped(Qt::Vertical);
+#else
+                                    thumb = thumb.mirrored(false, true);
+#endif
+                                }
+                                for (qsizetype i = 3; i < thumb.sizeInBytes(); i += 4) {
+                                    thumb.bits()[i] = 255;
+                                }
+                                m_thumbnailCache[target] = thumb;
+                                m_lastCaptureTimestamp[target] = now;
+                                return thumb;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+#endif
+
+    // Priority 3: Offscreen rendering for covered/obscured windows, or windows on other desktops/minimized (or windows with subsurfaces)
     const QRectF offscreenFrameGeo = target->frameGeometry();
     if (offscreenFrameGeo.width() >= 16 && offscreenFrameGeo.height() >= 16) {
         if (!m_thumbTexture || m_thumbTexture->size() != actualThumbSize) {
@@ -327,7 +336,7 @@ QImage ActiveWindowOutlineEffect::captureWindowThumbnail(EffectWindow *target,
         return it.value();
     }
 
-    // 2. Fallback for windows that cannot be captured: stylish preview card with app icon and title
+    // Priority 4: Fallback for windows that cannot be captured: stylish preview card with app icon and title
     QImage fallback(actualThumbSize, QImage::Format_RGBA8888_Premultiplied);
     fallback.fill(QColor(26, 29, 33, 245));
     QPainter p(&fallback);

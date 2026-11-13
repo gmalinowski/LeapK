@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.6.0-beta98-exp] - 2026-11-13
 
 ### Fixed
+- **Correct Video & Subsurface Orientation in Window Thumbnails (Vivaldi/Chromium/Firefox)**:
+  - Fixed an issue where hardware-accelerated video playback (e.g. YouTube in Vivaldi, Chromium, Firefox, media players) was rendered flipped / upside down inside HUD badge thumbnails while the surrounding browser UI was right-side up.
+  - Reordered thumbnail capture priorities in `captureWindowThumbnail()` (`leapk_paint.cpp`):
+    - **Priority 1 (Direct Screen Blit)**: When a window is on the current virtual desktop, visible, and unobscured, LeapK now blits directly from `renderTarget` (the screen framebuffer). Because KWin's compositor has already composited all child subsurfaces, hardware video overlays (VA-API / DMABUF), and UI elements onto the screen framebuffer, copying from `renderTarget` guarantees 100% visual fidelity and perfect upright orientation for both the browser and video.
+    - **Priority 2 (Scene Graph Direct Surface Texture)**: Only used for single-surface windows without subsurfaces (`hasSubsurfaces == false`) when covered or on another virtual desktop.
+    - **Priority 3 (Offscreen `drawWindow`)**: For covered windows or windows on other virtual desktops that have child subsurfaces (`hasSubsurfaces == true`), LeapK uses `effects->drawWindow()` to composite all subsurfaces and video streams through KWin's compositor into an offscreen FBO.
 - **Multi-Instance App Workspace Isolation (Opening New Window on Another Workspace)**:
   - Fixed an issue where opening a new instance/window of an application (e.g. Vivaldi, browser, terminal) on Workspace 2 while an existing instance was already on Workspace 1 caused LeapK to yank the user back to Workspace 1.
   - Implemented two-pass matching in `findWorkspaceIndexForWindow()` (`workspacehelper.h`), prioritizing exact virtual desktop matches (`r.matchDesktop > 0 && r.matchDesktop == desktop`) before falling back to unconstrained (`matchDesktop == 0`) rules.
