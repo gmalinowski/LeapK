@@ -19,6 +19,7 @@
 #include "fuzzymatcher.h"
 #include "soundhelper.h"
 #include "nerdstatshelper.h"
+#include "audiovisualizer.h"
 
 #include <QColor>
 #include <QElapsedTimer>
@@ -585,6 +586,11 @@ private:
     mutable bool m_audioIsHoldingColor = true;
     mutable qreal m_audioStateStartTime = 0.0;
     bool m_audioHudShaderEnabled = true;
+    bool m_audioVisualizerEnabled = false;
+    QString m_audioVisualizerMode = QStringLiteral("waveform_oscilloscope");
+    qreal m_audioVisualizerSensitivity = 1.0;
+    qreal m_audioVisualizerWaveformAmplitude = 1.0;
+    bool m_audioVisualizerHudPulse = true;
     QString m_soundFeedbackProfile = QStringLiteral("crisp_click");
 
     // Config - Behavior & Delays

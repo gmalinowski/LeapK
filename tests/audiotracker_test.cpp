@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "audiotracker.h"
+#include "audiovisualizer.h"
 #include <cassert>
 #include <iostream>
 
@@ -357,6 +358,52 @@ static void testFlatpakAndCgroupMatching()
     assert(!tracker.isWindowPlaying(dolphinPid, dolphinCaption, dolphinClass));
 }
 
+static void testAudioDspAndVisualizer()
+{
+    using namespace OutlineAudioVisualizer;
+
+    AudioDspEngine dsp(22050.0f);
+    AudioVisualizerData data;
+
+    // 1. Silence test
+    constexpr int CHUNK_SIZE = 256;
+    int16_t silentBuffer[CHUNK_SIZE] = {0};
+    dsp.processChunk(silentBuffer, CHUNK_SIZE, data);
+    assert(data.isSilent == true);
+    assert(data.rms < 0.005f);
+    assert(data.peak < 0.005f);
+    assert(data.beatPulse == 0.0f);
+    for (float s : data.waveform) {
+        assert(std::abs(s) < 0.0001f);
+    }
+
+    // 2. Pure Bass Tone test (80 Hz kick/sub-bass at 22050 Hz sample rate)
+    dsp.reset();
+    int16_t bassBuffer[CHUNK_SIZE];
+    for (int i = 0; i < CHUNK_SIZE; ++i) {
+        bassBuffer[i] = static_cast<int16_t>(25000.0 * std::sin(2.0 * 3.141592653589793 * 80.0 * i / 22050.0));
+    }
+    dsp.processChunk(bassBuffer, CHUNK_SIZE, data, 1.0);
+    assert(data.isSilent == false);
+    assert(data.rms > 0.1f);
+    assert(data.peak > 0.5f);
+    assert(data.bass > data.highs);
+    assert(data.beatPulse > 0.0f); // Transient bass beat detected
+    assert(data.spectrumBars[0] > data.spectrumBars[15]);
+
+    // 3. Pure Treble Tone test (6000 Hz high frequency at 22050 Hz sample rate)
+    dsp.reset();
+    data = AudioVisualizerData();
+    int16_t trebleBuffer[CHUNK_SIZE];
+    for (int i = 0; i < CHUNK_SIZE; ++i) {
+        trebleBuffer[i] = static_cast<int16_t>(25000.0 * std::sin(2.0 * 3.141592653589793 * 6000.0 * i / 22050.0));
+    }
+    dsp.processChunk(trebleBuffer, CHUNK_SIZE, data, 1.0);
+    assert(data.isSilent == false);
+    assert(data.highs > data.bass);
+    assert(data.spectrumBars[12] > data.spectrumBars[0]);
+}
+
 int main(int argc, char *argv[])
 {
     Q_UNUSED(argc);
@@ -372,6 +419,7 @@ int main(int argc, char *argv[])
     testAudioShaderTargetingRules();
     testAppNamesOrIdsMatching();
     testFlatpakAndCgroupMatching();
+    testAudioDspAndVisualizer();
 
     std::cout << "All audiotracker tests passed successfully." << std::endl;
     return 0;

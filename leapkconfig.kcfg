@@ -776,6 +776,25 @@
         <entry name="AudioHudShaderEnabled" type="Bool">
             <default>true</default>
         </entry>
+        <entry name="AudioVisualizerEnabled" type="Bool">
+            <default>false</default>
+        </entry>
+        <entry name="AudioVisualizerMode" type="String">
+            <default>waveform_oscilloscope</default>
+        </entry>
+        <entry name="AudioVisualizerSensitivity" type="Double">
+            <default>1.0</default>
+            <min>0.1</min>
+            <max>5.0</max>
+        </entry>
+        <entry name="AudioVisualizerWaveformAmplitude" type="Double">
+            <default>1.0</default>
+            <min>0.1</min>
+            <max>3.0</max>
+        </entry>
+        <entry name="AudioVisualizerHudPulse" type="Bool">
+            <default>true</default>
+        </entry>
         <entry name="SoundFeedbackProfile" type="String">
             <default>crisp_click</default>
         </entry>

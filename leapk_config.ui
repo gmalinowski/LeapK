@@ -3351,6 +3351,103 @@
             </widget>
            </item>
 
+           <!-- Group: Real-time Audio Visualizer -->
+           <item>
+            <widget class="QGroupBox" name="groupAudioVisualizer">
+             <property name="title">
+              <string>Wizualizator Audio w Czasie Rzeczywistym / Real-time Audio Visualizer</string>
+             </property>
+             <layout class="QFormLayout" name="formLayoutAudioVisualizer">
+              <item row="0" column="0" colspan="2">
+               <widget class="QCheckBox" name="kcfg_AudioVisualizerEnabled">
+                <property name="text">
+                 <string>Włącz wizualizator fali i basu audio w czasie rzeczywistym / Enable real-time visualizer</string>
+                </property>
+                <property name="toolTip">
+                 <string>Analizuje odtwarzany strumień audio w czasie rzeczywistym (PipeWire/PulseAudio) i animuje obwód okna oraz wskaźniki HUD.</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="0">
+               <widget class="QLabel" name="label_audioVisualizerMode">
+                <property name="text">
+                 <string>Tryb wizualizacji / Mode:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="1">
+               <widget class="QComboBox" name="comboAudioVisualizerMode">
+                <property name="toolTip">
+                 <string>Wybierz tryb wizualizacji audio (oscyloskop fali, uderzenia basu, 16-pasmowy korektor, triad spektrum lub pełne kombo).</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="label_audioVisualizerSensitivity">
+                <property name="text">
+                 <string>Czułość audio / Sensitivity:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="1">
+               <widget class="QDoubleSpinBox" name="kcfg_AudioVisualizerSensitivity">
+                <property name="minimum">
+                 <double>0.1</double>
+                </property>
+                <property name="maximum">
+                 <double>5.0</double>
+                </property>
+                <property name="singleStep">
+                 <double>0.1</double>
+                </property>
+                <property name="value">
+                 <double>1.0</double>
+                </property>
+                <property name="suffix">
+                 <string>x</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="0">
+               <widget class="QLabel" name="label_audioVisualizerWaveformAmplitude">
+                <property name="text">
+                 <string>Amplituda fali / Wave amplitude:</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="1">
+               <widget class="QDoubleSpinBox" name="kcfg_AudioVisualizerWaveformAmplitude">
+                <property name="minimum">
+                 <double>0.1</double>
+                </property>
+                <property name="maximum">
+                 <double>3.0</double>
+                </property>
+                <property name="singleStep">
+                 <double>0.1</double>
+                </property>
+                <property name="value">
+                 <double>1.0</double>
+                </property>
+                <property name="suffix">
+                 <string>x</string>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="0" colspan="2">
+               <widget class="QCheckBox" name="kcfg_AudioVisualizerHudPulse">
+                <property name="text">
+                 <string>Pulsowanie kart i miniatur HUD w rytm muzyki / Pulse HUD cards with audio beat</string>
+                </property>
+                <property name="toolTip">
+                 <string>Karty okien odtwarzających audio w HUD pulsują w rytm wykrywanego basu.</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+
            <!-- Group 2: Window Badge Audio Indicators -->
            <item>
             <widget class="QGroupBox" name="group_AudioWindowIndicator">
@@ -3723,6 +3820,13 @@
            <!-- Hidden Config Fields -->
            <item>
             <widget class="QLineEdit" name="kcfg_AudioShaderId">
+             <property name="visible">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLineEdit" name="kcfg_AudioVisualizerMode">
              <property name="visible">
               <bool>false</bool>
              </property>

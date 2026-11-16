@@ -104,6 +104,7 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
     connect(m_historyCommitTimer, &QTimer::timeout, this, &ActiveWindowOutlineEffect::slotCommitHistoryNavigation);
 
     m_audioRefreshTimer = new QTimer(this);
+    OutlineAudioVisualizer::AudioVisualizerManager::instance().start();
     connect(m_audioRefreshTimer, &QTimer::timeout, this, [this]() {
         const bool wasPlaying = m_audioTracker.hasPlayingAudio();
         const QSet<pid_t> prevPids = m_audioTracker.playingPids();
@@ -112,6 +113,8 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
 
         const bool nowPlaying = m_audioTracker.hasPlayingAudio();
         const QSet<pid_t> nowPids = m_audioTracker.playingPids();
+
+        OutlineAudioVisualizer::AudioVisualizerManager::instance().setActive(m_audioVisualizerEnabled && nowPlaying);
 
         if (wasPlaying != nowPlaying || prevPids != nowPids) {
             m_badgeTextureCache.clear();
@@ -435,6 +438,7 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
 
 ActiveWindowOutlineEffect::~ActiveWindowOutlineEffect()
 {
+    OutlineAudioVisualizer::AudioVisualizerManager::instance().stop();
     if (m_kdeTilesEditorWatchTimer) {
         m_kdeTilesEditorWatchTimer->stop();
     }
@@ -717,12 +721,40 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     parseAudioColorList(m_audioWindowFrameColorList);
     m_audioHudShaderEnabled = config.readEntry("AudioHudShaderEnabled", true);
     m_badgeConfig.audioHudShaderEnabled = m_audioHudShaderEnabled;
+    m_audioVisualizerEnabled = config.readEntry("AudioVisualizerEnabled", false);
+    m_audioVisualizerMode = config.readEntry("AudioVisualizerMode", QStringLiteral("waveform_oscilloscope"));
+    m_audioVisualizerSensitivity = qBound<qreal>(0.1, config.readEntry("AudioVisualizerSensitivity", 1.0), 5.0);
+    m_audioVisualizerWaveformAmplitude = qBound<qreal>(0.1, config.readEntry("AudioVisualizerWaveformAmplitude", 1.0), 3.0);
+    m_audioVisualizerHudPulse = config.readEntry("AudioVisualizerHudPulse", true);
+
+    OutlineAudioVisualizer::AudioVisualizerManager::instance().setSensitivity(m_audioVisualizerSensitivity);
+    OutlineAudioVisualizer::AudioVisualizerManager::instance().setActive(m_audioVisualizerEnabled && m_audioTracker.hasPlayingAudio());
+
     m_soundFeedbackProfile = config.readEntry("SoundFeedbackProfile", QStringLiteral("crisp_click"));
     m_audioGlowShader.reset();
     m_audioOutlineShader.reset();
     m_audioShaderEffect = LeapKShader::CustomShaderEffect();
-    if (m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty()) {
-        LeapKShader::loadShaderById(m_audioShaderId, m_audioShaderEffect);
+    QString effectiveAudioShaderId = m_audioShaderId;
+    if (m_audioVisualizerEnabled && (effectiveAudioShaderId.isEmpty() || !m_audioShaderRuleEnabled)) {
+        if (m_audioVisualizerMode == QStringLiteral("beat_pulse")) {
+            effectiveAudioShaderId = QStringLiteral("audio_beat_pulse");
+        } else if (m_audioVisualizerMode == QStringLiteral("perimeter_equalizer")) {
+            effectiveAudioShaderId = QStringLiteral("audio_perimeter_equalizer");
+        } else if (m_audioVisualizerMode == QStringLiteral("spectrum_cycle")) {
+            effectiveAudioShaderId = QStringLiteral("audio_spectrum_cycle");
+        } else if (m_audioVisualizerMode == QStringLiteral("full_combo")) {
+            effectiveAudioShaderId = QStringLiteral("audio_full_combo");
+        } else {
+            effectiveAudioShaderId = QStringLiteral("audio_waveform_oscilloscope");
+        }
+    }
+    if (!effectiveAudioShaderId.isEmpty()) {
+        LeapKShader::loadShaderById(effectiveAudioShaderId, m_audioShaderEffect);
+        for (auto &p : m_audioShaderEffect.parameters) {
+            if (p.id == QStringLiteral("amplitude")) {
+                p.currentValue = m_audioVisualizerWaveformAmplitude;
+            }
+        }
     }
     updateAudioTrackingState();
 
@@ -1166,13 +1198,15 @@ void ActiveWindowOutlineEffect::updateAudioTrackingState(bool forceImmediateRefr
     }
 
     const bool badgesAlwaysOn = (m_outlineEnabled && m_badgeConfig.windowBadgesEnabled && m_badgeDisplayMode == 1);
-    const bool audioFrameActive = (m_outlineEnabled && (m_audioShaderRuleEnabled || m_audioWindowFramePulseEnabled || m_audioWindowFrameColorSequenceEnabled));
+    const bool audioFrameActive = (m_outlineEnabled && (m_audioShaderRuleEnabled || m_audioWindowFramePulseEnabled || m_audioWindowFrameColorSequenceEnabled || m_audioVisualizerEnabled));
     const auto &theme = m_badgePreviewActive ? m_previewBadgeConfig.activeTheme : m_badgeConfig.activeTheme;
     const bool badgePulse = theme.resolveBool(QStringLiteral("$audioPulseBadge"), theme.windowBadge.audioPulseBadge)
         && theme.resolveDouble(QStringLiteral("$audioPulseIntensity"), theme.windowBadge.audioPulseIntensity) > 0.001;
     const bool cardPulse = theme.resolveBool(QStringLiteral("$audioPulseBadge"), theme.hudCard.audioPulseBadge)
         && theme.resolveDouble(QStringLiteral("$audioPulseIntensity"), theme.hudCard.audioPulseIntensity) > 0.001;
     const bool audioPulsingEnabled = (badgePulse || cardPulse) && (m_jumpMode || badgesAlwaysOn);
+
+    OutlineAudioVisualizer::AudioVisualizerManager::instance().setActive(m_audioVisualizerEnabled && m_audioTracker.hasPlayingAudio());
 
     const bool needsTracking = m_jumpMode || badgesAlwaysOn || audioFrameActive || audioPulsingEnabled || m_audioTracker.hasPlayingAudio();
 

@@ -11,7 +11,7 @@
 void testBuiltInShaders()
 {
     const auto list = LeapKShader::getBuiltInShaders();
-    assert(list.size() == 8);
+    assert(list.size() == 13);
 
     // 1. Breathe / Pulsing
     assert(list[0].id == QStringLiteral("breathe_pulse"));
@@ -72,6 +72,46 @@ void testBuiltInShaders()
     assert(list[7].name == QStringLiteral("Fire Aura"));
     assert(list[7].target == QStringLiteral("glow"));
     assert(list[7].parameters.size() == 4);
+
+    // 9. Audio Waveform Oscilloscope
+    assert(list[8].id == QStringLiteral("audio_waveform_oscilloscope"));
+    assert(list[8].name == QStringLiteral("Audio Oscilloscope Waveform"));
+    assert(list[8].target == QStringLiteral("both"));
+    assert(list[8].isBuiltIn == true);
+    assert(list[8].parameters.size() == 3);
+    assert(list[8].parameters[0].id == QStringLiteral("amplitude"));
+
+    // 10. Audio Bass Beat Pulse
+    assert(list[9].id == QStringLiteral("audio_beat_pulse"));
+    assert(list[9].name == QStringLiteral("Audio Bass Beat Pulse"));
+    assert(list[9].target == QStringLiteral("both"));
+    assert(list[9].isBuiltIn == true);
+    assert(list[9].parameters.size() == 2);
+    assert(list[9].parameters[0].id == QStringLiteral("intensity"));
+
+    // 11. Audio 16-Band Perimeter Equalizer
+    assert(list[10].id == QStringLiteral("audio_perimeter_equalizer"));
+    assert(list[10].name == QStringLiteral("Audio 16-Band Perimeter Equalizer"));
+    assert(list[10].target == QStringLiteral("glow"));
+    assert(list[10].isBuiltIn == true);
+    assert(list[10].parameters.size() == 2);
+    assert(list[10].parameters[0].id == QStringLiteral("maxBarHeight"));
+
+    // 12. Audio Spectrum Triad Cycle
+    assert(list[11].id == QStringLiteral("audio_spectrum_cycle"));
+    assert(list[11].name == QStringLiteral("Audio Spectrum Triad Cycle"));
+    assert(list[11].target == QStringLiteral("both"));
+    assert(list[11].isBuiltIn == true);
+    assert(list[11].parameters.size() == 1);
+    assert(list[11].parameters[0].id == QStringLiteral("reactivity"));
+
+    // 13. Audio Full Visualizer Combo
+    assert(list[12].id == QStringLiteral("audio_full_combo"));
+    assert(list[12].name == QStringLiteral("Audio Full Visualizer Combo"));
+    assert(list[12].target == QStringLiteral("both"));
+    assert(list[12].isBuiltIn == true);
+    assert(list[12].parameters.size() == 2);
+    assert(list[12].parameters[0].id == QStringLiteral("amplitude"));
 }
 
 void testSerializationAndDeserialization()
@@ -175,6 +215,9 @@ void testShaderGeneration()
     assert(breatheSource.contains("#version 140"));
     assert(breatheSource.contains("uniform float speed;"));
     assert(breatheSource.contains("uniform float intensity;"));
+    assert(breatheSource.contains("uniform float audioRms;"));
+    assert(breatheSource.contains("uniform float audioWaveform[64];"));
+    assert(breatheSource.contains("sampleAudioWaveform"));
     assert(breatheSource.contains("evaluateCustomEffect(baseColor, position0, outerBox, distanceToOutline, time)"));
 
     // Rainbow wave glow fragment shader (modern desktop GL)
@@ -195,13 +238,14 @@ void testShaderGeneration()
     assert(outlineSource.contains("#version 300 es"));
     assert(outlineSource.contains("precision highp float;"));
     assert(outlineSource.contains("uniform float speed;"));
+    assert(outlineSource.contains("uniform float audioWaveform[64];"));
     assert(outlineSource.contains("evaluateCustomEffect(baseColor, position0, outerBox, 0.0, time)"));
 }
 
 void testAllBuiltInShadersGLSLGeneration()
 {
     const auto list = LeapKShader::getBuiltInShaders();
-    assert(list.size() == 8);
+    assert(list.size() == 13);
 
     for (const auto &effect : list) {
         // Basic metadata

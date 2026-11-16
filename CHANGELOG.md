@@ -4,6 +4,29 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses semantic versioning.
 
+## [1.6.0-beta100-exp] - 2026-11-17
+
+### Added
+- **Real-Time Audio Visualizer for Window Frames & HUD Dock ("Pełny pakiet")**:
+  - Real-time audio stream capture via PipeWire / PulseAudio simple recording API (`@DEFAULT_MONITOR@`) in a low-latency background worker thread with dynamic loading (`QLibrary`).
+  - Comprehensive DSP engine (`AudioDspEngine`) calculating:
+    - RMS and Peak volume metering with instant attack and smooth decay.
+    - Low-frequency bass kick / transient beat detector with adaptive moving average threshold.
+    - 64-sample normalized waveform buffer for oscilloscope beam visualization.
+    - 16-band graphic equalizer filter bank using 2nd-order direct form II transposed biquad filters.
+  - 5 Built-in audio reactive GLSL shaders in `customshaderhelper.h`:
+    - `audio_waveform_oscilloscope`: Undulating real-time oscilloscope wave traveling along the window perimeter.
+    - `audio_beat_pulse`: Rhythmic bass kick-drum beat pump with dynamic glow expansion and color punch.
+    - `audio_perimeter_equalizer`: 16-band graphic equalizer bars mapped around the window frame.
+    - `audio_spectrum_cycle`: Dynamic triad color shift reacting live to bass (red/magenta), midrange (cyan), and highs (gold).
+    - `audio_full_combo`: Combined experience with waveform oscilloscope, beat pulse, and frequency spectrum glow.
+  - Real-time audio uniforms passed to GLSL shaders: `audioRms`, `audioPeak`, `audioBass`, `audioMids`, `audioHighs`, `audioBeat`, `audioBars0..3`, `audioBars[16]`, `audioWaveform[64]`.
+  - Dynamic beat-reactive physical glow expansion on kick drum hits.
+  - Real-time music beat pulsing of window badges and HUD cards in sync with playing audio.
+  - Dedicated configuration UI in LeapK Settings (Audio tab -> "Real-time Audio Visualizer"): enabled toggle, mode selector, audio sensitivity, oscilloscope amplitude, and HUD pulse toggle.
+  - Synchronized across `leapkconfig.kcfg`, `install-leapk.sh`, and `uninstall-leapk.sh`.
+  - Added unit test `testAudioDspAndVisualizer` in `tests/audiotracker_test.cpp` and updated `tests/customshader_test.cpp` for 13 built-in shaders.
+
 ## [1.6.0-beta99-exp] - 2026-11-13
 
 ### Added

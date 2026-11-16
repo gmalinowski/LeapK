@@ -1776,9 +1776,15 @@ void ActiveWindowOutlineEffect::renderBadge(const RenderTarget &renderTarget,
     const double pulseIntensity = cfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseIntensity"), cfg.activeTheme.windowBadge.audioPulseIntensity);
     const double pulseSpeed = cfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseSpeed"), cfg.activeTheme.windowBadge.audioPulseSpeed);
     if (isPlayingAudio && pulseBadge && pulseIntensity > 0.001) {
-        const qint64 elapsedMs = m_animationClock.isValid() ? m_animationClock.elapsed() : 0;
-        const qreal elapsedSec = elapsedMs / 1000.0;
-        const qreal pulse = 1.0 + (0.08 * pulseIntensity) * std::sin(elapsedSec * 8.0 * pulseSpeed);
+        qreal pulse = 1.0;
+        if (m_audioVisualizerEnabled && m_audioVisualizerHudPulse) {
+            const auto audioData = OutlineAudioVisualizer::AudioVisualizerManager::instance().data();
+            pulse = 1.0 + (0.12 * pulseIntensity) * (audioData.beatPulse * 0.8 + audioData.rms * 0.4);
+        } else {
+            const qint64 elapsedMs = m_animationClock.isValid() ? m_animationClock.elapsed() : 0;
+            const qreal elapsedSec = elapsedMs / 1000.0;
+            pulse = 1.0 + (0.08 * pulseIntensity) * std::sin(elapsedSec * 8.0 * pulseSpeed);
+        }
         const qreal pw = texW * pulse;
         const qreal ph = texH * pulse;
         finalBadgeRect = QRectF(bCenter.x() - pw / 2.0, bCenter.y() - ph / 2.0, pw, ph);
@@ -2436,9 +2442,15 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
         const double pulseIntensity = hudCfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseIntensity"), hudCfg.activeTheme.hudCard.audioPulseIntensity);
         const double pulseSpeed = hudCfg.activeTheme.resolveDouble(QStringLiteral("$audioPulseSpeed"), hudCfg.activeTheme.hudCard.audioPulseSpeed);
         if (pillAudio && pulseCard && pulseIntensity > 0.001) {
-            const qint64 elapsedMs = m_animationClock.isValid() ? m_animationClock.elapsed() : 0;
-            const qreal elapsedSec = elapsedMs / 1000.0;
-            const qreal pulse = 1.0 + (0.05 * pulseIntensity) * std::sin(elapsedSec * 8.0 * pulseSpeed);
+            qreal pulse = 1.0;
+            if (m_audioVisualizerEnabled && m_audioVisualizerHudPulse) {
+                const auto audioData = OutlineAudioVisualizer::AudioVisualizerManager::instance().data();
+                pulse = 1.0 + (0.10 * pulseIntensity) * (audioData.beatPulse * 0.8 + audioData.rms * 0.4);
+            } else {
+                const qint64 elapsedMs = m_animationClock.isValid() ? m_animationClock.elapsed() : 0;
+                const qreal elapsedSec = elapsedMs / 1000.0;
+                pulse = 1.0 + (0.05 * pulseIntensity) * std::sin(elapsedSec * 8.0 * pulseSpeed);
+            }
             const QPointF center = r.center();
             const qreal pw = r.width() * pulse;
             const qreal ph = r.height() * pulse;
@@ -2609,7 +2621,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     }
 
     // 2a. Render Audio Shader Glow behind audio HUD cards
-    if (m_audioHudShaderEnabled && m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty() && m_audioTracker.hasPlayingAudio()) {
+    if (m_audioHudShaderEnabled && ((m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty()) || (m_audioVisualizerEnabled && !m_audioShaderEffect.id.isEmpty())) && m_audioTracker.hasPlayingAudio()) {
         for (int i = 0; i < pills.size(); ++i) {
             const bool pillAudio = (i < targets.size() && targets.at(i).second)
                 ? m_audioTracker.isWindowPlaying(targets.at(i).second->pid(), targets.at(i).second->caption(), targets.at(i).second->windowClass())
@@ -2715,7 +2727,7 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     }
 
     // 2c. Render Audio Shader Outline on top of audio HUD cards (if outline target)
-    if (m_audioHudShaderEnabled && m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty() && m_audioTracker.hasPlayingAudio()) {
+    if (m_audioHudShaderEnabled && ((m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty()) || (m_audioVisualizerEnabled && !m_audioShaderEffect.id.isEmpty())) && m_audioTracker.hasPlayingAudio()) {
         for (int i = 0; i < pills.size(); ++i) {
             const bool pillAudio = (i < targets.size() && targets.at(i).second)
                 ? m_audioTracker.isWindowPlaying(targets.at(i).second->pid(), targets.at(i).second->caption(), targets.at(i).second->windowClass())

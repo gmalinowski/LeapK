@@ -734,6 +734,260 @@ inline QList<CustomShaderEffect> getBuiltInShaders()
         list.append(e);
     }
 
+    // 9. Audio Waveform Oscilloscope
+    {
+        CustomShaderEffect e;
+        e.id = QStringLiteral("audio_waveform_oscilloscope");
+        e.name = QStringLiteral("Audio Oscilloscope Waveform");
+        e.description = QStringLiteral("Real-time oscilloscope audio waveform undulating dynamically along the perimeter.");
+        e.author = QStringLiteral("LeapK Audio Visualizer");
+        e.version = QStringLiteral("1.0");
+        e.isBuiltIn = true;
+        e.target = QStringLiteral("both");
+
+        ShaderParameter p1;
+        p1.id = QStringLiteral("amplitude");
+        p1.name = QStringLiteral("Wave Amplitude");
+        p1.type = QStringLiteral("float");
+        p1.minValue = 0.1;
+        p1.maxValue = 4.0;
+        p1.step = 0.1;
+        p1.defaultValue = 1.0;
+        p1.currentValue = 1.0;
+        p1.suffix = QStringLiteral("x");
+        e.parameters.append(p1);
+
+        ShaderParameter p2;
+        p2.id = QStringLiteral("speed");
+        p2.name = QStringLiteral("Flow Speed");
+        p2.type = QStringLiteral("float");
+        p2.minValue = 0.0;
+        p2.maxValue = 5.0;
+        p2.step = 0.1;
+        p2.defaultValue = 1.0;
+        p2.currentValue = 1.0;
+        p2.suffix = QStringLiteral("x");
+        e.parameters.append(p2);
+
+        ShaderParameter p3;
+        p3.id = QStringLiteral("sharpness");
+        p3.name = QStringLiteral("Beam Sharpness");
+        p3.type = QStringLiteral("float");
+        p3.minValue = 0.2;
+        p3.maxValue = 2.0;
+        p3.step = 0.1;
+        p3.defaultValue = 0.8;
+        p3.currentValue = 0.8;
+        e.parameters.append(p3);
+
+        e.glslCode = QStringLiteral(
+            "vec4 evaluateCustomEffect(vec4 baseColor, vec2 pos, vec4 box, float dist, float time)\n"
+            "{\n"
+            "    float t = computeNormalizedPerimeter(pos, box, 6.0);\n"
+            "    float sampleT = fract(t + time * speed * 0.04);\n"
+            "    float wave = sampleAudioWaveform(sampleT);\n"
+            "    float targetDist = wave * amplitude * 12.0;\n"
+            "    float beam = exp(-abs(dist - targetDist) * sharpness * 0.8) * (0.8 + 1.2 * audioBeat);\n"
+            "    vec3 waveCol = mix(baseColor.rgb, vec3(0.1, 0.9, 1.0), clamp(abs(wave) * 1.5, 0.0, 1.0));\n"
+            "    waveCol = mix(waveCol, vec3(1.0, 0.3, 0.6), clamp(audioBeat * 1.2, 0.0, 1.0));\n"
+            "    float a = baseColor.a * (0.3 + 0.7 * beam + 0.3 * audioRms);\n"
+            "    return vec4(waveCol * (0.7 + 0.9 * beam), a);\n"
+            "}\n"
+        );
+        list.append(e);
+    }
+
+    // 10. Audio Bass Beat Pulse
+    {
+        CustomShaderEffect e;
+        e.id = QStringLiteral("audio_beat_pulse");
+        e.name = QStringLiteral("Audio Bass Beat Pulse");
+        e.description = QStringLiteral("Rhythmic bass kick-drum beat pump modulating outline glow and color intensity.");
+        e.author = QStringLiteral("LeapK Audio Visualizer");
+        e.version = QStringLiteral("1.0");
+        e.isBuiltIn = true;
+        e.target = QStringLiteral("both");
+
+        ShaderParameter p1;
+        p1.id = QStringLiteral("intensity");
+        p1.name = QStringLiteral("Pulse Intensity");
+        p1.type = QStringLiteral("float");
+        p1.minValue = 10.0;
+        p1.maxValue = 100.0;
+        p1.step = 5.0;
+        p1.defaultValue = 60.0;
+        p1.currentValue = 60.0;
+        p1.suffix = QStringLiteral(" %");
+        e.parameters.append(p1);
+
+        ShaderParameter p2;
+        p2.id = QStringLiteral("punchColor");
+        p2.name = QStringLiteral("Bass Punch Color");
+        p2.type = QStringLiteral("color");
+        p2.colorDefault = QStringLiteral("#ff1744");
+        p2.colorCurrent = QStringLiteral("#ff1744");
+        e.parameters.append(p2);
+
+        e.glslCode = QStringLiteral(
+            "vec4 evaluateCustomEffect(vec4 baseColor, vec2 pos, vec4 box, float dist, float time)\n"
+            "{\n"
+            "    float pulse = audioBeat * (intensity / 50.0);\n"
+            "    float factor = 1.0 + pulse * 1.5 + audioBass * 0.5;\n"
+            "    vec3 col = mix(baseColor.rgb, punchColor.rgb, clamp(pulse * 1.2 + audioBass * 0.4, 0.0, 1.0));\n"
+            "    return vec4(col * factor, baseColor.a * clamp(0.5 + 0.8 * pulse + 0.4 * audioRms, 0.0, 1.0));\n"
+            "}\n"
+        );
+        list.append(e);
+    }
+
+    // 11. Audio 16-Band Perimeter Equalizer
+    {
+        CustomShaderEffect e;
+        e.id = QStringLiteral("audio_perimeter_equalizer");
+        e.name = QStringLiteral("Audio 16-Band Perimeter Equalizer");
+        e.description = QStringLiteral("16-band graphic equalizer bars mapped rhythmically along the window frame.");
+        e.author = QStringLiteral("LeapK Audio Visualizer");
+        e.version = QStringLiteral("1.0");
+        e.isBuiltIn = true;
+        e.target = QStringLiteral("glow");
+
+        ShaderParameter p1;
+        p1.id = QStringLiteral("maxBarHeight");
+        p1.name = QStringLiteral("Max Bar Reach");
+        p1.type = QStringLiteral("float");
+        p1.minValue = 4.0;
+        p1.maxValue = 40.0;
+        p1.step = 2.0;
+        p1.defaultValue = 16.0;
+        p1.currentValue = 16.0;
+        p1.suffix = QStringLiteral(" px");
+        e.parameters.append(p1);
+
+        ShaderParameter p2;
+        p2.id = QStringLiteral("sensitivity");
+        p2.name = QStringLiteral("EQ Boost");
+        p2.type = QStringLiteral("float");
+        p2.minValue = 0.5;
+        p2.maxValue = 3.0;
+        p2.step = 0.1;
+        p2.defaultValue = 1.2;
+        p2.currentValue = 1.2;
+        p2.suffix = QStringLiteral("x");
+        e.parameters.append(p2);
+
+        e.glslCode = QStringLiteral(
+            "vec4 evaluateCustomEffect(vec4 baseColor, vec2 pos, vec4 box, float dist, float time)\n"
+            "{\n"
+            "    float t = computeNormalizedPerimeter(pos, box, 6.0);\n"
+            "    float barVal = sampleAudioBar(t) * sensitivity;\n"
+            "    float barHeight = clamp(barVal, 0.0, 1.5) * maxBarHeight;\n"
+            "    float glow = exp(-max(0.0, dist - barHeight) * 0.35);\n"
+            "    vec3 barColor = hsv2rgb(vec3(0.85 - t * 0.7, 0.9, 1.0));\n"
+            "    vec3 col = mix(baseColor.rgb, barColor, clamp(barVal * 1.2, 0.0, 1.0));\n"
+            "    float alpha = baseColor.a * (0.2 + 0.8 * glow + 0.5 * barVal);\n"
+            "    return vec4(col * (0.8 + 0.6 * barVal), alpha);\n"
+            "}\n"
+        );
+        list.append(e);
+    }
+
+    // 12. Audio Spectrum Triad Cycle
+    {
+        CustomShaderEffect e;
+        e.id = QStringLiteral("audio_spectrum_cycle");
+        e.name = QStringLiteral("Audio Spectrum Triad Cycle");
+        e.description = QStringLiteral("Dynamic color shift reacting to live bass (red), midrange (cyan), and treble (gold).");
+        e.author = QStringLiteral("LeapK Audio Visualizer");
+        e.version = QStringLiteral("1.0");
+        e.isBuiltIn = true;
+        e.target = QStringLiteral("both");
+
+        ShaderParameter p1;
+        p1.id = QStringLiteral("reactivity");
+        p1.name = QStringLiteral("Frequency Reactivity");
+        p1.type = QStringLiteral("float");
+        p1.minValue = 0.5;
+        p1.maxValue = 3.0;
+        p1.step = 0.1;
+        p1.defaultValue = 1.5;
+        p1.currentValue = 1.5;
+        p1.suffix = QStringLiteral("x");
+        e.parameters.append(p1);
+
+        e.glslCode = QStringLiteral(
+            "vec4 evaluateCustomEffect(vec4 baseColor, vec2 pos, vec4 box, float dist, float time)\n"
+            "{\n"
+            "    vec3 bassCol = vec3(1.0, 0.08, 0.35) * (audioBass * reactivity);\n"
+            "    vec3 midsCol = vec3(0.0, 0.85, 0.95) * (audioMids * reactivity);\n"
+            "    vec3 highsCol = vec3(1.0, 0.85, 0.15) * (audioHighs * reactivity);\n"
+            "    vec3 specCol = bassCol + midsCol + highsCol;\n"
+            "    float total = (audioBass + audioMids + audioHighs) * reactivity;\n"
+            "    if (total > 0.05) {\n"
+            "        specCol /= max(1.0, total);\n"
+            "    } else {\n"
+            "        specCol = baseColor.rgb;\n"
+            "    }\n"
+            "    vec3 col = mix(baseColor.rgb, specCol, clamp(audioRms * 2.0, 0.0, 1.0));\n"
+            "    float pulse = 1.0 + audioBeat * 0.7;\n"
+            "    return vec4(col * pulse, baseColor.a * clamp(0.5 + audioRms * 1.2 + audioBeat * 0.5, 0.0, 1.0));\n"
+            "}\n"
+        );
+        list.append(e);
+    }
+
+    // 13. Audio Full Visualizer Combo
+    {
+        CustomShaderEffect e;
+        e.id = QStringLiteral("audio_full_combo");
+        e.name = QStringLiteral("Audio Full Visualizer Combo");
+        e.description = QStringLiteral("Complete visualizer experience combining oscilloscope waveform, bass beat pulse, and spectrum glow.");
+        e.author = QStringLiteral("LeapK Audio Visualizer");
+        e.version = QStringLiteral("1.0");
+        e.isBuiltIn = true;
+        e.target = QStringLiteral("both");
+
+        ShaderParameter p1;
+        p1.id = QStringLiteral("amplitude");
+        p1.name = QStringLiteral("Wave Amplitude");
+        p1.type = QStringLiteral("float");
+        p1.minValue = 0.2;
+        p1.maxValue = 3.0;
+        p1.step = 0.1;
+        p1.defaultValue = 1.0;
+        p1.currentValue = 1.0;
+        p1.suffix = QStringLiteral("x");
+        e.parameters.append(p1);
+
+        ShaderParameter p2;
+        p2.id = QStringLiteral("beatGlow");
+        p2.name = QStringLiteral("Beat Glow Boost");
+        p2.type = QStringLiteral("float");
+        p2.minValue = 0.2;
+        p2.maxValue = 2.0;
+        p2.step = 0.1;
+        p2.defaultValue = 1.2;
+        p2.currentValue = 1.2;
+        p2.suffix = QStringLiteral("x");
+        e.parameters.append(p2);
+
+        e.glslCode = QStringLiteral(
+            "vec4 evaluateCustomEffect(vec4 baseColor, vec2 pos, vec4 box, float dist, float time)\n"
+            "{\n"
+            "    float t = computeNormalizedPerimeter(pos, box, 6.0);\n"
+            "    float wave = sampleAudioWaveform(fract(t + time * 0.03));\n"
+            "    float targetDist = wave * amplitude * 12.0;\n"
+            "    float beam = exp(-abs(dist - targetDist) * 0.45);\n"
+            "    vec3 spec = vec3(audioBass * 1.2, audioMids * 0.9, audioHighs * 1.4);\n"
+            "    vec3 col = mix(baseColor.rgb, spec, clamp(audioRms * 1.5, 0.0, 0.8));\n"
+            "    col += vec3(0.2, 0.8, 1.0) * beam * 1.2;\n"
+            "    col += vec3(1.0, 0.2, 0.4) * (audioBeat * beatGlow * 0.8);\n"
+            "    float a = baseColor.a * clamp(0.4 + 0.6 * beam + audioBeat * 0.5 + audioRms * 0.5, 0.0, 1.0);\n"
+            "    return vec4(col, a);\n"
+            "}\n"
+        );
+        list.append(e);
+    }
+
     return list;
 }
 
@@ -979,6 +1233,18 @@ uniform float dashActive;
 uniform float dashLength;
 uniform float dashPeriod;
 uniform float dashSmooth;
+uniform float audioRms;
+uniform float audioPeak;
+uniform float audioBass;
+uniform float audioMids;
+uniform float audioHighs;
+uniform float audioBeat;
+uniform vec4 audioBars0;
+uniform vec4 audioBars1;
+uniform vec4 audioBars2;
+uniform vec4 audioBars3;
+uniform float audioWaveform[64];
+uniform float audioBars[16];
 
 )GLSL";
 
@@ -1042,6 +1308,51 @@ float hash21(vec2 p)
     p = fract(p * vec2(123.34, 456.21));
     p += dot(p, p + 45.32);
     return fract(p.x * p.y);
+}
+
+float computeNormalizedPerimeter(vec2 pt, vec4 box, float r)
+{
+    float w0 = max(0.0, box.z - r);
+    float h0 = max(0.0, box.w - r);
+    float totalPerim = max(1.0, 4.0 * w0 + 4.0 * h0 + 6.2831853 * r);
+    float s = computePerimeterDistance(pt, box, r);
+    return clamp(s / totalPerim, 0.0, 1.0);
+}
+
+float sampleAudioWaveform(float t)
+{
+    float idx = clamp(t, 0.0, 1.0) * 63.0;
+    int i0 = int(floor(idx));
+    int i1 = min(i0 + 1, 63);
+    float frac = idx - float(i0);
+    return mix(audioWaveform[i0], audioWaveform[i1], frac);
+}
+
+float sampleAudioBar(float t)
+{
+    float idx = clamp(t, 0.0, 1.0) * 15.0;
+    int i = clamp(int(floor(idx + 0.5)), 0, 15);
+    if (i < 4) {
+        if (i == 0) return audioBars0.x;
+        if (i == 1) return audioBars0.y;
+        if (i == 2) return audioBars0.z;
+        return audioBars0.w;
+    } else if (i < 8) {
+        if (i == 4) return audioBars1.x;
+        if (i == 5) return audioBars1.y;
+        if (i == 6) return audioBars1.z;
+        return audioBars1.w;
+    } else if (i < 12) {
+        if (i == 8) return audioBars2.x;
+        if (i == 9) return audioBars2.y;
+        if (i == 10) return audioBars2.z;
+        return audioBars2.w;
+    } else {
+        if (i == 12) return audioBars3.x;
+        if (i == 13) return audioBars3.y;
+        if (i == 14) return audioBars3.z;
+        return audioBars3.w;
+    }
 }
 
 )GLSL";
@@ -1139,6 +1450,18 @@ uniform float dashLength;
 uniform float dashPeriod;
 uniform float dashSmooth;
 uniform float time;
+uniform float audioRms;
+uniform float audioPeak;
+uniform float audioBass;
+uniform float audioMids;
+uniform float audioHighs;
+uniform float audioBeat;
+uniform vec4 audioBars0;
+uniform vec4 audioBars1;
+uniform vec4 audioBars2;
+uniform vec4 audioBars3;
+uniform float audioWaveform[64];
+uniform float audioBars[16];
 
 )GLSL";
 
@@ -1195,6 +1518,51 @@ float hash21(vec2 p)
     p = fract(p * vec2(123.34, 456.21));
     p += dot(p, p + 45.32);
     return fract(p.x * p.y);
+}
+
+float computeNormalizedPerimeter(vec2 pt, vec4 box, float r)
+{
+    float w0 = max(0.0, box.z - r);
+    float h0 = max(0.0, box.w - r);
+    float totalPerim = max(1.0, 4.0 * w0 + 4.0 * h0 + 6.2831853 * r);
+    float s = computePerimeterDistance(pt, box, r);
+    return clamp(s / totalPerim, 0.0, 1.0);
+}
+
+float sampleAudioWaveform(float t)
+{
+    float idx = clamp(t, 0.0, 1.0) * 63.0;
+    int i0 = int(floor(idx));
+    int i1 = min(i0 + 1, 63);
+    float frac = idx - float(i0);
+    return mix(audioWaveform[i0], audioWaveform[i1], frac);
+}
+
+float sampleAudioBar(float t)
+{
+    float idx = clamp(t, 0.0, 1.0) * 15.0;
+    int i = clamp(int(floor(idx + 0.5)), 0, 15);
+    if (i < 4) {
+        if (i == 0) return audioBars0.x;
+        if (i == 1) return audioBars0.y;
+        if (i == 2) return audioBars0.z;
+        return audioBars0.w;
+    } else if (i < 8) {
+        if (i == 4) return audioBars1.x;
+        if (i == 5) return audioBars1.y;
+        if (i == 6) return audioBars1.z;
+        return audioBars1.w;
+    } else if (i < 12) {
+        if (i == 8) return audioBars2.x;
+        if (i == 9) return audioBars2.y;
+        if (i == 10) return audioBars2.z;
+        return audioBars2.w;
+    } else {
+        if (i == 12) return audioBars3.x;
+        if (i == 13) return audioBars3.y;
+        if (i == 14) return audioBars3.z;
+        return audioBars3.w;
+    }
 }
 
 )GLSL";

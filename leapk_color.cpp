@@ -23,7 +23,7 @@ bool ActiveWindowOutlineEffect::isAnimationActive() const
     const bool hasDelayed = (m_delayedHideWindow && !m_delayedHideWindow->isDeleted()
         && m_delayedHideWindow->isOnCurrentDesktop() && !m_delayedHideWindow->isMinimized()
         && !m_delayedHideWindow->isHiddenByShowDesktop() && m_delayedHideState.isEffectivelyVisible());
-    const bool isAudioFrameActive = (m_audioShaderRuleEnabled || m_audioWindowFramePulseEnabled || m_audioWindowFrameColorSequenceEnabled) && m_audioTracker.hasPlayingAudio();
+    const bool isAudioFrameActive = (m_audioShaderRuleEnabled || m_audioWindowFramePulseEnabled || m_audioWindowFrameColorSequenceEnabled || m_audioVisualizerEnabled) && m_audioTracker.hasPlayingAudio();
     if (m_visibilityState.isEffectivelyVisible() || hasDelayed || (isAudioFrameActive && (m_audioWindowFrameShaderMode == QLatin1String("always") || m_audioWindowFrameShaderMode == QLatin1String("inactive")))) {
         return m_colorCycleEnabled || m_breatheEnabled
             || m_glitchEnabled || m_neonFlickerEnabled || m_flashEnabled
@@ -112,7 +112,7 @@ void ActiveWindowOutlineEffect::slotAnimationTick()
         effects->addRepaintFull();
     }
 
-    const bool audioFrameAnim = (m_audioShaderRuleEnabled || m_audioWindowFramePulseEnabled || m_audioWindowFrameColorSequenceEnabled) && m_audioTracker.hasPlayingAudio();
+    const bool audioFrameAnim = (m_audioShaderRuleEnabled || m_audioWindowFramePulseEnabled || m_audioWindowFrameColorSequenceEnabled || m_audioVisualizerEnabled) && m_audioTracker.hasPlayingAudio();
     if (audioFrameAnim && effects) {
         effects->addRepaintFull();
     }
@@ -334,19 +334,49 @@ QColor ActiveWindowOutlineEffect::resolveColor(qreal windowOpacity, EffectWindow
         || (m_audioWindowFrameShaderMode == QLatin1String("active") && isFocus)
         || (m_audioWindowFrameShaderMode == QLatin1String("inactive") && !isFocus);
     const bool isAudioFrameActive = isPlayingAudio && matchFrameMode
-        && (m_audioShaderRuleEnabled || m_audioWindowFramePulseEnabled || m_audioWindowFrameColorSequenceEnabled);
+        && (m_audioShaderRuleEnabled || m_audioWindowFramePulseEnabled || m_audioWindowFrameColorSequenceEnabled || m_audioVisualizerEnabled);
 
     if (!treatAsMarked && !isPinned && !treatAsRecent && isAudioFrameActive) {
-        if (m_audioWindowFrameColorSequenceEnabled && !m_audioColorStops.isEmpty()) {
+        if (m_audioVisualizerEnabled) {
+            const auto audioData = OutlineAudioVisualizer::AudioVisualizerManager::instance().data();
+            if (m_audioVisualizerMode == QLatin1String("spectrum_cycle")) {
+                const qreal bass = audioData.bass * m_audioVisualizerSensitivity;
+                const qreal mids = audioData.mids * m_audioVisualizerSensitivity;
+                const qreal highs = audioData.highs * m_audioVisualizerSensitivity;
+                const qreal total = bass + mids + highs;
+                if (total > 0.05) {
+                    const int r = qBound(0, qRound((bass * 255.0 + highs * 255.0) / std::max(1.0, total)), 255);
+                    const int g = qBound(0, qRound((mids * 220.0 + highs * 215.0) / std::max(1.0, total)), 255);
+                    const int b = qBound(0, qRound((mids * 240.0) / std::max(1.0, total)), 255);
+                    color = QColor(r, g, b);
+                } else {
+                    color = m_badgeConfig.activeTheme.resolveColor(QStringLiteral("$audioColor"), QColor(241, 196, 15));
+                }
+            } else if (m_audioWindowFrameColorSequenceEnabled && !m_audioColorStops.isEmpty()) {
+                color = computeCurrentAudioColor(elapsedSec);
+            } else {
+                color = m_badgeConfig.activeTheme.resolveColor(QStringLiteral("$audioColor"), QColor(241, 196, 15));
+            }
+            color.setAlphaF(qBound(0.1, m_visibilityState.visibilityOpacity, 1.0));
+
+            const qreal pulse = 1.0 + audioData.beatPulse * 0.6 + audioData.bass * 0.3;
+            color.setAlpha(qBound(0, qRound(color.alpha() * std::min(1.0, pulse)), 255));
+        } else if (m_audioWindowFrameColorSequenceEnabled && !m_audioColorStops.isEmpty()) {
             color = computeCurrentAudioColor(elapsedSec);
+            color.setAlphaF(qBound(0.1, m_visibilityState.visibilityOpacity, 1.0));
+
+            if (m_audioWindowFramePulseEnabled) {
+                const qreal pulse = OutlineShader::computeBreatheFactor(elapsedSec, true, m_audioWindowFramePulseSpeed, m_audioWindowFramePulseIntensity);
+                color.setAlpha(qBound(0, qRound(color.alpha() * pulse), 255));
+            }
         } else {
             color = m_badgeConfig.activeTheme.resolveColor(QStringLiteral("$audioColor"), QColor(241, 196, 15));
-        }
-        color.setAlphaF(qBound(0.1, m_visibilityState.visibilityOpacity, 1.0));
+            color.setAlphaF(qBound(0.1, m_visibilityState.visibilityOpacity, 1.0));
 
-        if (m_audioWindowFramePulseEnabled) {
-            const qreal pulse = OutlineShader::computeBreatheFactor(elapsedSec, true, m_audioWindowFramePulseSpeed, m_audioWindowFramePulseIntensity);
-            color.setAlpha(qBound(0, qRound(color.alpha() * pulse), 255));
+            if (m_audioWindowFramePulseEnabled) {
+                const qreal pulse = OutlineShader::computeBreatheFactor(elapsedSec, true, m_audioWindowFramePulseSpeed, m_audioWindowFramePulseIntensity);
+                color.setAlpha(qBound(0, qRound(color.alpha() * pulse), 255));
+            }
         }
     }
 

@@ -494,7 +494,8 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
     } else if (m_audioWindowFrameShaderMode == QLatin1String("inactive")) {
         matchFrameMode = !isFocus;
     }
-    const bool isAudioShader = isPlayingAudio && m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty() && matchFrameMode;
+    const bool isAudioShader = isPlayingAudio && matchFrameMode &&
+        ((m_audioShaderRuleEnabled && !m_audioShaderId.isEmpty()) || (m_audioVisualizerEnabled && !m_audioShaderEffect.id.isEmpty()));
     const LeapKShader::CustomShaderEffect &effectiveShader = isAudioShader ? m_audioShaderEffect : m_activeCustomShader;
     const bool customGlow = isAudioShader
         ? (effectiveShader.target == QStringLiteral("glow") || effectiveShader.target == QStringLiteral("both"))
@@ -606,6 +607,27 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
                 shader->setUniform("glitchFrequency", float(m_glitchFrequency));
 
                 if (customGlow) {
+                    const auto audioData = OutlineAudioVisualizer::AudioVisualizerManager::instance().data();
+                    const float sens = float(m_audioVisualizerSensitivity);
+                    shader->setUniform("audioRms", audioData.rms * sens);
+                    shader->setUniform("audioPeak", audioData.peak * sens);
+                    shader->setUniform("audioBass", audioData.bass * sens);
+                    shader->setUniform("audioMids", audioData.mids * sens);
+                    shader->setUniform("audioHighs", audioData.highs * sens);
+                    shader->setUniform("audioBeat", audioData.beatPulse);
+                    shader->setUniform("audioBars0", QVector4D(audioData.spectrumBars[0], audioData.spectrumBars[1], audioData.spectrumBars[2], audioData.spectrumBars[3]));
+                    shader->setUniform("audioBars1", QVector4D(audioData.spectrumBars[4], audioData.spectrumBars[5], audioData.spectrumBars[6], audioData.spectrumBars[7]));
+                    shader->setUniform("audioBars2", QVector4D(audioData.spectrumBars[8], audioData.spectrumBars[9], audioData.spectrumBars[10], audioData.spectrumBars[11]));
+                    shader->setUniform("audioBars3", QVector4D(audioData.spectrumBars[12], audioData.spectrumBars[13], audioData.spectrumBars[14], audioData.spectrumBars[15]));
+                    const int locWave = shader->uniformLocation("audioWaveform");
+                    if (locWave >= 0) {
+                        glUniform1fv(locWave, 64, audioData.waveform.data());
+                    }
+                    const int locBars = shader->uniformLocation("audioBars");
+                    if (locBars >= 0) {
+                        glUniform1fv(locBars, 16, audioData.spectrumBars.data());
+                    }
+
                     for (const auto &param : effectiveShader.parameters) {
                         const QByteArray uniformName = param.id.toUtf8();
                         if (param.type == QStringLiteral("float")) {
@@ -705,6 +727,27 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
         if (customOutline) {
             const float elapsedSec = m_animationClock.isValid() ? float(m_animationClock.elapsed() / 1000.0) : 0.0f;
             activeShader->setUniform("time", elapsedSec);
+            const auto audioData = OutlineAudioVisualizer::AudioVisualizerManager::instance().data();
+            const float sens = float(m_audioVisualizerSensitivity);
+            activeShader->setUniform("audioRms", audioData.rms * sens);
+            activeShader->setUniform("audioPeak", audioData.peak * sens);
+            activeShader->setUniform("audioBass", audioData.bass * sens);
+            activeShader->setUniform("audioMids", audioData.mids * sens);
+            activeShader->setUniform("audioHighs", audioData.highs * sens);
+            activeShader->setUniform("audioBeat", audioData.beatPulse);
+            activeShader->setUniform("audioBars0", QVector4D(audioData.spectrumBars[0], audioData.spectrumBars[1], audioData.spectrumBars[2], audioData.spectrumBars[3]));
+            activeShader->setUniform("audioBars1", QVector4D(audioData.spectrumBars[4], audioData.spectrumBars[5], audioData.spectrumBars[6], audioData.spectrumBars[7]));
+            activeShader->setUniform("audioBars2", QVector4D(audioData.spectrumBars[8], audioData.spectrumBars[9], audioData.spectrumBars[10], audioData.spectrumBars[11]));
+            activeShader->setUniform("audioBars3", QVector4D(audioData.spectrumBars[12], audioData.spectrumBars[13], audioData.spectrumBars[14], audioData.spectrumBars[15]));
+            const int locWave = activeShader->uniformLocation("audioWaveform");
+            if (locWave >= 0) {
+                glUniform1fv(locWave, 64, audioData.waveform.data());
+            }
+            const int locBars = activeShader->uniformLocation("audioBars");
+            if (locBars >= 0) {
+                glUniform1fv(locBars, 16, audioData.spectrumBars.data());
+            }
+
             for (const auto &param : effectiveShader.parameters) {
                 const QByteArray uniformName = param.id.toUtf8();
                 if (param.type == QStringLiteral("float")) {
@@ -857,7 +900,7 @@ void ActiveWindowOutlineEffect::generateRoundedRectStrip(
 
 void ActiveWindowOutlineEffect::ensureAudioShadersCompiled()
 {
-    if (!m_audioShaderRuleEnabled || m_audioShaderId.isEmpty()) {
+    if ((!m_audioShaderRuleEnabled || m_audioShaderId.isEmpty()) && (!m_audioVisualizerEnabled || m_audioShaderEffect.id.isEmpty())) {
         return;
     }
     const EglContext *context = EglContext::currentContext();
@@ -975,6 +1018,27 @@ void ActiveWindowOutlineEffect::renderHudPillAudioShader(const RenderTarget &ren
     const float elapsedSec = m_animationClock.isValid() ? float(m_animationClock.elapsed() / 1000.0) : 0.0f;
     sh->setUniform("time", elapsedSec);
     sh->setUniform("glitchActive", 0.0f);
+
+    const auto audioData = OutlineAudioVisualizer::AudioVisualizerManager::instance().data();
+    const float sens = float(m_audioVisualizerSensitivity);
+    sh->setUniform("audioRms", audioData.rms * sens);
+    sh->setUniform("audioPeak", audioData.peak * sens);
+    sh->setUniform("audioBass", audioData.bass * sens);
+    sh->setUniform("audioMids", audioData.mids * sens);
+    sh->setUniform("audioHighs", audioData.highs * sens);
+    sh->setUniform("audioBeat", audioData.beatPulse);
+    sh->setUniform("audioBars0", QVector4D(audioData.spectrumBars[0], audioData.spectrumBars[1], audioData.spectrumBars[2], audioData.spectrumBars[3]));
+    sh->setUniform("audioBars1", QVector4D(audioData.spectrumBars[4], audioData.spectrumBars[5], audioData.spectrumBars[6], audioData.spectrumBars[7]));
+    sh->setUniform("audioBars2", QVector4D(audioData.spectrumBars[8], audioData.spectrumBars[9], audioData.spectrumBars[10], audioData.spectrumBars[11]));
+    sh->setUniform("audioBars3", QVector4D(audioData.spectrumBars[12], audioData.spectrumBars[13], audioData.spectrumBars[14], audioData.spectrumBars[15]));
+    const int locWave = sh->uniformLocation("audioWaveform");
+    if (locWave >= 0) {
+        glUniform1fv(locWave, 64, audioData.waveform.data());
+    }
+    const int locBars = sh->uniformLocation("audioBars");
+    if (locBars >= 0) {
+        glUniform1fv(locBars, 16, audioData.spectrumBars.data());
+    }
 
     for (const auto &param : m_audioShaderEffect.parameters) {
         const QByteArray uniformName = param.id.toUtf8();

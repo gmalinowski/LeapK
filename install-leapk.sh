@@ -422,6 +422,11 @@ set_default AudioWindowFrameColorSequenceEnabled false
 set_default AudioWindowFrameColorList "#f1c40f:2.0;#e67e22:1.5;#e74c3c:2.0"
 set_default AudioWindowFrameTransitionDuration 1.5
 set_default AudioHudShaderEnabled true
+set_default AudioVisualizerEnabled false
+set_default AudioVisualizerMode "waveform_oscilloscope"
+set_default AudioVisualizerSensitivity 1.0
+set_default AudioVisualizerWaveformAmplitude 1.0
+set_default AudioVisualizerHudPulse true
 set_default SoundFeedbackProfile "crisp_click"
 set_default FadeDuration 200
 set_default MenuHideDelay 500
