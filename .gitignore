@@ -7,5 +7,6 @@
 compile_commands.json
 CMakeUserPresets.json
 benchmark-outline.sh
+scripts/benchmark-outline.sh
 *.webm
 *.mp4

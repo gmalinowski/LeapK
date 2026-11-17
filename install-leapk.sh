@@ -303,10 +303,14 @@ rm -f "$HOME/.local/share/applications/kleap-settings.desktop" \
 
 # Install user-level desktop launchers and icons
 mkdir -p "$HOME/.local/share/applications" "$HOME/.local/share/icons/hicolor/scalable/apps"
-cp "$project_dir/leapk-settings.desktop" "$HOME/.local/share/applications/"
-cp "$project_dir/leapk-tray.desktop" "$HOME/.local/share/applications/"
-cp "$project_dir/leapk-marker-manager.desktop" "$HOME/.local/share/applications/"
-cp "$project_dir/leapk.svg" "$HOME/.local/share/icons/hicolor/scalable/apps/leapk.svg"
+desktop_dir="$project_dir/desktop"
+if [[ ! -d "$desktop_dir" ]]; then
+  desktop_dir="$project_dir"
+fi
+cp "$desktop_dir/leapk-settings.desktop" "$HOME/.local/share/applications/"
+cp "$desktop_dir/leapk-tray.desktop" "$HOME/.local/share/applications/"
+cp "$desktop_dir/leapk-marker-manager.desktop" "$HOME/.local/share/applications/"
+cp "$desktop_dir/leapk.svg" "$HOME/.local/share/icons/hicolor/scalable/apps/leapk.svg"
 
 # Install/update user binaries in ~/.local/bin if present
 if [[ -d "$HOME/.local/bin" ]]; then
@@ -618,7 +622,9 @@ fi
 
 rm -f "$HOME/.config/autostart/active-window-outline-tray.desktop" "$HOME/.config/autostart/kleap-tray.desktop"
 mkdir -p "$HOME/.config/autostart"
-if [[ -f "$project_dir/leapk-tray.desktop" ]]; then
+if [[ -f "$desktop_dir/leapk-tray.desktop" ]]; then
+  cp "$desktop_dir/leapk-tray.desktop" "$HOME/.config/autostart/"
+elif [[ -f "$project_dir/leapk-tray.desktop" ]]; then
   cp "$project_dir/leapk-tray.desktop" "$HOME/.config/autostart/"
 fi
 

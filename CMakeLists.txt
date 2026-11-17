@@ -48,6 +48,15 @@ list(APPEND CMAKE_AUTOMOC_MACRO_NAMES
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plugin
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/helpers
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/kcm
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tools
+)
+
 find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Widgets Quick Network Svg)
 find_package(KF6 REQUIRED COMPONENTS CoreAddons Config ConfigWidgets KCMUtils GlobalAccel)
 find_package(${KWIN_PACKAGE} REQUIRED)
@@ -61,14 +70,14 @@ endif()
 # --- Effect plugin ---
 kcoreaddons_add_plugin(leapk
     SOURCES
-        leapk.cpp
-        leapk_shaders.cpp
-        leapk_color.cpp
-        leapk_paint.cpp
-        leapk_tiling.cpp
-        leapk_hud.cpp
-        leapk_input.cpp
-        leapk_workspaces.cpp
+        src/plugin/leapk.cpp
+        src/plugin/leapk_shaders.cpp
+        src/plugin/leapk_color.cpp
+        src/plugin/leapk_paint.cpp
+        src/plugin/leapk_tiling.cpp
+        src/plugin/leapk_hud.cpp
+        src/plugin/leapk_input.cpp
+        src/plugin/leapk_workspaces.cpp
     INSTALL_NAMESPACE "${KWIN_EFFECT_NAMESPACE}"
 )
 target_link_libraries(leapk PRIVATE
@@ -80,21 +89,21 @@ target_link_libraries(leapk PRIVATE
 )
 # Identify the loaded library, including uncommitted test builds.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    leapk.cpp leapk_shaders.cpp leapk_color.cpp leapk_paint.cpp leapk_tiling.cpp leapk_hud.cpp leapk_input.cpp leapk_workspaces.cpp leapk_internal.h leapk.h popupfilter.h cursoroverlay.h visibilitystate.h ambilightalgorithm.h keyboardlayouthelper.h persistentmarkhelper.h audiotracker.h tilinghelper.h kwintilehelper.h keyboardoverlayhelper.h)
-file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk.cpp" OUTLINE_CPP_HASH)
-file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk_shaders.cpp" OUTLINE_SHADERS_HASH)
-file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk_color.cpp" OUTLINE_COLOR_HASH)
-file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk_paint.cpp" OUTLINE_PAINT_HASH)
-file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk_tiling.cpp" OUTLINE_TILING_HASH)
-file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk_hud.cpp" OUTLINE_HUD_HASH)
-file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk_input.cpp" OUTLINE_INPUT_HASH)
-file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk_workspaces.cpp" OUTLINE_WORKSPACES_HASH)
-file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk_internal.h" OUTLINE_INTERNAL_HASH)
-file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/leapk.h" OUTLINE_HEADER_HASH)
-file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/popupfilter.h" OUTLINE_POPUP_HASH)
-file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/cursoroverlay.h" OUTLINE_CURSOR_HASH)
-file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/visibilitystate.h" OUTLINE_VISIBILITY_HASH)
-file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/ambilightalgorithm.h" OUTLINE_AMBILIGHT_HASH)
+    src/plugin/leapk.cpp src/plugin/leapk_shaders.cpp src/plugin/leapk_color.cpp src/plugin/leapk_paint.cpp src/plugin/leapk_tiling.cpp src/plugin/leapk_hud.cpp src/plugin/leapk_input.cpp src/plugin/leapk_workspaces.cpp src/plugin/leapk_internal.h src/plugin/leapk.h src/helpers/popupfilter.h src/helpers/cursoroverlay.h src/helpers/visibilitystate.h src/helpers/ambilightalgorithm.h src/helpers/keyboardlayouthelper.h src/helpers/persistentmarkhelper.h src/helpers/audiotracker.h src/helpers/tilinghelper.h src/helpers/kwintilehelper.h src/helpers/keyboardoverlayhelper.h)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/src/plugin/leapk.cpp" OUTLINE_CPP_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/src/plugin/leapk_shaders.cpp" OUTLINE_SHADERS_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/src/plugin/leapk_color.cpp" OUTLINE_COLOR_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/src/plugin/leapk_paint.cpp" OUTLINE_PAINT_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/src/plugin/leapk_tiling.cpp" OUTLINE_TILING_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/src/plugin/leapk_hud.cpp" OUTLINE_HUD_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/src/plugin/leapk_input.cpp" OUTLINE_INPUT_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/src/plugin/leapk_workspaces.cpp" OUTLINE_WORKSPACES_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/src/plugin/leapk_internal.h" OUTLINE_INTERNAL_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/src/plugin/leapk.h" OUTLINE_HEADER_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/src/helpers/popupfilter.h" OUTLINE_POPUP_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/src/helpers/cursoroverlay.h" OUTLINE_CURSOR_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/src/helpers/visibilitystate.h" OUTLINE_VISIBILITY_HASH)
+file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/src/helpers/ambilightalgorithm.h" OUTLINE_AMBILIGHT_HASH)
 string(SHA256 OUTLINE_BUILD_HASH "${OUTLINE_CPP_HASH}${OUTLINE_SHADERS_HASH}${OUTLINE_COLOR_HASH}${OUTLINE_PAINT_HASH}${OUTLINE_TILING_HASH}${OUTLINE_HUD_HASH}${OUTLINE_INPUT_HASH}${OUTLINE_WORKSPACES_HASH}${OUTLINE_INTERNAL_HASH}${OUTLINE_HEADER_HASH}${OUTLINE_POPUP_HASH}${OUTLINE_CURSOR_HASH}${OUTLINE_VISIBILITY_HASH}${OUTLINE_AMBILIGHT_HASH}")
 string(SUBSTRING "${OUTLINE_BUILD_HASH}" 0 12 OUTLINE_BUILD_ID)
 target_compile_definitions(leapk PRIVATE
@@ -182,10 +191,10 @@ if(HAVE_KWIN_WINDOW_INPUT_MOUSE_EVENT)
 endif()
 
 # --- Config module plugin ---
-qt6_wrap_ui(CONFIG_UI_SRCS leapk_config.ui)
+qt6_wrap_ui(CONFIG_UI_SRCS src/kcm/leapk_config.ui)
 
 kcoreaddons_add_plugin(kwin_leapk_config
-    SOURCES leapk_config.cpp ${CONFIG_UI_SRCS}
+    SOURCES src/kcm/leapk_config.cpp ${CONFIG_UI_SRCS}
     INSTALL_NAMESPACE "${KWIN_CONFIG_NAMESPACE}"
 )
 target_include_directories(kwin_leapk_config PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
@@ -205,7 +214,7 @@ target_compile_definitions(kwin_leapk_config PRIVATE
 )
 
 # --- Standalone Custom Marker helper ---
-add_executable(leapk-custom-marker colorpicker.cpp)
+add_executable(leapk-custom-marker src/tools/colorpicker.cpp)
 target_link_libraries(leapk-custom-marker PRIVATE
     Qt6::Widgets
     Qt6::Svg
@@ -215,7 +224,7 @@ install(TARGETS leapk-custom-marker
 )
 
 # --- Standalone Custom Layout helper ---
-add_executable(leapk-custom-layout customlayoutmain.cpp)
+add_executable(leapk-custom-layout src/tools/customlayoutmain.cpp)
 target_link_libraries(leapk-custom-layout PRIVATE
     Qt6::Widgets
     Qt6::Svg
@@ -228,9 +237,9 @@ install(TARGETS leapk-custom-layout
 )
 
 # --- Standalone Workspace Manager helper ---
-set(MANAGER_COMMON_SRCS unifiedmanagerdialog.cpp)
+set(MANAGER_COMMON_SRCS src/tools/unifiedmanagerdialog.cpp)
 
-add_executable(leapk-workspace-manager workspacemanager.cpp ${MANAGER_COMMON_SRCS})
+add_executable(leapk-workspace-manager src/tools/workspacemanager.cpp ${MANAGER_COMMON_SRCS})
 target_link_libraries(leapk-workspace-manager PRIVATE
     Qt6::Widgets
     Qt6::Svg
@@ -244,7 +253,7 @@ install(TARGETS leapk-workspace-manager
 )
 
 # --- Standalone Marker Manager helper ---
-add_executable(leapk-marker-manager markermanager.cpp ${MANAGER_COMMON_SRCS})
+add_executable(leapk-marker-manager src/tools/markermanager.cpp ${MANAGER_COMMON_SRCS})
 target_link_libraries(leapk-marker-manager PRIVATE
     Qt6::Widgets
     Qt6::Svg
@@ -259,10 +268,10 @@ install(TARGETS leapk-marker-manager
 
 # --- Standalone Tray Companion & Settings GUI ---
 add_executable(leapk-tray
-    tray.cpp
-    settingsdialog.cpp
-    leapk_config.cpp
-    resources.qrc
+    src/tools/tray.cpp
+    src/tools/settingsdialog.cpp
+    src/kcm/leapk_config.cpp
+    desktop/resources.qrc
     ${CONFIG_UI_SRCS}
 )
 target_include_directories(leapk-tray PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
@@ -282,10 +291,10 @@ target_compile_definitions(leapk-tray PRIVATE
 )
 
 add_executable(leapk-settings
-    settingsmain.cpp
-    settingsdialog.cpp
-    leapk_config.cpp
-    resources.qrc
+    src/tools/settingsmain.cpp
+    src/tools/settingsdialog.cpp
+    src/kcm/leapk_config.cpp
+    desktop/resources.qrc
     ${CONFIG_UI_SRCS}
 )
 target_include_directories(leapk-settings PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
@@ -307,10 +316,13 @@ target_compile_definitions(leapk-settings PRIVATE
 install(TARGETS leapk-tray leapk-settings
     DESTINATION ${KDE_INSTALL_BINDIR}
 )
-install(PROGRAMS leapk-tray.desktop leapk-settings.desktop leapk-marker-manager.desktop
+install(PROGRAMS
+    desktop/leapk-tray.desktop
+    desktop/leapk-settings.desktop
+    desktop/leapk-marker-manager.desktop
     DESTINATION ${KDE_INSTALL_APPDIR}
 )
-install(FILES leapk.svg
+install(FILES desktop/leapk.svg
     DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps
 )
 
