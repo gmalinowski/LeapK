@@ -741,7 +741,7 @@ inline QList<CustomShaderEffect> getBuiltInShaders()
         e.name = QStringLiteral("Audio Oscilloscope Waveform");
         e.description = QStringLiteral("Real-time oscilloscope audio waveform undulating dynamically along the perimeter.");
         e.author = QStringLiteral("LeapK Audio Visualizer");
-        e.version = QStringLiteral("1.0");
+        e.version = QStringLiteral("1.1");
         e.isBuiltIn = true;
         e.target = QStringLiteral("both");
 
@@ -786,8 +786,9 @@ inline QList<CustomShaderEffect> getBuiltInShaders()
             "    float t = computeNormalizedPerimeter(pos, box, 6.0);\n"
             "    float sampleT = fract(t + time * speed * 0.04);\n"
             "    float wave = sampleAudioWaveform(sampleT);\n"
-            "    float targetDist = wave * amplitude * 12.0;\n"
-            "    float beam = exp(-abs(dist - targetDist) * sharpness * 0.8) * (0.8 + 1.2 * audioBeat);\n"
+            "    float centerLine = max(3.0, glowRadius * 0.35);\n"
+            "    float targetDist = centerLine + wave * amplitude * max(2.5, glowRadius * 0.30);\n"
+            "    float beam = exp(-abs(dist - targetDist) * sharpness * 0.5) * (0.8 + 1.2 * audioBeat);\n"
             "    vec3 waveCol = mix(baseColor.rgb, vec3(0.1, 0.9, 1.0), clamp(abs(wave) * 1.5, 0.0, 1.0));\n"
             "    waveCol = mix(waveCol, vec3(1.0, 0.3, 0.6), clamp(audioBeat * 1.2, 0.0, 1.0));\n"
             "    float a = baseColor.a * (0.3 + 0.7 * beam + 0.3 * audioRms);\n"
@@ -942,7 +943,7 @@ inline QList<CustomShaderEffect> getBuiltInShaders()
         e.name = QStringLiteral("Audio Full Visualizer Combo");
         e.description = QStringLiteral("Complete visualizer experience combining oscilloscope waveform, bass beat pulse, and spectrum glow.");
         e.author = QStringLiteral("LeapK Audio Visualizer");
-        e.version = QStringLiteral("1.0");
+        e.version = QStringLiteral("1.1");
         e.isBuiltIn = true;
         e.target = QStringLiteral("both");
 
@@ -975,7 +976,8 @@ inline QList<CustomShaderEffect> getBuiltInShaders()
             "{\n"
             "    float t = computeNormalizedPerimeter(pos, box, 6.0);\n"
             "    float wave = sampleAudioWaveform(fract(t + time * 0.03));\n"
-            "    float targetDist = wave * amplitude * 12.0;\n"
+            "    float centerLine = max(3.0, glowRadius * 0.35);\n"
+            "    float targetDist = centerLine + wave * amplitude * max(2.5, glowRadius * 0.30);\n"
             "    float beam = exp(-abs(dist - targetDist) * 0.45);\n"
             "    vec3 spec = vec3(audioBass * 1.2, audioMids * 0.9, audioHighs * 1.4);\n"
             "    vec3 col = mix(baseColor.rgb, spec, clamp(audioRms * 1.5, 0.0, 0.8));\n"
@@ -999,6 +1001,14 @@ inline void ensureBuiltInShadersInstalled()
         const QString filePath = dirPath + QStringLiteral("/%1.json").arg(effect.id);
         if (!QFile::exists(filePath)) {
             saveShaderEffectToFile(effect, filePath);
+        } else {
+            // Update installed built-in shader if newer version is available
+            CustomShaderEffect existing;
+            if (loadShaderEffectFromFile(filePath, existing)) {
+                if (existing.isBuiltIn && existing.version < effect.version) {
+                    saveShaderEffectToFile(effect, filePath);
+                }
+            }
         }
     }
 }
@@ -1026,6 +1036,7 @@ inline bool loadShaderById(const QString &id, CustomShaderEffect &outEffect)
     if (id.isEmpty()) {
         return false;
     }
+    ensureBuiltInShadersInstalled();
     const QString dirPath = defaultShadersDirectory();
     const QString jsonPath = dirPath + QStringLiteral("/%1.json").arg(id);
     if (QFile::exists(jsonPath) && loadShaderEffectFromFile(jsonPath, outEffect)) {
@@ -1449,6 +1460,7 @@ uniform float dashActive;
 uniform float dashLength;
 uniform float dashPeriod;
 uniform float dashSmooth;
+uniform float glowRadius;
 uniform float time;
 uniform float audioRms;
 uniform float audioPeak;

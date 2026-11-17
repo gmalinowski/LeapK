@@ -14,6 +14,9 @@ bool ActiveWindowOutlineEffect::isAnimationActive() const
     if (!m_outlineEnabled) {
         return false;
     }
+    if (m_audioVisualizerEnabled && m_audioTracker.hasPlayingAudio()) {
+        return true;
+    }
     if (m_visibilityState.isTransitionActive(m_visibilityConfig.fadeDuration)) {
         return true;
     }

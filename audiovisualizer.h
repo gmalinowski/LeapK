@@ -93,7 +93,7 @@ struct BiquadFilter {
 
 class AudioDspEngine {
 public:
-    explicit AudioDspEngine(float sampleRate = 22050.0f)
+    explicit AudioDspEngine(float sampleRate = 48000.0f)
         : m_sampleRate(sampleRate)
     {
         initFilters();
@@ -125,12 +125,24 @@ public:
         float highsSum = 0.0f;
         std::array<float, 16> eqBandSums{};
 
-        // Downsample input to populate 64-sample waveform buffer
-        const int step = std::max(1, count / 64);
+        // Zero-crossing triggering for stable oscilloscope waveform display
+        int triggerOffset = 0;
+        const int searchRange = std::min(count / 4, 128);
+        for (int i = 0; i < searchRange; ++i) {
+            if (samples[i] <= 0 && samples[i + 1] > 0) {
+                triggerOffset = i;
+                break;
+            }
+        }
+
+        const int availableSamples = count - triggerOffset;
+        const int step = std::max(1, availableSamples / 64);
         for (int i = 0; i < 64; ++i) {
-            int idx = std::min(count - 1, i * step);
+            int idx = triggerOffset + std::min(availableSamples - 1, i * step);
             float normSample = samples[idx] / 32768.0f;
-            data.waveform[i] = std::clamp(normSample * sens, -1.0f, 1.0f);
+            float targetSample = std::clamp(normSample * sens, -1.0f, 1.0f);
+            // Temporal smoothing: 35% history, 65% new sample to eliminate micro-jitter while staying ultra-responsive
+            data.waveform[i] = data.waveform[i] * 0.35f + targetSample * 0.65f;
         }
 
         // Process audio stream through filter banks
@@ -222,10 +234,10 @@ private:
         m_midsFilter.setBandPass(1200.0f, m_sampleRate, 0.8f);
         m_highsFilter.setHighPass(3500.0f, m_sampleRate, 0.707f);
 
-        // 16 Logarithmically spaced frequency bands from 60 Hz to 9800 Hz (< Nyquist 11025 Hz)
+        // 16 Logarithmically spaced frequency bands from 60 Hz to 16000 Hz (< Nyquist 24000 Hz)
         const float centerFreqs[16] = {
-            60.0f, 90.0f, 130.0f, 200.0f, 300.0f, 450.0f, 700.0f, 1000.0f,
-            1500.0f, 2200.0f, 3200.0f, 4500.0f, 6000.0f, 7500.0f, 8800.0f, 9800.0f
+            60.0f, 100.0f, 160.0f, 250.0f, 400.0f, 630.0f, 1000.0f, 1600.0f,
+            2500.0f, 4000.0f, 6300.0f, 8000.0f, 10000.0f, 12500.0f, 14500.0f, 16000.0f
         };
         for (size_t i = 0; i < 16; ++i) {
             m_eqFilters[i].setBandPass(centerFreqs[i], m_sampleRate, 1.5f);
@@ -249,11 +261,19 @@ struct pa_sample_spec {
     uint8_t channels;
 };
 
+struct pa_buffer_attr {
+    uint32_t maxlength;
+    uint32_t tlength;
+    uint32_t prebuf;
+    uint32_t minreq;
+    uint32_t fragsize;
+};
+
 class AudioVisualizerThread : public QThread {
 public:
     explicit AudioVisualizerThread(QObject *parent = nullptr)
         : QThread(parent)
-        , m_dsp(22050.0f)
+        , m_dsp(48000.0f)
     {
     }
 
@@ -297,7 +317,7 @@ protected:
             }
         }
 
-        typedef pa_simple* (*fn_pa_simple_new)(const char *, const char *, int, const char *, const char *, const pa_sample_spec *, const void *, const void *, int *);
+        typedef pa_simple* (*fn_pa_simple_new)(const char *, const char *, int, const char *, const char *, const pa_sample_spec *, const void *, const pa_buffer_attr *, int *);
         typedef int (*fn_pa_simple_read)(pa_simple *, void *, size_t, int *);
         typedef void (*fn_pa_simple_free)(pa_simple *);
 
@@ -315,14 +335,22 @@ protected:
 
         pa_sample_spec ss;
         ss.format = 3; // PA_SAMPLE_S16LE
-        ss.rate = 22050;
+        ss.rate = 48000;
         ss.channels = 1;
 
         pa_simple *stream = nullptr;
         int err = 0;
 
-        constexpr int CHUNK_SIZE = 256;
+        constexpr int CHUNK_SIZE = 512;
         int16_t buffer[CHUNK_SIZE];
+
+        // Specify low-latency fragmentation to avoid server-side 2-second buffering
+        pa_buffer_attr attr;
+        attr.maxlength = static_cast<uint32_t>(-1);
+        attr.tlength = static_cast<uint32_t>(-1);
+        attr.prebuf = static_cast<uint32_t>(-1);
+        attr.minreq = static_cast<uint32_t>(-1);
+        attr.fragsize = sizeof(buffer); // 1024 bytes = 512 samples at 48kHz = ~10.6ms
 
         while (m_running) {
             {
@@ -341,10 +369,10 @@ protected:
             if (!stream) {
                 // Connect to @DEFAULT_MONITOR@ (monitor of currently playing sink)
                 err = 0;
-                stream = pa_new(nullptr, "LeapK_Visualizer", 2 /* PA_STREAM_RECORD */, "@DEFAULT_MONITOR@", "audio_outline", &ss, nullptr, nullptr, &err);
+                stream = pa_new(nullptr, "LeapK_Visualizer", 2 /* PA_STREAM_RECORD */, "@DEFAULT_MONITOR@", "audio_outline", &ss, nullptr, &attr, &err);
                 if (!stream) {
                     // Try fallback default sink monitor or default source
-                    stream = pa_new(nullptr, "LeapK_Visualizer", 2, nullptr, "audio_outline", &ss, nullptr, nullptr, &err);
+                    stream = pa_new(nullptr, "LeapK_Visualizer", 2, nullptr, "audio_outline", &ss, nullptr, &attr, &err);
                 }
                 if (!stream) {
                     msleep(500); // Retry later

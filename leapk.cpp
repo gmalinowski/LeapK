@@ -17,7 +17,7 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
 {
     m_lastDesktop = effects ? effects->currentDesktop() : nullptr;
     m_animationTimer = new QTimer(this);
-    m_animationTimer->setInterval(16);
+    m_animationTimer->setInterval(8);
     connect(m_animationTimer, &QTimer::timeout,
             this, &ActiveWindowOutlineEffect::slotAnimationTick);
     m_animationClock.start();
@@ -134,6 +134,10 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
         const int desiredInterval = nowPlaying ? 150 : 800;
         if (m_audioRefreshTimer->interval() != desiredInterval) {
             m_audioRefreshTimer->setInterval(desiredInterval);
+        }
+
+        if (nowPlaying && m_audioVisualizerEnabled && !m_animationTimer->isActive()) {
+            updateAnimationTimer();
         }
 
         if (!nowPlaying) {
@@ -729,6 +733,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
 
     OutlineAudioVisualizer::AudioVisualizerManager::instance().setSensitivity(m_audioVisualizerSensitivity);
     OutlineAudioVisualizer::AudioVisualizerManager::instance().setActive(m_audioVisualizerEnabled && m_audioTracker.hasPlayingAudio());
+    updateAnimationTimer();
 
     m_soundFeedbackProfile = config.readEntry("SoundFeedbackProfile", QStringLiteral("crisp_click"));
     m_audioGlowShader.reset();
@@ -1207,6 +1212,7 @@ void ActiveWindowOutlineEffect::updateAudioTrackingState(bool forceImmediateRefr
     const bool audioPulsingEnabled = (badgePulse || cardPulse) && (m_jumpMode || badgesAlwaysOn);
 
     OutlineAudioVisualizer::AudioVisualizerManager::instance().setActive(m_audioVisualizerEnabled && m_audioTracker.hasPlayingAudio());
+    updateAnimationTimer();
 
     const bool needsTracking = m_jumpMode || badgesAlwaysOn || audioFrameActive || audioPulsingEnabled || m_audioTracker.hasPlayingAudio();
 

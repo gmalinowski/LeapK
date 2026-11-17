@@ -619,11 +619,17 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
                     shader->setUniform("audioBars1", QVector4D(audioData.spectrumBars[4], audioData.spectrumBars[5], audioData.spectrumBars[6], audioData.spectrumBars[7]));
                     shader->setUniform("audioBars2", QVector4D(audioData.spectrumBars[8], audioData.spectrumBars[9], audioData.spectrumBars[10], audioData.spectrumBars[11]));
                     shader->setUniform("audioBars3", QVector4D(audioData.spectrumBars[12], audioData.spectrumBars[13], audioData.spectrumBars[14], audioData.spectrumBars[15]));
-                    const int locWave = shader->uniformLocation("audioWaveform");
+                    int locWave = shader->uniformLocation("audioWaveform[0]");
+                    if (locWave < 0) {
+                        locWave = shader->uniformLocation("audioWaveform");
+                    }
                     if (locWave >= 0) {
                         glUniform1fv(locWave, 64, audioData.waveform.data());
                     }
-                    const int locBars = shader->uniformLocation("audioBars");
+                    int locBars = shader->uniformLocation("audioBars[0]");
+                    if (locBars < 0) {
+                        locBars = shader->uniformLocation("audioBars");
+                    }
                     if (locBars >= 0) {
                         glUniform1fv(locBars, 16, audioData.spectrumBars.data());
                     }
@@ -723,6 +729,7 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
         activeShader->setUniform("dashLength", float(effDash));
         activeShader->setUniform("dashPeriod", float(effPeriod));
         activeShader->setUniform("dashSmooth", isSmooth ? 1.0f : 0.0f);
+        activeShader->setUniform("glowRadius", float(m_glowRadius * scale));
 
         if (customOutline) {
             const float elapsedSec = m_animationClock.isValid() ? float(m_animationClock.elapsed() / 1000.0) : 0.0f;
@@ -739,11 +746,17 @@ void ActiveWindowOutlineEffect::renderOutline(const RenderTarget &renderTarget,
             activeShader->setUniform("audioBars1", QVector4D(audioData.spectrumBars[4], audioData.spectrumBars[5], audioData.spectrumBars[6], audioData.spectrumBars[7]));
             activeShader->setUniform("audioBars2", QVector4D(audioData.spectrumBars[8], audioData.spectrumBars[9], audioData.spectrumBars[10], audioData.spectrumBars[11]));
             activeShader->setUniform("audioBars3", QVector4D(audioData.spectrumBars[12], audioData.spectrumBars[13], audioData.spectrumBars[14], audioData.spectrumBars[15]));
-            const int locWave = activeShader->uniformLocation("audioWaveform");
+            int locWave = activeShader->uniformLocation("audioWaveform[0]");
+            if (locWave < 0) {
+                locWave = activeShader->uniformLocation("audioWaveform");
+            }
             if (locWave >= 0) {
                 glUniform1fv(locWave, 64, audioData.waveform.data());
             }
-            const int locBars = activeShader->uniformLocation("audioBars");
+            int locBars = activeShader->uniformLocation("audioBars[0]");
+            if (locBars < 0) {
+                locBars = activeShader->uniformLocation("audioBars");
+            }
             if (locBars >= 0) {
                 glUniform1fv(locBars, 16, audioData.spectrumBars.data());
             }
@@ -1031,11 +1044,17 @@ void ActiveWindowOutlineEffect::renderHudPillAudioShader(const RenderTarget &ren
     sh->setUniform("audioBars1", QVector4D(audioData.spectrumBars[4], audioData.spectrumBars[5], audioData.spectrumBars[6], audioData.spectrumBars[7]));
     sh->setUniform("audioBars2", QVector4D(audioData.spectrumBars[8], audioData.spectrumBars[9], audioData.spectrumBars[10], audioData.spectrumBars[11]));
     sh->setUniform("audioBars3", QVector4D(audioData.spectrumBars[12], audioData.spectrumBars[13], audioData.spectrumBars[14], audioData.spectrumBars[15]));
-    const int locWave = sh->uniformLocation("audioWaveform");
+    int locWave = sh->uniformLocation("audioWaveform[0]");
+    if (locWave < 0) {
+        locWave = sh->uniformLocation("audioWaveform");
+    }
     if (locWave >= 0) {
         glUniform1fv(locWave, 64, audioData.waveform.data());
     }
-    const int locBars = sh->uniformLocation("audioBars");
+    int locBars = sh->uniformLocation("audioBars[0]");
+    if (locBars < 0) {
+        locBars = sh->uniformLocation("audioBars");
+    }
     if (locBars >= 0) {
         glUniform1fv(locBars, 16, audioData.spectrumBars.data());
     }
