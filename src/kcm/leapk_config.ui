@@ -992,13 +992,42 @@
            </widget>
           </item>
           <item row="1" column="0">
+           <widget class="QLabel" name="label_popupBehavior">
+            <property name="text">
+             <string>Popup behavior:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QComboBox" name="kcfg_PopupBehavior">
+            <property name="toolTip">
+             <string>How the outline behaves when a context menu, dropdown, or popup appears. Keep under popups uses scissor occlusion to tuck the outline under the popup without hiding it.</string>
+            </property>
+            <item>
+             <property name="text">
+              <string>Keep outline visible under popups (recommended)</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Hide outline when popup opens (legacy)</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Outline popups as well</string>
+             </property>
+            </item>
+           </widget>
+          </item>
+          <item row="2" column="0">
            <widget class="QLabel" name="label_menuHideDelay">
             <property name="text">
              <string>Menu hide delay (buffer):</string>
             </property>
            </widget>
           </item>
-          <item row="1" column="1">
+          <item row="2" column="1">
            <widget class="QSpinBox" name="kcfg_MenuHideDelay">
             <property name="minimum">
              <number>0</number>
@@ -1020,14 +1049,14 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="0">
+          <item row="3" column="0">
            <widget class="QLabel" name="label_menuShowDelay">
             <property name="text">
              <string>Menu show delay (buffer):</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="1">
+          <item row="3" column="1">
            <widget class="QSpinBox" name="kcfg_MenuShowDelay">
             <property name="minimum">
              <number>0</number>

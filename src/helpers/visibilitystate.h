@@ -8,6 +8,12 @@
 namespace OutlineVisibility
 {
 
+enum class PopupBehavior {
+    UnderPopup = 0,    // Keep outline visible, tuck under popups using scissor occlusion (Default)
+    HideOutline = 1,   // Fade out outline when popup is open (Legacy)
+    OutlinePopup = 2   // Keep outline visible under popup, and also outline the active popup
+};
+
 struct Config
 {
     int fadeDuration = 200;      // ms (fade transition duration)
@@ -15,6 +21,7 @@ struct Config
     int menuShowDelay = 300;     // ms (buffer delay before restoring outline after popup)
     int windowHideDelay = 0;     // ms (buffer delay before removing outline on window switch)
     int windowShowDelay = 0;     // ms (buffer delay before showing outline on window switch)
+    int popupBehavior = 0;       // 0: UnderPopup, 1: HideOutline, 2: OutlinePopup
 };
 
 class StateMachine
@@ -24,6 +31,7 @@ public:
     qreal targetOpacity = 1.0;
     bool popupBlocked = false;
     qreal lastTickSec = -1.0;
+    int popupBehavior = 0;
 
     bool menuHideTimerActive = false;
     bool menuShowTimerActive = false;
@@ -57,6 +65,22 @@ public:
 
     TimerAction handlePopupChange(bool popupPresent, const Config &cfg)
     {
+        if (cfg.popupBehavior == 0 || cfg.popupBehavior == 2) {
+            TimerAction action = TimerAction::None;
+            if (menuHideTimerActive) {
+                menuHideTimerActive = false;
+                action = TimerAction::CancelHideTimer;
+            } else if (menuShowTimerActive) {
+                menuShowTimerActive = false;
+                action = TimerAction::CancelShowTimer;
+            }
+            if (popupBlocked) {
+                popupBlocked = false;
+                setTargetOpacity(1.0, cfg.fadeDuration);
+            }
+            return action;
+        }
+
         if (popupPresent) {
             TimerAction action = TimerAction::None;
             if (menuShowTimerActive) {
@@ -111,7 +135,7 @@ public:
     void handleMenuHideTimerTimeout(bool popupPresent, const Config &cfg)
     {
         menuHideTimerActive = false;
-        if (popupPresent) {
+        if (cfg.popupBehavior == 1 && popupPresent) {
             popupBlocked = true;
             setTargetOpacity(0.0, cfg.fadeDuration);
         }
@@ -120,7 +144,7 @@ public:
     void handleMenuShowTimerTimeout(bool popupPresent, const Config &cfg)
     {
         menuShowTimerActive = false;
-        if (!popupPresent) {
+        if (cfg.popupBehavior == 1 && !popupPresent) {
             popupBlocked = false;
             setTargetOpacity(1.0, cfg.fadeDuration);
         }
@@ -128,6 +152,9 @@ public:
 
     bool needsSelfHeal(bool popupPresent) const
     {
+        if (popupBehavior != 1) {
+            return popupBlocked;
+        }
         if (!popupPresent && popupBlocked && !menuShowTimerActive) {
             return true;
         }
@@ -139,6 +166,14 @@ public:
 
     bool selfHeal(bool popupPresent, const Config &cfg)
     {
+        if (cfg.popupBehavior != 1) {
+            if (popupBlocked) {
+                popupBlocked = false;
+                setTargetOpacity(1.0, cfg.fadeDuration);
+                return true;
+            }
+            return false;
+        }
         if (!popupPresent && popupBlocked && !menuShowTimerActive) {
             handlePopupChange(false, cfg);
             return true;

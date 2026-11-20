@@ -247,6 +247,7 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     m_configSkeleton->addItemBool(QStringLiteral("TrayIconEnabled"), *new bool, true);
 
     // Tab 4: Behavior & Buffer Delays
+    m_configSkeleton->addItemInt(QStringLiteral("PopupBehavior"), *new int, 0);
     m_configSkeleton->addItemInt(QStringLiteral("FadeDuration"), *new int, 200);
     m_configSkeleton->addItemInt(QStringLiteral("MenuHideDelay"), *new int, 500);
     m_configSkeleton->addItemInt(QStringLiteral("MenuShowDelay"), *new int, 500);
@@ -600,6 +601,9 @@ ActiveWindowOutlineConfig::ActiveWindowOutlineConfig(QObject *parent, const KPlu
     connect(m_ui->kcfg_ColorCycleEnabled, &QCheckBox::toggled, this, updateColorCycleUI);
     updateColorCycleUI();
 
+    connect(m_ui->kcfg_PopupBehavior, qOverload<int>(&QComboBox::currentIndexChanged), this, &ActiveWindowOutlineConfig::updatePopupUI);
+    updatePopupUI();
+
     connect(m_ui->kcfg_HighlightRecentWindow, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateRecentWindowUI);
     connect(m_ui->kcfg_RecentWindowColorMode, qOverload<int>(&QComboBox::currentIndexChanged), this, &ActiveWindowOutlineConfig::updateRecentWindowUI);
     connect(m_ui->kcfg_RecentWindowDashed, &QCheckBox::toggled, this, &ActiveWindowOutlineConfig::updateRecentWindowUI);
@@ -809,6 +813,15 @@ void ActiveWindowOutlineConfig::updateBadgePreview()
 
     msg << active << showWin << showHud << jsonStr;
     QDBusConnection::sessionBus().call(msg, QDBus::NoBlock);
+}
+
+void ActiveWindowOutlineConfig::updatePopupUI()
+{
+    const bool isLegacyHide = (m_ui->kcfg_PopupBehavior->currentIndex() == 1);
+    m_ui->label_menuHideDelay->setEnabled(isLegacyHide);
+    m_ui->kcfg_MenuHideDelay->setEnabled(isLegacyHide);
+    m_ui->label_menuShowDelay->setEnabled(isLegacyHide);
+    m_ui->kcfg_MenuShowDelay->setEnabled(isLegacyHide);
 }
 
 void ActiveWindowOutlineConfig::updateRecentWindowUI()
@@ -1373,6 +1386,7 @@ void ActiveWindowOutlineConfig::defaults()
     m_ui->kcfg_MarkInactiveDashed->setChecked(true);
     m_ui->kcfg_MarkInactiveDashSmooth->setChecked(true);
     m_ui->kcfg_GlowEnabled->setChecked(false);
+    m_ui->kcfg_PopupBehavior->setCurrentIndex(0);
     m_ui->kcfg_FadeDuration->setValue(200);
     m_ui->kcfg_MenuHideDelay->setValue(500);
     m_ui->kcfg_MenuShowDelay->setValue(500);
@@ -1628,6 +1642,7 @@ QJsonObject ActiveWindowOutlineConfig::collectCurrentSettings() const
     s[QStringLiteral("TrayIconEnabled")] = m_ui->kcfg_TrayIconEnabled->isChecked();
 
     // Timing & Delays
+    s[QStringLiteral("PopupBehavior")] = m_ui->kcfg_PopupBehavior->currentIndex();
     s[QStringLiteral("FadeDuration")] = m_ui->kcfg_FadeDuration->value();
     s[QStringLiteral("MenuHideDelay")] = m_ui->kcfg_MenuHideDelay->value();
     s[QStringLiteral("MenuShowDelay")] = m_ui->kcfg_MenuShowDelay->value();
@@ -1852,6 +1867,7 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
     if (s.contains(QStringLiteral("TrayIconEnabled"))) m_ui->kcfg_TrayIconEnabled->setChecked(s[QStringLiteral("TrayIconEnabled")].toBool());
 
     // Delays
+    if (s.contains(QStringLiteral("PopupBehavior"))) m_ui->kcfg_PopupBehavior->setCurrentIndex(s[QStringLiteral("PopupBehavior")].toInt());
     if (s.contains(QStringLiteral("FadeDuration"))) m_ui->kcfg_FadeDuration->setValue(s[QStringLiteral("FadeDuration")].toInt());
     if (s.contains(QStringLiteral("MenuHideDelay"))) m_ui->kcfg_MenuHideDelay->setValue(s[QStringLiteral("MenuHideDelay")].toInt());
     if (s.contains(QStringLiteral("MenuShowDelay"))) m_ui->kcfg_MenuShowDelay->setValue(s[QStringLiteral("MenuShowDelay")].toInt());
@@ -2147,6 +2163,7 @@ void ActiveWindowOutlineConfig::applySettings(const QJsonObject &s)
     const bool fadeCorners = m_ui->kcfg_FadeCorners->isChecked();
     m_ui->label_borderRadius->setEnabled(!fadeCorners);
     m_ui->kcfg_BorderRadius->setEnabled(!fadeCorners);
+    updatePopupUI();
     updateRecentWindowUI();
     updateMarkWindowUI();
     updatePresetSelector();

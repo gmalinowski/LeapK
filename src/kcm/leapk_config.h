@@ -44,6 +44,7 @@ private:
     void updatePresetSelector();
     void showAmbilightHelpDialog();
     void checkForUpdates();
+    void updatePopupUI();
     void updateRecentWindowUI();
     void updateMarkWindowUI();
     void updateBadgePreview();

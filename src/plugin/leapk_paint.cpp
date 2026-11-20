@@ -506,6 +506,16 @@ void ActiveWindowOutlineEffect::prepareScreenPaint(ScreenPrePaintData &data)
             }
         }
     }
+    if (m_popupBehavior == 2 && m_outlineEnabled && wantsOutline) {
+        for (EffectWindow *candidate : effects->stackingOrder()) {
+            if (candidate && !candidate->isDeleted() && candidate->isVisible()
+                && !candidate->isMinimized() && candidate->isOnCurrentDesktop()
+                && !candidate->isHiddenByShowDesktop()
+                && isBlockingPopup(candidate)) {
+                data.paint += expandedGeometryFor(candidate).toAlignedRect();
+            }
+        }
+    }
     if (m_badgePreviewActive) {
         data.paint += effects->virtualScreenGeometry();
     }
@@ -571,7 +581,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
     const bool recentOverridesMark = (rankRecent < rankMarked);
 
     bool hasRecentToDraw = false;
-    if (m_outlineEnabled && !inhibited && m_highlightRecentWindow && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked) {
+    if (m_outlineEnabled && !inhibited && m_highlightRecentWindow && (!isPopupBlockingActive() || (!hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked))) {
         const int count = qMin(m_recentWindows.size(), m_recentWindowsCount);
         for (int i = 0; i < count; ++i) {
             EffectWindow *recent = m_recentWindows.at(i);
@@ -586,7 +596,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         }
     }
     bool hasMarkedToDraw = false;
-    if (m_outlineEnabled && !inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked) {
+    if (m_outlineEnabled && !inhibited && (!isPopupBlockingActive() || (!hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked))) {
         for (auto it = m_markedWindows.constBegin(); it != m_markedWindows.constEnd(); ++it) {
             EffectWindow *marked = it.key();
             const bool recentMarkedSkipped = m_highlightRecentWindow && m_recentWindows.contains(marked) && recentOverridesMark;
@@ -601,7 +611,7 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             }
         }
     }
-    const bool canDrawAudioInactive = m_outlineEnabled && !inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked
+    const bool canDrawAudioInactive = m_outlineEnabled && !inhibited && (!isPopupBlockingActive() || (!hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked))
         && (m_audioShaderRuleEnabled || m_audioWindowFramePulseEnabled || m_audioWindowFrameColorSequenceEnabled || m_audioVisualizerEnabled)
         && (m_audioWindowFrameShaderMode == QLatin1String("always") || m_audioWindowFrameShaderMode == QLatin1String("inactive"))
         && m_audioTracker.hasPlayingAudio();
@@ -675,8 +685,8 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
         }
     }
 
-    const bool showContinuousBadges = m_outlineEnabled && m_badgeConfig.windowBadgesEnabled && (m_badgeDisplayMode == 1) && !inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked;
-    const bool hasPinnedToDraw = !m_pinnedWindows.isEmpty() && m_outlineEnabled && !inhibited && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked;
+    const bool showContinuousBadges = m_outlineEnabled && m_badgeConfig.windowBadgesEnabled && (m_badgeDisplayMode == 1) && !inhibited && (!isPopupBlockingActive() || (!hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked));
+    const bool hasPinnedToDraw = !m_pinnedWindows.isEmpty() && m_outlineEnabled && !inhibited && (!isPopupBlockingActive() || (!hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked));
     const bool hasBadgesToDraw = (showContinuousBadges || (m_outlineEnabled && m_jumpMode) || m_badgePreviewActive || hasPinnedToDraw);
 
     if ((!m_outlineEnabled && !m_badgePreviewActive) || (!drawOutline && !drawDelayed && !hasRecentToDraw && !hasMarkedToDraw && !hasPinnedToDraw && !canDrawAudioInactive && !hasBadgesToDraw)) {
@@ -805,6 +815,22 @@ void ActiveWindowOutlineEffect::paintScreen(const RenderTarget &renderTarget,
             m_lastGeometry[w] = currentGeo;
         }
         renderOutline(renderTarget, viewport, m_outlineCache[w], deviceRegion, w, m_visibilityState.visibilityOpacity);
+
+        if (m_popupBehavior == 2) {
+            for (EffectWindow *candidate : effects->stackingOrder()) {
+                if (candidate && !candidate->isDeleted() && candidate->isVisible()
+                    && !candidate->isMinimized() && candidate->isOnCurrentDesktop()
+                    && !candidate->isHiddenByShowDesktop()
+                    && isBlockingPopup(candidate)) {
+                    const QRectF popupGeo = candidate->frameGeometry();
+                    if (!m_outlineCache.contains(candidate) || m_lastGeometry.value(candidate) != popupGeo || m_outlineCache.value(candidate).borderWidth != m_width) {
+                        cacheWindowOutline(candidate, popupGeo, m_width);
+                        m_lastGeometry[candidate] = popupGeo;
+                    }
+                    renderOutline(renderTarget, viewport, m_outlineCache[candidate], deviceRegion, candidate, m_visibilityState.visibilityOpacity);
+                }
+            }
+        }
     }
 
     if (!m_jumpMode && showContinuousBadges) {

@@ -65,7 +65,7 @@ ActiveWindowOutlineEffect::ActiveWindowOutlineEffect()
     m_windowShowTimer->setSingleShot(true);
     connect(m_windowShowTimer, &QTimer::timeout, this, [this] {
         if (m_activeWindow && shouldOutlineWindow(m_activeWindow)
-            && !m_visibilityState.popupBlocked && !hasVisibleBlockingPopup()) {
+            && (!isPopupBlockingActive() || (!m_visibilityState.popupBlocked && !hasVisibleBlockingPopup()))) {
             if (m_visibilityConfig.fadeDuration > 0) {
                 m_visibilityState.visibilityOpacity = 0.0;
             }
@@ -763,6 +763,7 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     }
     updateAudioTrackingState();
 
+    m_popupBehavior = qBound(0, config.readEntry("PopupBehavior", 0), 2);
     m_fadeDuration = qBound(0, config.readEntry("FadeDuration", 200), 2000);
     m_menuHideDelay = qBound(0, config.readEntry("MenuHideDelay", 500), 2000);
     m_menuShowDelay = qBound(0, config.readEntry("MenuShowDelay", 500), 2000);
@@ -978,13 +979,15 @@ void ActiveWindowOutlineEffect::reconfigure(ReconfigureFlags)
     }
     updateRecentWindowsFromHistory();
 
+    m_visibilityConfig.popupBehavior = m_popupBehavior;
     m_visibilityConfig.fadeDuration = m_fadeDuration;
     m_visibilityConfig.menuHideDelay = m_menuHideDelay;
     m_visibilityConfig.menuShowDelay = m_menuShowDelay;
     m_visibilityConfig.windowHideDelay = m_windowHideDelay;
     m_visibilityConfig.windowShowDelay = m_windowShowDelay;
 
-    m_visibilityState.popupBlocked = hasVisibleBlockingPopup();
+    m_visibilityState.popupBehavior = m_popupBehavior;
+    m_visibilityState.popupBlocked = isPopupBlockingActive() && hasVisibleBlockingPopup();
     m_visibilityState.targetOpacity = m_visibilityState.popupBlocked ? 0.0 : 1.0;
     if (m_visibilityState.targetOpacity > 0.5 && m_visibilityState.visibilityOpacity < 0.001) {
         m_visibilityState.visibilityOpacity = 1.0;
@@ -1050,6 +1053,15 @@ void ActiveWindowOutlineEffect::slotWindowAdded(EffectWindow *w)
         m_badgeTextureCache.clear();
         m_thumbnailCache.clear();
         m_lastCaptureTimestamp.clear();
+    }
+
+    if (isBlockingPopup(w)) {
+        if (m_activeWindow) {
+            effects->addRepaint(expandedGeometryFor(m_activeWindow));
+        }
+        if (m_popupBehavior == 2) {
+            effects->addRepaint(expandedGeometryFor(w));
+        }
     }
 
     updatePopupBlockingState();
@@ -1425,6 +1437,15 @@ void ActiveWindowOutlineEffect::slotWindowDeleted(EffectWindow *w)
             }
         }
         st.preTilingGeometries.remove(w);
+    }
+
+    if (isBlockingPopup(w)) {
+        if (m_activeWindow) {
+            effects->addRepaint(expandedGeometryFor(m_activeWindow));
+        }
+        if (m_popupBehavior == 2) {
+            effects->addRepaint(expandedGeometryFor(w));
+        }
     }
 
     updatePopupBlockingState();
@@ -1805,9 +1826,9 @@ void ActiveWindowOutlineEffect::slotWindowActivated(EffectWindow *w)
         }
     }
 
-    // If a popup menu is currently active or buffering, let popup timers manage outline visibility
-    if (hasVisibleBlockingPopup() || m_visibilityState.popupBlocked
-        || m_visibilityState.menuShowTimerActive || (m_menuShowTimer && m_menuShowTimer->isActive())) {
+    // If a popup menu is currently active or buffering, let popup timers manage outline visibility (in legacy HideOutline mode)
+    if (isPopupBlockingActive() && (hasVisibleBlockingPopup() || m_visibilityState.popupBlocked
+        || m_visibilityState.menuShowTimerActive || (m_menuShowTimer && m_menuShowTimer->isActive()))) {
         return;
     }
 
@@ -1866,6 +1887,12 @@ void ActiveWindowOutlineEffect::slotWindowFrameGeometryChanged(EffectWindow *w,
     }
     if (isBlockingPopup(w)) {
         updatePopupBlockingState();
+        if (m_activeWindow) {
+            effects->addRepaint(expandedGeometryFor(m_activeWindow));
+        }
+        if (m_popupBehavior == 2) {
+            effects->addRepaint(expandedGeometryFor(w));
+        }
     }
 }
 
@@ -1880,7 +1907,7 @@ void ActiveWindowOutlineEffect::slotToggleAction()
         if (m_visibilityConfig.fadeDuration > 0) {
             m_visibilityState.visibilityOpacity = 0.0;
         }
-        m_visibilityState.targetOpacity = hasVisibleBlockingPopup() ? 0.0 : 1.0;
+        m_visibilityState.targetOpacity = (isPopupBlockingActive() && hasVisibleBlockingPopup()) ? 0.0 : 1.0;
         updateAnimationTimer();
         repaintAllOutlines();
         effects->addRepaintFull();
@@ -2123,7 +2150,7 @@ void ActiveWindowOutlineEffect::slotWindowDamaged(EffectWindow *w)
     }
     m_thumbnailCache.remove(w);
     m_lastCaptureTimestamp.remove(w);
-    const bool showContinuousBadges = m_outlineEnabled && (m_badgeDisplayMode == 1) && !hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked;
+    const bool showContinuousBadges = m_outlineEnabled && (m_badgeDisplayMode == 1) && (!isPopupBlockingActive() || (!hasVisibleBlockingPopup() && !m_visibilityState.popupBlocked));
     const bool hasBadgesToDraw = (showContinuousBadges || (m_outlineEnabled && m_jumpMode) || m_badgePreviewActive);
     if (hasBadgesToDraw) {
         m_badgeTextureCache.clear();
@@ -2199,7 +2226,7 @@ QString ActiveWindowOutlineEffect::debug(const QString &parameter) const
                                    " build=" ACTIVE_WINDOW_OUTLINE_BUILD_ID
                                    " kwinHeaders=" ACTIVE_WINDOW_OUTLINE_KWIN_VERSION "\n");
     result += QStringLiteral("width=%1 offset=%2 radius=%3 drawInside=%4 smoothEdges=%5 glow=%6 glowRadius=%7 accentOpacity=%8"
-                             " fadeDuration=%9 menuHideDelay=%10 menuShowDelay=%11 windowHideDelay=%12 windowShowDelay=%13 fadeCorners=%14")
+                             " fadeDuration=%9 menuHideDelay=%10 menuShowDelay=%11 windowHideDelay=%12 windowShowDelay=%13 fadeCorners=%14 popupBehavior=%15")
         .arg(m_width)
         .arg(m_gap)
         .arg(m_radius)
@@ -2213,7 +2240,8 @@ QString ActiveWindowOutlineEffect::debug(const QString &parameter) const
         .arg(m_menuShowDelay)
         .arg(m_windowHideDelay)
         .arg(m_windowShowDelay)
-        .arg(m_fadeCorners ? QStringLiteral("true") : QStringLiteral("false"));
+        .arg(m_fadeCorners ? QStringLiteral("true") : QStringLiteral("false"))
+        .arg(m_popupBehavior);
     if (parameter != QStringLiteral("windows")) {
         return result;
     }

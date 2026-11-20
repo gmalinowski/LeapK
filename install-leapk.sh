@@ -432,6 +432,7 @@ set_default AudioVisualizerSensitivity 1.0
 set_default AudioVisualizerWaveformAmplitude 1.0
 set_default AudioVisualizerHudPulse true
 set_default SoundFeedbackProfile "crisp_click"
+set_default PopupBehavior 0
 set_default FadeDuration 200
 set_default MenuHideDelay 500
 set_default MenuShowDelay 500

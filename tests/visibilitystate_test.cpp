@@ -20,11 +20,13 @@ int main()
     };
 
     Config config;
+    config.popupBehavior = 1; // Test legacy HideOutline state machine
     config.fadeDuration = 200;
     config.menuHideDelay = 300;
     config.menuShowDelay = 300;
 
     StateMachine sm;
+    sm.popupBehavior = 1;
 
     // 1. Initial State
     {
@@ -328,6 +330,64 @@ int main()
             dhs.stepTransition(10.0 + frame * 0.0166, 500);
         }
         check(dhs.opacity <= 0.001, "smoothly reaches 0.0 across 500ms");
+    }
+
+    // 14. UnderPopup Mode (popupBehavior = 0, default non-blocking scissor occlusion)
+    {
+        Config underConfig;
+        underConfig.popupBehavior = 0;
+        underConfig.fadeDuration = 200;
+        underConfig.menuHideDelay = 300;
+        underConfig.menuShowDelay = 300;
+
+        StateMachine underSm;
+        underSm.popupBehavior = 0;
+        underSm.reset(1.0);
+
+        // Popup opens: should NOT start hide timer and should NOT block outline
+        auto action1 = underSm.handlePopupChange(true, underConfig);
+        check(action1 == StateMachine::TimerAction::None, "UnderPopup mode does not start hide timer");
+        check(!underSm.menuHideTimerActive, "UnderPopup mode keeps hide timer inactive");
+        check(!underSm.popupBlocked, "UnderPopup mode never sets popupBlocked to true");
+        check(underSm.targetOpacity == 1.0, "UnderPopup mode keeps targetOpacity at 1.0");
+        check(underSm.isEffectivelyVisible(), "UnderPopup mode keeps outline effectively visible");
+
+        // Timeout calls (if any) do not suppress outline
+        underSm.handleMenuHideTimerTimeout(true, underConfig);
+        check(!underSm.popupBlocked, "UnderPopup mode ignores hide timeout");
+        check(underSm.targetOpacity == 1.0, "UnderPopup mode preserves targetOpacity on timeout");
+
+        // Popup closes: should NOT start show timer
+        auto action2 = underSm.handlePopupChange(false, underConfig);
+        check(action2 == StateMachine::TimerAction::None, "UnderPopup mode does not start show timer");
+        check(!underSm.menuShowTimerActive, "UnderPopup mode keeps show timer inactive");
+        check(!underSm.popupBlocked, "UnderPopup mode keeps popupBlocked false");
+        check(underSm.targetOpacity == 1.0, "UnderPopup mode keeps targetOpacity at 1.0");
+
+        // Desync self-healing: if popupBlocked was somehow true, self-heal must restore it to unblocked
+        underSm.popupBlocked = true;
+        underSm.targetOpacity = 0.0;
+        check(underSm.needsSelfHeal(false), "needsSelfHeal detects desync in UnderPopup mode");
+        check(underSm.needsSelfHeal(true), "needsSelfHeal detects desync even with popup present");
+        bool healed = underSm.selfHeal(true, underConfig);
+        check(healed, "selfHeal restores unblocked state in UnderPopup mode");
+        check(!underSm.popupBlocked, "selfHeal cleared popupBlocked");
+        check(underSm.targetOpacity == 1.0, "selfHeal restored targetOpacity to 1.0");
+    }
+
+    // 15. OutlinePopup Mode (popupBehavior = 2)
+    {
+        Config outlinePopupConfig;
+        outlinePopupConfig.popupBehavior = 2;
+
+        StateMachine opSm;
+        opSm.popupBehavior = 2;
+        opSm.reset(1.0);
+
+        auto action = opSm.handlePopupChange(true, outlinePopupConfig);
+        check(action == StateMachine::TimerAction::None, "OutlinePopup mode does not suppress outline");
+        check(!opSm.popupBlocked, "OutlinePopup mode keeps popupBlocked false");
+        check(opSm.targetOpacity == 1.0, "OutlinePopup mode keeps targetOpacity at 1.0");
     }
 
     std::printf("VisibilityStateTest: %d checks, %d failures\n", checks, failures);

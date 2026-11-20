@@ -594,6 +594,8 @@ private:
     QString m_soundFeedbackProfile = QStringLiteral("crisp_click");
 
     // Config - Behavior & Delays
+    int m_popupBehavior = 0; // 0: UnderPopup (default), 1: HideOutline, 2: OutlinePopup
+    bool isPopupBlockingActive() const { return m_popupBehavior == 1; }
     int m_fadeDuration = 200;
     int m_menuHideDelay = 500;
     int m_menuShowDelay = 500;
