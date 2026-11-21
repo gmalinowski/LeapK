@@ -1014,6 +1014,59 @@ void testFixedLetterColorsFeature()
     std::cout << "testFixedLetterColorsFeature PASSED\n";
 }
 
+void testLaserAppearsOnlyForVisibleWindows()
+{
+    using namespace LeapKKeyboardOverlay;
+
+    // 1. Visible, unoccluded window -> laser MUST be active
+    WindowTargetItem wVisible;
+    wVisible.geometry = QRectF(100, 100, 500, 400);
+    wVisible.isVisibleOnScreen = true;
+    wVisible.isOccluded = false;
+    wVisible.isCurrentFocused = false;
+    assert(isLaserTargetActive(wVisible) == true);
+
+    // 2. Covered / occluded window -> laser must NOT appear
+    WindowTargetItem wCovered;
+    wCovered.geometry = QRectF(120, 120, 500, 400);
+    wCovered.isVisibleOnScreen = true;
+    wCovered.isOccluded = true;
+    wCovered.isCurrentFocused = false;
+    assert(isLaserTargetActive(wCovered) == false);
+
+    // 3. Offscreen / minimized window -> laser must NOT appear
+    WindowTargetItem wOffscreen;
+    wOffscreen.geometry = QRectF(2500, 100, 500, 400);
+    wOffscreen.isVisibleOnScreen = false;
+    wOffscreen.isOccluded = false;
+    wOffscreen.isCurrentFocused = false;
+    assert(isLaserTargetActive(wOffscreen) == false);
+
+    // 4. Currently focused window -> laser must NOT appear
+    WindowTargetItem wFocused;
+    wFocused.geometry = QRectF(700, 100, 500, 400);
+    wFocused.isVisibleOnScreen = true;
+    wFocused.isOccluded = false;
+    wFocused.isCurrentFocused = true;
+    assert(isLaserTargetActive(wFocused) == false);
+
+    // 5. Verify rendering with mixed visible and covered windows
+    const QRectF screenRect(0, 0, 1920, 1080);
+    const KeyboardOverlayLayout layout = computeOverlayGeometry(screenRect);
+    QMap<QChar, WindowTargetItem> assigned;
+    assigned.insert(QChar('A'), wVisible);
+    assigned.insert(QChar('S'), wCovered);
+    assigned.insert(QChar('D'), wOffscreen);
+
+    OverlayDisplayConfig cfg;
+    cfg.extendToHud = true;
+    const QImage img = renderOverlayImage(layout, assigned, screenRect, 1.0, cfg);
+    assert(!img.isNull());
+    assert(img.width() == 1920 && img.height() == 1080);
+
+    std::cout << "testLaserAppearsOnlyForVisibleWindows PASSED\n";
+}
+
 int main(int argc, char **argv)
 {
     QGuiApplication app(argc, argv);
@@ -1037,6 +1090,7 @@ int main(int argc, char **argv)
     testKeycapMiddleElisionAndTargetLabelsDisabled();
     testLaserTargetsShortestPathToHudBadges();
     testFixedLetterColorsFeature();
+    testLaserAppearsOnlyForVisibleWindows();
 
     std::cout << "All LeapK Keyboard Overlay tests passed successfully!\n";
     return 0;

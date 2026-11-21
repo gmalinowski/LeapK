@@ -125,6 +125,14 @@ struct WindowTargetItem {
     bool isOccluded = false; // Whether it is occluded by another window
 };
 
+inline bool isLaserTargetActive(const WindowTargetItem &item)
+{
+    // Laser points ONLY to windows that are visible on screen.
+    // When a window is covered (occluded), minimized, offscreen, or currently focused,
+    // the laser does NOT appear.
+    return item.isVisibleOnScreen && !item.isOccluded && !item.isCurrentFocused;
+}
+
 struct KeycapGeometry {
     QChar key;
     QRectF rect;
@@ -1186,6 +1194,10 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
             continue;
         }
 
+        // Requirement: Laser points ONLY to windows that are visible on screen.
+        // If a window is covered (occluded), minimized, or offscreen, the laser does NOT appear.
+        const bool shouldDrawLaser = drawLaserLines && isLaserTargetActive(bp.item);
+
         const KeycapGeometry &kg = layout.keyMap.value(key);
         // Point 5: Emerge from the top edge of the keycap so the letter in the center is completely unobstructed
         const QPointF pStart(kg.rect.center().x(), kg.rect.top() + 3.0);
@@ -1193,7 +1205,7 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
         const qreal effOpacity = qBound(0.2, bp.opacity, 1.0);
         const QColor arrowCol(baseArrowCol.red(), baseArrowCol.green(), baseArrowCol.blue(), qRound(baseArrowCol.alpha() * effOpacity));
 
-        if (drawLaserLines) {
+        if (shouldDrawLaser) {
             // Draw glowing launch anchor node right on top accent bar
             p.setPen(Qt::NoPen);
             p.setBrush(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), qRound(160 * effOpacity)));
@@ -1214,7 +1226,7 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
         qreal theta = 0.0;
 
         if (isTargetInHud) {
-            if (cfg.extendToHud) {
+            if (cfg.extendToHud && shouldDrawLaser) {
                 // Shortest path directly to the HUD badge boundary (never connecting to the center)
                 pTargetPerimeter = closestPointOnRoundedRectPerimeter(pStart, bp.item.hudCardRect, 8.0, 3.0);
                 dx = pTargetPerimeter.x() - pStart.x();
@@ -1234,7 +1246,7 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
             }
         }
 
-        if (drawLaserLines && dist > 20.0) {
+        if (shouldDrawLaser && dist > 20.0) {
             // Ambient Laser Glow (if enabled by theme)
             if (cfg.laserGlow) {
                 QPen glowPen(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), qRound(50 * effOpacity * cfg.laserGlowIntensity)),
@@ -1273,7 +1285,7 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
         }
 
         // Point 3: Extend line from window target badge to its card in the HUD dock (if available and enabled)
-        if (drawLaserLines && bp.item.isVisibleOnScreen && cfg.extendToHud && bp.item.hudCardRect.isValid()) {
+        if (shouldDrawLaser && bp.item.isVisibleOnScreen && cfg.extendToHud && bp.item.hudCardRect.isValid()) {
             // Shortest path from window target badge to the HUD badge perimeter (never connecting to the center)
             const QPointF pHud = closestPointOnRoundedRectPerimeter(bp.center, bp.item.hudCardRect, 8.0, 2.0);
             const qreal hdx = pHud.x() - bp.center.x();
@@ -1304,8 +1316,8 @@ inline QImage renderOverlayImage(const KeyboardOverlayLayout &layout,
             const qreal ringRadius = bp.radius;
             const QRectF badgeRect(pEnd.x() - ringRadius, pEnd.y() - ringRadius, ringRadius * 2.0, ringRadius * 2.0);
 
-            // Outer ambient glow
-            if (cfg.laserGlow) {
+            // Outer ambient glow (only if laser points to this visible window)
+            if (shouldDrawLaser && cfg.laserGlow) {
                 p.setPen(Qt::NoPen);
                 p.setBrush(QColor(arrowCol.red(), arrowCol.green(), arrowCol.blue(), qRound(60 * effOpacity * cfg.laserGlowIntensity)));
                 p.drawEllipse(pEnd, ringRadius + 5.0, ringRadius + 5.0);
