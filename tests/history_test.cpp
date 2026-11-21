@@ -427,12 +427,17 @@ void testAltTabCandidateCycling()
     };
 
     auto onShiftRelease = [&]() {
-        if (shiftCycleActive) {
+        // In HUD mode, releasing Shift does NOT immediately switch to the candidate window.
+        // It keeps the candidate selected so the user can inspect or confirm with Space/Enter.
+    };
+
+    auto onConfirmKey = [&]() {
+        if (shiftCycleActive || candidateWindow) {
             shiftCycleActive = false;
             MockWindow *chosen = candidateWindow;
             candidateWindow = nullptr;
             if (chosen) {
-                activeWindow = chosen; // Commit jump on release!
+                activeWindow = chosen; // Commit jump on Enter or Space!
             }
         }
     };
@@ -454,13 +459,19 @@ void testAltTabCandidateCycling()
     assert(candidateWindow == &w3);
     assert(activeWindow == &w1); // Still unchanged!
 
-    // 3. Shift release: commits jump to w3
+    // 3. Shift release: does NOT commit jump, window remains w1 while candidate is w3
     onShiftRelease();
+    assert(shiftCycleActive == true);
+    assert(candidateWindow == &w3);
+    assert(activeWindow == &w1); // Still unchanged!
+
+    // 4. Enter or Space: commits jump to w3
+    onConfirmKey();
     assert(shiftCycleActive == false);
     assert(candidateWindow == nullptr);
     assert(activeWindow == &w3); // Now activated!
 
-    // 4. Test cancel on Escape
+    // 5. Test cancel on Escape
     originWindow = activeWindow; // w3
     cycleBadge(1); // candidate -> w4
     assert(candidateWindow == &w4);

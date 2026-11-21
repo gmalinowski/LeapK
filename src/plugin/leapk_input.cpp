@@ -2081,25 +2081,8 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     auto isMetaKey = [](int key) {
         return key == Qt::Key_Meta || key == Qt::Key_Super_L || key == Qt::Key_Super_R;
     };
-    auto isShiftKey = [](int key) {
-        return key == Qt::Key_Shift;
-    };
 
     if (e->type() == QEvent::KeyRelease) {
-        if (isShiftKey(e->key()) || !(e->modifiers() & Qt::ShiftModifier)) {
-            if (m_shiftCycleActive) {
-                m_shiftCycleActive = false;
-                EffectWindow *target = (m_hudCandidateWindow && !m_hudCandidateWindow->isDeleted())
-                    ? m_hudCandidateWindow.data() : nullptr;
-                m_hudCandidateWindow = nullptr;
-                if (target) {
-                    activateJumpTargetWindow(target);
-                } else {
-                    cancelJumpMode();
-                }
-                return;
-            }
-        }
         if (isMetaKey(e->key()) || !(e->modifiers() & Qt::MetaModifier)) {
             if (m_metaSpaceTraverseActive) {
                 m_metaSpaceTraverseActive = false;
@@ -3627,6 +3610,17 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
         if (isMetaHeld) {
             traverseRecentWindows(isShift ? -1 : 1);
             return;
+        } else if (m_shiftCycleActive || (m_hudCandidateWindow && !m_hudCandidateWindow->isDeleted())) {
+            m_shiftCycleActive = false;
+            EffectWindow *target = (m_hudCandidateWindow && !m_hudCandidateWindow->isDeleted())
+                ? m_hudCandidateWindow.data() : nullptr;
+            m_hudCandidateWindow = nullptr;
+            if (target) {
+                activateJumpTargetWindow(target, e->key());
+            } else {
+                cancelJumpMode(e->key());
+            }
+            return;
         } else {
             cancelJumpMode(e->key());
             return;
@@ -3634,7 +3628,7 @@ void ActiveWindowOutlineEffect::grabbedKeyboardEvent(QKeyEvent *e)
     }
 
     if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
-        if (m_shiftCycleActive) {
+        if (m_shiftCycleActive || (m_hudCandidateWindow && !m_hudCandidateWindow->isDeleted())) {
             m_shiftCycleActive = false;
             EffectWindow *target = (m_hudCandidateWindow && !m_hudCandidateWindow->isDeleted())
                 ? m_hudCandidateWindow.data() : nullptr;
