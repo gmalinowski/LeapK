@@ -2688,6 +2688,190 @@ inline QRectF computeActiveMarkerRect(const QList<QRectF> &rects,
     }
 }
 
+inline QList<QRectF> computeCardDeckPositionsHorizontal(const QList<QSizeF> &pillSizes,
+                                                        const QRectF &screenRect,
+                                                        int hudPosition = 0,
+                                                        qreal margin = 24.0,
+                                                        qreal gap = 12.0,
+                                                        qreal rowGap = -1.0,
+                                                        int activePillIndex = -1)
+{
+    const int N = pillSizes.size();
+    if (N == 0) {
+        return {};
+    }
+
+    QList<QRectF> result;
+    result.resize(N);
+
+    const qreal availWidth = qMax(60.0, screenRect.width() - 2.0 * margin);
+    const qreal availHeight = qMax(60.0, screenRect.height() - 2.0 * margin);
+    const qreal vGap = (rowGap >= 0.0) ? rowGap : gap;
+
+    qreal maxCardHeight = 0.0;
+    for (const QSizeF &sz : pillSizes) {
+        maxCardHeight = qMax(maxCardHeight, sz.height());
+    }
+
+    const bool canFitTwoRows = (2.0 * maxCardHeight + vGap <= availHeight);
+    const int targetRowCount = (N > 7 && canFitTwoRows) ? 2 : 1;
+
+    QList<QList<int>> rows;
+    if (targetRowCount == 1) {
+        QList<int> r0;
+        r0.reserve(N);
+        for (int i = 0; i < N; ++i) r0.append(i);
+        rows.append(r0);
+    } else {
+        int countRow0 = (N + 1) / 2;
+        QList<int> r0, r1;
+        r0.reserve(countRow0);
+        r1.reserve(N - countRow0);
+        for (int i = 0; i < countRow0; ++i) r0.append(i);
+        for (int i = countRow0; i < N; ++i) r1.append(i);
+        rows.append(r0);
+        rows.append(r1);
+    }
+
+    const qreal totalHeight = targetRowCount * maxCardHeight + (targetRowCount - 1) * vGap;
+    qreal startY = (hudPosition == 1)
+        ? (screenRect.top() + margin)
+        : (screenRect.bottom() - margin - totalHeight);
+    if (startY < screenRect.top() + margin) {
+        startY = screenRect.top() + margin;
+    }
+
+    qreal currentRowY = startY;
+
+    for (int r = 0; r < rows.size(); ++r) {
+        const QList<int> &rowIndices = rows.at(r);
+        const int K = rowIndices.size();
+        if (K == 0) continue;
+
+        if (K == 1) {
+            int idx = rowIndices.first();
+            qreal w = pillSizes[idx].width();
+            qreal h = pillSizes[idx].height();
+            qreal x = screenRect.left() + (screenRect.width() - w) / 2.0;
+            result[idx] = QRectF(x, currentRowY, w, h);
+            currentRowY += maxCardHeight + vGap;
+            continue;
+        }
+
+        qreal unstackedW = 0.0;
+        for (int k = 0; k < K; ++k) {
+            unstackedW += pillSizes[rowIndices[k]].width() + (k > 0 ? gap : 0.0);
+        }
+
+        if (unstackedW <= availWidth) {
+            qreal rowStartX = screenRect.left() + (screenRect.width() - unstackedW) / 2.0;
+            qreal curX = rowStartX;
+            for (int k = 0; k < K; ++k) {
+                int idx = rowIndices[k];
+                result[idx] = QRectF(curX, currentRowY, pillSizes[idx].width(), pillSizes[idx].height());
+                curX += pillSizes[idx].width() + gap;
+            }
+            currentRowY += maxCardHeight + vGap;
+            continue;
+        }
+
+        // Stacking card deck
+        const int activePos = rowIndices.indexOf(activePillIndex);
+        if (activePos >= 0) {
+            const int activeIdx = rowIndices.at(activePos);
+            const qreal wA = pillSizes[activeIdx].width();
+            const int L = activePos;
+            const int R = K - 1 - activePos;
+            const qreal clearance = qBound(8.0, gap, 20.0);
+
+            qreal availForOthers = availWidth - wA - (L > 0 ? clearance : 0.0) - (R > 0 ? clearance : 0.0);
+            if (availForOthers < (K - 1) * 35.0) {
+                availForOthers = (K - 1) * 35.0;
+            }
+
+            if (L > 0 && R > 0) {
+                const qreal leftSpace = availForOthers * (qreal(L) / qreal(L + R));
+                const qreal rightSpace = availForOthers * (qreal(R) / qreal(L + R));
+                const qreal stepLeft = leftSpace / qreal(L);
+                const qreal stepRight = (R > 1) ? (rightSpace - pillSizes[rowIndices.last()].width()) / qreal(R - 1) : rightSpace;
+                const qreal effStepRight = (stepRight >= 30.0) ? stepRight : (rightSpace / qreal(R));
+
+                const qreal startX = screenRect.left() + margin;
+                // 1. Left cards
+                for (int k = 0; k < L; ++k) {
+                    int idx = rowIndices[k];
+                    result[idx] = QRectF(startX + k * stepLeft, currentRowY, pillSizes[idx].width(), pillSizes[idx].height());
+                }
+
+                // 2. Active card
+                qreal activeX = startX + L * stepLeft + clearance;
+                if (activeX + wA > screenRect.right() - margin) {
+                    activeX = screenRect.right() - margin - wA;
+                }
+                result[activeIdx] = QRectF(activeX, currentRowY, wA, pillSizes[activeIdx].height());
+
+                // 3. Right cards
+                qreal rightStartX = activeX + wA + clearance;
+                for (int m = 0; m < R; ++m) {
+                    int idx = rowIndices[activePos + 1 + m];
+                    qreal cardX = rightStartX + m * effStepRight;
+                    if (cardX + pillSizes[idx].width() > screenRect.right() - margin) {
+                        cardX = screenRect.right() - margin - pillSizes[idx].width();
+                    }
+                    result[idx] = QRectF(cardX, currentRowY, pillSizes[idx].width(), pillSizes[idx].height());
+                }
+            } else if (L == 0) {
+                // Active card is first
+                const qreal startX = screenRect.left() + margin;
+                result[activeIdx] = QRectF(startX, currentRowY, wA, pillSizes[activeIdx].height());
+                const qreal rightStartX = startX + wA + clearance;
+                const qreal rightSpace = qMax(qreal((K - 1) * 35.0), availWidth - wA - clearance);
+                const qreal stepRight = (R > 1) ? (rightSpace - pillSizes[rowIndices.last()].width()) / qreal(R - 1) : rightSpace;
+                const qreal effStepRight = (stepRight >= 30.0) ? stepRight : (rightSpace / qreal(R));
+
+                for (int m = 0; m < R; ++m) {
+                    int idx = rowIndices[1 + m];
+                    qreal cardX = rightStartX + m * effStepRight;
+                    if (cardX + pillSizes[idx].width() > screenRect.right() - margin) {
+                        cardX = screenRect.right() - margin - pillSizes[idx].width();
+                    }
+                    result[idx] = QRectF(cardX, currentRowY, pillSizes[idx].width(), pillSizes[idx].height());
+                }
+            } else {
+                // Active card is last (R == 0)
+                const qreal leftSpace = qMax(qreal((K - 1) * 35.0), availWidth - wA - clearance);
+                const qreal stepLeft = leftSpace / qreal(L);
+                const qreal startX = screenRect.left() + margin;
+                for (int k = 0; k < L; ++k) {
+                    int idx = rowIndices[k];
+                    result[idx] = QRectF(startX + k * stepLeft, currentRowY, pillSizes[idx].width(), pillSizes[idx].height());
+                }
+                qreal activeX = screenRect.right() - margin - wA;
+                if (activeX < startX + L * stepLeft + clearance) {
+                    activeX = startX + L * stepLeft + clearance;
+                }
+                result[activeIdx] = QRectF(activeX, currentRowY, wA, pillSizes[activeIdx].height());
+            }
+        } else {
+            // Uniform deck when no card is active in this row
+            const qreal lastW = pillSizes[rowIndices.last()].width();
+            qreal stepX = (availWidth - lastW) / qMax(1, K - 1);
+            if (stepX < 30.0) {
+                stepX = availWidth / qreal(K);
+            }
+            const qreal startX = screenRect.left() + margin;
+            for (int k = 0; k < K; ++k) {
+                int idx = rowIndices[k];
+                result[idx] = QRectF(startX + k * stepX, currentRowY, pillSizes[idx].width(), pillSizes[idx].height());
+            }
+        }
+
+        currentRowY += maxCardHeight + vGap;
+    }
+
+    return result;
+}
+
 inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
                                              const QRectF &screenRect,
                                              int hudPosition = 0,
@@ -2696,7 +2880,9 @@ inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
                                              qreal rowGap = -1.0,
                                              int dividerAfterIndex = -1,
                                              qreal dividerGap = 28.0,
-                                             QList<QRectF> *outDividerRects = nullptr)
+                                             QList<QRectF> *outDividerRects = nullptr,
+                                             int activePillIndex = -1,
+                                             bool forceDeck = false)
 {
     if (pillSizes.isEmpty()) {
         return {};
@@ -2711,6 +2897,11 @@ inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
     if (clampedPos == 0 || clampedPos == 1) {
         // Horizontal layout with row wrapping: 0 = Bottom (default), 1 = Top
         const qreal availWidth = qMax(60.0, screenRect.width() - 2.0 * margin);
+        const qreal availHeight = qMax(60.0, screenRect.height() - 2.0 * margin);
+
+        if (forceDeck) {
+            return computeCardDeckPositionsHorizontal(pillSizes, screenRect, clampedPos, margin, gap, rowGap, activePillIndex);
+        }
 
         struct Row {
             QList<int> indices;
@@ -2749,6 +2940,10 @@ inline QList<QRectF> computeHudPillPositions(const QList<QSizeF> &pillSizes,
             clusterHeight += r.maxHeight;
         }
         clusterHeight += (rows.size() - 1) * vGap;
+
+        if (clusterHeight > availHeight) {
+            return computeCardDeckPositionsHorizontal(pillSizes, screenRect, clampedPos, margin, gap, rowGap, activePillIndex);
+        }
 
         qreal rowY = 0.0;
         if (clampedPos == 1) { // Top

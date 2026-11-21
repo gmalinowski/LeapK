@@ -1870,10 +1870,19 @@ void ActiveWindowOutlineEffect::windowInputMouseEvent(QEvent *e)
 
             // 2. Click on a window pill, onscreen badge, or matching window in search mode
             EffectWindow *clickedTarget = nullptr;
-            for (const auto &pair : m_hudTargetPillRects) {
-                if (pair.first.isValid() && pair.first.contains(pos) && pair.second) {
-                    clickedTarget = pair.second;
-                    break;
+            if (m_hudCurrentActiveDockIndex >= 0 && m_hudCurrentActiveDockIndex < m_hudTargetPillRects.size()) {
+                const auto &activePair = m_hudTargetPillRects.at(m_hudCurrentActiveDockIndex);
+                if (activePair.first.isValid() && activePair.first.contains(pos) && activePair.second) {
+                    clickedTarget = activePair.second;
+                }
+            }
+            if (!clickedTarget) {
+                for (int i = m_hudTargetPillRects.size() - 1; i >= 0; --i) {
+                    const auto &pair = m_hudTargetPillRects.at(i);
+                    if (pair.first.isValid() && pair.first.contains(pos) && pair.second) {
+                        clickedTarget = pair.second;
+                        break;
+                    }
                 }
             }
             if (!clickedTarget) {

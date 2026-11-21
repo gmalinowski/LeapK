@@ -2047,7 +2047,22 @@ QList<QRectF> ActiveWindowOutlineEffect::computeHudPillRects(
     const qreal hudRowGap = (!hudCfg.hudGroupWindows && !m_subLeapActive) ? 40.0 : 12.0;
     const qreal headerH = ensureHudHeaderTexture(scale).height();
     const qreal effMargin = computeHudEffectiveMargin(hudPos, scale, screenRect, headerH);
-    return OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, effMargin, 12.0, hudRowGap, dividerAfterIndex, 28.0, outDividerRects);
+
+    EffectWindow *currActive = (m_hudCandidateWindow && !m_hudCandidateWindow->isDeleted())
+        ? m_hudCandidateWindow.data()
+        : (effects ? effects->activeWindow() : m_activeWindow);
+    int activeDockIndex = -1;
+    if (currActive) {
+        for (int k = 0; k < targets.size(); ++k) {
+            if (targets.at(k).second == currActive) {
+                activeDockIndex = k;
+                break;
+            }
+        }
+    }
+    const int activePillIdx = m_searchModeActive ? m_searchSelectedIndex : activeDockIndex;
+    const bool isZoomed = (m_hudThumbnailMode == 1);
+    return OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, effMargin, 12.0, hudRowGap, dividerAfterIndex, 28.0, outDividerRects, activePillIdx, isZoomed);
 }
 
 QRectF ActiveWindowOutlineEffect::computeActiveMarkerRectForTargets(
@@ -2402,8 +2417,10 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     const qreal hudRowGap = (!hudCfg.hudGroupWindows && !m_subLeapActive) ? 40.0 : 12.0;
     const qreal headerH = ensureHudHeaderTexture(scale).height();
     const qreal effMargin = computeHudEffectiveMargin(hudPos, scale, screenRect, headerH);
+    const int activePillIdx = m_searchModeActive ? m_searchSelectedIndex : activeDockIndex;
+    const bool isZoomed = (m_hudThumbnailMode == 1);
     QList<QRectF> dividerRects;
-    const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, effMargin, 12.0, hudRowGap, dividerAfterIndex, 28.0, &dividerRects);
+    const QList<QRectF> rects = OutlineBadge::computeHudPillPositions(pillSizes, screenRect, hudPos, effMargin, 12.0, hudRowGap, dividerAfterIndex, 28.0, &dividerRects, activePillIdx, isZoomed);
     const QRectF activeMarkerRect = computeActiveMarkerRectForTargets(rects, targets, dividerAfterIndex, hudPos);
 
     const qint64 animElapsed = (m_hudSelectAnimActive && m_hudSelectAnimTimer.isValid())
@@ -2413,7 +2430,6 @@ void ActiveWindowOutlineEffect::renderOffscreenJumpTargets(const RenderTarget &r
     const qreal progress = isAnimActive ? qBound(0.0, animElapsed / 250.0, 1.0) : 1.0;
     const qreal easeOut = 1.0 - std::pow(1.0 - progress, 3.0);
 
-    const int activePillIdx = m_searchModeActive ? m_searchSelectedIndex : activeDockIndex;
     const int prevPillIdx = m_hudPrevActiveDockIndex;
     const qreal maxActiveScale = qBound(1.0, hudCfg.hudActiveScale, 2.0);
 

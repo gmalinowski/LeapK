@@ -476,6 +476,57 @@ void testBottomHudSwappedLayout()
     std::cout << "testBottomHudSwappedLayout PASSED\n";
 }
 
+void testCardDeckStacking()
+{
+    const QRectF screen(0, 0, 1920, 1080);
+    const qreal margin = 24.0;
+    const qreal gap = 12.0;
+
+    // 1. 12 zoomed pills of size 350x220
+    QList<QSizeF> zoomedPills;
+    for (int i = 0; i < 12; ++i) {
+        zoomedPills.append(QSizeF(350, 220));
+    }
+
+    const int activeIdx = 3;
+    QList<QRectF> deckRes = OutlineBadge::computeHudPillPositions(
+        zoomedPills, screen, 0, margin, gap, 12.0, -1, 28.0, nullptr, activeIdx, true);
+
+    assert(deckRes.size() == 12);
+
+    // Verify all pills strictly stay within screen boundaries
+    for (int i = 0; i < deckRes.size(); ++i) {
+        const QRectF &r = deckRes.at(i);
+        assert(r.left() >= screen.left() + margin - 0.1);
+        assert(r.right() <= screen.right() - margin + 0.1);
+        assert(r.top() >= screen.top() + margin - 0.1);
+        assert(r.bottom() <= screen.bottom() - margin + 0.1);
+    }
+
+    // Active card (idx 3) must have full width
+    assert(qAbs(deckRes[activeIdx].width() - 350.0) < 0.1);
+
+    // Cards in Row 0 must overlap horizontally like a deck of cards
+    assert(deckRes[1].left() < deckRes[0].right()); // Overlap!
+    assert(deckRes[1].left() > deckRes[0].left() + 30.0); // Positive visible reveal of card 0 left edge!
+
+    // 2. Auto-detection test on constrained screen (e.g. 1366x768 laptop)
+    const QRectF laptopScreen(0, 0, 1366, 768);
+    // Standard wrapping for 12 pills would produce 4 rows: 4 * 220 = 880 + 36 = 916px > 768px!
+    QList<QRectF> autoDeckRes = OutlineBadge::computeHudPillPositions(
+        zoomedPills, laptopScreen, 0, 20.0, 10.0, 10.0, -1, 28.0, nullptr, 2, false);
+
+    assert(autoDeckRes.size() == 12);
+    for (const QRectF &r : autoDeckRes) {
+        assert(r.left() >= laptopScreen.left() + 20.0 - 0.1);
+        assert(r.right() <= laptopScreen.right() - 20.0 + 0.1);
+        assert(r.top() >= laptopScreen.top() + 20.0 - 0.1);
+        assert(r.bottom() <= laptopScreen.bottom() - 20.0 + 0.1); // Must NOT overflow screen bottom!
+    }
+
+    std::cout << "testCardDeckStacking PASSED\n";
+}
+
 int main(int argc, char *argv[])
 {
     qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen"));
@@ -490,6 +541,7 @@ int main(int argc, char *argv[])
     testHudActiveMarkerRect();
     testHudMarkerAndBadgeSelectionAnimation();
     testBottomHudSwappedLayout();
+    testCardDeckStacking();
 
     std::cout << "All HUD Layout tests passed successfully!\n";
     return 0;
